@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/konoha_logo.png" alt="Konoha Logo" width="320">
+  <img src="docs/assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=rocket&logoColor=white)](README.md)
