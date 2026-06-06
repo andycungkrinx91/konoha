@@ -1,0 +1,38 @@
+{
+  "name": "Konoha",
+  "version": "1.0.0",
+  "description": "SQLite FTS5 Skills-DB for Antigravity IDE/CLI — on-demand skill content via MCP, reducing token usage by 83-98%",
+  "keywords": [
+    "antigravity",
+    "mcp",
+    "skills",
+    "sqlite",
+    "fts5",
+    "ai-agent",
+    "token-optimization"
+  ],
+  "author": "Andy Setiyawan | The shadow ninja with coffee (https://www.linkedin.com/in/andy-setiyawan-452396170/)",
+  "license": "MIT",
+  "bin": {
+    "konoha": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andycungkrinx91/konoha"
+  }
+}

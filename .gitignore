@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Database files (generated during install, not part of package)
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Agent workspace and skills
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/konoha/
+!.agents/skills/*-skill.md
+

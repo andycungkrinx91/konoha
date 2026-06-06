@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "anbu-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/anbu-skill.md",
+      "computedHash": "0f113bd4e101963ce603e815a0ab4891bdb3e5b50841ed66a27db2db8c1c9f17"
+    },
+    "chunin-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/chunin-skill.md",
+      "computedHash": "dccb4a2fd819eef3ece2d0bf83b73c89fca7a8f52321a912a3a5f022ee163b8f"
+    },
+    "genin-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/genin-skill.md",
+      "computedHash": "7a36fd8d282ab423d538811cdd7c8e43ba3420bbc1ae08797273420b171e7395"
+    },
+    "jonin-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/jonin-skill.md",
+      "computedHash": "e3c14dc0c8ca898c8ea8a03ac23479585adf57c70093dae44fd1fad7a2ca59e1"
+    },
+    "kage-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kage-skill.md",
+      "computedHash": "f046d258bf512f91a3f3be68d8c1aee5fbda516367341852cb80792bd5222a1a"
+    },
+    "konoha": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/konoha/SKILL.md",
+      "computedHash": "18270d26129bf76eafe7418f77805d5c89fd2934b2a709a3ba49af46636fe3e0"
+    },
+    "tokubetsu-jonin-skill": {
+      "source": "andycungkrinx91/konoha",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/tokubetsu-jonin-skill.md",
+      "computedHash": "7f668675ca65003f3e7fc3a222d2ad60d9ac23a7e922064c723ed2c2bfb2e369"
+    }
+  }
+}
