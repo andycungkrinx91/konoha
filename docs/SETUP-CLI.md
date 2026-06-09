@@ -180,7 +180,7 @@ The subagent configurations are stored in a structured format, enabling you to i
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 - **Check Current Version**:
-  Displays the installed local version (noted as `1.0.1`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.0.2`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```

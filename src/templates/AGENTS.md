@@ -24,7 +24,7 @@
 | Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
 
 ### @genin — 🍃 Codebase Exploration
-- **Model tier**: Gemini 2.5 Flash
+- **Model tier**: Gemini 3.5 Flash (Low)
 - **Purpose**: Fast, read-only codebase navigation and analysis
 - **Skills**: `genin-skill`
 - **Delegate when**: Need to understand code structure, trace how something works, map dependencies
@@ -32,7 +32,7 @@
 - **Workflow**: Search symbols with `semble` → open relevant files → summarize with file paths and line numbers.
 
 ### @kage — 🌀 Village Leader & Architect
-- **Model tier**: Gemini 3.1 Pro (High)
+- **Model tier**: Gemini 3.5 Flash (Medium)
 - **Purpose**: Expert-level analysis for critical decisions and high-level strategy
 - **Skills**: `kage-skill`
 - **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
@@ -40,7 +40,7 @@
 - **Workflow**: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.
 
 ### @chunin — 📜 Research & Intel
-- **Model tier**: Gemini 3.5 Flash (Low)
+- **Model tier**: Gemini 3.1 Pro (High)
 - **Purpose**: Web research, documentation lookup, evidence synthesis with citations
 - **Skills**: `chunin-skill`
 - **Delegate when**: Need external information, library docs, best practices, technology comparisons, compliance standards
@@ -48,7 +48,7 @@
 - **Workflow**: Decompose question → multi-query generation → parallel search → source ranking → evidence synthesis → cited report.
 
 ### @jonin — 🛡️ UI & Frontend Specialist
-- **Model tier**: Gemini 3.5 Flash (High)
+- **Model tier**: Claude Sonnet 4.6 (Thinking) | fallback when fail Gemini 3.5 Flash (High)
 - **Purpose**: Build premium, production-ready user interfaces
 - **Skills**: `jonin-skill`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
@@ -56,15 +56,15 @@
 - **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
 
 ### @anbu — 👥 Backend Specialist, Bug Fixing, & DevOps
-- **Model tier**: Gemini 3.1 Pro (High)
+- **Model tier**: Gemini 3.5 Flash (High)
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems
-- **Skills**: `anbu-skill`, `golang-error-handling`, `golang-performance`, `golang-pro`, `golang-security`
+- **Skills**: `anbu-skill`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests.
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
 
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
-- **Model tier**: Gemini 2.5 Flash
+- **Model tier**: Gemini 3.5 Flash (Low)
 - **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
 - **Skills**: `tokubetsu-jonin-skill`
 - **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates

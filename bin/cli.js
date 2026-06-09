@@ -826,22 +826,18 @@ function cmdInit(args) {
   }
   spinner3.success('All files installed to ~/.gemini/skills-db/');
 
-  // 5. Run migration
-  if (skillsDirs.length > 0) {
-    header('📊 Migrating Skills to SQLite FTS5');
-    
-    for (const s of skillsDirs) {
-      const skills = detectCustomSkills(s.path);
-      if (skills.length === 0) continue;
-      
-      const spinnerMigrate = startSpinner(`Migrating from: ${s.path} (${skills.length} skills)...`);
-
+  // 5. Run migration (seed default rank skills only)
+  if (fileExists(pkgSkillsDir)) {
+    header('📊 Seeding Default Subagent Skills to SQLite FTS5');
+    const skills = detectCustomSkills(pkgSkillsDir);
+    if (skills.length > 0) {
+      const spinnerMigrate = startSpinner(`Seeding default skills from: ${pkgSkillsDir}...`);
       try {
-        const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
+        const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
         });
         if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
-        spinnerMigrate.success(`Migrated skills from: ${s.path}`);
+        spinnerMigrate.success('Default subagent skills seeded successfully.');
       } catch (e) {
         // Fallback: run without args (uses defaults in script)
         try {
@@ -849,9 +845,9 @@ function cmdInit(args) {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
           });
           if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration fallback failed');
-          spinnerMigrate.success(`Migration completed (fallback mode)`);
+          spinnerMigrate.success('Default subagent skills seeded successfully (fallback mode).');
         } catch (e2) {
-          spinnerMigrate.error(`Migration failed for ${s.path}: ${e2.message}`);
+          spinnerMigrate.error(`Failed to seed default skills: ${e2.message}`);
         }
       }
     }
@@ -2686,7 +2682,7 @@ async function getLatestVersion() {
 
 async function cmdVersion(args) {
   const pkgPath = path.join(__dirname, '..', 'package.json');
-  let currentVersion = '1.0.1';
+  let currentVersion = '1.0.2';
   try {
     currentVersion = require(pkgPath).version;
   } catch {}
