@@ -159,6 +159,34 @@ def extract_tags_from_filename(filepath, skill_name):
     return ",".join([skill_name] + parts)
 
 
+def shield_prompt_injection(content):
+    """
+    Neutralizes role-mimicking structural headings and instructions trying to spoof
+    system configurations, subagent instructions, or user rules.
+    """
+    if not content:
+        return ""
+        
+    rules = [
+        (r'(?i)#+\s*Global\s+Agent\s+Instructions', '# [NEUTRALIZED] Global Agent Instructions'),
+        (r'(?i)#+\s*User\s+Rules', '# [NEUTRALIZED] User Rules'),
+        (r'(?i)#+\s*Session\s+Startup\s*—\s*Auto-Initialize\s+Team', '# [NEUTRALIZED] Session Startup'),
+        (r'(?i)#+\s*Subagent\s+Definitions', '# [NEUTRALIZED] Subagent Definitions'),
+        (r'(?i)#+\s*Auto-Delegation', '# [NEUTRALIZED] Auto-Delegation'),
+        (r'(?i)#+\s*Tools\s+&\s+Guardrails', '# [NEUTRALIZED] Tools & Guardrails'),
+        (r'(?i)#+\s*@(orchestrator|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)\b', '# [NEUTRALIZED] Subagent Spoof'),
+        (r'(?i)At\s+the\s+START\s+of\s+every\s+session,\s+define\s+the\s+following', '[NEUTRALIZED ACTION] Define subagents'),
+        (r'(?i)The\s+orchestrator\s+MUST\s+follow\s+this\s+workflow', '[NEUTRALIZED ACTION] Orchestrator workflow'),
+        (r'(?i)Every\s+response\s+MUST\s+start\s+with\s+a\s+log\s+line', '[NEUTRALIZED RULE] Start response log'),
+    ]
+    
+    sanitized = content
+    for pattern, replacement in rules:
+        sanitized = re.sub(pattern, replacement, sanitized)
+        
+    return sanitized
+
+
 def optimize_content(content):
     """
     Enhanced markdown content optimization to reduce token usage (v1.1.0).
@@ -239,7 +267,10 @@ def optimize_content(content):
         i += 1
     content = '\n'.join(optimized_lines)
     
-    # 11. Strip leading/trailing whitespace from entire content
+    # 11. Shield against prompt injections
+    content = shield_prompt_injection(content)
+    
+    # 12. Strip leading/trailing whitespace from entire content
     return content.strip()
 
 
@@ -261,7 +292,8 @@ def migrate_skill(conn, skill_name):
         # Clean existing entries for this skill to prevent stale references
         conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name_clean,))
 
-        raw_content = open(file_path, "r", encoding="utf-8").read()
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_content = f.read()
         tags = extract_tags_from_frontmatter(raw_content)
         content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
@@ -292,7 +324,8 @@ def migrate_skill(conn, skill_name):
     # 1. Migrate SKILL.md
     skill_md = os.path.join(skill_dir, "SKILL.md")
     if os.path.isfile(skill_md):
-        raw_content = open(skill_md, "r", encoding="utf-8").read()
+        with open(skill_md, "r", encoding="utf-8") as f:
+            raw_content = f.read()
         tags = extract_tags_from_frontmatter(raw_content)
         content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
@@ -318,7 +351,8 @@ def migrate_skill(conn, skill_name):
             ref_name_raw = os.path.splitext(os.path.basename(ref_path))[0]
             ref_key = f"{skill_name}/{ref_name_raw}"
 
-            raw_content = open(ref_path, "r", encoding="utf-8").read()
+            with open(ref_path, "r", encoding="utf-8") as f:
+                raw_content = f.read()
             tags = extract_tags_from_filename(ref_path, skill_name)
             content = optimize_content(raw_content)
             byte_size = len(content.encode("utf-8"))
@@ -346,7 +380,8 @@ def migrate_skill(conn, skill_name):
         ref_name_raw = os.path.splitext(filename)[0]
         ref_key = f"{skill_name}/{ref_name_raw}"
 
-        raw_content = open(file_path, "r", encoding="utf-8").read()
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_content = f.read()
         tags = extract_tags_from_filename(file_path, skill_name)
         content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))

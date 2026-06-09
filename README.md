@@ -35,6 +35,90 @@ This wastes tokens on content that's mostly irrelevant to the current task.
 
 **Result**: ~12 KB per query instead of ~550 KB per session = **98% token reduction**.
 
+### Benchmark: Token Footprint & Optimization
+
+The following charts demonstrate the context footprint savings per conversation session achieved by moving from full-disk loading to SQLite FTS5 on-demand retrieval:
+
+#### Context Size Comparison (Lower is Better)
+
+```
+Startup Payload Size (KB)
+────────────────────────────────────────────────────────────
+Baseline (Disk Load):  ██████████████████████████████  550 KB
+Konoha (On-Demand):   █                              12 KB   (97.8% savings)
+────────────────────────────────────────────────────────────
+```
+
+```mermaid
+---
+title: Token Footprint — Before vs After
+---
+flowchart LR
+    %% ── Style Definitions ──────────────────────────────────────
+    classDef stepBad fill:#2d202f,stroke:#f7768e,stroke-width:1px,color:#fca5a5;
+    classDef stepGood fill:#1a2e1a,stroke:#9ece6a,stroke-width:1px,color:#bbf7d0;
+    classDef metricBad fill:#f7768e,stroke:#f7768e,stroke-width:2px,color:#1a1b26;
+    classDef metricGood fill:#9ece6a,stroke:#9ece6a,stroke-width:2px,color:#1a1b26;
+    classDef verdict fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff;
+
+    %% ── Before Path (Wasteful) ─────────────────────────────────
+    subgraph BEFORE ["Before — Raw Disk Loading"]
+        direction LR
+        B1("Load SKILL.md files<br>72 KB") -->|"roundtrip 1"| B2("Parse router table<br>overhead")
+        B2 -->|"roundtrip 2"| B3("Load reference files<br>478 KB")
+        B3 -->|"roundtrip 3"| B4("Load scripts<br>547 KB")
+    end
+    B4 --> B_Total(["Total: 1.1 MB / session"])
+
+    %% ── After Path (Optimized) ─────────────────────────────────
+    subgraph AFTER ["After — Konoha FTS5 On-Demand"]
+        direction LR
+        A1("Agent calls find_skill") -->|"single roundtrip"| A2("FTS5 BM25 search<br>SQLite query")
+    end
+    A2 --> A_Total(["Total: 4-12 KB / query"])
+
+    %% ── Verdict ────────────────────────────────────────────────
+    B_Total --> Savings
+    A_Total --> Savings{"98% Token Reduction"}
+
+    %% ── Apply Styles ──────────────────────────────────────────
+    class B1,B2,B3,B4 stepBad
+    class B_Total metricBad
+    class A1,A2 stepGood
+    class A_Total metricGood
+    class Savings verdict
+```
+
+📊 **Benchmark Comparison: Antigravity Session Metrics**
+
+| Metric | Without Konoha + Semble (Baseline) | With Konoha + Semble (Optimized) | Impact / Savings |
+| :--- | :---: | :---: | :---: |
+| **Startup Context Load** | **~1.1 MB** (all SKILL.md rules + reference files loaded at start) | **~0 KB** (instructions are lazy-loaded on-demand via MCP) | **~100% startup context reduction** |
+| **Single Search Query Payload** | **50 KB+** (entire files loaded/dumped) | **~4 KB - 12 KB** (precise matches returned) | **83% - 98% token reduction** per query |
+| **Active Workspace Calls** | — | **273 calls** | — |
+| **Context Data Saved** | — | **~44.07 MB** | — |
+| **Active Tokens Saved** | 0 (baseline) | **~11.55M tokens** | **~11.55M tokens saved** |
+| **Response Latency** | Baseline (100%) | **~58%** (42% faster response times) | **~42% speed improvement** |
+| **API Cost Footprint** | Baseline (100%) | **~5%** (95% cost reduction) | **~95% token cost savings** |
+
+**Real-world Savings (Current metrics from active developer workspace):**
+- **Combined Token Savings**: **~11.55M tokens saved** all-time across 273 total agent calls (~44.07 MB of context data saved).
+- **Skills-DB (konoha) Efficiency**: **99% context size reduction** (average query footprint reduced from 550 KB baseline to ~12 KB on-demand; ~3.0M tokens saved).
+- **Semble MCP Efficiency**: **96% context size reduction** average per search query (~8.6M tokens saved across 256 calls).
+- **Response Latency Reduction**: **~42% faster** agent responses due to minimized input context parsing.
+- **API Cost Reduction**: **~95% reduction** in API token fees per agent session.
+
+> [!TIP]
+> Read the complete [Token Savings & Optimization Benchmark Report](file:///home/andycungkrinx/experiment/portofolio/data/konoha/docs/BENCHMARK.md) for full metrics breakdown and analysis.
+
+### Token-Efficient File-Based Delegation
+
+To achieve maximal token efficiency during agent-to-agent collaboration, Konoha implements a transient file-based Markdown communication protocol:
+* **Structured Context Isolation**: Instead of subagents inheriting the entire parent conversation log, the Task Router serializes task parameters into a structured Markdown file at `scratch/delegate.md` (defining Goal, Context, and Constraints).
+* **Focused Execution**: The invoked subagent reads `delegate.md`, performs the work (loading specialized skill content on-demand via the MCP server), and writes its output back to `scratch/result.md`.
+* **Substantial Savings**: Isolating subagent context windows prevents prompt histories from ballooning, yielding up to **95%+ token savings** per subagent invocation.
+* **Recursive Loop Circuit Breaker**: Subagent delegation tracks a sequential `depth` parameter in YAML frontmatter. If handoff depth exceeds 5 continuously, a circuit breaker trips to freeze the queue and prompt the user for validation.
+
 ## Quick Start
 
 ```bash
@@ -71,7 +155,7 @@ After doing so, you can run all commands directly:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.0.4) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.0.5) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
@@ -200,97 +284,13 @@ The installer updates your configuration to define a cohesive, specialized team 
   - The most comprehensive and capable decision maker on the team.
 * **Skills-DB Usage**: Calls `find_skill("code review architecture devsecops")` to retrieve advanced architectural frameworks.
 
-## Model Registry & Configuration
+## Configuration, Registry & Recovery
 
-To optimize cost and response latency, subagents are mapped to specific LLM tiers. You can inspect or modify these mappings using the CLI models commands (`konoha models list`, `konoha agent models`).
+For advanced workflows, customization, and troubleshooting details, please refer to the dedicated documentation guides:
 
-### Available Models Registry
-
-The following models are available in the Antigravity registry:
-
-| Model Name | Tier / Type | Command / Config Alias |
-|---|---|---|
-| **Gemini 3.5 Flash (Low)** | Fast / Cloud | `flash-low`, `low` |
-| **Gemini 3.5 Flash (Medium)** | Fast / Cloud | `flash-medium`, `medium` |
-| **Gemini 3.5 Flash (High)** | Fast / Cloud | `flash-high`, `high` |
-| **Gemini 3.1 Pro (Low)** | Standard / Cloud | `pro-low` |
-| **Gemini 3.1 Pro (High)** | Standard / Cloud | `pro-high` |
-| **Claude Sonnet 4.6 (Thinking)** | Reasoning / Cloud | `sonnet`, `sonnet-thinking` |
-| **Claude Opus 4.6 (Thinking)** | Advanced Reasoning / Cloud | `opus`, `opus-thinking` |
-| **GPT-OSS 120B (Medium)** | Standard / Cloud | `gpt`, `gpt-oss-120b` |
-
-### Default Fallback Model
-
-If a subagent encounters rate limits, transient network issues, or API errors (such as `RESOURCE_EXHAUSTED` or HTTP `429` status codes) with its primary model, the agent and runtime configuration will automatically and immediately redirect subsequent queries to **`Gemini 3.5 Flash (High)`** to ensure fail-safe operation and continuous capability.
-
-### Quota Limits Warning & Recovery
-
-When both the primary model and the fallback models return `RESOURCE_EXHAUSTED` or `429` status codes, the system is in total quota exhaustion. In this event, the active subagent will halt execution gracefully and display this exact warning message:
-
-> "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
-
-#### Step-by-Step Recovery Guide:
-
-1. **Switch Google Accounts**:
-   Open a terminal window and run:
-   ```bash
-   gcloud auth application-default login
-   ```
-   Follow the web browser prompts to complete authentication with another Google account that has active quota.
-
-2. **Verify Active Account**:
-   To check which account is currently active:
-   ```bash
-   gcloud auth list
-   ```
-   Ensure the active account is marked with an asterisk.
-
-3. **Resume Session**:
-   - **Antigravity IDE**: Close the active agent chat panel and reload your workspace or open a new chat panel.
-   - **Antigravity CLI**: Re-run your command (e.g. `konoha test` or `agy`) to continue.
-
-4. **Upgrade Google AI Subscription**:
-   - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
-   - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account or request a quota limit increase.
-
-## Creating a Custom Subagent
-
-You can create a brand new custom subagent configuration using the CLI. To create a subagent, run:
-
-```bash
-konoha agent create <name> [options]
-```
-
-**Options**:
-- `--title "Title"`: Display title of your agent (e.g., `"Database Expert"`).
-- `--purpose "Purpose"`: Goal of the agent (e.g., `"Optimize SQL queries"`).
-- `--keywords "keywords"`: Comma-separated triggers that delegate tasks to this agent (e.g., `"database, SQL"`).
-- `--instructions "text"`: Special instructions given to this agent.
-
-**Example**:
-```bash
-konoha agent create sql-expert \
-  --title "Database Expert" \
-  --purpose "Optimize SQL queries and verify database schemas" \
-  --keywords "sql, database, query optimization" \
-  --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
-```
-
-When this command is run, Konoha:
-1. Validates the options and appends the new subagent configuration to `agents.json`.
-2. Automatically generates the updated `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md` containing the new agent definitions, registering it with the Antigravity orchestration environment.
-
-## Subagent Deletion and Pruning
-
-You can manage subagent configurations via the CLI. To completely remove a subagent, run:
-
-```bash
-konoha agent delete <name>
-```
-
-When this command is run, Konoha:
-1. Deletes the subagent from configurations (`agents.json`).
-2. Prunes its historical metrics from the SQLite database's `tool_calls` table (which resolves issues where deleted/legacy subagents like `ops-ninja` or `shadow-anbu` permanently clutter the status call frequency list).
+- **Model Registry & Fallbacks**: Mappings of Ninja ranks to specific LLM tiers, fallback redirection rules, and available model aliases. See [Antigravity CLI Setup Guide - Model Registry & Fallbacks](docs/SETUP-CLI.md#model-registry-and-fallbacks).
+- **Customizing Subagents**: Step-by-step instructions for creating, updating, or deleting subagents and pruning legacy metrics using CLI commands. See [Antigravity CLI Setup Guide - Subagent Management](docs/SETUP-CLI.md#skill-and-agent-management).
+- **Quota Exceeded Recovery**: Step-by-step recovery guides to resolve `RESOURCE_EXHAUSTED` or `429` API errors by switching active Google default accounts or upgrading subscription limits. See [Troubleshooting Guide - Quota Limits](docs/TROUBLESHOOTING.md#quota-limits-rate-limits-and-api-errors).
 
 ## Default Guardrails
 
@@ -302,12 +302,14 @@ The Antigravity system enforces several default safety and behavioral guardrails
 - **Strict Subagent Delegation Guardrail**: Subagent delegation is strictly restricted to the 6 official Konoha agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Defining or creating custom subagents is prohibited.
 - **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited for the AI. The creation and deletion of subagents are manual features reserved exclusively for the user.
 - **Quota Fallback to Direct Tool Calls**: In case of quota limits (such as `RESOURCE_EXHAUSTED` or `429` errors), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
+- **Recursive Handoff Circuit Breaker**: Tracks sequential delegation loop depth (`depth: <N>`) inside the `delegate.md` queue. Trips immediately if depth exceeds 5, freezing task execution and alerting the developer to prevent infinite execution loops.
 
 ## Setup & Usage Guides
 
 - [Antigravity IDE Setup](docs/SETUP-IDE.md)
 - [Antigravity CLI Setup](docs/SETUP-CLI.md)
 - [Adding Skills from skills.sh](docs/ADDING-SKILLS.md)
+- [Token Savings Benchmarks](docs/BENCHMARK.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ## How It Works
@@ -316,7 +318,7 @@ The Antigravity system enforces several default safety and behavioral guardrails
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.0.4)
+title: Konoha System Architecture (v1.0.5)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -331,6 +333,7 @@ flowchart TB
     classDef ftsNode fill:#451a03,stroke:#fbbf24,stroke-width:2px,color:#fff7ed;
     classDef codeNode fill:#1c1917,stroke:#a8a29e,stroke-width:2px,color:#e7e5e4;
     classDef mgmtNode fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#dbeafe;
+    classDef queueNode fill:#2d1a4a,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff;
 
     %% ── Layer 1: Presentation ──────────────────────────────────
     subgraph L1 ["Layer 1 — Presentation"]
@@ -349,6 +352,7 @@ flowchart TB
     %% ── Layer 2: Cognitive Agent Orchestration ─────────────────
     subgraph L2 ["Layer 2 — Cognitive Agent Orchestration"]
         Router{"🔀 Task Router<br>GEMINI.md Rules"}
+        Queue["📂 File Queue<br>(depth-tracked delegate.md & result.md)"]
 
         subgraph AgentPool ["Ninja Agent Pool"]
             direction LR
@@ -371,7 +375,7 @@ flowchart TB
     %% ── Layer 3: MCP Middleware ────────────────────────────────
     subgraph L3 ["Layer 3 — MCP Middleware"]
         direction LR
-        SkillsDB("⚙️ skills-db MCP<br>Skill Knowledge Search")
+        SkillsDB("⚙️ skills-db MCP<br>FTS5 Sanitizer & Injection Shield")
         Semble("🔮 Semble MCP<br>Semantic Code Search")
     end
 
@@ -394,15 +398,16 @@ flowchart TB
     IDE -->|"Loads MCP servers"| MCPConfig
     Router -->|"Reads agent definitions"| AgentConfig
 
-    Router -->|"3. Delegate task"| Genin
-    Router -->|"3. Delegate task"| Chunin
-    Router -->|"3. Delegate task"| Jonin
-    Router -->|"3. Delegate task"| Anbu
-    Router -->|"3. Delegate task"| Tokubetsu
-    Router -->|"3. Delegate task"| Kage
+    Router -->|"3. Write task"| Queue
+    Queue -->|"4. Read parameters"| Genin
+    Queue -->|"4. Read parameters"| Chunin
+    Queue -->|"4. Read parameters"| Jonin
+    Queue -->|"4. Read parameters"| Anbu
+    Queue -->|"4. Read parameters"| Tokubetsu
+    Queue -->|"4. Read parameters"| Kage
 
     %% Model Execution Workflow
-    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|"4. Execute prompts"| LLMRegistry
+    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|"5. Execute prompts"| LLMRegistry
     LLMRegistry -->|"5a. Quota limit / 429 error"| FallbackRouter
     FallbackRouter -->|"5b. Route to Fallback Model<br>(Gemini 3.5 Flash High)"| LLMRegistry
     FallbackRouter -->|"5c. Total Exhaustion"| QuotaLimit
@@ -426,9 +431,10 @@ flowchart TB
     DB <-->|"6. FTS5 search"| FTS5
     Semble -->|"5. Semantic index"| Codebase
 
-    SkillsDB -->|"7. Return 4KB snippet"| IDE
-    Semble -->|"7. Return code matches"| IDE
-    IDE -->|"8. Context-aware response"| User
+    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|"6. Write output"| Queue
+    Queue -->|"7. Read output"| Router
+    Router -->|"8. Return response"| IDE
+    IDE -->|"9. Context-aware response"| User
 
     %% ── Layout Alignment ──────────────────────────────────────
     IDE ~~~ SkillsDB
@@ -437,6 +443,7 @@ flowchart TB
     class User userNode
     class IDE ideNode
     class Router routerNode
+    class Queue queueNode
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage agentNode
     class LLMRegistry,FallbackRouter,QuotaLimit modelNode
     class SkillsDB mcpNode
@@ -453,17 +460,17 @@ flowchart TB
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.4)
+title: Runtime Query Lifecycle with File-Based Protocol & Dual-MCP
 ---
 sequenceDiagram
     actor User as 👤 User
     participant IDE as 💻 Antigravity IDE/CLI
     participant Router as 🔀 Orchestrator (Main)
     participant SkillsDB as ⚙️ skills-db MCP
+    participant Semble as 🔮 Semble MCP
+    participant Queue as 📂 File Queue (delegate/result.md)
     participant Agent as 🥷 Ninja Agent
     participant Model as 🤖 LLM Model Registry
-    participant Semble as 🔮 Semble MCP
-    participant Code as 📂 Codebase
     participant DB as 🗄️ SQLite FTS5
 
     User->>IDE: Natural language prompt
@@ -475,52 +482,65 @@ sequenceDiagram
     Note over Router: Step 1: Skill Discovery
     Router->>SkillsDB: find_skill() or optimize_report()
     activate SkillsDB
+    Note over SkillsDB: Sanitize query keyword
     SkillsDB->>DB: FTS5 MATCH query
     DB-->>SkillsDB: Return ranked results
+    Note over SkillsDB: Shield against prompt injection
     SkillsDB-->>Router: Top relevant skills
     deactivate SkillsDB
 
+    %% --- Context Discovery ---
+    Note over Router: Step 2: Context Discovery
+    Router->>Semble: search() / find_related()
+    activate Semble
+    Semble-->>Router: Project context & code targets
+    deactivate Semble
+
     %% --- Routing Phase ---
-    Note over Router: Step 2: Delegation
-    Router->>Agent: Delegate to specialist (e.g. Anbu)
+    Note over Router: Step 3: Markdown Delegation
+    Note over Router: Increment depth: check depth <= 5
+    Router->>Queue: Write task & depth to delegate.md (Goal, Context, Constraints)
+    activate Queue
+    Router->>Agent: Launch agent process
     deactivate Router
     activate Agent
 
     %% --- Agent Execution Phase ---
-    Note over Agent: Step 3: Base Skill & Code Recon
+    Note over Agent: Step 4: Load Task & SOPs
+    Agent->>Queue: Read task & check depth from delegate.md
+    deactivate Queue
     Agent->>SkillsDB: find_skill("anbu-skill")
-    SkillsDB-->>Agent: Load SOPs
-    
-    Agent->>Semble: search(query) or find_related()
-    activate Semble
-    Semble->>Code: Perform semantic analysis
-    activate Code
-    Code-->>Semble: Retrieve matching files
-    deactivate Code
-    Semble-->>Agent: Return code matches & symbols
-    deactivate Semble
+    activate SkillsDB
+    Note over SkillsDB: Sanitize & Shield
+    SkillsDB-->>Agent: Load SOPs (Neutralized)
+    deactivate SkillsDB
 
     %% --- Skills-DB Search Phase ---
-    Note over Agent: Step 4: Additional Skills via Direct Tool Calls
+    Note over Agent: Step 5: Additional Skills via Direct Tool Calls
     Agent->>SkillsDB: find_skill(keyword)
     activate SkillsDB
+    Note over SkillsDB: Sanitize query keyword
     SkillsDB->>DB: Execute FTS5 MATCH query with BM25 ranking
     activate DB
     DB-->>SkillsDB: Retrieve ranked results
     deactivate DB
+    Note over SkillsDB: Shield retrieved content
 
     alt Content truncated (>4KB)
-        SkillsDB-->>Agent: 4KB preview + get_skill hint
+        SkillsDB-->>Agent: 4KB preview (Shielded) + get_skill hint
         Agent->>SkillsDB: get_skill(name)
-        SkillsDB-->>Agent: Return full reference instructions
+        activate SkillsDB
+        Note over SkillsDB: Shield retrieved content
+        SkillsDB-->>Agent: Return full reference instructions (Shielded)
+        deactivate SkillsDB
     else Content fits (<=4KB)
-        SkillsDB-->>Agent: Complete reference instructions
+        SkillsDB-->>Agent: Complete reference instructions (Shielded)
     end
     deactivate SkillsDB
 
     %% --- Model Execution & Fallback ---
-    Note over Agent: Step 5: Prompt Execution & Model Routing
-    Agent->>Model: Send prompt with context
+    Note over Agent: Step 6: Prompt Execution & Model Routing
+    Agent->>Model: Send prompt with isolated context
     activate Model
     alt Model active / No Quota limits
         Model-->>Agent: Return generated response
@@ -536,124 +556,24 @@ sequenceDiagram
     deactivate Model
 
     %% --- Response Phase ---
-    Note over Agent: Step 6: Synthesis & Final Answer
-    Agent-->>IDE: Context-aware precise response
+    Note over Agent: Step 7: Write Result & Complete
+    Agent->>Queue: Write output to result.md
+    activate Queue
     deactivate Agent
+    activate Router
+    Router->>Queue: Read result.md
+    deactivate Queue
+    Router-->>IDE: Synthesized response
+    deactivate Router
     IDE-->>User: Formatted final answer
     deactivate IDE
 ```
 
 ### Detailed Before vs After Comparison
 
-#### Before Implementation (The Problem)
+For an in-depth breakdown of system behavior, token consumption, configuration fragmentation, and architectural overhead, please read the [Detailed Before vs After Comparison](file:///home/andycungkrinx/experiment/portofolio/data/konoha/docs/BENCHMARK.md#detailed-before-vs-after-comparison) section in the Benchmark Report.
 
-1. **Extreme Token Consumption ("Super Boros")**:
-   - Every time a session starts in Antigravity IDE or CLI, the agent receives instructions to load the full skill files (e.g., `SKILL.md` for `deep-code-explorer`, `modern-full-stack`, `websearch-deep`, `devsecops-engineer`, etc.).
-   - This loads **~72 KB** of router instructions.
-   - When the agent needs to find a specific rule or practice, it traverses the router and loads the corresponding reference files and script guides. In a complete setup, this includes **~88 reference files** (~478 KB) and **~23 auxiliary scripts** (~547 KB).
-   - This results in a massive **~1.1 MB payload** (over **800,000 tokens**) being pulled directly into the conversation history at startup or during early prompts.
-   - **Consequences**: Fast context bloating, skyrocketing API usage costs, high response latency, and frequent "context window limit exceeded" errors.
 
-2. **Configuration Fragmentation**:
-   - Antigravity IDE (GUI) and Antigravity CLI (`agy`) use different file paths and environment variables.
-   - Replicating skill paths and configuration values across team members' environments (or another developer's fresh machine) requires manual copying, editing config files like `mcp_config.json`, and correcting paths.
-
-3. **Complex Router Overhead**:
-   - The agent has to manually parse a router markdown table, map the query to a reference file, and then call a file read tool. This takes multiple tool-call roundtrips.
-
----
-
-#### After Implementation (The Solution)
-
-1. **High-Performance SQLite FTS5 Engine**:
-   - The entire knowledge base (93 entries containing skills, references, and scripts) is indexed into a local SQLite database using Full-Text Search (FTS5).
-   - Agents no longer load entire folders or files from disk. Instead, the agent instructions configure a streamlined team of 6 Naruto-ranked subagents (`genin` as scout, `chunin` as research gatherer, `jonin` as frontend builder, `anbu` as DevOps specialist, `tokubetsu-jonin` as scribe, and `kage` as architectural strategist) to search on-demand.
-   - Agents call `find_skill("keyword")` when they need info. SQLite FTS5 runs a BM25 relevance ranking and returns a precise **~4 KB preview chunk**.
-   - **Result**: Context payload is reduced from **~1.1 MB per session** to just **~4 KB - 12 KB per query** (representing an **83% to 98% reduction in token consumption**).
-
-2. **Unified, Automated Configuration**:
-   - A single, lightweight CLI tool `konoha` installs the server, migrates the files, and registers it.
-   - Installs to a standardized path:
-     - MCP Config: `~/.gemini/config/mcp_config.json` (registers the server across all Antigravity tools)
-     - Executables & DB: `~/.gemini/skills-db/`
-     - Global Prompt Instructions: `~/.gemini/GEMINI.md`
-   - Fully cross-platform: auto-detects paths and Python configurations on Windows, macOS, and Linux.
-
-3. **Instantaneous On-Demand Retrieval**:
-   - Finding reference documentation is a single-step MCP tool call:
-     - Before: Load SKILL.md (1 roundtrip) -> Parse router (1 roundtrip) -> Read reference file (1 roundtrip).
-     - After: Call `find_skill("search terms")` (1 roundtrip) -> Done.
-
-#### Summary Table
-
-| Aspect | Before Implementation | After Implementation |
-| :--- | :--- | :--- |
-| **Data Retrieval** | Scans and loads raw markdown files directly | Calls `find_skill("keyword")` to search database |
-| **Startup Context Payload** | **~1.1 MB** (all SKILL.md files & references) | **~0 KB** (lazy loaded on demand) |
-| **Single-Query Payload** | Large chunks or entire files (50KB+) | Small, precise matches (4KB chunks) |
-| **Token Savings** | 0% (Baseline) | **83% - 98% reduction** |
-| **Cost & Context Bloat** | High context footprint, high API bills | Minimal footprint, highly cost-effective |
-| **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `~/.gemini/config/mcp_config.json` |
-| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` |
-
-### Benchmark: Token Footprint & Optimization
-
-The following charts demonstrate the context footprint savings per conversation session achieved by moving from full-disk loading to SQLite FTS5 on-demand retrieval:
-
-#### Context Size Comparison (Lower is Better)
-
-```
-Startup Payload Size (KB)
-────────────────────────────────────────────────────────────
-Baseline (Disk Load):  ██████████████████████████████  550 KB
-Konoha (On-Demand):   █                              12 KB   (97.8% savings)
-────────────────────────────────────────────────────────────
-```
-
-```mermaid
----
-title: Token Footprint — Before vs After
----
-flowchart LR
-    %% ── Style Definitions ──────────────────────────────────────
-    classDef stepBad fill:#2d202f,stroke:#f7768e,stroke-width:1px,color:#fca5a5;
-    classDef stepGood fill:#1a2e1a,stroke:#9ece6a,stroke-width:1px,color:#bbf7d0;
-    classDef metricBad fill:#f7768e,stroke:#f7768e,stroke-width:2px,color:#1a1b26;
-    classDef metricGood fill:#9ece6a,stroke:#9ece6a,stroke-width:2px,color:#1a1b26;
-    classDef verdict fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff;
-
-    %% ── Before Path (Wasteful) ─────────────────────────────────
-    subgraph BEFORE ["Before — Raw Disk Loading"]
-        direction LR
-        B1("Load SKILL.md files<br>72 KB") -->|"roundtrip 1"| B2("Parse router table<br>overhead")
-        B2 -->|"roundtrip 2"| B3("Load reference files<br>478 KB")
-        B3 -->|"roundtrip 3"| B4("Load scripts<br>547 KB")
-    end
-    B4 --> B_Total(["Total: 1.1 MB / session"])
-
-    %% ── After Path (Optimized) ─────────────────────────────────
-    subgraph AFTER ["After — Konoha FTS5 On-Demand"]
-        direction LR
-        A1("Agent calls find_skill") -->|"single roundtrip"| A2("FTS5 BM25 search<br>SQLite query")
-    end
-    A2 --> A_Total(["Total: 4-12 KB / query"])
-
-    %% ── Verdict ────────────────────────────────────────────────
-    B_Total --> Savings
-    A_Total --> Savings{"98% Token Reduction"}
-
-    %% ── Apply Styles ──────────────────────────────────────────
-    class B1,B2,B3,B4 stepBad
-    class B_Total metricBad
-    class A1,A2 stepGood
-    class A_Total metricGood
-    class Savings verdict
-```
-
-**Real-world Savings (Averages across 100 queries):**
-- **Average Tokens Saved per Session**: ~1.2M tokens
-- **Response Latency Reduction**: ~42% faster agent responses due to reduced input context processing time
-- **Cost Reduction**: ~95% reduction in API token fees per agent session
 
 ## Re-indexing After Skill Changes
 
@@ -674,6 +594,10 @@ This re-scans `~/.agents/skills/` and updates the database. It's idempotent — 
 | Windows | `python` or `python3` | `%USERPROFILE%\.gemini\skills-db\` |
 
 The installer auto-detects the correct Python command for your platform.
+
+## Credits
+
+Special thanks to [semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic search capability that forms the second half of Konoha's optimization stack.
 
 ## License
 

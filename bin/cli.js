@@ -232,7 +232,6 @@ function startAgentTui(agents) {
         log(`  ${C.dim}Use ↑/↓ keys to navigate, Press Enter to view details, ESC to exit${C.reset}\n`);
         
         const headers = [' ', 'Subagent', 'Title', 'Model Tier', 'Active Skills'];
-        const widths = [2, 22, 20, 28, 22];
         const aligns = ['left', 'left', 'left', 'left', 'left'];
         
         const rows = agents.map((a, idx) => {
@@ -245,6 +244,18 @@ function startAgentTui(agents) {
             a.modelTier || '-',
             skillsList
           ];
+        });
+
+        const widths = headers.map((h, colIdx) => {
+          if (colIdx === 0) return 2;
+          let maxLen = getVisualLength(h);
+          rows.forEach(row => {
+            const cellLen = getVisualLength(row[colIdx]);
+            if (cellLen > maxLen) {
+              maxLen = cellLen;
+            }
+          });
+          return maxLen;
         });
         
         const rowColors = agents.map((a, idx) => {
@@ -1106,9 +1117,9 @@ function cmdTest() {
   const tests = [
     { name: 'Initialize', req: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' },
     { name: 'List Tools', req: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' },
-    { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security"}}}' },
-    { name: 'List Skills', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_skills","arguments":{}}}' },
-    { name: 'Get Skill (golang-security)', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"golang-security"}}}' },
+    { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"test"}}}' },
+    { name: 'List Skills', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"test"}}}' },
+    { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"test"}}}' },
   ];
 
   let allPassed = true;
@@ -1128,33 +1139,47 @@ function cmdTest() {
         error(`${test.name}: ${response.error.message}`);
         allPassed = false;
       } else {
-        success(`${test.name}: OK`);
+        // Parse tool content response to check for tool-level errors
+        let toolError = null;
+        try {
+          const content = JSON.parse(response.result.content[0].text);
+          if (content.error) {
+            toolError = content.error;
+          }
+        } catch (e) {}
 
-        // Show extra info for specific tests
-        if (test.name === 'Find Skill (security)') {
-          try {
-            const content = JSON.parse(response.result.content[0].text);
-            info(`  Found ${content.found} results for "security"`);
-            if (content.results) {
-              content.results.forEach(r => {
-                log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`);
-              });
-            }
-          } catch {}
-        }
+        if (toolError) {
+          error(`${test.name}: FAILED - ${toolError}`);
+          allPassed = false;
+        } else {
+          success(`${test.name}: OK`);
 
-        if (test.name === 'List Skills') {
-          try {
-            const content = JSON.parse(response.result.content[0].text);
-            info(`  Total indexed: ${content.total} entries`);
-          } catch {}
-        }
+          // Show extra info for specific tests
+          if (test.name === 'Find Skill (security)') {
+            try {
+              const content = JSON.parse(response.result.content[0].text);
+              info(`  Found ${content.found} results for "security"`);
+              if (content.results) {
+                content.results.forEach(r => {
+                  log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`);
+                });
+              }
+            } catch {}
+          }
 
-        if (test.name === 'Get Skill (golang-security)') {
-          try {
-            const content = JSON.parse(response.result.content[0].text);
-            info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
-          } catch {}
+          if (test.name === 'List Skills') {
+            try {
+              const content = JSON.parse(response.result.content[0].text);
+              info(`  Total indexed: ${content.total} entries`);
+            } catch {}
+          }
+
+          if (test.name === 'Get Skill (anbu-skill)') {
+            try {
+              const content = JSON.parse(response.result.content[0].text);
+              info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
+            } catch {}
+          }
         }
       }
     } catch (e) {
@@ -1256,7 +1281,7 @@ function cmdStatus() {
   if (fileExists(GEMINI_MD_PATH)) {
     try {
       const content = fs.readFileSync(GEMINI_MD_PATH, 'utf-8');
-      const hasSkillsDb = content.includes('skills-db find_skill');
+      const hasSkillsDb = content.includes('find_skill');
       log(`    ${hasSkillsDb ? C.green : C.yellow}•${C.reset} GEMINI.md instructions: ${hasSkillsDb ? C.green + 'skills-db active' : C.yellow + 'not found'}${C.reset}`);
     } catch {}
   }
@@ -1514,7 +1539,7 @@ function cmdDoctor() {
   if (fileExists(GEMINI_MD_PATH)) {
     try {
       const content = fs.readFileSync(GEMINI_MD_PATH, 'utf-8');
-      if (content.includes('skills-db find_skill')) {
+      if (content.includes('find_skill')) {
         geminiHealthy = true;
       }
     } catch {}
@@ -1727,23 +1752,27 @@ function cmdAgentStatus() {
     });
   });
 
-  // Add any agents from stats that were not in loadAgents (e.g. (direct))
+  // Aggregate all unregistered/direct tool calls (including orchestrator, tests, and direct usage)
+  const directStats = { today: 0, last7days: 0, alltime: 0 };
   Object.keys(stats).forEach(name => {
     const lowerName = name.toLowerCase();
     if (!processedNames.has(lowerName)) {
-      processedNames.add(lowerName);
       const agentStats = stats[name];
-      displayAgents.push({
-        name: name === '(direct)' ? 'Direct Tool Calls' : `@${name}`,
-        icon: name === '(direct)' ? '🔌' : '👤',
-        title: name === '(direct)' ? 'Non-agent / direct MCP tools usage' : 'Legacy Subagent',
-        modelTier: '-',
-        today: agentStats.today,
-        last7days: agentStats.last7days,
-        alltime: agentStats.alltime,
-        isRegistered: false
-      });
+      directStats.today += agentStats.today;
+      directStats.last7days += agentStats.last7days;
+      directStats.alltime += agentStats.alltime;
     }
+  });
+
+  displayAgents.push({
+    name: 'Direct Tool Calls',
+    icon: '🔌',
+    title: 'Non-agent / direct MCP tools usage',
+    modelTier: '-',
+    today: directStats.today,
+    last7days: directStats.last7days,
+    alltime: directStats.alltime,
+    isRegistered: false
   });
 
   // Display Table
@@ -2120,7 +2149,6 @@ async function cmdAgent(args) {
         header('Subagents List');
         divider();
         const headers = ['Subagent', 'Title', 'Model Tier', 'Active Skills'];
-        const widths = [22, 18, 28, 22];
         const aligns = ['left', 'left', 'left', 'left'];
 
         const rows = agents.map(a => {
@@ -2131,6 +2159,17 @@ async function cmdAgent(args) {
             a.modelTier || '-',
             skillsList
           ];
+        });
+
+        const widths = headers.map((h, colIdx) => {
+          let maxLen = getVisualLength(h);
+          rows.forEach(row => {
+            const cellLen = getVisualLength(row[colIdx]);
+            if (cellLen > maxLen) {
+              maxLen = cellLen;
+            }
+          });
+          return maxLen;
         });
 
         const rowColors = agents.map(() => [
@@ -2167,6 +2206,9 @@ async function cmdAgent(args) {
       
       const keywordsIdx = subArgs.indexOf('--keywords');
       if (keywordsIdx >= 0 && subArgs[keywordsIdx + 1]) options.delegationKeywords = subArgs[keywordsIdx + 1];
+
+      const manualIdx = subArgs.indexOf('--manual');
+      if (manualIdx >= 0) options.manual = true;
 
       try {
         const newAgent = agentManager.createSubagent(name, options);
@@ -2683,7 +2725,7 @@ async function getLatestVersion() {
 
 async function cmdVersion(args) {
   const pkgPath = path.join(__dirname, '..', 'package.json');
-  let currentVersion = '1.0.4';
+  let currentVersion = '1.0.5';
   try {
     currentVersion = require(pkgPath).version;
   } catch {}

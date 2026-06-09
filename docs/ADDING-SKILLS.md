@@ -21,16 +21,16 @@ sequenceDiagram
     participant Agent as 🥷 Antigravity Agent
 
     Developer->>Registry: Browse & copy skill package (e.g. prd-creator)
-    Developer->>Workspace: "Run 'npx skills add <repo-url> --skill <name>'"
+    Developer->>Workspace: Run "konoha skill add <repo-url> <name>"
+    Workspace->>Registry: Fetch skill contents
     Registry-->>Workspace: Download & unpack skill to .agents/skills/
-    Note over Workspace: Placed at ~/.agents/skills/ or ./.agents/skills/
-    
-    Developer->>Workspace: "Run 'konoha migrate'"
-    Workspace->>DB: Scan directories & extract SKILL.md + reference markdown files
-    DB-->>Workspace: Index files using SQLite FTS5 (FTS index matches updated)
+    Workspace->>DB: Auto-trigger migration, shield prompt & FTS5 re-index
+    DB-->>Workspace: Database update complete
     
     Developer->>Agent: Prompt: "Generate a PRD for the user auth system"
-    Agent->>DB: "MCP Call: find_skill('prd creator template')"
+    Agent->>DB: MCP Call: find_skill('prd creator template')
+    Note over DB: Sanitize keyword & query SQLite FTS5
+    Note over DB: Shield prompt injection in retrieved content
     DB-->>Agent: Return optimized relevant chunk (~4 KB)
     Agent-->>Developer: Response using precise skill guidelines
 ```

@@ -36,12 +36,19 @@ function loadAgents() {
   if (loadedFromUser) {
     // Upgrade existing agents if their instructions do not specify passing the agent parameter
     let upgraded = false;
+
+    // Check if the user's agents.json has already been upgraded to the new concept (v1.1.1+)
+    const isAlreadyUpgraded = agents.some(a => {
+      const defAgent = defaults.find(d => d.name === a.name);
+      return defAgent && defAgent.skills && defAgent.skills[0] && a.skills && a.skills.includes(defAgent.skills[0]);
+    });
+
     agents = agents.map(a => {
       const defAgent = defaults.find(d => d.name === a.name);
+      let changed = false;
       if (defAgent) {
-        let changed = false;
         // v1.1.1: Upgrade to new routing concept where each agent has their own default skill
-        if (a.skills) {
+        if (a.skills && !isAlreadyUpgraded) {
           const oldDefaults = ['deep-code-explorer', 'devsecops-engineer', 'websearch-deep', 'modern-full-stack', 'documentation'];
           let changedSkills = false;
           
@@ -50,17 +57,16 @@ function loadAgents() {
           if (defaultSkill && !a.skills.includes(defaultSkill)) {
             a.skills.unshift(defaultSkill);
             changedSkills = true;
+
+            // Remove old default skills to align with new clean concept
+            // (Only do this during the initial upgrade when the default skill was missing)
+            oldDefaults.forEach(old => {
+              const idx = a.skills.indexOf(old);
+              if (idx !== -1) {
+                a.skills.splice(idx, 1);
+              }
+            });
           }
-          
-          // Remove old default skills to align with new clean concept
-          // (User must embed them manually now)
-          oldDefaults.forEach(old => {
-            const idx = a.skills.indexOf(old);
-            if (idx !== -1) {
-              a.skills.splice(idx, 1);
-              changedSkills = true;
-            }
-          });
           
           if (changedSkills) {
             changed = true;
@@ -72,7 +78,7 @@ function loadAgents() {
           const needsAgentUpgrade = a.instructions.includes('skills-db.find_skill') && !a.instructions.includes('pass agent=');
           const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
-          const needsSkillRoutingUpgrade = defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
+          const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
           
           if (needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade) {
             a.instructions = defAgent.instructions;
@@ -103,9 +109,23 @@ function loadAgents() {
             changed = true;
           }
         }
-        if (changed) {
-          upgraded = true;
+      }
+
+      // Sync instructions with skills for default and custom agents
+      if (a.instructions && a.skills && a.skills.length > 0) {
+        const findSkillCalls = a.skills.map(s => `find_skill("${s}", agent='${a.name}')`).join('. ') + '.';
+        const regex = /Before work:\s*(?:find_skill\((?:'[^']+'|"[^"]+"),\s*agent=(?:'[^']+'|"[^"]+")\)(?:\.\s*)?)+/;
+        if (regex.test(a.instructions)) {
+          const newInstructions = a.instructions.replace(regex, `Before work: ${findSkillCalls} `);
+          if (newInstructions !== a.instructions) {
+            a.instructions = newInstructions;
+            changed = true;
+          }
         }
+      }
+
+      if (changed) {
+        upgraded = true;
       }
       return a;
     });
@@ -177,10 +197,33 @@ ${agentDefs}
 
 ## Auto-Delegation
 
+> [!IMPORTANT]
+> **Orchestrator Role & Auto-Delegation**:
+> - The main agent (Antigravity orchestrator) MUST act strictly as a coordinator.
+> - It is STRICTLY prohibited from executing direct tool calls (such as \`write_to_file\`, \`replace_file_content\`, or \`run_command\` in the parent conversation). It must always delegate them.
+> - Doing direct execution breaks guardrails.
+
 The orchestrator MUST follow this workflow:
 1. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` to discover necessary skills.
-2. **Select Agent**: Route to the correct agent based on the table below.
-3. **Delegate**: The subagent will load their default skill (e.g., \`anbu-skill\`). If the subagent needs additional skills that aren't embedded, they must use Direct Tool Calls (\`find_skill\`) to get them.
+2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
+3. **Select Agent**: Route to the correct agent based on the table below.
+4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\`. You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+   \`\`\`markdown
+   ---
+   depth: <N>
+   ---
+   \`\`\`
+   Before writing or updating \`delegate.md\`, read the existing \`depth\` metadata:
+   - If \`depth\` exists, increment it (\`depth = depth + 1\`).
+   - If it does not exist, initialize it to \`depth: 1\`.
+   - **Circuit Breaker**: If \`depth > 5\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
+   - **Artifact Metadata**: When writing or updating \`delegate.md\` or \`result.md\`, you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
+   Categorize the main content clearly:
+   - **Goal**: Clear explanation of what needs to be accomplished.
+   - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`.
+   - **Constraints**: Rule constraints and target files.
+5. **Delegate**: Invoke the subagent. The subagent will load their default skill (e.g., \`anbu-skill\`). If the subagent needs additional skills that aren't embedded, they must use Direct Tool Calls (\`find_skill\`) to get them. The subagent will read \`delegate.md\` to execute the task.
+6. **Await Results**: The subagent will write its output directly to \`<appDataDir>/brain/<conversation-id>/scratch/result.md\`. Read this file to finalize the step and report back.
 
 The orchestrator ONLY delegates to: ${agentNames}. Creating new/custom subagents is prohibited.
 
@@ -201,7 +244,7 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\`
 - **No Auto-Creation of Subagents**: AI is NEVER allowed to define/create/delete subagents. Reserved for user only.
 - **Proactive Execution**: Never instruct user to do tasks the agent can perform itself.
-- **Read-Only .tfvars & .env**: Always ask permission before reading/writing these files.
+- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
 - **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.5 Flash (High)\`. On total exhaustion, halt and output: "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
 
@@ -244,10 +287,26 @@ function generateAgentsMd(agents) {
 
 ### @orchestrator — Task Coordinator
 - **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
+- **Auto-Delegation**:
+  - The main agent (Antigravity orchestrator) MUST act strictly as a coordinator.
+  - It is STRICTLY prohibited from executing direct tool calls (such as \`write_to_file\`, \`replace_file_content\`, or \`run_command\` in the parent conversation). It must always delegate them.
+  - Doing direct execution breaks guardrails.
 - **Workflow**:
   1. **Find Skill First**: Call \`skills-db.find_skill()\` or \`optimize_report()\` to discover the right skills for the task.
-  2. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
-  3. **Delegate**: The subagent will load their default skill (e.g., \`anbu-skill\`). If they need additional skills, they must use Direct Tool Calls (\`find_skill\`) to get them.
+  2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
+  3. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
+  4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\` using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+     \`\`\`markdown
+     ---
+     depth: <N>
+     ---
+     \`\`\`
+     Before writing or updating \`delegate.md\`, read the existing \`depth\` metadata:
+     - If \`depth\` exists, increment it (\`depth = depth + 1\`).
+     - If it does not exist, initialize it to \`depth: 1\`.
+     - **Circuit Breaker**: If \`depth > 5\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
+     - **Artifact Metadata**: When writing or updating \`delegate.md\` or \`result.md\`, you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
+  5. **Delegate & Await**: Launch the subagent. The subagent will read \`delegate.md\` to run the task, and write its output to \`scratch/result.md\` in the same directory. Read \`scratch/result.md\` once complete to consume the output.
 - **Constraints**: ONLY delegates to: ${agentNames}. No custom subagents. On quota limits, fall back to Direct Tool Calls.
 
 | Subtask type | Delegate to |
@@ -266,14 +325,15 @@ ${agentSections}
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\` at the start of every response.
-2. **Skills-DB first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
-3. **Semble for code search**: Always use semble MCP (\`search\`, \`find_related\`) before grep/glob.
-4. **Session context**: Read active transcript logs at \`~/.gemini/antigravity-cli/brain/\` to maintain context.
+2. **Read File-Based Task**: Read the delegation parameters from \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\` at the start of the execution step to fetch the task scope, context, and constraints.
+3. **Skills-DB first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
+4. **Semble for code search**: Always use semble MCP (\`search\`, \`find_related\`) before grep/glob.
 5. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
+6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to \`<appDataDir>/brain/<conversation-id>/scratch/result.md\` instead of generating a massive chat response.
 
 ### Safety Guardrails
 - **Proactive Execution**: Never instruct user to manually perform tasks you can execute yourself.
-- **Read-Only .tfvars & .env**: Always ask user permission before reading/writing these files.
+- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
 - **No Auto-Creation of Subagents**: AI is never allowed to define/create/delete subagents. User-only feature.
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
@@ -348,8 +408,18 @@ function regenerateAndDeploy() {
 
 // Create a new subagent
 function createSubagent(name, options = {}) {
+  const agentNameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!agentNameRegex.test(name)) {
+    throw new Error(`Invalid subagent name: "${name}". Only alphanumeric characters, dashes, and underscores are allowed.`);
+  }
+
   const agents = loadAgents();
   const lowerName = name.toLowerCase();
+  
+  const allowedNames = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  if (!allowedNames.includes(lowerName) && !options.manual) {
+    throw new Error(`Subagent creation locked: "${name}" is not an official subagent. Auto-creation of custom subagents is strictly prohibited by system guardrails. To override this manually, you must pass the --manual flag.`);
+  }
   
   if (agents.some(a => a.name === lowerName)) {
     throw new Error(`Subagent with name "${name}" already exists.`);

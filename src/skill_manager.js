@@ -39,7 +39,14 @@ function listInstalledSkills() {
       try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.isDirectory()) {
+          let isDir = entry.isDirectory();
+          if (entry.isSymbolicLink()) {
+            try {
+              const realPath = fs.realpathSync(path.join(dir, entry.name));
+              isDir = fs.statSync(realPath).isDirectory();
+            } catch (e) {}
+          }
+          if (isDir) {
             const skillMd = path.join(dir, entry.name, 'SKILL.md');
             if (fileExists(skillMd)) {
               let description = 'No description available';

@@ -2,6 +2,40 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.0.5] - 2026-06-09
+
+### Added
+- **Subagent Creation Locking Guardrail**: Added a whitelist check in `agent_manager.js` rejecting automatic custom subagent creation unless a `--manual` flag is supplied, preventing external scripts from violating agent guardrails.
+- **Dynamic Instruction Skill Sync**: Implemented dynamic instructions sync to ensure all active/embedded skills are accurately mapped in the `Before work: find_skill(...)` calls on load/restart cycles.
+- **SQLite FTS5 Query Sanitization Input Guardrail**: Implemented regex-based query sanitization in `server.py` to prevent SQLite FTS5 MATCH syntax compilation crashes (unbalanced quotes/parentheses, bare AND/OR/NOT, dangling asterisks/carets/colons).
+- **Indirect Prompt Injection Shielding Input/Output Guardrail**: Added defensive text parsing in both `migrate.py` (ingestion phase) and `server.py` (retrieval phase) to neutralize spoofed subagent definitions, global instructions, and user rules, replacing them with a neutralized label prefix.
+- **Multi-Agent Markdown Queue Loop Breaker System Guardrail**: Configured instruction templates (`GEMINI.md`, `AGENTS.md`) and generator code (`agent_manager.js`) to enforce sequential delegation depth tracking in `delegate.md` (`depth: <N>`) and trip a circuit breaker if depth exceeds 5.
+- **Token-Efficient File-Based Delegation**: Implemented a filesystem-based communication protocol queue using transient Markdown files (`delegate.md` and `result.md`). Subtask parameters are now isolated to a structured task context inside `<appDataDir>/brain/<conversation-id>/scratch/delegate.md` (covering Goal, Context, and Constraints) and the agent writes its final output back to `result.md`. This saves substantial token usage and isolates context windows.
+- **Enforced Semble MCP Integration**: Orchestrator now strictly uses the `semble` MCP for context discovery before drafting delegation parameters.
+- **Read-Only Guardrail for `secrets.yaml`**: Expanded read-only guardrail restrictions to include `secrets.yaml` alongside `.tfvars` and `.env`.
+
+### Changed
+- **Orchestrator-Only Auto-Delegation Enforcement**: Updated `agent_manager.js`, `GEMINI.md`, and `AGENTS.md` to permanently enforce that the main orchestrator agent acts strictly as a coordinator and is prohibited from executing direct tool calls (such as `write_to_file`, `replace_file_content`, or `run_command` in the parent conversation).
+- **Auto-Approved Background Delegation**: Instructed the orchestrator in `agent_manager.js`, `GEMINI.md`, and `AGENTS.md` to write both `delegate.md` and `result.md` with `RequestFeedback: false` and `UserFacing: false` inside the `ArtifactMetadata` block to enable seamless, silent background execution without prompt overlays.
+- **Optional Agent Parameter in Schema**: Made the `agent` parameter optional in all 4 MCP tool schemas (`find_skill`, `list_skills`, `get_skill`, `optimize_report`) to prevent validation crashes during standard, direct calls, while maintaining telemetry logging support.
+- **Dynamic TUI Tables**: Implemented dynamic cell-width calculation in CLI rendering to support arbitrary lengths of active skills names cleanly.
+- **Stats Grouping Cleanup**: Filtered and aggregated non-official agent logs (`test`, `orchestrator`, etc.) under `Direct Tool Calls` in `agent status` to avoid clutter in TUI views.
+- **Documentation Restructuring**: Relocated the detailed "Before vs After Comparison" section from `README.md` to `docs/BENCHMARK.md` to streamline the root README and maintain a more professional high-level presentation, linking to the detailed comparison.
+- **Added Credits**: Added a Credits section in the root `README.md` to express gratitude to MinishLab's `semble` repository.
+- **Auto-Approved MCP Tool Access**: Configured subagent rules in `GEMINI.md` and `AGENTS.md` templates to explicitly auto-approve tool execution for `semble` and `skills-db` MCP tools, removing manual permission prompts.
+
+### Fixed
+- **Auto-Approve for Delegation Files**: Fixed the auto-approve behavior for delegation and result files (`delegate.md` and `result.md`) by forcing both to be written with `RequestFeedback: false` and `UserFacing: false` inside `ArtifactMetadata` to prevent user prompt overlays.
+- **MCP Tool Schema Mismatch**: Resolved a schema mismatch where the `agent` parameter was marked as required on the server-side but optional in client schemas, causing validation crashes during standard direct calls.
+- **Subagent Name Character Validation**: Enforced alphanumeric, dash, and underscore character constraints on subagent names in `createSubagent` to prevent broken markdown layouts in `GEMINI.md` and `AGENTS.md`.
+- **Symlinked Skill Directories Resolution**: Added support for symbolic links pointing to directories in `listInstalledSkills` to allow symlinked skill packages to be scanned and listed.
+- **smart_truncate Name Scoping**: Explicitly passed the skill name parameter to `smart_truncate` inside `get_skill` to fix local variable scoping and ensure the custom full-content retrieval hint is rendered.
+- **Python Context Managers for File Reads**: Refactored `migrate.py` to use Python `with open(...) as f` context managers for reading files, preventing file descriptor leaks during bulk migrations.
+- **Subagent Custom Skill Embedding Preservation**: Added an `isAlreadyUpgraded` check during agent initialization to prevent default skill mappings from stripping manually configured skills on subsequent load/reload cycles.
+- **Doctor health check loop**: Changed the GEMINI.md health verification in `doctor` and `status` commands to search for general `'find_skill'` instead of `'skills-db find_skill'` to prevent infinite "repaired" cycles.
+- **Doctor Self-test Get Skill Failure**: Swapped `golang-security` with `anbu-skill` in the test suite to guarantee tests succeed in default-only seeded database installations.
+- **Self-Test Error Checking**: Enhanced `cmdTest()` to check for tool-level error values in the returned JSON-RPC result content, preventing silent failures when a tool request fails internally.
+
 ## [1.0.4] - 2026-06-09
 
 ### Added

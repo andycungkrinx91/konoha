@@ -20,6 +20,7 @@ import json
 import sys
 import os
 import hashlib
+import re
 from urllib.parse import urlparse, unquote
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -31,6 +32,105 @@ if hasattr(sys.stderr, "reconfigure"):
 
 DB_PATH = os.path.expanduser("~/.gemini/skills-db/skills.db")
 WORKSPACE_ROOT = None
+
+
+def sanitize_fts5_query(query):
+    """
+    Sanitizes full-text search keywords to prevent FTS5 parser compilation syntax errors.
+    Strips or escapes unmatched quotes, parens, dangling asterisks, carets, colons,
+    and handles bare uppercase boolean operators (AND, OR, NOT).
+    """
+    if not query:
+        return ""
+    
+    # 1. Preprocess NEAR(...) expressions to ensure they are validly formatted
+    def replace_near(match):
+        full_expr = match.group(0)
+        # Valid NEAR syntax: NEAR(term1 term2 ... [, distance]) where terms are alphanumeric words
+        valid_pattern = r'^NEAR\(\s*[a-zA-Z0-9_-]+(?:\s+[a-zA-Z0-9_-]+)+(?:\s*,\s*\d+)?\s*\)$'
+        if re.match(valid_pattern, full_expr, re.IGNORECASE):
+            inner = re.search(r'\(([^)]*)\)', full_expr).group(1)
+            inner_cleaned = " ".join(inner.split())
+            return f"NEAR({inner_cleaned})"
+        else:
+            # Malformed: strip parentheses and make it lowercase near
+            inner = re.search(r'\(([^)]*)\)', full_expr)
+            inner_text = inner.group(1) if inner else ""
+            return f"near {inner_text}"
+            
+    query = re.sub(r'\bNEAR\s*\(([^)]*)\)', replace_near, query, flags=re.IGNORECASE)
+
+    # Remove caret (^) and colon (:)
+    query = re.sub(r'[\^:]', ' ', query)
+    
+    # Balance double quotes (strip all if odd count)
+    if query.count('"') % 2 != 0:
+        query = query.replace('"', ' ')
+        
+    # Balance parentheses (strip all if unbalanced)
+    if query.count('(') != query.count(')'):
+        query = query.replace('(', ' ').replace(')', ' ')
+        
+    # Strip dangling asterisks (asterisks must be at the end of alphanumeric word characters)
+    query = re.sub(r'(?<![a-zA-Z0-9])\*', ' ', query)
+    query = re.sub(r'\*(?=[a-zA-Z0-9])', ' ', query)
+    
+    # Handle bare/dangling operators AND, OR, NOT
+    words = query.split()
+    sanitized_words = []
+    for i, w in enumerate(words):
+        w_upper = w.upper()
+        if w_upper in ('AND', 'OR', 'NOT'):
+            is_dangling = False
+            if i == 0 or i == len(words) - 1:
+                is_dangling = True
+            else:
+                prev_w = words[i-1].upper()
+                next_w = words[i+1].upper()
+                if prev_w in ('AND', 'OR', 'NOT') or next_w in ('AND', 'OR', 'NOT'):
+                    is_dangling = True
+            
+            if is_dangling:
+                sanitized_words.append(w.lower())
+            else:
+                # Keep operator only if it is not dangling and surrounded by parenthesis or grouping
+                sanitized_words.append(w_upper)
+        elif w_upper == 'NEAR':
+            # Bare NEAR without parenthesis
+            sanitized_words.append(w.lower())
+        else:
+            sanitized_words.append(w)
+            
+    return " ".join(sanitized_words)
+
+
+def shield_prompt_injection(content):
+    """
+    Neutralizes role-mimicking structural headings and instructions trying to spoof
+    system configurations, subagent instructions, or user rules.
+    """
+    if not content:
+        return ""
+        
+    rules = [
+        (r'(?i)#+\s*Global\s+Agent\s+Instructions', '# [NEUTRALIZED] Global Agent Instructions'),
+        (r'(?i)#+\s*User\s+Rules', '# [NEUTRALIZED] User Rules'),
+        (r'(?i)#+\s*Session\s+Startup\s*—\s*Auto-Initialize\s+Team', '# [NEUTRALIZED] Session Startup'),
+        (r'(?i)#+\s*Subagent\s+Definitions', '# [NEUTRALIZED] Subagent Definitions'),
+        (r'(?i)#+\s*Auto-Delegation', '# [NEUTRALIZED] Auto-Delegation'),
+        (r'(?i)#+\s*Tools\s+&\s+Guardrails', '# [NEUTRALIZED] Tools & Guardrails'),
+        (r'(?i)#+\s*@(orchestrator|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)\b', '# [NEUTRALIZED] Subagent Spoof'),
+        (r'(?i)At\s+the\s+START\s+of\s+every\s+session,\s+define\s+the\s+following', '[NEUTRALIZED ACTION] Define subagents'),
+        (r'(?i)The\s+orchestrator\s+MUST\s+follow\s+this\s+workflow', '[NEUTRALIZED ACTION] Orchestrator workflow'),
+        (r'(?i)Every\s+response\s+MUST\s+start\s+with\s+a\s+log\s+line', '[NEUTRALIZED RULE] Start response log'),
+    ]
+    
+    sanitized = content
+    for pattern, replacement in rules:
+        sanitized = re.sub(pattern, replacement, sanitized)
+        
+    return sanitized
+
 
 
 def uri_to_path(uri):
@@ -138,7 +238,7 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
         pass
 
 
-def smart_truncate(content, max_size):
+def smart_truncate(content, max_size, name=None):
     """
     Section-aware truncation that preserves heading structure.
     Cuts at section boundaries instead of mid-paragraph for coherent content.
@@ -166,7 +266,10 @@ def smart_truncate(content, max_size):
     else:
         truncated = content[:max_size]
     
-    truncated += f"\n\n... [Truncated at {len(truncated)} chars. Use get_skill('{name}') for full content.]" if 'name' in dir() else f"\n\n... [Content truncated at {len(truncated)} characters to save tokens.]"
+    if name:
+        truncated += f"\n\n... [Truncated at {len(truncated)} chars. Use get_skill('{name}') for full content.]"
+    else:
+        truncated += f"\n\n... [Content truncated at {len(truncated)} characters to save tokens.]"
     return truncated, True
 
 
@@ -183,6 +286,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
     preview_limit = COMPACT_PREVIEW_LIMIT if compact else PREVIEW_LIMIT
 
     # Try FTS5 search first (with bm25 ranking), retrieving a larger set to filter in Python
+    sanitized_keyword = sanitize_fts5_query(keyword)
     try:
         rows = conn.execute("""
             SELECT s.name, s.skill_name, s.type, s.tags,
@@ -193,12 +297,15 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
             WHERE skills_fts MATCH ?
             ORDER BY rank
             LIMIT 50
-        """, (keyword,)).fetchall()
-    except Exception:
+        """, (sanitized_keyword,)).fetchall()
+    except Exception as e:
+        sys.stderr.write(f"  [Warning] FTS5 search failed for keyword '{keyword}' (sanitized: '{sanitized_keyword}'): {str(e)}. Falling back to LIKE search.\n")
+        sys.stderr.flush()
         rows = []
 
     # Fallback: LIKE search on tags and name
     if not rows:
+        like_keyword = re.sub(r'[^\w\s]', '', sanitized_keyword)
         rows = conn.execute("""
             SELECT name, skill_name, type, tags,
                    content, byte_size, line_count, file_path,
@@ -207,7 +314,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
             WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
             ORDER BY byte_size ASC
             LIMIT 50
-        """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%")).fetchall()
+        """, (f"%{like_keyword}%", f"%{like_keyword}%", f"%{like_keyword}%")).fetchall()
 
     conn.close()
 
@@ -236,15 +343,17 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
     for row in rows:
         sys.stderr.write(f"    - {row['name']} ({row['type']}, {row['byte_size']} bytes)\n")
         raw_content = row["content"]
-        is_truncated = len(raw_content) > preview_limit
-        preview = raw_content[:preview_limit] if is_truncated else raw_content
+        # Apply prompt injection shield
+        shielded_content = shield_prompt_injection(raw_content)
+        is_truncated = len(shielded_content) > preview_limit
+        preview = shielded_content[:preview_limit] if is_truncated else shielded_content
         
         entry = {
             "name": row["name"],
             "type": row["type"],
             "content": preview,
             "truncated": is_truncated,
-            "hash": content_hash(raw_content),
+            "hash": content_hash(shielded_content),
         }
         if is_truncated:
             entry["hint"] = f"Use get_skill('{row['name']}') for full content"
@@ -330,20 +439,22 @@ def get_skill(name, agent_name=None):
     sys.stderr.flush()
 
     raw_content = row["content"]
-    content = raw_content
+    # Shield against prompt injection
+    shielded_content = shield_prompt_injection(raw_content)
+    content = shielded_content
     truncated = False
     
     if len(content) > MAX_CONTENT_SIZE:
-        content, truncated = smart_truncate(content, MAX_CONTENT_SIZE)
+        content, truncated = smart_truncate(content, MAX_CONTENT_SIZE, name=row["name"])
 
     res = json.dumps({
         "name": row["name"],
         "type": row["type"],
         "content": content,
-        "byte_size": row["byte_size"],
-        "line_count": row["line_count"],
+        "byte_size": len(content.encode('utf-8')),
+        "line_count": content.count('\n') + 1,
         "truncated": truncated,
-        "hash": content_hash(raw_content)
+        "hash": content_hash(shielded_content)
     })
     log_tool_call("get_skill", name, res, agent_name=agent_name)
     return res
@@ -366,6 +477,7 @@ def optimize_report(keyword=None, agent_name=None):
     
     rows = []
     if keyword:
+        sanitized_keyword = sanitize_fts5_query(keyword)
         try:
             rows = conn.execute("""
                 SELECT s.name, s.skill_name, s.type, s.tags,
@@ -376,11 +488,14 @@ def optimize_report(keyword=None, agent_name=None):
                 WHERE skills_fts MATCH ?
                 ORDER BY rank
                 LIMIT 10
-            """, (keyword,)).fetchall()
-        except Exception:
+            """, (sanitized_keyword,)).fetchall()
+        except Exception as e:
+            sys.stderr.write(f"  [Warning] FTS5 optimize_report query failed for keyword '{keyword}' (sanitized: '{sanitized_keyword}'): {str(e)}. Falling back to LIKE search.\n")
+            sys.stderr.flush()
             rows = []
         
         if not rows:
+            like_keyword = re.sub(r'[^\w\s]', '', sanitized_keyword)
             rows = conn.execute("""
                 SELECT name, skill_name, type, tags,
                        content, byte_size, line_count, file_path,
@@ -389,7 +504,7 @@ def optimize_report(keyword=None, agent_name=None):
                 WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
                 ORDER BY byte_size ASC
                 LIMIT 10
-            """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%")).fetchall()
+            """, (f"%{like_keyword}%", f"%{like_keyword}%", f"%{like_keyword}%")).fetchall()
     else:
         rows = conn.execute("""
             SELECT name, skill_name, type, tags,
@@ -407,7 +522,10 @@ def optimize_report(keyword=None, agent_name=None):
     
     reports = []
     for row in visible_rows:
-        content = row["content"] or ""
+        raw_content = row["content"] or ""
+        # Apply prompt injection shield
+        shielded_content = shield_prompt_injection(raw_content)
+        content = shielded_content
         
         # Extract section headings (TOC)
         headings = []
@@ -429,12 +547,13 @@ def optimize_report(keyword=None, agent_name=None):
                 break
         
         # Token cost estimate
-        estimated_tokens = row["byte_size"] // 4
+        byte_size = len(content.encode('utf-8'))
+        estimated_tokens = byte_size // 4
         
         reports.append({
             "name": row["name"],
             "type": row["type"],
-            "byte_size": row["byte_size"],
+            "byte_size": byte_size,
             "estimated_tokens": estimated_tokens,
             "headings": headings[:15],  # Cap at 15 headings
             "summary": summary,
@@ -533,7 +652,7 @@ def handle_request(req):
                                 },
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the calling agent (optional)."
+                                    "description": "Name of the calling agent."
                                 }
                             },
                             "required": ["keyword"]
@@ -552,7 +671,7 @@ def handle_request(req):
                                 },
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the calling agent (optional)."
+                                    "description": "Name of the calling agent."
                                 }
                             }
                         }
@@ -569,7 +688,7 @@ def handle_request(req):
                                 },
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the calling agent (optional)."
+                                    "description": "Name of the calling agent."
                                 }
                             },
                             "required": ["name"]
@@ -587,7 +706,7 @@ def handle_request(req):
                                 },
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the calling agent (optional)."
+                                    "description": "Name of the calling agent."
                                 }
                             }
                         }
