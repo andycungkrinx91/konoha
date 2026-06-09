@@ -2723,8 +2723,13 @@ async function cmdUpgrade(args) {
   const spinner = startSpinner('Upgrading Konoha CLI...');
   spinner.success('Starting upgrade command...');
 
+  const options = { stdio: 'inherit' };
+  if (process.platform === 'win32') {
+    options.shell = true;
+  }
+
   try {
-    const res = spawnSync(cmd, cmdArgs, { stdio: 'inherit', shell: true });
+    const res = spawnSync(cmd, cmdArgs, options);
     if (res.status === 0) {
       success('Konoha has been successfully upgraded!');
     } else {
