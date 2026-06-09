@@ -71,7 +71,7 @@ After doing so, you can run all commands directly:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.0.2) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.0.3) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
@@ -316,7 +316,7 @@ The Antigravity system enforces several default safety and behavioral guardrails
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.0.2)
+title: Konoha System Architecture (v1.0.3)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -453,7 +453,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.2)
+title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.3)
 ---
 sequenceDiagram
     actor User as 👤 User

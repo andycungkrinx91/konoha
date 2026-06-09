@@ -2682,7 +2682,7 @@ async function getLatestVersion() {
 
 async function cmdVersion(args) {
   const pkgPath = path.join(__dirname, '..', 'package.json');
-  let currentVersion = '1.0.2';
+  let currentVersion = '1.0.3';
   try {
     currentVersion = require(pkgPath).version;
   } catch {}
