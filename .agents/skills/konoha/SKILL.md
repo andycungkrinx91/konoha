@@ -17,8 +17,10 @@ graph TB
     classDef presentation fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef orchestration fill:#1e293b,stroke:#475569,stroke-width:2px,color:#e2e8f0;
     classDef cognitive fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#f8fafc;
+    classDef modelLayer fill:#311b92,stroke:#651fff,stroke-width:2px,color:#f8fafc;
     classDef middleware fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
     classDef persistence fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
+    classDef mgmt fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#dbeafe;
 
     %% Subgraphs for Layered Architecture
     subgraph Layer1 ["1. Presentation & Control Layer"]
@@ -26,8 +28,14 @@ graph TB
         IDE["💻 Antigravity IDE / CLI"]
     end
 
+    subgraph Layer15 ["1.5 Management & Configuration Layer"]
+        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, models, skill, agent)"]
+        AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
+        MCPConfig["📄 MCP Config<br>(mcp_config.json)"]
+    end
+
     subgraph Layer2 ["2. Cognitive Agent Layer"]
-        Router{"🔀 Task Router <br/> (User Rules)"}
+        Router{"🔀 Orchestrator <br/> (Main Agent)"}
         
         subgraph Subagents ["Specialized Ninja Agents"]
             Genin["🍃 Genin <br/> (Scout)"]
@@ -37,6 +45,12 @@ graph TB
             Tokubetsu["🎯 Tokubetsu <br/> (Scribe)"]
             Kage["🌀 Kage <br/> (Architect)"]
         end
+    end
+
+    subgraph Layer25 ["2.5 Model Execution & Fallback Layer"]
+        Registry["🤖 LLM Model Registry <br/> (Gemini, Claude, GPT)"]
+        Fallback{"⚠️ Fallback Router <br/> (Fail -> Gemini 3.5 Flash High)"}
+        QuotaLimit["🛑 Quota Exhaustion? <br/> (Warning & Recovery Guide)"]
     end
 
     subgraph Layer3 ["3. Context Middleware Layer (MCP)"]
@@ -51,11 +65,27 @@ graph TB
     %% Workflow Connections
     User -->|Prompts| IDE
     IDE -->|Rules Evaluation| Router
-    Router -->|Delegate Task| Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage
     
-    Subagents -->|find_skill / get_skill| Server
+    %% CLI and Configuration flow
+    CLI -->|Updates configuration| MCPConfig
+    CLI -->|Manages agents/models| AgentConfig
+    CLI -->|Triggers index/migration| DB
+    IDE -->|Loads MCP servers| MCPConfig
+    Router -->|Reads agent definitions| AgentConfig
+    
+    Router -->|1. find_skill (Discover)| Server
+    Router -->|2. Delegate Task| Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage
+    
+    Subagents -->|3. Base Skill + Extra| Server
     Server -->|Read / Search| DB
     DB -->|External Content Map| FTS5
+    
+    %% Model Execution Workflow
+    Subagents -->|Execute Prompts| Registry
+    Registry -->|Quota Error / 429| Fallback
+    Fallback -->|Route to Fallback Model| Registry
+    Fallback -->|Total Exhaustion| QuotaLimit
+    QuotaLimit -->|Instruct User| User
     
     Server -->|Precise Snippet about 4KB Payload| IDE
     IDE -->|Context-Aware Response| User
@@ -67,8 +97,10 @@ graph TB
     class User,IDE presentation;
     class Router orchestration;
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage cognitive;
+    class Registry,Fallback,QuotaLimit modelLayer;
     class Server middleware;
     class DB,FTS5 persistence;
+    class CLI,AgentConfig,MCPConfig mgmt;
 ```
 
 ## Database Schema
@@ -102,6 +134,8 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries first. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
+| `node bin/cli.js version` | Displays the current local version (1.0.1) and checks for updates from GitHub. |
+| `node bin/cli.js upgrade` | Upgrades the Konoha CLI to the latest version directly from GitHub. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
 
 ## Development Guidelines
@@ -117,3 +151,8 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 3. Persistent Storage
 - User configurations (e.g. subagent JSON settings) must be saved to the user's home directory (`~/.agents/agents.json`).
 - Template files inside `src/templates/` serve only as fallbacks. Package template updates should fail silently in read-only global node_modules environments.
+
+### 4. Model Registry & Quota Failures
+- The Konoha application natively integrates with the **Antigravity Model Registry**. Subagent profiles in `agents.json` and `AGENTS.md` map directly to models available in the IDE (e.g., `Gemini 2.5 Flash`, `Gemini 3.1 Pro (High)`, `Claude Sonnet 4.6 (Thinking)`).
+- Maintainers must ensure that subagent configurations define fail-safe models, defaulting to `Gemini 3.5 Flash (High)` or `Gemini 2.5 Flash` as the primary fallback model tier during `RESOURCE_EXHAUSTED` / `429` (Quota limits) scenarios.
+- The system must display the standard quota limit warning message (`"Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."`) and follow the gcloud credentials switch and upgrade flow if total exhaustion occurs.

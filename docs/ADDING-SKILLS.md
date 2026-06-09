@@ -25,7 +25,7 @@ sequenceDiagram
     Registry-->>Workspace: Download & unpack skill to .agents/skills/
     Note over Workspace: Placed at ~/.agents/skills/ or ./.agents/skills/
     
-    Developer->>Workspace: "Run 'npx konoha migrate'"
+    Developer->>Workspace: "Run 'konoha migrate'"
     Workspace->>DB: Scan directories & extract SKILL.md + reference markdown files
     DB-->>Workspace: Index files using SQLite FTS5 (FTS index matches updated)
     
@@ -59,7 +59,7 @@ npx skills add https://github.com/pageai-pro/ralph-loop --skill prd-creator
 Run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
 
 ```bash
-npx konoha migrate
+konoha migrate
 ```
 
 The migration automatically:
@@ -81,13 +81,13 @@ The migration automatically:
 Test that the MCP server can find the newly added skill rules. Run the sample query check:
 
 ```bash
-npx konoha test
+konoha test
 ```
 
 Or run a status check to verify the database stats have updated:
 
 ```bash
-npx konoha status
+konoha status
 ```
 
 You should see your total indexed count increase (e.g., from `93` to `96` entries).

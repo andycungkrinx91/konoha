@@ -51,12 +51,12 @@ npx github:andycungkrinx91/konoha init
 
 1. Check if skills were migrated:
    ```bash
-   npx github:andycungkrinx91/konoha status
+   konoha status
    ```
 
 2. If "Total entries: 0", re-run migration:
    ```bash
-   npx github:andycungkrinx91/konoha migrate
+   konoha migrate
    ```
 
 3. Check that skills exist at `~/.agents/skills/`:
@@ -105,7 +105,7 @@ If the database becomes corrupted:
 ```bash
 # Remove and re-create
 rm ~/.gemini/skills-db/skills.db
-npx github:andycungkrinx91/konoha migrate
+konoha migrate
 ```
 
 ### Checking MCP server manually
@@ -117,8 +117,41 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.g
 
 Expected: A JSON response with `protocolVersion` and `serverInfo`.
 
+## Quota Limits, Rate Limits, and API Errors
+
+If a task execution encounters quota limits, rate limits, or API errors (such as `RESOURCE_EXHAUSTED` or HTTP `429` status codes), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
+
+The system and agent configurations will automatically and immediately fallback to `Gemini 3.5 Flash (High)` to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent will halt execution gracefully and output this exact warning:
+
+> [!WARNING]
+> "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+
+### Step-by-Step Guide to Resolve Quota Exhaustion:
+
+1. **Switch Google Accounts**:
+   Open a terminal window and run the following command to authenticate with a different Google account that has available quota:
+   ```bash
+   gcloud auth application-default login
+   ```
+   Follow the prompts in your web browser to complete the sign-in process for the new account.
+
+2. **Verify Active Account**:
+   To inspect and verify which Google account is currently authorized and active, execute:
+   ```bash
+   gcloud auth list
+   ```
+   Confirm that the active account marked with an asterisk is the correct one.
+
+3. **Resume the Coding Session**:
+   - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
+   - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
+
+4. **Upgrade Google AI Subscription**:
+   - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
+   - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
+
 ## Getting Help
 
-1. Run `npx github:andycungkrinx91/konoha status` for diagnostic info
-2. Run `npx github:andycungkrinx91/konoha test` for server health check
+1. Run `konoha status` for diagnostic info
+2. Run `konoha test` for server health check
 3. Check the logs at `~/.gemini/skills-db/` for any error files

@@ -51,9 +51,14 @@ try:
             returned_bytes INTEGER,
             total_library_bytes INTEGER,
             bytes_saved INTEGER,
-            tokens_saved INTEGER
+            tokens_saved INTEGER,
+            agent TEXT
         );
     """)
+    try:
+        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
+    except sqlite3.OperationalError:
+        pass
     
     stats_today = query_stats(conn, "today")
     stats_7days = query_stats(conn, "7days")

@@ -4,7 +4,7 @@
 
 - Antigravity IDE installed and running
 - Python 3.8+ installed
-- Node.js 18+ (for npx)
+- Node.js 18+
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ## Step 1: Install Skills-DB
@@ -110,7 +110,7 @@ After defining subagents, use this routing for all tasks:
 | UI design, frontend components, styling | → `jonin` |
 | Backend logic, bug fixing, DevOps, infrastructure, CI/CD | → `anbu` |
 | Technical writing, README, API docs, runbooks, onboarding | → `tokubetsu-jonin` |
-| Simple/trivial tasks | Handle directly |
+| Simple/trivial tasks | MUST still be delegated. The main agent (Antigravity) acts ONLY as an orchestrator/coordinator and must never execute code modifications or direct tool calls directly. |
 
 For complex multi-domain tasks, invoke multiple subagents in parallel.
 
@@ -123,7 +123,35 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
   `[🍃 Genin] scout active. Calling skills-db.find_skill('keyword') and/or semble.search(...)`
 - Follow the team configuration in `~/.agents/AGENTS.md`
 - **Read-Only tfvars Guardrail**: All `terraform.tfvars` files across all provider directories (e.g., `terraform/<provider>/terraform.tfvars`) are strictly **read-only** by default. AI agents must **ALWAYS ask for permission** (using the `ask_permission` tool or by asking the user directly) before attempting to read or write any `terraform.tfvars` file.
+- **Strict Subagent Delegation**: Subagent delegation is strictly restricted to the 6 official Konoha agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Defining or creating custom subagents is prohibited.
+- **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited for the AI. The creation and deletion of subagents are manual features reserved exclusively for the user.
 - **No Git Commands Guardrail**: AI agents must **NEVER** execute any `git` command whatsoever — including read-only commands such as `git status`, `git diff`, `git log`, `git branch`, `git grep`, or any other `git` subcommand. All git operations are strictly reserved for the user to perform manually. If you need to search code, use `rg` (ripgrep) or the semble MCP instead of `git grep`. If you need to check file changes, use file system tools instead of `git diff` or `git status`. There are **NO exceptions** to this rule.
+- **Quota & Rate Limits Handling**: In case of Quota Limits or API errors (such as `RESOURCE_EXHAUSTED` or `429` errors), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task. The agent and the runtime must immediately and automatically fallback to using `Gemini 3.5 Flash (High)` for all subsequent requests to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent must halt execution gracefully and output this exact warning:
+  "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+
+  ### Step-by-Step Guide to Resolve Quota Exhaustion:
+
+  1. **Switch Google Accounts**:
+     Open a terminal window and run the following command to authenticate with a different Google account that has available quota:
+     ```bash
+     gcloud auth application-default login
+     ```
+     Follow the prompts in your web browser to complete the sign-in process for the new account.
+
+  2. **Verify Active Account**:
+     To inspect and verify which Google account is currently authorized and active, execute:
+     ```bash
+     gcloud auth list
+     ```
+     Confirm that the active account marked with an asterisk is the correct one.
+
+  3. **Resume the Coding Session**:
+     - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
+     - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
+
+  4. **Upgrade Google AI Subscription**:
+     - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
+     - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
 ```
 
 ## Step 5: Verify in IDE

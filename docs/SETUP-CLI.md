@@ -4,7 +4,7 @@
 
 - Antigravity CLI (`agy`) installed
 - Python 3.8+ installed
-- Node.js 18+ (for npx)
+- Node.js 18+
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ## Step 1: Install Skills-DB
@@ -134,40 +134,80 @@ Konoha provides CLI commands to manage custom skills and multi-agent configurati
 
 ### Managing Subagent Configurations
 
-The subagent configurations are stored in a structured format, enabling you to inspect, create, or modify your agent team.
+The subagent configurations are stored in a structured format, enabling you to inspect or modify your agent team.
 
 - **List Subagents and Active Skills**:
   ```bash
   konoha agent list
   ```
-- **Create a New Custom Subagent**:
+
+- **Create a Custom Subagent**:
   ```bash
   konoha agent create <agent-name> [options]
   ```
-  Options:
-  - `--title "<Title>"`
-  - `--purpose "<Purpose>"`
-  - `--instructions "<Instructions>"`
-  - `--keywords "<Keywords>"`
-  
-  Example:
+  Creates a new custom subagent configuration. Options include:
+  - `--title "Title"`: Display title of your agent (e.g., `"Database Expert"`).
+  - `--purpose "Purpose"`: Goal of the agent (e.g., `"Optimize SQL queries"`).
+  - `--keywords "keywords"`: Comma-separated triggers that delegate tasks to this agent (e.g., `"database, SQL"`).
+  - `--instructions "text"`: Special instructions given to this agent.
+
+  *Example:*
   ```bash
-  konoha agent create test-ninja --title "Testing Ninja" --purpose "A testing ninja" --instructions "Test instructions" --keywords "testing"
+  konoha agent create sql-expert \
+    --title "Database Expert" \
+    --purpose "Optimize SQL queries and verify database schemas" \
+    --keywords "sql, database, query optimization" \
+    --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
   ```
-- **Embed a Skill to a Subagent**:
+
+- **Configure Subagent Models Interactively**:
   ```bash
-  konoha agent embed <agent-name> <skill-name>
+  konoha agent models [agent-name]
   ```
-- **Remove/Unembed a Skill from a Subagent**:
+
+- **Toggle/Embed Skills for a Subagent Interactively**:
   ```bash
-  konoha agent unembed <agent-name> <skill-name>
+  konoha agent skill [agent-name]
   ```
-- **Delete a Subagent Entirely**:
+
+- **Delete and Prune a Subagent**:
   ```bash
   konoha agent delete <agent-name>
   ```
+  Deletes the subagent configuration from `agents.json` and prunes its historical metrics from the SQLite database's `tool_calls` table, preventing legacy subagents (like `ops-ninja` or `shadow-anbu`) from cluttering the status call frequency list.
+### Checking Version and Upgrading
+
+To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
+
+- **Check Current Version**:
+  Displays the installed local version (noted as `1.0.1`) and queries GitHub to check if a newer version is available.
+  ```bash
+  konoha version
+  ```
+
+- **Upgrade CLI**:
+  Upgrades the local Konoha installation to the latest stable release from GitHub in-place.
+  ```bash
+  konoha upgrade
+  ```
+
+### Model Registry and Fallbacks
+
+Konoha CLI maintains a registry of available Large Language Models (LLMs) that can be assigned to your subagents.
+
+- **Available Models Registry**:
+  - `Gemini 3.5 Flash (Low / Medium / High)`
+  - `Gemini 3.1 Pro (Low / High)`
+  - `Claude Sonnet 4.6 (Thinking)`
+  - `Claude Opus 4.6 (Thinking)`
+  - `GPT-OSS 120B (Medium)`
+
+- **Fallback Configuration**:
+  Subagents default to using `Gemini 3.5 Flash (High)` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
+
+- **Quota Exceeded Recovery**:
+  In case of total quota exhaustion, the system will output the standard Antigravity account limit warning. Refer to the recovery steps (using `gcloud auth login` or subscription upgrades) documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Troubleshooting
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues.
-

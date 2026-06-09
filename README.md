@@ -38,7 +38,7 @@ This wastes tokens on content that's mostly irrelevant to the current task.
 ## Quick Start
 
 ```bash
-# Install on any machine (Linux/macOS/Windows) directly from GitHub
+# Initialize on any machine directly from GitHub
 npx github:andycungkrinx91/konoha init
 
 # Verify it works
@@ -50,20 +50,20 @@ konoha status
 
 ## Requirements
 
-- **Node.js** ≥ 18 (for npx)
+- **Node.js** ≥ 18
 - **Python 3** ≥ 3.8 (for MCP server, uses stdlib only — no pip packages)
 - **Antigravity IDE** or **Antigravity CLI** (agy)
 - **Agent skills** in `~/.agents/skills/` (with SKILL.md files)
 
 ## Commands
 
-To use the short `konoha` command directly from your terminal, install the package globally:
+To run all commands simply as `konoha <command>`, install the package globally:
 
 ```bash
 npm install -g github:andycungkrinx91/konoha
 ```
 
-After doing so, you can run all commands simply as `konoha <command>`. Alternatively, you can run them on-the-fly using `npx github:andycungkrinx91/konoha <command>` without installing it globally.
+After doing so, you can run all commands directly:
 
 | Command | Description |
 |---------|-------------|
@@ -71,10 +71,14 @@ After doing so, you can run all commands simply as `konoha <command>`. Alternati
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
+| `konoha version` | Display current local version (1.0.1) and check for updates from GitHub |
+| `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
+| `konoha doctor` | Diagnose environment health and automatically repair missing files |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
-| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `embed`, `unembed`, `delete`) |
+| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `models`, `skill`, `delete`, `status`) |
+| `konoha models <subcommand>` | Manage available LLM models and assign them to subagents |
 | `konoha help` | Show help |
 
 ## What Gets Installed
@@ -137,12 +141,13 @@ Find files semantically related to a given file — useful for understanding dep
 
 > **All agents are required to prefer `semble` over `grep`/`glob` for code discovery.** Semble provides semantic understanding of code structure, not just text matching.
 
-## Custom Agent Team (Naruto Ninja Ranks)
+## Official Agent Team (Naruto Ninja Ranks)
 
-The installer updates your configuration to define a cohesive, specialized team of **6 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities and tool access:
+The installer updates your configuration to define a cohesive, specialized team of **6 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities, preferred model tier, fallback settings, and tool access:
 
 ### 1. 🍃 Genin (Junior Ninja)
 * **Role**: Codebase Reconnaissance & Scout
+* **Model Tier**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Fast, read-only code exploration.
   - Tracing codepaths, mapping dependencies, and mapping repository structure.
@@ -151,6 +156,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 2. 📜 Chunin (Journeyman Ninja)
 * **Role**: Intel Gathering, Web Research, & Documentation
+* **Model Tier**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Researching libraries, API documentations, version differences, and best practices.
   - Using semantic code search (semble) to discover local repository context and dependencies before searching the web.
@@ -160,6 +166,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 3. 🛡️ Jonin (Elite Ninja)
 * **Role**: UI/UX Master, Styling, & Component Building
+* **Model Tier**: `Claude Sonnet 4.6 (Thinking)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Building gorgeous, premium interfaces (e.g., SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web).
   - Enforcing design tokens, custom typography, animations, gradients, and responsive layouts.
@@ -168,6 +175,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 4. 👥 Anbu (Special Black Ops Ninja)
 * **Role**: Backend Specialist, Bug Fixing, & DevOps
+* **Model Tier**: `Gemini 3.5 Flash (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Backend development, database schema design, and server APIs.
   - Undercover diagnostics of complex bugs, memory leaks, and environment failures.
@@ -177,6 +185,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Elite Ninja)
 * **Role**: Technical Writing, Documentation, & Scribe
+* **Model Tier**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Writing and maintaining technical documentation, specs, readme guides, and runbooks.
   - Ensuring readability and reader-first principles, including command and code examples.
@@ -184,11 +193,115 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 6. 🌀 Kage (Village Shadow Leader)
 * **Role**: Senior Architect, Strategist, & Deep Problem Solver
+* **Model Tier**: `Gemini 3.5 Flash (Medium)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - High-level design decisions, security reviews, trade-off matrices, and risk assessments.
   - Handles complex architecture issues and provides rollback strategies.
   - The most comprehensive and capable decision maker on the team.
 * **Skills-DB Usage**: Calls `find_skill("code review architecture devsecops")` to retrieve advanced architectural frameworks.
+
+## Model Registry & Configuration
+
+To optimize cost and response latency, subagents are mapped to specific LLM tiers. You can inspect or modify these mappings using the CLI models commands (`konoha models list`, `konoha agent models`).
+
+### Available Models Registry
+
+The following models are available in the Antigravity registry:
+
+| Model Name | Tier / Type | Command / Config Alias |
+|---|---|---|
+| **Gemini 3.5 Flash (Low)** | Fast / Cloud | `flash-low`, `low` |
+| **Gemini 3.5 Flash (Medium)** | Fast / Cloud | `flash-medium`, `medium` |
+| **Gemini 3.5 Flash (High)** | Fast / Cloud | `flash-high`, `high` |
+| **Gemini 3.1 Pro (Low)** | Standard / Cloud | `pro-low` |
+| **Gemini 3.1 Pro (High)** | Standard / Cloud | `pro-high` |
+| **Claude Sonnet 4.6 (Thinking)** | Reasoning / Cloud | `sonnet`, `sonnet-thinking` |
+| **Claude Opus 4.6 (Thinking)** | Advanced Reasoning / Cloud | `opus`, `opus-thinking` |
+| **GPT-OSS 120B (Medium)** | Standard / Cloud | `gpt`, `gpt-oss-120b` |
+
+### Default Fallback Model
+
+If a subagent encounters rate limits, transient network issues, or API errors (such as `RESOURCE_EXHAUSTED` or HTTP `429` status codes) with its primary model, the agent and runtime configuration will automatically and immediately redirect subsequent queries to **`Gemini 3.5 Flash (High)`** to ensure fail-safe operation and continuous capability.
+
+### Quota Limits Warning & Recovery
+
+When both the primary model and the fallback models return `RESOURCE_EXHAUSTED` or `429` status codes, the system is in total quota exhaustion. In this event, the active subagent will halt execution gracefully and display this exact warning message:
+
+> "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+
+#### Step-by-Step Recovery Guide:
+
+1. **Switch Google Accounts**:
+   Open a terminal window and run:
+   ```bash
+   gcloud auth application-default login
+   ```
+   Follow the web browser prompts to complete authentication with another Google account that has active quota.
+
+2. **Verify Active Account**:
+   To check which account is currently active:
+   ```bash
+   gcloud auth list
+   ```
+   Ensure the active account is marked with an asterisk.
+
+3. **Resume Session**:
+   - **Antigravity IDE**: Close the active agent chat panel and reload your workspace or open a new chat panel.
+   - **Antigravity CLI**: Re-run your command (e.g. `konoha test` or `agy`) to continue.
+
+4. **Upgrade Google AI Subscription**:
+   - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
+   - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account or request a quota limit increase.
+
+## Creating a Custom Subagent
+
+You can create a brand new custom subagent configuration using the CLI. To create a subagent, run:
+
+```bash
+konoha agent create <name> [options]
+```
+
+**Options**:
+- `--title "Title"`: Display title of your agent (e.g., `"Database Expert"`).
+- `--purpose "Purpose"`: Goal of the agent (e.g., `"Optimize SQL queries"`).
+- `--keywords "keywords"`: Comma-separated triggers that delegate tasks to this agent (e.g., `"database, SQL"`).
+- `--instructions "text"`: Special instructions given to this agent.
+
+**Example**:
+```bash
+konoha agent create sql-expert \
+  --title "Database Expert" \
+  --purpose "Optimize SQL queries and verify database schemas" \
+  --keywords "sql, database, query optimization" \
+  --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
+```
+
+When this command is run, Konoha:
+1. Validates the options and appends the new subagent configuration to `agents.json`.
+2. Automatically generates the updated `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md` containing the new agent definitions, registering it with the Antigravity orchestration environment.
+
+## Subagent Deletion and Pruning
+
+You can manage subagent configurations via the CLI. To completely remove a subagent, run:
+
+```bash
+konoha agent delete <name>
+```
+
+When this command is run, Konoha:
+1. Deletes the subagent from configurations (`agents.json`).
+2. Prunes its historical metrics from the SQLite database's `tool_calls` table (which resolves issues where deleted/legacy subagents like `ops-ninja` or `shadow-anbu` permanently clutter the status call frequency list).
+
+## Default Guardrails
+
+The Antigravity system enforces several default safety and behavioral guardrails across all subagents:
+
+- **Proactive Execution (No commanding back)**: Subagents must never command or instruct the user to manually create or modify files, or run terminal commands that the agent is equipped to perform itself. The agent must proactively perform all edits, code additions, shell commands, and investigations using its own tool suite rather than writing instructions for the developer to execute them.
+- **Read-Only `.tfvars` & `.env` Guardrail**: All `.tfvars` and `.env` files (including `terraform.tfvars`, any files with the `.tfvars` extension, and `.env` files) are strictly protected and **read-only** by default. Subagents must **always ask for user permission** (using the `ask_permission` tool or by asking the user directly) before attempting to read or write any of these files to prevent unauthorized access or accidental configuration overrides.
+- **No Git Commands Guardrail**: Subagents are strictly prohibited from executing any `git` command whatsoever (including read-only queries like `git status`, `git log`, or `git diff`). All git operations are strictly reserved for the developer to perform manually. Use alternative system discovery tools or `semble` instead.
+- **Strict Subagent Delegation Guardrail**: Subagent delegation is strictly restricted to the 6 official Konoha agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Defining or creating custom subagents is prohibited.
+- **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited for the AI. The creation and deletion of subagents are manual features reserved exclusively for the user.
+- **Quota Fallback to Direct Tool Calls**: In case of quota limits (such as `RESOURCE_EXHAUSTED` or `429` errors), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
 
 ## Setup & Usage Guides
 
@@ -203,7 +316,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ```mermaid
 ---
-title: Konoha System Architecture
+title: Konoha System Architecture (v1.0.1)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -211,17 +324,26 @@ flowchart TB
     classDef ideNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef routerNode fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
     classDef agentNode fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#e0e7ff;
+    classDef modelNode fill:#311b92,stroke:#651fff,stroke-width:2px,color:#f5f3ff;
     classDef mcpNode fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ecfdf5;
     classDef sembleNode fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#ccfbf1;
     classDef dbNode fill:#451a03,stroke:#fb923c,stroke-width:2px,color:#fff7ed;
     classDef ftsNode fill:#451a03,stroke:#fbbf24,stroke-width:2px,color:#fff7ed;
     classDef codeNode fill:#1c1917,stroke:#a8a29e,stroke-width:2px,color:#e7e5e4;
+    classDef mgmtNode fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#dbeafe;
 
     %% ── Layer 1: Presentation ──────────────────────────────────
     subgraph L1 ["Layer 1 — Presentation"]
         direction LR
         User(["👤 End User"])
         IDE("💻 Antigravity IDE / CLI")
+    end
+
+    %% ── Layer 1.5: Management & Configuration ──────────────────
+    subgraph LM ["Layer 1.5 — Management & Configuration"]
+        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, models, skill, agent)"]
+        AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
+        MCPConfig["📄 MCP Config<br>(mcp_config.json)"]
     end
 
     %% ── Layer 2: Cognitive Agent Orchestration ─────────────────
@@ -237,6 +359,13 @@ flowchart TB
             Tokubetsu("🎯 Tokubetsu<br>Scribe")
             Kage("🌀 Kage<br>Architect")
         end
+    end
+
+    %% ── Layer 2.5: LLM Execution & Fallback ────────────────────
+    subgraph L25 ["Layer 2.5 — LLM Execution & Fallback"]
+        LLMRegistry["🤖 LLM Model Registry<br>(Gemini, Claude, GPT)"]
+        FallbackRouter{"⚠️ Fallback Router<br>(Route on 429/Resource Exhausted)"}
+        QuotaLimit["🛑 Quota Exhaustion<br>( gcloud auth login / Upgrade )"]
     end
 
     %% ── Layer 3: MCP Middleware ────────────────────────────────
@@ -258,12 +387,26 @@ flowchart TB
     User -->|"1. Natural language prompt"| IDE
     IDE -->|"2. Evaluate rules"| Router
 
+    %% CLI and Configuration flow
+    CLI -->|"Updates configuration"| MCPConfig
+    CLI -->|"Manages agents/models"| AgentConfig
+    CLI -->|"Triggers index/migration"| DB
+    IDE -->|"Loads MCP servers"| MCPConfig
+    Router -->|"Reads agent definitions"| AgentConfig
+
     Router -->|"3. Delegate task"| Genin
     Router -->|"3. Delegate task"| Chunin
     Router -->|"3. Delegate task"| Jonin
     Router -->|"3. Delegate task"| Anbu
     Router -->|"3. Delegate task"| Tokubetsu
     Router -->|"3. Delegate task"| Kage
+
+    %% Model Execution Workflow
+    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|"4. Execute prompts"| LLMRegistry
+    LLMRegistry -->|"5a. Quota limit / 429 error"| FallbackRouter
+    FallbackRouter -->|"5b. Route to Fallback Model<br>(Gemini 3.5 Flash High)"| LLMRegistry
+    FallbackRouter -->|"5c. Total Exhaustion"| QuotaLimit
+    QuotaLimit -->|"5d. Warning / Recovery instructions"| User
 
     Genin -->|"4a. find_skill()"| SkillsDB
     Chunin -->|"4a. find_skill()"| SkillsDB
@@ -295,11 +438,13 @@ flowchart TB
     class IDE ideNode
     class Router routerNode
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage agentNode
+    class LLMRegistry,FallbackRouter,QuotaLimit modelNode
     class SkillsDB mcpNode
     class Semble sembleNode
     class DB dbNode
     class FTS5 ftsNode
     class Codebase codeNode
+    class CLI,AgentConfig,MCPConfig mgmtNode
 ```
 
 > **Legend** — 🔵 Presentation &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
@@ -308,40 +453,55 @@ flowchart TB
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with Dual-MCP Integration
+title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.1)
 ---
 sequenceDiagram
     actor User as 👤 User
     participant IDE as 💻 Antigravity IDE/CLI
-    participant Router as 🔀 Task Router
+    participant Router as 🔀 Orchestrator (Main)
+    participant SkillsDB as ⚙️ skills-db MCP
     participant Agent as 🥷 Ninja Agent
+    participant Model as 🤖 LLM Model Registry
     participant Semble as 🔮 Semble MCP
     participant Code as 📂 Codebase
-    participant SkillsDB as ⚙️ skills-db MCP
     participant DB as 🗄️ SQLite FTS5
 
     User->>IDE: Natural language prompt
     activate IDE
-    IDE->>Router: Evaluate GEMINI.md rules
+    IDE->>Router: Evaluate task
     activate Router
 
-    Router->>Agent: Delegate to specialist (e.g. Anbu, Jonin)
+    %% --- Skill Discovery Phase ---
+    Note over Router: Step 1: Skill Discovery
+    Router->>SkillsDB: find_skill() or optimize_report()
+    activate SkillsDB
+    SkillsDB->>DB: FTS5 MATCH query
+    DB-->>SkillsDB: Return ranked results
+    SkillsDB-->>Router: Top relevant skills
+    deactivate SkillsDB
+
+    %% --- Routing Phase ---
+    Note over Router: Step 2: Delegation
+    Router->>Agent: Delegate to specialist (e.g. Anbu)
     deactivate Router
     activate Agent
 
-    %% --- Semble Search Phase ---
-    Note over Agent: Step 1: Code reconnaissance & discovery
+    %% --- Agent Execution Phase ---
+    Note over Agent: Step 3: Base Skill & Code Recon
+    Agent->>SkillsDB: find_skill("anbu-skill")
+    SkillsDB-->>Agent: Load SOPs
+    
     Agent->>Semble: search(query) or find_related()
     activate Semble
-    Semble->>Code: Perform semantic analysis & index lookup
+    Semble->>Code: Perform semantic analysis
     activate Code
-    Code-->>Semble: Retrieve relevant matching files
+    Code-->>Semble: Retrieve matching files
     deactivate Code
     Semble-->>Agent: Return code matches & symbols
     deactivate Semble
 
     %% --- Skills-DB Search Phase ---
-    Note over Agent: Step 2: Retrieve domain knowledge guidelines
+    Note over Agent: Step 4: Additional Skills via Direct Tool Calls
     Agent->>SkillsDB: find_skill(keyword)
     activate SkillsDB
     SkillsDB->>DB: Execute FTS5 MATCH query with BM25 ranking
@@ -358,8 +518,25 @@ sequenceDiagram
     end
     deactivate SkillsDB
 
+    %% --- Model Execution & Fallback ---
+    Note over Agent: Step 5: Prompt Execution & Model Routing
+    Agent->>Model: Send prompt with context
+    activate Model
+    alt Model active / No Quota limits
+        Model-->>Agent: Return generated response
+    else Rate Limit / 429 / RESOURCE_EXHAUSTED
+        Model-->>Agent: API Quota Error
+        Note over Agent: Fallback Engine triggered
+        Agent->>Model: Execute prompt on Gemini 3.5 Flash (High)
+        Model-->>Agent: Return generated response
+    else Total Quota Exhaustion (All models fail)
+        Model-->>Agent: Total Quota Exhaustion
+        Agent-->>User: Output "Your Antigravity account has reach the limit quota..." warning
+    end
+    deactivate Model
+
     %% --- Response Phase ---
-    Note over Agent: Step 3: Synthesis & implementation
+    Note over Agent: Step 6: Synthesis & Final Answer
     Agent-->>IDE: Context-aware precise response
     deactivate Agent
     IDE-->>User: Formatted final answer
@@ -395,7 +572,7 @@ sequenceDiagram
    - **Result**: Context payload is reduced from **~1.1 MB per session** to just **~4 KB - 12 KB per query** (representing an **83% to 98% reduction in token consumption**).
 
 2. **Unified, Automated Configuration**:
-   - A single, lightweight CLI tool `npx github:andycungkrinx91/konoha` installs the server, migrates the files, and registers it.
+   - A single, lightweight CLI tool `konoha` installs the server, migrates the files, and registers it.
    - Installs to a standardized path:
      - MCP Config: `~/.gemini/config/mcp_config.json` (registers the server across all Antigravity tools)
      - Executables & DB: `~/.gemini/skills-db/`

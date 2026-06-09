@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Skills Migration Script
+Skills Migration Script (v1.1.0 — Enhanced Token Optimization)
 Migrates skill content from ~/.agents/skills/ into SQLite FTS5 database.
 
 Each SKILL.md is stored as type='skill'.
@@ -9,6 +9,12 @@ Scripts are NOT stored — they remain on disk. Script metadata (paths, commands
 is captured from SKILL.md content.
 
 Idempotent: safe to re-run (uses INSERT OR REPLACE).
+
+v1.1.0 changes:
+- Enhanced optimize_content() with deeper transformations
+- Strip redundant markdown formatting on headings
+- Compress bullet lists and normalize code blocks
+- Hash-based content dedup reporting
 """
 
 import sqlite3
@@ -16,6 +22,7 @@ import os
 import glob
 import re
 import sys
+import hashlib
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -90,9 +97,14 @@ def setup_db():
             returned_bytes INTEGER,
             total_library_bytes INTEGER,
             bytes_saved INTEGER,
-            tokens_saved INTEGER
+            tokens_saved INTEGER,
+            agent TEXT
         );
     """)
+    try:
+        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
@@ -147,6 +159,95 @@ def extract_tags_from_filename(filepath, skill_name):
     return ",".join([skill_name] + parts)
 
 
+def optimize_content(content):
+    """
+    Enhanced markdown content optimization to reduce token usage (v1.1.0).
+    Performs deeper transformations while preserving content quality.
+    """
+    if not content:
+        return ""
+    
+    # 1. Strip YAML frontmatter
+    content = re.sub(r'^---\s*\n.*?\n---\s*(\n)?', '', content, flags=re.DOTALL)
+    
+    # 2. Remove HTML comments
+    content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    
+    # 3. Remove decorative horizontal rules
+    content = re.sub(r'^[ \t]*([-*_])[ \t]*(?:\1[ \t]*){2,}(?:\r?\n)?', '', content, flags=re.MULTILINE)
+    
+    # 4. Normalize heading spacing
+    content = re.sub(r'^(#{1,6})[ \t]+', r'\1 ', content, flags=re.MULTILINE)
+    
+    # 5. Strip redundant bold/italic on headings (## **Heading** → ## Heading)
+    content = re.sub(r'^(#{1,6})\s+\*{1,3}(.*?)\*{1,3}\s*$', r'\1 \2', content, flags=re.MULTILINE)
+    
+    # 6. Strip trailing whitespace per line
+    content = re.sub(r'[ \t]+$', '', content, flags=re.MULTILINE)
+    
+    # 7. Collapse 3+ consecutive blank lines -> 1 blank line
+    content = re.sub(r'\n([ \t]*\n){2,}', '\n\n', content)
+    
+    # 8. Compress empty lines within code blocks (keep 1 max)
+    def compress_code_blocks(match):
+        block = match.group(0)
+        # Collapse multiple empty lines within code blocks to single empty line
+        block = re.sub(r'\n\n\n+', '\n\n', block)
+        return block
+    content = re.sub(r'```[^\n]*\n.*?```', compress_code_blocks, content, flags=re.DOTALL)
+    
+    # 9. Normalize list markers (mixed * - + → -)
+    content = re.sub(r'^(\s*)[*+](\s)', r'\1-\2', content, flags=re.MULTILINE)
+    
+    # 10. Collapse single-item nested lists (- item\n  - only_child → - item: only_child)
+    # Only when the parent has no content after the colon
+    lines = content.split('\n')
+    optimized_lines = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Check if this is a list item with exactly one child
+        if i + 1 < len(lines):
+            current_indent = len(line) - len(line.lstrip())
+            current_match = re.match(r'^(\s*)-\s+(.+)$', line)
+            next_match = re.match(r'^(\s*)-\s+(.+)$', lines[i + 1]) if i + 1 < len(lines) else None
+            
+            if current_match and next_match:
+                next_indent = len(next_match.group(1))
+                # Check if next is a child (deeper indent) and there's no further child at same level
+                if next_indent > current_indent:
+                    # Check if there's a sibling or deeper child after
+                    has_more_children = False
+                    if i + 2 < len(lines):
+                        after_match = re.match(r'^(\s*)-\s+', lines[i + 2])
+                        if after_match and len(after_match.group(1)) >= next_indent:
+                            has_more_children = True
+                        # Also check if the next line is non-empty and same indent as child
+                        elif lines[i + 2].strip() and not lines[i + 2].strip().startswith('#'):
+                            after_indent = len(lines[i + 2]) - len(lines[i + 2].lstrip())
+                            if after_indent >= next_indent:
+                                has_more_children = True
+                    
+                    if not has_more_children:
+                        # Merge single child into parent
+                        merged = f"{current_match.group(1)}- {current_match.group(2)}: {next_match.group(2)}"
+                        optimized_lines.append(merged)
+                        i += 2
+                        continue
+        
+        optimized_lines.append(line)
+        i += 1
+    content = '\n'.join(optimized_lines)
+    
+    # 11. Strip leading/trailing whitespace from entire content
+    return content.strip()
+
+
+def content_md5(content):
+    """Generate MD5 hash for content dedup reporting."""
+    return hashlib.md5(content.encode('utf-8')).hexdigest()[:12]
+
+
 def migrate_skill(conn, skill_name):
     """Migrate a single skill and its references."""
     # Check if skill_name is a flat file
@@ -160,10 +261,13 @@ def migrate_skill(conn, skill_name):
         # Clean existing entries for this skill to prevent stale references
         conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name_clean,))
 
-        content = open(file_path, "r", encoding="utf-8").read()
-        tags = extract_tags_from_frontmatter(content)
+        raw_content = open(file_path, "r", encoding="utf-8").read()
+        tags = extract_tags_from_frontmatter(raw_content)
+        content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
+        raw_size = len(raw_content.encode("utf-8"))
         line_count = content.count("\n") + 1
+        pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
         conn.execute("DELETE FROM skills WHERE name = ?", (skill_name_clean,))
         conn.execute(
@@ -171,7 +275,7 @@ def migrate_skill(conn, skill_name):
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (skill_name_clean, skill_name_clean, "skill", tags, content, file_path, byte_size, line_count)
         )
-        print(f"  ✓ {skill_name} ({byte_size:,} bytes)")
+        print(f"  ✓ {skill_name} ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%)")
         return 1
 
     skill_dir = os.path.join(SKILLS_DIR, skill_name)
@@ -188,10 +292,13 @@ def migrate_skill(conn, skill_name):
     # 1. Migrate SKILL.md
     skill_md = os.path.join(skill_dir, "SKILL.md")
     if os.path.isfile(skill_md):
-        content = open(skill_md, "r", encoding="utf-8").read()
-        tags = extract_tags_from_frontmatter(content)
+        raw_content = open(skill_md, "r", encoding="utf-8").read()
+        tags = extract_tags_from_frontmatter(raw_content)
+        content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
+        raw_size = len(raw_content.encode("utf-8"))
         line_count = content.count("\n") + 1
+        pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
         # For INSERT OR REPLACE with FTS sync triggers,
         # we need to delete first then insert
@@ -201,7 +308,7 @@ def migrate_skill(conn, skill_name):
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (skill_name, skill_name, "skill", tags, content, skill_md, byte_size, line_count)
         )
-        print(f"  ✓ SKILL.md ({byte_size:,} bytes, {line_count} lines)")
+        print(f"  ✓ SKILL.md ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%)")
         count += 1
 
     # 2. Migrate references/*.md
@@ -211,10 +318,13 @@ def migrate_skill(conn, skill_name):
             ref_name_raw = os.path.splitext(os.path.basename(ref_path))[0]
             ref_key = f"{skill_name}/{ref_name_raw}"
 
-            content = open(ref_path, "r", encoding="utf-8").read()
+            raw_content = open(ref_path, "r", encoding="utf-8").read()
             tags = extract_tags_from_filename(ref_path, skill_name)
+            content = optimize_content(raw_content)
             byte_size = len(content.encode("utf-8"))
+            raw_size = len(raw_content.encode("utf-8"))
             line_count = content.count("\n") + 1
+            pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
             conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
             conn.execute(
@@ -222,7 +332,7 @@ def migrate_skill(conn, skill_name):
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (ref_key, skill_name, "reference", tags, content, ref_path, byte_size, line_count)
             )
-            print(f"  ✓ references/{ref_name_raw}.md ({byte_size:,} bytes)")
+            print(f"  ✓ references/{ref_name_raw}.md ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%)")
             count += 1
 
     # 3. Migrate other .md files in root of skill directory (e.g. prd-creator/JSON.md)
@@ -236,10 +346,13 @@ def migrate_skill(conn, skill_name):
         ref_name_raw = os.path.splitext(filename)[0]
         ref_key = f"{skill_name}/{ref_name_raw}"
 
-        content = open(file_path, "r", encoding="utf-8").read()
+        raw_content = open(file_path, "r", encoding="utf-8").read()
         tags = extract_tags_from_filename(file_path, skill_name)
+        content = optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
+        raw_size = len(raw_content.encode("utf-8"))
         line_count = content.count("\n") + 1
+        pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
         conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
         conn.execute(
@@ -247,7 +360,7 @@ def migrate_skill(conn, skill_name):
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (ref_key, skill_name, "reference", tags, content, file_path, byte_size, line_count)
         )
-        print(f"  ✓ {filename} ({byte_size:,} bytes) [root reference]")
+        print(f"  ✓ {filename} ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%) [root reference]")
         count += 1
 
     return count
@@ -282,6 +395,22 @@ def print_summary(conn):
         total_rows += row[2]
         total_bytes += row[3]
 
+    # Content dedup report
+    print(f"\n{'=' * 60}")
+    
+    # Check for duplicate content hashes
+    dedup_cursor = conn.execute("""
+        SELECT COUNT(*) as cnt, LENGTH(content) as clen
+        FROM skills
+        GROUP BY content
+        HAVING cnt > 1
+    """)
+    dupes = dedup_cursor.fetchall()
+    if dupes:
+        dupe_count = sum(row[0] - 1 for row in dupes)
+        dupe_bytes = sum((row[0] - 1) * row[1] for row in dupes)
+        print(f"⚠️  Content duplicates found: {dupe_count} duplicate entries ({dupe_bytes:,} bytes redundant)")
+    
     print(f"\n{'=' * 60}")
     print(f"TOTAL: {total_rows} entries, {total_bytes:,} bytes indexed")
     print(f"Database: {DB_PATH}")
@@ -360,7 +489,7 @@ def main():
         else:
             skills_to_migrate = CUSTOM_SKILLS
 
-    print("🚀 Skills Migration to SQLite FTS5")
+    print("🚀 Skills Migration to SQLite FTS5 (v1.1.0 — Enhanced Optimization)")
     print(f"   Source: {SKILLS_DIR}")
     print(f"   Target: {DB_PATH}")
     print(f"   Skills: {', '.join(skills_to_migrate)}")
@@ -417,4 +546,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
