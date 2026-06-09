@@ -3,7 +3,7 @@
     "name": "genin",
     "icon": "🍃",
     "title": "Codebase Exploration",
-    "modelTier": "Gemini 3.5 Flash (Low)",
+    "modelTier": "Gemini 2.5 Flash",
     "purpose": "Fast, read-only codebase navigation and analysis",
     "skills": [
       "genin-skill"
@@ -19,7 +19,7 @@
     "name": "kage",
     "icon": "🌀",
     "title": "Village Leader & Architect",
-    "modelTier": "Gemini 3.5 Flash (Medium)",
+    "modelTier": "Gemini 3.1 Pro (High)",
     "purpose": "Expert-level analysis for critical decisions and high-level strategy",
     "skills": [
       "kage-skill"
@@ -35,7 +35,7 @@
     "name": "chunin",
     "icon": "📜",
     "title": "Research & Intel",
-    "modelTier": "Gemini 3.1 Pro (High)",
+    "modelTier": "Gemini 3.5 Flash (Low)",
     "purpose": "Web research, documentation lookup, evidence synthesis with citations",
     "skills": [
       "chunin-skill"
@@ -51,7 +51,7 @@
     "name": "jonin",
     "icon": "🛡️",
     "title": "UI & Frontend Specialist",
-    "modelTier": "Claude Sonnet 4.6 (Thinking) | fallback when fail Gemini 3.5 Flash (High)",
+    "modelTier": "Gemini 3.5 Flash (High)",
     "purpose": "Build premium, production-ready user interfaces",
     "skills": [
       "jonin-skill"
@@ -67,7 +67,7 @@
     "name": "anbu",
     "icon": "👥",
     "title": "Backend Specialist, Bug Fixing, & DevOps",
-    "modelTier": "Gemini 3.5 Flash (High)",
+    "modelTier": "Gemini 3.1 Pro (High)",
     "purpose": "Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems",
     "skills": [
       "anbu-skill"
@@ -83,7 +83,7 @@
     "name": "tokubetsu-jonin",
     "icon": "🎯",
     "title": "Technical Writing & Scribe",
-    "modelTier": "Gemini 3.5 Flash (Low)",
+    "modelTier": "Gemini 2.5 Flash",
     "purpose": "Specialized in writing and maintaining technical documentation, specs, and READMEs",
     "skills": [
       "tokubetsu-jonin-skill"

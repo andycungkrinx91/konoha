@@ -86,12 +86,19 @@ function loadAgents() {
           changed = true;
         }
         if (a.modelTier) {
+          const oldDefaults = [
+            'Gemini 3.5 Flash (Low)',
+            'Gemini 3.5 Flash (Medium)',
+            'Gemini 3.5 Flash (High)',
+            'Gemini 3.1 Pro (High)',
+            'Claude Sonnet 4.6 (Thinking)',
+            'Claude Sonnet 4.6 (Thinking) | fallback when fail Gemini 3.5 Flash (High)',
+            'Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.5 Flash (High)'
+          ];
           const hasOldFallbackLow = a.modelTier.includes('Fallback when fail Gemini 3.5 Flash (Low)');
           const hasOldFallbackMed = a.modelTier.includes('Fallback when fail Gemini 3.5 Flash (Medium)');
-          const isGeninDefault = a.name === 'genin' && a.modelTier === 'Gemini 3.5 Flash (Low)';
-          const isChuninDefault = a.name === 'chunin' && a.modelTier === 'Gemini 3.1 Pro (High)';
-          const isAnbuDefault = a.name === 'anbu' && a.modelTier === 'Gemini 3.5 Flash (High)';
-          if (hasOldFallbackLow || hasOldFallbackMed || isGeninDefault || isChuninDefault || isAnbuDefault) {
+          const isOldDefault = oldDefaults.includes(a.modelTier.trim());
+          if (hasOldFallbackLow || hasOldFallbackMed || isOldDefault) {
             a.modelTier = defAgent.modelTier;
             changed = true;
           }

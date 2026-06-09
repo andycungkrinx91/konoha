@@ -180,7 +180,7 @@ The subagent configurations are stored in a structured format, enabling you to i
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 - **Check Current Version**:
-  Displays the installed local version (noted as `1.0.3`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.0.4`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -196,6 +196,7 @@ To keep Konoha updated with the latest optimizations and features, you can check
 Konoha CLI maintains a registry of available Large Language Models (LLMs) that can be assigned to your subagents.
 
 - **Available Models Registry**:
+  - `Gemini 2.5 Flash`
   - `Gemini 3.5 Flash (Low / Medium / High)`
   - `Gemini 3.1 Pro (Low / High)`
   - `Claude Sonnet 4.6 (Thinking)`

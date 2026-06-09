@@ -2,10 +2,18 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [1.0.3] - 2026-06-09
+## [1.0.4] - 2026-06-09
 
 ### Added
 - **Default-Only Seeding on Init**: Restructured the initialization process (`konoha init`) to only seed the 6 default subagent rank skills from the installer package templates into the SQLite database. It completely avoids automatically migrating other custom user skills inside `~/.agents/skills/*` during setup, letting users trigger manual migration later via `konoha migrate`.
+- **Subagent Default Model Updates**: Configured the default model assignments for the 6 Naruto ranks to match explicit user preferences:
+  - `@genin` -> `Gemini 2.5 Flash`
+  - `@kage` -> `Gemini 3.1 Pro (High)`
+  - `@chunin` -> `Gemini 3.5 Flash (Low)`
+  - `@jonin` -> `Gemini 3.5 Flash (High)`
+  - `@anbu` -> `Gemini 3.1 Pro (High)`
+  - `@tokubetsu-jonin` -> `Gemini 2.5 Flash`
+- **Dynamic Configuration Upgrades**: Added model upgrade heuristics to automatically migrate users' active `agents.json` configurations to the new defaults while preserving custom choices.
 
 ## [1.0.1] - 2026-06-08
 

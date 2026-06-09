@@ -71,7 +71,7 @@ After doing so, you can run all commands directly:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.0.3) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.0.4) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
@@ -147,7 +147,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 1. 🍃 Genin (Junior Ninja)
 * **Role**: Codebase Reconnaissance & Scout
-* **Model Tier**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 2.5 Flash` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Fast, read-only code exploration.
   - Tracing codepaths, mapping dependencies, and mapping repository structure.
@@ -156,7 +156,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 2. 📜 Chunin (Journeyman Ninja)
 * **Role**: Intel Gathering, Web Research, & Documentation
-* **Model Tier**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Researching libraries, API documentations, version differences, and best practices.
   - Using semantic code search (semble) to discover local repository context and dependencies before searching the web.
@@ -166,7 +166,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 3. 🛡️ Jonin (Elite Ninja)
 * **Role**: UI/UX Master, Styling, & Component Building
-* **Model Tier**: `Claude Sonnet 4.6 (Thinking)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Building gorgeous, premium interfaces (e.g., SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web).
   - Enforcing design tokens, custom typography, animations, gradients, and responsive layouts.
@@ -175,7 +175,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 4. 👥 Anbu (Special Black Ops Ninja)
 * **Role**: Backend Specialist, Bug Fixing, & DevOps
-* **Model Tier**: `Gemini 3.5 Flash (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Backend development, database schema design, and server APIs.
   - Undercover diagnostics of complex bugs, memory leaks, and environment failures.
@@ -185,7 +185,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Elite Ninja)
 * **Role**: Technical Writing, Documentation, & Scribe
-* **Model Tier**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 2.5 Flash` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - Writing and maintaining technical documentation, specs, readme guides, and runbooks.
   - Ensuring readability and reader-first principles, including command and code examples.
@@ -193,7 +193,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 6. 🌀 Kage (Village Shadow Leader)
 * **Role**: Senior Architect, Strategist, & Deep Problem Solver
-* **Model Tier**: `Gemini 3.5 Flash (Medium)` | **Fallback**: `Gemini 3.5 Flash (High)`
+* **Model Tier**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.5 Flash (High)`
 * **Responsibilities**:
   - High-level design decisions, security reviews, trade-off matrices, and risk assessments.
   - Handles complex architecture issues and provides rollback strategies.
@@ -316,7 +316,7 @@ The Antigravity system enforces several default safety and behavioral guardrails
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.0.3)
+title: Konoha System Architecture (v1.0.4)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -453,7 +453,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.3)
+title: Runtime Query Lifecycle with Dual-MCP Integration (v1.0.4)
 ---
 sequenceDiagram
     actor User as 👤 User

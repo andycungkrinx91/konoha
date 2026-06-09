@@ -2448,6 +2448,7 @@ async function cmdAgent(args) {
 }
 
 const AVAILABLE_MODELS = [
+  { name: 'Gemini 2.5 Flash', tag: 'Fast', aliases: ['flash-2.5', 'gemini-2.5-flash', '2.5-flash'] },
   { name: 'Gemini 3.5 Flash (Medium)', tag: 'Fast', aliases: ['flash-medium', 'gemini-3.5-flash-medium', 'medium'] },
   { name: 'Gemini 3.5 Flash (High)', tag: 'Fast', aliases: ['flash-high', 'gemini-3.5-flash-high', 'high'] },
   { name: 'Gemini 3.5 Flash (Low)', tag: 'Fast', aliases: ['flash-low', 'gemini-3.5-flash-low', 'low'] },
@@ -2682,7 +2683,7 @@ async function getLatestVersion() {
 
 async function cmdVersion(args) {
   const pkgPath = path.join(__dirname, '..', 'package.json');
-  let currentVersion = '1.0.3';
+  let currentVersion = '1.0.4';
   try {
     currentVersion = require(pkgPath).version;
   } catch {}
