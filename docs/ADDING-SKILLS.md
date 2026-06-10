@@ -1,10 +1,10 @@
-# Adding Skills from skills.sh
+# 🔌 Adding Skills from skills.sh
 
-This guide walk you through the step-by-step process of finding, installing, and indexing custom agent skills from [skills.sh](https://www.skills.sh/) to optimize token usage with `konoha`.
+This guide walks you through the step-by-step process of finding, installing, and indexing custom agent skills from [skills.sh](https://www.skills.sh/) to optimize token usage with `konoha`.
 
 ---
 
-## Workflow Diagram
+## 🗺️ Workflow Diagram
 
 The following diagram shows how skills from the registry are installed, indexed by `konoha`, and utilized by your agent team:
 
@@ -37,25 +37,26 @@ sequenceDiagram
 
 ---
 
-## Step-by-Step Guide
+## 📋 Step-by-Step Guide
 
 ### Step 1: Find a Skill on skills.sh
 Browse the [skills.sh registry](https://www.skills.sh/) or locate a repository containing compatible agent skills. For this example, we will use the `prd-creator` skill from the `ralph-loop` repository.
 
 ### Step 2: Install the Skill
-Run the `npx skills add` command in your terminal. 
+Run the native `konoha skill add` command in your terminal, specifying the repository URL and the target skill name:
 
 ```bash
-npx skills add https://github.com/pageai-pro/ralph-loop --skill prd-creator
+konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 ```
 
 > [!NOTE]
 > * **If run inside a Git repository/project workspace**: The skill will be installed locally in `./.agents/skills/prd-creator`.
 > * **If run outside a repository**: The skill will be installed globally in `~/.agents/skills/prd-creator`.
 > 
-> `konoha` supports both locations out of the box.
+> `konoha` supports both locations out of the box and automatically triggers database migration upon adding.
 
-### Step 3: Run the Migration
+### Step 3: Run the Migration (Optional)
+If the database does not automatically sync or if you manually copied skill files, run the migration command:
 Run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
 
 ```bash

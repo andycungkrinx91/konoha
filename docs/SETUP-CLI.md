@@ -7,7 +7,13 @@
 - Node.js 18+
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
-## Step 1: Install Skills-DB
+## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
+
+> [!NOTE]
+> **Self-Healing Auto-Setup**:
+> Starting with version `1.0.7`, manual installation is optional. Running **any** `konoha` command automatically triggers a silent bootstrap (`ensureAutoSetup()`). This routine registers the MCP servers, whitelists execution paths in `settings.json`, sets up default agent configs, and seeds the skills database.
+>
+> If you still want to perform a manual clean initialization, run:
 
 ```bash
 npx github:andycungkrinx91/konoha init
@@ -179,13 +185,13 @@ The subagent configurations are stored in a structured format, enabling you to i
 
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
-- **Check Current Version**:
-  Displays the installed local version (noted as `1.0.5`) and queries GitHub to check if a newer version is available.
+* **Check Current Version**:
+  Displays the installed local version (noted as `1.0.7`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
 
-- **Upgrade CLI**:
+* **Upgrade CLI**:
   Upgrades the local Konoha installation to the latest stable release from GitHub in-place.
   ```bash
   konoha upgrade
@@ -195,7 +201,8 @@ To keep Konoha updated with the latest optimizations and features, you can check
 
 Konoha CLI maintains a registry of available Large Language Models (LLMs) that can be assigned to your subagents.
 
-- **Available Models Registry**:
+* **Available Models Registry**:
+  - `Gemini 3.1 Flash-Lite`
   - `Gemini 2.5 Flash`
   - `Gemini 3.5 Flash (Low / Medium / High)`
   - `Gemini 3.1 Pro (Low / High)`
@@ -203,11 +210,29 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
   - `Claude Opus 4.6 (Thinking)`
   - `GPT-OSS 120B (Medium)`
 
-- **Fallback Configuration**:
-  Subagents default to using `Gemini 3.5 Flash (High)` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
+* **Fallback Configuration**:
+  Subagents default to using `Gemini 3.1 Flash-Lite` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
 
-- **Quota Exceeded Recovery**:
+* **Quota Exceeded Recovery**:
   In case of total quota exhaustion, the system will output the standard Antigravity account limit warning. Refer to the recovery steps (using `gcloud auth login` or subscription upgrades) documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+## Auto-Approved Permissions & Commands Whitelisting
+
+To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands:
+
+### 1. Command Whitelisting
+The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:
+- `node bin/cli.js`
+- `konoha`
+
+This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
+
+### 2. Tool Auto-Approvals
+The installer registers tool auto-approval settings for the `skills-db` and `semble` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+- **`skills-db`**: Auto-approves `find_skill`, `list_skills`, and `get_skill`.
+- **`semble`**: Auto-approves `search` and `find_related`.
+
+These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.
 
 ## Troubleshooting
 

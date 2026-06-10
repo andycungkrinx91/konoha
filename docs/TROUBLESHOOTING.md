@@ -1,37 +1,47 @@
-# Troubleshooting
+# 🛠️ Troubleshooting
 
-## Common Issues
+This guide provides solutions to common issues encountered during the installation, configuration, and execution of Konoha.
 
-### "Python 3 is required but not found"
+---
 
-The MCP server requires Python 3.8+. Install it:
+## 🔍 Common Issues
 
-- **Linux (Ubuntu/Debian)**: `sudo apt install python3`
-- **Linux (Fedora)**: `sudo dnf install python3`
-- **macOS**: `brew install python3` or download from [python.org](https://www.python.org/downloads/)
-- **Windows**: Download from [python.org](https://www.python.org/downloads/) — check "Add to PATH" during install
+### ❌ "Python 3 is required but not found"
 
-Verify:
+The MCP server requires Python 3.8+. To install it:
+
+* **Linux (Ubuntu/Debian)**: `sudo apt install python3`
+* **Linux (Fedora)**: `sudo dnf install python3`
+* **macOS**: `brew install python3` or download from the [official Python downloads page](https://www.python.org/downloads/)
+* **Windows**: Download from the [official Python downloads page](https://www.python.org/downloads/) — make sure to check **"Add to PATH"** during installation.
+
+To verify your Python installation:
 ```bash
 python3 --version  # Linux/macOS
 python --version   # Windows
 ```
 
-### "Server not installed" or "Database not found"
+---
 
-Run the full install:
+### ❌ "Server not installed" or "Database not found"
+
+Starting with version `1.0.8`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
+
+Alternatively, you can manually re-run the full installer script to verify all files are correctly created and configured:
 ```bash
 npx github:andycungkrinx91/konoha init
 ```
 
-### MCP server not detected in Antigravity
+---
 
-1. Check the config file exists:
+### 🔌 MCP Server Not Detected in Antigravity
+
+1. Check that the configuration file exists:
    ```bash
    cat ~/.gemini/config/mcp_config.json
    ```
 
-2. Verify `skills-db` entry:
+2. Verify the `skills-db` entry matches:
    ```json
    {
      "mcpServers": {
@@ -43,85 +53,94 @@ npx github:andycungkrinx91/konoha init
    }
    ```
 
-3. **Restart Antigravity IDE/CLI** — MCP config is read on startup.
+3. **Restart Antigravity IDE/CLI** — MCP configuration files are only read once on startup.
+4. For CLI, run `agy inspect` to verify if `skills-db` is successfully loaded.
 
-4. For CLI, run `agy inspect` to check if skills-db is loaded.
+---
 
-### FTS5 search returns no results
+### 🔍 FTS5 Search Returns No Results
 
-1. Check if skills were migrated:
+1. Check if the skills have been indexed:
    ```bash
    konoha status
    ```
 
-2. If "Total entries: 0", re-run migration:
+2. If "Total entries: 0" is displayed, re-run migration:
    ```bash
    konoha migrate
    ```
 
-3. Check that skills exist at `~/.agents/skills/`:
+3. Confirm that skill files exist at `~/.agents/skills/`:
    ```bash
    ls ~/.agents/skills/*/SKILL.md
    ```
 
-### Agent still loading SKILL.md files directly
+---
 
-The agent's instructions need to be updated. Check:
+### 🥷 Agent Still Loading SKILL.md Files Directly
 
-1. `~/.gemini/GEMINI.md` — should contain `skills-db` references, NOT "Load and follow"
-2. IDE User Rules — should match the updated GEMINI.md
-3. Re-run: `npx github:andycungkrinx91/konoha init --force`
+The agent's instructions must be updated. Check the following:
 
-### "Permission denied" errors
+1. `~/.gemini/GEMINI.md` — should contain instructions for `skills-db` references, NOT "Load and follow".
+2. IDE User Rules — should match the updated `GEMINI.md`.
+3. If necessary, force-reinstall instructions: `npx github:andycungkrinx91/konoha init --force`
 
-On Linux/macOS, ensure the server script is readable:
+---
+
+### 🚫 "Permission denied" Errors
+
+On Linux/macOS, ensure the server script and assets are readable:
 ```bash
 chmod 644 ~/.gemini/skills-db/server.py
 chmod 644 ~/.gemini/skills-db/migrate.py
 chmod 644 ~/.gemini/skills-db/skills.db
 ```
 
-### Windows-specific issues
+---
 
-**Paths**: Windows uses backslashes. The installer handles this, but if you're manually editing `mcp_config.json`, use forward slashes or double backslashes:
-```json
-{
-  "command": "python",
-  "args": ["C:/Users/youruser/.gemini/skills-db/server.py"]
-}
-```
+### 💻 Windows-Specific Issues
 
-**Python command**: Windows may use `python` instead of `python3`. The installer auto-detects this.
+* **Paths**: Windows uses backslashes. The installer handles this automatically, but if you're manually editing `mcp_config.json`, use forward slashes or double backslashes:
+  ```json
+  {
+    "command": "python",
+    "args": ["C:/Users/youruser/.gemini/skills-db/server.py"]
+  }
+  ```
 
-**Line endings**: If you get `SyntaxError` when running the server, convert line endings:
+* **Python command**: Windows may use `python` instead of `python3`. The installer auto-detects this.
+* **Line endings**: If you get `SyntaxError` when running the server, convert the CRLF line endings to LF:
+  ```powershell
+  # PowerShell
+  (Get-Content ~/.gemini/skills-db/server.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.gemini/skills-db/server.py -NoNewline
+  ```
+
+---
+
+### 🗄️ Database Corruption
+
+If the SQLite database becomes corrupted, remove it and rebuild the index:
 ```bash
-# PowerShell
-(Get-Content ~/.gemini/skills-db/server.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.gemini/skills-db/server.py -NoNewline
-```
-
-### Database corruption
-
-If the database becomes corrupted:
-```bash
-# Remove and re-create
 rm ~/.gemini/skills-db/skills.db
 konoha migrate
 ```
 
-### Checking MCP server manually
+---
 
-Test the server directly:
+### 🧪 Checking the MCP Server Manually
+
+You can test the stdin/stdout MCP server directly from your shell:
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.gemini/skills-db/server.py
 ```
 
-Expected: A JSON response with `protocolVersion` and `serverInfo`.
+*Expected output:* A JSON response containing `protocolVersion` and `serverInfo`.
 
 ## Quota Limits, Rate Limits, and API Errors
 
 If a task execution encounters quota limits, rate limits, or API errors (such as `RESOURCE_EXHAUSTED` or HTTP `429` status codes), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
 
-The system and agent configurations will automatically and immediately fallback to `Gemini 3.5 Flash (High)` to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent will halt execution gracefully and output this exact warning:
+The system and agent configurations will automatically and immediately fallback to `Gemini 3.1 Flash-Lite` to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent will halt execution gracefully and output this exact warning:
 
 > [!WARNING]
 > "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."

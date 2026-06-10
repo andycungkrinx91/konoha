@@ -76,7 +76,7 @@ function loadAgents() {
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (a.instructions) {
           const needsAgentUpgrade = a.instructions.includes('skills-db.find_skill') && !a.instructions.includes('pass agent=');
-          const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain');
+          const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
           
@@ -104,7 +104,7 @@ function loadAgents() {
           const hasOldFallbackLow = a.modelTier.includes('Fallback when fail Gemini 3.5 Flash (Low)');
           const hasOldFallbackMed = a.modelTier.includes('Fallback when fail Gemini 3.5 Flash (Medium)');
           const isOldDefault = oldDefaults.includes(a.modelTier.trim());
-          if (hasOldFallbackLow || hasOldFallbackMed || isOldDefault) {
+          if ((hasOldFallbackLow || hasOldFallbackMed || isOldDefault) && a.modelTier !== defAgent.modelTier) {
             a.modelTier = defAgent.modelTier;
             changed = true;
           }
@@ -207,7 +207,7 @@ The orchestrator MUST follow this workflow:
 1. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` to discover necessary skills.
 2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
 3. **Select Agent**: Route to the correct agent based on the table below.
-4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\`. You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
    \`\`\`markdown
    ---
    depth: <N>
@@ -216,14 +216,14 @@ The orchestrator MUST follow this workflow:
    Before writing or updating \`delegate.md\`, read the existing \`depth\` metadata:
    - If \`depth\` exists, increment it (\`depth = depth + 1\`).
    - If it does not exist, initialize it to \`depth: 1\`.
-   - **Circuit Breaker**: If \`depth > 5\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
+   - **Circuit Breaker**: If \`depth > 7\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/tasks/<task_id>/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
    - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
    Categorize the main content clearly:
    - **Goal**: Clear explanation of what needs to be accomplished.
    - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`.
    - **Constraints**: Rule constraints and target files.
-5. **Delegate**: Invoke the subagent. The subagent will load their default skill (e.g., \`anbu-skill\`). If the subagent needs additional skills that aren't embedded, they must use Direct Tool Calls (\`find_skill\`) to get them. The subagent will read \`delegate.md\` to execute the task.
-6. **Await Results**: The subagent will write its output directly to \`<appDataDir>/brain/<conversation-id>/scratch/result.md\`. Read this file to finalize the step and report back.
+5. **Delegate**: Invoke the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will load their default skill (e.g., \`anbu-skill\`). If the subagent needs additional skills that aren't embedded, they must use Direct Tool Calls (\`find_skill\`) to get them. The subagent will read \`delegate.md\` from the absolute path specified in your invocation prompt.
+6. **Await Results**: Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` to finalize the step, report back, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
 
 The orchestrator ONLY delegates to: ${agentNames}. Creating new/custom subagents is prohibited.
 
@@ -240,13 +240,14 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 
 - **Skills-DB MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse. **NEVER load SKILL.md files directly.**
 - **Semble MCP**: Prefer \`search\`/\`find_related\` over grep/glob for code discovery. Mandatory for all agents.
+- **Forced Tool Boundaries**: All subagents and the main coordinator agent MUST use the **\`semble\` MCP** (for all code and file searches) and the **\`skills-db\` MCP** (for all skill/instruction discovery) to ensure strict guardrails are followed.
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and visual QA.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\`
 - **No Auto-Creation of Subagents**: AI is NEVER allowed to define/create/delete subagents. Reserved for user only.
-- **Proactive Execution**: Never instruct user to do tasks the agent can perform itself.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
-- **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.5 Flash (High)\`. On total exhaustion, halt and output: "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+- **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output: "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
 
 Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\`
 `;
@@ -295,7 +296,7 @@ function generateAgentsMd(agents) {
   1. **Find Skill First**: Call \`skills-db.find_skill()\` or \`optimize_report()\` to discover the right skills for the task.
   2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
   3. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
-  4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\` using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+  4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory) using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
      \`\`\`markdown
      ---
      depth: <N>
@@ -304,9 +305,9 @@ function generateAgentsMd(agents) {
      Before writing or updating \`delegate.md\`, read the existing \`depth\` metadata:
      - If \`depth\` exists, increment it (\`depth = depth + 1\`).
      - If it does not exist, initialize it to \`depth: 1\`.
-     - **Circuit Breaker**: If \`depth > 5\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
+     - **Circuit Breaker**: If \`depth > 7\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/tasks/<task_id>/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
      - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
-  5. **Delegate & Await**: Launch the subagent. The subagent will read \`delegate.md\` to run the task, and write its output to \`scratch/result.md\` in the same directory. Read \`scratch/result.md\` once complete to consume the output.
+  5. **Delegate & Await**: Launch the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
 - **Constraints**: ONLY delegates to: ${agentNames}. No custom subagents. On quota limits, fall back to Direct Tool Calls.
 
 | Subtask type | Delegate to |
@@ -325,14 +326,15 @@ ${agentSections}
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\` at the start of every response.
-2. **Read File-Based Task**: Read the delegation parameters from \`<appDataDir>/brain/<conversation-id>/scratch/delegate.md\` at the start of the execution step to fetch the task scope, context, and constraints.
+2. **Read File-Based Task**: Read the delegation parameters from the absolute path to \`delegate.md\` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints.
 3. **Skills-DB first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
 4. **Semble for code search**: Always use semble MCP (\`search\`, \`find_related\`) before grep/glob.
 5. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
-6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to \`<appDataDir>/brain/<conversation-id>/scratch/result.md\` instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
+6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. \`result.md.tmp\`) first, then rename/move it atomically to \`result.md\` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
 
 ### Safety Guardrails
-- **Proactive Execution**: Never instruct user to manually perform tasks you can execute yourself.
+- **Forced Tool Boundaries**: All subagents and the coordinator MUST use the **\`semble\` MCP** (for all code/file searches) and the **\`skills-db\` MCP** (for all skill discovery). Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
 - **No Auto-Creation of Subagents**: AI is never allowed to define/create/delete subagents. User-only feature.
@@ -342,7 +344,7 @@ ${agentSections}
 - **Security**: Never expose secrets, use least privilege, redact credentials as \`[REDACTED]\`.
 
 ### Quota & Rate Limits
-On \`RESOURCE_EXHAUSTED\` or HTTP \`429\`, automatically fallback to \`Gemini 3.5 Flash (High)\`. On total exhaustion, halt and output:
+On \`RESOURCE_EXHAUSTED\` or HTTP \`429\`, automatically fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output:
 > "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
 
 Recovery: \`/logout\` → relogin with another account → \`/resume\` → prompt \`continue\`.
@@ -351,6 +353,7 @@ Recovery: \`/logout\` → relogin with another account → \`/resume\` → promp
 
 | Model Name | Tier | Alias |
 |---|---|---|
+| Gemini 3.1 Flash-Lite | Fast | \`flash-lite-3.1\`, \`gemini-3.1-flash-lite\` |
 | Gemini 2.5 Flash | Fast | \`flash-2.5\`, \`gemini-2.5-flash\` |
 | Gemini 3.5 Flash (Low) | Fast | \`flash-low\`, \`low\` |
 | Gemini 3.5 Flash (Medium) | Fast | \`flash-medium\`, \`medium\` |
@@ -437,14 +440,14 @@ function createSubagent(name, options = {}) {
     name: lowerName,
     icon: icon,
     title: options.title || (name.charAt(0).toUpperCase() + name.slice(1) + " Ninja"),
-    modelTier: options.modelTier || "Gemini 3.5 Flash (High)",
+    modelTier: options.modelTier || "Gemini 3.1 Flash-Lite",
     purpose: options.purpose || "General assistant",
     skills: options.skills || [],
     delegateWhen: options.delegateWhen || `Need assistance with ${options.purpose || "general tasks"}`,
     constraints: options.constraints || "Always use `semble` semantic search before manual search.",
     workflow: options.workflow || "Process input, use `semble` to discover context, and report findings.",
     description: options.description || options.purpose || `Custom subagent specialized in ${name}`,
-    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". Before work: find_skill(\"${options.purpose || name}\", agent='${lowerName}'). Follow full protocol in ~/.agents/AGENTS.md.`,
+    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". Before work: find_skill(\"${options.purpose || name}\", agent='${lowerName}'). Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`,
     delegationKeywords: options.delegationKeywords || name
   };
 

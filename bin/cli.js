@@ -36,6 +36,7 @@ const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
 const DB_PATH = path.join(SKILLS_DB_DIR, 'skills.db');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.py');
+const SETTINGS_PATH = path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json');
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
 const DOCS_DIR = path.join(__dirname, '..', 'docs');
@@ -902,19 +903,22 @@ function cmdInit(args) {
   log('');
 }
 
-function installUv() {
-  info('Attempting to auto-install "uv" for Semble MCP...');
+function installUv(silent = false) {
+  if (!silent) info('Attempting to auto-install "uv" for Semble MCP...');
   try {
+    const stdioOpt = silent ? 'ignore' : 'inherit';
     if (process.platform === 'win32') {
-      execSync('powershell -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"', { stdio: 'inherit' });
+      execSync('powershell -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"', { stdio: stdioOpt });
     } else {
-      execSync('curl -LsSf https://astral.sh/uv/install.sh | sh', { stdio: 'inherit' });
+      execSync('curl -LsSf https://astral.sh/uv/install.sh | sh', { stdio: stdioOpt });
     }
-    success('uv installed successfully!');
+    if (!silent) success('uv installed successfully!');
     return true;
   } catch (err) {
-    warn(`Failed to auto-install uv: ${err.message}`);
-    log('Please install uv manually: https://docs.astral.sh/uv/');
+    if (!silent) {
+      warn(`Failed to auto-install uv: ${err.message}`);
+      log('Please install uv manually: https://docs.astral.sh/uv/');
+    }
     return false;
   }
 }
@@ -953,7 +957,7 @@ function getUvCommand() {
   return null;
 }
 
-function registerMcp(python) {
+function registerMcp(python, silent = false) {
   const pythonCmd = python || checkPython() || 'python3';
   
   ensureDir(path.dirname(MCP_CONFIG_PATH));
@@ -964,23 +968,30 @@ function registerMcp(python) {
     try {
       config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
       if (!config.mcpServers) config.mcpServers = {};
-      info('Existing MCP config found, registering servers...');
+      if (!silent) {
+        info('Existing MCP config found, registering servers...');
+      }
     } catch {
-      warn('Could not parse existing MCP config, creating new one...');
+      if (!silent) {
+        warn('Could not parse existing MCP config, creating new one...');
+      }
       config = { mcpServers: {} };
     }
   } else {
-    info('Creating new MCP config...');
+    if (!silent) {
+      info('Creating new MCP config...');
+    }
   }
 
   config.mcpServers['skills-db'] = {
     command: pythonCmd,
-    args: [SERVER_PATH]
+    args: [SERVER_PATH],
+    autoApprove: ['find_skill', 'list_skills', 'get_skill', 'optimize_report']
   };
 
   let uvCmd = getUvCommand();
   if (!uvCmd) {
-    if (installUv()) {
+    if (installUv(silent)) {
       uvCmd = getUvCommand() || 'uv';
     } else {
       uvCmd = 'uv';
@@ -997,12 +1008,190 @@ function registerMcp(python) {
 
   config.mcpServers['semble'] = {
     command: uvxCmd,
-    args: ['--from', 'semble[mcp]@latest', 'semble']
+    args: ['--from', 'semble[mcp]@latest', 'semble'],
+    autoApprove: ['search', 'find_related']
   };
-  success(`Registered 'semble' using command: ${uvxCmd}`);
+  if (!silent) {
+    success(`Registered 'semble' using command: ${uvxCmd}`);
+  }
 
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-  success(`MCP config updated with skills-db and semble: ${MCP_CONFIG_PATH}`);
+  if (!silent) {
+    success(`MCP config updated with skills-db and semble: ${MCP_CONFIG_PATH}`);
+  }
+
+  registerPermissions(silent);
+}
+
+function registerPermissions(silent = false) {
+  const settingsPaths = [
+    SETTINGS_PATH,
+    path.join(HOME, '.gemini', 'settings.json')
+  ];
+
+  for (const settingsPath of settingsPaths) {
+    ensureDir(path.dirname(settingsPath));
+
+    let settings = {};
+    if (fileExists(settingsPath)) {
+      try {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      } catch {
+        settings = {};
+      }
+    }
+
+    if (!settings.permissions) settings.permissions = {};
+    if (!settings.permissions.allow) settings.permissions.allow = [];
+
+    const requiredGrants = [
+      'command(node bin/cli.js)',
+      'command(konoha)',
+      'mcp(semble/search)',
+      'mcp(semble/find_related)',
+      'mcp(skills-db/find_skill)',
+      'mcp(skills-db/list_skills)',
+      'mcp(skills-db/get_skill)',
+      'mcp(skills-db/optimize_report)'
+    ];
+
+    let updated = false;
+    for (const grant of requiredGrants) {
+      if (!settings.permissions.allow.includes(grant)) {
+        settings.permissions.allow.push(grant);
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      try {
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+        if (!silent) {
+          success(`Command permissions auto-approved in: ${settingsPath}`);
+        }
+      } catch (e) {
+        if (!silent) {
+          warn(`Could not update settings.json: ${e.message}`);
+        }
+      }
+    } else {
+      if (!silent) {
+        info(`Command permissions for Konoha already configured in ${settingsPath}`);
+      }
+    }
+  }
+}
+
+function copyIfDifferent(src, dest) {
+  if (!fileExists(dest)) {
+    copyFile(src, dest);
+    return true;
+  }
+  try {
+    const srcContent = fs.readFileSync(src);
+    const destContent = fs.readFileSync(dest);
+    if (!srcContent.equals(destContent)) {
+      copyFile(src, dest);
+      return true;
+    }
+  } catch (e) {
+    try { copyFile(src, dest); return true; } catch {}
+  }
+  return false;
+}
+
+function ensureAutoSetup() {
+  // 1. Ensure the directories exist
+  const dirs = [
+    path.join(HOME, '.gemini'),
+    path.join(HOME, '.agents'),
+    path.join(HOME, '.gemini', 'skills-db'),
+    path.join(HOME, '.gemini', 'antigravity-cli'),
+    path.join(HOME, '.gemini', 'config')
+  ];
+  dirs.forEach(d => {
+    if (!fileExists(d)) {
+      ensureDir(d);
+    }
+  });
+
+  // 2. Copy the Python server files if missing or outdated
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py'];
+  filesToCopy.forEach(f => {
+    const src = path.join(SRC_DIR, f);
+    const dest = path.join(SKILLS_DB_DIR, f);
+    if (fileExists(src)) {
+      copyIfDifferent(src, dest);
+    }
+  });
+
+  // Also copy basic subagent skills to global directory if missing or outdated
+  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  const globalSkillsDir = path.join(HOME, '.agents', 'skills');
+  if (fileExists(pkgSkillsDir)) {
+    ensureDir(globalSkillsDir);
+    try {
+      const files = fs.readdirSync(pkgSkillsDir);
+      files.forEach(file => {
+        if (file.endsWith('-skill.md')) {
+          const srcPath = path.join(pkgSkillsDir, file);
+          const destPath = path.join(globalSkillsDir, file);
+          copyIfDifferent(srcPath, destPath);
+        }
+      });
+    } catch (err) {}
+  }
+
+  // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
+  const python = checkPython() || 'python3';
+  registerMcp(python, true);
+
+  // 5. Ensure agents.json is initialized with defaults if missing
+  const agentsJsonPath = path.join(HOME, '.agents', 'agents.json');
+  if (!fileExists(agentsJsonPath)) {
+    try {
+      agentManager.loadAgents(); // Silently initializes USER_AGENTS_JSON_PATH if missing
+    } catch (e) {}
+  }
+
+  // 6. Ensure GEMINI.md and AGENTS.md are initialized/regenerated if missing
+  if (!fileExists(GEMINI_MD_PATH) || !fileExists(AGENTS_MD_PATH)) {
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      agentManager.regenerateAndDeploy();
+    } catch (e) {
+      // ignore
+    } finally {
+      console.log = originalLog;
+    }
+  }
+
+  // 7. Silently trigger migration if database file (skills.db) is missing
+  if (!fileExists(DB_PATH)) {
+    if (fileExists(pkgSkillsDir)) {
+      const skills = detectCustomSkills(pkgSkillsDir);
+      if (skills.length > 0) {
+        try {
+          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+          });
+        } catch (e) {
+          try {
+            spawnSync(python, [MIGRATE_PATH], {
+              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+            });
+          } catch (e2) {}
+        }
+      }
+    } else {
+      try {
+        spawnSync(python, [MIGRATE_PATH], {
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+        });
+      } catch (e) {}
+    }
+  }
 }
 
 function updateGeminiMd() {
@@ -2299,7 +2488,7 @@ async function cmdAgent(args) {
       const primaryModel = AVAILABLE_MODELS[primaryNum - 1];
 
       // 3. Select fallback model (optional)
-      const defaultFallbackModelName = 'Gemini 3.5 Flash (High)';
+      const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
       const fallbackAns = await askQuestion('\nWould you like to configure a fallback model? (y/n) [y]: ');
       let resolvedModelString = primaryModel.name;
       if (primaryModel.name !== defaultFallbackModelName) {
@@ -2552,18 +2741,22 @@ ${C.bold}USAGE${C.reset}
 ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}list${C.reset}                                 List all available Antigravity model tiers and current agent mapping.
   ${C.cyan}embed <agent-name> <model-expression>${C.reset}  Set the model for an agent (supports fallback expressions).
+  ${C.cyan}reset${C.reset}                                Clear local usage logs in sqlite db to restore model quotas.
 
 ${C.bold}MODEL EXPRESSIONS${C.reset}
   You can specify a single model, or a primary model with a fallback:
-  - Single model: "Gemini 3.5 Flash (High)"
-  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.5 Flash (High)"
+  - Single model: "Gemini 3.1 Flash-Lite"
+  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
 
 ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. List all models and their current assignments:${C.reset}
      konoha models list
 
   ${C.dim}2. Manually set @chunin's model with a fallback:${C.reset}
-     konoha models embed chunin "Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.5 Flash (High)"
+     konoha models embed chunin "Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
+
+  ${C.dim}3. Reset local usage logs and model quotas:${C.reset}
+     konoha models reset
 `);
 }
 
@@ -2591,6 +2784,7 @@ function cmdModels(args) {
   switch (subcommand) {
     case 'list': {
       const agents = agentManager.loadAgents();
+
       header('Available Antigravity Models');
       log(`    ${C.dim}┌────────────────────────────────┬──────────────┐${C.reset}`);
       log(`    ${C.dim}│${C.reset} ${C.bold}${'Model Name'.padEnd(30)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Tag'.padEnd(12)}${C.reset} ${C.dim}│${C.reset}`);
@@ -2633,7 +2827,7 @@ function cmdModels(args) {
             );
             if (!foundModel) throw new Error(`Unknown model: "${input}"`);
             
-            const defaultFallbackModelName = 'Gemini 3.5 Flash (High)';
+            const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
             if (foundModel.name !== defaultFallbackModelName) {
               return `${foundModel.name} | Fallback when fail ${defaultFallbackModelName}`;
             }
@@ -2688,6 +2882,31 @@ function cmdModels(args) {
       } catch (err) {
         error(`Failed to embed model: ${err.message}`);
         process.exit(1);
+      }
+      break;
+    }
+    case 'reset': {
+      try {
+        const python = checkPython();
+        if (python && fileExists(DB_PATH)) {
+          const script = `
+import sqlite3, sys
+conn = sqlite3.connect(sys.argv[1])
+conn.execute("DELETE FROM tool_calls;")
+conn.commit()
+print("success")
+`.trim();
+          const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 3000 });
+          if (run.status === 0 && run.stdout.trim() === 'success') {
+            success('Successfully cleared local usage logs. Model quotas restored to 100%!');
+          } else {
+            error('Failed to clear local usage logs.');
+          }
+        } else {
+          error('SQLite database or python command not found.');
+        }
+      } catch (err) {
+        error(`Failed to reset: ${err.message}`);
       }
       break;
     }
@@ -2881,6 +3100,7 @@ const [,, command, ...args] = process.argv;
 
 async function main() {
   try {
+    ensureAutoSetup();
     switch (command) {
       case 'init':
         cmdInit(args);

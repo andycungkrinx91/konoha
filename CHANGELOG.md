@@ -2,6 +2,17 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.0.7] - 2026-06-10
+
+### Added
+- **Zero-Configuration Auto-Setup & Self-Healing**: Implemented a silent `ensureAutoSetup()` bootstrapping routine in `bin/cli.js` that automatically runs on any command execution. It ensures required directories exist, silently installs and registers `semble` and `skills-db` MCP servers in `mcp_config.json`, configures permanent tool auto-approvals in `settings.json`, sets up default agent configuration/rule files (`agents.json`, `GEMINI.md`, `AGENTS.md`), and seeds the initial SQLite skills database (`skills.db`) if missing.
+- **Command Execution Whitelisting**: Added auto-approval settings for running `node bin/cli.js` and `konoha` in `settings.json` to enable seamless local execution.
+- **Persistent Tool Auto-Approval**: Integrated persistent auto-approve configuration for all `skills-db` and `semble` tools in `mcp_config.json`.
+- **Subagent Artifact Auto-Approval**: Configured instruction templates for all 6 subagent ranks to suppress artifact user prompts (`RequestFeedback: false` and `UserFacing: false`) to allow background operations.
+
+### Changed
+- **Proactive Execution Safety Guardrails**: Hardened subagent behavior directives to strictly enforce proactive execution, prohibiting agents from commanding the user to run files or operations manually.
+
 ## [1.0.6] - 2026-06-10
 
 ### Added

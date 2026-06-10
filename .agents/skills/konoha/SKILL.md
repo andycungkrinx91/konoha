@@ -154,5 +154,5 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 4. Model Registry & Quota Failures
 - The Konoha application natively integrates with the **Antigravity Model Registry**. Subagent profiles in `agents.json` and `AGENTS.md` map directly to models available in the IDE (e.g., `Gemini 2.5 Flash`, `Gemini 3.1 Pro (High)`, `Claude Sonnet 4.6 (Thinking)`).
-- Maintainers must ensure that subagent configurations define fail-safe models, defaulting to `Gemini 3.5 Flash (High)` or `Gemini 2.5 Flash` as the primary fallback model tier during `RESOURCE_EXHAUSTED` / `429` (Quota limits) scenarios.
+- Maintainers must ensure that subagent configurations define fail-safe models, defaulting to `Gemini 3.1 Flash-Lite` or `Gemini 2.5 Flash` as the primary fallback model tier during `RESOURCE_EXHAUSTED` / `429` (Quota limits) scenarios.
 - The system must display the standard quota limit warning message (`"Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."`) and follow the gcloud credentials switch and upgrade flow if total exhaustion occurs.

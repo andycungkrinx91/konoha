@@ -679,7 +679,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["keyword"]
+                            "required": ["keyword", "agent"]
                         }
                     },
                     {
@@ -697,7 +697,8 @@ def handle_request(req):
                                     "type": "string",
                                     "description": "Name of the calling agent."
                                 }
-                            }
+                            },
+                            "required": ["agent"]
                         }
                     },
                     {
@@ -715,7 +716,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["name"]
+                            "required": ["name", "agent"]
                         }
                     },
                     {
@@ -732,7 +733,8 @@ def handle_request(req):
                                     "type": "string",
                                     "description": "Name of the calling agent."
                                 }
-                            }
+                            },
+                            "required": ["agent"]
                         }
                     }
                 ]
