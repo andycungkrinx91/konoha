@@ -2,6 +2,20 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.0.6] - 2026-06-10
+
+### Added
+- **Global Artifact Suppression Settings**: Configured instruction templates (`GEMINI.md`, `AGENTS.md`) and manager code (`agent_manager.js`) to globally instruct subagents to suppress artifact approval overlays (using `RequestFeedback: false` and `UserFacing: false`) for all files and artifacts written or modified during execution.
+- **True Combined Savings Percentage**: Added mathematically accurate combined percentage calculation and visual display (`Today`, `Last 7 Days`, `All Time`) to the `savings` CLI summary box.
+
+### Changed
+- **Stable Models Only**: Filtered out all unstable preview models from the `AVAILABLE_MODELS` list in `bin/cli.js` to prevent errors.
+- **Dynamic Token Savings Baseline**: Updated `log_tool_call` in `server.py` to dynamically compute baseline based on the active agent's assigned skills (falling back to a realistic 25 KB baseline instead of the entire database size), and set savings to `0` for `get_skill` calls to prevent inflated context reports.
+- **Corrected Stats Queries**: Updated `db_savings.py` and `bin/cli.js` to compute Skills-DB savings percentage against a denominator of actual returned plus saved bytes, rather than database-wide totals.
+
+### Fixed
+- **Inflated Token Savings**: Eliminated fake 99% savings for `get_skill` operations, migrating existing sqlite stats database via `migrate_stats.py` to restore honest savings metrics.
+
 ## [1.0.5] - 2026-06-09
 
 ### Added

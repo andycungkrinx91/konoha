@@ -52,7 +52,7 @@ The orchestrator MUST follow this workflow:
    - If `depth` exists, increment it (`depth = depth + 1`).
    - If it does not exist, initialize it to `depth: 1`.
    - **Circuit Breaker**: If `depth > 5`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to `scratch/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
-   - **Artifact Metadata**: When writing or updating `delegate.md` or `result.md`, you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
+   - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
    Categorize the main content clearly:
    - **Goal**: Clear explanation of what needs to be accomplished.
    - **Context**: Relevant files, code snippets, and background details discovered via `semble`.

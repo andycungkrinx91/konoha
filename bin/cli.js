@@ -1870,14 +1870,17 @@ function cmdSavings() {
         global.skillsDbTodayCalls = stats.today.calls;
         global.skillsDbTodayTokens = stats.today.tokens;
         global.skillsDbTodayBytes = stats.today.bytes;
+        global.skillsDbTodayTotalBytes = stats.today.total_bytes;
 
         global.skillsDbLast7DaysCalls = stats.last7days.calls;
         global.skillsDbLast7DaysTokens = stats.last7days.tokens;
         global.skillsDbLast7DaysBytes = stats.last7days.bytes;
+        global.skillsDbLast7DaysTotalBytes = stats.last7days.total_bytes;
 
         global.skillsDbAllTimeCalls = stats.alltime.calls;
         global.skillsDbAllTimeTokens = stats.alltime.tokens;
         global.skillsDbAllTimeBytes = stats.alltime.bytes;
+        global.skillsDbAllTimeTotalBytes = stats.alltime.total_bytes;
       }
     } catch (e) {
       log(`     ${C.yellow}⚠${C.reset} Could not read Skills-DB savings: ${e.message}`);
@@ -1892,10 +1895,13 @@ function cmdSavings() {
 
   let sembleTodayCalls = 0;
   let sembleTodayTokens = 0;
+  let sembleTodayPct = 0;
   let sembleLast7DaysCalls = 0;
   let sembleLast7DaysTokens = 0;
+  let sembleLast7DaysPct = 0;
   let sembleAllTimeCalls = 0;
   let sembleAllTimeTokens = 0;
+  let sembleAllTimePct = 0;
 
   try {
     const runSemble = spawnSync('uvx', ['--from', 'semble[mcp]@latest', 'semble', 'savings', '--verbose'], {
@@ -1912,28 +1918,31 @@ function cmdSavings() {
     const lines = sembleOutput.split('\n');
     for (const line of lines) {
       const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-      const todayMatch = cleanLine.match(/^\s*Today\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens/i);
+      const todayMatch = cleanLine.match(/^\s*Today\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (todayMatch) {
         sembleTodayCalls = parseInt(todayMatch[1], 10) || 0;
         const val = parseFloat(todayMatch[2]);
         const unit = (todayMatch[3] || '').toLowerCase();
         sembleTodayTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
+        sembleTodayPct = parseInt(todayMatch[4] || '0', 10) || 0;
       }
 
-      const last7Match = cleanLine.match(/^\s*Last\s+7\s+days\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens/i);
+      const last7Match = cleanLine.match(/^\s*Last\s+7\s+days\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (last7Match) {
         sembleLast7DaysCalls = parseInt(last7Match[1], 10) || 0;
         const val = parseFloat(last7Match[2]);
         const unit = (last7Match[3] || '').toLowerCase();
         sembleLast7DaysTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
+        sembleLast7DaysPct = parseInt(last7Match[4] || '0', 10) || 0;
       }
 
-      const allTimeMatch = cleanLine.match(/^\s*All\s+time\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens/i);
+      const allTimeMatch = cleanLine.match(/^\s*All\s+time\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (allTimeMatch) {
         sembleAllTimeCalls = parseInt(allTimeMatch[1], 10) || 0;
         const val = parseFloat(allTimeMatch[2]);
         const unit = (allTimeMatch[3] || '').toLowerCase();
         sembleAllTimeTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
+        sembleAllTimePct = parseInt(allTimeMatch[4] || '0', 10) || 0;
       }
     }
   } catch (e) {
@@ -1953,6 +1962,31 @@ function cmdSavings() {
   const combinedAllTimeTokens = (global.skillsDbAllTimeTokens || 0) + sembleAllTimeTokens;
   const combinedAllTimeBytes = (global.skillsDbAllTimeBytes || 0) + (sembleAllTimeTokens * 4);
 
+  // Calculate true combined savings percentages
+  const skillsDbTodaySavedBytes = global.skillsDbTodayBytes || 0;
+  const skillsDbTodayTotalBytes = global.skillsDbTodayTotalBytes || 0;
+  const sembleTodaySavedBytes = sembleTodayTokens * 4;
+  const combinedTodaySavedBytes = skillsDbTodaySavedBytes + sembleTodaySavedBytes;
+  const sembleTodayTotalBytes = (sembleTodayPct > 0) ? (sembleTodaySavedBytes) / (sembleTodayPct / 100) : sembleTodaySavedBytes;
+  const combinedTodayTotalBytes = skillsDbTodayTotalBytes + sembleTodayTotalBytes;
+  const combinedTodayPct = (combinedTodayTotalBytes > 0) ? Math.round((combinedTodaySavedBytes / combinedTodayTotalBytes) * 100) : 0;
+
+  const skillsDbLast7DaysSavedBytes = global.skillsDbLast7DaysBytes || 0;
+  const skillsDbLast7DaysTotalBytes = global.skillsDbLast7DaysTotalBytes || 0;
+  const sembleLast7DaysSavedBytes = sembleLast7DaysTokens * 4;
+  const combinedLast7DaysSavedBytes = skillsDbLast7DaysSavedBytes + sembleLast7DaysSavedBytes;
+  const sembleLast7DaysTotalBytes = (sembleLast7DaysPct > 0) ? (sembleLast7DaysSavedBytes) / (sembleLast7DaysPct / 100) : sembleLast7DaysSavedBytes;
+  const combinedLast7DaysTotalBytes = skillsDbLast7DaysTotalBytes + sembleLast7DaysTotalBytes;
+  const combinedLast7DaysPct = (combinedLast7DaysTotalBytes > 0) ? Math.round((combinedLast7DaysSavedBytes / combinedLast7DaysTotalBytes) * 100) : 0;
+
+  const skillsDbAllTimeSavedBytes = global.skillsDbAllTimeBytes || 0;
+  const skillsDbAllTimeTotalBytes = global.skillsDbAllTimeTotalBytes || 0;
+  const sembleAllTimeSavedBytes = sembleAllTimeTokens * 4;
+  const combinedAllTimeSavedBytes = skillsDbAllTimeSavedBytes + sembleAllTimeSavedBytes;
+  const sembleAllTimeTotalBytes = (sembleAllTimePct > 0) ? (sembleAllTimeSavedBytes) / (sembleAllTimePct / 100) : sembleAllTimeSavedBytes;
+  const combinedAllTimeTotalBytes = skillsDbAllTimeTotalBytes + sembleAllTimeTotalBytes;
+  const combinedAllTimePct = (combinedAllTimeTotalBytes > 0) ? Math.round((combinedAllTimeSavedBytes / combinedAllTimeTotalBytes) * 100) : 0;
+
   const formatBytesComb = (b) => {
     if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(2)} MB`;
     return `${(b / 1024).toFixed(1)} KB`;
@@ -1961,16 +1995,16 @@ function cmdSavings() {
   const formatTokensComb = (t) => {
     if (t >= 1000000) return `${(t / 1000000).toFixed(2)}M`;
     if (t >= 1000) return `${(t / 1000).toFixed(1)}k`;
-    return t;
+    return String(t);
   };
 
   header('🏆 Combined Total Savings');
   log('');
   
   const combinedSummaryLines = [
-    `${C.bold}Today:${C.reset}        ${String(combinedTodayCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedTodayTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedTodayBytes)}${C.reset} equivalent)`,
-    `${C.bold}Last 7 Days:${C.reset}  ${String(combinedLast7DaysCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedLast7DaysTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedLast7DaysBytes)}${C.reset} equivalent)`,
-    `${C.bold}All Time:${C.reset}     ${String(combinedAllTimeCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedAllTimeTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedAllTimeBytes)}${C.reset} equivalent)`,
+    `${C.bold}Today:${C.reset}        ${String(combinedTodayCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedTodayTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedTodayBytes)}${C.reset} equivalent) (${C.green}${combinedTodayPct}%${C.reset})`,
+    `${C.bold}Last 7 Days:${C.reset}  ${String(combinedLast7DaysCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedLast7DaysTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedLast7DaysBytes)}${C.reset} equivalent) (${C.green}${combinedLast7DaysPct}%${C.reset})`,
+    `${C.bold}All Time:${C.reset}     ${String(combinedAllTimeCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedAllTimeTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedAllTimeBytes)}${C.reset} equivalent) (${C.green}${combinedAllTimePct}%${C.reset})`,
     '─',
     `Token reduction:       ${C.bold}${C.green}83-98%${C.reset} average per query`,
   ];
@@ -2490,15 +2524,17 @@ async function cmdAgent(args) {
 }
 
 const AVAILABLE_MODELS = [
-  { name: 'Gemini 2.5 Flash', tag: 'Fast', aliases: ['flash-2.5', 'gemini-2.5-flash', '2.5-flash'] },
+  { name: 'Gemini 3.1 Flash-Lite', tag: 'Fast', aliases: ['gemini-3.1-flash-lite', 'flash-lite-3.1', '3.1-flash-lite'] },
+  { name: 'Gemini 2.5 Flash', tag: 'Fast', aliases: ['gemini-2.5-flash', 'flash-2.5', '2.5-flash'] },
+  { name: 'Gemini 2.5 Flash-Lite', tag: 'Fast', aliases: ['gemini-2.5-flash-lite', 'flash-lite-2.5', '2.5-flash-lite'] },
   { name: 'Gemini 3.5 Flash (Medium)', tag: 'Fast', aliases: ['flash-medium', 'gemini-3.5-flash-medium', 'medium'] },
   { name: 'Gemini 3.5 Flash (High)', tag: 'Fast', aliases: ['flash-high', 'gemini-3.5-flash-high', 'high'] },
   { name: 'Gemini 3.5 Flash (Low)', tag: 'Fast', aliases: ['flash-low', 'gemini-3.5-flash-low', 'low'] },
-  { name: 'Gemini 3.1 Pro (Low)', tag: '', aliases: ['pro-low', 'gemini-3.1-pro-low'] },
-  { name: 'Gemini 3.1 Pro (High)', tag: '', aliases: ['pro-high', 'gemini-3.1-pro-high'] },
-  { name: 'Claude Sonnet 4.6 (Thinking)', tag: '', aliases: ['sonnet', 'sonnet-4.6', 'claude-sonnet-4.6', 'sonnet-thinking'] },
-  { name: 'Claude Opus 4.6 (Thinking)', tag: '', aliases: ['opus', 'opus-4.6', 'claude-opus-4.6', 'opus-thinking'] },
-  { name: 'GPT-OSS 120B (Medium)', tag: '', aliases: ['gpt', 'gpt-oss', 'gpt-oss-120b', 'gpt-120b'] }
+  { name: 'Gemini 3.1 Pro (Low)', tag: 'Standard', aliases: ['pro-low', 'gemini-3.1-pro-low'] },
+  { name: 'Gemini 3.1 Pro (High)', tag: 'Standard', aliases: ['pro-high', 'gemini-3.1-pro-high'] },
+  { name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Reasoning', aliases: ['sonnet', 'sonnet-4.6', 'claude-sonnet-4.6', 'sonnet-thinking'] },
+  { name: 'Claude Opus 4.6 (Thinking)', tag: 'Advanced', aliases: ['opus', 'opus-4.6', 'claude-opus-4.6', 'opus-thinking'] },
+  { name: 'GPT-OSS 120B (Medium)', tag: 'Standard', aliases: ['gpt', 'gpt-oss', 'gpt-oss-120b', 'gpt-120b'] }
 ];
 
 function cmdModelsHelp() {
@@ -2541,19 +2577,20 @@ function cmdModels(args) {
   }
 
   const printModelRow = (col1, col2, col1Color = '', col2Color = '') => {
-    const c1 = col1Color ? `${col1Color}${col1.padEnd(30)}${C.reset}` : col1.padEnd(30);
-    const c2 = col2Color ? `${col2Color}${col2.padEnd(12)}${C.reset}` : col2.padEnd(12);
+    const c1 = col1Color ? `${col1Color}${padEndVisual(col1, 30)}${C.reset}` : padEndVisual(col1, 30);
+    const c2 = col2Color ? `${col2Color}${padEndVisual(col2, 12)}${C.reset}` : padEndVisual(col2, 12);
     log(`    ${C.dim}│${C.reset} ${c1} ${C.dim}│${C.reset} ${c2} ${C.dim}│${C.reset}`);
   };
 
   const printTwoColRow = (col1, col2, col1Color = '', col2Color = '') => {
-    const c1 = col1Color ? `${col1Color}${col1.padEnd(20)}${C.reset}` : col1.padEnd(20);
-    const c2 = col2Color ? `${col2Color}${col2.padEnd(80)}${C.reset}` : col2.padEnd(80);
+    const c1 = col1Color ? `${col1Color}${padEndVisual(col1, 20)}${C.reset}` : padEndVisual(col1, 20);
+    const c2 = col2Color ? `${col2Color}${padEndVisual(col2, 80)}${C.reset}` : padEndVisual(col2, 80);
     log(`    ${C.dim}│${C.reset} ${c1} ${C.dim}│${C.reset} ${c2} ${C.dim}│${C.reset}`);
   };
 
   switch (subcommand) {
     case 'list': {
+      const agents = agentManager.loadAgents();
       header('Available Antigravity Models');
       log(`    ${C.dim}┌────────────────────────────────┬──────────────┐${C.reset}`);
       log(`    ${C.dim}│${C.reset} ${C.bold}${'Model Name'.padEnd(30)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Tag'.padEnd(12)}${C.reset} ${C.dim}│${C.reset}`);
@@ -2567,7 +2604,6 @@ function cmdModels(args) {
       log(`    ${C.dim}┌──────────────────────┬${'─'.repeat(82)}┐${C.reset}`);
       log(`    ${C.dim}│${C.reset} ${C.bold}${'Subagent'.padEnd(20)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Assigned Model Tier / Name'.padEnd(80)}${C.reset} ${C.dim}│${C.reset}`);
       log(`    ${C.dim}├──────────────────────┼${'─'.repeat(82)}┤${C.reset}`);
-      const agents = agentManager.loadAgents();
       agents.forEach(a => {
         const icon = a.icon || '👤';
         const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;

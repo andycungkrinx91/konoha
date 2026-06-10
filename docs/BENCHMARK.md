@@ -9,9 +9,9 @@ This report presents real-world, context-optimized token savings metrics capture
 By moving from full-disk file loading to on-demand context injection, developers achieve a combined context reduction of **83% to 98% average per query**.
 
 ### Real-World Savings Summary
-- **Today**: 33 calls | **~3.46M tokens saved** (~13.19 MB equivalent)
-- **Last 7 Days**: 273 calls | **~11.55M tokens saved** (~44.07 MB equivalent)
-- **All Time**: 273 calls | **~11.55M tokens saved** (~44.07 MB equivalent)
+- **Today**: 102 calls | **~1.40M tokens saved** (~5.34 MB equivalent)
+- **Last 7 Days**: 481 calls | **~10.89M tokens saved** (~41.54 MB equivalent)
+- **All Time**: 481 calls | **~10.89M tokens saved** (~41.54 MB equivalent)
 
 ---
 
@@ -19,13 +19,13 @@ By moving from full-disk file loading to on-demand context injection, developers
 
 In a standard agent setup without `konoha`, the orchestrator loads the complete `SKILL.md` rules and all adjacent dependencies/references directly into the starting conversation window. This baseline configuration consumes **~550 KB** of raw text immediately.
 
-With `konoha`, the orchestrator executes FTS5 searches and retrieves only the matching **~12 KB** section matching the specific task query, resulting in a **99% context size reduction**.
+With `konoha`, the orchestrator executes FTS5 searches and retrieves only the matching **~12 KB** section matching the specific task query, resulting in an **85% context size reduction**.
 
 | Period | Total Calls | Cumulative Data Saved | Active Token Reduction |
 | :--- | :---: | :---: | :---: |
-| **Today** | 17 | 11.26 MB | **~3.0M tokens** (99% savings) |
-| **Last 7 Days** | 17 | 11.26 MB | **~3.0M tokens** (99% savings) |
-| **All Time** | 17 | 11.26 MB | **~3.0M tokens** (99% savings) |
+| **Today** | 88 | 3.51 MB | **~920.8k tokens** (90% savings) |
+| **Last 7 Days** | 195 | 4.92 MB | **~1.3M tokens** (85% savings) |
+| **All Time** | 195 | 4.92 MB | **~1.3M tokens** (85% savings) |
 
 ---
 
@@ -35,9 +35,9 @@ With `konoha`, the orchestrator executes FTS5 searches and retrieves only the ma
 
 | Period | Search Queries | Cumulative Tokens Saved | Average Reduction |
 | :--- | :---: | :---: | :---: |
-| **Today** | 16 | **~505.8k tokens** | 97% |
-| **Last 7 Days** | 256 | **~8.6M tokens** | 96% |
-| **All Time** | 256 | **~8.6M tokens** | 96% |
+| **Today** | 14 | **~479.1k tokens** | 96% |
+| **Last 7 Days** | 286 | **~9.6M tokens** | 96% |
+| **All Time** | 286 | **~9.6M tokens** | 96% |
 
 ---
 

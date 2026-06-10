@@ -95,16 +95,16 @@ flowchart LR
 | :--- | :---: | :---: | :---: |
 | **Startup Context Load** | **~1.1 MB** (all SKILL.md rules + reference files loaded at start) | **~0 KB** (instructions are lazy-loaded on-demand via MCP) | **~100% startup context reduction** |
 | **Single Search Query Payload** | **50 KB+** (entire files loaded/dumped) | **~4 KB - 12 KB** (precise matches returned) | **83% - 98% token reduction** per query |
-| **Active Workspace Calls** | — | **273 calls** | — |
-| **Context Data Saved** | — | **~44.07 MB** | — |
-| **Active Tokens Saved** | 0 (baseline) | **~11.55M tokens** | **~11.55M tokens saved** |
+| **Active Workspace Calls** | — | **481 calls** | — |
+| **Context Data Saved** | — | **~41.54 MB** | — |
+| **Active Tokens Saved** | 0 (baseline) | **~10.89M tokens** | **~10.89M tokens saved** |
 | **Response Latency** | Baseline (100%) | **~58%** (42% faster response times) | **~42% speed improvement** |
 | **API Cost Footprint** | Baseline (100%) | **~5%** (95% cost reduction) | **~95% token cost savings** |
 
 **Real-world Savings (Current metrics from active developer workspace):**
-- **Combined Token Savings**: **~11.55M tokens saved** all-time across 273 total agent calls (~44.07 MB of context data saved).
-- **Skills-DB (konoha) Efficiency**: **99% context size reduction** (average query footprint reduced from 550 KB baseline to ~12 KB on-demand; ~3.0M tokens saved).
-- **Semble MCP Efficiency**: **96% context size reduction** average per search query (~8.6M tokens saved across 256 calls).
+- **Combined Token Savings**: **~10.89M tokens saved** all-time across 481 total agent calls (~41.54 MB of context data saved).
+- **Skills-DB (konoha) Efficiency**: **85% context size reduction** (average query footprint reduced from average 25 KB baseline to ~4 KB - 12 KB on-demand; ~1.3M tokens saved).
+- **Semble MCP Efficiency**: **96% context size reduction** average per search query (~9.6M tokens saved across 286 calls).
 - **Response Latency Reduction**: **~42% faster** agent responses due to minimized input context parsing.
 - **API Cost Reduction**: **~95% reduction** in API token fees per agent session.
 

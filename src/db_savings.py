@@ -20,7 +20,7 @@ def query_stats(conn, time_filter=None):
             COUNT(*) as calls,
             COALESCE(SUM(bytes_saved), 0) as bytes,
             COALESCE(SUM(tokens_saved), 0) as tokens,
-            COALESCE(SUM(total_library_bytes), 0) as total_bytes
+            COALESCE(SUM(bytes_saved + returned_bytes), 0) as total_bytes
         FROM tool_calls
         {where_clause}
     """
@@ -31,7 +31,8 @@ def query_stats(conn, time_filter=None):
         "calls": row[0],
         "bytes": row[1],
         "tokens": row[2],
-        "pct": pct
+        "pct": pct,
+        "total_bytes": total_bytes
     }
 
 try:

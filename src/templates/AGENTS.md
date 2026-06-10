@@ -24,7 +24,7 @@
      - If `depth` exists, increment it (`depth = depth + 1`).
      - If it does not exist, initialize it to `depth: 1`.
      - **Circuit Breaker**: If `depth > 5`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to `scratch/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
-     - **Artifact Metadata**: When writing or updating `delegate.md` or `result.md`, you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
+     - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
   5. **Delegate & Await**: Launch the subagent. The subagent will read `delegate.md` to run the task, and write its output to `scratch/result.md` in the same directory. Read `scratch/result.md` once complete to consume the output.
 - **Constraints**: ONLY delegates to: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. No custom subagents. On quota limits, fall back to Direct Tool Calls.
 
@@ -99,7 +99,7 @@
 3. **Skills-DB first**: Call `find_skill(keyword, agent='{your_name}')` before starting any task. Never load SKILL.md files directly.
 4. **Semble for code search**: Always use semble MCP (`search`, `find_related`) before grep/glob.
 5. **Agent parameter**: When invoking `find_skill`, `get_skill`, or `list_skills`, always pass `agent='{your_name}'`.
-6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to `<appDataDir>/brain/<conversation-id>/scratch/result.md` instead of generating a massive chat response.
+6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to `<appDataDir>/brain/<conversation-id>/scratch/result.md` instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
 
 ### Safety Guardrails
 - **Proactive Execution**: Never instruct user to manually perform tasks you can execute yourself.
