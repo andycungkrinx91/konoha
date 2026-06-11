@@ -1,6 +1,6 @@
 {
   "name": "Konoha",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "SQLite FTS5 Skills-DB for Antigravity IDE/CLI — on-demand skill content via MCP, reducing token usage by 83-98%",
   "keywords": [
     "antigravity",
@@ -37,6 +37,11 @@
     "url": "https://github.com/andycungkrinx91/konoha"
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.5.2"
+    "@inquirer/prompts": "^8.5.2",
+    "chalk": "^4.1.2",
+    "chalk-animation": "^2.0.3",
+    "figlet": "^1.11.0",
+    "gradient-string": "^3.0.0",
+    "ora": "^5.4.1"
   }
 }

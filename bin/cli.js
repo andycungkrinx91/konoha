@@ -25,6 +25,8 @@ const https = require('https');
 
 const agentManager = require('../src/agent_manager');
 const skillManager = require('../src/skill_manager');
+const { runSplashScreen } = require('../src/splash');
+
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -104,6 +106,17 @@ const RASENGAN_THEME = [
   [0, 191, 255],     // Deep Sky Blue
   [224, 242, 254],   // Light Blue/White
 ];
+
+const CHIDORI_THEME = [
+  [100, 180, 255],   // Electric Blue
+  [0, 255, 255],     // Cyan
+  [180, 220, 255],   // Ice White-Blue
+  [255, 255, 255],   // Flash White
+  [0, 200, 255],     // Deep Electric
+];
+
+const LIGHTNING_CHARS = ['Z', '⌁', '⚡', '↯', 'ϟ', '═'];
+const CHIDORI_SPINNER_FRAMES = ['⚡', '϶', '⌁', '↯', '✹', '✷', '⚡', 'ϟ'];
 
 const NO_ANIMATION = process.env.NO_ANIMATE === '1' || process.argv.includes('--no-animate') || process.env.CI === 'true';
 
@@ -404,10 +417,10 @@ function startAgentTui(agents) {
 }
 
 
-function info(msg) { log(`${C.cyan}ℹ${C.reset} ${msg}`); }
-function success(msg) { log(`${C.green}✓${C.reset} ${msg}`); }
-function warn(msg) { log(`${C.yellow}⚠${C.reset} ${msg}`); }
-function error(msg) { log(`${C.red}✗${C.reset} ${msg}`); }
+function info(msg) { log(`  \x1b[38;2;0;200;255mϟ\x1b[0m ${msg}`); }
+function success(msg) { log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${msg}`); }
+function warn(msg) { log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${msg}`); }
+function error(msg) { log(`  ${C.red}✗${C.reset} ${msg}`); }
 
 let rlInstance = null;
 function askQuestion(query) {
@@ -546,61 +559,145 @@ function header(msg) {
   
   const coloredText = applyGradient(text, theme);
   log(`\n${icon}${C.bold}${coloredText}${C.reset}`);
-  log(applyGradient('═'.repeat(Math.max(60, msg.length + 4)), theme));
+  
+  // Pure separator line with CHIDORI_THEME
+  const sepLen = Math.max(60, msg.length + 4);
+  const sepLine = '═'.repeat(sepLen);
+  
+  log(applyGradient(sepLine, CHIDORI_THEME));
 }
 
 function divider() {
-  log(applyGradient('─'.repeat(60), NINJA_THEME));
+  const sepLen = 60;
+  const sepLine = '═'.repeat(sepLen);
+  
+  log(applyGradient(sepLine, CHIDORI_THEME));
 }
 
 function startSpinner(text) {
   const isInteractive = process.stdout.isTTY && !process.env.CI;
-  const frames = ['✹', '✷', '✶', '✵'];
+  const frames = CHIDORI_SPINNER_FRAMES;
+  const chidoriColors = [
+    '\x1b[38;2;100;180;255m',  // Electric Blue
+    '\x1b[38;2;0;255;255m',    // Cyan
+    '\x1b[38;2;180;220;255m',  // Ice White-Blue
+    '\x1b[38;2;255;255;255m',  // Flash White
+    '\x1b[38;2;0;200;255m',    // Deep Electric
+  ];
   let frameIdx = 0;
   let interval = null;
   
   if (isInteractive && !NO_ANIMATION) {
-    process.stdout.write(`  \x1b[33m${frames[0]}\x1b[0m  ${text}`);
+    // Generate a crackle trail of 3 random lightning chars
+    const crackle = () => {
+      let trail = '';
+      for (let i = 0; i < 3; i++) {
+        const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
+        const col = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
+        trail += col + ch;
+      }
+      return trail + C.reset;
+    };
+
+    process.stdout.write(`  ${chidoriColors[0]}${frames[0]}${C.reset}  ${text} ${crackle()}`);
     interval = setInterval(() => {
       frameIdx = (frameIdx + 1) % frames.length;
-      process.stdout.write(`\r  \x1b[33m${frames[frameIdx]}\x1b[0m  ${text}`);
-    }, 100);
+      const colorIdx = frameIdx % chidoriColors.length;
+      // Flash white every 8th frame for Chidori discharge effect
+      const isFlash = frameIdx % 8 === 0;
+      const color = isFlash ? '\x1b[97m' : chidoriColors[colorIdx];
+      const displayText = isFlash ? `\x1b[97m${text}` : text;
+      process.stdout.write(`\r  ${color}${frames[frameIdx]}${C.reset}  ${displayText}${C.reset} ${crackle()}   `);
+    }, 80);
   } else {
-    log(`  ${C.cyan}ℹ${C.reset} ${text}`);
+    log(`  ${C.cyan}ϟ${C.reset} ${text}`);
   }
   
   return {
     update(newText) {
       text = newText;
       if (!isInteractive || NO_ANIMATION) {
-        log(`  ${C.cyan}ℹ${C.reset} ${text}`);
+        log(`  ${C.cyan}ϟ${C.reset} ${text}`);
       }
     },
     success(successText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[32m✓\x1b[0m  ${successText || text}\n`);
+        process.stdout.write(`\r  \x1b[38;2;0;255;255m⚡\x1b[0m  ${successText || text}${' '.repeat(12)}\n`);
       } else {
-        log(`  ${C.green}✓${C.reset} ${successText || text}`);
+        log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${successText || text}`);
       }
     },
     warn(warnText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[33m⚠\x1b[0m  ${warnText || text}\n`);
+        process.stdout.write(`\r  \x1b[38;2;255;200;0m↯\x1b[0m  ${warnText || text}${' '.repeat(12)}\n`);
       } else {
-        log(`  ${C.yellow}⚠${C.reset} ${warnText || text}`);
+        log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${warnText || text}`);
       }
     },
     error(errText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[31m✗\x1b[0m  ${errText || text}\n`);
+        process.stdout.write(`\r  \x1b[31m✗\x1b[0m  ${errText || text}${' '.repeat(12)}\n`);
       } else {
         log(`  ${C.red}✗${C.reset} ${errText || text}`);
       }
     }
   };
+}
+
+
+async function chidoriTransition(commandName) {
+  const isInteractive = process.stdout.isTTY && !process.env.CI;
+  if (!isInteractive || NO_ANIMATION) return;
+  
+  const width = 60;
+  const chidoriColors = [
+    [100, 180, 255],
+    [0, 255, 255],
+    [180, 220, 255],
+    [255, 255, 255],
+    [0, 200, 255],
+  ];
+  
+  process.stdout.write('\x1b[?25l');
+  
+  const frames = 3;
+  for (let f = 0; f < frames; f++) {
+    let line1 = '';
+    
+    // Density increases per frame for building energy effect
+    const density = 0.3 + (f / frames) * 0.5;
+    
+    for (let x = 0; x < width; x++) {
+      if (Math.random() < density) {
+        const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
+        const ci = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
+        line1 += `\x1b[38;2;${ci[0]};${ci[1]};${ci[2]}m${ch}`;
+      } else {
+        line1 += '\x1b[38;2;100;180;255m═';
+      }
+    }
+    
+    // On last frame, flash everything white like Chidori impact
+    if (f === frames - 1) {
+      line1 = '\x1b[97m' + '⚡'.repeat(width);
+    }
+    
+    process.stdout.write(`\x1b[2K${line1}\x1b[0m\n`);
+    
+    await new Promise(r => setTimeout(r, 15));
+    
+    // Move cursor back up 1 line for next frame overlay
+    if (f < frames - 1) {
+      process.stdout.write('\x1b[1A');
+    }
+  }
+  
+  // Clear the lightning lines
+  process.stdout.write('\x1b[1A\x1b[2K');
+  process.stdout.write('\x1b[?25h');
 }
 
 function drawLogo(animated = false) {
@@ -742,6 +839,7 @@ function detectCustomSkills(skillsDir) {
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 async function cmdInit(args) {
+  await chidoriTransition('init');
   drawLogo(true); // Animate fade-in of the logo!
   
   header('🚀 Konoha Installer');
@@ -900,19 +998,19 @@ async function cmdInit(args) {
   // 6. Register MCP config
   header('⚙️  Registering MCP Server');
   const spinner4 = startSpinner('Registering in ~/.gemini/config/mcp_config.json...');
-  registerMcp(python, false, allowAutoApprove);
+  registerMcp(python, true, allowAutoApprove);
   spinner4.success('skills-db registered in MCP config.');
 
   // 7. Update GEMINI.md
   header('📝 Updating GEMINI.md');
   const spinner5 = startSpinner('Adding on-demand skills usage rules...');
-  updateGeminiMd();
+  updateGeminiMd(true);
   spinner5.success('GEMINI.md updated.');
 
   // 8. Update AGENTS.md
   header('👥 Updating AGENTS.md');
   const spinner6 = startSpinner('Re-deploying Naruto Ninja Ranks...');
-  updateAgentsMd();
+  updateAgentsMd(true);
   spinner6.success('AGENTS.md updated.');
 
   // 9. Summary
@@ -987,6 +1085,18 @@ function getUvCommand() {
   }
 
   return null;
+}
+
+function getUvxCommand() {
+  const uvCmd = getUvCommand();
+  if (!uvCmd) return 'uvx';
+  if (uvCmd !== 'uv') {
+    const companionUvx = path.join(path.dirname(uvCmd), process.platform === 'win32' ? 'uvx.exe' : 'uvx');
+    if (fileExists(companionUvx)) {
+      return companionUvx;
+    }
+  }
+  return 'uvx';
 }
 
 function registerMcp(python, silent = false, allowAutoApprove = true) {
@@ -1235,15 +1345,16 @@ function ensureAutoSetup() {
   }
 }
 
-function updateGeminiMd() {
-  agentManager.regenerateAndDeploy();
+function updateGeminiMd(silent = false) {
+  agentManager.regenerateAndDeploy(silent);
 }
 
-function updateAgentsMd() {
-  agentManager.regenerateAndDeploy();
+function updateAgentsMd(silent = false) {
+  agentManager.regenerateAndDeploy(silent);
 }
 
-function cmdMigrate(args) {
+async function cmdMigrate(args) {
+  await chidoriTransition('migrate');
   header('📊 Re-running Skills Migration');
 
   const python = checkPython();
@@ -1325,7 +1436,8 @@ function cmdMigrate(args) {
   }
 }
 
-function cmdTest() {
+async function cmdTest() {
+  await chidoriTransition('test');
   header('🧪 Testing Skills-DB MCP Server');
 
   const python = checkPython();
@@ -1427,7 +1539,8 @@ function cmdTest() {
   }
 }
 
-function cmdStatus() {
+async function cmdStatus() {
+  await chidoriTransition('status');
   drawLogo(false); // Static logo
   
   header('📋 Skills-DB Status');
@@ -1594,7 +1707,8 @@ function cmdStatus() {
   log('');
 }
 
-function cmdDoctor() {
+async function cmdDoctor() {
+  await chidoriTransition('doctor');
   drawLogo(false); // Static logo
   header('🩺 Konoha Doctor');
   log(`${C.dim}Diagnosing environment requirements and auto-repairing missing components...${C.reset}\n`);
@@ -1861,7 +1975,7 @@ function cmdDoctor() {
     if (repairsDone > 0) {
       info('Running self-test to verify repairs...');
       try {
-        cmdTest();
+        await cmdTest();
       } catch (testErr) {
         error(`Self-test failed after repairs: ${testErr.message}`);
         process.exit(1);
@@ -1870,7 +1984,8 @@ function cmdDoctor() {
   }
 }
 
-function cmdUninstall() {
+async function cmdUninstall() {
+  await chidoriTransition('uninstall');
   header('🗑️  Uninstalling Skills-DB');
 
   // Remove server files
@@ -1923,7 +2038,8 @@ function cmdUninstall() {
   info('Your original skills in ~/.agents/skills/ are untouched.');
 }
 
-function cmdAgentStatus() {
+async function cmdAgentStatus() {
+  await chidoriTransition('agent-status');
   drawLogo(false); // Static logo
   header('🥷 Agent Call Statistics');
   
@@ -2029,7 +2145,8 @@ function cmdAgentStatus() {
   log('');
 }
 
-function cmdSavings() {
+async function cmdSavings() {
+  await chidoriTransition('savings');
   drawLogo(false); // Static logo
   
   header('📊 Token Savings Report');
@@ -2134,11 +2251,28 @@ function cmdSavings() {
   let sembleAllTimePct = 0;
 
   try {
-    const runSemble = spawnSync('uvx', ['--from', 'semble[mcp]@latest', 'semble', 'savings', '--verbose'], {
+    const uvxCmd = getUvxCommand();
+    let runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings', '--verbose'], {
       encoding: 'utf-8',
-      timeout: 45000
+      timeout: 5000
     });
-    if (runSemble.status !== 0) throw new Error(runSemble.stderr || 'Semble savings query failed');
+    if (runSemble.status !== 0 || runSemble.error) {
+      // Fallback: Try running local/global 'semble' directly if uvx fails (e.g. offline mode or PyPI timeout)
+      let sembleCmd = 'semble';
+      if (uvxCmd !== 'uvx') {
+        const companionSemble = path.join(path.dirname(uvxCmd), 'semble');
+        if (fileExists(companionSemble)) {
+          sembleCmd = companionSemble;
+        }
+      }
+      runSemble = spawnSync(sembleCmd, ['savings', '--verbose'], {
+        encoding: 'utf-8',
+        timeout: 5000
+      });
+    }
+    if (runSemble.status !== 0 || runSemble.error) {
+      throw runSemble.error || new Error(runSemble.stderr || 'Semble savings query failed');
+    }
     const sembleOutput = runSemble.stdout;
     
     // Print Semble output indented slightly to fit the style
@@ -2176,7 +2310,7 @@ function cmdSavings() {
       }
     }
   } catch (e) {
-    log(`     ${C.yellow}⚠${C.reset} Could not fetch Semble savings.`);
+    log(`     ${C.yellow}⚠${C.reset} Could not fetch Semble savings: ${e.message}`);
   }
 
   // 3. Combined Summary
@@ -2272,7 +2406,8 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
 `);
 }
 
-function cmdSkill(args) {
+async function cmdSkill(args) {
+  await chidoriTransition('skill');
   const subcommand = args[0];
   const subArgs = args.slice(1);
 
@@ -2284,7 +2419,6 @@ function cmdSkill(args) {
   switch (subcommand) {
     case 'list': {
       header('Installed Skills');
-      divider();
       const installed = skillManager.listInstalledSkills();
       if (installed.length === 0) {
         warn('No custom skills currently installed.');
@@ -2331,7 +2465,7 @@ function cmdSkill(args) {
         skillManager.removeSkill(name);
         success(`Successfully removed skill: ${name}`);
         info('Re-indexing SQLite database...');
-        cmdMigrate([]);
+        await cmdMigrate([]);
       } catch (err) {
         error(`Failed to remove skill: ${err.message}`);
         process.exit(1);
@@ -2411,7 +2545,6 @@ async function cmdAgent(args) {
 
       if (!process.stdin.isTTY) {
         header('Subagents List');
-        divider();
         const headers = ['Subagent', 'Title', 'Model Tier', 'Active Skills'];
         const aligns = ['left', 'left', 'left', 'left'];
 
@@ -2743,7 +2876,7 @@ async function cmdAgent(args) {
       break;
     }
     case 'status': {
-      cmdAgentStatus();
+      await cmdAgentStatus();
       break;
     }
     default:
@@ -2801,7 +2934,8 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
 `);
 }
 
-function cmdModels(args) {
+async function cmdModels(args) {
+  await chidoriTransition('models');
   const subcommand = args[0];
   const subArgs = args.slice(1);
 
@@ -3020,6 +3154,7 @@ async function getLatestVersion() {
 }
 
 async function cmdVersion(args) {
+  await chidoriTransition('version');
   const pkgPath = path.join(__dirname, '..', 'package.json');
   let currentVersion = '1.0.5';
   try {
@@ -3051,6 +3186,7 @@ async function cmdVersion(args) {
 }
 
 async function cmdUpgrade(args) {
+  await chidoriTransition('upgrade');
   header('🔄 Upgrading Konoha');
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
@@ -3096,7 +3232,8 @@ async function cmdUpgrade(args) {
   }
 }
 
-function cmdHelp() {
+async function cmdHelp() {
+  await chidoriTransition('help');
   drawLogo(false); // Print static logo for help menu
   
   log(`
@@ -3155,28 +3292,31 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
 const [,, command, ...args] = process.argv;
 
 async function main() {
+  if (command === undefined || command === 'init') {
+    await runSplashScreen();
+  }
   try {
     switch (command) {
       case 'init':
         await cmdInit(args);
         break;
       case 'migrate':
-        cmdMigrate(args);
+        await cmdMigrate(args);
         break;
       case 'test':
-        cmdTest();
+        await cmdTest();
         break;
       case 'status':
-        cmdStatus();
+        await cmdStatus();
         break;
       case 'savings':
-        cmdSavings();
+        await cmdSavings();
         break;
       case 'doctor':
-        cmdDoctor();
+        await cmdDoctor();
         break;
       case 'uninstall':
-        cmdUninstall();
+        await cmdUninstall();
         break;
       case 'version':
         await cmdVersion(args);
@@ -3185,22 +3325,22 @@ async function main() {
         await cmdUpgrade(args);
         break;
       case 'skill':
-        cmdSkill(args);
+        await cmdSkill(args);
         break;
       case 'agent':
       case 'agents':
         await cmdAgent(args);
         break;
       case 'models':
-        cmdModels(args);
+        await cmdModels(args);
         break;
       case 'help':
       case '--help':
       case '-h':
-        cmdHelp();
+        await cmdHelp();
         break;
       case undefined:
-        cmdHelp();
+        await cmdHelp();
         break;
       default:
         error(`Unknown command: ${command}`);

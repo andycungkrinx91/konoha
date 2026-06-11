@@ -25,7 +25,7 @@ python --version   # Windows
 
 ### ❌ "Server not installed" or "Database not found"
 
-Starting with version `1.0.8`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
+Starting with version `1.0.9`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
 
 Alternatively, you can manually re-run the full installer script to verify all files are correctly created and configured:
 ```bash

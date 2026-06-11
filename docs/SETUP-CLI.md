@@ -11,7 +11,7 @@
 
 > [!NOTE]
 > **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.8` for Google Policy compliance, running **any** `konoha` command automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools.
+> Starting with version `1.0.9` for Google Policy compliance, running **any** `konoha` command automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools.
 >
 > If you still want to perform a manual clean initialization, run:
 
@@ -186,7 +186,7 @@ The subagent configurations are stored in a structured format, enabling you to i
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.0.8`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.0.9`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -221,7 +221,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.0.8`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: As of `v1.0.9`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:

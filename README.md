@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.0.8](docs/SecurityCompliance/security_compliance_report_google_policy_1.0.8_2026-06-11.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.0.9](docs/SecurityCompliance/security_compliance_report_google_policy_1.0.9_2026-06-11.md)
 
 | | |
 |:---:|:---:|
@@ -69,7 +69,7 @@ For a detailed breakdown of Konoha's internal mechanics, including system layers
 
 > [!IMPORTANT]
 > **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.8`, Konoha features an auto-setup routine with built-in interactive `@inquirer/prompts` flows to comply with Google Policy. Running *any* `konoha` command (or launching the CLI for the first time) automatically triggers the bootstrap sequence. However, to ensure user consent, the CLI will interactively prompt you with Yes/No questions before modifying any `~/.gemini` configurations or configuring permanent auto-approval permissions for MCP tools.
+> Starting with version `1.0.9`, Konoha features an auto-setup routine with built-in interactive `@inquirer/prompts` flows to comply with Google Policy. Running *any* `konoha` command (or launching the CLI for the first time) automatically triggers the bootstrap sequence. However, to ensure user consent, the CLI will interactively prompt you with Yes/No questions before modifying any `~/.gemini` configurations or configuring permanent auto-approval permissions for MCP tools.
 
 Get Konoha up and running in under 2 minutes:
 
@@ -110,7 +110,7 @@ Once installed, the following CLI commands are available:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.0.8) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.0.9) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |

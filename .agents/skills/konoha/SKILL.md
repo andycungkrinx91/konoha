@@ -165,3 +165,4 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 7. File Modification Rule
 - **File Modification Rule**: Only use `sed` if you are modifying an existing file (e.g., replacing specific strings or appending lines).
+- **README Protection Rule**: DO NOT change the structure, layout, or existing content of README.md. When updating README.md, you MUST only modify specific strings (like version numbers) using targeted search-and-replace.

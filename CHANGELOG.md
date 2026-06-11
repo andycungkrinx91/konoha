@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to the **Konoha** project will be documented in this file.
+## [1.0.9] - 2026-06-11
+
+### Added
+- **3D Animated Splash Screen**: Implemented a beautiful 3D rotating ASCII cube splash screen intertwined with `gradient-string` figlet text that runs on `konoha` without arguments and `konoha init`.
+- **Modern TUI Dependencies**: Added `chalk`, `gradient-string`, `ora`, and `figlet` to create a visually stunning interactive CLI experience.
+
+### Changed
+- **TUI Splash Animation**: Replaced the 3D cube animation with an intense lightning effect using jagged ASCII art and flashing colors, and updated the CLI to run this splash screen globally before any command.
 
 ## [1.0.8] - 2026-06-11
 

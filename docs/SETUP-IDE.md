@@ -11,7 +11,7 @@
 
 > [!NOTE]
 > **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.8` for Google Policy compliance, running **any** `konoha` command (or executing an agent session) automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools. The silent `postinstall` script has been removed.
+> Starting with version `1.0.9` for Google Policy compliance, running **any** `konoha` command (or executing an agent session) automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools. The silent `postinstall` script has been removed.
 > 
 > If you prefer a manual setup or want to perform a clean initialization, run:
 
@@ -172,7 +172,7 @@ The agent should use the `skills-db` MCP tool instead of loading a SKILL.md file
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.0.8`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: As of `v1.0.9`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:

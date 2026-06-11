@@ -378,7 +378,7 @@ All agents MUST load **semble** as primary code search MCP.
 }
 
 // Regenerate template files and deploy them
-function regenerateAndDeploy() {
+function regenerateAndDeploy(silent = false) {
   const agents = loadAgents();
   if (agents.length === 0) return;
 
@@ -406,7 +406,9 @@ function regenerateAndDeploy() {
   }
   fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
 
-  console.log(`✓ Generated and deployed configs to:\n  - ${GEMINI_MD_PATH}\n  - ${AGENTS_MD_PATH}`);
+  if (!silent) {
+    console.log(`✓ Generated and deployed configs to:\n  - ${GEMINI_MD_PATH}\n  - ${AGENTS_MD_PATH}`);
+  }
 }
 
 // Create a new subagent

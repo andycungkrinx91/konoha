@@ -33,3 +33,9 @@ ENV/
 !.agents/skills/konoha/
 !.agents/skills/*-skill.md
 
+# Credentials and environment files
+.env
+.env.local
+.env.*.local
+secrets.yaml
+*.tfvars
