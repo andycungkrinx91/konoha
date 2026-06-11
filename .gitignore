@@ -39,3 +39,7 @@ ENV/
 .env.*.local
 secrets.yaml
 *.tfvars
+
+# Local temporary or scratch files
+output.txt
+scratch/
