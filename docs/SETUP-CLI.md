@@ -10,8 +10,8 @@
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
-> **Self-Healing Auto-Setup**:
-> Starting with version `1.0.7`, manual installation is optional. Running **any** `konoha` command automatically triggers a silent bootstrap (`ensureAutoSetup()`). This routine registers the MCP servers, whitelists execution paths in `settings.json`, sets up default agent configs, and seeds the skills database.
+> **Auto-Setup with Interactive Consent**:
+> Starting with version `1.0.8` for Google Policy compliance, running **any** `konoha` command automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools.
 >
 > If you still want to perform a manual clean initialization, run:
 
@@ -186,13 +186,13 @@ The subagent configurations are stored in a structured format, enabling you to i
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.0.7`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.0.8`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
 
 * **Upgrade CLI**:
-  Upgrades the local Konoha installation to the latest stable release from GitHub in-place.
+  Upgrades the local Konoha installation to the latest stable release from GitHub in-place. During execution, it uses interactive `@inquirer/prompts` to ensure explicit user consent before modifying configurations.
   ```bash
   konoha upgrade
   ```
@@ -218,7 +218,10 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 
 ## Auto-Approved Permissions & Commands Whitelisting
 
-To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands:
+To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
+
+> [!IMPORTANT]
+> **Explicit User Consent**: As of `v1.0.8`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:

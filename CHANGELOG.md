@@ -2,6 +2,19 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.0.8] - 2026-06-11
+
+### Added
+- **Upgrade Compliance**: Applied interactive `@inquirer/prompts` to the `konoha upgrade` command to ensure explicit user consent before initiating an upgrade and modifying `~/.gemini` configurations.
+- **Interactive Consent**: Introduction of interactive prompts (using `@inquirer/prompts`) in `bin/cli.js` for explicit user consent before modifying `~/.gemini` configuration files or approving MCP tools.
+- **Compliance Documentation**: Implementation of rigorous compliance documentation generation in `docs/SecurityCompliance/`.
+
+### Changed
+- **NPM Scripts**: Removal of the `postinstall` script from `package.json`.
+
+### Fixed
+- **Auto-Configuration Security**: Remediation of silent auto-configuration vulnerabilities (Risk 1 and Risk 2).
+
 ## [1.0.7] - 2026-06-10
 
 ### Added

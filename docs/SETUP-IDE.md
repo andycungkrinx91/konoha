@@ -10,8 +10,8 @@
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
-> **Self-Healing Auto-Setup**:
-> Starting with version `1.0.7`, the manual installation step is optional. Running **any** `konoha` command (or executing an agent session) automatically triggers a silent self-healing bootstrap (`ensureAutoSetup()`). This automatically configures MCP servers, whitelists command execution, sets up subagents, and seeds the skills database.
+> **Auto-Setup with Interactive Consent**:
+> Starting with version `1.0.8` for Google Policy compliance, running **any** `konoha` command (or executing an agent session) automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools. The silent `postinstall` script has been removed.
 > 
 > If you prefer a manual setup or want to perform a clean initialization, run:
 
@@ -144,29 +144,15 @@ To maintain stability and enforce security, the Antigravity system implements th
 > * **Indirect Prompt Injection Shielding**: Incoming or retrieved skill text assets are treated as untrusted and automatically run through a defensive parsing layer to neutralize spoofed headers or instructions.
 > * **FTS5 Query Sanitization**: Built-in regex-based sanitization automatically cleans search queries to prevent FTS5 MATCH compilation failures (unbalanced quotes, bare AND/OR/NOT/NEAR operators).
 > * **Quota & Rate Limits Handling**: In case of Quota Limits or API errors (such as `RESOURCE_EXHAUSTED` or `429` errors), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task. The agent and the runtime must immediately and automatically fallback to using `Gemini 3.1 Flash-Lite` for all subsequent requests to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent must halt execution gracefully and output this exact warning:
->   "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+>   "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
 ### 🛠️ Step-by-Step Guide to Resolve Quota Exhaustion:
 
-1. **Switch Google Accounts**:
-   Open a terminal window and run the following command to authenticate with a different Google account that has available quota:
-   ```bash
-   gcloud auth application-default login
-   ```
-   Follow the prompts in your web browser to complete the sign-in process for the new account.
-
-2. **Verify Active Account**:
-   To inspect and verify which Google account is currently authorized and active, execute:
-   ```bash
-   gcloud auth list
-   ```
-   Confirm that the active account marked with an asterisk is the correct one.
-
-3. **Resume the Coding Session**:
+1. **Resume the Coding Session**:
    - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
    - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
 
-4. **Upgrade Google AI Subscription**:
+2. **Upgrade Google AI Subscription**:
    - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
    - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
 ```
@@ -183,10 +169,13 @@ The agent should use the `skills-db` MCP tool instead of loading a SKILL.md file
 
 ## Auto-Approved Permissions & YOLO Mode
 
-To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation enables an optimized auto-approval workflow ("YOLO Mode"):
+To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
+
+> [!IMPORTANT]
+> **Explicit User Consent**: As of `v1.0.8`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
-The installation script automatically registers and whitelists tool auto-approvals for the custom MCP servers:
+Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
 - **`skills-db`**: Automatically permits searches and listing/fetching skills.
 - **`semble`**: Automatically permits semantic code searching and code discovery.
 

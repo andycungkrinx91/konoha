@@ -106,6 +106,7 @@
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any `git` command. Use `rg` (ripgrep) or semble MCP instead.
+- **File Modification Rule**: Only use `sed` if you are modifying an existing file (e.g., replacing specific strings or appending lines).
 - **No Auto-Creation of Subagents**: AI is never allowed to define/create/delete subagents. User-only feature.
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
@@ -114,9 +115,9 @@
 
 ### Quota & Rate Limits
 On `RESOURCE_EXHAUSTED` or HTTP `429`, automatically fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output:
-> "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+> "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
-Recovery: `/logout` → relogin with another account → `/resume` → prompt `continue`.
+Recovery: Wait for the quota window to reset, reduce concurrent requests, or upgrade subscription tier.
 
 ## Model Registry
 

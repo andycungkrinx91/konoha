@@ -741,14 +741,46 @@ function detectCustomSkills(skillsDir) {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
-function cmdInit(args) {
+async function cmdInit(args) {
   drawLogo(true); // Animate fade-in of the logo!
   
   header('🚀 Konoha Installer');
   log(`${C.dim}SQLite FTS5 Skills-DB for Antigravity IDE/CLI${C.reset}`);
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
-  // 1. Check Python
+  let confirm;
+  try {
+    const prompts = await import('@inquirer/prompts');
+    confirm = prompts.confirm;
+  } catch (e) {
+    error('Could not load @inquirer/prompts. Please run "npm install".');
+    process.exit(1);
+  }
+
+  const doInit = await confirm({ message: 'Initialize Konoha and modify ~/.gemini configurations?', default: true });
+  if (!doInit) {
+    warn('Initialization aborted.');
+    return;
+  }
+
+  const allowAutoApprove = await confirm({ message: 'Allow for skills-db and semble for auto approve in ~/.gemini/config/mcp_config.json?', default: true });
+
+
+  // 1. Ensure the directories exist
+  const dirs = [
+    path.join(HOME, '.gemini'),
+    path.join(HOME, '.agents'),
+    path.join(HOME, '.gemini', 'skills-db'),
+    path.join(HOME, '.gemini', 'antigravity-cli'),
+    path.join(HOME, '.gemini', 'config')
+  ];
+  dirs.forEach(d => {
+    if (!fileExists(d)) {
+      ensureDir(d);
+    }
+  });
+
+  // 2. Check Python
   const spinner1 = startSpinner('Checking Python 3 environment...');
   const python = checkPython();
   if (!python) {
@@ -758,7 +790,7 @@ function cmdInit(args) {
   }
   spinner1.success(`Python 3 found: ${python}`);
 
-  // 2. Check for existing installation
+  // 3. Check for existing installation
   if (fileExists(SERVER_PATH) && fileExists(DB_PATH)) {
     warn('Skills-DB already installed.');
     info(`Database: ${DB_PATH}`);
@@ -868,7 +900,7 @@ function cmdInit(args) {
   // 6. Register MCP config
   header('⚙️  Registering MCP Server');
   const spinner4 = startSpinner('Registering in ~/.gemini/config/mcp_config.json...');
-  registerMcp(python);
+  registerMcp(python, false, allowAutoApprove);
   spinner4.success('skills-db registered in MCP config.');
 
   // 7. Update GEMINI.md
@@ -957,7 +989,7 @@ function getUvCommand() {
   return null;
 }
 
-function registerMcp(python, silent = false) {
+function registerMcp(python, silent = false, allowAutoApprove = true) {
   const pythonCmd = python || checkPython() || 'python3';
   
   ensureDir(path.dirname(MCP_CONFIG_PATH));
@@ -983,11 +1015,14 @@ function registerMcp(python, silent = false) {
     }
   }
 
-  config.mcpServers['skills-db'] = {
+  const skillsDbConfig = {
     command: pythonCmd,
-    args: [SERVER_PATH],
-    autoApprove: ['find_skill', 'list_skills', 'get_skill', 'optimize_report']
+    args: [SERVER_PATH]
   };
+  if (allowAutoApprove) {
+    skillsDbConfig.autoApprove = ['find_skill', 'list_skills', 'get_skill', 'optimize_report'];
+  }
+  config.mcpServers['skills-db'] = skillsDbConfig;
 
   let uvCmd = getUvCommand();
   if (!uvCmd) {
@@ -1006,11 +1041,15 @@ function registerMcp(python, silent = false) {
     }
   }
 
-  config.mcpServers['semble'] = {
+  const sembleConfig = {
     command: uvxCmd,
-    args: ['--from', 'semble[mcp]@latest', 'semble'],
-    autoApprove: ['search', 'find_related']
+    args: ['--from', 'semble[mcp]@latest', 'semble']
   };
+  if (allowAutoApprove) {
+    sembleConfig.autoApprove = ['search', 'find_related'];
+  }
+  config.mcpServers['semble'] = sembleConfig;
+
   if (!silent) {
     success(`Registered 'semble' using command: ${uvxCmd}`);
   }
@@ -1020,7 +1059,9 @@ function registerMcp(python, silent = false) {
     success(`MCP config updated with skills-db and semble: ${MCP_CONFIG_PATH}`);
   }
 
-  registerPermissions(silent);
+  if (allowAutoApprove) {
+    registerPermissions(silent);
+  }
 }
 
 function registerPermissions(silent = false) {
@@ -3013,6 +3054,21 @@ async function cmdUpgrade(args) {
   header('🔄 Upgrading Konoha');
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
+  let confirm;
+  try {
+    const prompts = await import('@inquirer/prompts');
+    confirm = prompts.confirm;
+  } catch (e) {
+    error('Could not load @inquirer/prompts. Please run "npm install".');
+    process.exit(1);
+  }
+
+  const doUpgrade = await confirm({ message: 'Proceed with upgrading Konoha and modify ~/.gemini configurations?', default: true });
+  if (!doUpgrade) {
+    warn('Upgrade aborted.');
+    return;
+  }
+
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const cmdArgs = ['-y', 'github:andycungkrinx91/konoha', 'init', '--force'];
 
@@ -3100,10 +3156,9 @@ const [,, command, ...args] = process.argv;
 
 async function main() {
   try {
-    ensureAutoSetup();
     switch (command) {
       case 'init':
-        cmdInit(args);
+        await cmdInit(args);
         break;
       case 'migrate':
         cmdMigrate(args);

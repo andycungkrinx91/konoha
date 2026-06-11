@@ -143,29 +143,15 @@ If a task execution encounters quota limits, rate limits, or API errors (such as
 The system and agent configurations will automatically and immediately fallback to `Gemini 3.1 Flash-Lite` to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent will halt execution gracefully and output this exact warning:
 
 > [!WARNING]
-> "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+> "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
 ### Step-by-Step Guide to Resolve Quota Exhaustion:
 
-1. **Switch Google Accounts**:
-   Open a terminal window and run the following command to authenticate with a different Google account that has available quota:
-   ```bash
-   gcloud auth application-default login
-   ```
-   Follow the prompts in your web browser to complete the sign-in process for the new account.
-
-2. **Verify Active Account**:
-   To inspect and verify which Google account is currently authorized and active, execute:
-   ```bash
-   gcloud auth list
-   ```
-   Confirm that the active account marked with an asterisk is the correct one.
-
-3. **Resume the Coding Session**:
+1. **Resume the Coding Session**:
    - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
    - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
 
-4. **Upgrade Google AI Subscription**:
+2. **Upgrade Google AI Subscription**:
    - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
    - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
 

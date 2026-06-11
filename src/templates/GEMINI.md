@@ -87,6 +87,6 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any `git` command. Use `rg` or semble instead.
-- **Quota Handling**: On `RESOURCE_EXHAUSTED`/`429`, fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output: "Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."
+- **Quota Handling**: On `RESOURCE_EXHAUSTED`/`429`, fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
 Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md`

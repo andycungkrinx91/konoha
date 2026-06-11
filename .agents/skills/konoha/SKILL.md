@@ -155,4 +155,13 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 4. Model Registry & Quota Failures
 - The Konoha application natively integrates with the **Antigravity Model Registry**. Subagent profiles in `agents.json` and `AGENTS.md` map directly to models available in the IDE (e.g., `Gemini 2.5 Flash`, `Gemini 3.1 Pro (High)`, `Claude Sonnet 4.6 (Thinking)`).
 - Maintainers must ensure that subagent configurations define fail-safe models, defaulting to `Gemini 3.1 Flash-Lite` or `Gemini 2.5 Flash` as the primary fallback model tier during `RESOURCE_EXHAUSTED` / `429` (Quota limits) scenarios.
-- The system must display the standard quota limit warning message (`"Your Antigravity account has reach the limit quota. Please change the account and resume the session or increase your subcribe Google AI."`) and follow the gcloud credentials switch and upgrade flow if total exhaustion occurs.
+- The system must display the standard quota limit warning message (`"Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."`) and follow the upgrade flow if total exhaustion occurs.
+
+### 5. Compliance Reports
+- Whenever updating Konoha versions or conducting security checks, you MUST generate a compliance report in the `docs/SecurityCompliance/` folder using the exact filename format: `security_compliance_report_google_policy_<version>_<YYYY-MM-DD>.md`.
+
+### 6. Changelog Maintenance
+- Whenever you make an update to the codebase or bump the version, you MUST update the `CHANGELOG.md` file to reflect your changes.
+
+### 7. File Modification Rule
+- **File Modification Rule**: Only use `sed` if you are modifying an existing file (e.g., replacing specific strings or appending lines).
