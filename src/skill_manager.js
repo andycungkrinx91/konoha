@@ -160,13 +160,13 @@ function runInteractiveSearch(query) {
         console.log(`\n📦 Installing "${skillName}" from ${repoUrl}...`);
         try {
           const runCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-          const run = spawnSync(runCmd, ['skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit' });
+          const run = spawnSync(runCmd, ['skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit', shell: process.platform === 'win32' });
           if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
           console.log(`\n✓ Skill "${skillName}" installed successfully!`);
           
           console.log('\n🔄 Re-indexing SQLite database...');
           const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-          spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit' });
+          spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32' });
         } catch (err) {
           console.error(`❌ Installation failed: ${err.message}`);
         }
@@ -182,13 +182,13 @@ function addSkillDirect(repoUrl, skillName) {
   validateInputs(repoUrl, skillName);
   console.log(`📦 Installing "${skillName}" from ${repoUrl}...`);
   const runCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const run = spawnSync(runCmd, ['skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit' });
+  const run = spawnSync(runCmd, ['skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit', shell: process.platform === 'win32' });
   if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
   console.log(`\n✓ Skill "${skillName}" installed successfully!`);
   
   console.log('\n🔄 Re-indexing SQLite database...');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit' });
+  spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32' });
 }
 
 module.exports = {

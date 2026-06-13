@@ -808,7 +808,7 @@ function detectSkillsDirs() {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         const skillCount = entries.filter(e => 
           (e.isDirectory() && fileExists(path.join(dir, e.name, 'SKILL.md'))) ||
-          (e.isFile() && (e.name.endsWith('-skill.md') || e.name === 'konoha-stitch.md'))
+          (e.isFile() && e.name.endsWith('-skill.md'))
         ).length;
         if (skillCount > 0) {
           found.push({ path: dir, count: skillCount });
@@ -826,7 +826,7 @@ function detectCustomSkills(skillsDir) {
     for (const e of entries) {
       if (e.isDirectory() && fileExists(path.join(skillsDir, e.name, 'SKILL.md'))) {
         skills.push(e.name);
-      } else if (e.isFile() && (e.name.endsWith('-skill.md') || e.name === 'konoha-stitch.md')) {
+      } else if (e.isFile() && e.name.endsWith('-skill.md')) {
         skills.push(e.name);
       }
     }
@@ -935,7 +935,7 @@ async function cmdInit(args) {
     try {
       const files = fs.readdirSync(pkgSkillsDir);
       files.forEach(file => {
-        if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
+        if (file.endsWith('-skill.md')) {
           const srcPath = path.join(pkgSkillsDir, file);
           const destPath = path.join(globalSkillsDir, file);
           copyFile(srcPath, destPath);
@@ -1284,7 +1284,7 @@ function ensureAutoSetup() {
     try {
       const files = fs.readdirSync(pkgSkillsDir);
       files.forEach(file => {
-        if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
+        if (file.endsWith('-skill.md')) {
           const srcPath = path.join(pkgSkillsDir, file);
           const destPath = path.join(globalSkillsDir, file);
           copyIfDifferent(srcPath, destPath);
@@ -1932,7 +1932,7 @@ async function cmdDoctor() {
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (config.mcpServers && config.mcpServers.stitch && config.mcpServers.stitch.command) {
+      if (config.mcpServers && config.mcpServers.stitch) {
         stitchEnabled = true;
         stitchEnv = config.mcpServers.stitch.env || {};
       }
@@ -1958,8 +1958,7 @@ async function cmdDoctor() {
       'mcp(stitch/*)',
       'mcp(stitch/build_site)',
       'mcp(stitch/get_screen_code)',
-      'mcp(stitch/get_screen_image)',
-      'command(pnpm)'
+      'mcp(stitch/get_screen_image)'
     ];
 
     let permissionsHealthy = true;
@@ -2017,7 +2016,7 @@ async function cmdDoctor() {
     const agents = agentManager.loadAgents();
     const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
     if (jonin) {
-      const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
+      const stitchSkills = ['stitch-design', 'stitch-loop', 'design-md', 'react-components', 'enhance-prompt'];
       let missingSkills = [];
       for (const skill of stitchSkills) {
         if (!jonin.skills.includes(skill)) {
@@ -2047,46 +2046,6 @@ async function cmdDoctor() {
     }
   }
 
-  // 11. agent-browser CLI check
-  let agentBrowserInstalled = false;
-  let agentBrowserVersion = '';
-  try {
-    const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-    const abVerRes = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: process.platform === 'win32' });
-    if (abVerRes.status === 0) {
-      agentBrowserInstalled = true;
-      agentBrowserVersion = abVerRes.stdout.trim();
-    }
-  } catch (e) {
-    // not installed
-  }
-
-  if (!agentBrowserInstalled) {
-    if (stitchEnabled) {
-      // Automatic repair
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-      const options = { stdio: 'ignore' };
-      if (process.platform === 'win32') options.shell = true;
-      
-      const installRes = spawnSync(npmCmd, ['install', '-g', 'agent-browser'], options);
-      const initRes = spawnSync(abCmd, ['install'], options);
-      
-      if (installRes.status === 0 && initRes.status === 0) {
-        record('agent-browser CLI', 'REPAIRED', 'Installed and initialized agent-browser globally');
-        repairsDone++;
-      } else {
-        record('agent-browser CLI', 'FAILED', 'Failed to install/initialize agent-browser globally');
-        hasErrors = true;
-      }
-    } else {
-      // Disabled: list as WARNING
-      record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for Stitch)');
-    }
-  } else {
-    record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
-  }
-
   // Complete diagnostic spinner
   globalSpinner.success('Diagnostic checks complete.');
 
@@ -2101,8 +2060,6 @@ async function cmdDoctor() {
       statusStr = `${C.green}${res.status.padEnd(12)}${C.reset}`;
     } else if (res.status === 'REPAIRED') {
       statusStr = `${C.cyan}${res.status.padEnd(12)}${C.reset}`;
-    } else if (res.status === 'WARNING') {
-      statusStr = `${C.yellow}${res.status.padEnd(12)}${C.reset}`;
     } else {
       statusStr = `${C.red}${res.status.padEnd(12)}${C.reset}`;
     }
@@ -2417,8 +2374,7 @@ async function cmdSavings() {
     const uvxCmd = getUvxCommand();
     let runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings', '--verbose'], {
       encoding: 'utf-8',
-      timeout: 5000,
-      shell: process.platform === 'win32'
+      timeout: 5000
     });
     if (runSemble.status !== 0 || runSemble.error) {
       // Fallback: Try running local/global 'semble' directly if uvx fails (e.g. offline mode or PyPI timeout)
@@ -2431,8 +2387,7 @@ async function cmdSavings() {
       }
       runSemble = spawnSync(sembleCmd, ['savings', '--verbose'], {
         encoding: 'utf-8',
-        timeout: 5000,
-        shell: process.platform === 'win32'
+        timeout: 5000
       });
     }
     if (runSemble.status !== 0 || runSemble.error) {
@@ -3401,7 +3356,7 @@ async function cmdUpgrade(args) {
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (config.mcpServers && config.mcpServers.stitch && config.mcpServers.stitch.command) {
+      if (config.mcpServers && config.mcpServers.stitch) {
         stitchEnabled = true;
         stitchEnv = config.mcpServers.stitch.env || {};
       }
@@ -3422,11 +3377,10 @@ async function cmdUpgrade(args) {
     'mcp(stitch/*)',
     'mcp(stitch/build_site)',
     'mcp(stitch/get_screen_code)',
-    'mcp(stitch/get_screen_image)',
-    'command(pnpm)'
+    'mcp(stitch/get_screen_image)'
   ];
 
-  let minGrants = 5;
+  let minGrants = 4;
   for (const settingsPath of settingsPaths) {
     let settings = {};
     if (fileExists(settingsPath)) {
@@ -3441,28 +3395,17 @@ async function cmdUpgrade(args) {
     }
   }
 
-  const permissionsStr = minGrants === 5 ? `${C.green}HEALTHY${C.reset}` : `${C.red}UNHEALTHY${C.reset}`;
-  const permissionsDetail = `(${minGrants}/5 grants active)`;
+  const permissionsStr = minGrants === 4 ? `${C.green}HEALTHY${C.reset}` : `${C.red}UNHEALTHY${C.reset}`;
+  const permissionsDetail = `(${minGrants}/4 grants active)`;
 
   // Skills
   const agents = agentManager.loadAgents();
   const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
-  const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
+  const stitchSkills = ['stitch-design', 'stitch-loop', 'design-md', 'react-components', 'enhance-prompt'];
   const embeddedSkills = jonin ? stitchSkills.filter(s => jonin.skills.includes(s)) : [];
   const skillsCount = embeddedSkills.length;
   const skillsStr = skillsCount === stitchSkills.length ? `${C.green}ACTIVE${C.reset}` : `${C.red}INACTIVE${C.reset}`;
   const skillsDetail = `(${skillsCount} skill${skillsCount !== 1 ? 's' : ''} embedded)`;
-
-  let agentBrowserInstalled = false;
-  try {
-    const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-    const abVerRes = spawnSync(abCmd, ['--version'], { shell: process.platform === 'win32' });
-    if (abVerRes.status === 0) {
-      agentBrowserInstalled = true;
-    }
-  } catch (e) {}
-
-  const abStr = agentBrowserInstalled ? `${C.green}INSTALLED${C.reset}` : `${C.red}NOT INSTALLED${C.reset}`;
 
   header('🛠️  Google Stitch Status');
   log(`  Integration:  [ ${integrationStr} ]`);
@@ -3472,7 +3415,6 @@ async function cmdUpgrade(args) {
   if (embeddedSkills.length > 0) {
     log(`                Embedded Skills: ${embeddedSkills.join(', ')}`);
   }
-  log(`  agent-browser: [ ${abStr} ]`);
   log('');
 }
 
@@ -3510,26 +3452,22 @@ async function cmdStitch(args) {
     case 'enable': {
       header('🚀 Enabling Google Stitch');
 
-      // 1. Auto-install and initialize agent-browser
-      const abSpinner = startSpinner('Installing agent-browser globally...');
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
+      // 1. Run plugins add command
+      const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+      const cmdArgs = ['plugins', 'add', 'google-labs-code/stitch-skills', '--scope', 'global', '--target', 'antigravity'];
+      log(`  Executing: ${C.cyan}${cmd} ${cmdArgs.join(' ')}${C.reset}\n`);
+      
       const options = { stdio: 'inherit' };
       if (process.platform === 'win32') {
         options.shell = true;
       }
-      const installRes = spawnSync(npmCmd, ['install', '-g', 'agent-browser'], options);
-      if (installRes.status === 0) {
-        abSpinner.success('agent-browser installed successfully.');
-        const abInitSpinner = startSpinner('Initializing agent-browser...');
-        const initRes = spawnSync(abCmd, ['install'], options);
-        if (initRes.status === 0) {
-          abInitSpinner.success('agent-browser initialized successfully.');
-        } else {
-          abInitSpinner.error(`Failed to initialize agent-browser (status ${initRes.status}).`);
-        }
+      
+      const spinner = startSpinner('Installing stitch-skills plugin...');
+      const res = spawnSync(cmd, cmdArgs, options);
+      if (res.status === 0) {
+        spinner.success('stitch-skills plugin installed successfully.');
       } else {
-        abSpinner.error(`Failed to install agent-browser globally (status ${installRes.status}).`);
+        spinner.error(`Failed to install stitch-skills plugin (status ${res.status}).`);
       }
 
       // 2. Register stitch MCP in mcp_config.json
@@ -3546,7 +3484,7 @@ async function cmdStitch(args) {
       const existingStitch = config.mcpServers.stitch || {};
       const existingEnv = existingStitch.env || {};
       config.mcpServers.stitch = {
-        command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+        command: 'npx',
         args: ['-y', '@_davideast/stitch-mcp', 'proxy']
       };
       if (Object.keys(existingEnv).length > 0) {
@@ -3566,8 +3504,7 @@ async function cmdStitch(args) {
         'mcp(stitch/*)',
         'mcp(stitch/build_site)',
         'mcp(stitch/get_screen_code)',
-        'mcp(stitch/get_screen_image)',
-        'command(pnpm)'
+        'mcp(stitch/get_screen_image)'
       ];
 
       for (const settingsPath of settingsPaths) {
@@ -3603,7 +3540,7 @@ async function cmdStitch(args) {
       const agents = agentManager.loadAgents();
       const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
       if (jonin) {
-        const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
+        const stitchSkills = ['stitch-design', 'stitch-loop', 'design-md', 'react-components', 'enhance-prompt'];
         let updated = false;
         for (const skill of stitchSkills) {
           if (!jonin.skills.includes(skill)) {
@@ -3621,33 +3558,6 @@ async function cmdStitch(args) {
         warn('@jonin subagent not found in agent configuration');
       }
 
-      // 4b. Deploy basic subagent skills from package to global folder and migrate
-      const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
-      const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-      if (fileExists(pkgSkillsDir)) {
-        ensureDir(globalSkillsDir);
-        try {
-          const files = fs.readdirSync(pkgSkillsDir);
-          files.forEach(file => {
-            if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
-              const srcPath = path.join(pkgSkillsDir, file);
-              const destPath = path.join(globalSkillsDir, file);
-              fs.copyFileSync(srcPath, destPath);
-            }
-          });
-          success('Deployed latest subagent skills to global folder');
-          
-          // Re-migrate SQLite database
-          const python = checkPython() || 'python3';
-          const runMigrate = spawnSync(python, [MIGRATE_PATH], { encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000 });
-          if (runMigrate.status === 0) {
-            success('Re-indexed SQLite database with updated skills');
-          }
-        } catch (err) {
-          warn(`Could not deploy basic subagent skills: ${err.message}`);
-        }
-      }
-
       // 5. Regenerate and deploy configs (silent)
       agentManager.regenerateAndDeploy(true);
       success('Synced instructions and deployed agent configurations.');
@@ -3657,21 +3567,32 @@ async function cmdStitch(args) {
     case 'disable': {
       header('🗑️  Disabling Google Stitch');
 
+      // 1. Run plugins delete command
+      const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+      const cmdArgs = ['plugins', 'delete', 'google-labs-code/stitch-skills', '--scope', 'global', '--target', 'antigravity'];
+      log(`  Executing: ${C.cyan}${cmd} ${cmdArgs.join(' ')}${C.reset}\n`);
+
+      const options = { stdio: 'inherit' };
+      if (process.platform === 'win32') {
+        options.shell = true;
+      }
+
+      const spinner = startSpinner('Removing stitch-skills plugin...');
+      const res = spawnSync(cmd, cmdArgs, options);
+      if (res.status === 0) {
+        spinner.success('stitch-skills plugin removed successfully.');
+      } else {
+        spinner.error(`Failed to remove stitch-skills plugin (status ${res.status}).`);
+      }
 
       // 2. Remove stitch from mcp_config.json
       if (fileExists(MCP_CONFIG_PATH)) {
         try {
           const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
           if (config.mcpServers && config.mcpServers.stitch) {
-            const env = config.mcpServers.stitch.env || {};
-            config.mcpServers.stitch = {};
-            if (Object.keys(env).length > 0) {
-              config.mcpServers.stitch.env = env;
-            } else {
-              delete config.mcpServers.stitch;
-            }
+            delete config.mcpServers.stitch;
             fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-            success(`Disabled 'stitch' MCP server in ${MCP_CONFIG_PATH} (preserved API Key)`);
+            success(`Removed 'stitch' from ${MCP_CONFIG_PATH}`);
           } else {
             info(`'stitch' not found in ${MCP_CONFIG_PATH}`);
           }
@@ -3689,8 +3610,7 @@ async function cmdStitch(args) {
         'mcp(stitch/*)',
         'mcp(stitch/build_site)',
         'mcp(stitch/get_screen_code)',
-        'mcp(stitch/get_screen_image)',
-        'command(pnpm)'
+        'mcp(stitch/get_screen_image)'
       ];
 
       for (const settingsPath of settingsPaths) {
@@ -3722,7 +3642,7 @@ async function cmdStitch(args) {
       const agents = agentManager.loadAgents();
       const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
       if (jonin) {
-        const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
+        const stitchSkills = ['stitch-design', 'stitch-loop', 'design-md', 'react-components', 'enhance-prompt'];
         let updated = false;
         for (const skill of stitchSkills) {
           const idx = jonin.skills.indexOf(skill);

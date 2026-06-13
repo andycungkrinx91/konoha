@@ -1,6 +1,18 @@
 # Changelog
 
 All notable changes to the **Konoha** project will be documented in this file.
+
+## [1.1.0] - 2026-06-12
+
+### Added
+- **Google Stitch Integration**: Added the `konoha stitch` command suite allowing developers to enable, disable, configure, and inspect Google Stitch integration.
+  - `konoha stitch enable`: Installs `google-labs-code/stitch-skills` plugin, registers `stitch` MCP server in `mcp_config.json`, auto-approves permissions in `settings.json`, embeds Stitch skills into `@jonin` subagent configuration, and automatically syncs instruction files.
+  - `konoha stitch disable`: Uninstalls `google-labs-code/stitch-skills` plugin, removes MCP registry, removes permissions from settings files, and deletes Stitch skills from `@jonin` subagent.
+  - `konoha stitch config`: Interactively prompts the user for their `STITCH_API_KEY` and saves it in `mcp_config.json`.
+  - `konoha stitch status`: Displays the status of Google Stitch integration, API keys, auto-approvals, and agent skills.
+- **Google Stitch Instruction Routing**: Updated instruction generators to route prompt requests for generating design/site/application in empty folders to `@jonin` using Google Stitch skills and MCP tools.
+- **Google Stitch Diagnostics**: Added Google Stitch health diagnostics and auto-repairing capabilities to the `konoha doctor` command (validating API key configuration, auto-approval permissions, and `@jonin` subagent skills).
+
 ## [1.0.9] - 2026-06-11
 
 ### Added

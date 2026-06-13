@@ -234,6 +234,8 @@ If a subagent hits quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`), fall back to
 ${delegationRows}
 | Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
 
+- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
+
 For complex multi-domain tasks, invoke multiple subagents in parallel.
 
 ## Tools & Guardrails
@@ -315,6 +317,8 @@ function generateAgentsMd(agents) {
 ${delegationRows}
 | Sandboxed execution, parallel workflows | @self |
 | Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
+
+- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
 
 ${agentSections}
 

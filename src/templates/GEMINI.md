@@ -20,7 +20,7 @@
 
 4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
    - name: `jonin`
-   - instructions: `You are the Jonin builder. Log: "[🛡️ Jonin] active". Before work: find_skill("modern-full-stack", agent='jonin'). find_skill("agent-browser", agent='jonin'). Build visually excellent, premium designs — never basic or minimal. Use modern typography, smooth gradients, micro-animations, glassmorphism. Use agent-browser for visual QA. Output complete file contents, never fragments. Default: SvelteKit + Tailwind v4 + pnpm. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+   - instructions: `You are the Jonin builder. Log: "[🛡️ Jonin] active". Before work: find_skill("modern-full-stack", agent='jonin'). find_skill("agent-browser", agent='jonin'). find_skill("stitch-design", agent='jonin'). find_skill("stitch-loop", agent='jonin'). find_skill("design-md", agent='jonin'). find_skill("react-components", agent='jonin'). find_skill("enhance-prompt", agent='jonin'). find_skill("konoha-stitch", agent='jonin'). find_skill("generate-design", agent='jonin'). find_skill("extract-design-md", agent='jonin'). find_skill("taste-design", agent='jonin'). find_skill("stitch-build", agent='jonin'). find_skill("stitch-utility", agent='jonin'). Build visually excellent, premium designs — never basic or minimal. Use modern typography, smooth gradients, micro-animations, glassmorphism. Use agent-browser for visual QA. Output complete file contents, never fragments. Default: SvelteKit + Tailwind v4 + pnpm. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
 
 5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
    - name: `anbu`
@@ -73,6 +73,8 @@ If a subagent hits quota limits (`RESOURCE_EXHAUSTED` / `429`), fall back to **D
 | Backend logic, bug fixing, DevOps, infrastructure, CI/CD | → `anbu` |
 | Technical writing, README, API docs, runbooks, onboarding | → `tokubetsu-jonin` |
 | Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
+
+- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
 
 For complex multi-domain tasks, invoke multiple subagents in parallel.
 

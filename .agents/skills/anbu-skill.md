@@ -62,3 +62,15 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Anbu (Bl
 3. **Secrets Safety**:
    - Never hardcode credentials. Use `${var.secret}` or GitHub Secrets.
    - If you must read `.tfvars` or `.env`, explicitly ask the user for permission first.
+
+## SOP 4: Development Server Run & Browser Preview (Stitch Integration)
+*When `@jonin` or the coordinator delegates the server startup and browser preview of a built project.*
+
+1. **Background Server Startup**:
+   - Use `run_command` (or equivalent background task management) to run the development server in the background (e.g., `pnpm run dev --host 0.0.0.0` or `pnpm run dev`) from the designated project directory.
+2. **Immediate Browser Preview**:
+   - Wait for the server to spin up and bind to its port (e.g. `5173` or `3000`).
+   - Once the server is running, immediately open the browser using the `agent-browser` tool to the dev server link (e.g., `http://localhost:5173` or `http://localhost:3000`) to load the website preview.
+3. **Visual Verification**:
+   - Verify styling, layouts, and print the active local access URLs in the final report.
+

@@ -39,6 +39,8 @@
 | Sandboxed execution, parallel workflows | @self |
 | Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
 
+- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
+
 ### @genin — 🍃 Codebase Exploration
 - **Model tier**: Gemini 2.5 Flash
 - **Purpose**: Fast, read-only codebase navigation and analysis
@@ -66,7 +68,7 @@
 ### @jonin — 🛡️ UI & Frontend Specialist
 - **Model tier**: Gemini 3.5 Flash (High)
 - **Purpose**: Build premium, production-ready user interfaces
-- **Skills**: `modern-full-stack`, `agent-browser`
+- **Skills**: `modern-full-stack`, `agent-browser`, `stitch-design`, `stitch-loop`, `design-md`, `react-components`, `enhance-prompt`, `konoha-stitch`, `generate-design`, `extract-design-md`, `taste-design`, `stitch-build`, `stitch-utility`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
 - **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA.
 - **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
