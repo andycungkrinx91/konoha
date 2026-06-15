@@ -75,6 +75,10 @@ Never use `filter: blur()` for large glowing areas as it causes heavy repaints. 
 ### 3D Modals & Carousels (MANDATORY)
 All modals, popups, and carousels MUST use 3D animations (e.g., flipping, tilting, depth scaling) to feel immersive. However, performance must not drop. Achieve this exclusively using native CSS 3D transforms (`perspective`, `rotateX`, `rotateY`, `scale`, `translateZ`) combined with `will-change: transform`. Do not use heavy JS physics for basic entrances. Example: a modal entrance should transition from `scale-95 rotate-x-12 opacity-0` to `scale-100 rotate-x-0 opacity-100`.
 
+- **Homepage Hero Banner 3D Carousel (Minimum 4 Images)**: The homepage hero banner section MUST be an interactive 3D carousel slider featuring at least 4 images, utilizing GPU-accelerated 3D CSS transforms (like cube rotation, perspective flip, or coverflow) with smooth navigation transitions.
+- **Minimum 5 Interactive 3D Carousels**: Svelte websites generated from scratch must contain at least 5 interactive 3D carousels (e.g., hero banner, category showcases, reviews, featured items, customer lookbooks).
+- **Custom Styled SVG/CSS Logo**: All generated websites MUST feature a custom, premium logo in both the header and footer consisting of a styled inline SVG icon (utilizing the global theme gradient `stroke="url(#theme-gradient)"`) combined with custom CSS gradient typography (e.g. `bg-[image:var(--gradient-primary)] bg-clip-text text-transparent`). Never use text-only default placeholders or leave the logo empty.
+
 - **Mobile Bottom Navigation**: In Svelte layouts, use a sticky bottom navigation bar with Lucide icons (e.g. `Home`, `ShoppingBag`, `ShoppingCart`, `User`) styled with theme variables (`bg-surface-elevated`, `text-text-secondary`, `text-brand`). Never use custom hardcoded SVG paths for icons. Add a Svelte 5 component like the example below:
 
 ```svelte
@@ -181,6 +185,36 @@ To make glows dynamically match the user's chosen gradient theme, define the sta
   --color-glow-end: rgba(13, 148, 136, 0);
   --color-brand: #2563eb;
 }
+[data-theme="forest"] {
+  --color-glow-start: rgba(22, 163, 74, 0.25);
+  --color-glow-end: rgba(5, 150, 105, 0);
+  --color-brand: #16a34a;
+}
+[data-theme="volcano"] {
+  --color-glow-start: rgba(220, 38, 38, 0.25);
+  --color-glow-end: rgba(234, 88, 12, 0);
+  --color-brand: #dc2626;
+}
+[data-theme="sakura"] {
+  --color-glow-start: rgba(219, 39, 119, 0.25);
+  --color-glow-end: rgba(225, 29, 72, 0);
+  --color-brand: #db2777;
+}
+[data-theme="cyberpunk"] {
+  --color-glow-start: rgba(192, 38, 211, 0.25);
+  --color-glow-end: rgba(124, 58, 237, 0);
+  --color-brand: #c026d3;
+}
+[data-theme="midnight"] {
+  --color-glow-start: rgba(79, 70, 229, 0.25);
+  --color-glow-end: rgba(71, 85, 105, 0);
+  --color-brand: #4f46e5;
+}
+[data-theme="gold"] {
+  --color-glow-start: rgba(217, 119, 6, 0.25);
+  --color-glow-end: rgba(202, 138, 4, 0);
+  --color-brand: #d97706;
+}
 
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 8px 0 var(--color-glow-start); }
@@ -260,7 +294,13 @@ Below is the Svelte 5 Rune floating chat-like theme switcher popup component cod
     { id: 'nebula', name: 'Nebula Light', gradient: 'from-[#7c3aed] to-[#4f46e5]' },
     { id: 'aurora', name: 'Aurora Light', gradient: 'from-[#059669] to-[#0891b2]' },
     { id: 'sunset', name: 'Sunset Light', gradient: 'from-[#e11d48] to-[#d97706]' },
-    { id: 'ocean', name: 'Ocean Light', gradient: 'from-[#2563eb] to-[#0d9488]' }
+    { id: 'ocean', name: 'Ocean Light', gradient: 'from-[#2563eb] to-[#0d9488]' },
+    { id: 'forest', name: 'Forest Light', gradient: 'from-[#16a34a] to-[#059669]' },
+    { id: 'volcano', name: 'Volcano Light', gradient: 'from-[#dc2626] to-[#ea580c]' },
+    { id: 'sakura', name: 'Sakura Light', gradient: 'from-[#db2777] to-[#e11d48]' },
+    { id: 'cyberpunk', name: 'Cyberpunk Light', gradient: 'from-[#c026d3] to-[#7c3aed]' },
+    { id: 'midnight', name: 'Midnight Light', gradient: 'from-[#4f46e5] to-[#475569]' },
+    { id: 'gold', name: 'Gold Light', gradient: 'from-[#d97706] to-[#ca8a04]' }
   ];
 
   let isOpen = $state(false);

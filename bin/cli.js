@@ -43,11 +43,25 @@ const SETTINGS_PATH = path.join(HOME, '.gemini', 'antigravity-cli', 'settings.js
 const SRC_DIR = path.join(__dirname, '..', 'src');
 const DOCS_DIR = path.join(__dirname, '..', 'docs');
 
+let currentCwd = HOME;
+try {
+  currentCwd = process.cwd();
+} catch (e) {
+  if (process.env.PWD) {
+    try {
+      const fs = require('fs');
+      if (fs.existsSync(process.env.PWD)) {
+        currentCwd = process.env.PWD;
+      }
+    } catch (_) {}
+  }
+}
+
 // Default skills directories to scan
 const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.agents', 'skills'),
   path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
-  path.join(process.cwd(), '.agents', 'skills'),
+  path.join(currentCwd, '.agents', 'skills'),
 ];
 
 // Colors for terminal output

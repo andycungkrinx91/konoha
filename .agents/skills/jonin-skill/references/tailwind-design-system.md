@@ -62,9 +62,69 @@
   --color-glow: rgba(37, 99, 235, 0.15);
   --color-glow-accent: rgba(13, 148, 136, 0.1);
 }
+
+/* Theme 5: Forest Light (green → emerald) */
+[data-theme="forest"] {
+  --color-brand: #16a34a;
+  --color-accent: #059669;
+  --gradient-primary: linear-gradient(135deg, #16a34a, #059669, #0d9488);
+  --gradient-subtle: linear-gradient(135deg, rgba(22, 163, 74, 0.05), rgba(5, 150, 105, 0.03));
+  --color-glow: rgba(22, 163, 74, 0.15);
+  --color-glow-accent: rgba(5, 150, 105, 0.1);
+}
+
+/* Theme 6: Volcano Light (red → orange) */
+[data-theme="volcano"] {
+  --color-brand: #dc2626;
+  --color-accent: #ea580c;
+  --gradient-primary: linear-gradient(135deg, #dc2626, #ea580c, #d97706);
+  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(234, 88, 12, 0.03));
+  --color-glow: rgba(220, 38, 38, 0.15);
+  --color-glow-accent: rgba(234, 88, 12, 0.1);
+}
+
+/* Theme 7: Sakura Light (pink → rose) */
+[data-theme="sakura"] {
+  --color-brand: #db2777;
+  --color-accent: #e11d48;
+  --gradient-primary: linear-gradient(135deg, #db2777, #e11d48, #c026d3);
+  --gradient-subtle: linear-gradient(135deg, rgba(219, 39, 119, 0.05), rgba(225, 29, 72, 0.03));
+  --color-glow: rgba(219, 39, 119, 0.15);
+  --color-glow-accent: rgba(225, 29, 72, 0.1);
+}
+
+/* Theme 8: Cyberpunk Light (magenta → violet) */
+[data-theme="cyberpunk"] {
+  --color-brand: #c026d3;
+  --color-accent: #7c3aed;
+  --gradient-primary: linear-gradient(135deg, #c026d3, #7c3aed, #9333ea);
+  --gradient-subtle: linear-gradient(135deg, rgba(192, 38, 211, 0.05), rgba(124, 58, 237, 0.03));
+  --color-glow: rgba(192, 38, 211, 0.15);
+  --color-glow-accent: rgba(124, 58, 237, 0.1);
+}
+
+/* Theme 9: Midnight Light (indigo → slate) */
+[data-theme="midnight"] {
+  --color-brand: #4f46e5;
+  --color-accent: #475569;
+  --gradient-primary: linear-gradient(135deg, #4f46e5, #475569, #1e293b);
+  --gradient-subtle: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(71, 85, 105, 0.03));
+  --color-glow: rgba(79, 70, 229, 0.15);
+  --color-glow-accent: rgba(71, 85, 105, 0.1);
+}
+
+/* Theme 10: Gold Light (amber → yellow) */
+[data-theme="gold"] {
+  --color-brand: #d97706;
+  --color-accent: #ca8a04;
+  --gradient-primary: linear-gradient(135deg, #d97706, #ca8a04, #eab308);
+  --gradient-subtle: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(202, 138, 4, 0.03));
+  --color-glow: rgba(217, 119, 6, 0.15);
+  --color-glow-accent: rgba(202, 138, 4, 0.1);
+}
 ```
 
-> **Note on Themes:** Every new UI generated from scratch MUST include these 4 light-theme definitions in `globals.css`/`app.css` and a floating chat-like theme switcher implementation to allow the user to toggle them. The theme switcher MUST save the chosen theme to `localStorage` (or cookies) and apply it immediately on page load (via a head script) so the theme never reverts to default on refresh.
+> **Note on Themes:** Every new UI generated from scratch MUST include these 10 light-theme definitions in `globals.css`/`app.css` and a floating chat-like theme switcher implementation to allow the user to toggle them. The theme switcher MUST save the chosen theme to `localStorage` (or cookies) and apply it immediately on page load (via a head script) so the theme never reverts to default on refresh.
 
 Token names automatically create utility classes (e.g., `--color-brand` becomes `bg-brand`, `text-brand`, `border-brand`).
 
@@ -196,11 +256,8 @@ To resolve low contrast issues in dark mode across multiple gradient-themed desi
    }
    html.dark.theme-sunset {
      --color-gold-400: #fb7185; /* High contrast bright rose */
-     --color-gold-500: #f43f5e;
-     --color-gold-600: #facc15;
-     --color-primary-start: #fb7185;
-     --color-primary-end: #facc15;
-   }
+/* ... (omitted) ... */
+
    html.dark.theme-ocean {
      --color-gold-400: #60a5fa; /* High contrast bright blue */
      --color-gold-500: #3b82f6;
@@ -208,4 +265,46 @@ To resolve low contrast issues in dark mode across multiple gradient-themed desi
      --color-primary-start: #60a5fa;
      --color-primary-end: #2dd4bf;
    }
-   ```
+   html.dark.theme-forest {
+     --color-gold-400: #4ade80; /* High contrast bright green */
+     --color-gold-500: #22c55e;
+     --color-gold-600: #34d399;
+     --color-primary-start: #4ade80;
+     --color-primary-end: #34d399;
+   }
+   html.dark.theme-volcano {
+     --color-gold-400: #f87171; /* High contrast bright red */
+     --color-gold-500: #ef4444;
+     --color-gold-600: #fb923c;
+     --color-primary-start: #f87171;
+     --color-primary-end: #fb923c;
+   }
+   html.dark.theme-sakura {
+     --color-gold-400: #f472b6; /* High contrast bright pink */
+     --color-gold-500: #ec4899;
+     --color-gold-600: #fb7185;
+     --color-primary-start: #f472b6;
+     --color-primary-end: #fb7185;
+   }
+   html.dark.theme-cyberpunk {
+     --color-gold-400: #f472b6; /* High contrast bright magenta */
+     --color-gold-500: #d946ef;
+     --color-gold-600: #a78bfa;
+     --color-primary-start: #f472b6;
+     --color-primary-end: #a78bfa;
+   }
+   html.dark.theme-midnight {
+     --color-gold-400: #818cf8; /* High contrast bright indigo */
+     --color-gold-500: #6366f1;
+     --color-gold-600: #94a3b8;
+     --color-primary-start: #818cf8;
+     --color-primary-end: #94a3b8;
+   }
+   html.dark.theme-gold {
+     --color-gold-400: #fbbf24; /* High contrast bright amber */
+     --color-gold-500: #f59e0b;
+     --color-gold-600: #fde047;
+     --color-primary-start: #fbbf24;
+     --color-primary-end: #fde047;
+   }
+```

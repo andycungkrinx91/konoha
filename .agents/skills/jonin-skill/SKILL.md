@@ -37,10 +37,13 @@ Based on the user's request, load the specific reference file to understand the 
 
 ## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
 For EVERY website you generate or build, you MUST implement these premium visual features:
-1. **The 4 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), and Ocean (blue-teal) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
-2. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
-3. **3D GPU Card Hover & Animated Glows in ALL Cards**: EVERY single card component (e.g. product cards, features, categories, testimonials) must feature a 3D perspective rotation on hover (using CSS card-3d styles) combined with a dynamic GPU-accelerated animated glow border or radial mouse-tracking gradient glow.
-4. **Custom 3D SweetAlert2 Dialogs**: All system alerts, success/error confirmations, warnings, and prompt dialogs MUST use `sweetalert2` configured with a 3D entrance transition (via `showClass` and custom CSS transforms) and confirm buttons styled with the active theme's gradient.
+1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
+2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing GPU-accelerated 3D transition effects (such as 3D cube rotation, 3D card flipping, coverflow, or perspective carousel rotation) and smooth control transitions.
+3. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
+4. **3D GPU Card Hover & Animated Glows in ALL Cards**: EVERY single card component (e.g. product cards, features, categories, testimonials) must feature a 3D perspective rotation on hover (using CSS card-3d styles) combined with a dynamic GPU-accelerated animated glow border or radial mouse-tracking gradient glow.
+5. **Custom 3D SweetAlert2 Dialogs**: All system alerts, success/error confirmations, warnings, and prompt dialogs MUST use `sweetalert2` configured with a 3D entrance transition (via `showClass` and custom CSS transforms) and confirm buttons styled with the active theme's gradient.
+6. **Custom Styled SVG/CSS Logo**: Newly generated websites MUST feature a custom, premium logo in both the header and footer consisting of a styled inline SVG icon combined with custom CSS gradient typography (or a fully custom visual SVG mark) dynamically displaying the project's name as specified in the user's prompt (instead of static default placeholders like VIBELAB). Never leave the logo empty/missing.
+7. **Footer Watermark**: The footer of all newly generated websites MUST feature the watermark text: `Build with Antigravity and Konoha agentic AI` in small, muted typography.
 
 ---
 
@@ -95,11 +98,10 @@ For EVERY website you generate or build, you MUST implement these premium visual
    - **Dialogs & Modals**: Interactive container roles like `role="dialog"` must have a `tabindex`/`tabIndex` value (typically `tabindex="-1"` / `tabIndex={-1}` for modals/drawers to allow focus management), keyboard event handlers (`onkeydown`/`onKeyDown` to stop propagation/close the modal), and appropriate labels (`aria-modal="true"`, `aria-labelledby="..."`).
    - **Hidden Buttons**: Hidden buttons (e.g. `<button type="submit" class="hidden">` inside forms) must have an `aria-label="..."` or `title="..."` attribute.
    - **Imports & Variables**: Ensure there are no unused imports or variables, as these will trigger typescript-eslint errors.
-3. **Verification**: Post-generation, you MUST execute these commands yourself using your tools. NEVER command the user or print instructions telling the user to execute these steps manually:
-   - `pnpm install` (or `pnpm install --no-engine-strict` if standard install fails due to `ERR_PNPM_UNSUPPORTED_ENGINE`)
-     - Run this yourself. Iterate on any compilation warnings, TypeScript diagnostics, or bundler errors until the build completes with zero errors and zero warnings.
-   - `pnpm svelte-kit sync` (run this yourself to generate tsconfig mappings and prevent .svelte-kit config errors, if using SvelteKit)
-   - `pnpm run lint` and ESLint auto-fix (run this yourself)
-   - `pnpm run check` (run svelte-check yourself, if using SvelteKit)
-   - `pnpm run build` (run this yourself to verify the production build completes with zero errors)
-
+3. **Verification & Autonomous Fixes Loop**: Post-generation, you MUST execute these commands yourself using your tools. NEVER command the user or print instructions telling the user to execute these steps manually:
+   - **pnpm install**: Run `pnpm install` (or `pnpm install --no-engine-strict` if standard install fails due to `ERR_PNPM_UNSUPPORTED_ENGINE`) to set up node_modules.
+   - **ESLint & Svelte Check**: Run `pnpm run lint` and `pnpm run check` (svelte-check, if using SvelteKit) / `pnpm svelte-kit sync` (to generate TS config mappings first). If there are any linting or compilation warnings or errors, you MUST locate the offending files, read the exact error lines, and modify the code to fix them. Repeat this cycle until both commands output zero errors and zero warnings.
+   - **pnpm build**: Run `pnpm run build` to verify the production build. If any warnings (e.g. CSS compilation warnings, unused export warnings) or errors occur, trace the cause, edit the files, and re-run the build until it completes with 100% success, zero errors, and zero warnings.
+4. **Dev Server & Autonomous Preview**:
+   - Once linting and build checks are completely clean, start the development server by running `pnpm run dev` in the background as an asynchronous task.
+   - You MUST auto-open the browser to the local dev URL (e.g. `http://localhost:5173`) using `agent-browser` or by launching the preview tool to visually QA the layout. Do not ask the user for permission; perform this QA step completely autonomously.

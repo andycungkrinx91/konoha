@@ -8,6 +8,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Interactive Consent Hooks**: Added interactive `y/n` confirmation prompts for `hooks.json` registration (via `confirm` from `@inquirer/prompts`) to comply with Google Security policies.
 - **Token Hygiene Instructions**: Implemented targeted file-reading directives in `GEMINI.md`, `AGENTS.md`, and default agent presets (`src/templates/agents.json`) to prevent subagents from viewing files in their entirety and consuming high tokens per turn.
 - **Doctor Diagnostic Hook Check**: Added prompt hook verification and auto-repair routines to `konoha doctor`.
+- **Gradient Theme Customization**: Expanded `jonin-skill` theme choices by adding 6 new default themes (Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold), bringing the total to 10 available gradient options (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold) for UI customization.
 
 ### Changed
 - **Folder-Based Skills**: Upgraded default skills `anbu-skill` and `jonin-skill` to directory-based structures (recursively copying `references/` and `scripts/`).

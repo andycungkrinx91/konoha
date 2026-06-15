@@ -16,10 +16,23 @@ function validateInputs(repoUrl, skillName) {
 }
 
 const HOME = os.homedir();
+let currentCwd = HOME;
+try {
+  currentCwd = process.cwd();
+} catch (e) {
+  if (process.env.PWD) {
+    try {
+      if (fs.existsSync(process.env.PWD)) {
+        currentCwd = process.env.PWD;
+      }
+    } catch (_) {}
+  }
+}
+
 const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.agents', 'skills'),
   path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
-  path.join(process.cwd(), '.agents', 'skills'),
+  path.join(currentCwd, '.agents', 'skills'),
 ];
 
 // Helper to check if file exists
@@ -59,7 +72,7 @@ function listInstalledSkills() {
               } catch {}
               
               // Prevent duplicates if found in multiple paths, prioritize workspace/cwd
-              if (!installed[entry.name] || dir.startsWith(process.cwd())) {
+              if (!installed[entry.name] || dir.startsWith(currentCwd)) {
                 installed[entry.name] = {
                   name: entry.name,
                   path: path.join(dir, entry.name),
