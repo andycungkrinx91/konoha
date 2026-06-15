@@ -40,8 +40,8 @@
 
 The orchestrator MUST follow this workflow:
 1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-2. **Find Skill First**: Call `skills-db.find_skill` or `optimize_report` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`).
-3. **Find Code Context**: Always call the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files and relevant codebase context before formulating a delegation.
+2. **Find Skill First**: Call `skills-db.find_skill` or `optimize_report` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the `skills-db` MCP handles all skill lookups.**
+3. **Find Code Context**: If project source code context is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before formulating a delegation. Do NOT call `skills-db.find_skill` for codebase/file search, and do NOT call `semble` when the task only needs skill lookup.
 4. **Select Agent**: Route to the correct agent based on the table below.
 5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must embed a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
    ```markdown
@@ -67,7 +67,7 @@ The orchestrator ONLY delegates to: `genin`, `kage`, `chunin`, `jonin`, `anbu`, 
 - It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. `@jonin` for UI/frontend tasks, `@anbu` for backend tasks, `@genin` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
 - You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any of the active subagents, or if the subagent hits total quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
 - Do NOT spawn shadow subagents under any circumstances.
-- **Mandatory Semble Calling**: When running direct tool calls (either as a fallback or for simple tasks), the main agent MUST still always use the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files and relevant codebase context before making any file modifications or running commands.
+- **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call `skills-db.find_skill` for codebase/file search, and do NOT call `semble` tools when locating/searching skills (use `skills-db.find_skill` instead).
 
 | Task type | Subagent |
 |-----------|----------|
@@ -84,9 +84,9 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 ## Tools & Guardrails
 
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. When using `view_file`, ALWAYS specify a precise `StartLine` and `EndLine` range (no more than 50-100 lines) containing the target code discovered via `semble` search. Avoid loading massive files into your context window.
-- **Skills-DB MCP**: Use `find_skill(keyword)` for skill search, `get_skill(name)` for full content, `list_skills()` to browse. **NEVER load SKILL.md files directly.**
-- **Semble MCP**: Prefer `search`/`find_related` over grep/glob for code discovery. Mandatory for all agents.
-- **Forced Tool Boundaries**: All subagents and the main coordinator agent MUST use the **`semble` MCP** (for all code and file searches) and the **`skills-db` MCP** (for all skill/instruction discovery) to ensure strict guardrails are followed.
+- **Skills-DB MCP**: Use `find_skill(keyword)` for skill search, `get_skill(name)` for full content, `list_skills()` to browse. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Semble MCP**: If project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.**
+- **Tool Boundaries**: Call **`semble` MCP** (`search` and `find_related` tools) directly for codebase search. Call **`skills-db` MCP** for all skill/instruction lookup. **Never mix them; do not call semble for skills, and never call find_skill for codebase/file search. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.**
 - **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and visual QA.
 - **Logging**: Every response MUST start with a log line: `[{Icon} {Name}] active. Calling skills-db.find_skill('...')`
 - **No Auto-Creation of Subagents**: AI is NEVER allowed to define/create/delete subagents. Reserved for user only.

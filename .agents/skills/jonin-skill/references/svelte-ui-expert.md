@@ -5,6 +5,20 @@
 > **Related References:**
 > - For styling, setup, and global design: read `references/tailwind-design-system.md`
 
+> [!WARNING]
+> **Tool Boundaries**: Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
+
+## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
+For EVERY website you generate or build, you MUST implement these premium visual features:
+1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
+2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing GPU-accelerated 3D transition effects (such as 3D cube rotation, 3D card flipping, coverflow, or perspective carousel rotation) and smooth control transitions. **Importantly, the homepage hero banner MUST be full-width when displayed from desktop view (i.e. edge-to-edge of the viewport without margins or layout constraints).**
+3. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
+4. **3D GPU Card Hover & Animated Glows in ALL Cards**: EVERY single card component (e.g. product cards, features, categories, testimonials) must feature a 3D perspective rotation on hover (using CSS card-3d styles) combined with a dynamic GPU-accelerated animated glow border or radial mouse-tracking gradient glow.
+5. **Custom 3D SweetAlert2 Dialogs**: All system alerts, success/error confirmations, warnings, and prompt dialogs MUST use `sweetalert2` configured with a 3D entrance transition (via `showClass` and custom CSS transforms) and confirm buttons styled with the active theme's gradient.
+6. **Custom Styled SVG/CSS Logo**: Newly generated websites MUST feature a custom, premium logo in both the header and footer consisting of a styled inline SVG icon combined with custom CSS gradient typography (or a fully custom visual SVG mark) dynamically displaying the project's name as specified in the user's prompt (instead of static default placeholders like VIBELAB). Never leave the logo empty/missing.
+7. **Footer Watermark**: The footer of all newly generated websites MUST feature the watermark text: `Build with Antigravity and Konoha agentic AI` in small, muted typography.
+
 ## Svelte 5 Component Architecture
 
 Use Svelte 5 Runes for all state and effects.
@@ -78,6 +92,7 @@ All modals, popups, and carousels MUST use 3D animations (e.g., flipping, tiltin
 - **Homepage Hero Banner 3D Carousel (Minimum 4 Images)**: The homepage hero banner section MUST be an interactive 3D carousel slider featuring at least 4 images, utilizing GPU-accelerated 3D CSS transforms (like cube rotation, perspective flip, or coverflow) with smooth navigation transitions.
 - **Minimum 5 Interactive 3D Carousels**: Svelte websites generated from scratch must contain at least 5 interactive 3D carousels (e.g., hero banner, category showcases, reviews, featured items, customer lookbooks).
 - **Custom Styled SVG/CSS Logo**: All generated websites MUST feature a custom, premium logo in both the header and footer consisting of a styled inline SVG icon (utilizing the global theme gradient `stroke="url(#theme-gradient)"`) combined with custom CSS gradient typography (e.g. `bg-[image:var(--gradient-primary)] bg-clip-text text-transparent`). Never use text-only default placeholders or leave the logo empty.
+- **Footer Watermark**: Newly generated websites MUST display the footer watermark: `Build with Antigravity and Konoha agentic AI` in small, muted typography.
 
 - **Mobile Bottom Navigation**: In Svelte layouts, use a sticky bottom navigation bar with Lucide icons (e.g. `Home`, `ShoppingBag`, `ShoppingCart`, `User`) styled with theme variables (`bg-surface-elevated`, `text-text-secondary`, `text-brand`). Never use custom hardcoded SVG paths for icons. Add a Svelte 5 component like the example below:
 
@@ -289,18 +304,18 @@ Below is the Svelte 5 Rune floating chat-like theme switcher popup component cod
   import { onMount } from 'svelte';
   import { Paintbrush, X, Check } from 'lucide-svelte';
 
-  // Available exclusively light themes
+  // Available gradient themes
   const themes = [
-    { id: 'nebula', name: 'Nebula Light', gradient: 'from-[#7c3aed] to-[#4f46e5]' },
-    { id: 'aurora', name: 'Aurora Light', gradient: 'from-[#059669] to-[#0891b2]' },
-    { id: 'sunset', name: 'Sunset Light', gradient: 'from-[#e11d48] to-[#d97706]' },
-    { id: 'ocean', name: 'Ocean Light', gradient: 'from-[#2563eb] to-[#0d9488]' },
-    { id: 'forest', name: 'Forest Light', gradient: 'from-[#16a34a] to-[#059669]' },
-    { id: 'volcano', name: 'Volcano Light', gradient: 'from-[#dc2626] to-[#ea580c]' },
-    { id: 'sakura', name: 'Sakura Light', gradient: 'from-[#db2777] to-[#e11d48]' },
-    { id: 'cyberpunk', name: 'Cyberpunk Light', gradient: 'from-[#c026d3] to-[#7c3aed]' },
-    { id: 'midnight', name: 'Midnight Light', gradient: 'from-[#4f46e5] to-[#475569]' },
-    { id: 'gold', name: 'Gold Light', gradient: 'from-[#d97706] to-[#ca8a04]' }
+    { id: 'nebula', name: 'Nebula', gradient: 'from-[#7c3aed] to-[#4f46e5]' },
+    { id: 'aurora', name: 'Aurora', gradient: 'from-[#10b981] to-[#06b6d4]' },
+    { id: 'sunset', name: 'Sunset', gradient: 'from-[#f43f5e] to-[#f59e0b]' },
+    { id: 'ocean', name: 'Ocean', gradient: 'from-[#3b82f6] to-[#14b8a6]' },
+    { id: 'forest', name: 'Forest', gradient: 'from-[#22c55e] to-[#10b981]' },
+    { id: 'volcano', name: 'Volcano', gradient: 'from-[#ef4444] to-[#f97316]' },
+    { id: 'sakura', name: 'Sakura', gradient: 'from-[#ec4899] to-[#f43f5e]' },
+    { id: 'cyberpunk', name: 'Cyberpunk', gradient: 'from-[#d946ef] to-[#8b5cf6]' },
+    { id: 'midnight', name: 'Midnight', gradient: 'from-[#6366f1] to-[#475569]' },
+    { id: 'gold', name: 'Gold', gradient: 'from-[#f59e0b] to-[#eab308]' }
   ];
 
   let isOpen = $state(false);
@@ -695,7 +710,8 @@ Below is a code template for a 4-image autoplaying, interactive crossfading bann
   });
 </script>
 
-<section class="relative h-[85vh] flex items-center justify-center bg-zinc-900 overflow-hidden">
+<!-- MUST be full-width on desktop view (edge-to-edge of the viewport without margins or layout constraints) -->
+<section class="relative h-[85vh] w-full w-screen left-1/2 right-1/2 -translate-x-1/2 flex items-center justify-center bg-zinc-900 overflow-hidden">
   <!-- Overlay grid for crossfades -->
   <div class="absolute inset-0 z-0 grid grid-cols-1 grid-rows-1 w-full h-full">
     {#key currentBannerIndex}

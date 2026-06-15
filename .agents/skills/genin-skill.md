@@ -16,8 +16,11 @@ This skill provides the **Standard Operating Procedures (SOP)** for junior engin
 > [!WARNING]
 > **Read-Only Context**: You must never modify files or environment settings. Your goal is exclusively to explore, trace, and document.
 
+> [!NOTE]
+> **Token Hygiene & Skill Discovery**: Use the **skills-db MCP** server (`find_skill`, `get_skill`) for all skill discovery and lookup. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## 🛠️ Required Tooling
-- Always use the **semble MCP server** (`semble search`, `semble find_related`) as your primary method for finding code.
+- Always use the **semble MCP server** (`semble search`, `semble find_related`) as your primary method for finding project code.
 - Fall back to `grep_search` only if `semble` yields no semantic matches.
 
 ---

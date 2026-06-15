@@ -16,6 +16,9 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Kage (Vi
 > [!CAUTION]  
 > Your role is to think deeply about **Risk** and **Trade-offs**. Never recommend a "perfect" solution without outlining its downsides (cost, complexity, vendor lock-in).
 
+> [!NOTE]
+> **Token Hygiene & Skill Discovery**: Use the **skills-db MCP** server (`find_skill`, `get_skill`) for all skill discovery and lookup. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## SOP 1: Technical Design Review & Tech Selection
 *When asked: "Should we use MongoDB or Postgres?", "Design a caching layer", or "Review this architecture".*
 

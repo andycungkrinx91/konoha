@@ -192,3 +192,15 @@ Whenever generating or modifying Next.js frontend code, execute this pipeline to
 2. **Interactive A11y Verification**: Ensure all custom modal divs, slide decks, drawers, and cards have proper `role`, `tabIndex`, and keyboard handlers.
 3. **Run Linting**: Execute `pnpm run lint` and verify there are no ESLint issues.
 4. **Compile Production Build**: Run `pnpm run build` and ensure the next build completes successfully with no warnings or type errors.
+
+## Premium Visual Standards & 3D Interactivity Guidelines
+
+All generated Next.js code must conform to the following baseline visual standards:
+1. **10 Gradient Themes**: Nebula, Aurora, Sunset, Ocean, Matrix, Crimson, Cyber, Gold, Nordic, Amethyst defined via Tailwind CSS `@theme` variables.
+2. **Theme Switcher**: Floating interactive chat-like bubble in bottom-right corner utilizing a 3D entrance transition (perspective transform) with 10 options, saving to `localStorage`.
+3. **3D Hero Banner Carousel**: Autoplaying 3D interactive layout containing at least 4 images, perspective rotation, 3D card layout, and touch/mouse interaction.
+4. **5 Interactive 3D Carousels**: Minimum of 5 interactive 3D carousels per website (hero banner, category showcases, reviews, featured items, customer lookbooks) using GPU-accelerated CSS transforms.
+5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows and 3D tilts applied to all cards with `will-change: transform`.
+6. **3D SweetAlert2 Dialogs**: Entrance animation using custom 3D CSS scale and tilt transforms, styled with the active theme gradient on buttons.
+7. **Custom Styled SVG/CSS Logo**: Active inline SVG utilizing the active theme gradient (`stroke="url(#theme-gradient)"`) paired with gradient typography matching the actual project name.
+8. **Footer Watermark**: Muted text: "Build with Antigravity and Konoha agentic AI" at the bottom of the page.

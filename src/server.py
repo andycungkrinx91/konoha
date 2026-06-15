@@ -171,7 +171,8 @@ def is_path_visible(file_path):
     """
     Check if a skill path is visible to the current session / workspace.
     A path is visible if it resides in the global ~/.agents/ or ~/.gemini/ directories,
-    or within the current working directory (current workspace root).
+    or within the current working directory (current workspace root),
+    or if it is a custom/workspace skill path containing .agents/skills or .gemini/skills.
     """
     if not file_path:
         return True  # Fallback if file_path is empty
@@ -179,6 +180,11 @@ def is_path_visible(file_path):
     # Normalize paths (resolve symlinks, remove relative segments, lowercase drive letters on Windows)
     norm_fp = os.path.normcase(os.path.realpath(file_path))
     
+    # Check if the path contains custom/workspace skills directories (.agents/skills or .gemini/skills)
+    normalized_slash_path = norm_fp.replace(os.sep, "/")
+    if ".agents/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path:
+        return True
+
     global_agents = os.path.normcase(os.path.realpath(os.path.expanduser("~/.agents")))
     global_gemini = os.path.normcase(os.path.realpath(os.path.expanduser("~/.gemini")))
     

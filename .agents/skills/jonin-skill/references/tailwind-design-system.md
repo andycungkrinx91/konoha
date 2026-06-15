@@ -23,7 +23,7 @@
   --font-display: "Clash Display", ui-sans-serif, system-ui, sans-serif;
   --radius-card: 1.5rem;
 
-  /* Default Theme: Nebula Light (purple → blue) */
+  /* Default Theme: Nebula (purple → indigo) */
   --color-brand: #7c3aed;
   --color-brand-foreground: #ffffff;
   --color-accent: #4f46e5;
@@ -33,7 +33,7 @@
   --color-glow-accent: rgba(79, 70, 229, 0.1);
 }
 
-/* Theme 2: Aurora Light (emerald → cyan) */
+/* Theme 2: Aurora (emerald → cyan) */
 [data-theme="aurora"] {
   --color-brand: #059669;
   --color-accent: #0891b2;
@@ -43,7 +43,7 @@
   --color-glow-accent: rgba(8, 145, 178, 0.1);
 }
 
-/* Theme 3: Sunset Light (rose → amber) */
+/* Theme 3: Sunset (rose → amber) */
 [data-theme="sunset"] {
   --color-brand: #e11d48;
   --color-accent: #d97706;
@@ -53,7 +53,7 @@
   --color-glow-accent: rgba(217, 119, 6, 0.1);
 }
 
-/* Theme 4: Ocean Light (blue → teal) */
+/* Theme 4: Ocean (blue → teal) */
 [data-theme="ocean"] {
   --color-brand: #2563eb;
   --color-accent: #0d9488;
@@ -63,57 +63,37 @@
   --color-glow-accent: rgba(13, 148, 136, 0.1);
 }
 
-/* Theme 5: Forest Light (green → emerald) */
-[data-theme="forest"] {
-  --color-brand: #16a34a;
-  --color-accent: #059669;
-  --gradient-primary: linear-gradient(135deg, #16a34a, #059669, #0d9488);
-  --gradient-subtle: linear-gradient(135deg, rgba(22, 163, 74, 0.05), rgba(5, 150, 105, 0.03));
-  --color-glow: rgba(22, 163, 74, 0.15);
-  --color-glow-accent: rgba(5, 150, 105, 0.1);
+/* Theme 5: Matrix (emerald → dark green) */
+[data-theme="matrix"] {
+  --color-brand: #10b981;
+  --color-accent: #065f46;
+  --gradient-primary: linear-gradient(135deg, #10b981, #059669, #064e3b);
+  --gradient-subtle: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(6, 95, 70, 0.03));
+  --color-glow: rgba(16, 185, 129, 0.15);
+  --color-glow-accent: rgba(6, 95, 70, 0.1);
 }
 
-/* Theme 6: Volcano Light (red → orange) */
-[data-theme="volcano"] {
+/* Theme 6: Crimson (red → dark red) */
+[data-theme="crimson"] {
   --color-brand: #dc2626;
-  --color-accent: #ea580c;
-  --gradient-primary: linear-gradient(135deg, #dc2626, #ea580c, #d97706);
-  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(234, 88, 12, 0.03));
+  --color-accent: #7f1d1d;
+  --gradient-primary: linear-gradient(135deg, #dc2626, #b91c1c, #7f1d1d);
+  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(127, 29, 29, 0.03));
   --color-glow: rgba(220, 38, 38, 0.15);
-  --color-glow-accent: rgba(234, 88, 12, 0.1);
+  --color-glow-accent: rgba(127, 29, 29, 0.1);
 }
 
-/* Theme 7: Sakura Light (pink → rose) */
-[data-theme="sakura"] {
-  --color-brand: #db2777;
-  --color-accent: #e11d48;
-  --gradient-primary: linear-gradient(135deg, #db2777, #e11d48, #c026d3);
-  --gradient-subtle: linear-gradient(135deg, rgba(219, 39, 119, 0.05), rgba(225, 29, 72, 0.03));
-  --color-glow: rgba(219, 39, 119, 0.15);
-  --color-glow-accent: rgba(225, 29, 72, 0.1);
-}
-
-/* Theme 8: Cyberpunk Light (magenta → violet) */
-[data-theme="cyberpunk"] {
-  --color-brand: #c026d3;
+/* Theme 7: Cyber (fuchsia → violet) */
+[data-theme="cyber"] {
+  --color-brand: #d946ef;
   --color-accent: #7c3aed;
-  --gradient-primary: linear-gradient(135deg, #c026d3, #7c3aed, #9333ea);
-  --gradient-subtle: linear-gradient(135deg, rgba(192, 38, 211, 0.05), rgba(124, 58, 237, 0.03));
-  --color-glow: rgba(192, 38, 211, 0.15);
+  --gradient-primary: linear-gradient(135deg, #d946ef, #a21caf, #7c3aed);
+  --gradient-subtle: linear-gradient(135deg, rgba(217, 70, 239, 0.05), rgba(124, 58, 237, 0.03));
+  --color-glow: rgba(217, 70, 239, 0.15);
   --color-glow-accent: rgba(124, 58, 237, 0.1);
 }
 
-/* Theme 9: Midnight Light (indigo → slate) */
-[data-theme="midnight"] {
-  --color-brand: #4f46e5;
-  --color-accent: #475569;
-  --gradient-primary: linear-gradient(135deg, #4f46e5, #475569, #1e293b);
-  --gradient-subtle: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(71, 85, 105, 0.03));
-  --color-glow: rgba(79, 70, 229, 0.15);
-  --color-glow-accent: rgba(71, 85, 105, 0.1);
-}
-
-/* Theme 10: Gold Light (amber → yellow) */
+/* Theme 8: Gold (amber → yellow) */
 [data-theme="gold"] {
   --color-brand: #d97706;
   --color-accent: #ca8a04;
@@ -121,6 +101,26 @@
   --gradient-subtle: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(202, 138, 4, 0.03));
   --color-glow: rgba(217, 119, 6, 0.15);
   --color-glow-accent: rgba(202, 138, 4, 0.1);
+}
+
+/* Theme 9: Nordic (slate → charcoal) */
+[data-theme="nordic"] {
+  --color-brand: #475569;
+  --color-accent: #1e293b;
+  --gradient-primary: linear-gradient(135deg, #475569, #334155, #1e293b);
+  --gradient-subtle: linear-gradient(135deg, rgba(71, 85, 105, 0.05), rgba(30, 41, 59, 0.03));
+  --color-glow: rgba(71, 85, 105, 0.15);
+  --color-glow-accent: rgba(30, 41, 59, 0.1);
+}
+
+/* Theme 10: Amethyst (violet → deep purple) */
+[data-theme="amethyst"] {
+  --color-brand: #8b5cf6;
+  --color-accent: #4c1d95;
+  --gradient-primary: linear-gradient(135deg, #8b5cf6, #7c3aed, #4c1d95);
+  --gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(76, 29, 149, 0.03));
+  --color-glow: rgba(139, 92, 246, 0.15);
+  --color-glow-accent: rgba(76, 29, 149, 0.1);
 }
 ```
 

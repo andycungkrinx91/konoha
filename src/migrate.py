@@ -32,13 +32,15 @@ if hasattr(sys.stderr, "reconfigure"):
 DB_PATH = os.path.expanduser("~/.gemini/skills-db/skills.db")
 SKILLS_DIR = os.path.expanduser("~/.agents/skills/")
 
-# Skills to migrate (our custom skills, not Google DataCloud ones)
+# Official Konoha skills (built-in, shipped with the package)
 CUSTOM_SKILLS = [
-    "deep-code-explorer",
-    "modern-full-stack",
-    "devsecops-engineer",
-    "websearch-deep",
-    "agent-skills-creator",
+    "anbu-skill",
+    "chunin-skill",
+    "genin-skill",
+    "jonin-skill",
+    "kage-skill",
+    "konoha",
+    "tokubetsu-jonin-skill",
 ]
 
 
@@ -544,15 +546,19 @@ def main():
     conn.commit()
 
     # Clean up deleted skills (skills in db that no longer exist on disk)
-    cursor = conn.execute("SELECT DISTINCT skill_name, file_path FROM skills")
+    cursor = conn.execute("SELECT DISTINCT skill_name FROM skills")
     rows = cursor.fetchall()
     deleted_skills = set()
-    for s_name, f_path in rows:
-        if f_path and f_path.startswith(SKILLS_DIR):
-            skill_folder_path = os.path.join(SKILLS_DIR, s_name)
-            skill_file_path = os.path.join(SKILLS_DIR, f"{s_name}.md")
-            if not os.path.isdir(skill_folder_path) and not os.path.isfile(skill_file_path):
-                deleted_skills.add(s_name)
+    for (s_name,) in rows:
+        # Get all file paths for this skill
+        fp_rows = conn.execute(
+            "SELECT file_path FROM skills WHERE skill_name = ? AND file_path IS NOT NULL",
+            (s_name,)
+        ).fetchall()
+        # If none of the stored file_paths exist on disk, the skill is stale
+        any_exists = any(os.path.exists(r[0]) for r in fp_rows if r[0])
+        if not any_exists and fp_rows:
+            deleted_skills.add(s_name)
 
     if deleted_skills:
         print("\n🗑️  Cleaning up deleted skills from database:")

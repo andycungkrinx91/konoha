@@ -16,47 +16,50 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 > [!IMPORTANT]  
 > **Minimal Safe Changes**: Always diagnose the root cause *before* writing code. Never rewrite a system just to fix a single bug. Always validate changes with dry-runs.
 
+> [!NOTE]
+> **Tool Usage & Token Preservation**: Use **`skills-db` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## Domain Routing
 
-Based on the user's request, load the specific reference file to understand the architecture and conventions. **Never guess the implementation details.**
+Based on the user's request, load the specific reference file using `skills-db.get_skill("anbu-skill/<reference-name>")` to understand the architecture and conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
 
 | If the request involves... | Load this reference |
 |---|---|
-| Golang backend, fundamentals, testing | `references/golang-fundamentals.md`, `references/golang-testing.md` |
-| Golang performance, concurrency, security | `references/golang-performance.md`, `references/golang-concurrency.md`, `references/golang-security.md` |
-| FastAPI backend, endpoints, validation | `references/fastapi-expert.md`, `references/fastapi-code-review.md` |
-| Laravel backend, routing, security | `references/laravel-specialist.md`, `references/laravel-security.md` |
-| Python scripting, CLI, automation | `references/python-expert.md` |
-| Shell scripting, bash automation | `references/shell-scripting.md` |
-| MySQL schema, tuning, performance | `references/mysql-best-practices.md` |
-| PostgreSQL queries, performance | `references/postgresql-code-review.md` |
-| SQLite schema, embedded DB | `references/sqlite-database-expert.md` |
-| MongoDB schemas, NoSQL | `references/mongodb.md` |
-| Qdrant vector database tuning | `references/qdrant-performance-optimization.md` |
-| CI/CD pipelines, Github Actions, GitLab CI | `references/ci-cd-security.md` |
-| Cloud security, IAM posture, reviews | `references/cloud-security-review.md` |
-| Container security, DevSecOps architecture | `references/devsecops-expert.md` |
-| Helm charts, K8s manifests | `references/helm-chart-scaffolding.md` |
-| AWS Terraform modules | `references/terraform-aws-modules.md` |
-| Azure Terraform modules | `references/terraform-azure.md` |
-| GCP Terraform modules | `references/terraform-gcp.md` |
-| Security code review, vulnerability review | `references/code-review-security.md` |
-| Senior security architecture review | `references/senior-security.md` |
-| AI LLM pentesting, prompt injection | `references/shannon-ai-pentester.md` |
-| QA strategy, test planning | `references/senior-qa-engineer.md` |
-| Infrastructure workflows | `references/infrastructure-workflows.md` |
-| Final review for larger backend/infra outputs | `references/quality-checklist.md` |
+| Golang backend, fundamentals, testing | `anbu-skill/golang-fundamentals`, `anbu-skill/golang-testing` |
+| Golang performance, concurrency, security | `anbu-skill/golang-performance`, `anbu-skill/golang-concurrency`, `anbu-skill/golang-security` |
+| FastAPI backend, endpoints, validation | `anbu-skill/fastapi-expert`, `anbu-skill/fastapi-code-review` |
+| Laravel backend, routing, security | `anbu-skill/laravel-specialist`, `anbu-skill/laravel-security` |
+| Python scripting, CLI, automation | `anbu-skill/python-expert` |
+| Shell scripting, bash automation | `anbu-skill/shell-scripting` |
+| MySQL schema, tuning, performance | `anbu-skill/mysql-best-practices` |
+| PostgreSQL queries, performance | `anbu-skill/postgresql-code-review` |
+| SQLite schema, embedded DB | `anbu-skill/sqlite-database-expert` |
+| MongoDB schemas, NoSQL | `anbu-skill/mongodb` |
+| Qdrant vector database tuning | `anbu-skill/qdrant-performance-optimization` |
+| CI/CD pipelines, Github Actions, GitLab CI | `anbu-skill/ci-cd-security` |
+| Cloud security, IAM posture, reviews | `anbu-skill/cloud-security-review` |
+| Container security, DevSecOps architecture | `anbu-skill/devsecops-expert` |
+| Helm charts, K8s manifests | `anbu-skill/helm-chart-scaffolding` |
+| AWS Terraform modules | `anbu-skill/terraform-aws-modules` |
+| Azure Terraform modules | `anbu-skill/terraform-azure` |
+| GCP Terraform modules | `anbu-skill/terraform-gcp` |
+| Security code review, vulnerability review | `anbu-skill/code-review-security` |
+| Senior security architecture review | `anbu-skill/senior-security` |
+| AI LLM pentesting, prompt injection | `anbu-skill/shannon-ai-pentester` |
+| QA strategy, test planning | `anbu-skill/senior-qa-engineer` |
+| Infrastructure workflows | `anbu-skill/infrastructure-workflows` |
+| Final review for larger backend/infra outputs | `anbu-skill/quality-checklist` |
 
 ### Guardrails
-Load guardrail references only when needed:
+Load guardrail references only when needed using `skills-db.get_skill("anbu-skill/<reference-name>")`:
 
 | Situation | Load |
 |---|---|
-| Shell commands, file changes, deployment, infra, scripts | `references/command-safety.md` |
-| Commands, code, config, YAML/JSON, env files, metadata with character risk | `references/character-hygiene.md` |
-| `.env`, credentials, tokens, keys, logs, auth config | `references/secret-safety.md` |
-| Large output, router ambiguity, or context risk | `references/token-safety.md` |
-| Security-sensitive, destructive, production, or risky task | `references/guardrails.md` |
+| Shell commands, file changes, deployment, infra, scripts | `anbu-skill/command-safety` |
+| Commands, code, config, YAML/JSON, env files, metadata with character risk | `anbu-skill/character-hygiene` |
+| `.env`, credentials, tokens, keys, logs, auth config | `anbu-skill/secret-safety` |
+| Large output, router ambiguity, or context risk | `anbu-skill/token-safety` |
+| Security-sensitive, destructive, production, or risky task | `anbu-skill/guardrails` |
 
 ### Authorized Scripts
 Scripts in `scripts/` are defensive tools only. Do not run them without authorization.

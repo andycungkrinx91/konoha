@@ -16,6 +16,9 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Chunin (
 > [!NOTE]  
 > Your primary tool is `search_web` or `read_url_content`. You must back up all claims with numbered citations and URLs.
 
+> [!NOTE]
+> **Token Hygiene & Skill Discovery**: Use the **skills-db MCP** server (`find_skill`, `get_skill`) for all skill discovery and lookup. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## SOP 1: Library/Technology Evaluation
 *When asked: "Should we use library X or Y?" or "Is package Z safe?"*
 

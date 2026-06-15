@@ -16,6 +16,9 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Tokubets
 > [!NOTE]  
 > **Reader-First Principle**: Documentation is useless if it's too dense. Use Mermaid diagrams, markdown tables, code blocks, and clear hierarchical headings. Never write a wall of text.
 
+> [!NOTE]
+> **Token Hygiene & Skill Discovery**: Use the **skills-db MCP** server (`find_skill`, `get_skill`) for all skill discovery and lookup. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## SOP 1: The Enterprise README
 *When tasked with writing or updating a project's `README.md`.*
 

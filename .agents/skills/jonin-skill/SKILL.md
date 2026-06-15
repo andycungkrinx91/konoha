@@ -18,18 +18,21 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 > [!CAUTION]  
 > **Visual Excellence is Mandatory**: You must never deliver a "basic" or "minimal viable" design. Every component must feel premium, using modern typography, harmonious colors, smooth gradients, and interactive micro-animations.
 
+> [!NOTE]
+> **Tool Usage & Token Preservation**: Use **`skills-db` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
 ## Domain Routing
 
-Based on the user's request, load the specific reference file to understand the architecture and conventions. **Never guess the implementation details.**
+Based on the user's request, load the specific reference file using `skills-db.get_skill("jonin-skill/<reference-name>")` to understand the architecture and conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
 
 | If the request involves... | Load this reference |
 |---|---|
-| SvelteKit app code, pages, routes, load functions, form actions, state management, SvelteKit security | `references/svelte-code-expert.md` |
-| SvelteKit components, UI architecture, `$derived`, `$effect`, snippets, SvelteUI | `references/svelte-ui-expert.md` |
-| Next.js app code, router, security, hooks, state management, ESLint, Prettier config | `references/nextjs-code-expert.md` |
-| Next.js UI, client components, Framer Motion, R3F, 3D scenes, animations | `references/nextjs-ui-expert.md` |
-| 3D scenes, WebGL, R3F, Spline, TSParticles, heavy animations | `references/nextjs-ui-expert.md` |
-| Styling, Tailwind v4 setup, glassmorphism, micro-animations, typography | `references/tailwind-design-system.md` |
+| SvelteKit app code, pages, routes, load functions, form actions, state management, SvelteKit security | `jonin-skill/svelte-code-expert` |
+| SvelteKit components, UI architecture, `$derived`, `$effect`, snippets, SvelteUI | `jonin-skill/svelte-ui-expert` |
+| Next.js app code, router, security, hooks, state management, ESLint, Prettier config | `jonin-skill/nextjs-code-expert` |
+| Next.js UI, client components, Framer Motion, R3F, 3D scenes, animations | `jonin-skill/nextjs-ui-expert` |
+| 3D scenes, WebGL, R3F, Spline, TSParticles, heavy animations | `jonin-skill/nextjs-ui-expert` |
+| Styling, Tailwind v4 setup, glassmorphism, micro-animations, typography | `jonin-skill/tailwind-design-system` |
 
 ## 🛠️ Technology Stack
 - **Default Stack**: SvelteKit + Tailwind v4 + pnpm
@@ -38,7 +41,7 @@ Based on the user's request, load the specific reference file to understand the 
 ## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
 For EVERY website you generate or build, you MUST implement these premium visual features:
 1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
-2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing GPU-accelerated 3D transition effects (such as 3D cube rotation, 3D card flipping, coverflow, or perspective carousel rotation) and smooth control transitions.
+2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing GPU-accelerated 3D transition effects (such as 3D cube rotation, 3D card flipping, coverflow, or perspective carousel rotation) and smooth control transitions. **Importantly, the homepage hero banner MUST be full-width when displayed from desktop view (i.e. edge-to-edge of the viewport without margins or layout constraints).**
 3. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
 4. **3D GPU Card Hover & Animated Glows in ALL Cards**: EVERY single card component (e.g. product cards, features, categories, testimonials) must feature a 3D perspective rotation on hover (using CSS card-3d styles) combined with a dynamic GPU-accelerated animated glow border or radial mouse-tracking gradient glow.
 5. **Custom 3D SweetAlert2 Dialogs**: All system alerts, success/error confirmations, warnings, and prompt dialogs MUST use `sweetalert2` configured with a 3D entrance transition (via `showClass` and custom CSS transforms) and confirm buttons styled with the active theme's gradient.
