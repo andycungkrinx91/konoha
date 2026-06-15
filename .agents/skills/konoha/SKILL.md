@@ -49,7 +49,7 @@ graph TB
 
     subgraph Layer25 ["2.5 Model Execution & Fallback Layer"]
         Registry["🤖 LLM Model Registry <br/> (Gemini, Claude, GPT)"]
-        Fallback{"⚠️ Fallback Router <br/> (Fail -> Gemini 3.5 Flash High)"}
+        Fallback{"⚠️ Fallback Router <br/> (Fail -> Gemini 3.1 Flash-Lite)"}
         QuotaLimit["🛑 Quota Exhaustion? <br/> (Warning & Recovery Guide)"]
     end
 
@@ -159,6 +159,13 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 5. Compliance Reports
 - Whenever updating Konoha versions or conducting security checks, you MUST generate a compliance report in the `docs/SecurityCompliance/` folder using the exact filename format: `security_compliance_report_google_policy_<version>_<YYYY-MM-DD>.md`.
+- **Mandatory Compliance Report Structure**: All generated compliance reports MUST strictly adhere to the following Markdown structure to maintain auditing transparency:
+  1. **# Security and Compliance Review: Konoha Project [vVersion]** (H1 Header)
+  2. **## Executive Summary**: Summarizes the version reviewed, specific audit goals, and overall compliance outcome.
+  3. **## Findings**: Contains sub-headings for each analyzed control (e.g. `### 1. Interactive Consent Prompts`, `### 2. Sandbox Boundary Validation`). Each finding must contain:
+     - **Action Verified**: The specific code change, file modification, or config setting inspected.
+     - **Impact**: The security benefit or policy compliance outcome (e.g. preventing silent writes).
+  4. **## Conclusion**: Summary of the overall security posture and final verification declaration.
 
 ### 6. Changelog Maintenance
 - Whenever you make an update to the codebase or bump the version, you MUST update the `CHANGELOG.md` file to reflect your changes.

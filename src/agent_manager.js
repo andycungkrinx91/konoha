@@ -79,8 +79,9 @@ function loadAgents() {
           const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
+          const needsReferenceLoadingUpgrade = !a.instructions.includes('exact reference names');
           
-          if (needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade) {
+          if (needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade || needsReferenceLoadingUpgrade) {
             a.instructions = defAgent.instructions;
             changed = true;
           }
@@ -108,6 +109,10 @@ function loadAgents() {
             a.modelTier = defAgent.modelTier;
             changed = true;
           }
+        }
+        if (a.constraints && !a.constraints.includes('semble') && defAgent.constraints && defAgent.constraints.includes('semble')) {
+          a.constraints = defAgent.constraints;
+          changed = true;
         }
       }
 
@@ -204,10 +209,11 @@ ${agentDefs}
 > - Doing direct execution breaks guardrails.
 
 The orchestrator MUST follow this workflow:
-1. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` to discover necessary skills.
-2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
-3. **Select Agent**: Route to the correct agent based on the table below.
-4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
+2. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`).
+3. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
+4. **Select Agent**: Route to the correct agent based on the table below.
+5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
    \`\`\`markdown
    ---
    depth: <N>
@@ -220,26 +226,29 @@ The orchestrator MUST follow this workflow:
    - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
    Categorize the main content clearly:
    - **Goal**: Clear explanation of what needs to be accomplished.
-   - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`.
+   - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
    - **Constraints**: Rule constraints and target files.
-5. **Delegate**: Invoke the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will load their default skill (e.g., \`anbu-skill\`). If the subagent needs additional skills that aren't embedded, they must use Direct Tool Calls (\`find_skill\`) to get them. The subagent will read \`delegate.md\` from the absolute path specified in your invocation prompt.
-6. **Await Results**: Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` to finalize the step, report back, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
+6. **Delegate**: Invoke the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the absolute path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.**
+7. **Await Results**: Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` to finalize the step, report back, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
 
 The orchestrator ONLY delegates to: ${agentNames}. Creating new/custom subagents is prohibited.
 
-If a subagent hits quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`), fall back to **Direct Tool Calls** — do NOT spawn shadow subagents.
+**Direct Tool Calls Policy**:
+- It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend tasks, \`@anbu\` for backend tasks, \`@genin\` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
+- You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any of the active subagents, or if the subagent hits total quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`) and delegation is blocked.
+- Do NOT spawn shadow subagents under any circumstances.
+- **Mandatory Semble Calling**: When running direct tool calls (either as a fallback or for simple tasks), the main agent MUST still always use the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before making any file modifications or running commands.
 
 | Task type | Subagent |
 |-----------|----------|
 ${delegationRows}
 | Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
 
-- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
-
 For complex multi-domain tasks, invoke multiple subagents in parallel.
 
 ## Tools & Guardrails
 
+- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. When using \`view_file\`, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
 - **Skills-DB MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse. **NEVER load SKILL.md files directly.**
 - **Semble MCP**: Prefer \`search\`/\`find_related\` over grep/glob for code discovery. Mandatory for all agents.
 - **Forced Tool Boundaries**: All subagents and the main coordinator agent MUST use the **\`semble\` MCP** (for all code and file searches) and the **\`skills-db\` MCP** (for all skill/instruction discovery) to ensure strict guardrails are followed.
@@ -295,10 +304,11 @@ function generateAgentsMd(agents) {
   - It is STRICTLY prohibited from executing direct tool calls (such as \`write_to_file\`, \`replace_file_content\`, or \`run_command\` in the parent conversation). It must always delegate them.
   - Doing direct execution breaks guardrails.
 - **Workflow**:
-  1. **Find Skill First**: Call \`skills-db.find_skill()\` or \`optimize_report()\` to discover the right skills for the task.
-  2. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
-  3. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
-  4. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory) using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
+  1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
+  2. **Find Skill First**: Call \`skills-db.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`).
+  3. **Find Code Context**: Always call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files and relevant codebase context before formulating a delegation.
+  4. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
+  5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory) using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
      \`\`\`markdown
      ---
      depth: <N>
@@ -309,16 +319,18 @@ function generateAgentsMd(agents) {
      - If it does not exist, initialize it to \`depth: 1\`.
      - **Circuit Breaker**: If \`depth > 7\`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to \`scratch/tasks/<task_id>/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
      - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
-  5. **Delegate & Await**: Launch the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
-- **Constraints**: ONLY delegates to: ${agentNames}. No custom subagents. On quota limits, fall back to Direct Tool Calls.
+     Categorize the main content clearly:
+     - **Goal**: Clear explanation of what needs to be accomplished.
+     - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
+     - **Constraints**: Rule constraints and target files.
+  6. **Delegate & Await**: Launch the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
+- **Constraints**: ONLY delegates to: ${agentNames}. No custom subagents. It is prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend, \`@anbu\` for backend). Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`). In direct tool call mode, the main agent MUST still always use the **\`semble\` MCP** (\`search\` or \`find_related\`) for all code and file searches before executing direct tool calls.
 
 | Subtask type | Delegate to |
 |---|---|
 ${delegationRows}
 | Sandboxed execution, parallel workflows | @self |
 | Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
-
-- **Google Stitch Flow**: When a prompt to generate or build a design/site/application is received in an empty folder with enabled Google Stitch, the orchestrator MUST delegate the generation task to @jonin. @jonin will then create the design and code files in the folder using Google Stitch skills and MCP tools.
 
 ${agentSections}
 
@@ -330,11 +342,12 @@ ${agentSections}
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\` at the start of every response.
-2. **Read File-Based Task**: Read the delegation parameters from the absolute path to \`delegate.md\` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints.
+2. **Read File-Based Task**: Read the delegation parameters from the absolute path to \`delegate.md\` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`), you MUST immediately call the MCP tool \`skills-db.get_skill\` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
 3. **Skills-DB first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
 4. **Semble for code search**: Always use semble MCP (\`search\`, \`find_related\`) before grep/glob.
 5. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
 6. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. \`result.md.tmp\`) first, then rename/move it atomically to \`result.md\` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
+7. **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. When using \`view_file\`, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
 
 ### Safety Guardrails
 - **Forced Tool Boundaries**: All subagents and the coordinator MUST use the **\`semble\` MCP** (for all code/file searches) and the **\`skills-db\` MCP** (for all skill discovery). Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.

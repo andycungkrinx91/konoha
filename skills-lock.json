@@ -4,8 +4,8 @@
     "anbu-skill": {
       "source": "andycungkrinx91/konoha",
       "sourceType": "github",
-      "skillPath": ".agents/skills/anbu-skill.md",
-      "computedHash": "0f113bd4e101963ce603e815a0ab4891bdb3e5b50841ed66a27db2db8c1c9f17"
+      "skillPath": ".agents/skills/anbu-skill/SKILL.md",
+      "computedHash": "6bdb4c35ed04c076f3f82c6f8d599175a30c895c0a0264750f21d115a826812e"
     },
     "chunin-skill": {
       "source": "andycungkrinx91/konoha",
@@ -22,8 +22,8 @@
     "jonin-skill": {
       "source": "andycungkrinx91/konoha",
       "sourceType": "github",
-      "skillPath": ".agents/skills/jonin-skill.md",
-      "computedHash": "e3c14dc0c8ca898c8ea8a03ac23479585adf57c70093dae44fd1fad7a2ca59e1"
+      "skillPath": ".agents/skills/jonin-skill/SKILL.md",
+      "computedHash": "9a0ac78b9366014c0f28c2f98632e4fdef8153847e48dbfc0969f41c09455cb7"
     },
     "kage-skill": {
       "source": "andycungkrinx91/konoha",

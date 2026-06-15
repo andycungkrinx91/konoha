@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.0](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.0_2026-06-12.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.0](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.0_2026-06-13.md)
 
 | | |
 |:---:|:---:|
@@ -110,7 +110,7 @@ Once installed, the following CLI commands are available:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.0.0) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.1.0) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
@@ -118,7 +118,6 @@ Once installed, the following CLI commands are available:
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
 | `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `models`, `skill`, `delete`, `status`) |
 | `konoha models <subcommand>` | Manage available LLM models and assign them to subagents |
-| `konoha stitch <subcommand>` | Manage Google Stitch integration (enable, disable, config) |
 | `konoha help` | Show help |
 
 
@@ -171,9 +170,9 @@ The `skills-db` server exposes 3 tools for on-demand skill retrieval:
 Search skills by keyword using FTS5 full-text search.
 
 ```
-find_skill("terraform aws")     → devsecops-engineer references
-find_skill("sveltekit tailwind") → modern-full-stack references
-find_skill("code review")       → deep-code-explorer references
+find_skill("terraform aws")     → anbu-skill references
+find_skill("sveltekit tailwind") → jonin-skill references
+find_skill("code review")       → genin-skill references
 ```
 
 Returns top 3 matches with 4KB content previews. Truncated results include a hint to use `get_skill()` for full content.
@@ -182,8 +181,8 @@ Returns top 3 matches with 4KB content previews. Truncated results include a hin
 Get full content of a specific skill/reference by exact name.
 
 ```javascript
-get_skill("modern-full-stack/svelte-code-writer")
-get_skill("devsecops-engineer/terraform-aws-modules")
+get_skill("jonin-skill/svelte-code-expert")
+get_skill("anbu-skill/terraform-aws-modules")
 ```
 
 #### `list_skills()`
@@ -239,6 +238,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Builds premium, visually stunning frontends (SvelteKit, Next.js, Tailwind v4, Magic UI, 3D web).
   - Enforces design tokens, custom typography, smooth gradients, and glassmorphism.
   - Performs visual QA using the `agent-browser` CLI.
+  - Enforces the **Zero-Error Guarantee & Verification Loop** (running local installs, Svelte/Next syncs, check/lint diagnostics, and production builds to guarantee zero compilation errors/warnings before completion).
 * **Skills-DB Keyword**: `sveltekit tailwind nextjs components` (fetches design standards).
 
 ### 4. 👥 Anbu (Special Black Ops)
@@ -281,7 +281,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). All git operations are reserved for the developer. Use `semble` or `ripgrep` for local code discovery.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 6 official Konoha agents. Creating custom subagents dynamically is prohibited.
-> * **Circuit Breaker**: Handoff loops are tracked via depth metadata. If handoff depth exceeds 5, the execution freezes and prompts the user for manual validation.
+> * **Circuit Breaker**: Handoff loops are tracked via depth metadata. If handoff depth exceeds 7, the execution freezes and prompts the user for manual validation.
 > * **Quota Fallback**: In the event of API rate limits or `429 / RESOURCE_EXHAUSTED` errors, the system will fallback to `Gemini 3.1 Flash-Lite` and use direct tool calls instead of spawning additional subagents.
 
 ---

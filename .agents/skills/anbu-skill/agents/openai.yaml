@@ -1,0 +1,3 @@
+interface:
+  display_name: "DevSecOps Engineer"
+  short_description: "Terraform + Kubernetes + Helm + CI/CD + Security — plan, build, secure, and automate production infrastructure"

@@ -102,5 +102,5 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 | **Token Savings** | 0% (Baseline) | **83% - 98% reduction** |
 | **Cost & Context Bloat** | High context footprint, high API bills | Minimal footprint, highly cost-effective |
 | **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `~/.gemini/config/mcp_config.json` |
-| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` |oha init` |
+| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` |
 

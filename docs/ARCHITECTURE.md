@@ -4,7 +4,7 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.0.9)
+title: Konoha System Architecture (v1.1.0)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -100,7 +100,7 @@ flowchart TB
     Tokubetsu -->|"5. Execute prompts"| LLMRegistry
     Kage -->|"5. Execute prompts"| LLMRegistry
     LLMRegistry -->|"5a. Quota limit / 429 error"| FallbackRouter
-    FallbackRouter -->|"5b. Route to Fallback Model<br>(Gemini 3.5 Flash High)"| LLMRegistry
+    FallbackRouter -->|"5b. Route to Fallback Model<br>(Gemini 3.1 Flash-Lite)"| LLMRegistry
     FallbackRouter -->|"5c. Total Exhaustion"| QuotaLimit
     QuotaLimit -->|"5d. Warning / Recovery instructions"| User
 

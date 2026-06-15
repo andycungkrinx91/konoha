@@ -464,7 +464,7 @@ def auto_detect_skills(skills_dir):
             skill_md = os.path.join(entry_path, "SKILL.md")
             if os.path.isfile(skill_md):
                 detected.append(entry)
-        elif os.path.isfile(entry_path) and (entry.endswith("-skill.md") or entry == "konoha-stitch.md"):
+        elif os.path.isfile(entry_path) and entry.endswith("-skill.md"):
             detected.append(entry)
     return detected
 

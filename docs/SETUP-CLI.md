@@ -64,7 +64,7 @@ Then ask:
 Search for "terraform aws" using the skills-db MCP tool.
 ```
 
-The agent should call `find_skill("terraform aws")` and return relevant devsecops-engineer references — without loading any SKILL.md files.
+The agent should call `find_skill("terraform aws")` and return relevant anbu-skill references — without loading any SKILL.md files.
 
 ## How Skills-DB Integrates with agy
 
@@ -200,46 +200,14 @@ To verify all components and configurations are operating correctly, you can run
   ```bash
   konoha doctor
   ```
-  Runs a comprehensive health check on the environment, verifying Python installations, global directories, SQLite database status, and MCP config files. It features self-healing to automatically recreate or repair missing configuration files or database tables, and validates Google Stitch integration parameters (API key, settings permissions, and `@jonin` subagent skills).
-
-### Google Stitch Integration
-
-Konoha integrates with Google Stitch to manage UI/frontend design generation pipelines directly through your terminal.
-
-- **Check Stitch Status**:
-  ```bash
-  konoha stitch status
-  ```
-  Checks the integration status, including `STITCH_API_KEY` configuration, auto-approved permissions (4/4 grants), embedded `@jonin` skills, and `agent-browser` installation status.
-
-- **Enable Google Stitch**:
-  ```bash
-  konoha stitch enable
-  ```
-  Automatically enables the Google Stitch integration by performing the following operations:
-  1. Installs and initializes the `agent-browser` globally (`npm install -g agent-browser && agent-browser install`).
-  2. Registers the `stitch` MCP server with cross-platform commands (`npx.cmd` on Windows, `npx` on macOS/Linux).
-  3. Configures 4 auto-approved permissions in `settings.json` (`mcp(stitch/*)`, `mcp(stitch/build_site)`, `mcp(stitch/get_screen_code)`, `mcp(stitch/get_screen_image)`).
-  4. Embeds the required Stitch skills (`stitch-design`, `stitch-loop`, `design-md`, `react-components`, `enhance-prompt`, `konoha-stitch`) into the `@jonin` builder configuration.
-
-- **Disable Google Stitch**:
-  ```bash
-  konoha stitch disable
-  ```
-  Removes Google Stitch integration: removes the Stitch MCP server from `mcp_config.json`, cleans up the auto-approved permissions, and removes the Stitch skills from `@jonin`.
-
-- **Configure Stitch API Key**:
-  ```bash
-  konoha stitch config
-  ```
-  Interactively prompts the user to configure the `STITCH_API_KEY` environment variable.
+  Runs a comprehensive health check on the environment, verifying Python installations, global directories, SQLite database status, and MCP config files. It features self-healing to automatically recreate or repair missing configuration files or database tables.
 
 ### Checking Version and Upgrading
 
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.0.0`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.0`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```

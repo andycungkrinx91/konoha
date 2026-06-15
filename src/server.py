@@ -218,27 +218,14 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
     try:
         conn = get_db()
         
-        # Calculate baseline dynamically
-        baseline_bytes = 25000
-        if agent_name:
-            agents_json_path = os.path.expanduser("~/.agents/agents.json")
-            if os.path.exists(agents_json_path):
-                try:
-                    with open(agents_json_path, 'r', encoding='utf-8') as f:
-                        agents_data = json.load(f)
-                        agent_skills = []
-                        for agent_info in agents_data:
-                            if agent_info.get("name") == agent_name:
-                                agent_skills = agent_info.get("skills", [])
-                                break
-                        if agent_skills:
-                            placeholders = ",".join(["?"] * len(agent_skills))
-                            query = f"SELECT SUM(byte_size) FROM skills WHERE skill_name IN ({placeholders})"
-                            row = conn.execute(query, tuple(agent_skills)).fetchone()
-                            if row and row[0] is not None:
-                                baseline_bytes = row[0]
-                except Exception:
-                    pass
+        # Calculate baseline as the sum of all skills in the database (or default to 550000)
+        baseline_bytes = 550000
+        try:
+            row = conn.execute("SELECT SUM(byte_size) FROM skills").fetchone()
+            if row and row[0] is not None:
+                baseline_bytes = row[0]
+        except Exception:
+            pass
         
         returned_bytes = len(returned_content)
         if tool_name == "get_skill":

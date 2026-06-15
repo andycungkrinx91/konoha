@@ -26,13 +26,6 @@ venv/
 env/
 ENV/
 
-# Agent workspace and skills
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/konoha/
-!.agents/skills/*-skill.md
-
 # Credentials and environment files
 .env
 .env.local
@@ -43,3 +36,5 @@ secrets.yaml
 # Local temporary or scratch files
 output.txt
 scratch/
+prompt.md
+*.bak

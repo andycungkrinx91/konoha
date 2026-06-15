@@ -2,16 +2,24 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [1.1.0] - 2026-06-12
+## [1.1.0] - 2026-06-15
 
 ### Added
-- **Google Stitch Integration**: Added the `konoha stitch` command suite allowing developers to enable, disable, configure, and inspect Google Stitch integration.
-  - `konoha stitch enable`: Installs `google-labs-code/stitch-skills` plugin, registers `stitch` MCP server in `mcp_config.json`, auto-approves permissions in `settings.json`, embeds Stitch skills into `@jonin` subagent configuration, and automatically syncs instruction files.
-  - `konoha stitch disable`: Uninstalls `google-labs-code/stitch-skills` plugin, removes MCP registry, removes permissions from settings files, and deletes Stitch skills from `@jonin` subagent.
-  - `konoha stitch config`: Interactively prompts the user for their `STITCH_API_KEY` and saves it in `mcp_config.json`.
-  - `konoha stitch status`: Displays the status of Google Stitch integration, API keys, auto-approvals, and agent skills.
-- **Google Stitch Instruction Routing**: Updated instruction generators to route prompt requests for generating design/site/application in empty folders to `@jonin` using Google Stitch skills and MCP tools.
-- **Google Stitch Diagnostics**: Added Google Stitch health diagnostics and auto-repairing capabilities to the `konoha doctor` command (validating API key configuration, auto-approval permissions, and `@jonin` subagent skills).
+- **Interactive Consent Hooks**: Added interactive `y/n` confirmation prompts for `hooks.json` registration (via `confirm` from `@inquirer/prompts`) to comply with Google Security policies.
+- **Token Hygiene Instructions**: Implemented targeted file-reading directives in `GEMINI.md`, `AGENTS.md`, and default agent presets (`src/templates/agents.json`) to prevent subagents from viewing files in their entirety and consuming high tokens per turn.
+- **Doctor Diagnostic Hook Check**: Added prompt hook verification and auto-repair routines to `konoha doctor`.
+
+### Changed
+- **Folder-Based Skills**: Upgraded default skills `anbu-skill` and `jonin-skill` to directory-based structures (recursively copying `references/` and `scripts/`).
+- **Zero-Error Guarantee**: Added a strict Zero-Error Guarantee & Verification Loop to `jonin-skill` (enforcing A11y and post-generation build verification via `pnpm`).
+- **Enforced Semble Call Policy**: Enforced mandatory `semble` MCP calling across all main coordinator and subagent workflows, including under Direct Tool Call fallback execution. Added automated constraint upgrades to `loadAgents()`.
+- **Default Semble Config**: Included `--content all` in default `semble` configuration arguments.
+- **Aligned Token Savings Baseline**: Updated `server.py` to calculate token savings against the sum of all skills in the database (~550 KB index size) rather than dynamic subagent-specific baselines, aligning calculation logic with the CLI display and showing true context window savings.
+
+### Fixed
+- **Doctor Table Formatting**: Corrected results table layout width alignments to prevent long script names from overlapping formatting borders.
+- **Village Agent Alignment**: Restored the 6-agent village structure by reverting the custom orchestrator subagent definition from the CLI core.
+- **Doctor Spinner Line Clears**: Updated terminal spinners in `cli.js` to use `\r\x1b[K` (Erase Line) ANSI escape codes to ensure clean line clearing and prevent table overlap in various terminal environments.
 
 ## [1.0.9] - 2026-06-11
 

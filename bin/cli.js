@@ -623,7 +623,7 @@ function startSpinner(text) {
     success(successText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[38;2;0;255;255m⚡\x1b[0m  ${successText || text}${' '.repeat(12)}\n`);
+        process.stdout.write(`\r\x1b[K  \x1b[38;2;0;255;255m⚡\x1b[0m  ${successText || text}\n`);
       } else {
         log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${successText || text}`);
       }
@@ -631,7 +631,7 @@ function startSpinner(text) {
     warn(warnText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[38;2;255;200;0m↯\x1b[0m  ${warnText || text}${' '.repeat(12)}\n`);
+        process.stdout.write(`\r\x1b[K  \x1b[38;2;255;200;0m↯\x1b[0m  ${warnText || text}\n`);
       } else {
         log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${warnText || text}`);
       }
@@ -639,7 +639,7 @@ function startSpinner(text) {
     error(errText) {
       if (interval) {
         clearInterval(interval);
-        process.stdout.write(`\r  \x1b[31m✗\x1b[0m  ${errText || text}${' '.repeat(12)}\n`);
+        process.stdout.write(`\r\x1b[K  \x1b[31m✗\x1b[0m  ${errText || text}\n`);
       } else {
         log(`  ${C.red}✗${C.reset} ${errText || text}`);
       }
@@ -808,7 +808,7 @@ function detectSkillsDirs() {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         const skillCount = entries.filter(e => 
           (e.isDirectory() && fileExists(path.join(dir, e.name, 'SKILL.md'))) ||
-          (e.isFile() && (e.name.endsWith('-skill.md') || e.name === 'konoha-stitch.md'))
+          (e.isFile() && e.name.endsWith('-skill.md'))
         ).length;
         if (skillCount > 0) {
           found.push({ path: dir, count: skillCount });
@@ -826,7 +826,7 @@ function detectCustomSkills(skillsDir) {
     for (const e of entries) {
       if (e.isDirectory() && fileExists(path.join(skillsDir, e.name, 'SKILL.md'))) {
         skills.push(e.name);
-      } else if (e.isFile() && (e.name.endsWith('-skill.md') || e.name === 'konoha-stitch.md')) {
+      } else if (e.isFile() && e.name.endsWith('-skill.md')) {
         skills.push(e.name);
       }
     }
@@ -847,21 +847,25 @@ async function cmdInit(args) {
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
   let confirm;
-  try {
-    const prompts = await import('@inquirer/prompts');
-    confirm = prompts.confirm;
-  } catch (e) {
-    error('Could not load @inquirer/prompts. Please run "npm install".');
-    process.exit(1);
+  const isNonInteractive = args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
+  if (!isNonInteractive) {
+    try {
+      const prompts = await import('@inquirer/prompts');
+      confirm = prompts.confirm;
+    } catch (e) {
+      error('Could not load @inquirer/prompts. Please run "npm install".');
+      process.exit(1);
+    }
   }
 
-  const doInit = await confirm({ message: 'Initialize Konoha and modify ~/.gemini configurations?', default: true });
+  const doInit = isNonInteractive ? true : await confirm({ message: 'Initialize Konoha and modify ~/.gemini configurations?', default: true });
   if (!doInit) {
     warn('Initialization aborted.');
     return;
   }
 
-  const allowAutoApprove = await confirm({ message: 'Allow for skills-db and semble for auto approve in ~/.gemini/config/mcp_config.json?', default: true });
+  const allowAutoApprove = isNonInteractive ? true : await confirm({ message: 'Allow for skills-db and semble for auto approve in ~/.gemini/config/mcp_config.json?', default: true });
+  const allowHooks = isNonInteractive ? true : await confirm({ message: 'Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', default: true });
 
 
   // 1. Ensure the directories exist
@@ -933,12 +937,21 @@ async function cmdInit(args) {
   if (fileExists(pkgSkillsDir)) {
     ensureDir(globalSkillsDir);
     try {
-      const files = fs.readdirSync(pkgSkillsDir);
-      files.forEach(file => {
-        if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
-          const srcPath = path.join(pkgSkillsDir, file);
-          const destPath = path.join(globalSkillsDir, file);
-          copyFile(srcPath, destPath);
+      const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
+      files.forEach(entry => {
+        const name = entry.name;
+        if (entry.isDirectory()) {
+          if (name.endsWith('-skill') || name === 'konoha') {
+            const srcPath = path.join(pkgSkillsDir, name);
+            const destPath = path.join(globalSkillsDir, name);
+            copyRecursive(srcPath, destPath);
+          }
+        } else if (entry.isFile()) {
+          if (name.endsWith('-skill.md')) {
+            const srcPath = path.join(pkgSkillsDir, name);
+            const destPath = path.join(globalSkillsDir, name);
+            copyFile(srcPath, destPath);
+          }
         }
       });
     } catch (err) {
@@ -965,6 +978,12 @@ async function cmdInit(args) {
   const agentStatsScriptDest = path.join(SKILLS_DB_DIR, 'agent_stats.py');
   if (fileExists(agentStatsScriptSrc)) {
     copyFile(agentStatsScriptSrc, agentStatsScriptDest);
+  }
+
+  const promptHookSrc = path.join(SRC_DIR, 'prompt_hook.js');
+  const promptHookDest = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
+  if (fileExists(promptHookSrc)) {
+    copyFile(promptHookSrc, promptHookDest);
   }
   spinner3.success('All files installed to ~/.gemini/skills-db/');
 
@@ -1000,6 +1019,12 @@ async function cmdInit(args) {
   const spinner4 = startSpinner('Registering in ~/.gemini/config/mcp_config.json...');
   registerMcp(python, true, allowAutoApprove);
   spinner4.success('skills-db registered in MCP config.');
+
+  // Register Hooks config
+  header('🔗 Registering Hooks');
+  const spinnerHook = startSpinner(allowHooks ? 'Registering prompt hook in ~/.gemini/config/hooks.json...' : 'Removing prompt hook from ~/.gemini/config/hooks.json...');
+  registerHooks(false, allowHooks);
+  spinnerHook.success(allowHooks ? 'prompt_hook registered in hooks.json.' : 'prompt_hook removed/unregistered from hooks.json.');
 
   // 7. Update GEMINI.md
   header('📝 Updating GEMINI.md');
@@ -1130,7 +1155,7 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
     args: [SERVER_PATH]
   };
   if (allowAutoApprove) {
-    skillsDbConfig.autoApprove = ['find_skill', 'list_skills', 'get_skill', 'optimize_report'];
+    skillsDbConfig.autoApprove = ['*', 'find_skill', 'list_skills', 'get_skill', 'optimize_report'];
   }
   config.mcpServers['skills-db'] = skillsDbConfig;
 
@@ -1153,10 +1178,10 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
 
   const sembleConfig = {
     command: uvxCmd,
-    args: ['--from', 'semble[mcp]@latest', 'semble']
+    args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
   };
   if (allowAutoApprove) {
-    sembleConfig.autoApprove = ['search', 'find_related'];
+    sembleConfig.autoApprove = ['*', 'search', 'find_related'];
   }
   config.mcpServers['semble'] = sembleConfig;
 
@@ -1198,12 +1223,15 @@ function registerPermissions(silent = false) {
     const requiredGrants = [
       'command(node bin/cli.js)',
       'command(konoha)',
+      'command(node "' + path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js') + '")',
       'mcp(semble/search)',
       'mcp(semble/find_related)',
+      'mcp(semble/*)',
       'mcp(skills-db/find_skill)',
       'mcp(skills-db/list_skills)',
       'mcp(skills-db/get_skill)',
-      'mcp(skills-db/optimize_report)'
+      'mcp(skills-db/optimize_report)',
+      'mcp(skills-db/*)'
     ];
 
     let updated = false;
@@ -1233,6 +1261,71 @@ function registerPermissions(silent = false) {
   }
 }
 
+function registerHooks(silent = false, allowHooks) {
+  const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
+  ensureDir(path.dirname(HOOKS_CONFIG_PATH));
+
+  let config = {};
+  if (fileExists(HOOKS_CONFIG_PATH)) {
+    try {
+      config = JSON.parse(fs.readFileSync(HOOKS_CONFIG_PATH, 'utf-8'));
+    } catch (e) {
+      config = {};
+    }
+  }
+
+  const hookScriptPath = path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js');
+  const hookExists = config['konoha-prompt-hook'] !== undefined;
+
+  let shouldWrite = false;
+
+  if (allowHooks === true) {
+    config['konoha-prompt-hook'] = {
+      PreInvocation: [
+        {
+          type: 'command',
+          command: `node "${hookScriptPath}"`
+        }
+      ]
+    };
+    shouldWrite = true;
+  } else if (allowHooks === false) {
+    if (hookExists) {
+      delete config['konoha-prompt-hook'];
+      shouldWrite = true;
+    }
+  } else if (allowHooks === undefined) {
+    if (hookExists) {
+      config['konoha-prompt-hook'] = {
+        PreInvocation: [
+          {
+            type: 'command',
+            command: `node "${hookScriptPath}"`
+          }
+        ]
+      };
+      shouldWrite = true;
+    }
+  }
+
+  if (shouldWrite) {
+    try {
+      fs.writeFileSync(HOOKS_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
+      if (!silent) {
+        if (allowHooks === false) {
+          success(`Removed prompt hook from: ${HOOKS_CONFIG_PATH}`);
+        } else {
+          success(`Registered prompt hook in: ${HOOKS_CONFIG_PATH}`);
+        }
+      }
+    } catch (e) {
+      if (!silent) {
+        warn(`Could not update hooks.json: ${e.message}`);
+      }
+    }
+  }
+}
+
 function copyIfDifferent(src, dest) {
   if (!fileExists(dest)) {
     copyFile(src, dest);
@@ -1251,6 +1344,32 @@ function copyIfDifferent(src, dest) {
   return false;
 }
 
+function copyRecursive(src, dest) {
+  const stats = fs.statSync(src);
+  if (stats.isDirectory()) {
+    ensureDir(dest);
+    const entries = fs.readdirSync(src);
+    for (const entry of entries) {
+      copyRecursive(path.join(src, entry), path.join(dest, entry));
+    }
+  } else {
+    copyFile(src, dest);
+  }
+}
+
+function copyRecursiveIfDifferent(src, dest) {
+  const stats = fs.statSync(src);
+  if (stats.isDirectory()) {
+    ensureDir(dest);
+    const entries = fs.readdirSync(src);
+    for (const entry of entries) {
+      copyRecursiveIfDifferent(path.join(src, entry), path.join(dest, entry));
+    }
+  } else {
+    copyIfDifferent(src, dest);
+  }
+}
+
 function ensureAutoSetup() {
   // 1. Ensure the directories exist
   const dirs = [
@@ -1267,7 +1386,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -1282,12 +1401,21 @@ function ensureAutoSetup() {
   if (fileExists(pkgSkillsDir)) {
     ensureDir(globalSkillsDir);
     try {
-      const files = fs.readdirSync(pkgSkillsDir);
-      files.forEach(file => {
-        if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
-          const srcPath = path.join(pkgSkillsDir, file);
-          const destPath = path.join(globalSkillsDir, file);
-          copyIfDifferent(srcPath, destPath);
+      const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
+      files.forEach(entry => {
+        const name = entry.name;
+        if (entry.isDirectory()) {
+          if (name.endsWith('-skill') || name === 'konoha') {
+            const srcPath = path.join(pkgSkillsDir, name);
+            const destPath = path.join(globalSkillsDir, name);
+            copyRecursiveIfDifferent(srcPath, destPath);
+          }
+        } else if (entry.isFile()) {
+          if (name.endsWith('-skill.md')) {
+            const srcPath = path.join(pkgSkillsDir, name);
+            const destPath = path.join(globalSkillsDir, name);
+            copyRecursiveIfDifferent(srcPath, destPath);
+          }
         }
       });
     } catch (err) {}
@@ -1296,6 +1424,7 @@ function ensureAutoSetup() {
   // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
   const python = checkPython() || 'python3';
   registerMcp(python, true);
+  registerHooks(true);
 
   // 5. Ensure agents.json is initialized with defaults if missing
   const agentsJsonPath = path.join(HOME, '.agents', 'agents.json');
@@ -1802,6 +1931,10 @@ async function cmdDoctor() {
   const agentStatsScriptDest = path.join(SKILLS_DB_DIR, 'agent_stats.py');
   checkAndRepairFile('agent_stats.py', agentStatsScriptDest, 'Agent Stats Helper Script');
 
+  // 5c. Prompt Hook Script
+  const promptHookScriptDest = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
+  checkAndRepairFile('prompt_hook.js', promptHookScriptDest, 'Prompt Hook Script (prompt_hook.js)');
+
   // 6. Database File (requires Python)
   if (fileExists(DB_PATH)) {
     record('Database File (skills.db)', 'HEALTHY', 'Database file is present');
@@ -1926,128 +2059,55 @@ async function cmdDoctor() {
     }
   }
 
-  // 10. Google Stitch Checks
-  let stitchEnabled = false;
-  let stitchEnv = {};
-  if (fileExists(MCP_CONFIG_PATH)) {
+  // 9b. Prompt Hook Configuration (hooks.json)
+  const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
+  let promptHookRegistered = false;
+  if (fileExists(HOOKS_CONFIG_PATH)) {
     try {
-      const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (config.mcpServers && config.mcpServers.stitch && config.mcpServers.stitch.command) {
-        stitchEnabled = true;
-        stitchEnv = config.mcpServers.stitch.env || {};
+      const config = JSON.parse(fs.readFileSync(HOOKS_CONFIG_PATH, 'utf-8'));
+      if (config['konoha-prompt-hook'] && config['konoha-prompt-hook'].PreInvocation) {
+        const hasCmd = config['konoha-prompt-hook'].PreInvocation.some(hook => hook.command && hook.command.includes('prompt_hook.js'));
+        if (hasCmd) promptHookRegistered = true;
       }
     } catch {}
   }
 
-  if (stitchEnabled) {
-    // Check Stitch API Key
-    const apiKey = stitchEnv.STITCH_API_KEY;
-    if (!apiKey || apiKey.trim() === '') {
-      record('Stitch API Key', 'FAILED', 'Key is missing or empty');
-      hasErrors = true;
+  if (promptHookRegistered) {
+    record('Prompt Hook Config (hooks.json)', 'HEALTHY', 'prompt_hook is registered and active');
+  } else {
+    let allowHooks = false;
+    let loadFailed = false;
+    const isNonInteractive = process.argv.includes('--yes') || process.argv.includes('-y') || process.env.CI === 'true';
+    if (isNonInteractive) {
+      allowHooks = true;
     } else {
-      record('Stitch API Key', 'HEALTHY', 'Configured');
+      globalSpinner.stop();
+      try {
+        const prompts = await import('@inquirer/prompts');
+        allowHooks = await prompts.confirm({ message: 'Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', default: true });
+      } catch (e) {
+        loadFailed = true;
+        record('Prompt Hook Config (hooks.json)', 'FAILED', 'Could not load @inquirer/prompts');
+        hasErrors = true;
+      }
+      globalSpinner.start('Running environment diagnostics...');
     }
 
-    // Check Stitch Permissions
-    const settingsPaths = [
-      SETTINGS_PATH,
-      path.join(HOME, '.gemini', 'settings.json')
-    ];
-    const stitchGrants = [
-      'mcp(stitch/*)',
-      'mcp(stitch/build_site)',
-      'mcp(stitch/get_screen_code)',
-      'mcp(stitch/get_screen_image)',
-      'command(pnpm)'
-    ];
-
-    let permissionsHealthy = true;
-    let permissionsRepaired = false;
-    let permissionsFailed = false;
-    let permissionsDetails = '';
-
-    for (const settingsPath of settingsPaths) {
-      let settings = {};
-      let fileExistsFlag = fileExists(settingsPath);
-      if (fileExistsFlag) {
-        try {
-          settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        } catch {
-          settings = {};
-        }
+    if (allowHooks) {
+      try {
+        registerHooks(true, true);
+        record('Prompt Hook Config (hooks.json)', 'REPAIRED', 'Registered prompt hook in hooks.json');
+        repairsDone++;
+      } catch (e) {
+        record('Prompt Hook Config (hooks.json)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
       }
-      
-      if (!settings.permissions) settings.permissions = {};
-      if (!settings.permissions.allow) settings.permissions.allow = [];
-
-      let missingGrants = [];
-      for (const grant of stitchGrants) {
-        if (!settings.permissions.allow.includes(grant)) {
-          missingGrants.push(grant);
-        }
-      }
-
-      if (missingGrants.length > 0) {
-        try {
-          ensureDir(path.dirname(settingsPath));
-          for (const grant of missingGrants) {
-            settings.permissions.allow.push(grant);
-          }
-          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-          permissionsRepaired = true;
-          repairsDone++;
-        } catch (e) {
-          permissionsFailed = true;
-          permissionsDetails = `Failed to repair permissions in ${settingsPath.replace(HOME, '~')}: ${e.message}`;
-        }
-      }
-    }
-
-    if (permissionsFailed) {
-      record('Stitch Permissions', 'FAILED', permissionsDetails);
-      hasErrors = true;
-    } else if (permissionsRepaired) {
-      record('Stitch Permissions', 'REPAIRED', 'Restored missing permissions in settings.json');
-    } else {
-      record('Stitch Permissions', 'HEALTHY', 'All required permissions are granted');
-    }
-
-    // Check Stitch Agent Skills
-    const agents = agentManager.loadAgents();
-    const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
-    if (jonin) {
-      const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
-      let missingSkills = [];
-      for (const skill of stitchSkills) {
-        if (!jonin.skills.includes(skill)) {
-          missingSkills.push(skill);
-        }
-      }
-
-      if (missingSkills.length > 0) {
-        try {
-          for (const skill of missingSkills) {
-            jonin.skills.push(skill);
-          }
-          agentManager.saveAgents(agents);
-          agentManager.regenerateAndDeploy(true);
-          record('Stitch Agent Skills', 'REPAIRED', 'Added Google Stitch skills to @jonin subagent');
-          repairsDone++;
-        } catch (e) {
-          record('Stitch Agent Skills', 'FAILED', `Failed to update @jonin skills: ${e.message}`);
-          hasErrors = true;
-        }
-      } else {
-        record('Stitch Agent Skills', 'HEALTHY', 'All Stitch skills embedded in @jonin');
-      }
-    } else {
-      record('Stitch Agent Skills', 'FAILED', '@jonin subagent not found in agent configuration');
-      hasErrors = true;
+    } else if (!loadFailed) {
+      record('Prompt Hook Config (hooks.json)', 'WARNING', 'Prompt hook is not registered (user declined)');
     }
   }
 
-  // 11. agent-browser CLI check
+  // 10. agent-browser CLI check
   let agentBrowserInstalled = false;
   let agentBrowserVersion = '';
   try {
@@ -2062,27 +2122,7 @@ async function cmdDoctor() {
   }
 
   if (!agentBrowserInstalled) {
-    if (stitchEnabled) {
-      // Automatic repair
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-      const options = { stdio: 'ignore' };
-      if (process.platform === 'win32') options.shell = true;
-      
-      const installRes = spawnSync(npmCmd, ['install', '-g', 'agent-browser'], options);
-      const initRes = spawnSync(abCmd, ['install'], options);
-      
-      if (installRes.status === 0 && initRes.status === 0) {
-        record('agent-browser CLI', 'REPAIRED', 'Installed and initialized agent-browser globally');
-        repairsDone++;
-      } else {
-        record('agent-browser CLI', 'FAILED', 'Failed to install/initialize agent-browser globally');
-        hasErrors = true;
-      }
-    } else {
-      // Disabled: list as WARNING
-      record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for Stitch)');
-    }
+    record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for visual QA)');
   } else {
     record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
   }
@@ -2091,9 +2131,9 @@ async function cmdDoctor() {
   globalSpinner.success('Diagnostic checks complete.');
 
   // Print results table
-  log(`\n    ${C.dim}┌──────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐${C.reset}`);
-  log(`    ${C.dim}│${C.reset} ${C.bold}${'Requirement / Component'.padEnd(32)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Status'.padEnd(12)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Diagnostic Details'.padEnd(54)}${C.reset} ${C.dim}│${C.reset}`);
-  log(`    ${C.dim}├──────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤${C.reset}`);
+  log(`\n    ${C.dim}┌────────────────────────────────────────┬──────────────┬──────────────────────────────────────────────────┐${C.reset}`);
+  log(`    ${C.dim}│${C.reset} ${C.bold}${'Requirement / Component'.padEnd(38)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Status'.padEnd(12)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Diagnostic Details'.padEnd(48)}${C.reset} ${C.dim}│${C.reset}`);
+  log(`    ${C.dim}├────────────────────────────────────────┼──────────────┼──────────────────────────────────────────────────┤${C.reset}`);
   
   results.forEach(res => {
     let statusStr = '';
@@ -2107,11 +2147,11 @@ async function cmdDoctor() {
       statusStr = `${C.red}${res.status.padEnd(12)}${C.reset}`;
     }
     
-    const detailsStr = res.details.length > 52 ? res.details.substring(0, 49) + '...' : res.details;
-    log(`    ${C.dim}│${C.reset} ${res.component.padEnd(32)} ${C.dim}│${C.reset} ${statusStr} ${C.dim}│${C.reset} ${detailsStr.padEnd(54)} ${C.dim}│${C.reset}`);
+    const detailsStr = res.details.length > 46 ? res.details.substring(0, 43) + '...' : res.details;
+    log(`    ${C.dim}│${C.reset} ${res.component.padEnd(38)} ${C.dim}│${C.reset} ${statusStr} ${C.dim}│${C.reset} ${detailsStr.padEnd(48)} ${C.dim}│${C.reset}`);
   });
   
-  log(`    ${C.dim}└──────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘${C.reset}`);
+  log(`    ${C.dim}└────────────────────────────────────────┴──────────────┴──────────────────────────────────────────────────┘${C.reset}`);
   log('');
 
   // Diagnostic Report Summary
@@ -2242,11 +2282,11 @@ async function cmdAgentStatus() {
 
   // Build a map/list of all agents to show
   const displayAgents = [];
-  const processedNames = new Set();
+  const registeredNames = new Set();
 
   agents.forEach(a => {
     const name = a.name.toLowerCase();
-    processedNames.add(name);
+    registeredNames.add(name);
     
     const agentStats = stats[name] || { today: 0, last7days: 0, alltime: 0 };
     displayAgents.push({
@@ -2265,7 +2305,7 @@ async function cmdAgentStatus() {
   const directStats = { today: 0, last7days: 0, alltime: 0 };
   Object.keys(stats).forEach(name => {
     const lowerName = name.toLowerCase();
-    if (!processedNames.has(lowerName)) {
+    if (!registeredNames.has(lowerName)) {
       const agentStats = stats[name];
       directStats.today += agentStats.today;
       directStats.last7days += agentStats.last7days;
@@ -2415,7 +2455,7 @@ async function cmdSavings() {
 
   try {
     const uvxCmd = getUvxCommand();
-    let runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings', '--verbose'], {
+    let runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings'], {
       encoding: 'utf-8',
       timeout: 5000,
       shell: process.platform === 'win32'
@@ -2429,7 +2469,7 @@ async function cmdSavings() {
           sembleCmd = companionSemble;
         }
       }
-      runSemble = spawnSync(sembleCmd, ['savings', '--verbose'], {
+      runSemble = spawnSync(sembleCmd, ['savings'], {
         encoding: 'utf-8',
         timeout: 5000,
         shell: process.platform === 'win32'
@@ -2446,8 +2486,10 @@ async function cmdSavings() {
 
     const lines = sembleOutput.split('\n');
     for (const line of lines) {
-      const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-      const todayMatch = cleanLine.match(/^\s*Today\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
+      
+      const todayMatch = cleanLine.match(/^Today\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^Today\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (todayMatch) {
         sembleTodayCalls = parseInt(todayMatch[1], 10) || 0;
         const val = parseFloat(todayMatch[2]);
@@ -2456,7 +2498,8 @@ async function cmdSavings() {
         sembleTodayPct = parseInt(todayMatch[4] || '0', 10) || 0;
       }
 
-      const last7Match = cleanLine.match(/^\s*Last\s+7\s+days\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const last7Match = cleanLine.match(/^Last\s+7\s+days\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^Last\s+7\s+days\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (last7Match) {
         sembleLast7DaysCalls = parseInt(last7Match[1], 10) || 0;
         const val = parseFloat(last7Match[2]);
@@ -2465,7 +2508,8 @@ async function cmdSavings() {
         sembleLast7DaysPct = parseInt(last7Match[4] || '0', 10) || 0;
       }
 
-      const allTimeMatch = cleanLine.match(/^\s*All\s+time\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const allTimeMatch = cleanLine.match(/^All\s+time\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^All\s+time\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (allTimeMatch) {
         sembleAllTimeCalls = parseInt(allTimeMatch[1], 10) || 0;
         const val = parseFloat(allTimeMatch[2]);
@@ -3395,415 +3439,7 @@ async function cmdUpgrade(args) {
     error(`Failed to execute upgrade command: ${err.message}`);
     process.exit(1);
   }
-}async function cmdStitchStatus() {
-  let stitchEnabled = false;
-  let stitchEnv = {};
-  if (fileExists(MCP_CONFIG_PATH)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (config.mcpServers && config.mcpServers.stitch && config.mcpServers.stitch.command) {
-        stitchEnabled = true;
-        stitchEnv = config.mcpServers.stitch.env || {};
-      }
-    } catch {}
-  }
-
-  const apiKey = stitchEnv.STITCH_API_KEY;
-  const integrationStr = stitchEnabled ? `${C.green}ENABLED${C.reset}` : `${C.red}DISABLED${C.reset}`;
-  const apiKeyStr = apiKey ? `${C.green}CONFIGURED${C.reset}` : `${C.red}NOT CONFIGURED${C.reset}`;
-  const apiKeyDetail = apiKey ? `(STITCH_API_KEY is present - ***${apiKey.slice(-4)})` : '(STITCH_API_KEY is missing)';
-
-  // Permissions
-  const settingsPaths = [
-    SETTINGS_PATH,
-    path.join(HOME, '.gemini', 'settings.json')
-  ];
-  const stitchGrants = [
-    'mcp(stitch/*)',
-    'mcp(stitch/build_site)',
-    'mcp(stitch/get_screen_code)',
-    'mcp(stitch/get_screen_image)',
-    'command(pnpm)'
-  ];
-
-  let minGrants = 5;
-  for (const settingsPath of settingsPaths) {
-    let settings = {};
-    if (fileExists(settingsPath)) {
-      try {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      } catch {}
-    }
-    const allow = (settings.permissions && settings.permissions.allow) || [];
-    const count = stitchGrants.filter(g => allow.includes(g)).length;
-    if (count < minGrants) {
-      minGrants = count;
-    }
-  }
-
-  const permissionsStr = minGrants === 5 ? `${C.green}HEALTHY${C.reset}` : `${C.red}UNHEALTHY${C.reset}`;
-  const permissionsDetail = `(${minGrants}/5 grants active)`;
-
-  // Skills
-  const agents = agentManager.loadAgents();
-  const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
-  const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
-  const embeddedSkills = jonin ? stitchSkills.filter(s => jonin.skills.includes(s)) : [];
-  const skillsCount = embeddedSkills.length;
-  const skillsStr = skillsCount === stitchSkills.length ? `${C.green}ACTIVE${C.reset}` : `${C.red}INACTIVE${C.reset}`;
-  const skillsDetail = `(${skillsCount} skill${skillsCount !== 1 ? 's' : ''} embedded)`;
-
-  let agentBrowserInstalled = false;
-  try {
-    const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-    const abVerRes = spawnSync(abCmd, ['--version'], { shell: process.platform === 'win32' });
-    if (abVerRes.status === 0) {
-      agentBrowserInstalled = true;
-    }
-  } catch (e) {}
-
-  const abStr = agentBrowserInstalled ? `${C.green}INSTALLED${C.reset}` : `${C.red}NOT INSTALLED${C.reset}`;
-
-  header('🛠️  Google Stitch Status');
-  log(`  Integration:  [ ${integrationStr} ]`);
-  log(`  API Key:      [ ${apiKeyStr} ] ${apiKey ? `(STITCH_API_KEY is present - ***${apiKey.slice(-4)})` : ''}`);
-  log(`  Permissions:  [ ${permissionsStr} ] ${permissionsDetail}`);
-  log(`  @jonin Skills: [ ${skillsStr} ] ${skillsDetail}`);
-  if (embeddedSkills.length > 0) {
-    log(`                Embedded Skills: ${embeddedSkills.join(', ')}`);
-  }
-  log(`  agent-browser: [ ${abStr} ]`);
-  log('');
-}
-
-function cmdStitchHelp() {
-  header('🛠️  Google Stitch Management');
-  log(`
-  ${C.bold}USAGE${C.reset}
-    konoha stitch <subcommand>
-
-  ${C.bold}SUBCOMMANDS${C.reset}
-    ${C.cyan}enable${C.reset}     🚀 Enable Google Stitch: install plugin, register MCP, and add permissions & skills.
-    ${C.cyan}disable${C.reset}    🗑️  Disable Google Stitch: uninstall plugin, remove MCP, permissions & skills.
-    ${C.cyan}config${C.reset}     ⚙️  Configure STITCH_API_KEY for the Stitch MCP server.
-    ${C.cyan}status${C.reset}     🩺 Display the current setup status of the Google Stitch integration.
-  `);
-}
-
-async function cmdStitch(args) {
-  const subcommand = args[0];
-  const subArgs = args.slice(1);
-
-  if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
-    cmdStitchHelp();
-    return;
-  }
-
-  await chidoriTransition('stitch');
-
-  switch (subcommand) {
-    case 'status': {
-      await cmdStitchStatus();
-      break;
-    }
-
-    case 'enable': {
-      header('🚀 Enabling Google Stitch');
-
-      // 1. Auto-install and initialize agent-browser
-      const abSpinner = startSpinner('Installing agent-browser globally...');
-      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-      const options = { stdio: 'inherit' };
-      if (process.platform === 'win32') {
-        options.shell = true;
-      }
-      const installRes = spawnSync(npmCmd, ['install', '-g', 'agent-browser'], options);
-      if (installRes.status === 0) {
-        abSpinner.success('agent-browser installed successfully.');
-        const abInitSpinner = startSpinner('Initializing agent-browser...');
-        const initRes = spawnSync(abCmd, ['install'], options);
-        if (initRes.status === 0) {
-          abInitSpinner.success('agent-browser initialized successfully.');
-        } else {
-          abInitSpinner.error(`Failed to initialize agent-browser (status ${initRes.status}).`);
-        }
-      } else {
-        abSpinner.error(`Failed to install agent-browser globally (status ${installRes.status}).`);
-      }
-
-      // 2. Register stitch MCP in mcp_config.json
-      let config = { mcpServers: {} };
-      if (fileExists(MCP_CONFIG_PATH)) {
-        try {
-          config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-        } catch (e) {
-          // ignore
-        }
-      }
-      if (!config.mcpServers) config.mcpServers = {};
-      
-      const existingStitch = config.mcpServers.stitch || {};
-      const existingEnv = existingStitch.env || {};
-      config.mcpServers.stitch = {
-        command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-        args: ['-y', '@_davideast/stitch-mcp', 'proxy']
-      };
-      if (Object.keys(existingEnv).length > 0) {
-        config.mcpServers.stitch.env = existingEnv;
-      }
-      
-      ensureDir(path.dirname(MCP_CONFIG_PATH));
-      fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-      success(`Registered 'stitch' MCP server in ${MCP_CONFIG_PATH}`);
-
-      // 3. Add auto-approved permissions in settings.json
-      const settingsPaths = [
-        SETTINGS_PATH,
-        path.join(HOME, '.gemini', 'settings.json')
-      ];
-      const stitchGrants = [
-        'mcp(stitch/*)',
-        'mcp(stitch/build_site)',
-        'mcp(stitch/get_screen_code)',
-        'mcp(stitch/get_screen_image)',
-        'command(pnpm)'
-      ];
-
-      for (const settingsPath of settingsPaths) {
-        ensureDir(path.dirname(settingsPath));
-        let settings = {};
-        if (fileExists(settingsPath)) {
-          try {
-            settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          } catch {
-            settings = {};
-          }
-        }
-        if (!settings.permissions) settings.permissions = {};
-        if (!settings.permissions.allow) settings.permissions.allow = [];
-
-        let updated = false;
-        for (const grant of stitchGrants) {
-          if (!settings.permissions.allow.includes(grant)) {
-            settings.permissions.allow.push(grant);
-            updated = true;
-          }
-        }
-
-        if (updated) {
-          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-          success(`Permissions auto-approved in: ${settingsPath}`);
-        } else {
-          info(`Permissions already configured in ${settingsPath}`);
-        }
-      }
-
-      // 4. Add Google Stitch skills to the skills array of the jonin agent
-      const agents = agentManager.loadAgents();
-      const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
-      if (jonin) {
-        const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
-        let updated = false;
-        for (const skill of stitchSkills) {
-          if (!jonin.skills.includes(skill)) {
-            jonin.skills.push(skill);
-            updated = true;
-          }
-        }
-        if (updated) {
-          agentManager.saveAgents(agents);
-          success('Added Google Stitch skills to @jonin subagent');
-        } else {
-          info('Google Stitch skills already embedded in @jonin');
-        }
-      } else {
-        warn('@jonin subagent not found in agent configuration');
-      }
-
-      // 4b. Deploy basic subagent skills from package to global folder and migrate
-      const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
-      const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-      if (fileExists(pkgSkillsDir)) {
-        ensureDir(globalSkillsDir);
-        try {
-          const files = fs.readdirSync(pkgSkillsDir);
-          files.forEach(file => {
-            if (file.endsWith('-skill.md') || file === 'konoha-stitch.md') {
-              const srcPath = path.join(pkgSkillsDir, file);
-              const destPath = path.join(globalSkillsDir, file);
-              fs.copyFileSync(srcPath, destPath);
-            }
-          });
-          success('Deployed latest subagent skills to global folder');
-          
-          // Re-migrate SQLite database
-          const python = checkPython() || 'python3';
-          const runMigrate = spawnSync(python, [MIGRATE_PATH], { encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000 });
-          if (runMigrate.status === 0) {
-            success('Re-indexed SQLite database with updated skills');
-          }
-        } catch (err) {
-          warn(`Could not deploy basic subagent skills: ${err.message}`);
-        }
-      }
-
-      // 5. Regenerate and deploy configs (silent)
-      agentManager.regenerateAndDeploy(true);
-      success('Synced instructions and deployed agent configurations.');
-      break;
-    }
-
-    case 'disable': {
-      header('🗑️  Disabling Google Stitch');
-
-
-      // 2. Remove stitch from mcp_config.json
-      if (fileExists(MCP_CONFIG_PATH)) {
-        try {
-          const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-          if (config.mcpServers && config.mcpServers.stitch) {
-            const env = config.mcpServers.stitch.env || {};
-            config.mcpServers.stitch = {};
-            if (Object.keys(env).length > 0) {
-              config.mcpServers.stitch.env = env;
-            } else {
-              delete config.mcpServers.stitch;
-            }
-            fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-            success(`Disabled 'stitch' MCP server in ${MCP_CONFIG_PATH} (preserved API Key)`);
-          } else {
-            info(`'stitch' not found in ${MCP_CONFIG_PATH}`);
-          }
-        } catch (e) {
-          warn(`Could not update MCP config: ${e.message}`);
-        }
-      }
-
-      // 3. Remove stitch auto-approve permissions from settings.json
-      const settingsPaths = [
-        SETTINGS_PATH,
-        path.join(HOME, '.gemini', 'settings.json')
-      ];
-      const stitchGrants = [
-        'mcp(stitch/*)',
-        'mcp(stitch/build_site)',
-        'mcp(stitch/get_screen_code)',
-        'mcp(stitch/get_screen_image)',
-        'command(pnpm)'
-      ];
-
-      for (const settingsPath of settingsPaths) {
-        if (fileExists(settingsPath)) {
-          let settings = {};
-          try {
-            settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          } catch {
-            continue;
-          }
-          if (settings.permissions && settings.permissions.allow) {
-            let updated = false;
-            const filteredAllow = settings.permissions.allow.filter(grant => !stitchGrants.includes(grant));
-            if (filteredAllow.length !== settings.permissions.allow.length) {
-              settings.permissions.allow = filteredAllow;
-              updated = true;
-            }
-            if (updated) {
-              fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-              success(`Permissions removed from: ${settingsPath}`);
-            } else {
-              info(`Permissions not found in ${settingsPath}`);
-            }
-          }
-        }
-      }
-
-      // 4. Remove Google Stitch skills from the skills array of the jonin agent
-      const agents = agentManager.loadAgents();
-      const jonin = agents.find(a => a.name.toLowerCase() === 'jonin');
-      if (jonin) {
-        const stitchSkills = ['generate-design', 'extract-design-md', 'taste-design', 'stitch-build', 'stitch-utility', 'konoha-stitch'];
-        let updated = false;
-        for (const skill of stitchSkills) {
-          const idx = jonin.skills.indexOf(skill);
-          if (idx !== -1) {
-            jonin.skills.splice(idx, 1);
-            updated = true;
-          }
-        }
-        if (updated) {
-          agentManager.saveAgents(agents);
-          success('Removed Google Stitch skills from @jonin subagent');
-        } else {
-          info('Google Stitch skills not found in @jonin');
-        }
-      } else {
-        warn('@jonin subagent not found in agent configuration');
-      }
-
-      // 5. Regenerate and deploy configs (silent)
-      agentManager.regenerateAndDeploy(true);
-      success('Synced instructions and deployed agent configurations.');
-      break;
-    }
-
-    case 'config': {
-      header('⚙️  Configure Google Stitch');
-
-      let currentKey = '';
-      if (fileExists(MCP_CONFIG_PATH)) {
-        try {
-          const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-          if (config.mcpServers && config.mcpServers.stitch && config.mcpServers.stitch.env && config.mcpServers.stitch.env.STITCH_API_KEY) {
-            currentKey = config.mcpServers.stitch.env.STITCH_API_KEY;
-          }
-        } catch (e) {}
-      }
-
-      let inputPrompt;
-      try {
-        const prompts = await import('@inquirer/prompts');
-        inputPrompt = prompts.input;
-      } catch (e) {
-        error('Could not load @inquirer/prompts. Please run "npm install".');
-        process.exit(1);
-      }
-
-      const key = await inputPrompt({
-        message: 'Enter your STITCH_API_KEY:',
-        default: currentKey || undefined
-      });
-
-      let config = { mcpServers: {} };
-      if (fileExists(MCP_CONFIG_PATH)) {
-        try {
-          config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-        } catch (e) {}
-      }
-      if (!config.mcpServers) config.mcpServers = {};
-      if (!config.mcpServers.stitch) {
-        config.mcpServers.stitch = {
-          command: 'npx',
-          args: ['-y', '@_davideast/stitch-mcp', 'proxy']
-        };
-      }
-      if (!config.mcpServers.stitch.env) {
-        config.mcpServers.stitch.env = {};
-      }
-      config.mcpServers.stitch.env.STITCH_API_KEY = key;
-      fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
-      success(`STITCH_API_KEY saved successfully in ${MCP_CONFIG_PATH}`);
-      break;
-    }
-
-    default:
-      error(`Unknown stitch subcommand: ${subcommand}`);
-      log(`Run ${C.cyan}konoha stitch help${C.reset} for usage.`);
-      process.exit(1);
-  }
-}
-
-async function cmdHelp() {
+}async function cmdHelp() {
   await chidoriTransition('help');
   drawLogo(false); // Print static logo for help menu
   
@@ -3834,7 +3470,6 @@ ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
   ${C.cyan}skill${C.reset}         📚 Manage skills (list installed, search the public registry, add/remove).
   ${C.cyan}agent${C.reset}         👤 Configure your Ninja subagents (list, change models, toggle skills, delete, status).
   ${C.cyan}models${C.reset}        🤖 Manage available LLM models and assign them to subagents.
-  ${C.cyan}stitch${C.reset}        🛠️  Manage Google Stitch integration (enable, disable, config, status).
   ${C.cyan}help${C.reset}          ❓ Show this educational help menu.
 
 ${C.bold}GLOBAL OPTIONS${C.reset}
@@ -3895,9 +3530,6 @@ async function main() {
         break;
       case 'upgrade':
         await cmdUpgrade(args);
-        break;
-      case 'stitch':
-        await cmdStitch(args);
         break;
       case 'skill':
         await cmdSkill(args);
