@@ -2,6 +2,17 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.1.1] - 2026-06-17
+
+### Added
+- Integrated warnings explicitly separating `semble` and `skills-db` tool boundaries in instructions (`GEMINI.md`, `AGENTS.md`, `agents.json`, `agent_manager.js`, and all 6 local skill files) to prevent rate limit and token quota burning.
+
+### Changed
+- Constrained Homepage Hero Banner 3D Carousel to be full-width when displayed from desktop view.
+
+### Fixed
+- Updated `ThemeSwitcher` templates in Svelte (`svelte-ui-expert.md`) and Next.js (`nextjs-ui-expert.md`) to use the exact 10 gradient themes (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold) rather than obsolete light themes list.
+
 ## [1.1.0] - 2026-06-15
 
 ### Added
