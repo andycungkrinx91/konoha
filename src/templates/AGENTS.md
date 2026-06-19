@@ -87,7 +87,7 @@
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
 - **Model tier**: Gemini 2.5 Flash
 - **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
-- **Skills**: `tokubetsu-jonin-skill`
+- **Skills**: `tokubetsu-jonin-skill`, `documentation-writer`
 - **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates
 - **Constraints**: Follow reader-first principles, include code examples, and link references. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
 - **Workflow**: Search skills/references with `skills-db` → construct clear documentation → show code examples/commands → link references.

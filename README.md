@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.1](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.1_2026-06-17.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.2](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.2_2026-06-19.md)
 
 | | |
 |:---:|:---:|
@@ -110,7 +110,7 @@ Once installed, the following CLI commands are available:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.1.1) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.1.2) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |

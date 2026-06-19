@@ -438,16 +438,48 @@ function error(msg) { log(`  ${C.red}✗${C.reset} ${msg}`); }
 
 let rlInstance = null;
 function askQuestion(query) {
-  if (!rlInstance) {
-    rlInstance = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-  }
   return new Promise((resolve) => {
+    if (!rlInstance) {
+      rlInstance = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+    }
+
+    let resolved = false;
+
+    const onData = (data) => {
+      const str = data.toString();
+      if (str === '\u001b') {
+        cleanup();
+        resolved = true;
+        closeReadline();
+        process.stdout.write('\n');
+        resolve('ESC');
+      }
+    };
+
+    const wasRaw = process.stdin.isRaw;
+    if (!wasRaw) {
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.resume();
+    process.stdin.on('data', onData);
+
     rlInstance.question(query, (answer) => {
-      resolve(answer.trim());
+      if (!resolved) {
+        cleanup();
+        resolved = true;
+        resolve(answer.trim());
+      }
     });
+
+    function cleanup() {
+      process.stdin.removeListener('data', onData);
+      if (!wasRaw) {
+        process.stdin.setRawMode(false);
+      }
+    }
   });
 }
 
@@ -456,6 +488,13 @@ function closeReadline() {
     rlInstance.close();
     rlInstance = null;
   }
+}
+
+function isCancel(ans) {
+  if (ans === 'ESC') return true;
+  if (!ans) return false;
+  const lower = ans.toLowerCase().trim();
+  return lower === '0' || lower === 'q' || lower === 'exit' || lower === 'back';
 }
 
 function rgb(r, g, b) {
@@ -2848,20 +2887,9 @@ async function cmdAgent(args) {
         process.exit(1);
       }
 
-      // 1. Resolve agent
-      if (!agentName) {
-        header('Choose Subagent');
-        agents.forEach((a, idx) => {
-          log(`  [${idx + 1}] @${a.name} (${a.title})`);
-        });
-        const ans = await askQuestion(`\nSelect subagent (1-${agents.length}): `);
-        const num = parseInt(ans, 10);
-        if (isNaN(num) || num < 1 || num > agents.length) {
-          error('Invalid subagent selection.');
-          process.exit(1);
-        }
-        agentName = agents[num - 1].name;
-      } else {
+      // If agentName is provided on command line, we don't allow going back to subagent selection.
+      const agentPassedOnCli = !!agentName;
+      if (agentPassedOnCli) {
         const found = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
         if (!found) {
           error(`Subagent "@${agentName}" not found.`);
@@ -2870,87 +2898,150 @@ async function cmdAgent(args) {
         agentName = found.name;
       }
 
-      // 2. Select primary model
-      header(`Configure Models for @${agentName}`);
-      AVAILABLE_MODELS.forEach((m, idx) => {
-        const tagStr = m.tag ? ` [${m.tag}]` : '';
-        log(`  [${idx + 1}] ${m.name}${tagStr}`);
-      });
-      const primaryAns = await askQuestion(`\nSelect primary model (1-${AVAILABLE_MODELS.length}): `);
-      const primaryNum = parseInt(primaryAns, 10);
-      if (isNaN(primaryNum) || primaryNum < 1 || primaryNum > AVAILABLE_MODELS.length) {
-        error('Invalid primary model selection.');
-        process.exit(1);
-      }
-      const primaryModel = AVAILABLE_MODELS[primaryNum - 1];
+      let step = agentPassedOnCli ? 'SELECT_PRIMARY' : 'SELECT_AGENT';
+      let selectedAgent = agentPassedOnCli ? agents.find(a => a.name === agentName) : null;
+      let primaryModel = null;
+      let configureFallback = false;
+      let fallbackModel = null;
+      let resolvedModelString = null;
 
-      // 3. Select fallback model (optional)
-      const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
-      const fallbackAns = await askQuestion('\nWould you like to configure a fallback model? (y/n) [y]: ');
-      let resolvedModelString = primaryModel.name;
-      if (primaryModel.name !== defaultFallbackModelName) {
-        resolvedModelString = `${primaryModel.name} | Fallback when fail ${defaultFallbackModelName}`;
-      }
+      while (true) {
+        if (step === 'SELECT_AGENT') {
+          header('Choose Subagent');
+          agents.forEach((a, idx) => {
+            const numStr = `${idx + 1}`.padStart(2);
+            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}@${a.name}${C.reset} ── ${a.title || 'Subagent'}`);
+            log(`       ${C.dim}Model:  ${C.reset}${C.green}${a.modelTier || 'Default'}${C.reset}`);
+            const skillsStr = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
+            log(`       ${C.dim}Skills: ${C.reset}${C.magenta}${skillsStr}${C.reset}\n`);
+          });
+          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back / Exit${C.reset}`);
+          
+          const ans = await askQuestion(`\nSelect subagent (1-${agents.length}): `);
+          if (isCancel(ans)) {
+            info('Exiting model configuration.');
+            break; // Exit the command/loop
+          }
+          
+          const num = parseInt(ans, 10);
+          if (isNaN(num) || num < 1 || num > agents.length) {
+            error('Invalid subagent selection.');
+            continue; // repeat
+          }
+          selectedAgent = agents[num - 1];
+          agentName = selectedAgent.name;
+          step = 'SELECT_PRIMARY';
+        }
+        
+        else if (step === 'SELECT_PRIMARY') {
+          header(`Configure Models for @${agentName}`);
+          log('Select primary model:');
+          AVAILABLE_MODELS.forEach((m, idx) => {
+            const numStr = `${idx + 1}`.padStart(2);
+            const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
+            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
+          });
+          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
 
-      if (fallbackAns.toLowerCase() === 'y' || fallbackAns.toLowerCase() === 'yes' || fallbackAns.trim() === '') {
-        log('');
-        AVAILABLE_MODELS.forEach((m, idx) => {
-          const tagStr = m.tag ? ` [${m.tag}]` : '';
-          log(`  [${idx + 1}] ${m.name}${tagStr}`);
-        });
-        const defaultIndex = AVAILABLE_MODELS.findIndex(m => m.name === defaultFallbackModelName) + 1;
-        const fallbackNumAns = await askQuestion(`\nSelect fallback model (1-${AVAILABLE_MODELS.length}) [${defaultIndex}]: `);
-        let fallbackNum = parseInt(fallbackNumAns, 10);
-        if (fallbackNumAns.trim() === '') {
-          fallbackNum = defaultIndex;
-        }
-        if (isNaN(fallbackNum) || fallbackNum < 1 || fallbackNum > AVAILABLE_MODELS.length) {
-          error('Invalid fallback model selection.');
-          process.exit(1);
-        }
-        const fallbackModel = AVAILABLE_MODELS[fallbackNum - 1];
-        resolvedModelString = `${primaryModel.name} | Fallback when fail ${fallbackModel.name}`;
-      } else if (fallbackAns.toLowerCase() === 'n' || fallbackAns.toLowerCase() === 'no') {
-        resolvedModelString = primaryModel.name;
-      }
+          const primaryAns = await askQuestion(`\nSelect primary model (1-${AVAILABLE_MODELS.length}): `);
+          if (isCancel(primaryAns)) {
+            if (agentPassedOnCli) {
+              info('Exiting model configuration.');
+              break;
+            } else {
+              step = 'SELECT_AGENT';
+              continue;
+            }
+          }
 
-      try {
-        const updated = agentManager.updateAgentModel(agentName, resolvedModelString);
-        if (updated) {
-          success(`Successfully updated model configuration for @${agentName} to:`);
-          log(`  ${C.green}${resolvedModelString}${C.reset}`);
-          info('Re-deployed team configurations.');
-        } else {
-          warn(`Model configuration for @${agentName} is already: ${resolvedModelString}`);
+          const primaryNum = parseInt(primaryAns, 10);
+          if (isNaN(primaryNum) || primaryNum < 1 || primaryNum > AVAILABLE_MODELS.length) {
+            error('Invalid primary model selection.');
+            continue;
+          }
+          primaryModel = AVAILABLE_MODELS[primaryNum - 1];
+          step = 'ASK_FALLBACK';
         }
-      } catch (err) {
-        error(`Failed to update agent model: ${err.message}`);
-        process.exit(1);
+        
+        else if (step === 'ASK_FALLBACK') {
+          const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
+          const fallbackAns = await askQuestion('\nWould you like to configure a fallback model? (y/n) [y] (or "0" to go back): ');
+          if (isCancel(fallbackAns)) {
+            step = 'SELECT_PRIMARY';
+            continue;
+          }
+
+          if (fallbackAns.toLowerCase() === 'y' || fallbackAns.toLowerCase() === 'yes' || fallbackAns.trim() === '') {
+            configureFallback = true;
+            step = 'SELECT_FALLBACK';
+          } else if (fallbackAns.toLowerCase() === 'n' || fallbackAns.toLowerCase() === 'no') {
+            configureFallback = false;
+            resolvedModelString = primaryModel.name;
+            step = 'SAVE';
+          } else {
+            error('Invalid input. Please enter y, n, or 0.');
+          }
+        }
+        
+        else if (step === 'SELECT_FALLBACK') {
+          const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
+          header('Select Fallback Model');
+          log('Select fallback model to use when the primary model fails:');
+          AVAILABLE_MODELS.forEach((m, idx) => {
+            const numStr = `${idx + 1}`.padStart(2);
+            const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
+            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
+          });
+          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
+
+          const defaultIndex = AVAILABLE_MODELS.findIndex(m => m.name === defaultFallbackModelName) + 1;
+          const fallbackNumAns = await askQuestion(`\nSelect fallback model (1-${AVAILABLE_MODELS.length}) [${defaultIndex}]: `);
+          if (isCancel(fallbackNumAns)) {
+            step = 'ASK_FALLBACK';
+            continue;
+          }
+
+          let fallbackNum = parseInt(fallbackNumAns, 10);
+          if (fallbackNumAns.trim() === '') {
+            fallbackNum = defaultIndex;
+          }
+          if (isNaN(fallbackNum) || fallbackNum < 1 || fallbackNum > AVAILABLE_MODELS.length) {
+            error('Invalid fallback model selection.');
+            continue;
+          }
+          fallbackModel = AVAILABLE_MODELS[fallbackNum - 1];
+          resolvedModelString = `${primaryModel.name} | Fallback when fail ${fallbackModel.name}`;
+          step = 'SAVE';
+        }
+        
+        else if (step === 'SAVE') {
+          try {
+            const updated = agentManager.updateAgentModel(agentName, resolvedModelString);
+            if (updated) {
+              success(`Successfully updated model configuration for @${agentName} to:`);
+              log(`  ${C.green}${resolvedModelString}${C.reset}`);
+              info('Re-deployed team configurations.');
+            } else {
+              warn(`Model configuration for @${agentName} is already: ${resolvedModelString}`);
+            }
+          } catch (err) {
+            error(`Failed to update agent model: ${err.message}`);
+          }
+          break; // Done!
+        }
       }
       break;
     }
     case 'skill': {
       let agentName = subArgs[0];
-      const agents = agentManager.loadAgents();
+      let agents = agentManager.loadAgents();
       if (agents.length === 0) {
         warn('No subagents found.');
         process.exit(1);
       }
 
-      // 1. Resolve agent
-      if (!agentName) {
-        header('Choose Subagent');
-        agents.forEach((a, idx) => {
-          log(`  [${idx + 1}] @${a.name} (${a.title})`);
-        });
-        const ans = await askQuestion(`\nSelect subagent (1-${agents.length}): `);
-        const num = parseInt(ans, 10);
-        if (isNaN(num) || num < 1 || num > agents.length) {
-          error('Invalid subagent selection.');
-          process.exit(1);
-        }
-        agentName = agents[num - 1].name;
-      } else {
+      const agentPassedOnCli = !!agentName;
+      if (agentPassedOnCli) {
         const found = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
         if (!found) {
           error(`Subagent "@${agentName}" not found.`);
@@ -2959,80 +3050,137 @@ async function cmdAgent(args) {
         agentName = found.name;
       }
 
-      const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
-
-      // Get all installed skills
-      const installedSkills = skillManager.listInstalledSkills();
+      let step = agentPassedOnCli ? 'SELECT_SKILL' : 'SELECT_AGENT';
       
-      const allUniqueSkills = new Map();
-      
-      const defaultSkills = [
-        { name: 'genin-skill', description: 'Codebase Reconnaissance & Trace SOPs' },
-        { name: 'kage-skill', description: 'Architecture & Strategy SOPs' },
-        { name: 'chunin-skill', description: 'Research & Intel SOPs' },
-        { name: 'jonin-skill', description: 'UI & Frontend Specialist SOPs' },
-        { name: 'anbu-skill', description: 'Backend, Bug Fixing & DevOps SOPs' },
-        { name: 'tokubetsu-jonin-skill', description: 'Technical Scribe SOPs' }
-      ];
-      defaultSkills.forEach(s => {
-        allUniqueSkills.set(s.name, s.description);
-      });
+      while (true) {
+        if (step === 'SELECT_AGENT') {
+          header('Choose Subagent');
+          agents.forEach((a, idx) => {
+            const numStr = `${idx + 1}`.padStart(2);
+            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}@${a.name}${C.reset} ── ${a.title || 'Subagent'}`);
+            log(`       ${C.dim}Model:  ${C.reset}${C.green}${a.modelTier || 'Default'}${C.reset}`);
+            const skillsStr = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
+            log(`       ${C.dim}Skills: ${C.reset}${C.magenta}${skillsStr}${C.reset}\n`);
+          });
+          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back / Exit${C.reset}`);
 
-      installedSkills.forEach(s => {
-        allUniqueSkills.set(s.name, s.description);
-      });
+          const ans = await askQuestion(`\nSelect subagent (1-${agents.length}): `);
+          if (isCancel(ans)) {
+            info('Exiting skill configuration.');
+            break;
+          }
 
-      agents.forEach(a => {
-        if (a.skills) {
-          a.skills.forEach(s => {
-            if (!allUniqueSkills.has(s)) {
-              allUniqueSkills.set(s, 'Currently embedded skill');
+          const num = parseInt(ans, 10);
+          if (isNaN(num) || num < 1 || num > agents.length) {
+            error('Invalid subagent selection.');
+            continue;
+          }
+          agentName = agents[num - 1].name;
+          step = 'SELECT_SKILL';
+        }
+        
+        else if (step === 'SELECT_SKILL') {
+          // Reload agents to get the most up-to-date skills status
+          agents = agentManager.loadAgents();
+          const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
+          if (!agent) {
+            error(`Error: agent @${agentName} could not be loaded.`);
+            step = 'SELECT_AGENT';
+            continue;
+          }
+
+          // Get all installed skills
+          const installedSkills = skillManager.listInstalledSkills();
+          const allUniqueSkills = new Map();
+          
+          const defaultSkills = [
+            { name: 'genin-skill', description: 'Codebase Reconnaissance & Trace SOPs' },
+            { name: 'kage-skill', description: 'Architecture & Strategy SOPs' },
+            { name: 'chunin-skill', description: 'Research & Intel SOPs' },
+            { name: 'jonin-skill', description: 'UI & Frontend Specialist SOPs' },
+            { name: 'anbu-skill', description: 'Backend, Bug Fixing & DevOps SOPs' },
+            { name: 'tokubetsu-jonin-skill', description: 'Technical Scribe SOPs' }
+          ];
+          defaultSkills.forEach(s => {
+            allUniqueSkills.set(s.name, s.description);
+          });
+
+          installedSkills.forEach(s => {
+            allUniqueSkills.set(s.name, s.description);
+          });
+
+          agents.forEach(a => {
+            if (a.skills) {
+              a.skills.forEach(s => {
+                if (!allUniqueSkills.has(s)) {
+                  allUniqueSkills.set(s, 'Currently embedded skill');
+                }
+              });
             }
           });
+
+          const skillList = Array.from(allUniqueSkills.entries()).map(([name, desc]) => ({
+            name,
+            description: desc
+          })).sort((a, b) => a.name.localeCompare(b.name));
+
+          if (skillList.length === 0) {
+            warn('No skills found. Install some skills first using "konoha skill search" or "konoha skill add".');
+            if (agentPassedOnCli) {
+              break;
+            } else {
+              step = 'SELECT_AGENT';
+              continue;
+            }
+          }
+
+          header(`Configure Skills for @${agentName}`);
+          log('Select a skill to toggle (embed / unembed):');
+          skillList.forEach((s, idx) => {
+            const isEmbedded = agent.skills && agent.skills.includes(s.name);
+            const statusIcon = isEmbedded 
+              ? `${C.green}✨ [✓] Embedded${C.reset}` 
+              : `${C.dim}   [ ] Not Embedded${C.reset}`;
+            const numStr = `${idx + 1}`.padStart(2);
+            log(`  ${C.cyan}[${numStr}]${C.reset} ${statusIcon} ${C.bold}${s.name}${C.reset}`);
+            log(`       ${C.dim}${s.description}${C.reset}\n`);
+          });
+          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
+
+          const skillAns = await askQuestion(`\nSelect skill to toggle (1-${skillList.length}): `);
+          if (isCancel(skillAns)) {
+            if (agentPassedOnCli) {
+              info('Exiting skill configuration.');
+              break;
+            } else {
+              step = 'SELECT_AGENT';
+              continue;
+            }
+          }
+
+          const skillNum = parseInt(skillAns, 10);
+          if (isNaN(skillNum) || skillNum < 1 || skillNum > skillList.length) {
+            error('Invalid skill selection.');
+            continue;
+          }
+
+          const selectedSkill = skillList[skillNum - 1].name;
+          const isCurrentlyEmbedded = agent.skills && agent.skills.includes(selectedSkill);
+
+          try {
+            if (isCurrentlyEmbedded) {
+              agentManager.unembedSkill(agentName, selectedSkill);
+              success(`Successfully removed skill "${selectedSkill}" from @${agentName}`);
+            } else {
+              agentManager.embedSkill(agentName, selectedSkill);
+              success(`Successfully embedded skill "${selectedSkill}" into @${agentName}`);
+            }
+            info('Re-deployed team configurations.');
+          } catch (err) {
+            error(`Failed to toggle skill: ${err.message}`);
+          }
+          // The loop automatically continues, displaying the updated list!
         }
-      });
-
-      const skillList = Array.from(allUniqueSkills.entries()).map(([name, desc]) => ({
-        name,
-        description: desc
-      })).sort((a, b) => a.name.localeCompare(b.name));
-
-      if (skillList.length === 0) {
-        warn('No skills found. Install some skills first using "konoha skill search" or "konoha skill add".');
-        process.exit(1);
-      }
-
-      header(`Configure Skills for @${agentName}`);
-      log('Select a skill to toggle (embed / unembed):');
-      skillList.forEach((s, idx) => {
-        const isEmbedded = agent.skills.includes(s.name);
-        const statusIcon = isEmbedded ? `${C.green}[✓] Embedded    ${C.reset}` : `${C.dim}[ ] Not Embedded${C.reset}`;
-        log(`  [${idx + 1}] ${statusIcon} ${C.bold}${s.name}${C.reset}`);
-        log(`      ${C.dim}${s.description}${C.reset}`);
-      });
-
-      const skillAns = await askQuestion(`\nSelect skill to toggle (1-${skillList.length}): `);
-      const skillNum = parseInt(skillAns, 10);
-      if (isNaN(skillNum) || skillNum < 1 || skillNum > skillList.length) {
-        error('Invalid skill selection.');
-        process.exit(1);
-      }
-
-      const selectedSkill = skillList[skillNum - 1].name;
-      const isCurrentlyEmbedded = agent.skills.includes(selectedSkill);
-
-      try {
-        if (isCurrentlyEmbedded) {
-          agentManager.unembedSkill(agentName, selectedSkill);
-          success(`Successfully removed skill "${selectedSkill}" from @${agentName}`);
-        } else {
-          agentManager.embedSkill(agentName, selectedSkill);
-          success(`Successfully embedded skill "${selectedSkill}" into @${agentName}`);
-        }
-        info('Re-deployed team configurations.');
-      } catch (err) {
-        error(`Failed to toggle skill: ${err.message}`);
-        process.exit(1);
       }
       break;
     }

@@ -79,12 +79,16 @@ function loadAgents() {
             a.skills = [];
           }
           if (Array.isArray(a.skills)) {
-            const isSame = a.skills.length === defAgent.skills.length &&
-              a.skills.every((skill, idx) => skill === defAgent.skills[idx]);
-            if (!isSame) {
-              a.skills = [...defAgent.skills];
-              changed = true;
-            }
+            defAgent.skills.forEach((skill, idx) => {
+              if (!a.skills.includes(skill)) {
+                if (idx === 0) {
+                  a.skills.unshift(skill);
+                } else {
+                  a.skills.push(skill);
+                }
+                changed = true;
+              }
+            });
           }
         }
 

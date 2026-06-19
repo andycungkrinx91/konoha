@@ -2,6 +2,12 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.1.2] - 2026-06-19
+
+### Added
+- Added image-to-code generation rules in Svelte and Next.js skills (exploring image files in workspace and using image analysis to generate UI).
+- Added strict project preservation rules in Svelte and Next.js skills (never changing existing flow, logic, and style in workdir).
+
 ## [1.1.1] - 2026-06-17
 
 ### Added
@@ -9,6 +15,8 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ### Changed
 - Constrained Homepage Hero Banner 3D Carousel to be full-width when displayed from desktop view.
+- Revamped the interactive subagent model (`models`) and skill (`skill`) configuration menus in `bin/cli.js` with loop-on-toggle capabilities, step-by-step state-machines, and professional console styling.
+- Integrated Escape (ESC) key bindings (`\u001b` checks) and explicit back/cancel options (`0`, `q`, `exit`, `back`) into all interactive input prompts.
 
 ### Fixed
 - Updated `ThemeSwitcher` templates in Svelte (`svelte-ui-expert.md`) and Next.js (`nextjs-ui-expert.md`) to use the exact 10 gradient themes (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold) rather than obsolete light themes list.

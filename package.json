@@ -1,6 +1,6 @@
 {
   "name": "Konoha",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "SQLite FTS5 Skills-DB for Antigravity IDE/CLI — on-demand skill content via MCP, reducing token usage by 83-98%",
   "keywords": [
     "antigravity",
