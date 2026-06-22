@@ -2175,7 +2175,7 @@ async function cmdDoctor() {
   }
 
   if (!agentBrowserInstalled) {
-    record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for visual QA)');
+    record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for design match comparison)');
   } else {
     record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
   }
@@ -3601,7 +3601,135 @@ async function cmdUpgrade(args) {
     error(`Failed to execute upgrade command: ${err.message}`);
     process.exit(1);
   }
-}async function cmdHelp() {
+}
+
+async function cmdRender(args) {
+  const url = args[0];
+  const mockupPath = args[1];
+  const diffOutput = args[2] || path.join(process.cwd(), 'diff.png');
+
+  if (!url || !mockupPath) {
+    error('Usage: konoha render <url> <mockup-path> [diff-output-path]');
+    log('Examples:');
+    log('  konoha render http://localhost:5173 assets/design-mockup.png');
+    log('  konoha render http://localhost:5173 assets/design-mockup.svg scratch/diff.png');
+    process.exit(1);
+  }
+
+  await chidoriTransition('render-qa');
+  drawLogo(false);
+  header('👁️ Design Match & Render Comparison');
+
+  log(`  URL: ${C.cyan}${url}${C.reset}`);
+  log(`  Mockup: ${C.cyan}${mockupPath}${C.reset}`);
+  log(`  Diff output: ${C.cyan}${diffOutput}${C.reset}`);
+  log('');
+
+  const python = checkPython();
+  if (!python) {
+    error('Python 3 is required but not found.');
+    process.exit(1);
+  }
+
+  // 1. Capture screenshot of target website URL using agent-browser
+  const siteScreenshot = path.join(os.tmpdir(), `site_${Date.now()}.png`);
+  const spinner1 = startSpinner(`Capturing screenshot of website: ${url}...`);
+
+  try {
+    const runSite = spawnSync('agent-browser', ['open', url, '&&', 'agent-browser', 'screenshot', siteScreenshot], {
+      shell: true,
+      encoding: 'utf-8'
+    });
+
+    if (runSite.status !== 0 || !fs.existsSync(siteScreenshot)) {
+      throw new Error(runSite.stderr || 'Failed to capture site screenshot');
+    }
+    spinner1.success('Website screenshot captured.');
+  } catch (err) {
+    spinner1.error(`Failed to capture website screenshot: ${err.message}`);
+    process.exit(1);
+  }
+
+  // 2. Prepare mockup file for comparison
+  let mockupImgToUse = mockupPath;
+  const lowerPath = mockupPath.toLowerCase();
+
+  // If mockup is SVG or HTML, render it in browser first
+  if (lowerPath.endsWith('.svg') || lowerPath.endsWith('.html') || lowerPath.endsWith('.htm')) {
+    const mockupScreenshot = path.join(os.tmpdir(), `mockup_${Date.now()}.png`);
+    const spinner2 = startSpinner(`Mockup is ${path.extname(mockupPath)} - rendering in browser first...`);
+    try {
+      const absMockupPath = path.resolve(mockupPath);
+      const mockupUrl = `file://${absMockupPath}`;
+      const runMockup = spawnSync('agent-browser', ['open', mockupUrl, '&&', 'agent-browser', 'screenshot', mockupScreenshot], {
+        shell: true,
+        encoding: 'utf-8'
+      });
+
+      if (runMockup.status !== 0 || !fs.existsSync(mockupScreenshot)) {
+        throw new Error(runMockup.stderr || 'Failed to render mockup in browser');
+      }
+      mockupImgToUse = mockupScreenshot;
+      spinner2.success('Mockup rendered to PNG.');
+    } catch (err) {
+      spinner2.error(`Failed to render mockup: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  // 3. Perform comparison
+  const spinner3 = startSpinner('Performing pixel-by-pixel visual comparison...');
+  const compareScript = path.join(SRC_DIR, 'visual_compare.py');
+  
+  try {
+    const runCompare = spawnSync(python, [compareScript, mockupImgToUse, siteScreenshot, diffOutput, '10'], {
+      encoding: 'utf-8'
+    });
+
+    if (runCompare.status !== 0) {
+      throw new Error(runCompare.stderr || 'Comparison script failed');
+    }
+
+    const result = JSON.parse(runCompare.stdout.trim());
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    spinner3.success('Visual comparison complete.');
+    log('\n  📊 Visual Quality Report:');
+    log('  ════════════════════════════════════════════════════════════');
+    log(`    Resolution:        ${result.width}x${result.height} pixels`);
+    log(`    Total Pixels:      ${result.total_pixels.toLocaleString()}`);
+    log(`    Mismatched Pixels: ${result.mismatched_pixels > 0 ? C.red + result.mismatched_pixels.toLocaleString() + C.reset : C.green + '0' + C.reset}`);
+    
+    const simColor = result.similarity_percentage === 100 ? C.green : (result.similarity_percentage >= 95 ? C.yellow : C.red);
+    log(`    Visual Similarity: ${simColor}${result.similarity_percentage}%${C.reset}`);
+    
+    if (result.match_100_percent) {
+      log(`    Status:            ✨ ${C.green}${C.bold}100% PERFECT MATCH${C.reset}`);
+    } else {
+      log(`    Status:            ❌ ${C.red}${C.bold}DESIGN MISMATCH DETECTED${C.reset}`);
+      log(`    Diff Highlights:   Saved to ${C.cyan}${diffOutput}${C.reset}`);
+      if (result.bbox_diff) {
+        log(`    Mismatch Box:      [x_min: ${result.bbox_diff[0]}, y_min: ${result.bbox_diff[1]}, x_max: ${result.bbox_diff[2]}, y_max: ${result.bbox_diff[3]}]`);
+      }
+    }
+    log('  ════════════════════════════════════════════════════════════\n');
+
+  } catch (err) {
+    spinner3.error(`Visual comparison failed: ${err.message}`);
+    process.exit(1);
+  } finally {
+    try {
+      if (fs.existsSync(siteScreenshot)) fs.unlinkSync(siteScreenshot);
+      if (mockupImgToUse !== mockupPath && fs.existsSync(mockupImgToUse)) {
+        fs.unlinkSync(mockupImgToUse);
+      }
+    } catch (_) {}
+  }
+}
+
+async function cmdHelp() {
   await chidoriTransition('help');
   drawLogo(false); // Print static logo for help menu
   
@@ -3625,6 +3753,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
   ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from GitHub.
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
+  ${C.cyan}render${C.reset}        👁️  Design match comparison between website URL and mockup design (saves token usage).
   ${C.cyan}doctor${C.reset}        🏥 Diagnose environment health and automatically repair missing files.
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
@@ -3653,6 +3782,10 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
 
   ${C.dim}5. View how many tokens (and how much context window) you have saved:${C.reset}
      konoha savings
+
+  ${C.dim}6. Design match verify built website matches mockup design (saves token usage):${C.reset}
+     konoha render http://localhost:5173 assets/design-mockup.svg
+
 `);
 }
 
@@ -3680,6 +3813,9 @@ async function main() {
         break;
       case 'savings':
         await cmdSavings();
+        break;
+      case 'render':
+        await cmdRender(args);
         break;
       case 'doctor':
         await cmdDoctor();

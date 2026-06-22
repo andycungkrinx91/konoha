@@ -94,7 +94,7 @@ function loadAgents() {
 
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (a.instructions) {
-          const needsAgentUpgrade = a.instructions.includes('skills-db.find_skill') && !a.instructions.includes('pass agent=');
+          const needsAgentUpgrade = a.instructions.includes('skills-db.find_skill') && !a.instructions.includes('agent=');
           const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
@@ -204,7 +204,7 @@ function generateGeminiMd(agents) {
   }).join('\n\n');
 
   // Build compact delegation table
-  const delegationRows = agents.map(a => `| ${a.delegationKeywords} | → \`${a.name}\` |`).join('\n');
+  const delegationRows = agents.map(a => `| ${a.delegationKeywords} | \`${a.name}\` |`).join('\n');
 
   // Build official agent name list
   const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
@@ -247,10 +247,10 @@ The orchestrator MUST follow this workflow:
    - **Goal**: Clear explanation of what needs to be accomplished.
    - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
    - **Constraints**: Rule constraints and target files.
-6. **Delegate**: Invoke the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the absolute path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.**
+6. **Delegate**: Invoke the subagent using the subagent TypeName corresponding to the chosen agent (e.g., \`anbu\`, \`genin\`, etc.). Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the absolute path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the subagent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
 7. **Await Results**: Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` to finalize the step, report back, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
 
-The orchestrator ONLY delegates to: ${agentNames}. Creating new/custom subagents is prohibited.
+The orchestrator ONLY delegates to the defined subagents (${agentNames}). Dynamic auto-creation of subagents is prohibited.
 
 **Direct Tool Calls Policy**:
 - It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend tasks, \`@anbu\` for backend tasks, \`@genin\` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
@@ -258,9 +258,9 @@ The orchestrator ONLY delegates to: ${agentNames}. Creating new/custom subagents
 - Do NOT spawn shadow subagents under any circumstances.
 - **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call \`skills-db.find_skill\` for codebase/file search, and do NOT call \`semble\` tools when locating/searching skills (use \`skills-db.find_skill\` instead).
 
-| Task type | Subagent |
+| Task type | Subagent TypeName |
 |-----------|----------|
-${delegationRows}
+| ${delegationRows}
 | Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
 
 For complex multi-domain tasks, invoke multiple subagents in parallel.
@@ -271,9 +271,9 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 - **Skills-DB MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns quota tokens. Always use \`skills-db\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
 - **Tool Boundaries**: Call **\`semble\` MCP** (\`search\` and \`find_related\` tools) directly for codebase search. Call **\`skills-db\` MCP** for all skill/instruction lookup. **Never mix them; do not call semble for skills, and never call find_skill for codebase/file search. Always use \`skills-db\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
-- **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and visual QA.
+- **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\`
-- **No Auto-Creation of Subagents**: AI is NEVER allowed to define/create/delete subagents. Reserved for user only.
+- **No Auto-Creation of Subagents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Subagents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.json\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
@@ -294,8 +294,16 @@ function generateAgentsMd(agents) {
   // Build official agent name list
   const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
 
+  // Build compact agent definitions
+  const agentDefs = agents.map((a, i) => {
+    const iconStr = a.icon ? `${a.icon} ` : '';
+    return `${i + 1}. **${iconStr}${a.name}** — ${a.description}
+   - name: \`${a.name}\`
+   - instructions: \`${a.instructions}\``;
+  }).join('\n\n');
+
   // Build delegation table
-  const delegationRows = agents.map(a => `| ${a.delegationKeywords} | @${a.name} |`).join('\n');
+  const delegationRows = agents.map(a => `| ${a.delegationKeywords} | \`${a.name}\` |`).join('\n');
 
   // Build agent role sections
   const agentSections = agents.map(a => {
@@ -315,6 +323,14 @@ function generateAgentsMd(agents) {
 > **Compatibility**: Antigravity IDE, CLI, and all Gemini agent surfaces. Place at \`~/.agents/AGENTS.md\`.
 
 ## Team Roles & Delegation
+
+## Session Startup — Auto-Initialize Team
+
+**MANDATORY**: At the START of every session, define the following ${agents.length} subagents using \`define_subagent\`. Do this silently without asking the user.
+
+### Subagent Definitions
+
+${agentDefs}
 
 ### @orchestrator — Task Coordinator
 - **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
@@ -342,10 +358,11 @@ function generateAgentsMd(agents) {
      - **Goal**: Clear explanation of what needs to be accomplished.
      - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
      - **Constraints**: Rule constraints and target files.
-  6. **Delegate & Await**: Launch the subagent. Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
-- **Constraints**: ONLY delegates to: ${agentNames}. No custom subagents. It is prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend, \`@anbu\` for backend). Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`). In direct tool call mode, if project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly — and do NOT call \`skills-db.find_skill\` for codebase/file searches, and never call \`semble\` for skill lookup.
+  6. **Delegate**: Invoke the subagent using the subagent TypeName corresponding to the chosen agent (e.g., \`anbu\`, \`genin\`, etc.). Pass the absolute paths of \`delegate.md\` and \`result.md\` in the subagent's prompt. The subagent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool \`skills-db.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the subagent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
+  7. **Await Results**: Once you are woken up by the system notifying you of subagent completion or updates, read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This resets the depth counter for subsequent tasks.
+- **Constraints**: ONLY delegates to defined subagents: ${agentNames}. Dynamic auto-creation of subagents is prohibited. It is prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend, \`@anbu\` for backend). Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`). In direct tool call mode, if project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly.
 
-| Subtask type | Delegate to |
+| Subtask type | Subagent TypeName |
 |---|---|
 ${delegationRows}
 | Sandboxed execution, parallel workflows | @self |
@@ -356,6 +373,10 @@ ${agentSections}
 ### @self — Parallel Execution (Built-in)
 - **Purpose**: Run tasks in parallel isolated context with identical tools and MCP access.
 - **Delegate when**: Isolated script execution or parallel workflows needing identical permissions.
+
+### @research — Codebase and Web Research (Built-in)
+- **Purpose**: Run codebase exploration or web research tasks in isolated context with search tools.
+- **Delegate when**: Doing read-only code exploration (genin) or web research and intel gathering (chunin).
 
 ## Operational Conventions — All Agents
 
@@ -375,7 +396,7 @@ ${agentSections}
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
-- **No Auto-Creation of Subagents**: AI is never allowed to define/create/delete subagents. User-only feature.
+- **No Auto-Creation of Subagents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Subagents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.json\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.

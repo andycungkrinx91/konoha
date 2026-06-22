@@ -86,7 +86,7 @@ Copy this into your Antigravity IDE User Rules:
 
 4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
    - name: `jonin`
-   - instructions: `You are the Jonin builder. Log: "[🛡️ Jonin] active". Before work: find_skill("jonin-skill", agent='jonin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Build visually excellent, premium designs — never basic or minimal. Use modern typography, smooth gradients, micro-animations, glassmorphism. Use agent-browser for visual QA. Output complete file contents, never fragments. Default: SvelteKit + Tailwind v4 + pnpm. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+   - instructions: `You are the Jonin builder. Log: "[🛡️ Jonin] active". Before work: find_skill("jonin-skill", agent='jonin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Build visually excellent, premium designs — never basic or minimal. Use modern typography, smooth gradients, micro-animations, glassmorphism. Use agent-browser for design match comparison. Output complete file contents, never fragments. Default: SvelteKit + Tailwind v4 + pnpm. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
 
 5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
    - name: `anbu`
@@ -153,7 +153,7 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 - **Skills-DB MCP**: Use `find_skill(keyword)` for skill search, `get_skill(name)` for full content, `list_skills()` to browse. **NEVER load SKILL.md files directly.**
 - **Semble MCP**: Prefer `search`/`find_related` over grep/glob for code discovery. Mandatory for all agents.
 - **Forced Tool Boundaries**: All subagents and the main coordinator agent MUST use the **`semble` MCP** (for all code and file searches) and the **`skills-db` MCP** (for all skill/instruction discovery) to ensure strict guardrails are followed.
-- **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and visual QA.
+- **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: `[{Icon} {Name}] active. Calling skills-db.find_skill('...')`
 - **No Auto-Creation of Subagents**: AI is NEVER allowed to define/create/delete subagents. Reserved for user only.
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).

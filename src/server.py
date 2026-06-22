@@ -22,6 +22,9 @@ import os
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
+import subprocess
+import tempfile
+from PIL import Image, ImageChops
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -586,6 +589,257 @@ def optimize_report(keyword=None, agent_name=None):
     return res
 
 
+def render_image(url, mockup_path, diff_path=None, agent_name=None):
+    """
+    Capture target website using agent-browser, compare it pixel-by-pixel
+    with design mockup, and log the tool call.
+    """
+    global WORKSPACE_ROOT
+    
+    # Resolve mockup path
+    resolved_mockup_path = mockup_path
+    if not os.path.isabs(resolved_mockup_path):
+        workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
+        resolved_mockup_path = os.path.abspath(os.path.join(workspace, resolved_mockup_path))
+        
+    site_screenshot = None
+    temp_mockup_screenshot = None
+    res = ""
+    
+    try:
+        # Create temp file for site screenshot
+        fd_site, site_screenshot = tempfile.mkstemp(suffix=".png")
+        os.close(fd_site)
+        
+        # 1. Open the website in agent-browser
+        run_open = subprocess.run(["agent-browser", "open", url], capture_output=True, text=True)
+        if run_open.returncode != 0:
+            res = json.dumps({"error": f"Failed to open site in agent-browser: {run_open.stderr or 'unknown error'}"})
+            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+            return res
+            
+        # Take the screenshot
+        run_screenshot = subprocess.run(["agent-browser", "screenshot", site_screenshot], capture_output=True, text=True)
+        if run_screenshot.returncode != 0 or not os.path.exists(site_screenshot):
+            res = json.dumps({"error": f"Failed to capture site screenshot: {run_screenshot.stderr or 'unknown error'}"})
+            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+            return res
+            
+        # 2. Prepare mockup file for comparison
+        mockup_img_to_use = resolved_mockup_path
+        lower_mockup = resolved_mockup_path.lower()
+        
+        if lower_mockup.endswith(".svg") or lower_mockup.endswith(".html") or lower_mockup.endswith(".htm"):
+            fd_mock, temp_mockup_screenshot = tempfile.mkstemp(suffix=".png")
+            os.close(fd_mock)
+            
+            mockup_url = f"file://{resolved_mockup_path}"
+            
+            # Open mockup in agent-browser
+            run_mock_open = subprocess.run(["agent-browser", "open", mockup_url], capture_output=True, text=True)
+            if run_mock_open.returncode != 0:
+                res = json.dumps({"error": f"Failed to open mockup in agent-browser: {run_mock_open.stderr or 'unknown error'}"})
+                log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+                return res
+                
+            # Screenshot mockup
+            run_mock_screenshot = subprocess.run(["agent-browser", "screenshot", temp_mockup_screenshot], capture_output=True, text=True)
+            if run_mock_screenshot.returncode != 0 or not os.path.exists(temp_mockup_screenshot):
+                res = json.dumps({"error": f"Failed to screenshot mockup in agent-browser: {run_mock_screenshot.stderr or 'unknown error'}"})
+                log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+                return res
+                
+            mockup_img_to_use = temp_mockup_screenshot
+            
+        if not os.path.exists(mockup_img_to_use):
+            res = json.dumps({"error": f"Mockup file not found: {mockup_img_to_use}"})
+            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+            return res
+            
+        # 3. Perform pixel-by-pixel comparison
+        img1 = Image.open(site_screenshot).convert('RGB')
+        img2 = Image.open(mockup_img_to_use).convert('RGB')
+
+        # Resize img2 to match img1 if dimensions differ
+        if img1.size != img2.size:
+            img2 = img2.resize(img1.size, Image.Resampling.LANCZOS)
+
+        diff = ImageChops.difference(img1, img2)
+        bbox = diff.getbbox()
+        
+        mismatched_pixels = 0
+        total_pixels = img1.size[0] * img1.size[1]
+        threshold = 10
+        
+        if diff_path:
+            # Ensure parent dir exists
+            diff_dir = os.path.dirname(diff_path)
+            if diff_dir and not os.path.exists(diff_dir):
+                os.makedirs(diff_dir, exist_ok=True)
+                
+            diff_img = Image.new('RGB', img1.size, (255, 255, 255))
+            pixels1 = img1.load()
+            pixels2 = img2.load()
+            diff_pixels = diff_img.load()
+            
+            for y in range(img1.size[1]):
+                for x in range(img1.size[0]):
+                    r1, g1, b1 = pixels1[x, y]
+                    r2, g2, b2 = pixels2[x, y]
+                    dist = abs(r1-r2) + abs(g1-g2) + abs(b1-b2)
+                    if dist > threshold * 3:
+                        mismatched_pixels += 1
+                        diff_pixels[x, y] = (255, 0, 0)
+                    else:
+                        gray = int(0.299*r1 + 0.587*g1 + 0.114*b1)
+                        val = int(gray * 0.4 + 150)
+                        diff_pixels[x, y] = (val, val, val)
+            
+            diff_img.save(diff_path)
+        else:
+            pixels1 = img1.load()
+            pixels2 = img2.load()
+            for y in range(img1.size[1]):
+                for x in range(img1.size[0]):
+                    r1, g1, b1 = pixels1[x, y]
+                    r2, g2, b2 = pixels2[x, y]
+                    if abs(r1-r2) + abs(g1-g2) + abs(b1-b2) > threshold * 3:
+                        mismatched_pixels += 1
+
+        similarity = (total_pixels - mismatched_pixels) / total_pixels * 100
+        
+        res_dict = {
+            "width": img1.size[0],
+            "height": img1.size[1],
+            "total_pixels": total_pixels,
+            "mismatched_pixels": mismatched_pixels,
+            "similarity_percentage": round(similarity, 4),
+            "match_100_percent": mismatched_pixels == 0,
+            "bbox_diff": list(bbox) if bbox else None
+        }
+        res = json.dumps(res_dict)
+        
+    except Exception as e:
+        res = json.dumps({"error": f"Image comparison failed: {str(e)}"})
+        
+    finally:
+        if site_screenshot and os.path.exists(site_screenshot):
+            try:
+                os.remove(site_screenshot)
+            except Exception:
+                pass
+        if temp_mockup_screenshot and os.path.exists(temp_mockup_screenshot):
+            try:
+                os.remove(temp_mockup_screenshot)
+            except Exception:
+                pass
+                
+    log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+    return res
+
+
+def detect_active_agent():
+    import glob
+    import json
+    import re
+    try:
+        brain_dir = os.path.expanduser("~/.gemini/antigravity-cli/brain")
+        pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
+        pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
+        
+        all_files = glob.glob(pattern_prompt) + glob.glob(pattern_transcript)
+        if not all_files:
+            return None
+            
+        all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        
+        visited_dirs = set()
+        fallback_agent = None
+        
+        for fpath in all_files:
+            if fpath.endswith("prompt.md"):
+                conv_dir = os.path.dirname(fpath)
+            else:
+                conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
+                
+            conv_dir = os.path.normpath(conv_dir)
+            if conv_dir in visited_dirs:
+                continue
+            visited_dirs.add(conv_dir)
+            
+            detected = None
+            
+            # 1. Try prompt.md first (guaranteed to be written/created before subagent starts)
+            prompt_path = os.path.join(conv_dir, "prompt.md")
+            if os.path.exists(prompt_path):
+                try:
+                    with open(prompt_path, "r", encoding="utf-8") as f:
+                        prompt_content = f.read()
+                    
+                    # Search for [Icon Agent] active
+                    match = re.search(r"\[([^\]]+)\]\s+active", prompt_content)
+                    if match:
+                        agent_name = match.group(1).split()[-1].lower()
+                        if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                            detected = agent_name
+                        elif agent_name in ["antigravity", "orchestrator"]:
+                            detected = "orchestrator"
+                            
+                    if not detected:
+                        # Search for explicit "You are the X agent" or "Log: ... X ... active"
+                        for candidate in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                            if re.search(rf"\b{candidate}\b", prompt_content, re.IGNORECASE):
+                                if re.search(rf"you\s+are\s+(?:the|a)\s+{candidate}\s+(?:agent|subagent|scout|builder|intel|scribe|leader)", prompt_content, re.IGNORECASE):
+                                    detected = candidate
+                                    break
+                                if re.search(rf"Log:\s*\"\[.*{candidate}.*\]\s*active\"", prompt_content, re.IGNORECASE):
+                                    detected = candidate
+                                    break
+                except Exception:
+                    pass
+                    
+            # 2. Try transcript.jsonl
+            if not detected:
+                transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
+                if os.path.exists(transcript_path):
+                    try:
+                        with open(transcript_path, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                        for line in reversed(lines):
+                            try:
+                                data = json.loads(line)
+                                content = data.get("content", "")
+                                if not content:
+                                    continue
+                                match = re.search(r"\[([^\]]+)\]\s+active", content)
+                                if match:
+                                    agent_name = match.group(1).split()[-1].lower()
+                                    if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                                        detected = agent_name
+                                        break
+                                    elif agent_name in ["antigravity", "orchestrator"]:
+                                        detected = "orchestrator"
+                                        break
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+            
+            if detected:
+                if detected in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                    return detected
+                elif detected == "orchestrator" and not fallback_agent:
+                    fallback_agent = "orchestrator"
+                    
+            # Check up to 15 most recent folders to find a subagent
+            if len(visited_dirs) >= 15:
+                break
+        return fallback_agent
+    except Exception:
+        pass
+    return None
+
+
 def handle_request(req):
     """Handle a single JSON-RPC request."""
     method = req.get("method")
@@ -729,6 +983,32 @@ def handle_request(req):
                             },
                             "required": ["agent"]
                         }
+                    },
+                    {
+                        "name": "render_image",
+                        "description": "Capture a screenshot of a target website and compare it pixel-by-pixel with a design mockup.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "description": "The target website URL to capture (e.g. http://localhost:5173)."
+                                },
+                                "mockup_path": {
+                                    "type": "string",
+                                    "description": "Absolute or relative path to the mockup file (supports png, jpg, webp, svg, html)."
+                                },
+                                "diff_path": {
+                                    "type": "string",
+                                    "description": "Optional absolute path to output the highlighted differences image."
+                                },
+                                "agent": {
+                                    "type": "string",
+                                    "description": "Casing-insensitive name of the calling agent (e.g. 'jonin')."
+                                }
+                            },
+                            "required": ["url", "mockup_path", "agent"]
+                        }
                     }
                 ]
             }
@@ -739,6 +1019,8 @@ def handle_request(req):
         tool_name = params.get("name")
         args = params.get("arguments", {})
         agent = args.get("agent") or args.get("agent_name")
+        if not agent:
+            agent = detect_active_agent()
 
         if tool_name == "find_skill":
             keyword = args.get("keyword", "")
@@ -754,6 +1036,11 @@ def handle_request(req):
         elif tool_name == "optimize_report":
             keyword = args.get("keyword")
             result_text = optimize_report(keyword=keyword, agent_name=agent)
+        elif tool_name == "render_image":
+            url = args.get("url")
+            mockup_path = args.get("mockup_path")
+            diff_path = args.get("diff_path")
+            result_text = render_image(url, mockup_path, diff_path=diff_path, agent_name=agent)
         else:
             result_text = json.dumps({"error": f"Unknown tool: {tool_name}"})
 

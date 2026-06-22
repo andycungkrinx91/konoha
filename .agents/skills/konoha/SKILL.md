@@ -134,7 +134,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries first. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
-| `node bin/cli.js version` | Displays the current local version (1.0.1) and checks for updates from GitHub. |
+| `node bin/cli.js version` | Displays the current local version (1.1.3) and checks for updates from GitHub. |
 | `node bin/cli.js upgrade` | Upgrades the Konoha CLI to the latest version directly from GitHub. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
 
@@ -173,3 +173,10 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 7. File Modification Rule
 - **File Modification Rule**: Only use `sed` if you are modifying an existing file (e.g., replacing specific strings or appending lines).
 - **README Protection Rule**: DO NOT change the structure, layout, or existing content of README.md. When updating README.md, you MUST only modify specific strings (like version numbers) using targeted search-and-replace.
+
+### 8. Agent Telemetry and Call Statistics
+- **Case-Insensitive Grouping**: Agent status metrics calculation must aggregate statistics case-insensitively using lowercase agent names, resolving misattribution to `Direct Tool Calls`.
+- **Dynamic Active Agent Detection**: When the `agent` parameter is omitted from MCP tool arguments, `detect_active_agent()` must dynamically resolve the calling agent's identity by scanning prompt and transcript files in the `brain/` directory.
+- **Bypassing Orchestrator Override**: To prevent the orchestrator's parent conversation from masking active subagents (since the orchestrator's folder is updated on every turn and thus is the newest), the detection logic must prioritize registered subagent ranks (`anbu`, `genin`, etc.) and treat the orchestrator only as a fallback candidate, continuing the loop to search older folders.
+- **Deep Directory Search**: The directory scanning loop must scan up to `15` recently modified directories to ensure subagent folders are reached even when multiple other workspaces or conversations are active.
+
