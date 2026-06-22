@@ -134,7 +134,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries first. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
-| `node bin/cli.js version` | Displays the current local version (1.1.3) and checks for updates from GitHub. |
+| `node bin/cli.js version` | Displays the current local version (1.1.4) and checks for updates from GitHub. |
 | `node bin/cli.js upgrade` | Upgrades the Konoha CLI to the latest version directly from GitHub. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
 
@@ -179,4 +179,13 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Dynamic Active Agent Detection**: When the `agent` parameter is omitted from MCP tool arguments, `detect_active_agent()` must dynamically resolve the calling agent's identity by scanning prompt and transcript files in the `brain/` directory.
 - **Bypassing Orchestrator Override**: To prevent the orchestrator's parent conversation from masking active subagents (since the orchestrator's folder is updated on every turn and thus is the newest), the detection logic must prioritize registered subagent ranks (`anbu`, `genin`, etc.) and treat the orchestrator only as a fallback candidate, continuing the loop to search older folders.
 - **Deep Directory Search**: The directory scanning loop must scan up to `15` recently modified directories to ensure subagent folders are reached even when multiple other workspaces or conversations are active.
+
+### 9. Dependency Version Auto-Fix
+- **Auto-Fix Version Mismatches**: When running package installation or build commands (`pnpm install`, `pnpm run build`), if the output reports mismatched, outdated, or conflicting dependencies (such as `- lucide-react 1.21.0` and `+ lucide-react 0.468.0 (1.21.0 is available)`), agents must automatically parse the output, update `package.json` to specify the latest available version (or the recommended version) for the conflicting packages, and re-run the installation/build command again to align and fix the dependencies before proceeding.
+
+### 10. Design Mockup Build Selection
+- **Visual Mockup Context Detection**: When a task requests building or scaffolding a website or user interface, the agent must check if a visual design mockup folder (e.g. `source-image-design`) exists.
+- **`build_with_image_design` Tool**: If design mockups are present, the agent must invoke `build_with_image_design`. This tool instructs the build processor to strictly match layout design mockups while disabling the default premium template visual effects (10-theme switcher, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, and watermark) unless they are explicitly shown in the mockup images.
+- **`build_from_text` Tool**: If no visual design mockup directory exists, the agent must call `build_from_text` to scaffold the project using standard premium interactive features and templates.
+
 

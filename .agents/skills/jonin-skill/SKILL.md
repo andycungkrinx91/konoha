@@ -39,7 +39,10 @@ Based on the user's request, load the specific reference file using `skills-db.g
 - **Alternative Stack**: Next.js 16 + Tailwind v4 + pnpm (When React is explicitly requested)
 
 ## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
-For EVERY website you generate or build, you MUST implement these premium visual features:
+> [!NOTE]
+> **Source Design Image Exception**: If you are building based on a source design image (using the `build_with_image_design` tool), this default visual effects template MUST be skipped. You MUST build the storefront strictly based on the design images and mockups without adding these default visual effects (such as the 10-theme switcher, 3D carousels, 3D hovers, SweetAlert2 modal, or watermark) unless they are explicitly shown in the design images.
+
+For EVERY website you generate or build from text, you MUST implement these premium visual features:
 1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
 2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing GPU-accelerated 3D transition effects (such as 3D cube rotation, 3D card flipping, coverflow, or perspective carousel rotation) and smooth control transitions. **Importantly, the homepage hero banner MUST be full-width when displayed from desktop view (i.e. edge-to-edge of the viewport without margins or layout constraints).**
 3. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
@@ -103,6 +106,7 @@ For EVERY website you generate or build, you MUST implement these premium visual
      - **Svelte Kit (`svelte.config.js`)**: Add `onwarn: (warning, handler) => { if (warning.code.startsWith('a11y-')) return; handler(warning); }` to silence all accessibility warnings during compilation.
 3. **Verification & Autonomous Fixes Loop**: Post-generation, you MUST execute these commands yourself using your tools. NEVER command the user or print instructions telling the user to execute these steps manually:
    - **pnpm install**: Run `pnpm install` (or `pnpm install --no-engine-strict` if standard install fails due to `ERR_PNPM_UNSUPPORTED_ENGINE`) to set up node_modules.
+     - **Dependency Version Auto-Fix**: If `pnpm install` or `pnpm run build` fails or reports mismatched/outdated dependencies (for example, showing dependency mismatches such as `- lucide-react 1.21.0` and `+ lucide-react 0.468.0 (1.21.0 is available)`), you MUST automatically update `package.json` to specify the latest available version (or the recommended version) for the conflicting packages, and then run `pnpm install` again to align and fix the dependencies.
    - **ESLint & Svelte Check**: Run `pnpm run lint` and `pnpm run check` (svelte-check, if using SvelteKit) / `pnpm svelte-kit sync` (to generate TS config mappings first). If there are any linting or compilation warnings or errors, you MUST locate the offending files, read the exact error lines, and modify the code to fix them. Repeat this cycle until both commands output zero errors and zero warnings.
    - **pnpm build**: Run `pnpm run build` to verify the production build. If any warnings (e.g. CSS compilation warnings, unused export warnings) or errors occur, trace the cause, edit the files, and re-run the build until it completes with 100% success, zero errors, and zero warnings.
 4. **Dev Server & Design Match Comparison**:
@@ -115,8 +119,11 @@ For EVERY website you generate or build, you MUST implement these premium visual
 ## SOP 5: Image-to-Code Conversion & Design Match Comparison Workflow
 *Procedure for generating UI from design image directories / mockups.*
 
-1. **Scout Design Folder**: Use directory listing to map all assets in the design folder first.
+1. **Auto-Select Build Method**:
+   - If the workspace contains a design image directory (e.g. `source-image-design`), you MUST call the `build_with_image_design` tool specifying the name, design directory path, and framework. In this mode, you MUST build the storefront strictly based on the design images and mockups, skipping the default premium visual effects template.
+   - If no design image directory is present, you MUST call the `build_from_text` tool, which automatically scaffolds the project and directs you to implement the default premium visual effects (theme switcher, 3D carousels, hovers, SweetAlert2, and watermark).
 2. **Direct SVG/HTML Code Translation**: If a design file is `.svg` or `.html`, read the raw code directly using `view_file`. Translate the XML vector nodes or HTML structure directly into the target code framework (Svelte/React). This guarantees a 100% perfect visual match without vision model token overhead.
 3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via the `view_file` tool to extract the general layout structure (grid, headers, colors). Do not load multiple images or run repetitive vision reads.
-4. **Verification Loop**: Run the built site, and invoke `skills-db.render_image` (or run `konoha render <dev-url> <mockup-path> [diff-output-path]`) to compare it pixel-by-pixel with the mockup.
+4. **Verification Loop**: Run the built site, and run the CLI comparison command `konoha render <dev-url> <mockup-path> [diff-output-path]` to compare it pixel-by-pixel with the mockup.
 5. **Layout Alignment via Diff Metrics**: Check the mismatch metrics and bounding box coordinates (`bbox_diff`) in the JSON output. Adjust layout and spacing CSS properties (e.g. padding `px`/`py`, margins `mx`/`my`, alignment `flex`, `grid`, etc.) to resolve mismatches. Repeat this check/adjust loop without visual reloads (reducing token usage by 90%) until the page is 100% visually aligned.
+

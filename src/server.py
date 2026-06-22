@@ -589,152 +589,72 @@ def optimize_report(keyword=None, agent_name=None):
     return res
 
 
-def render_image(url, mockup_path, diff_path=None, agent_name=None):
+def build_with_image_design(name, design_dir, framework, agent_name=None):
     """
-    Capture target website using agent-browser, compare it pixel-by-pixel
-    with design mockup, and log the tool call.
+    Analyze design mockup layouts in design_dir and set up project configuration.
     """
     global WORKSPACE_ROOT
-    
-    # Resolve mockup path
-    resolved_mockup_path = mockup_path
-    if not os.path.isabs(resolved_mockup_path):
+    resolved_design_dir = design_dir
+    if not os.path.isabs(resolved_design_dir):
         workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
-        resolved_mockup_path = os.path.abspath(os.path.join(workspace, resolved_mockup_path))
+        resolved_design_dir = os.path.abspath(os.path.join(workspace, resolved_design_dir))
         
-    site_screenshot = None
-    temp_mockup_screenshot = None
-    res = ""
-    
+    if not os.path.exists(resolved_design_dir) or not os.path.isdir(resolved_design_dir):
+        res = json.dumps({"error": f"Design directory not found: {design_dir}"})
+        log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}", res, agent_name=agent_name)
+        return res
+        
     try:
-        # Create temp file for site screenshot
-        fd_site, site_screenshot = tempfile.mkstemp(suffix=".png")
-        os.close(fd_site)
-        
-        # 1. Open the website in agent-browser
-        run_open = subprocess.run(["agent-browser", "open", url], capture_output=True, text=True)
-        if run_open.returncode != 0:
-            res = json.dumps({"error": f"Failed to open site in agent-browser: {run_open.stderr or 'unknown error'}"})
-            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
-            return res
-            
-        # Take the screenshot
-        run_screenshot = subprocess.run(["agent-browser", "screenshot", site_screenshot], capture_output=True, text=True)
-        if run_screenshot.returncode != 0 or not os.path.exists(site_screenshot):
-            res = json.dumps({"error": f"Failed to capture site screenshot: {run_screenshot.stderr or 'unknown error'}"})
-            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
-            return res
-            
-        # 2. Prepare mockup file for comparison
-        mockup_img_to_use = resolved_mockup_path
-        lower_mockup = resolved_mockup_path.lower()
-        
-        if lower_mockup.endswith(".svg") or lower_mockup.endswith(".html") or lower_mockup.endswith(".htm"):
-            fd_mock, temp_mockup_screenshot = tempfile.mkstemp(suffix=".png")
-            os.close(fd_mock)
-            
-            mockup_url = f"file://{resolved_mockup_path}"
-            
-            # Open mockup in agent-browser
-            run_mock_open = subprocess.run(["agent-browser", "open", mockup_url], capture_output=True, text=True)
-            if run_mock_open.returncode != 0:
-                res = json.dumps({"error": f"Failed to open mockup in agent-browser: {run_mock_open.stderr or 'unknown error'}"})
-                log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
-                return res
-                
-            # Screenshot mockup
-            run_mock_screenshot = subprocess.run(["agent-browser", "screenshot", temp_mockup_screenshot], capture_output=True, text=True)
-            if run_mock_screenshot.returncode != 0 or not os.path.exists(temp_mockup_screenshot):
-                res = json.dumps({"error": f"Failed to screenshot mockup in agent-browser: {run_mock_screenshot.stderr or 'unknown error'}"})
-                log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
-                return res
-                
-            mockup_img_to_use = temp_mockup_screenshot
-            
-        if not os.path.exists(mockup_img_to_use):
-            res = json.dumps({"error": f"Mockup file not found: {mockup_img_to_use}"})
-            log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
-            return res
-            
-        # 3. Perform pixel-by-pixel comparison
-        img1 = Image.open(site_screenshot).convert('RGB')
-        img2 = Image.open(mockup_img_to_use).convert('RGB')
-
-        # Resize img2 to match img1 if dimensions differ
-        if img1.size != img2.size:
-            img2 = img2.resize(img1.size, Image.Resampling.LANCZOS)
-
-        diff = ImageChops.difference(img1, img2)
-        bbox = diff.getbbox()
-        
-        mismatched_pixels = 0
-        total_pixels = img1.size[0] * img1.size[1]
-        threshold = 10
-        
-        if diff_path:
-            # Ensure parent dir exists
-            diff_dir = os.path.dirname(diff_path)
-            if diff_dir and not os.path.exists(diff_dir):
-                os.makedirs(diff_dir, exist_ok=True)
-                
-            diff_img = Image.new('RGB', img1.size, (255, 255, 255))
-            pixels1 = img1.load()
-            pixels2 = img2.load()
-            diff_pixels = diff_img.load()
-            
-            for y in range(img1.size[1]):
-                for x in range(img1.size[0]):
-                    r1, g1, b1 = pixels1[x, y]
-                    r2, g2, b2 = pixels2[x, y]
-                    dist = abs(r1-r2) + abs(g1-g2) + abs(b1-b2)
-                    if dist > threshold * 3:
-                        mismatched_pixels += 1
-                        diff_pixels[x, y] = (255, 0, 0)
-                    else:
-                        gray = int(0.299*r1 + 0.587*g1 + 0.114*b1)
-                        val = int(gray * 0.4 + 150)
-                        diff_pixels[x, y] = (val, val, val)
-            
-            diff_img.save(diff_path)
-        else:
-            pixels1 = img1.load()
-            pixels2 = img2.load()
-            for y in range(img1.size[1]):
-                for x in range(img1.size[0]):
-                    r1, g1, b1 = pixels1[x, y]
-                    r2, g2, b2 = pixels2[x, y]
-                    if abs(r1-r2) + abs(g1-g2) + abs(b1-b2) > threshold * 3:
-                        mismatched_pixels += 1
-
-        similarity = (total_pixels - mismatched_pixels) / total_pixels * 100
-        
-        res_dict = {
-            "width": img1.size[0],
-            "height": img1.size[1],
-            "total_pixels": total_pixels,
-            "mismatched_pixels": mismatched_pixels,
-            "similarity_percentage": round(similarity, 4),
-            "match_100_percent": mismatched_pixels == 0,
-            "bbox_diff": list(bbox) if bbox else None
-        }
-        res = json.dumps(res_dict)
-        
+        files = os.listdir(resolved_design_dir)
     except Exception as e:
-        res = json.dumps({"error": f"Image comparison failed: {str(e)}"})
-        
-    finally:
-        if site_screenshot and os.path.exists(site_screenshot):
-            try:
-                os.remove(site_screenshot)
-            except Exception:
-                pass
-        if temp_mockup_screenshot and os.path.exists(temp_mockup_screenshot):
-            try:
-                os.remove(temp_mockup_screenshot)
-            except Exception:
-                pass
-                
-    log_tool_call("render_image", f"url={url}, mockup_path={mockup_path}", res, agent_name=agent_name)
+        res = json.dumps({"error": f"Failed to list design directory: {str(e)}"})
+        log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}", res, agent_name=agent_name)
+        return res
+
+    mockups = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.svg', '.html'))]
+    
+    spec = {
+        "status": "success",
+        "project_name": name,
+        "framework": framework,
+        "mode": "build_with_image_design",
+        "design_directory": resolved_design_dir,
+        "detected_mockups": mockups,
+        "directives": [
+            f"Build a clean {framework} storefront named '{name}' matching the structure and layouts of the detected design images: {', '.join(mockups)}.",
+            "DO NOT implement the default visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, or watermark) UNLESS they are explicitly depicted in the design images.",
+            "Analyze the layout from each image and translate it directly into component structure with visual fidelity."
+        ]
+    }
+    res = json.dumps(spec, indent=2)
+    log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}, framework={framework}", res, agent_name=agent_name)
+    return res
+
+
+def build_from_text(name, description, framework, agent_name=None):
+    """
+    Generate structure and instructions from description, automatically including
+    the default premium templates and visual effects.
+    """
+    spec = {
+        "status": "success",
+        "project_name": name,
+        "framework": framework,
+        "mode": "build_from_text",
+        "description": description,
+        "directives": [
+            f"Build a premium {framework} storefront named '{name}' based on the description: '{description}'.",
+            "You MUST implement all the required visual effects from the default premium template:",
+            "  1. 10-Theme Switcher (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, Gold) persisted in localStorage.",
+            "  2. Full-width homepage hero banner with GPU-accelerated 3D transition carousel slider (minimum 4 images).",
+            "  3. Minimum of 5 interactive 3D carousels (hero, category showcase, featured items, customer lookbook, testimonials).",
+            "  4. 3D GPU card hover & radial mouse-tracking glow effects on all card components.",
+            "  5. Custom 3D entrance transition SweetAlert2 modal dialogs matching active theme gradients.",
+            "  6. Inline SVG/CSS custom branded logo and the footer watermark: 'Build with Antigravity and Konoha agentic AI'."
+        ]
+    }
+    res = json.dumps(spec, indent=2)
+    log_tool_call("build_from_text", f"name={name}, description={description}, framework={framework}", res, agent_name=agent_name)
     return res
 
 
@@ -985,29 +905,55 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "render_image",
-                        "description": "Capture a screenshot of a target website and compare it pixel-by-pixel with a design mockup.",
+                        "name": "build_with_image_design",
+                        "description": "Initialize and build a project strictly matching design mockup layouts and assets in a design directory. Skips default visual effects templates.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
-                                "url": {
+                                "name": {
                                     "type": "string",
-                                    "description": "The target website URL to capture (e.g. http://localhost:5173)."
+                                    "description": "Name of the project to build."
                                 },
-                                "mockup_path": {
+                                "design_dir": {
                                     "type": "string",
-                                    "description": "Absolute or relative path to the mockup file (supports png, jpg, webp, svg, html)."
+                                    "description": "Relative or absolute path to the design mockups directory containing the layout images."
                                 },
-                                "diff_path": {
+                                "framework": {
                                     "type": "string",
-                                    "description": "Optional absolute path to output the highlighted differences image."
+                                    "description": "The target framework (e.g. 'nextjs' or 'svelte')."
                                 },
                                 "agent": {
                                     "type": "string",
-                                    "description": "Casing-insensitive name of the calling agent (e.g. 'jonin')."
+                                    "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["url", "mockup_path", "agent"]
+                            "required": ["name", "design_dir", "framework", "agent"]
+                        }
+                    },
+                    {
+                        "name": "build_from_text",
+                        "description": "Initialize and build a project from a textual description/prompt, automatically including the default premium visual effects template (e.g., 10-theme switcher, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, and watermark).",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of the project to build."
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "The text description/prompt detailing the storefront features and requirements."
+                                },
+                                "framework": {
+                                    "type": "string",
+                                    "description": "The target framework (e.g. 'nextjs' or 'svelte')."
+                                },
+                                "agent": {
+                                    "type": "string",
+                                    "description": "Name of the calling agent."
+                                }
+                            },
+                            "required": ["name", "description", "framework", "agent"]
                         }
                     }
                 ]
@@ -1036,11 +982,16 @@ def handle_request(req):
         elif tool_name == "optimize_report":
             keyword = args.get("keyword")
             result_text = optimize_report(keyword=keyword, agent_name=agent)
-        elif tool_name == "render_image":
-            url = args.get("url")
-            mockup_path = args.get("mockup_path")
-            diff_path = args.get("diff_path")
-            result_text = render_image(url, mockup_path, diff_path=diff_path, agent_name=agent)
+        elif tool_name == "build_with_image_design":
+            name = args.get("name")
+            design_dir = args.get("design_dir")
+            framework = args.get("framework")
+            result_text = build_with_image_design(name, design_dir, framework, agent_name=agent)
+        elif tool_name == "build_from_text":
+            name = args.get("name")
+            description = args.get("description")
+            framework = args.get("framework")
+            result_text = build_from_text(name, description, framework, agent_name=agent)
         else:
             result_text = json.dumps({"error": f"Unknown tool: {tool_name}"})
 

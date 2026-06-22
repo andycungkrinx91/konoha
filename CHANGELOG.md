@@ -2,14 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [1.1.3] - 2026-06-22
+## [1.1.4] - 2026-06-22
 
 ### Added
+- **Design Mockup Build Selection Tools**: Added `build_with_image_design` and `build_from_text` MCP tools to the Python server.
 - **Image-to-Code Generation & Translation Command**: Implemented `konoha render` CLI command, leveraging `agent-browser` for taking screenshots and local Python script `src/visual_compare.py` for pixel-by-pixel similarity checks and mismatch diff highlighting.
 - **Support for Multi-Extension Design Mockups**: Translates layout and assets directly from design image folders containing `.svg`, `.html`, `.png`, `.jpg`, and `.webp` files to enable precise code generation matching the designs.
 - **Image-to-Code Token Savings**: Optimizes and saves vision token usage by handling layout alignment processes locally, preventing binary visual assets from bloating the model's active context window.
 
 ### Changed
+- **Visual Comparison Tooling Replacement**: Replaced the legacy `render_image` MCP tool with the new target-specific visual match routing tools `build_with_image_design` and `build_from_text`.
 - **Zero-Warning Lint Gate Compliance**: Relaxed ESLint configurations in Svelte/SvelteKit (`eslint.config.js`) and Next.js (`eslint.config.mjs`) template guidelines to turn off strict typescript, unused-vars, image element, and unescaped entity warnings.
 - **Svelte Compiler Warnings Suppression**: Added automated `onwarn` directives to Svelte configuration instructions (`svelte.config.js`) to suppress all compiler-level accessibility (a11y) diagnostics during build gates.
 

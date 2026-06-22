@@ -123,3 +123,9 @@ Scripts in `scripts/` are defensive tools only. Do not run them without authoriz
    - Once the server is running, immediately open the browser using the `agent-browser` tool to the dev server link (e.g., `http://localhost:5173` or `http://localhost:3000`) to load the website preview.
 3. **Visual Verification**:
    - Verify styling, layouts, and print the active local access URLs in the final report.
+
+## SOP 5: Dependency Version Auto-Fix
+*When running pnpm install or build commands in frontend frameworks.*
+
+1. **Auto-Fix Version Mismatches**: If `pnpm install` or `pnpm run build` fails or output shows outdated/mismatched dependencies (such as `- lucide-react 1.21.0` and `+ lucide-react 0.468.0 (1.21.0 is available)`), you MUST automatically update `package.json` to specify the latest available version (or the recommended version) for the conflicting packages, and then run `pnpm install` again to align and fix the dependencies before proceeding.
+

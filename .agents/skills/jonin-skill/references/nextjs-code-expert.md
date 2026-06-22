@@ -214,10 +214,10 @@ All generated Next.js code must conform to the following baseline visual standar
 - **Image-to-Code Generation**: Agents can and should generate user interfaces from design images/mockups (such as png, jpg, webp, svg) present in the workspace. The agent must search the directory for design assets, analyze them, and translate the visual mockups into Next.js components.
 
   ### Next.js-Specific Image-to-Code Design Match Comparison Workflow:
-  1. **Scout Design Folder**: Map all assets in the design folder via directory listing.
+  1. **Select Build Method**: If a design mockup folder is present, call the `build_with_image_design` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
   2. **Direct SVG/HTML Translation**: If a mockup is `.svg` or `.html`, inspect the source directly and translate it into React/JSX code to achieve 100% layout fidelity without vision token overhead.
-  3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via `view_file` to identify the general structure (headers, grid, color scheme). Do not repeat reads or load multiple images concurrently.
-  4. **Start Development Server**: Launch the Next.js development server with `pnpm run dev` (usually running on `http://localhost:3000`).
-  5. **Visual Verification Loop**: Run `konoha render http://localhost:3000 <design-mockup-path> [diff-output-path]` or invoke `skills-db.render_image` to perform pixel-by-pixel comparisons.
+  3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via `view_file` to identify the general structure.
+  4. **Start Development Server**: Launch the Next.js development server with `pnpm run dev`.
+  5. **Visual Verification Loop**: Run `konoha render http://localhost:3000 <design-mockup-path> [diff-output-path]` to compare the running server with the design mockup.
   6. **Layout Refinement via Diff Metrics**: Check printed similarity percentages and bounding box coordinates (`bbox_diff`) in the JSON output. Adjust Next.js JSX layout classes (`px`, `mx`, `flex`, `grid`, etc.) to reconcile mismatches. Loop this refinement process without re-reading image files to save 90% of token usage.
 - **Preserving Existing Codebase (Flow, Logic, and Style)**: When working inside an existing Svelte or Next.js project directory/workdir, the agent is strictly prohibited from altering the existing flow, core logic, or style guidelines of the project. It must respect and follow the current architecture, styling systems (like specific CSS setups or custom Tailwind configs), and logic flows without introducing breaking changes or refactoring existing styles.

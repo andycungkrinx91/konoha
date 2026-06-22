@@ -1644,6 +1644,8 @@ async function cmdTest() {
     { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"test"}}}' },
     { name: 'List Skills', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"test"}}}' },
     { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"test"}}}' },
+    { name: 'Build with Image Design', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"build_with_image_design","arguments":{"name":"test_build","design_dir":"src","framework":"nextjs","agent":"test"}}}' },
+    { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"test"}}}' }
   ];
 
   let allPassed = true;
