@@ -42,13 +42,15 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `skills-db` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains the skills-db entry.
+You should see `skills-db`, `semble`, and `konoha-files` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
 
 ## Step 3: Verify Skills-DB Works
 
 ```bash
 konoha test
 ```
+
+Expected: **14 tests** pass (7 skills-db + 7 konoha-files).
 
 ## Step 4: Test in a Session
 
@@ -180,7 +182,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```bash
   konoha agent delete <agent-name>
   ```
-  Deletes the subagent configuration from `agents.json` and prunes its historical metrics from the SQLite database's `tool_calls` table, preventing legacy subagents (like `ops-ninja` or `shadow-anbu`) from cluttering the status call frequency list.
+  Deletes a **custom** subagent from `agents.json` and prunes its `tool_calls` metrics. The six official ninja agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
 
 ### Tracking Efficiency and Token Savings
 
@@ -207,7 +209,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.5`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.6`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -252,12 +254,17 @@ The installer registers whitelisted command prefixes in `~/.gemini/antigravity-c
 This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
 
 ### 2. Tool Auto-Approvals
-The installer registers tool auto-approval settings for the `skills-db` and `semble` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
-- **`skills-db`**: Auto-approves `find_skill`, `list_skills`, and `get_skill`.
+The installer registers tool auto-approval settings for the `skills-db`, `semble`, and `konoha-files` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+- **`skills-db`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
 - **`semble`**: Auto-approves `search` and `find_related`.
+- **`konoha-files`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
 
 These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.
 
 ## Troubleshooting
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues.
+
+For **Cursor IDE/CLI** setup, see [SETUP-CURSOR.md](SETUP-CURSOR.md).
+
+For **Claude Code, OpenCode, and other MCP clients**, see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).

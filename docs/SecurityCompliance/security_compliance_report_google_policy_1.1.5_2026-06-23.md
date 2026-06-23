@@ -15,7 +15,7 @@ This compliance report audits version 1.1.5 of the Konoha Project, focusing on t
 
 ### 3. Ghost Skill Purging
 - **Action Verified**: Confirmed that `migrate.py` successfully executes `DELETE FROM skills;` during migration.
-- **Impact**: Ensures stale or deprecated subagent skills (such as `modern-full-stack`) cannot persist in the global SQLite FTS5 cache, preventing unauthorized or outdated instructions from leaking into active context windows.
+- **Impact**: Ensures stale or deprecated subagent skills cannot persist in the global SQLite FTS5 cache, preventing unauthorized or outdated instructions from leaking into active context windows.
 
 ### 4. Subagent Model Allocation Property Injection
 - **Action Verified**: Modified `src/agent_manager.js` to correctly inject the `- model: \`<modelTier>\`` property during `GEMINI.md` generation.

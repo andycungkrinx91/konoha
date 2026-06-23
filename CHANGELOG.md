@@ -2,6 +2,63 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.1.6] - 2026-06-23
+
+### Added
+- **Cursor IDE/CLI Auto-Setup**: New `src/cursor_manager.js` registers `skills-db`, `semble`, and `konoha-files` in `~/.cursor/mcp.json`, deploys Konoha ninja subagents to `~/.cursor/agents/` with embedded **Cursor model slugs** (`composer-2.5-fast`, `claude-opus-4-8-thinking-high`, `gpt-5.3-codex`, etc.), writes project `.cursor/rules/konoha.mdc` orchestrator rules, and configures Cursor CLI MCP permissions in `~/.cursor/cli-config.json`.
+- **Cursor skills mirror**: `deploy_utils.syncCursorSkillsFromAgents()` mirrors `~/.agents/skills/` → `~/.cursor/skills/` and project `.cursor/skills/` on init, `ensureAutoSetup`, `konoha skill add`, and Cursor `sessionStart` hook.
+- **Safe JSON merge**: `mcp_clients_manager.js`, `cursor_manager.js`, and `bin/cli.js` no longer reset user MCP config on parse errors.
+- **`konoha init` refresh path**: When DB already exists (without `--force`), still syncs server files and refreshes MCP integrations for all configured clients.
+- **`ensureAutoSetup` project guard**: Silent bootstrap no longer deploys `.cursor/` into arbitrary working directories (`deployProject: false`).
+- **OpenCode node path**: Uses `process.execPath` for `konoha-files` instead of hardcoded `node`.
+- **Cursor transcript ordering**: `server.py` prefers most-recent `.jsonl` when detecting Cursor subagent attribution.
+- **Deploy utils**: `copyRecursiveIfDifferent` tolerates broken symlinks without crashing.
+- **Cursor Model Fields**: `cursorModel` and `cursorFallbackModel` added to `src/templates/agents.json` for each official subagent.
+
+### Fixed
+- **`ensureAutoSetup()` never invoked**: Restored silent auto-bootstrap on every `konoha` command (was defined but never called since v1.0.9).
+- **Cursor path visibility**: `server.py` now allows `~/.cursor/` and `.cursor/skills` paths in workspace scoping checks.
+- **`konoha agent status` Antigravity attribution**: `detect_active_agent()` no longer false-positives on `VIEW_FILE` transcript lines (e.g. GEMINI.md content containing `[Genin] active`). Delegated subagents are resolved from `prompt.md` plus recent `PLANNER_RESPONSE` transcripts; stale brain folders are skipped.
+- **`tokubetsu-jonin` mis-attribution**: Subagent scan order now checks `tokubetsu-jonin` before `jonin` so word-boundary matching does not classify Tokubetsu-Jonin sessions as Jonin.
+- **Protected default subagents**: `konoha agent delete` rejects removal of official ninja agents defined in `templates/agents.json`.
+- **`agent_stats.py` counters**: Aggregates with `GROUP BY LOWER(agent)` for consistent case-insensitive totals.
+- **Cursor agent telemetry**: `detect_active_agent()` scans `~/.cursor/projects/*/agent-transcripts/` for recent `Task` subagent delegation and subagent `[Agent] active` text logs; recent Cursor sessions are preferred over stale Antigravity brain folders.
+- **Cursor vs Antigravity ranking**: Session activity ranking uses transcript mtime (not orchestrator `prompt.md` touch) so Cursor MCP calls are not masked by Antigravity prompt hooks.
+- **Removed dead `cursor_prompt_hook.js` reference** from `cursor_manager.js` (file was never shipped).
+- **`find_skill` ranking**: Results preserve BM25 order after workspace visibility filtering; LIKE fallback ranks by relevance instead of byte size; `rank` field included in responses.
+- **Antigravity real subagent delegation**: `konoha-subagent-hook` PreInvocation hook calls `define_subagent` programmatically at session start (bare names); forbids manual `define_subagent` and `TypeName: "self"` fallback; requires `invoke_subagent` with Konoha TypeNames only.
+- **`build_from_source` image-to-code**: When mockup images are detected, response sets `image_to_code_required`, `required_skills`, `skill_load_sequence`, `delegate_constraints`, absolute image paths, forbids `build_from_text`, and mandates `get_skill` + mockup `view_file` before UI coding.
+- **Jonin skill bootstrap**: Jonin instructions and orchestrator `delegate.md` rules require loading all `required_skills` via `get_skill`; image builds forbid default premium template in delegation briefs.
+- **`konoha migrate` quality**: `optimize_content()` is now lossless-safe (no list restructuring, no ingest-time injection shielding); deprecated skills purged after each migrate.
+
+### Changed
+- **`konoha init`**: Prompts for Cursor IDE/CLI configuration consent and deploys global + project Cursor configs.
+- **`konoha status` / `konoha doctor`**: Report and auto-repair Cursor integration health.
+- **`konoha uninstall`**: Removes Konoha-managed entries from `~/.cursor/`.
+- **Cursor Free default model behavior**: Cursor subagents now default to `model: inherit` (Auto session model), so Konoha works without explicit model selection on free-tier Cursor accounts.
+- **Strict Antigravity orchestrator pipeline**: Shared `buildOrchestratorWorkflow()` in `agent_manager.js` enforces `prompt.md` → analyze → `delegate.md` → Konoha subagent → `result.md` → user report. Removed `@self` / `@research` from delegation tables; `prompt_hook.js` ephemeral message now states the full pipeline.
+- **Semble as default search/grep**: New `src/search_policy.js` mandates `semble` MCP (`search`, `find_related`) instead of grep/glob/find/rg and Cursor `Grep`/`Glob`/`SemanticSearch` on both Antigravity and Cursor when Konoha is installed.
+- **Token-efficient file tools (`konoha-files` MCP)**: New Node MCP server (`file_tools_mcp.js`) with Python workers for `read_file_range`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`. Auto-registered on `konoha init` / `migrate` for Antigravity and Cursor.
+- **Claude Code & OpenCode auto-setup**: `src/mcp_clients_manager.js` — when CLI detected, merges Konoha MCP into global `~/.claude.json` and `~/.config/opencode/opencode.json` only (no project config files).
+
+### Documentation
+- Updated README, ARCHITECTURE, SETUP-IDE, SETUP-CLI, SETUP-CURSOR, TROUBLESHOOTING, and konoha SKILL for v1.1.6 multi-client support, orchestrator pipeline, semble-default search, and konoha-files MCP.
+- **Architecture diagrams**: Removed fictional "LLM Model Registry / Fallback Router" layer — Konoha does not implement multi-provider LLM routing; host IDEs own model execution.
+- **Multi-CLI guide**: New `docs/SETUP-MCP-CLIENTS.md`; **auto-install** for Claude Code and OpenCode when CLI detected (`src/mcp_clients_manager.js`). Templates are fallback only when CLI not installed.
+- **Live benchmarks**: `docs/BENCHMARK.md` refreshed with `konoha savings` metrics captured 2026-06-23.
+- **konoha-maintenance skill**: Sections 17–21 cover multi-CLI setup, workspace-local skills, path sandbox, release QA gates, and attribution fixes.
+- Fixed stale `build_with_image_design` / `konoha render` references in jonin-skill references.
+- **Full doc audit (2026-06-23)**: README benchmark metrics aligned with live `konoha savings`; SETUP-CURSOR multi-client wording; BENCHMARK QA gates for Claude/OpenCode and Cursor skills mirror; TROUBLESHOOTING cursor skills section; ADDING-SKILLS mirror step; SETUP-MCP-CLIENTS skills parity note.
+- **CLI TUI (v1.1.6)**: Gradient styling and dynamic table widths in `konoha doctor`, `konoha status`, and installer output — fixed overlapping Doctor table columns.
+- **konoha-files MCP fixes**: Cross-platform `file_tools_launcher.js`; 6 tools (`read_file_head`, `file_info`, enhanced grep); Cursor MCP uses `node` + launcher (fixes 0-tools / connection errors); `platform_utils.js` for Windows `file://` URIs, tilde paths, and `py -3` Python detection.
+- **Cross-platform QA**: Path sandbox `normcase` on Windows; `.node_exec_path` and `.python_cmd` records; `konoha test` 14/14; doctor smoke-tests konoha-files launcher.
+
+### Release QA (v1.1.6)
+- **Attribution**: `test_agent_attribution.py` 7/7, `test_cursor_attribution.py` 8/8.
+- **MCP**: `konoha test` 14/14; `konoha doctor --yes` all healthy.
+- **Security**: `konoha-files` workspace path sandbox (JS + Python).
+- **Install repair**: `deploy_utils.js`, `registerHooks(true, true)`, semble args repair, Cursor project MCP merge, `cursor_bootstrap.js` konoha-files + semble policy.
+
 ## [1.1.5] - 2026-06-23
 
 ### Added
@@ -172,7 +229,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ### Added
 - **Gemini 2.5 Flash Support**: Added `Gemini 2.5 Flash` to the official Model Registry and updated agent routing mappings.
-- **Base Skills Architecture**: Refined the default skill assignment strategy. Instead of shipping with heavy generic skills (`devsecops-engineer`, `modern-full-stack`), all 6 subagents now ship exclusively with their own highly-specialized base skills (e.g., `genin-skill`, `anbu-skill`).
+- **Base Skills Architecture**: Refined the default skill assignment strategy. Instead of shipping with heavy generic legacy skills, all 6 subagents now ship exclusively with their own highly-specialized base skills (e.g., `genin-skill`, `anbu-skill`).
 - **Day-to-Day SOPs**: Rewrote all 6 default base skills into actionable Standard Operating Procedures (SOPs) designed for junior and mid-level engineers, covering Bug Resolution Workflows, Design Match Checklists, Trade-Off Matrices, and Codebase Tracing.
 - **Direct Tool Call Routing**: Updated the core system instructions (`GEMINI.md`, `AGENTS.md`) to explicitly enforce the new delegation workflow: The Orchestrator discovers required skills via `skills-db` FIRST, routes the task to the correct agent, and then the agent uses Direct Tool Calls to load their base skill plus any dynamically required skills.
 

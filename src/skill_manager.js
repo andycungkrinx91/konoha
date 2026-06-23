@@ -3,7 +3,7 @@ const path = require('path');
 const os = require('os');
 const https = require('https');
 const { execSync, spawnSync } = require('child_process');
-const readline = require('readline');
+const deployUtils = require('./deploy_utils');
 
 function validateInputs(repoUrl, skillName) {
   const skillNameRegex = /^[a-zA-Z0-9_-]+$/;
@@ -123,6 +123,17 @@ function removeSkill(name) {
 
   console.log(`🗑️  Removing skill folder: ${target.path}`);
   fs.rmSync(target.path, { recursive: true, force: true });
+
+  const cursorPaths = [
+    path.join(HOME, '.cursor', 'skills', name),
+    path.join(currentCwd, '.cursor', 'skills', name)
+  ];
+  for (const cursorPath of cursorPaths) {
+    if (fileExists(cursorPath)) {
+      console.log(`🗑️  Removing Cursor mirror: ${cursorPath}`);
+      fs.rmSync(cursorPath, { recursive: true, force: true });
+    }
+  }
   return target.path;
 }
 
@@ -198,6 +209,8 @@ function addSkillDirect(repoUrl, skillName) {
   const run = spawnSync(runCmd, ['skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit', shell: process.platform === 'win32' });
   if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
   console.log(`\n✓ Skill "${skillName}" installed successfully!`);
+
+  deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: currentCwd, silent: false });
   
   console.log('\n🔄 Re-indexing SQLite database...');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');

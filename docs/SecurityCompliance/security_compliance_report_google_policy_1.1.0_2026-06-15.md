@@ -183,7 +183,7 @@ The testing suite was executed locally to confirm the functional integrity of th
   ⚡ Find Skill (security): OK
   ϟ   Found 3 results for "security"
   → devsecops-engineer/router (reference)
-  → modern-full-stack/router (reference)
+  → legacy-full-stack/router (reference)
   → anbu-skill/laravel-security (reference)
   ⚡ List Skills: OK
   ϟ   Total indexed: 141 entries

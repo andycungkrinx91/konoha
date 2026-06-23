@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-skills-db MCP Server (v1.1.5 — Token-Optimized)
+skills-db MCP Server (v1.1.6 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -794,14 +794,22 @@ def detect_active_agent():
         brain_dirs = [
             os.path.expanduser("~/.gemini/antigravity-ide/brain"),
             os.path.expanduser("~/.gemini/antigravity-cli/brain"),
+            os.path.expanduser("~/.cursor/projects"),
         ]
         all_files = []
         for brain_dir in brain_dirs:
             if not os.path.isdir(brain_dir):
                 continue
-            pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
-            pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
-            all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
+            
+            if "cursor" in brain_dir:
+                # Cursor paths: ~/.cursor/projects/*/agent-transcripts/*.jsonl
+                pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*.jsonl")
+                all_files.extend(glob.glob(pattern_transcript))
+            else:
+                # Antigravity paths
+                pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
+                pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
+                all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
         if not all_files:
             return None
             
@@ -813,6 +821,9 @@ def detect_active_agent():
         for fpath in all_files:
             if fpath.endswith("prompt.md"):
                 conv_dir = os.path.dirname(fpath)
+            elif "agent-transcripts" in fpath:
+                # For Cursor: .cursor/projects/<project>/agent-transcripts/xyz.jsonl
+                conv_dir = os.path.dirname(os.path.dirname(fpath))
             else:
                 conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
                 
@@ -852,9 +863,16 @@ def detect_active_agent():
                 except Exception:
                     pass
                     
-            # 2. Try transcript.jsonl
+            # 2. Try transcript.jsonl (Antigravity or Cursor)
             if not detected:
-                transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
+                # Try Cursor path first
+                cursor_transcripts = glob.glob(os.path.join(conv_dir, "agent-transcripts", "*.jsonl"))
+                if cursor_transcripts:
+                    cursor_transcripts.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                    transcript_path = cursor_transcripts[0]
+                else:
+                    transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
+                    
                 if os.path.exists(transcript_path):
                     try:
                         with open(transcript_path, "r", encoding="utf-8") as f:
@@ -941,7 +959,7 @@ def handle_request(req):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "skills-db", "version": "1.1.5"}
+                "serverInfo": {"name": "skills-db", "version": "1.1.6"}
             }
         }
 

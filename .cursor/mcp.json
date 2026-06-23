@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "skills-db": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "${userHome}/.gemini/skills-db/server.py"
+      ]
+    },
+    "semble": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "semble[mcp]@latest",
+        "semble",
+        "--content",
+        "all"
+      ]
+    },
+    "konoha-files": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${userHome}/.gemini/skills-db/file_tools_launcher.js"
+      ]
+    }
+  }
+}

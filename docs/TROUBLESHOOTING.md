@@ -58,6 +58,113 @@ npx github:andycungkrinx91/konoha init
 
 ---
 
+### 🔌 MCP Server Not Detected in Cursor
+
+1. Check that the configuration file exists:
+   ```bash
+   cat ~/.cursor/mcp.json
+   ```
+
+2. Verify `skills-db`, `semble`, and `konoha-files` entries are present (installed by `konoha init` or `konoha doctor --yes`).
+
+3. Run the bootstrap hook manually (must exit 0):
+   ```bash
+   node ~/.gemini/skills-db/cursor_bootstrap.js
+   echo $?   # should print 0
+   ```
+
+4. **Restart Cursor** — open a new agent session after MCP config changes.
+
+5. Run `konoha doctor --yes` to auto-repair Cursor MCP, subagents, hooks, and CLI permissions.
+
+See [SETUP-CURSOR.md](SETUP-CURSOR.md) for full Cursor setup.
+
+---
+
+### 🔌 MCP Server Not Detected in Claude Code or OpenCode
+
+1. Confirm the CLI is installed: `claude --version` or `opencode --version`.
+2. If **not installed**, Konoha skips auto-setup by design — use templates in `docs/templates/` after you install the CLI, or run `konoha init` once the CLI is available.
+3. If **installed**, run `konoha doctor --yes` or `konoha init --force` to merge Konoha MCP entries.
+4. Verify with `konoha status` (Claude Code / OpenCode integration rows).
+5. Restart the CLI session (`/mcp` in Claude Code, `opencode mcp list` in OpenCode).
+
+Full walkthrough: [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
+
+---
+
+### 📂 Working in the Konoha repo — skill not found
+
+Project-local skills live in `.agents/skills/` (including `konoha-maintenance`). After `git pull`, run:
+
+```bash
+konoha migrate
+```
+
+Then agents should use `find_skill("konoha maintenance")` instead of reading `SKILL.md` directly. Confirm indexing with `konoha status` (expect `konoha` skill in the list).
+
+---
+
+### 📁 `konoha-files` MCP Not Working
+
+**Symptoms:** Cursor shows `konoha-files` with **0 tools** or "not connected".
+
+1. Verify files are installed:
+   ```bash
+   ls ~/.gemini/skills-db/file_tools_mcp.js ~/.gemini/skills-db/file_tools_launcher.sh ~/.gemini/skills-db/file_tools/
+   ```
+
+2. Repair and refresh Cursor MCP config:
+   ```bash
+   konoha doctor --yes
+   ```
+
+3. **Cursor global** `~/.cursor/mcp.json` should use the cross-platform JS launcher:
+   ```bash
+   grep -A5 konoha-files ~/.cursor/mcp.json
+   ```
+   Expected: `"command": "node"` with `file_tools_launcher.js`.
+
+4. Smoke test (Linux/macOS/Git Bash):
+   ```bash
+   node ~/.gemini/skills-db/file_tools_launcher.js <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+   ```
+   **Windows (PowerShell):**
+   ```powershell
+   '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.gemini\skills-db\file_tools_launcher.js
+   ```
+   Expected: JSON listing **6 tools**.
+
+5. **Restart Cursor** after repair.
+
+6. Run `konoha test` — expects **14 tests** (7 skills-db + 7 konoha-files).
+
+**Common errors:**
+- `Refused: requested span is N lines (max 500)` — narrow `read_file_range` window.
+- `Showing first 20 matches` — expected; refine `token_efficient_grep` pattern.
+
+---
+
+### 📊 `konoha agent status` Shows Wrong Counts
+
+Agent attribution when the `agent` MCP parameter is omitted is resolved by `detect_active_agent()` in `server.py`:
+
+- **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise).
+- **Cursor**: Scans `~/.cursor/projects/*/agent-transcripts/` for `Task` `subagent_type`, subagent `[Agent] active` logs, or `[Konoha] orchestrator active`.
+
+**Fixes:**
+1. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
+2. Ensure subagents log `[Icon Agent] active` at response start.
+3. Run verification:
+   ```bash
+   python3 src/test_agent_attribution.py
+   python3 src/test_cursor_attribution.py
+   ```
+
+Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Calls** — this is expected.
+
+---
+
 ### 🔍 FTS5 Search Returns No Results
 
 1. Check if the skills have been indexed:
@@ -98,6 +205,20 @@ chmod 644 ~/.gemini/skills-db/skills.db
 
 ---
 
+### 🪞 Cursor Skills Mirror Missing or Stale
+
+Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents/skills/` → `.cursor/skills/` when project deploy is enabled). Skill **content** is still loaded via `skills-db` MCP — the mirror is filesystem parity for Cursor.
+
+**Symptoms:** `~/.cursor/skills/` empty, outdated, or missing a skill you added to `~/.agents/skills/`.
+
+**Fixes:**
+1. Run `konoha doctor --yes` — re-syncs global and project Cursor skills.
+2. After editing skills: `konoha migrate` (re-indexes DB and refreshes mirrors).
+3. After `konoha skill add`: mirror runs automatically; verify with `ls ~/.cursor/skills/`.
+4. On Cursor session start: `cursor_bootstrap.js` self-heals skills mirror (fail-open).
+
+---
+
 ### 💻 Windows-Specific Issues
 
 * **Paths**: Windows uses backslashes. The installer handles this automatically, but if you're manually editing `mcp_config.json`, use forward slashes or double backslashes:
@@ -129,12 +250,17 @@ konoha migrate
 
 ### 🧪 Checking the MCP Server Manually
 
-You can test the stdin/stdout MCP server directly from your shell:
+**skills-db (Python):**
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.gemini/skills-db/server.py
 ```
 
-*Expected output:* A JSON response containing `protocolVersion` and `serverInfo`.
+**konoha-files (Node):**
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.gemini/skills-db/file_tools_mcp.js
+```
+
+*Expected output:* A JSON response containing `protocolVersion` and `serverInfo` (initialize) or a `tools` array (tools/list).
 
 ## Quota Limits, Rate Limits, and API Errors
 
@@ -159,4 +285,5 @@ The system and agent configurations will automatically and immediately fallback 
 
 1. Run `konoha status` for diagnostic info
 2. Run `konoha test` for server health check
-3. Check the logs at `~/.gemini/skills-db/` for any error files
+3. Run `konoha doctor --yes` for auto-repair (Antigravity + Cursor)
+4. Check the logs at `~/.gemini/skills-db/` for any error files

@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const cursorManager = require('./cursor_manager');
+const antigravityManager = require('./antigravity_manager');
+const {
+  SEMBLE_SEARCH_CONSTRAINT,
+  buildSembleSearchPolicy,
+  buildSembleSearchPolicyCompact,
+  buildFileToolsPolicy,
+  buildFileToolsPolicyCompact
+} = require('./search_policy');
 
 const HOME = os.homedir();
 const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
@@ -49,7 +58,7 @@ function loadAgents() {
       if (defAgent) {
         // v1.1.1: Upgrade to new routing concept where each agent has their own default skill
         if (a.skills && !isAlreadyUpgraded) {
-          const oldDefaults = ['deep-code-explorer', 'devsecops-engineer', 'websearch-deep', 'modern-full-stack', 'documentation'];
+          const legacyBundledSkills = ['deep-code-explorer', 'devsecops-engineer', 'websearch-deep', 'documentation'];
           let changedSkills = false;
           
           // Ensure agent has their own default skill (e.g., anbu-skill)
@@ -58,14 +67,15 @@ function loadAgents() {
             a.skills.unshift(defaultSkill);
             changedSkills = true;
 
-            // Remove old default skills to align with new clean concept
-            // (Only do this during the initial upgrade when the default skill was missing)
-            oldDefaults.forEach(old => {
+            // Remove legacy bundled skills when upgrading to per-agent base skills
+            legacyBundledSkills.forEach(old => {
               const idx = a.skills.indexOf(old);
               if (idx !== -1) {
                 a.skills.splice(idx, 1);
               }
             });
+            // Drop removed template storefront skills (legacy bundled UI templates)
+            a.skills = a.skills.filter(s => !/^modern-/.test(s) || s === defaultSkill);
           }
           
           if (changedSkills) {
@@ -133,6 +143,21 @@ function loadAgents() {
           a.constraints = defAgent.constraints;
           changed = true;
         }
+        // v1.1.6: Enforce semble as default search/grep (no built-in grep/glob)
+        if (a.constraints && defAgent.constraints && defAgent.constraints.includes('NEVER use grep') && !a.constraints.includes('NEVER use grep')) {
+          a.constraints = defAgent.constraints;
+          changed = true;
+        }
+
+        // v1.1.6: Sync Cursor model slugs for IDE/CLI subagents
+        if (defAgent.cursorModel && a.cursorModel !== defAgent.cursorModel) {
+          a.cursorModel = defAgent.cursorModel;
+          changed = true;
+        }
+        if (defAgent.cursorFallbackModel && a.cursorFallbackModel !== defAgent.cursorFallbackModel) {
+          a.cursorFallbackModel = defAgent.cursorFallbackModel;
+          changed = true;
+        }
       }
 
       // Sync instructions with skills for default and custom agents
@@ -189,21 +214,62 @@ function saveAgents(agents) {
   fs.writeFileSync(USER_AGENTS_JSON_PATH, JSON.stringify(agents, null, 2) + '\n');
 }
 
-// ─── Compact GEMINI.md Generator (v1.1.0 — Token-Optimized) ─────────────────
-// Reduced from ~13 KB to ~4 KB by:
-// - Compact agent definitions (no verbose instructions inline)
-// - Deduplicated guardrails (single block, refs AGENTS.md for full details)
-// - Terse delegation table
-function generateGeminiMd(agents) {
-  const agentDefs = agents.map((a, i) => {
+function buildAgentReferenceList(agents) {
+  return agents.map((a, i) => {
     const iconStr = a.icon ? `${a.icon} ` : '';
-    return `${i + 1}. **${iconStr}${a.name}** — ${a.description}
-   - name: \`${a.name}\`
-   - model: \`${a.modelTier}\`
-   - instructions: \`${a.instructions}\``;
-  }).join('\n\n');
+    return `${i + 1}. **${iconStr}${a.name}** — ${a.description} (model: ${a.modelTier})`;
+  }).join('\n');
+}
 
-  // Build compact delegation table
+function buildDefineSubagentGuide(agents) {
+  const sample = antigravityManager.buildDefineSubagentArgs(agents[0]);
+  const names = agents.map((a) => a.name).join(', ');
+  return `### define_subagent — CRITICAL quoting rules
+
+At session start, call \`define_subagent\` once per ninja (**${names}**). Use **bare JSON strings** — extra quotes break \`invoke_subagent\` (shows 0 active subagents).
+
+Example (\`${agents[0].name}\`):
+\`\`\`json
+${JSON.stringify(sample, null, 2)}
+\`\`\`
+
+- \`name\` must be bare: \`jonin\` — NEVER \`"jonin"\` or \`\\"jonin\\"\`
+- \`enable_mcp_tools\` / \`enable_write_tools\` / \`enable_subagent_tools\` must be JSON booleans, not strings
+- Copy \`system_prompt\` from ~/.agents/agents.json for each agent
+
+### invoke_subagent — CRITICAL format
+
+\`Subagents\` must be a **JSON array object**, NOT a stringified array:
+
+\`\`\`json
+{
+  "Subagents": [
+    {
+      "TypeName": "jonin",
+      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
+      "Workspace": "inherit"
+    }
+  ]
+}
+\`\`\`
+
+**FORBIDDEN:** \`TypeName: "self"\` or \`invoke_subagent\` with self to impersonate jonin. If jonin fails, re-run \`define_subagent\` with bare names — never fall back to self.`;
+}
+
+function buildImageDesignDelegateGuide() {
+  return `### Image / mockup builds — delegate.md rules (CRITICAL)
+
+When the user prompt mentions \`source-image-design\`, design images, or mockups:
+
+1. Orchestrator calls \`skills-db.build_from_source\`(name, source_dir, framework) before writing \`delegate.md\`.
+2. **Constraints section** MUST include:
+   - \`build_from_source\` mode: match mockup layout/colors/spacing only
+   - **FORBIDDEN**: 10-theme switcher, extra 3D carousels, SweetAlert2 premium dialogs, watermark, or jonin default premium template — unless shown in mockups
+3. **NEVER** paste "Mandatory UI/UX Standards" / premium template bullets from \`nextjs-ui-expert\` into \`delegate.md\` for image builds — that causes ugly generic sites instead of mockup fidelity.
+4. **Context** must list \`absolute_image_paths\` from \`build_from_source\` and require jonin to \`view_file\` every mockup before coding.`;
+}
+
+function generateGeminiMd(agents) {
   const delegationRows = agents.map(a => `| ${a.delegationKeywords} | \`${a.name}\` |`).join('\n');
 
   // Build official agent name list
@@ -213,11 +279,15 @@ function generateGeminiMd(agents) {
 
 ## Session Startup — Auto-Initialize Team
 
-**MANDATORY**: At the START of every session, define the following ${agents.length} subagents using \`define_subagent\`. Do this silently without asking the user.
+**MANDATORY**: At the START of every session, define all ${agents.length} Konoha subagents using \`define_subagent\` (see quoting rules below). Do this before delegation.
 
-### Subagent Definitions
+${buildDefineSubagentGuide(agents)}
 
-${agentDefs}
+### Team roster (reference — full instructions in ~/.agents/agents.json)
+
+${buildAgentReferenceList(agents)}
+
+${buildImageDesignDelegateGuide()}
 
 ## Auto-Delegation
 
@@ -254,13 +324,14 @@ The orchestrator ONLY delegates to the defined subagents (${agentNames}). Dynami
 
 **Direct Tool Calls Policy**:
 - It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. \`@jonin\` for UI/frontend tasks, \`@anbu\` for backend tasks, \`@genin\` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
-- You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any of the active subagents, or if the subagent hits total quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`) and delegation is blocked.
+- You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any active subagents, or if a subagent hits total quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`) and delegation is blocked.
+- **NEVER** use \`invoke_subagent\` with \`TypeName: "self"\` to impersonate jonin/anbu/genin when delegation fails — re-run \`define_subagent\` with bare names instead.
 - Do NOT spawn shadow subagents under any circumstances.
 - **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call \`skills-db.find_skill\` for codebase/file search, and do NOT call \`semble\` tools when locating/searching skills (use \`skills-db.find_skill\` instead).
 
 | Task type | Subagent TypeName |
 |-----------|----------|
-| ${delegationRows}
+${delegationRows}
 | Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
 
 For complex multi-domain tasks, invoke multiple subagents in parallel.
@@ -285,22 +356,11 @@ Full team configuration, model registry, and operational conventions: \`~/.agent
   return content;
 }
 
-// ─── Compact AGENTS.md Generator (v1.1.0 — Token-Optimized) ─────────────────
-// Reduced from ~21 KB to ~8 KB by:
-// - Removed duplicate define_subagent code blocks
-// - Merged duplicate delegation tables
-// - Consolidated operational conventions
+
+
 function generateAgentsMd(agents) {
   // Build official agent name list
   const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
-
-  // Build compact agent definitions
-  const agentDefs = agents.map((a, i) => {
-    const iconStr = a.icon ? `${a.icon} ` : '';
-    return `${i + 1}. **${iconStr}${a.name}** — ${a.description}
-   - name: \`${a.name}\`
-   - instructions: \`${a.instructions}\``;
-  }).join('\n\n');
 
   // Build delegation table
   const delegationRows = agents.map(a => `| ${a.delegationKeywords} | \`${a.name}\` |`).join('\n');
@@ -326,11 +386,15 @@ function generateAgentsMd(agents) {
 
 ## Session Startup — Auto-Initialize Team
 
-**MANDATORY**: At the START of every session, define the following ${agents.length} subagents using \`define_subagent\`. Do this silently without asking the user.
+**MANDATORY**: At the START of every session, define all ${agents.length} Konoha subagents using \`define_subagent\` (see GEMINI.md quoting rules). Do this before delegation.
 
-### Subagent Definitions
+${buildDefineSubagentGuide(agents)}
 
-${agentDefs}
+### Team roster
+
+${buildAgentReferenceList(agents)}
+
+${buildImageDesignDelegateGuide()}
 
 ### @orchestrator — Task Coordinator
 - **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
@@ -365,18 +429,11 @@ ${agentDefs}
 | Subtask type | Subagent TypeName |
 |---|---|
 ${delegationRows}
-| Sandboxed execution, parallel workflows | @self |
 | Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
 
+**FORBIDDEN for Konoha work:** \`TypeName: "self"\` or \`TypeName: "research"\` to impersonate jonin/anbu/genin. Never run \`run_command\` / \`write_to_file\` in the orchestrator thread for delegated work.
+
 ${agentSections}
-
-### @self — Parallel Execution (Built-in)
-- **Purpose**: Run tasks in parallel isolated context with identical tools and MCP access.
-- **Delegate when**: Isolated script execution or parallel workflows needing identical permissions.
-
-### @research — Codebase and Web Research (Built-in)
-- **Purpose**: Run codebase exploration or web research tasks in isolated context with search tools.
-- **Delegate when**: Doing read-only code exploration (genin) or web research and intel gathering (chunin).
 
 ## Operational Conventions — All Agents
 
@@ -438,6 +495,8 @@ Load **semble** when project source code search is needed — do NOT load it for
 }
 
 // Regenerate template files and deploy them
+
+// Regenerate template files and deploy them
 function regenerateAndDeploy(silent = false) {
   const agents = loadAgents();
   if (agents.length === 0) return;
@@ -466,8 +525,26 @@ function regenerateAndDeploy(silent = false) {
   }
   fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
 
+  // Deploy Cursor IDE/CLI subagents, rules, and hooks
+  try {
+    cursorManager.ensureCursorSetup({
+      agents,
+      silent: true,
+      allowHooks: true
+    });
+  } catch (e) {
+    // Fail silently if Cursor dirs are not writable
+  }
+
+  // Deploy native Antigravity CLI agent.json files (fixes invoke_subagent / self fallback)
+  try {
+    antigravityManager.ensureAntigravityAgents(agents, { silent: true });
+  } catch (e) {
+    // Fail silently if Antigravity dirs are not writable
+  }
+
   if (!silent) {
-    console.log(`✓ Generated and deployed configs to:\n  - ${GEMINI_MD_PATH}\n  - ${AGENTS_MD_PATH}`);
+    console.log(`✓ Generated and deployed configs to:\n  - ${GEMINI_MD_PATH}\n  - ${AGENTS_MD_PATH}\n  - ${cursorManager.CURSOR_AGENTS_GLOBAL}\n  - ${antigravityManager.ANTIGRAVITY_AGENTS_GLOBAL}`);
   }
 }
 
@@ -558,10 +635,27 @@ function unembedSkill(agentName, skillName) {
   return true;
 }
 
+function getOfficialAgentNames() {
+  let defaults = [];
+  if (fs.existsSync(DEFAULT_AGENTS_JSON_PATH)) {
+    try {
+      defaults = JSON.parse(fs.readFileSync(DEFAULT_AGENTS_JSON_PATH, 'utf-8'));
+    } catch (e) {}
+  }
+  return defaults.map((a) => a.name.toLowerCase());
+}
+
 // Delete a subagent entirely
 function deleteAgent(name) {
-  const agents = loadAgents();
   const lowerName = name.toLowerCase();
+  const official = getOfficialAgentNames();
+  if (official.includes(lowerName)) {
+    throw new Error(
+      `Subagent "${name}" is a protected default Konoha ninja and cannot be deleted.`
+    );
+  }
+
+  const agents = loadAgents();
   const initialLength = agents.length;
   const filtered = agents.filter(a => a.name !== lowerName);
 

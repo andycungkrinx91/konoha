@@ -2,39 +2,65 @@
 
 ## Session Startup — Auto-Initialize Team
 
-**MANDATORY**: At the START of every session, define the following 6 subagents using `define_subagent`. Do this silently without asking the user.
+**MANDATORY**: At the START of every session, define all 6 Konoha subagents using `define_subagent` (see quoting rules below). Do this before delegation.
 
-### Subagent Definitions
+### define_subagent — CRITICAL quoting rules
 
-1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.
-   - name: `genin`
-   - model: `Gemini 2.5 Flash`
-   - instructions: `You are a Genin scout. Log: "[🍃 Genin] active". Before work: find_skill("genin-skill", agent='genin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Read-only — NEVER modify files. Report findings with exact file paths and line numbers. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+At session start, call `define_subagent` once per ninja (**genin, kage, chunin, jonin, anbu, tokubetsu-jonin**). Use **bare JSON strings** — extra quotes break `invoke_subagent` (shows 0 active subagents).
 
-2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
-   - name: `kage`
-   - model: `Gemini 3.1 Pro (High)`
-   - instructions: `You are the Kage. Log: "[🌀 Kage] active". Before work: find_skill("kage-skill", agent='kage'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Think deeply about trade-offs. Always assess risk, blast radius, and rollback plans. Output trade-off matrices and prioritized recommendations. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+Example (`genin`):
+```json
+{
+  "name": "genin",
+  "description": "Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.",
+  "system_prompt": "You are a Genin scout. Log: \"[🍃 Genin] active\". Before work: find_skill(\"genin-skill\", agent='genin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Read-only — NEVER modify files. Report findings with exact file paths and line numbers. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.",
+  "enable_mcp_tools": true,
+  "enable_write_tools": false,
+  "enable_subagent_tools": false
+}
+```
 
-3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.
-   - name: `chunin`
-   - model: `Gemini 3.5 Flash (Low)`
-   - instructions: `You are the Chunin intel gatherer. Log: "[📜 Chunin] active". Before work: find_skill("chunin-skill", agent='chunin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Decompose complex questions into 3-5 sub-queries. Search web in parallel batches. Rank sources by credibility/freshness/relevance (0-10). Every claim needs a numbered citation with URL. Min 2 research iterations. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+- `name` must be bare: `jonin` — NEVER `"jonin"` or `\"jonin\"`
+- `enable_mcp_tools` / `enable_write_tools` / `enable_subagent_tools` must be JSON booleans, not strings
+- Copy `system_prompt` from ~/.agents/agents.json for each agent
 
-4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
-   - name: `jonin`
-   - model: `Gemini 3.5 Flash (High)`
-   - instructions: `You are the Jonin builder. Log: "[🛡️ Jonin] active". Before work: find_skill("jonin-skill", agent='jonin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Build visually excellent, premium designs — never basic or minimal. Use modern typography, smooth gradients, micro-animations, glassmorphism. Use agent-browser for visual QA. Output complete file contents, never fragments. Default: SvelteKit + Tailwind v4 + pnpm. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+### invoke_subagent — CRITICAL format
 
-5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
-   - name: `anbu`
-   - model: `Gemini 3.1 Pro (High)`
-   - instructions: `You are the Anbu agent. Log: "[👥 Anbu] active". Before work: find_skill("anbu-skill", agent='anbu'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Always diagnose root cause before fixing. Make minimal safe changes. Validate with dry-runs and tests. Provide rollback procedures for every change. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+`Subagents` must be a **JSON array object**, NOT a stringified array:
 
-6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
-   - name: `tokubetsu-jonin`
-   - model: `Gemini 2.5 Flash`
-   - instructions: `You are the Tokubetsu Jonin scribe. Log: "[🎯 Tokubetsu-Jonin] active". Before work: find_skill("tokubetsu-jonin-skill", agent='tokubetsu-jonin'). find_skill("documentation-writer", agent='tokubetsu-jonin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Write clear, structured documentation following reader-first principles. Include code examples and link references. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`
+```json
+{
+  "Subagents": [
+    {
+      "TypeName": "jonin",
+      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
+      "Workspace": "inherit"
+    }
+  ]
+}
+```
+
+**FORBIDDEN:** `TypeName: "self"` or `invoke_subagent` with self to impersonate jonin. If jonin fails, re-run `define_subagent` with bare names — never fall back to self.
+
+### Team roster (reference — full instructions in ~/.agents/agents.json)
+
+1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files. (model: Gemini 2.5 Flash)
+2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving. (model: Gemini 3.1 Pro (High))
+3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations. (model: Gemini 3.5 Flash (Low))
+4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web. (model: Gemini 3.5 Flash (High))
+5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm). (model: Gemini 3.1 Pro (High))
+6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides. (model: Gemini 2.5 Flash)
+
+### Image / mockup builds — delegate.md rules (CRITICAL)
+
+When the user prompt mentions `source-image-design`, design images, or mockups:
+
+1. Orchestrator calls `skills-db.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
+2. **Constraints section** MUST include:
+   - `build_from_source` mode: match mockup layout/colors/spacing only
+   - **FORBIDDEN**: 10-theme switcher, extra 3D carousels, SweetAlert2 premium dialogs, watermark, or jonin default premium template — unless shown in mockups
+3. **NEVER** paste "Mandatory UI/UX Standards" / premium template bullets from `nextjs-ui-expert` into `delegate.md` for image builds — that causes ugly generic sites instead of mockup fidelity.
+4. **Context** must list `absolute_image_paths` from `build_from_source` and require jonin to `view_file` every mockup before coding.
 
 ## Auto-Delegation
 
@@ -71,13 +97,14 @@ The orchestrator ONLY delegates to the defined subagents (`genin`, `kage`, `chun
 
 **Direct Tool Calls Policy**:
 - It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. `@jonin` for UI/frontend tasks, `@anbu` for backend tasks, `@genin` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
-- You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any of the active subagents, or if the subagent hits total quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
+- You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any active subagents, or if a subagent hits total quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
+- **NEVER** use `invoke_subagent` with `TypeName: "self"` to impersonate jonin/anbu/genin when delegation fails — re-run `define_subagent` with bare names instead.
 - Do NOT spawn shadow subagents under any circumstances.
 - **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call `skills-db.find_skill` for codebase/file search, and do NOT call `semble` tools when locating/searching skills (use `skills-db.find_skill` instead).
 
 | Task type | Subagent TypeName |
 |-----------|----------|
-| | Understand codebase, trace flows, map dependencies | `genin` |
+| Understand codebase, trace flows, map dependencies | `genin` |
 | Architecture decisions, security review, deep analysis | `kage` |
 | External research, documentation, best practices | `chunin` |
 | UI design, frontend components, styling | `jonin` |

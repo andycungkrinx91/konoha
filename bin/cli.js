@@ -3,7 +3,7 @@
 /**
  * konoha CLI
  * 
- * SQLite FTS5 Skills-DB installer for Antigravity IDE/CLI.
+ * SQLite FTS5 Skills-DB installer for Antigravity IDE/CLI and Cursor IDE/CLI.
  * Migrates agent skills into a searchable MCP server to reduce token usage.
  *
  * Usage:
@@ -25,6 +25,9 @@ const https = require('https');
 
 const agentManager = require('../src/agent_manager');
 const skillManager = require('../src/skill_manager');
+const cursorManager = require('../src/cursor_manager');
+const mcpClientsManager = require('../src/mcp_clients_manager');
+const deployUtils = require('../src/deploy_utils');
 const { runSplashScreen } = require('../src/splash');
 
 
@@ -38,6 +41,10 @@ const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
 const DB_PATH = path.join(SKILLS_DB_DIR, 'skills.db');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.py');
+const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
+const FILE_TOOLS_ROUTER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_router.js');
+const FILE_TOOLS_LAUNCHER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_launcher.sh');
+const FILE_TOOLS_PY_DIR = path.join(SKILLS_DB_DIR, 'file_tools');
 const SETTINGS_PATH = path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json');
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
@@ -194,6 +201,63 @@ function padStartVisual(str, targetLen, padChar = ' ') {
   return padChar.repeat(targetLen - visualLen) + str;
 }
 
+function stripAnsi(str) {
+  return String(str || '').replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+function computeTableWidths(headers, rows, options = {}) {
+  const { minWidths = [], maxWidths = [] } = options;
+  return headers.map((header, colIdx) => {
+    let max = getVisualLength(stripAnsi(header));
+    rows.forEach((row) => {
+      const cell = row[colIdx] != null ? row[colIdx] : '';
+      max = Math.max(max, getVisualLength(stripAnsi(cell)));
+    });
+    if (minWidths[colIdx] != null) max = Math.max(max, minWidths[colIdx]);
+    if (maxWidths[colIdx] != null) max = Math.min(max, maxWidths[colIdx]);
+    return max;
+  });
+}
+
+function getStatusTheme(status) {
+  const s = stripAnsi(status).trim();
+  if (s === 'HEALTHY' || s === 'ACTIVE' || s === 'EXISTS') {
+    return [[52, 211, 153], [34, 197, 94]];
+  }
+  if (s === 'REPAIRED') {
+    return [[0, 255, 255], [56, 189, 248]];
+  }
+  if (s === 'WARNING' || s === 'INACTIVE' || s === 'MISSING') {
+    return [[251, 191, 36], [249, 115, 22]];
+  }
+  return [[248, 113, 113], [239, 68, 68]];
+}
+
+function gradientStatusCell(paddedPlain) {
+  const trimmed = paddedPlain.trim();
+  if (!trimmed) return paddedPlain;
+  const start = paddedPlain.indexOf(trimmed);
+  const prefix = paddedPlain.slice(0, start);
+  const suffix = paddedPlain.slice(start + trimmed.length);
+  return prefix + applyGradient(trimmed, getStatusTheme(trimmed)) + suffix;
+}
+
+function sectionTitle(text, theme = NINJA_THEME) {
+  log(`\n  ${C.bold}${applyGradient(text, theme)}${C.reset}`);
+}
+
+function drawIntegrationRow(label, active, detail, theme = LEAF_THEME) {
+  const labelWidth = 30;
+  const statusWidth = 10;
+  const statusText = active ? 'ACTIVE' : 'INACTIVE';
+  const labelCol = applyGradient(padEndVisual(label, labelWidth), theme, 0.92);
+  const statusCol = gradientStatusCell(padEndVisual(statusText, statusWidth));
+  const bullet = applyGradient(active ? '•' : '•', active ? LEAF_THEME : FIRE_THEME);
+  const detailText = truncateVisual(detail, 58);
+  const pipe = applyGradientToBorders('│', CHIDORI_THEME);
+  log(`    ${bullet} ${labelCol} [ ${statusCol} ] ${pipe} ${applyGradient(detailText, CHIDORI_THEME, 0.75)}`);
+}
+
 /**
  * Draws a professional CLI table.
  * @param {Array<string>} headers - Column headers.
@@ -202,7 +266,8 @@ function padStartVisual(str, targetLen, padChar = ' ') {
  * @param {Array<Array<any>>} rows - Data rows.
  * @param {Array<Array<string>>} rowColors - Optional text colors for each row column.
  */
-function drawTable(headers, widths, aligns, rows, rowColors = [], theme = LEAF_THEME) {
+function drawTable(headers, widths, aligns, rows, rowColors = [], theme = LEAF_THEME, options = {}) {
+  const { columnFormatters = [] } = options;
   const lineTopRaw = `┌${widths.map(w => '─'.repeat(w + 2)).join('┬')}┐`;
   const lineMidRaw = `├${widths.map(w => '─'.repeat(w + 2)).join('┼')}┤`;
   const lineBotRaw = `└${widths.map(w => '─'.repeat(w + 2)).join('┴')}┘`;
@@ -211,21 +276,24 @@ function drawTable(headers, widths, aligns, rows, rowColors = [], theme = LEAF_T
   const lineMid = '    ' + applyGradientToBorders(lineMidRaw, theme);
   const lineBot = '    ' + applyGradientToBorders(lineBotRaw, theme);
 
-  function formatRow(cols, colors) {
+  function formatRow(cols, colors, isHeader = false) {
     const formatted = cols.map((col, idx) => {
       const width = widths[idx];
       const align = aligns[idx];
+      const plain = truncateVisual(stripAnsi(String(col)), width);
+      const padded = align === 'right'
+        ? padStartVisual(plain, width)
+        : padEndVisual(plain, width);
+
+      if (isHeader) {
+        return applyGradient(padded, theme);
+      }
+      if (columnFormatters[idx]) {
+        return columnFormatters[idx](padded);
+      }
       const color = colors ? colors[idx] : '';
-      
-      let text = String(col);
-      text = truncateVisual(text, width);
-      
-      let padded = align === 'right'
-        ? padStartVisual(text, width)
-        : padEndVisual(text, width);
-        
       if (color) {
-        padded = `${color}${padded}${C.reset}`;
+        return `${color}${padded}${C.reset}`;
       }
       return padded;
     });
@@ -234,7 +302,7 @@ function drawTable(headers, widths, aligns, rows, rowColors = [], theme = LEAF_T
   }
 
   log(lineTop);
-  log(formatRow(headers, headers.map(() => C.bold)));
+  log(formatRow(headers, [], true));
   log(lineMid);
   rows.forEach((row, rowIdx) => {
     const colors = rowColors[rowIdx] || [];
@@ -293,7 +361,7 @@ function startAgentTui(agents) {
           return [C.dim, C.cyan, C.reset, C.green, C.dim];
         });
         
-        drawTable(headers, widths, aligns, rows, rowColors);
+        drawTable(headers, widths, aligns, rows, rowColors, NINJA_THEME);
         log('');
       } else {
         // Detail View
@@ -431,10 +499,10 @@ function startAgentTui(agents) {
 }
 
 
-function info(msg) { log(`  \x1b[38;2;0;200;255mϟ\x1b[0m ${msg}`); }
-function success(msg) { log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${msg}`); }
-function warn(msg) { log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${msg}`); }
-function error(msg) { log(`  ${C.red}✗${C.reset} ${msg}`); }
+function info(msg) { log(`  \x1b[38;2;0;200;255mϟ\x1b[0m ${applyGradient(msg, CHIDORI_THEME, 0.95)}`); }
+function success(msg) { log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${applyGradient(msg, LEAF_THEME)}`); }
+function warn(msg) { log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${applyGradient(msg, FIRE_THEME, 0.95)}`); }
+function error(msg) { log(`  ${applyGradient('✗', [[239, 68, 68], [185, 28, 28]])} ${applyGradient(msg, [[248, 113, 113], [239, 68, 68]])}`); }
 
 let rlInstance = null;
 function askQuestion(query) {
@@ -593,6 +661,9 @@ function getThemeForHeader(msg) {
   }
   if (msg.includes('Uninstall') || msg.includes('Failed') || msg.includes('Error')) {
     return [[239, 68, 68], [185, 28, 28]];
+  }
+  if (msg.includes('Doctor') || msg.includes('Diagnostics')) {
+    return CHIDORI_THEME;
   }
   if (msg.includes('Complete') || msg.includes('Success') || msg.includes('Status') || msg.includes('Installer')) {
     return LEAF_THEME;
@@ -836,7 +907,7 @@ function drawLogo(animated = false) {
 function drawBox(title, lines, theme = LEAF_THEME) {
   const width = Math.max(title.length + 4, ...lines.map(l => l.replace(/\x1b\[[0-9;]*m/g, '').length)) + 4;
   
-  const titlePart = ` ${C.bold}${title} `;
+  const titlePart = ` ${C.bold}${applyGradient(title, theme)} `;
   const borderLength = width - titlePart.replace(/\x1b\[[0-9;]*m/g, '').length - 2;
   const leftBorder = Box.h.repeat(Math.floor(borderLength / 2));
   const rightBorder = Box.h.repeat(Math.ceil(borderLength / 2));
@@ -873,16 +944,7 @@ function copyFile(src, dest) {
 }
 
 function checkPython() {
-  const cmds = ['python3', 'python'];
-  for (const cmd of cmds) {
-    try {
-      const version = execSync(`${cmd} --version 2>&1`, { encoding: 'utf-8' }).trim();
-      if (version.includes('Python 3')) {
-        return cmd;
-      }
-    } catch {}
-  }
-  return null;
+  return require('../src/platform_utils').detectPython();
 }
 
 function detectSkillsDirs() {
@@ -951,15 +1013,37 @@ async function cmdInit(args) {
 
   const allowAutoApprove = isNonInteractive ? true : await confirm({ message: 'Allow for skills-db and semble for auto approve in ~/.gemini/config/mcp_config.json?', default: true });
   const allowHooks = isNonInteractive ? true : await confirm({ message: 'Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', default: true });
+  const allowCursor = isNonInteractive ? true : await confirm({ message: 'Configure Konoha for Cursor IDE and Cursor CLI (~/.cursor/mcp.json, subagents, hooks)?', default: true });
 
-
+  const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
+  const opencodeInstalled = mcpClientsManager.isOpenCodeInstalled();
+  let allowClaudeCode = false;
+  let allowOpenCode = false;
+  if (claudeInstalled) {
+    allowClaudeCode = isNonInteractive
+      ? true
+      : await confirm({
+          message: 'Configure Konoha for Claude Code (~/.claude.json)?',
+          default: true
+        });
+  }
+  if (opencodeInstalled) {
+    allowOpenCode = isNonInteractive
+      ? true
+      : await confirm({
+          message: 'Configure Konoha for OpenCode (~/.config/opencode/opencode.json)?',
+          default: true
+        });
+  }
   // 1. Ensure the directories exist
   const dirs = [
     path.join(HOME, '.gemini'),
     path.join(HOME, '.agents'),
     path.join(HOME, '.gemini', 'skills-db'),
     path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config')
+    path.join(HOME, '.gemini', 'config'),
+    path.join(HOME, '.cursor'),
+    path.join(HOME, '.cursor', 'agents')
   ];
   dirs.forEach(d => {
     if (!fileExists(d)) {
@@ -988,6 +1072,47 @@ async function cmdInit(args) {
 
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
+      info('Refreshing MCP integrations...');
+      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'cursor_bootstrap.js'];
+      refreshFiles.forEach(f => {
+        const src = path.join(SRC_DIR, f);
+        const dest = path.join(SKILLS_DB_DIR, f);
+        if (fileExists(src)) copyIfDifferent(src, dest);
+      });
+      installFileTools(true);
+      registerMcp(python, true, allowAutoApprove);
+      registerHooks(true, allowHooks);
+      if (allowCursor) {
+        const agents = agentManager.loadAgents();
+        cursorManager.ensureCursorSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          agents,
+          projectRoot: currentCwd,
+          deployProject: true,
+          silent: true,
+          allowHooks: true
+        });
+        cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, getUvxCommand(), true);
+      }
+      if (allowClaudeCode) {
+        mcpClientsManager.ensureClaudeCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
+      if (allowOpenCode) {
+        mcpClientsManager.ensureOpenCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
+      success('Integrations refreshed.');
       return;
     }
     warn('Reinstalling (--force)...');
@@ -1070,6 +1195,25 @@ async function cmdInit(args) {
   if (fileExists(promptHookSrc)) {
     copyFile(promptHookSrc, promptHookDest);
   }
+
+  const subagentHookSrc = path.join(SRC_DIR, 'antigravity_subagent_hook.js');
+  const subagentHookDest = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
+  if (fileExists(subagentHookSrc)) {
+    copyFile(subagentHookSrc, subagentHookDest);
+  }
+
+  const sanitizeHookSrc = path.join(SRC_DIR, 'antigravity_tool_sanitize_hook.js');
+  const sanitizeHookDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
+  if (fileExists(sanitizeHookSrc)) {
+    copyFile(sanitizeHookSrc, sanitizeHookDest);
+  }
+
+  const cursorBootstrapSrc = path.join(SRC_DIR, 'cursor_bootstrap.js');
+  const cursorBootstrapDest = path.join(SKILLS_DB_DIR, 'cursor_bootstrap.js');
+  if (fileExists(cursorBootstrapSrc)) {
+    copyFile(cursorBootstrapSrc, cursorBootstrapDest);
+  }
+  installFileTools(true);
   spinner3.success('All files installed to ~/.gemini/skills-db/');
 
   // 5. Run migration (seed default rank skills only)
@@ -1123,7 +1267,59 @@ async function cmdInit(args) {
   updateAgentsMd(true);
   spinner6.success('AGENTS.md updated.');
 
-  // 9. Summary
+  // 10. Configure Cursor IDE/CLI
+  if (allowCursor) {
+    header('🖱️  Configuring Cursor IDE/CLI');
+    const spinner7 = startSpinner('Registering Cursor MCP, subagents, and hooks...');
+    const agents = agentManager.loadAgents();
+    const uvxCmd = getUvxCommand();
+    cursorManager.ensureCursorSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd,
+      agents,
+      projectRoot: currentCwd,
+      deployProject: true,
+      silent: true,
+      allowHooks: true
+    });
+    cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
+    spinner7.success('Cursor IDE/CLI configured.');
+  }
+
+  // 10b. Configure Claude Code (when CLI detected)
+  if (allowClaudeCode) {
+    header('🤖 Configuring Claude Code');
+    const spinnerClaude = startSpinner('Registering Claude Code MCP servers...');
+    const uvxCmd = getUvxCommand();
+    mcpClientsManager.ensureClaudeCodeSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd,
+      silent: true
+    });
+    spinnerClaude.success('Claude Code MCP configured.');
+  } else if (!claudeInstalled) {
+    info('Claude Code not detected — skip auto-setup (see docs/templates/claude-code.mcp.json if you install later).');
+  }
+
+  // 10c. Configure OpenCode (when CLI detected)
+  if (allowOpenCode) {
+    header('📟 Configuring OpenCode');
+    const spinnerOpenCode = startSpinner('Registering OpenCode MCP servers...');
+    const uvxCmd = getUvxCommand();
+    mcpClientsManager.ensureOpenCodeSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd,
+      silent: true
+    });
+    spinnerOpenCode.success('OpenCode MCP configured.');
+  } else if (!opencodeInstalled) {
+    info('OpenCode not detected — skip auto-setup (see docs/templates/opencode.mcp.json if you install later).');
+  }
+
+  // 11. Summary
   header('✅ Installation Complete!');
   const summaryLines = [
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
@@ -1132,12 +1328,20 @@ async function cmdInit(args) {
     `MCP Config: ${C.dim}${MCP_CONFIG_PATH}${C.reset}`,
     `GEMINI.md:  ${C.dim}${GEMINI_MD_PATH}${C.reset}`,
     `AGENTS.md:  ${C.dim}${AGENTS_MD_PATH}${C.reset}`,
+    `Cursor MCP: ${C.dim}${cursorManager.CURSOR_MCP_GLOBAL}${C.reset}`,
+    `Cursor Agents: ${C.dim}${cursorManager.CURSOR_AGENTS_GLOBAL}${C.reset}`,
   ];
+  if (claudeInstalled) {
+    summaryLines.push(`Claude Code:  ${C.dim}${mcpClientsManager.CLAUDE_JSON}${C.reset}`);
+  }
+  if (opencodeInstalled) {
+    summaryLines.push(`OpenCode:     ${C.dim}${mcpClientsManager.OPENCODE_GLOBAL}${C.reset}`);
+  }
   drawBox('Installed Files', summaryLines, LEAF_THEME);
   log('');
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Restart Antigravity IDE/CLI to load the new MCP server`);
+  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${opencodeInstalled ? ', OpenCode' : ''}) to load MCP servers`);
   log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:   ${C.cyan}konoha status${C.reset}`);
   log('');
@@ -1225,9 +1429,9 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
       }
     } catch {
       if (!silent) {
-        warn('Could not parse existing MCP config, creating new one...');
+        warn(`Skipped MCP config update: invalid JSON in ${MCP_CONFIG_PATH}`);
       }
-      config = { mcpServers: {} };
+      return;
     }
   } else {
     if (!silent) {
@@ -1273,10 +1477,40 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
   if (allowAutoApprove) {
     sembleConfig.autoApprove = ['*', 'search', 'find_related'];
   }
-  // Only update if missing or command changed
+  // Only update if missing or command/args changed
   const existingSemble = config.mcpServers['semble'];
-  if (!existingSemble || existingSemble.command !== uvxCmd) {
+  if (
+    !existingSemble ||
+    existingSemble.command !== uvxCmd ||
+    JSON.stringify(existingSemble.args || []) !== JSON.stringify(sembleConfig.args)
+  ) {
     config.mcpServers['semble'] = sembleConfig;
+  }
+
+  const nodeCmd = process.execPath;
+  const fileToolsConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
+  if (fileToolsConfig && allowAutoApprove) {
+    fileToolsConfig.autoApprove = [
+      '*',
+      'read_file_head',
+      'read_file_range',
+      'file_info',
+      'token_efficient_grep',
+      'get_file_structure',
+      'find_files_clean'
+    ];
+  }
+  const existingFileTools = config.mcpServers['konoha-files'];
+  if (fileToolsConfig) {
+    if (
+      !existingFileTools ||
+      existingFileTools.command !== fileToolsConfig.command ||
+      JSON.stringify(existingFileTools.args || []) !== JSON.stringify(fileToolsConfig.args || [])
+    ) {
+      config.mcpServers['konoha-files'] = fileToolsConfig;
+    }
+  } else if (existingFileTools) {
+    delete config.mcpServers['konoha-files'];
   }
 
   if (!silent) {
@@ -1321,6 +1555,13 @@ function registerPermissions(silent = false) {
       'mcp(semble/search)',
       'mcp(semble/find_related)',
       'mcp(semble/*)',
+      'mcp(konoha-files/read_file_head)',
+      'mcp(konoha-files/read_file_range)',
+      'mcp(konoha-files/file_info)',
+      'mcp(konoha-files/token_efficient_grep)',
+      'mcp(konoha-files/get_file_structure)',
+      'mcp(konoha-files/find_files_clean)',
+      'mcp(konoha-files/*)',
       'mcp(skills-db/find_skill)',
       'mcp(skills-db/list_skills)',
       'mcp(skills-db/get_skill)',
@@ -1368,19 +1609,30 @@ function registerHooks(silent = false, allowHooks) {
     }
   }
 
-  const hookScriptPath = path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js');
+  const promptHookPath = path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js');
+  const subagentHookPath = path.join(HOME, '.gemini', 'skills-db', 'antigravity_subagent_hook.js');
+  const sanitizeHookPath = path.join(HOME, '.gemini', 'skills-db', 'antigravity_tool_sanitize_hook.js');
   const hookExists = config['konoha-prompt-hook'] !== undefined;
+  const sanitizeExists = config['konoha-tool-sanitize'] !== undefined;
+  const legacySubagentHook = config['konoha-subagent-hook'] !== undefined;
 
   let shouldWrite = false;
 
   if (allowHooks === true) {
+    delete config['konoha-subagent-hook'];
     config['konoha-prompt-hook'] = {
       PreInvocation: [
+        { type: 'command', command: `node "${subagentHookPath}"` },
+        { type: 'command', command: `node "${promptHookPath}"` },
+      ],
+    };
+    config['konoha-tool-sanitize'] = {
+      PreToolUse: [
         {
-          type: 'command',
-          command: `node "${hookScriptPath}"`
-        }
-      ]
+          matcher: 'define_subagent|invoke_subagent',
+          hooks: [{ type: 'command', command: `node "${sanitizeHookPath}"`, timeout: 10 }],
+        },
+      ],
     };
     shouldWrite = true;
   } else if (allowHooks === false) {
@@ -1388,16 +1640,31 @@ function registerHooks(silent = false, allowHooks) {
       delete config['konoha-prompt-hook'];
       shouldWrite = true;
     }
+    if (sanitizeExists) {
+      delete config['konoha-tool-sanitize'];
+      shouldWrite = true;
+    }
+    if (legacySubagentHook) {
+      delete config['konoha-subagent-hook'];
+      shouldWrite = true;
+    }
   } else if (allowHooks === undefined) {
     if (hookExists) {
       config['konoha-prompt-hook'] = {
         PreInvocation: [
-          {
-            type: 'command',
-            command: `node "${hookScriptPath}"`
-          }
-        ]
+          { type: 'command', command: `node "${subagentHookPath}"` },
+          { type: 'command', command: `node "${promptHookPath}"` },
+        ],
       };
+      config['konoha-tool-sanitize'] = {
+        PreToolUse: [
+          {
+            matcher: 'define_subagent|invoke_subagent',
+            hooks: [{ type: 'command', command: `node "${sanitizeHookPath}"`, timeout: 10 }],
+          },
+        ],
+      };
+      delete config['konoha-subagent-hook'];
       shouldWrite = true;
     }
   }
@@ -1452,7 +1719,12 @@ function copyRecursive(src, dest) {
 }
 
 function copyRecursiveIfDifferent(src, dest) {
-  const stats = fs.statSync(src);
+  let stats;
+  try {
+    stats = fs.statSync(src);
+  } catch {
+    return;
+  }
   if (stats.isDirectory()) {
     ensureDir(dest);
     const entries = fs.readdirSync(src);
@@ -1464,6 +1736,63 @@ function copyRecursiveIfDifferent(src, dest) {
   }
 }
 
+function smokeTestKonohaFilesMcp(useLauncher = false) {
+  if (!fileExists(FILE_TOOLS_MCP_PATH)) {
+    return { ok: false, error: 'file_tools_mcp.js missing' };
+  }
+
+  const input = [
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"konoha-doctor","version":"1.0"}}}',
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}',
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+  ].join('\n');
+
+  let run;
+  if (useLauncher) {
+    const entry = deployUtils.buildKonohaFilesMcpEntry('cursor');
+    if (entry) {
+      run = spawnSync(entry.command, entry.args, {
+        input,
+        encoding: 'utf-8',
+        timeout: 15000,
+        shell: process.platform === 'win32'
+      });
+    }
+  }
+  if (!run || run.status !== 0) {
+    run = spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
+      input,
+      encoding: 'utf-8',
+      timeout: 15000
+    });
+  }
+
+  if (run.status !== 0) {
+    return { ok: false, error: (run.stderr || '').trim() || `exit code ${run.status}` };
+  }
+
+  try {
+    const lines = (run.stdout || '').trim().split('\n').filter(Boolean);
+    const response = JSON.parse(lines[lines.length - 1]);
+    const tools = response.result && response.result.tools;
+    if (!Array.isArray(tools) || tools.length < 4) {
+      return { ok: false, error: `tools/list returned ${tools ? tools.length : 0} tools` };
+    }
+    return { ok: true, toolCount: tools.length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function installFileTools(silent = true) {
+  const python = checkPython();
+  const ok = deployUtils.installFileTools(silent, python);
+  if (!silent && ok) {
+    success(`File tools installed: ${FILE_TOOLS_MCP_PATH}`);
+  }
+  return ok;
+}
+
 function ensureAutoSetup() {
   // 1. Ensure the directories exist
   const dirs = [
@@ -1471,7 +1800,9 @@ function ensureAutoSetup() {
     path.join(HOME, '.agents'),
     path.join(HOME, '.gemini', 'skills-db'),
     path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config')
+    path.join(HOME, '.gemini', 'config'),
+    path.join(HOME, '.cursor'),
+    path.join(HOME, '.cursor', 'agents')
   ];
   dirs.forEach(d => {
     if (!fileExists(d)) {
@@ -1480,7 +1811,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -1488,6 +1819,7 @@ function ensureAutoSetup() {
       copyIfDifferent(src, dest);
     }
   });
+  installFileTools(true);
 
   // Also copy basic subagent skills to global directory if missing or outdated
   const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
@@ -1518,7 +1850,44 @@ function ensureAutoSetup() {
   // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
   const python = checkPython() || 'python3';
   registerMcp(python, true);
-  registerHooks(true);
+  registerHooks(true, true);
+
+  // 4b. Configure Cursor IDE/CLI silently
+  try {
+    const agents = agentManager.loadAgents();
+    cursorManager.ensureCursorSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd: getUvxCommand(),
+      agents,
+      projectRoot: currentCwd,
+      deployProject: false,
+      silent: true,
+      allowHooks: true
+    });
+  } catch (e) {}
+
+  // 4c. Configure Claude Code & OpenCode when their CLIs are installed
+  try {
+    const python = checkPython() || 'python3';
+    const uvxCmd = getUvxCommand();
+    if (mcpClientsManager.isClaudeCodeInstalled()) {
+      mcpClientsManager.ensureClaudeCodeSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        silent: true
+      });
+    }
+    if (mcpClientsManager.isOpenCodeInstalled()) {
+      mcpClientsManager.ensureOpenCodeSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        silent: true
+      });
+    }
+  } catch (e) {}
 
   // 5. Ensure agents.json is initialized with defaults if missing
   const agentsJsonPath = path.join(HOME, '.agents', 'agents.json');
@@ -1695,19 +2064,73 @@ async function cmdTest() {
     { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"test"}}}' }
   ];
 
+  if (fileExists(FILE_TOOLS_MCP_PATH)) {
+    const workspaceUri = JSON.stringify(path.join(SRC_DIR, '..'));
+    tests.push(
+      { name: 'File Tools List', req: '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}', useNode: true },
+      {
+        name: 'Read File Head',
+        req: `{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"read_file_head","arguments":{"path":"src/search_policy.js","max_lines":5}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
+      {
+        name: 'Read File Range',
+        req: `{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"read_file_range","arguments":{"path":"src/search_policy.js","start_line":1,"end_line":5}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
+      {
+        name: 'File Info',
+        req: `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"file_info","arguments":{"path":"src/search_policy.js"}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
+      {
+        name: 'Token Efficient Grep',
+        req: `{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"token_efficient_grep","arguments":{"pattern":"buildSembleSearchPolicy","dir":"src"}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
+      {
+        name: 'Get File Structure',
+        req: `{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"get_file_structure","arguments":{"path":"src/file_tools_router.js"}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
+      {
+        name: 'Find Files Clean',
+        req: `{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"find_files_clean","arguments":{"pattern":"*.py","dir":"src/file_tools"}}}`,
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      }
+    );
+  }
+
   let allPassed = true;
 
   for (const test of tests) {
     try {
-      const run = spawnSync(python, [SERVER_PATH], {
-        input: test.req,
-        encoding: 'utf-8',
-        timeout: 10000
-      });
-      if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
-      const output = run.stdout;
+      const inputParts = [];
+      if (test.init) inputParts.push(test.init);
+      inputParts.push(test.req);
+      const input = inputParts.join('\n');
 
-      const response = JSON.parse(output.trim());
+      const run = test.useNode
+        ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
+            input,
+            encoding: 'utf-8',
+            timeout: 15000,
+            cwd: path.join(SRC_DIR, '..')
+          })
+        : spawnSync(python, [SERVER_PATH], {
+            input: test.req,
+            encoding: 'utf-8',
+            timeout: 10000
+          });
+      if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
+      const lines = run.stdout.trim().split('\n').filter(Boolean);
+      const response = JSON.parse(lines[lines.length - 1]);
       if (response.error) {
         error(`${test.name}: ${response.error.message}`);
         allPassed = false;
@@ -1797,9 +2220,8 @@ async function cmdStatus() {
     { label: 'AGENTS Definition', path: AGENTS_MD_PATH },
   ];
 
-  log(`\n  ${C.bold}Environment & Files:${C.reset}`);
+  sectionTitle('Environment & Files:', LEAF_THEME);
   const envHeaders = ['Resource / Path', 'Status', 'Size', 'Location'];
-  const envWidths = [20, 8, 10, 54];
   const envAligns = ['left', 'left', 'right', 'left'];
   const envRows = [];
   const envRowColors = [];
@@ -1807,10 +2229,10 @@ async function cmdStatus() {
   // Python Status Row
   if (python) {
     envRows.push(['Python 3', 'ACTIVE', '-', pythonInfo]);
-    envRowColors.push(['', C.green, '', '']);
+    envRowColors.push(['', '', '', '']);
   } else {
     envRows.push(['Python 3', 'MISSING', '-', 'Please install Python 3']);
-    envRowColors.push(['', C.red, '', '']);
+    envRowColors.push(['', '', '', '']);
   }
 
   // File rows
@@ -1820,35 +2242,114 @@ async function cmdStatus() {
       const sizeStr = `${(stats.size / 1024).toFixed(1)} KB`;
       const displayPath = check.path.replace(HOME, '~');
       envRows.push([check.label, 'EXISTS', sizeStr, displayPath]);
-      envRowColors.push(['', C.green, '', '']);
+      envRowColors.push(['', '', '', '']);
     } else {
       envRows.push([check.label, 'MISSING', '-', check.path]);
-      envRowColors.push(['', C.red, '', '']);
+      envRowColors.push(['', '', '', '']);
     }
   });
 
-  drawTable(envHeaders, envWidths, envAligns, envRows, envRowColors, LEAF_THEME);
+  const envWidths = computeTableWidths(envHeaders, envRows, {
+    minWidths: [14, 8, 8, 36],
+    maxWidths: [24, 10, 12, 64]
+  });
+  drawTable(envHeaders, envWidths, envAligns, envRows, envRowColors, LEAF_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+      gradientStatusCell,
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.8),
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.7)
+    ]
+  });
 
   // Check MCP configs
-  log(`\n  ${C.bold}MCP Integrations:${C.reset}`);
+  sectionTitle('MCP Integrations:', RASENGAN_THEME);
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      
+
       const printMcpRow = (name) => {
         const hasServer = config.mcpServers && config.mcpServers[name];
-        const statusStr = hasServer ? `${C.green}ACTIVE${C.reset}` : `${C.yellow}INACTIVE${C.reset}`;
         const cmdStr = hasServer ? `cmd: ${config.mcpServers[name].command} ${config.mcpServers[name].args.join(' ')}` : '-';
-        log(`    ${hasServer ? C.green : C.yellow}•${C.reset} ${name.padEnd(14)} [ ${statusStr} ] ${C.dim}│${C.reset} ${C.dim}${cmdStr.length > 58 ? cmdStr.substring(0, 55) + '...' : cmdStr}${C.reset}`);
+        drawIntegrationRow(name, hasServer, cmdStr, RASENGAN_THEME);
       };
-      
+
       printMcpRow('skills-db');
       printMcpRow('semble');
+      printMcpRow('konoha-files');
     } catch {
-      log(`    ${C.red}✗${C.reset} MCP config parse failed`);
+      error('MCP config parse failed');
     }
   } else {
-    log(`    ${C.red}✗${C.reset} MCP config not found`);
+    warn('MCP config not found');
+  }
+
+  // Cursor IDE/CLI integrations
+  sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
+  const cursorStatus = cursorManager.getCursorStatus();
+  drawIntegrationRow(
+    '~/.cursor/mcp.json',
+    cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble && cursorStatus.mcpKonohaFiles,
+    cursorStatus.mcpGlobal ? 'skills-db + semble + konoha-files' : 'not configured',
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'Cursor subagents',
+    cursorStatus.subagentsGlobal >= 6,
+    `${cursorStatus.subagentsGlobal}/6 in ~/.cursor/agents/`,
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'Cursor skills',
+    cursorStatus.skillsGlobal > 0,
+    `${cursorStatus.skillsGlobal} in ~/.cursor/skills/ (mirrored from ~/.agents/skills/)`,
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'CLI permissions',
+    cursorStatus.cliPermissions,
+    cursorStatus.cliPermissions ? 'MCP auto-allow configured' : 'run konoha init',
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'sessionStart hook',
+    cursorStatus.hooks,
+    cursorStatus.hooks ? 'auto-bootstrap on session' : 'not registered',
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'Project .cursor/',
+    cursorStatus.projectMcp,
+    `mcp:${cursorStatus.projectMcp ? 'yes' : 'no'} agents:${cursorStatus.projectAgents} skills:${cursorStatus.skillsProject} rule:${cursorStatus.projectRule ? 'yes' : 'no'}`,
+    NINJA_THEME
+  );
+
+  // Claude Code integration (auto-configured when `claude` CLI is installed)
+  const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
+  if (claudeStatus.installed) {
+    sectionTitle('Claude Code Integrations:', NINJA_THEME);
+    drawIntegrationRow(
+      '~/.claude.json',
+      claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.mcpKonohaFiles,
+      claudeStatus.globalConfig ? 'skills-db + semble + konoha-files' : 'not configured',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('Claude Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (template: docs/templates/claude-code.mcp.json)', CHIDORI_THEME, 0.6)}`);
+  }
+
+  // OpenCode integration (auto-configured when `opencode` CLI is installed)
+  const openCodeStatus = mcpClientsManager.getOpenCodeStatus();
+  if (openCodeStatus.installed) {
+    sectionTitle('OpenCode Integrations:', NINJA_THEME);
+    drawIntegrationRow(
+      '~/.config/opencode/',
+      openCodeStatus.mcpSkillsDb && openCodeStatus.mcpSemble && openCodeStatus.mcpKonohaFiles,
+      openCodeStatus.globalConfig ? 'skills-db + semble + konoha-files' : 'not configured',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('OpenCode:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (template: docs/templates/opencode.mcp.json)', CHIDORI_THEME, 0.6)}`);
   }
 
   // Check instructions patterns
@@ -1856,12 +2357,17 @@ async function cmdStatus() {
     try {
       const content = fs.readFileSync(GEMINI_MD_PATH, 'utf-8');
       const hasSkillsDb = content.includes('find_skill');
-      log(`    ${hasSkillsDb ? C.green : C.yellow}•${C.reset} GEMINI.md instructions: ${hasSkillsDb ? C.green + 'skills-db active' : C.yellow + 'not found'}${C.reset}`);
+      drawIntegrationRow(
+        'GEMINI.md instructions',
+        hasSkillsDb,
+        hasSkillsDb ? 'skills-db active' : 'not found',
+        LEAF_THEME
+      );
     } catch {}
   }
 
   // Subagents list
-  log(`\n  ${C.bold}Subagents (Naruto Ninja Ranks):${C.reset}`);
+  sectionTitle('Subagents (Naruto Ninja Ranks):', NINJA_THEME);
   const agents = agentManager.loadAgents();
   const iconMap = {
     'genin': '🍃',
@@ -1872,8 +2378,7 @@ async function cmdStatus() {
     'kage': '🌀'
   };
 
-  const subHeaders = ['Rank / Name', 'Specialization / Purpose', 'Skills Configuration'];
-  const subWidths = [20, 42, 27];
+  const subHeaders = ['Rank / Name', 'Model (Cursor)', 'Skills Configuration'];
   const subAligns = ['left', 'left', 'left'];
   const subRows = [];
   const subRowColors = [];
@@ -1881,17 +2386,27 @@ async function cmdStatus() {
   agents.forEach(a => {
     const icon = a.icon || iconMap[a.name] || '👤';
     const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-    const role = a.purpose || 'Custom Subagent';
+    const cursorModel = a.cursorModel || cursorManager.resolveCursorModel(a);
     const activeSkills = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
-    
-    subRows.push([displayName, role, activeSkills]);
-    subRowColors.push(['', '', C.green]);
+
+    subRows.push([displayName, cursorModel, activeSkills]);
+    subRowColors.push(['', '', '']);
   });
 
-  drawTable(subHeaders, subWidths, subAligns, subRows, subRowColors, LEAF_THEME);
+  const subWidths = computeTableWidths(subHeaders, subRows, {
+    minWidths: [18, 20, 24],
+    maxWidths: [24, 36, 48]
+  });
+  drawTable(subHeaders, subWidths, subAligns, subRows, subRowColors, NINJA_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
+      (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
+      (cell) => applyGradient(cell, LEAF_THEME, 0.8)
+    ]
+  });
 
   // Database stats
-  log(`\n  ${C.bold}Database Stats:${C.reset}`);
+  sectionTitle('Database Stats:', LEAF_THEME);
   if (fileExists(DB_PATH) && python) {
     const statsScript = path.join(SKILLS_DB_DIR, 'db_stats.py');
     const statsScriptPkg = path.join(SRC_DIR, 'db_stats.py');
@@ -1907,11 +2422,21 @@ async function cmdStatus() {
         if (stats.error) {
           log(`    ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);
         } else {
-          log(`    ${C.green}✓${C.reset} SQLite FTS5 database is healthy:`);
-          log(`      ${C.dim}├─${C.reset} Total Entries:   ${C.bold}${stats.total}${C.reset}`);
-          log(`      ${C.dim}├─${C.reset} Unique Skills:   ${C.bold}${stats.skills}${C.reset}`);
-          log(`      ${C.dim}├─${C.reset} Reference Files: ${C.bold}${stats.refs}${C.reset}`);
-          log(`      ${C.dim}└─${C.reset} Indexed size:    ${C.bold}${(stats.bytes / 1024).toFixed(1)} KB${C.reset}`);
+          success('SQLite FTS5 database is healthy:');
+          const statRows = [
+            ['Total Entries', String(stats.total)],
+            ['Unique Skills', String(stats.skills)],
+            ['Reference Files', String(stats.refs)],
+            ['Indexed size', `${(stats.bytes / 1024).toFixed(1)} KB`]
+          ];
+          const statHeaders = ['Metric', 'Value'];
+          const statWidths = computeTableWidths(statHeaders, statRows, { minWidths: [16, 12] });
+          drawTable(statHeaders, statWidths, ['left', 'left'], statRows, [], LEAF_THEME, {
+            columnFormatters: [
+              (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
+              (cell) => applyGradient(cell, LEAF_THEME, 0.95)
+            ]
+          });
         }
       } catch {
         log(`    ${C.yellow}⚠${C.reset} Could not read database stats.`);
@@ -1924,15 +2449,20 @@ async function cmdStatus() {
   }
 
   // Skills directories
-  log(`\n  ${C.bold}Skills Directories:${C.reset}`);
+  sectionTitle('Skills Directories:', LEAF_THEME);
   const skillsDirs = detectSkillsDirs();
   if (skillsDirs.length > 0) {
-    skillsDirs.forEach(s => {
-      const displayPath = s.path.replace(HOME, '~');
-      log(`    ${C.green}✓${C.reset} ${displayPath} [ ${C.green}${s.count} skills${C.reset} ]`);
+    const dirRows = skillsDirs.map(s => [s.path.replace(HOME, '~'), `${s.count} skills`]);
+    const dirHeaders = ['Path', 'Count'];
+    const dirWidths = computeTableWidths(dirHeaders, dirRows, { minWidths: [24, 10] });
+    drawTable(dirHeaders, dirWidths, ['left', 'left'], dirRows, [], LEAF_THEME, {
+      columnFormatters: [
+        (cell) => applyGradient(cell, CHIDORI_THEME, 0.8),
+        (cell) => applyGradient(cell, LEAF_THEME, 0.95)
+      ]
     });
   } else {
-    log(`    ${C.yellow}⚠${C.reset} No skills directories found`);
+    warn('No skills directories found');
   }
 
   log('');
@@ -1942,7 +2472,7 @@ async function cmdDoctor() {
   await chidoriTransition('doctor');
   drawLogo(false); // Static logo
   header('🩺 Konoha Doctor');
-  log(`${C.dim}Diagnosing environment requirements and auto-repairing missing components...${C.reset}\n`);
+  log(`${applyGradient('Diagnosing environment requirements and auto-repairing missing components...', CHIDORI_THEME, 0.75)}\n`);
 
   const globalSpinner = startSpinner('Running environment diagnostics...');
 
@@ -2037,6 +2567,81 @@ async function cmdDoctor() {
   const promptHookScriptDest = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
   checkAndRepairFile('prompt_hook.js', promptHookScriptDest, 'Prompt Hook Script (prompt_hook.js)');
 
+  const subagentHookScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
+  checkAndRepairFile('antigravity_subagent_hook.js', subagentHookScriptDest, 'Subagent Hook Script (antigravity_subagent_hook.js)');
+
+  const sanitizeHookScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
+  checkAndRepairFile('antigravity_tool_sanitize_hook.js', sanitizeHookScriptDest, 'Tool Sanitize Hook (antigravity_tool_sanitize_hook.js)');
+
+  // 5d. Token-efficient file tools (konoha-files MCP)
+  checkAndRepairFile('file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)');
+  checkAndRepairFile('file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)');
+  checkAndRepairFile('file_tools_launcher.js', path.join(SKILLS_DB_DIR, 'file_tools_launcher.js'), 'File Tools Launcher (file_tools_launcher.js)');
+  checkAndRepairFile('platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)');
+  checkAndRepairFile('file_tools_launcher.sh', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.sh)');
+  if (fileExists(FILE_TOOLS_LAUNCHER_PATH)) {
+    try {
+      fs.chmodSync(FILE_TOOLS_LAUNCHER_PATH, 0o755);
+    } catch {}
+  }
+  deployUtils.writeNodeExecPathRecord();
+  deployUtils.writePythonCmdRecord(checkPython());
+  const srcPyDir = path.join(SRC_DIR, 'file_tools');
+  if (fileExists(srcPyDir)) {
+    try {
+      ensureDir(FILE_TOOLS_PY_DIR);
+      for (const entry of fs.readdirSync(srcPyDir)) {
+        if (entry === '__pycache__') continue;
+        const srcEntry = path.join(srcPyDir, entry);
+        if (!fs.statSync(srcEntry).isFile()) continue;
+        checkAndRepairFile(
+          path.join('file_tools', entry),
+          path.join(FILE_TOOLS_PY_DIR, entry),
+          `File Tools Python (${entry})`
+        );
+      }
+    } catch (e) {
+      record('File Tools Python helpers', 'FAILED', e.message);
+      hasErrors = true;
+    }
+  }
+  if (!fileExists(FILE_TOOLS_MCP_PATH)) {
+    try {
+      installFileTools(true);
+      if (fileExists(FILE_TOOLS_MCP_PATH)) {
+        record('File Tools MCP (konoha-files)', 'REPAIRED', 'Installed konoha-files MCP server and Python helpers');
+        repairsDone++;
+      } else {
+        record('File Tools MCP (konoha-files)', 'FAILED', 'file_tools_mcp.js missing after install');
+        hasErrors = true;
+      }
+    } catch (e) {
+      record('File Tools MCP (konoha-files)', 'FAILED', e.message);
+      hasErrors = true;
+    }
+  }
+
+  const fileToolsSmoke = smokeTestKonohaFilesMcp(true);
+  if (fileToolsSmoke.ok) {
+    record('konoha-files MCP smoke test', 'HEALTHY', `${fileToolsSmoke.toolCount} tools via launcher`);
+  } else {
+    const directSmoke = smokeTestKonohaFilesMcp(false);
+    if (directSmoke.ok) {
+      record('konoha-files MCP smoke test', 'WARNING', `Launcher failed (${fileToolsSmoke.error}); direct node OK (${directSmoke.toolCount} tools)`);
+      try {
+        installFileTools(true);
+        const retry = smokeTestKonohaFilesMcp(true);
+        if (retry.ok) {
+          record('konoha-files launcher', 'REPAIRED', 'Launcher script refreshed');
+          repairsDone++;
+        }
+      } catch {}
+    } else {
+      record('konoha-files MCP smoke test', 'FAILED', directSmoke.error || fileToolsSmoke.error);
+      hasErrors = true;
+    }
+  }
+
   // 6. Database File (requires Python)
   if (fileExists(DB_PATH)) {
     record('Database File (skills.db)', 'HEALTHY', 'Database file is present');
@@ -2083,20 +2688,29 @@ async function cmdDoctor() {
   }
 
   // 7. MCP Configuration
-  let skillsDbRegistered = false;
-  let sembleRegistered = false;
-  if (fileExists(MCP_CONFIG_PATH)) {
+  const nodeCmd = process.execPath;
+  const expectedSembleArgs = ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'];
+  let mcpHealthy = false;
+  if (fileExists(MCP_CONFIG_PATH) && python) {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
-      if (config.mcpServers) {
-        if (config.mcpServers['skills-db']) skillsDbRegistered = true;
-        if (config.mcpServers['semble']) sembleRegistered = true;
-      }
+      const servers = config.mcpServers || {};
+      const skillsOk = servers['skills-db'] &&
+        servers['skills-db'].command === python &&
+        servers['skills-db'].args &&
+        servers['skills-db'].args[0] === SERVER_PATH;
+      const sembleOk = servers['semble'] &&
+        JSON.stringify(servers['semble'].args || []) === JSON.stringify(expectedSembleArgs);
+      const fileToolsOk = servers['konoha-files'] &&
+        servers['konoha-files'].args &&
+        servers['konoha-files'].args[0] === FILE_TOOLS_MCP_PATH &&
+        (servers['konoha-files'].command === nodeCmd || servers['konoha-files'].command === 'node');
+      mcpHealthy = skillsOk && sembleOk && fileToolsOk;
     } catch {}
   }
-  
-  if (skillsDbRegistered && sembleRegistered) {
-    record('MCP Config (mcp_config.json)', 'HEALTHY', 'skills-db and semble are active');
+
+  if (mcpHealthy) {
+    record('MCP Config (mcp_config.json)', 'HEALTHY', 'skills-db, semble, and konoha-files are active');
   } else {
     if (!python) {
       record('MCP Config (mcp_config.json)', 'FAILED', 'Incomplete registration; missing Python 3');
@@ -2104,7 +2718,7 @@ async function cmdDoctor() {
     } else {
       try {
         registerMcp(python);
-        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered skills-db and semble in config');
+        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered skills-db, semble, and konoha-files in config');
         repairsDone++;
       } catch (e) {
         record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
@@ -2164,18 +2778,27 @@ async function cmdDoctor() {
   // 9b. Prompt Hook Configuration (hooks.json)
   const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
   let promptHookRegistered = false;
+  let sanitizeHookRegistered = false;
   if (fileExists(HOOKS_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(HOOKS_CONFIG_PATH, 'utf-8'));
       if (config['konoha-prompt-hook'] && config['konoha-prompt-hook'].PreInvocation) {
-        const hasCmd = config['konoha-prompt-hook'].PreInvocation.some(hook => hook.command && hook.command.includes('prompt_hook.js'));
-        if (hasCmd) promptHookRegistered = true;
+        const hooks = config['konoha-prompt-hook'].PreInvocation;
+        const hasPrompt = hooks.some(hook => hook.command && hook.command.includes('prompt_hook.js'));
+        const hasSubagent = hooks.some(hook => hook.command && hook.command.includes('antigravity_subagent_hook.js'));
+        if (hasPrompt && hasSubagent) promptHookRegistered = true;
+      }
+      if (config['konoha-tool-sanitize'] && config['konoha-tool-sanitize'].PreToolUse) {
+        const hasSanitize = config['konoha-tool-sanitize'].PreToolUse.some(
+          (entry) => entry.hooks && entry.hooks.some((h) => h.command && h.command.includes('antigravity_tool_sanitize_hook.js'))
+        );
+        if (hasSanitize) sanitizeHookRegistered = true;
       }
     } catch {}
   }
 
-  if (promptHookRegistered) {
-    record('Prompt Hook Config (hooks.json)', 'HEALTHY', 'prompt_hook is registered and active');
+  if (promptHookRegistered && sanitizeHookRegistered) {
+    record('Prompt Hook Config (hooks.json)', 'HEALTHY', 'subagent + prompt + sanitize hooks registered');
   } else {
     let allowHooks = false;
     let loadFailed = false;
@@ -2198,7 +2821,7 @@ async function cmdDoctor() {
     if (allowHooks) {
       try {
         registerHooks(true, true);
-        record('Prompt Hook Config (hooks.json)', 'REPAIRED', 'Registered prompt hook in hooks.json');
+        record('Prompt Hook Config (hooks.json)', 'REPAIRED', 'Registered subagent + prompt hooks in hooks.json');
         repairsDone++;
       } catch (e) {
         record('Prompt Hook Config (hooks.json)', 'FAILED', `Error: ${e.message}`);
@@ -2206,6 +2829,105 @@ async function cmdDoctor() {
       }
     } else if (!loadFailed) {
       record('Prompt Hook Config (hooks.json)', 'WARNING', 'Prompt hook is not registered (user declined)');
+    }
+  }
+
+  // 9c. Cursor IDE/CLI Configuration
+  const cursorStatus = cursorManager.getCursorStatus();
+  const cursorHealthy = cursorStatus.mcpSkillsDb &&
+    cursorStatus.mcpSemble &&
+    cursorStatus.mcpKonohaFiles &&
+    cursorStatus.subagentsGlobal >= 6;
+  if (cursorHealthy) {
+    record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP, subagents, and hooks configured');
+  } else {
+    try {
+      const agents = agentManager.loadAgents();
+      const python = checkPython() || 'python3';
+      cursorManager.ensureCursorSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd: getUvxCommand(),
+        agents,
+        projectRoot: currentCwd,
+        deployProject: false,
+        silent: true,
+        allowHooks: true
+      });
+      const repaired = cursorManager.getCursorStatus();
+      if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles && repaired.subagentsGlobal >= 6) {
+        record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP, subagents, and session hook');
+        repairsDone++;
+      } else {
+        record('Cursor IDE/CLI (~/.cursor/)', 'WARNING', 'Partial Cursor setup — run konoha init');
+      }
+    } catch (e) {
+      record('Cursor IDE/CLI (~/.cursor/)', 'FAILED', `Error: ${e.message}`);
+      hasErrors = true;
+    }
+  }
+
+  // 9d. Claude Code Configuration (only when CLI installed)
+  if (mcpClientsManager.isClaudeCodeInstalled()) {
+    const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
+    const claudeHealthy =
+      claudeStatus.mcpSkillsDb &&
+      claudeStatus.mcpSemble &&
+      claudeStatus.mcpKonohaFiles;
+    if (claudeHealthy) {
+      record('Claude Code (~/.claude.json)', 'HEALTHY', 'skills-db, semble, and konoha-files active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        mcpClientsManager.ensureClaudeCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+        const repaired = mcpClientsManager.getClaudeCodeStatus();
+        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles) {
+          record('Claude Code (~/.claude.json)', 'REPAIRED', 'Registered Konoha MCP servers');
+          repairsDone++;
+        } else {
+          record('Claude Code (~/.claude.json)', 'WARNING', 'Partial Claude Code setup — run konoha init');
+        }
+      } catch (e) {
+        record('Claude Code (~/.claude.json)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
+    }
+  }
+
+  // 9e. OpenCode Configuration (only when CLI installed)
+  if (mcpClientsManager.isOpenCodeInstalled()) {
+    const openCodeStatus = mcpClientsManager.getOpenCodeStatus();
+    const openCodeHealthy =
+      openCodeStatus.mcpSkillsDb &&
+      openCodeStatus.mcpSemble &&
+      openCodeStatus.mcpKonohaFiles;
+    if (openCodeHealthy) {
+      record('OpenCode (~/.config/opencode/)', 'HEALTHY', 'skills-db, semble, and konoha-files active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        mcpClientsManager.ensureOpenCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+        const repaired = mcpClientsManager.getOpenCodeStatus();
+        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles) {
+          record('OpenCode (~/.config/opencode/)', 'REPAIRED', 'Registered Konoha MCP servers');
+          repairsDone++;
+        } else {
+          record('OpenCode (~/.config/opencode/)', 'WARNING', 'Partial OpenCode setup — run konoha init');
+        }
+      } catch (e) {
+        record('OpenCode (~/.config/opencode/)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
     }
   }
 
@@ -2233,45 +2955,37 @@ async function cmdDoctor() {
   globalSpinner.success('Diagnostic checks complete.');
 
   // Print results table
-  log(`\n    ${C.dim}┌────────────────────────────────────────┬──────────────┬──────────────────────────────────────────────────┐${C.reset}`);
-  log(`    ${C.dim}│${C.reset} ${C.bold}${'Requirement / Component'.padEnd(38)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Status'.padEnd(12)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Diagnostic Details'.padEnd(48)}${C.reset} ${C.dim}│${C.reset}`);
-  log(`    ${C.dim}├────────────────────────────────────────┼──────────────┼──────────────────────────────────────────────────┤${C.reset}`);
-  
-  results.forEach(res => {
-    let statusStr = '';
-    if (res.status === 'HEALTHY' || res.status === 'ACTIVE') {
-      statusStr = `${C.green}${res.status.padEnd(12)}${C.reset}`;
-    } else if (res.status === 'REPAIRED') {
-      statusStr = `${C.cyan}${res.status.padEnd(12)}${C.reset}`;
-    } else if (res.status === 'WARNING') {
-      statusStr = `${C.yellow}${res.status.padEnd(12)}${C.reset}`;
-    } else {
-      statusStr = `${C.red}${res.status.padEnd(12)}${C.reset}`;
-    }
-    
-    const detailsStr = res.details.length > 46 ? res.details.substring(0, 43) + '...' : res.details;
-    log(`    ${C.dim}│${C.reset} ${res.component.padEnd(38)} ${C.dim}│${C.reset} ${statusStr} ${C.dim}│${C.reset} ${detailsStr.padEnd(48)} ${C.dim}│${C.reset}`);
+  const doctorHeaders = ['Requirement / Component', 'Status', 'Diagnostic Details'];
+  const doctorRows = results.map((res) => [res.component, res.status, res.details]);
+  const doctorWidths = computeTableWidths(doctorHeaders, doctorRows, {
+    minWidths: [30, 10, 36],
+    maxWidths: [50, 12, 64]
   });
-  
-  log(`    ${C.dim}└────────────────────────────────────────┴──────────────┴──────────────────────────────────────────────────┘${C.reset}`);
+  drawTable(doctorHeaders, doctorWidths, ['left', 'left', 'left'], doctorRows, [], CHIDORI_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+      gradientStatusCell,
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.72)
+    ]
+  });
   log('');
 
   // Diagnostic Report Summary
   if (hasErrors) {
     const summaryLines = [
-      `${C.red}✗ Diagnostic complete with errors.${C.reset}`,
-      `Please check the warnings and install instructions above.`,
-      `Repairs successfully performed: ${C.bold}${repairsDone}${C.reset}`,
+      `${applyGradient('✗ Diagnostic complete with errors.', [[239, 68, 68], [185, 28, 28]])}`,
+      `${applyGradient('Please check the warnings and install instructions above.', FIRE_THEME, 0.85)}`,
+      `${applyGradient('Repairs successfully performed: ', CHIDORI_THEME, 0.85)}${applyGradient(String(repairsDone), FIRE_THEME)}`,
     ];
     drawBox('🩺 Doctor Summary', summaryLines, [[239, 68, 68], [185, 28, 28]]);
     process.exit(1);
   } else {
     const summaryLines = [
-      `${C.green}✓ All diagnostic checks passed successfully!${C.reset}`,
-      `Your Konoha environment is fully operational.`,
-      repairsDone > 0 
-        ? `Auto-repaired ${C.bold}${repairsDone}${C.reset} component(s) successfully.` 
-        : `No repairs were required.`
+      `${applyGradient('✓ All diagnostic checks passed successfully!', LEAF_THEME)}`,
+      `${applyGradient('Your Konoha environment is fully operational.', LEAF_THEME, 0.9)}`,
+      repairsDone > 0
+        ? `${applyGradient('Auto-repaired ', CHIDORI_THEME, 0.85)}${applyGradient(String(repairsDone), FIRE_THEME)}${applyGradient(' component(s) successfully.', CHIDORI_THEME, 0.85)}`
+        : `${applyGradient('No repairs were required.', CHIDORI_THEME, 0.8)}`
     ];
     drawBox('🩺 Doctor Summary', summaryLines, LEAF_THEME);
     log('');
@@ -2314,6 +3028,11 @@ async function cmdUninstall() {
         success('Removed semble from MCP config');
         updated = true;
       }
+      if (config.mcpServers && config.mcpServers['konoha-files']) {
+        delete config.mcpServers['konoha-files'];
+        success('Removed konoha-files from MCP config');
+        updated = true;
+      }
       if (updated) {
         fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
       }
@@ -2341,6 +3060,22 @@ async function cmdUninstall() {
   log('');
   success('Skills-DB uninstalled.');
   info('Your original skills in ~/.agents/skills/ are untouched.');
+
+  // Remove Cursor-specific Konoha configuration
+  try {
+    cursorManager.removeCursorConfig(true);
+    success('Removed Konoha entries from ~/.cursor/ (MCP, subagents, hooks)');
+  } catch {
+    warn('Could not fully clean Cursor configuration');
+  }
+
+  try {
+    mcpClientsManager.removeClaudeCodeConfig(true);
+    mcpClientsManager.removeOpenCodeConfig(true);
+    success('Removed Konoha entries from Claude Code / OpenCode global MCP configs (when present)');
+  } catch {
+    warn('Could not fully clean Claude Code / OpenCode configuration');
+  }
 }
 
 async function cmdAgentStatus() {
@@ -2427,10 +3162,9 @@ async function cmdAgentStatus() {
   });
 
   // Display Table
-  log(`\n  ${C.bold}Call Frequency Summary:${C.reset}`);
-  
+  sectionTitle('Call Frequency Summary:', NINJA_THEME);
+
   const headers = ['Subagent', 'Model Tier', 'Today', '7 Days', 'All Time'];
-  const widths = [22, 28, 8, 10, 12];
   const aligns = ['left', 'left', 'right', 'right', 'right'];
 
   const rows = displayAgents.map(da => [
@@ -2441,12 +3175,20 @@ async function cmdAgentStatus() {
     da.alltime
   ]);
 
-  const rowColors = displayAgents.map(da => {
-    const nameColor = da.isRegistered ? C.cyan : C.yellow;
-    return [nameColor, C.reset, C.reset, C.reset, C.reset];
+  const widths = computeTableWidths(headers, rows, {
+    minWidths: [18, 20, 6, 8, 10],
+    maxWidths: [28, 34, 8, 10, 12]
   });
 
-  drawTable(headers, widths, aligns, rows, rowColors);
+  drawTable(headers, widths, aligns, rows, [], NINJA_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
+      (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
+      (cell) => applyGradient(cell, LEAF_THEME, 0.9),
+      (cell) => applyGradient(cell, LEAF_THEME, 0.9),
+      (cell) => applyGradient(cell, FIRE_THEME, 0.9)
+    ]
+  });
   log('');
 }
 
@@ -3381,24 +4123,33 @@ async function cmdModels(args) {
       const agents = agentManager.loadAgents();
 
       header('Available Antigravity Models');
-      log(`    ${C.dim}┌────────────────────────────────┬──────────────┐${C.reset}`);
-      log(`    ${C.dim}│${C.reset} ${C.bold}${'Model Name'.padEnd(30)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Tag'.padEnd(12)}${C.reset} ${C.dim}│${C.reset}`);
-      log(`    ${C.dim}├────────────────────────────────┼──────────────┤${C.reset}`);
-      AVAILABLE_MODELS.forEach(m => {
-        printModelRow(m.name, m.tag, C.green, C.yellow);
+      const modelRows = AVAILABLE_MODELS.map(m => [m.name, m.tag || '-']);
+      const modelHeaders = ['Model Name', 'Tag'];
+      const modelWidths = computeTableWidths(modelHeaders, modelRows, { minWidths: [24, 10], maxWidths: [42, 16] });
+      drawTable(modelHeaders, modelWidths, ['left', 'left'], modelRows, [], RASENGAN_THEME, {
+        columnFormatters: [
+          (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+          (cell) => applyGradient(cell, FIRE_THEME, 0.85)
+        ]
       });
-      log(`    ${C.dim}└────────────────────────────────┴──────────────┘${C.reset}`);
 
       header('Subagent Model Configurations');
-      log(`    ${C.dim}┌──────────────────────┬${'─'.repeat(82)}┐${C.reset}`);
-      log(`    ${C.dim}│${C.reset} ${C.bold}${'Subagent'.padEnd(20)}${C.reset} ${C.dim}│${C.reset} ${C.bold}${'Assigned Model Tier / Name'.padEnd(80)}${C.reset} ${C.dim}│${C.reset}`);
-      log(`    ${C.dim}├──────────────────────┼${'─'.repeat(82)}┤${C.reset}`);
-      agents.forEach(a => {
+      const agentModelRows = agents.map(a => {
         const icon = a.icon || '👤';
         const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-        printTwoColRow(displayName, a.modelTier, C.cyan, C.green);
+        return [displayName, a.modelTier || '-'];
       });
-      log(`    ${C.dim}└──────────────────────┴${'─'.repeat(82)}┘${C.reset}`);
+      const agentModelHeaders = ['Subagent', 'Assigned Model Tier / Name'];
+      const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
+        minWidths: [18, 28],
+        maxWidths: [24, 80]
+      });
+      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left'], agentModelRows, [], NINJA_THEME, {
+        columnFormatters: [
+          (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
+          (cell) => applyGradient(cell, LEAF_THEME, 0.85)
+        ]
+      });
       log('');
       break;
     }
@@ -3719,6 +4470,17 @@ async function main() {
   if (command === undefined || command === 'init') {
     await runSplashScreen();
   }
+
+  // Silent auto-setup on every command (except help/uninstall)
+  const skipAutoSetup = ['uninstall', 'help', '--help', '-h'].includes(command);
+  if (!skipAutoSetup) {
+    try {
+      ensureAutoSetup();
+    } catch (e) {
+      // Never block CLI on auto-setup failures
+    }
+  }
+
   try {
     switch (command) {
       case 'init':

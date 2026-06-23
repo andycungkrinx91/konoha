@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_comment": "Merge the mcp block into ~/.config/opencode/opencode.json. Konoha init does this automatically when the opencode CLI is installed.",
+  "mcp": {
+    "skills-db": {
+      "type": "local",
+      "command": ["python3", "${HOME}/.gemini/skills-db/server.py"],
+      "enabled": true
+    },
+    "semble": {
+      "type": "local",
+      "command": ["uvx", "--from", "semble[mcp]@latest", "semble", "--content", "all"],
+      "enabled": true
+    },
+    "konoha-files": {
+      "type": "local",
+      "command": ["node", "${HOME}/.gemini/skills-db/file_tools_mcp.js"],
+      "enabled": true
+    }
+  }
+}

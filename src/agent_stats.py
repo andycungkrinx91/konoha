@@ -51,12 +51,12 @@ try:
     # Run query
     query = """
         SELECT 
-            agent,
+            LOWER(COALESCE(agent, '')) as agent_key,
             COUNT(CASE WHEN date(timestamp, 'localtime') >= date('now', 'localtime') THEN 1 END) as today,
             COUNT(CASE WHEN date(timestamp, 'localtime') >= date('now', '-7 days', 'localtime') THEN 1 END) as last7days,
             COUNT(*) as alltime
         FROM tool_calls
-        GROUP BY agent
+        GROUP BY agent_key
     """
     
     rows = conn.execute(query).fetchall()
@@ -64,16 +64,12 @@ try:
     
     results = {}
     for row in rows:
-        agent_name = row[0].lower() if row[0] else "(direct)"
-        if agent_name not in results:
-            results[agent_name] = {
-                "today": 0,
-                "last7days": 0,
-                "alltime": 0
-            }
-        results[agent_name]["today"] += row[1]
-        results[agent_name]["last7days"] += row[2]
-        results[agent_name]["alltime"] += row[3]
+        agent_name = row[0] if row[0] else "(direct)"
+        results[agent_name] = {
+            "today": row[1],
+            "last7days": row[2],
+            "alltime": row[3],
+        }
         
     print(json.dumps(results))
 except Exception as e:

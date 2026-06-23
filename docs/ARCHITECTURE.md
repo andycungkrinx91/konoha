@@ -4,7 +4,7 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.1.5)
+title: Konoha System Architecture (v1.1.6)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -12,7 +12,6 @@ flowchart TB
     classDef ideNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef routerNode fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
     classDef agentNode fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#e0e7ff;
-    classDef modelNode fill:#311b92,stroke:#651fff,stroke-width:2px,color:#f5f3ff;
     classDef mcpNode fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ecfdf5;
     classDef sembleNode fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#ccfbf1;
     classDef dbNode fill:#451a03,stroke:#fb923c,stroke-width:2px,color:#fff7ed;
@@ -25,14 +24,14 @@ flowchart TB
     subgraph L1 ["Layer 1 — Presentation"]
         direction LR
         User(["👤 End User"])
-        IDE("💻 Antigravity IDE / CLI")
+        IDE("💻 Antigravity IDE/CLI<br>Cursor IDE/CLI<br>Claude Code / OpenCode / MCP clients")
     end
 
     %% ── Layer 1.5: Management & Configuration ──────────────────
     subgraph LM ["Layer 1.5 — Management & Configuration"]
         CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, models, skill, agent)"]
         AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
-        MCPConfig["📄 MCP Config<br>(mcp_config.json)"]
+        MCPConfig["📄 MCP Config<br>(~/.gemini/config/mcp_config.json<br>~/.cursor/mcp.json<br>~/.claude.json<br>~/.config/opencode/opencode.json)"]
     end
 
     %% ── Layer 2: Cognitive Agent Orchestration ─────────────────
@@ -51,18 +50,12 @@ flowchart TB
         end
     end
 
-    %% ── Layer 2.5: LLM Execution & Fallback ────────────────────
-    subgraph L25 ["Layer 2.5 — LLM Execution & Fallback"]
-        LLMRegistry["🤖 LLM Model Registry<br>(Gemini, Claude, GPT)"]
-        FallbackRouter{"⚠️ Fallback Router<br>(Route on 429/Resource Exhausted)"}
-        QuotaLimit["🛑 Quota Exhaustion<br>( gcloud auth login / Upgrade )"]
-    end
-
     %% ── Layer 3: MCP Middleware ────────────────────────────────
     subgraph L3 ["Layer 3 — MCP Middleware"]
         direction LR
         SkillsDB("⚙️ skills-db MCP<br>FTS5 Sanitizer & Injection Shield")
         Semble("🔮 Semble MCP<br>Semantic Code Search")
+        KonohaFiles("📁 konoha-files MCP<br>Token-Efficient File Tools")
     end
 
     %% ── Layer 4: Persistence ──────────────────────────────────
@@ -92,45 +85,41 @@ flowchart TB
     Queue -->|"4. Read parameters"| Tokubetsu
     Queue -->|"4. Read parameters"| Kage
 
-    %% Model Execution Workflow
-    Genin -->|"5. Execute prompts"| LLMRegistry
-    Chunin -->|"5. Execute prompts"| LLMRegistry
-    Jonin -->|"5. Execute prompts"| LLMRegistry
-    Anbu -->|"5. Execute prompts"| LLMRegistry
-    Tokubetsu -->|"5. Execute prompts"| LLMRegistry
-    Kage -->|"5. Execute prompts"| LLMRegistry
-    LLMRegistry -->|"5a. Quota limit / 429 error"| FallbackRouter
-    FallbackRouter -->|"5b. Route to Fallback Model<br>(Gemini 3.1 Flash-Lite)"| LLMRegistry
-    FallbackRouter -->|"5c. Total Exhaustion"| QuotaLimit
-    QuotaLimit -->|"5d. Warning / Recovery instructions"| User
+    Genin -->|"5a. find_skill()"| SkillsDB
+    Chunin -->|"5a. find_skill()"| SkillsDB
+    Jonin -->|"5a. find_skill()"| SkillsDB
+    Anbu -->|"5a. find_skill()"| SkillsDB
+    Tokubetsu -->|"5a. find_skill()"| SkillsDB
+    Kage -->|"5a. find_skill()"| SkillsDB
 
-    Genin -->|"4a. find_skill()"| SkillsDB
-    Chunin -->|"4a. find_skill()"| SkillsDB
-    Jonin -->|"4a. find_skill()"| SkillsDB
-    Anbu -->|"4a. find_skill()"| SkillsDB
-    Tokubetsu -->|"4a. find_skill()"| SkillsDB
-    Kage -->|"4a. find_skill()"| SkillsDB
+    Genin -->|"5b. search()"| Semble
+    Chunin -->|"5b. search()"| Semble
+    Jonin -->|"5b. search()"| Semble
+    Anbu -->|"5b. search()"| Semble
+    Tokubetsu -->|"5b. search()"| Semble
+    Kage -->|"5b. search()"| Semble
 
-    Genin -->|"4b. search()"| Semble
-    Chunin -->|"4b. search()"| Semble
-    Jonin -->|"4b. search()"| Semble
-    Anbu -->|"4b. search()"| Semble
-    Tokubetsu -->|"4b. search()"| Semble
-    Kage -->|"4b. search()"| Semble
+    Genin -->|"5c. read/grep/structure"| KonohaFiles
+    Chunin -->|"5c. read/grep/structure"| KonohaFiles
+    Jonin -->|"5c. read/grep/structure"| KonohaFiles
+    Anbu -->|"5c. read/grep/structure"| KonohaFiles
+    Tokubetsu -->|"5c. read/grep/structure"| KonohaFiles
+    Kage -->|"5c. read/grep/structure"| KonohaFiles
 
-    SkillsDB -->|"5. SQL query"| DB
-    DB <-->|"6. FTS5 search"| FTS5
-    Semble -->|"5. Semantic index"| Codebase
+    SkillsDB -->|"6. SQL query"| DB
+    DB <-->|"7. FTS5 search"| FTS5
+    Semble -->|"6. Semantic index"| Codebase
+    KonohaFiles -->|"6. Streamed reads"| Codebase
 
-    Genin -->|"6. Write output"| Queue
-    Chunin -->|"6. Write output"| Queue
-    Jonin -->|"6. Write output"| Queue
-    Anbu -->|"6. Write output"| Queue
-    Tokubetsu -->|"6. Write output"| Queue
-    Kage -->|"6. Write output"| Queue
-    Queue -->|"7. Read output"| Router
-    Router -->|"8. Return response"| IDE
-    IDE -->|"9. Context-aware response"| User
+    Genin -->|"7. Write output"| Queue
+    Chunin -->|"7. Write output"| Queue
+    Jonin -->|"7. Write output"| Queue
+    Anbu -->|"7. Write output"| Queue
+    Tokubetsu -->|"7. Write output"| Queue
+    Kage -->|"7. Write output"| Queue
+    Queue -->|"8. Read output"| Router
+    Router -->|"9. Return response"| IDE
+    IDE -->|"10. Context-aware response"| User
 
     %% ── Layout Alignment ──────────────────────────────────────
     IDE ~~~ SkillsDB
@@ -141,37 +130,39 @@ flowchart TB
     class Router routerNode
     class Queue queueNode
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage agentNode
-    class LLMRegistry,FallbackRouter,QuotaLimit modelNode
     class SkillsDB mcpNode
-    class Semble sembleNode
+    class Semble,KonohaFiles sembleNode
     class DB dbNode
     class FTS5 ftsNode
     class Codebase codeNode
     class CLI,AgentConfig,MCPConfig mgmtNode
 ```
 
-> **Legend** — 🔵 Presentation &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
+> **Legend** — 🔵 Presentation (host IDE runs the model) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble + konoha-files MCP &nbsp;|&nbsp; 🟠 Persistence
+>
+> Konoha does **not** implement multi-provider LLM routing. Subagents execute inside the host IDE (Antigravity, Cursor, Claude Code, or OpenCode), which owns model selection and API calls.
 
 ## Query Lifecycle
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with File-Based Protocol & Dual-MCP
+title: Runtime Query Lifecycle with Multi-MCP
 ---
 sequenceDiagram
     actor User as "👤 User"
-    participant IDE as "💻 Antigravity IDE/CLI"
+    participant IDE as "💻 Host IDE (Antigravity / Cursor / Claude / OpenCode)"
     participant Router as "🔀 Orchestrator (Main)"
     participant SkillsDB as "⚙️ skills-db MCP"
     participant Semble as "🔮 Semble MCP"
+    participant KonohaFiles as "📁 konoha-files MCP"
     participant Queue as "📂 File Queue (tasks/<task_id>/)"
     participant Agent as "🥷 Ninja Agent"
-    participant Model as "🤖 LLM Model Registry"
     participant DB as "🗄️ SQLite FTS5"
 
     User->>IDE: Natural language prompt
     activate IDE
-    IDE->>Router: Evaluate task
+    Note over IDE: Antigravity: prompt_hook writes prompt.md
+    IDE->>Router: Evaluate task (read prompt.md)
     activate Router
 
     %% --- Skill Discovery Phase ---
@@ -191,6 +182,13 @@ sequenceDiagram
     activate Semble
     Semble-->>Router: Project context & code targets
     deactivate Semble
+
+    opt Targeted read / capped grep / structure map
+        Router->>KonohaFiles: read_file_range / token_efficient_grep / get_file_structure
+        activate KonohaFiles
+        KonohaFiles-->>Router: Compressed file output
+        deactivate KonohaFiles
+    end
 
     %% --- Routing Phase ---
     Note over Router: Step 3: Markdown Delegation
@@ -235,22 +233,7 @@ sequenceDiagram
     end
     deactivate SkillsDB
 
-    %% --- Model Execution & Fallback ---
-    Note over Agent: Step 6: Prompt Execution & Model Routing
-    Agent->>Model: Send prompt with isolated context
-    activate Model
-    alt Model active / No Quota limits
-        Model-->>Agent: Return generated response
-    else Rate Limit / 429 / RESOURCE_EXHAUSTED
-        Model-->>Agent: API Quota Error
-        Note over Agent: Fallback Engine triggered
-        Agent->>Model: Execute prompt on Gemini 3.1 Flash-Lite
-        Model-->>Agent: Return generated response
-    else Total Quota Exhaustion (All models fail)
-        Model-->>Agent: Total Quota Exhaustion
-        Agent-->>User: Output "Your Antigravity account has reach the limit quota..." warning
-    end
-    deactivate Model
+    Note over Agent,IDE: Step 6: Execute task using host IDE model<br>(Konoha does not route LLM providers)
 
     %% --- Response Phase ---
     Note over Agent: Step 7: Write Result & Complete

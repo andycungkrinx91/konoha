@@ -89,7 +89,7 @@ async function main() {
       const result = {
         injectSteps: [
           {
-            ephemeralMessage: "A new user prompt has been written to prompt.md in your artifact directory. Please immediately read it using the view_file tool to retrieve the complete user request/prompt, and rely on this file instead of large chat history inputs to save tokens."
+            ephemeralMessage: "New user prompt in prompt.md. Read prompt.md now. Session start: define_subagent all ninjas with BARE names (see GEMINI.md). IMAGE/MOCKUP builds: call build_from_source first; delegate.md Constraints must FORBID premium template (no 10-theme switcher/3D carousels/watermark) — match mockups only."
           }
         ]
       };

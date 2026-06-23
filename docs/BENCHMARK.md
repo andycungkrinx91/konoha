@@ -1,6 +1,8 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents real-world, context-optimized token savings metrics captured directly from active workspace development sessions using `konoha` (SQLite FTS5 Skills-DB) and `semble` (Semantic Code Search).
+This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-23**). Metrics combine **skills-db**, **semble**, and **konoha-files** usage.
+
+> Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
 ---
 
@@ -8,36 +10,60 @@ This report presents real-world, context-optimized token savings metrics capture
 
 By moving from full-disk file loading to on-demand context injection, developers achieve a combined context reduction of **83% to 98% average per query**.
 
-### 📈 Real-World Savings Summary
-* **Today**: 102 calls | **~1.40M tokens saved** (~5.34 MB equivalent)
-* **Last 7 Days**: 481 calls | **~10.89M tokens saved** (~41.54 MB equivalent)
-* **All Time**: 481 calls | **~10.89M tokens saved** (~41.54 MB equivalent)
+### 📈 Live Savings Summary (2026-06-23)
+
+| Period | Total Calls | Cumulative Saved | Token Reduction |
+|:---|:---:|:---:|:---:|
+| **Today** | 295 | ~107 MB (~28.3M tokens) | **99%** |
+| **Last 7 Days** | 960 | ~235 MB (~65M tokens) | **98%** |
+| **All Time** | 2,904 | ~302 MB (~110M tokens) | **97%** |
 
 ---
 
 ## 1. ⚡ Skills-DB (konoha) Savings
 
-In a standard agent setup without `konoha`, the orchestrator loads the complete `SKILL.md` rules and all adjacent dependencies/references directly into the starting conversation window. This baseline configuration consumes **~550 KB** of raw text immediately.
+Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at session start. With FTS5 on-demand retrieval, each query returns ~12 KB relevant chunks.
 
-With `konoha`, the orchestrator executes FTS5 searches and retrieves only the matching **~12 KB** section matching the specific task query, resulting in an **85% context size reduction**.
-
-| Period | Total Calls | Cumulative Data Saved | Active Token Reduction |
+| Period | Total Calls | Cumulative Data Saved | Token Reduction |
 |:---|:---:|:---:|:---:|
-| **Today** | 88 | 3.51 MB | **~920.8k tokens** (90% savings) |
-| **Last 7 Days** | 195 | 4.92 MB | **~1.3M tokens** (85% savings) |
-| **All Time** | 195 | 4.92 MB | **~1.3M tokens** (85% savings) |
+| **Today** | 289 | 107.02 MB | **~28.1M tokens (99%)** |
+| **Last 7 Days** | 834 | 230.52 MB | **~60.4M tokens (99%)** |
+| **All Time** | 2,064 | 301.57 MB | **~79.1M tokens (97%)** |
+
+*Source: `python3 ~/.gemini/skills-db/db_savings.py ~/.gemini/skills-db/skills.db`*
 
 ---
 
 ## 2. 🔍 Semble (Semantic Code Search) Savings
 
-`semble` optimizes file content inclusion by replacing direct file dumping with focused, semantic symbol searches and line-range code previews.
+`semble` replaces direct file dumps with focused semantic search and line-range previews.
 
 | Period | Search Queries | Cumulative Tokens Saved | Average Reduction |
 |:---|:---:|:---:|:---:|
-| **Today** | 14 | **~479.1k tokens** | 96% |
-| **Last 7 Days** | 286 | **~9.6M tokens** | 96% |
-| **All Time** | 286 | **~9.6M tokens** | 96% |
+| **Today** | 6 | **~230.6k tokens** | 99% |
+| **Last 7 Days** | 126 | **~4.6M tokens** | 98% |
+| **All Time** | 840 | **~30.8M tokens** | 96% |
+
+*Source: `uvx --from semble[mcp]@latest semble savings`*
+
+---
+
+## 3. 📁 konoha-files (Token-Efficient File Tools) Savings
+
+The `konoha-files` MCP server (v1.1.6+) complements semble with hard-capped file operations:
+
+| Tool | Cap | Benefit |
+|------|-----|---------|
+| `read_file_head` | ≤200 lines | Preview without full file load |
+| `read_file_range` | ≤500 lines | Avoids loading multi-thousand-line files |
+| `file_info` | Metadata only | Plan read windows before loading content |
+| `token_efficient_grep` | ≤20 matches (max 50) | Replaces unbounded grep dumps |
+| `get_file_structure` | Signatures only | Skips function bodies |
+| `find_files_clean` | Blacklisted walks | Skips `node_modules`, `.git`, lockfiles |
+
+**Recommended workflow**: `semble.search` → locate target → `read_file_range` / `get_file_structure` for precise context.
+
+**Security (v1.1.6+)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
 
 ---
 
@@ -48,6 +74,23 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 * **API Latency**: Latency drops by **~42%** on average due to reduced prompt input parsing.
 * **Context Stability**: Prevents agents from hitting "Context window limit exceeded" errors during long-running tasks.
 * **Execution Cost**: Over **95% reduction** in API token fees per agent session.
+
+---
+
+## 🧪 Release QA Gates (v1.1.6)
+
+Before public release, verify:
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| MCP integration | `konoha test` | 14/14 PASS |
+| Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 PASS |
+| Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 PASS |
+| Environment health | `konoha doctor --yes` | All checks passed |
+| Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → skills-db, semble, konoha-files |
+| OpenCode MCP (if CLI installed) | `konoha status` | `~/.config/opencode/opencode.json` → all three servers |
+| Cursor skills mirror | `konoha status` | `~/.cursor/skills/` synced from `~/.agents/skills/` |
+| Skills indexed | `konoha status` | 48+ entries (includes `konoha-maintenance`) |
 
 ---
 
@@ -74,7 +117,7 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 ### After Implementation (The Solution)
 
 1. **High-Performance SQLite FTS5 Engine**:
-   * The entire knowledge base (93 entries containing skills, references, and scripts) is indexed into a local SQLite database using Full-Text Search (FTS5).
+   * The entire knowledge base (skills, references, and scripts) is indexed into a local SQLite database using Full-Text Search (FTS5).
    * Agents no longer load entire folders or files from disk. Instead, the agent instructions configure a streamlined team of 6 Naruto-ranked subagents (`genin` as scout, `chunin` as research gatherer, `jonin` as frontend builder, `anbu` as DevOps specialist, `tokubetsu-jonin` as scribe, and `kage` as architectural strategist) to search on-demand.
    * Agents call `find_skill("keyword")` when they need info. SQLite FTS5 runs a BM25 relevance ranking and returns a precise **~4 KB preview chunk**.
    * **Result**: Context payload is reduced from **~1.1 MB per session** to just **~4 KB - 12 KB per query** (representing an **83% to 98% reduction in token consumption**).
@@ -86,6 +129,7 @@ Large context windows slow down LLM token generation speeds and increase costs. 
      * Executables & DB: `~/.gemini/skills-db/`
      * Global Prompt Instructions: `~/.gemini/GEMINI.md`
    * Fully cross-platform: auto-detects paths and Python configurations on Windows, macOS, and Linux.
+   * **Multi-client**: Claude Code (`~/.claude.json`), OpenCode (`~/.config/opencode/opencode.json`), Cursor — see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
 3. **Instantaneous On-Demand Retrieval**:
    * Finding reference documentation is a single-step MCP tool call:
@@ -101,6 +145,5 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 | **Single-Query Payload** | Large chunks or entire files (50KB+) | Small, precise matches (4KB chunks) |
 | **Token Savings** | 0% (Baseline) | **83% - 98% reduction** |
 | **Cost & Context Bloat** | High context footprint, high API bills | Minimal footprint, highly cost-effective |
-| **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `~/.gemini/config/mcp_config.json` |
+| **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `konoha init` + per-client MCP JSON |
 | **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` |
-
