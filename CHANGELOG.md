@@ -2,16 +2,31 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.1.5] - 2026-06-23
+
+### Added
+- **Unified `build_from_source` MCP Tool**: Replaced `build_with_image_design` with a unified `build_from_source` tool that supports both design mockup images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`) and source code reference files (`.html`, `.xml`, `.tsx`, `.jsx`, `.ts`, `.js`, `.css`).
+- **Image Analysis in `build_from_source`**: Lazy PIL integration for extracting image dimensions, dominant colors, aspect ratios, and orientation from design mockups to guide responsive layouts.
+- **Source Code Analysis**: Automatic peeking into reference source files to detect framework hints (React, Svelte) and import/export patterns.
+
+### Changed
+- **Removed `konoha render`**: Deleted the visual comparison command and `src/visual_compare.py`. The `build_from_source` tool now handles all design-to-code workflows.
+- **Corrected v1.1.4 CHANGELOG**: Updated historical entry to accurately reflect tools shipped in that release.
+
+### Fixed
+- **Null argument crash in `build_from_source`**: Added null checks for required arguments (`name`, `source_dir`, `framework`) to prevent `TypeError` crashes when arguments are missing from JSON-RPC requests.
+- **Null argument crash in `build_from_text`**: Added null checks for required arguments (`name`, `description`, `framework`) to prevent the same crash pattern.
+- **File traversal cap bypass in `build_from_source`**: Fixed the 100-file limit in directory scanning — the `break` statement was scoped inside the inner filename loop and did not terminate the outer `os.walk()` traversal.
+- **Missing `model` parameter in subagent config**: Fixed `src/agent_manager.js` to correctly inject the `model: \`<modelTier>\`` property into the `GEMINI.md` generation, resolving a bug where all subagents were defaulting to a generic model instead of their configured tiers (e.g. Claude 4.6, Gemini 3.5 High).
+- **Stale `visual_compare.py` reference**: Removed dead comment referencing deleted file from `server.py` module header.
+- **Destructive HTML Comment Stripping**: Disabled aggressive HTML comment stripping (`<!--.*?-->`) in `src/migrate.py`'s `optimize_content` function to preserve critical Svelte compiler directives (e.g. `svelte-ignore a11y_...`) and structural markdown markers (e.g. `<!-- slide -->`) during the `konoha migrate` indexing process.
+
 ## [1.1.4] - 2026-06-22
 
 ### Added
-- **Design Mockup Build Selection Tools**: Added `build_with_image_design` and `build_from_text` MCP tools to the Python server.
-- **Image-to-Code Generation & Translation Command**: Implemented `konoha render` CLI command, leveraging `agent-browser` for taking screenshots and local Python script `src/visual_compare.py` for pixel-by-pixel similarity checks and mismatch diff highlighting.
-- **Support for Multi-Extension Design Mockups**: Translates layout and assets directly from design image folders containing `.svg`, `.html`, `.png`, `.jpg`, and `.webp` files to enable precise code generation matching the designs.
-- **Image-to-Code Token Savings**: Optimizes and saves vision token usage by handling layout alignment processes locally, preventing binary visual assets from bloating the model's active context window.
+- **Build from Text MCP Tool**: Added `build_from_text` MCP tool to the Python server for generating premium storefronts from textual descriptions with default visual effects templates.
 
 ### Changed
-- **Visual Comparison Tooling Replacement**: Replaced the legacy `render_image` MCP tool with the new target-specific visual match routing tools `build_with_image_design` and `build_from_text`.
 - **Zero-Warning Lint Gate Compliance**: Relaxed ESLint configurations in Svelte/SvelteKit (`eslint.config.js`) and Next.js (`eslint.config.mjs`) template guidelines to turn off strict typescript, unused-vars, image element, and unescaped entity warnings.
 - **Svelte Compiler Warnings Suppression**: Added automated `onwarn` directives to Svelte configuration instructions (`svelte.config.js`) to suppress all compiler-level accessibility (a11y) diagnostics during build gates.
 

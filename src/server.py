@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-skills-db MCP Server (v1.1.0 — Token-Optimized)
+skills-db MCP Server (v1.1.5 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -24,7 +24,8 @@ import re
 from urllib.parse import urlparse, unquote
 import subprocess
 import tempfile
-from PIL import Image, ImageChops
+# PIL is NOT imported at module level to avoid crashing MCP on systems without Pillow.
+# PIL is lazy-loaded inside build_from_source() for image analysis.
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -311,7 +312,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
         rows = conn.execute("""
             SELECT s.name, s.skill_name, s.type, s.tags,
                    s.content, s.byte_size, s.line_count, s.file_path,
-                   bm25(skills_fts) AS rank
+                   bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
             FROM skills_fts
             JOIN skills s ON skills_fts.rowid = s.rowid
             WHERE skills_fts MATCH ?
@@ -502,7 +503,7 @@ def optimize_report(keyword=None, agent_name=None):
             rows = conn.execute("""
                 SELECT s.name, s.skill_name, s.type, s.tags,
                        s.content, s.byte_size, s.line_count, s.file_path,
-                       bm25(skills_fts) AS rank
+                       bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
                 FROM skills_fts
                 JOIN skills s ON skills_fts.rowid = s.rowid
                 WHERE skills_fts MATCH ?
@@ -589,45 +590,172 @@ def optimize_report(keyword=None, agent_name=None):
     return res
 
 
-def build_with_image_design(name, design_dir, framework, agent_name=None):
+def build_from_source(name, source_dir, framework, agent_name=None):
     """
-    Analyze design mockup layouts in design_dir and set up project configuration.
+    Analyze design mockup layouts and reference source files in source_dir and set up project configuration.
     """
     global WORKSPACE_ROOT
-    resolved_design_dir = design_dir
-    if not os.path.isabs(resolved_design_dir):
+    resolved_source_dir = source_dir
+    if not os.path.isabs(resolved_source_dir):
         workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
-        resolved_design_dir = os.path.abspath(os.path.join(workspace, resolved_design_dir))
+        resolved_source_dir = os.path.abspath(os.path.join(workspace, resolved_source_dir))
         
-    if not os.path.exists(resolved_design_dir) or not os.path.isdir(resolved_design_dir):
-        res = json.dumps({"error": f"Design directory not found: {design_dir}"})
-        log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}", res, agent_name=agent_name)
+    if not os.path.exists(resolved_source_dir) or not os.path.isdir(resolved_source_dir):
+        res = json.dumps({"error": f"Source directory not found: {source_dir}"})
+        log_tool_call("build_from_source", f"name={name}, source_dir={source_dir}", res, agent_name=agent_name)
         return res
         
     try:
-        files = os.listdir(resolved_design_dir)
+        all_files = []
+        for root, _, filenames in os.walk(resolved_source_dir):
+            for f in filenames:
+                ext = os.path.splitext(f)[1].lower()
+                if ext in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.html', '.xml', '.tsx', '.jsx', '.ts', '.js', '.css'):
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, resolved_source_dir)
+                    all_files.append(rel_path)
+                    # Avoid traversing extremely large directories
+                    if len(all_files) > 100:
+                        break
+            if len(all_files) > 100:
+                break
     except Exception as e:
-        res = json.dumps({"error": f"Failed to list design directory: {str(e)}"})
-        log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}", res, agent_name=agent_name)
+        res = json.dumps({"error": f"Failed to list source directory: {str(e)}"})
+        log_tool_call("build_from_source", f"name={name}, source_dir={source_dir}", res, agent_name=agent_name)
         return res
 
-    mockups = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.svg', '.html'))]
+    if not all_files:
+        res = json.dumps({"error": f"No supported design images or source files found in {source_dir}."})
+        log_tool_call("build_from_source", f"name={name}, source_dir={source_dir}", res, agent_name=agent_name)
+        return res
+
+    image_exts = ('.png', '.jpg', '.jpeg', '.webp', '.svg')
+    code_exts = ('.html', '.xml', '.tsx', '.jsx', '.ts', '.js', '.css')
+
+    images_raw = [f for f in all_files if f.lower().endswith(image_exts)]
+    sources_raw = [f for f in all_files if f.lower().endswith(code_exts)]
+
+    # Lazy PIL import for image analysis
+    _pil_available = False
+    _Image = None
+    try:
+        from PIL import Image as _Image
+        _pil_available = True
+    except ImportError:
+        pass
+
+    def _analyze_image(fpath):
+        meta = {}
+        try:
+            meta["size_bytes"] = os.path.getsize(fpath)
+        except OSError:
+            meta["size_bytes"] = 0
+        
+        if not _pil_available or not _Image:
+            return meta
+        
+        lower = fpath.lower()
+        if lower.endswith(('.svg', '.html', '.htm')):
+            return meta
+        
+        try:
+            with _Image.open(fpath) as img:
+                w, h = img.size
+                meta["width"] = w
+                meta["height"] = h
+                meta["aspect_ratio"] = round(w / h, 2) if h > 0 else 0
+                meta["orientation"] = "landscape" if w > h else ("portrait" if h > w else "square")
+                meta["format"] = img.format or "unknown"
+                
+                try:
+                    sample = img.convert("RGB")
+                    sample.thumbnail((50, 50))
+                    pixels = list(sample.getdata())
+                    if pixels:
+                        from collections import Counter
+                        color_counts = Counter(pixels)
+                        top_colors = color_counts.most_common(5)
+                        meta["dominant_colors"] = [
+                            {"rgb": list(c[0]), "hex": "#{:02x}{:02x}{:02x}".format(*c[0]), "frequency": c[1]}
+                            for c in top_colors
+                        ]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return meta
+
+    detected_images = []
+    for m in images_raw:
+        fpath = os.path.join(resolved_source_dir, m)
+        meta = _analyze_image(fpath)
+        if meta.get("size_bytes", 0) == 0:
+            continue
+        meta["filename"] = m
+        detected_images.append(meta)
+
+    detected_sources = []
+    for s in sources_raw[:30]:  # limit peeking to 30 files
+        fpath = os.path.join(resolved_source_dir, s)
+        meta = {"filename": s}
+        try:
+            size = os.path.getsize(fpath)
+            meta["size_bytes"] = size
+            if size < 50000:
+                with open(fpath, 'r', encoding='utf-8', errors='ignore') as fp:
+                    content = fp.read()
+                    if "import " in content or "export " in content:
+                        meta["has_exports_or_imports"] = True
+                    if "react" in content.lower():
+                        meta["framework_hints"] = "react"
+                    elif "svelte" in content.lower():
+                        meta["framework_hints"] = "svelte"
+        except Exception:
+            pass
+        detected_sources.append(meta)
+
+    layout_hints = []
+    if _pil_available:
+        for m in detected_images:
+            if "width" in m and "height" in m:
+                orient = m.get("orientation", "unknown")
+                layout_hints.append(f"{m['filename']} ({m['width']}x{m['height']}, {orient})")
+
+    directives = [
+        f"Build a clean {framework} storefront named '{name}' based on the source design directory '{source_dir}'.",
+        "You MUST read and analyze the provided reference source files and design mockup images to guide your construction.",
+        "DO NOT implement the default visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, or watermark) UNLESS they are explicitly requested or depicted in the source files/mockup images."
+    ]
+
+    if detected_images:
+        directives.append(f"Detected design mockups: {', '.join([m['filename'] for m in detected_images])}. Translate these layouts directly into component structure with high visual fidelity.")
+    if layout_hints:
+        directives.append(f"Image layout analysis: {'; '.join(layout_hints)}. Use these dimensions to guide responsive breakpoints and aspect ratios.")
+    if detected_sources:
+        directives.append(f"Detected source code reference files: {', '.join([s['filename'] for s in detected_sources])}. Reconstruct or migrate component structure and logic from these files.")
     
+    if any("dominant_colors" in m for m in detected_images):
+        all_colors = []
+        for m in detected_images:
+            for c in m.get("dominant_colors", [])[:3]:
+                if c["hex"] not in all_colors:
+                    all_colors.append(c["hex"])
+        if all_colors:
+            directives.append(f"Detected color palette from mockups: {', '.join(all_colors[:10])}. Use these colors as the primary design palette.")
+
     spec = {
         "status": "success",
         "project_name": name,
         "framework": framework,
-        "mode": "build_with_image_design",
-        "design_directory": resolved_design_dir,
-        "detected_mockups": mockups,
-        "directives": [
-            f"Build a clean {framework} storefront named '{name}' matching the structure and layouts of the detected design images: {', '.join(mockups)}.",
-            "DO NOT implement the default visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, or watermark) UNLESS they are explicitly depicted in the design images.",
-            "Analyze the layout from each image and translate it directly into component structure with visual fidelity."
-        ]
+        "mode": "build_from_source",
+        "source_directory": resolved_source_dir,
+        "detected_images": detected_images,
+        "detected_sources": detected_sources,
+        "directives": directives
     }
+
     res = json.dumps(spec, indent=2)
-    log_tool_call("build_with_image_design", f"name={name}, design_dir={design_dir}, framework={framework}", res, agent_name=agent_name)
+    log_tool_call("build_from_source", f"name={name}, source_dir={source_dir}, framework={framework}", res, agent_name=agent_name)
     return res
 
 
@@ -663,11 +791,17 @@ def detect_active_agent():
     import json
     import re
     try:
-        brain_dir = os.path.expanduser("~/.gemini/antigravity-cli/brain")
-        pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
-        pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
-        
-        all_files = glob.glob(pattern_prompt) + glob.glob(pattern_transcript)
+        brain_dirs = [
+            os.path.expanduser("~/.gemini/antigravity-ide/brain"),
+            os.path.expanduser("~/.gemini/antigravity-cli/brain"),
+        ]
+        all_files = []
+        for brain_dir in brain_dirs:
+            if not os.path.isdir(brain_dir):
+                continue
+            pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
+            pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
+            all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
         if not all_files:
             return None
             
@@ -807,7 +941,7 @@ def handle_request(req):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "skills-db", "version": "1.0.0"}
+                "serverInfo": {"name": "skills-db", "version": "1.1.5"}
             }
         }
 
@@ -846,7 +980,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["keyword", "agent"]
+                            "required": ["keyword"]
                         }
                     },
                     {
@@ -865,7 +999,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["agent"]
+                            "required": []
                         }
                     },
                     {
@@ -883,7 +1017,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["name", "agent"]
+                            "required": ["name"]
                         }
                     },
                     {
@@ -901,12 +1035,12 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["agent"]
+                            "required": []
                         }
                     },
                     {
-                        "name": "build_with_image_design",
-                        "description": "Initialize and build a project strictly matching design mockup layouts and assets in a design directory. Skips default visual effects templates.",
+                        "name": "build_from_source",
+                        "description": "Initialize and build a project using existing source files (HTML, XML, TSX, JS, CSS, etc.) or design mockup images in a source directory. Skips default visual effects templates.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -914,9 +1048,9 @@ def handle_request(req):
                                     "type": "string",
                                     "description": "Name of the project to build."
                                 },
-                                "design_dir": {
+                                "source_dir": {
                                     "type": "string",
-                                    "description": "Relative or absolute path to the design mockups directory containing the layout images."
+                                    "description": "Relative or absolute path to the source/design directory containing mockup images or template files."
                                 },
                                 "framework": {
                                     "type": "string",
@@ -927,7 +1061,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["name", "design_dir", "framework", "agent"]
+                            "required": ["name", "source_dir", "framework"]
                         }
                     },
                     {
@@ -953,7 +1087,7 @@ def handle_request(req):
                                     "description": "Name of the calling agent."
                                 }
                             },
-                            "required": ["name", "description", "framework", "agent"]
+                            "required": ["name", "description", "framework"]
                         }
                     }
                 ]
@@ -982,16 +1116,22 @@ def handle_request(req):
         elif tool_name == "optimize_report":
             keyword = args.get("keyword")
             result_text = optimize_report(keyword=keyword, agent_name=agent)
-        elif tool_name == "build_with_image_design":
+        elif tool_name == "build_from_source":
             name = args.get("name")
-            design_dir = args.get("design_dir")
+            source_dir = args.get("source_dir")
             framework = args.get("framework")
-            result_text = build_with_image_design(name, design_dir, framework, agent_name=agent)
+            if not name or not source_dir or not framework:
+                result_text = json.dumps({"error": "Missing required arguments: name, source_dir, and framework are all required."})
+            else:
+                result_text = build_from_source(name, source_dir, framework, agent_name=agent)
         elif tool_name == "build_from_text":
             name = args.get("name")
             description = args.get("description")
             framework = args.get("framework")
-            result_text = build_from_text(name, description, framework, agent_name=agent)
+            if not name or not description or not framework:
+                result_text = json.dumps({"error": "Missing required arguments: name, description, and framework are all required."})
+            else:
+                result_text = build_from_text(name, description, framework, agent_name=agent)
         else:
             result_text = json.dumps({"error": f"Unknown tool: {tool_name}"})
 

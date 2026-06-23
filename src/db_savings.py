@@ -10,7 +10,9 @@ db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.gemini/sk
 def query_stats(conn, time_filter=None):
     """Query statistics based on a SQL time filter."""
     where_clause = ""
-    if time_filter == "today":
+    if time_filter is None or time_filter == "all":
+        where_clause = ""
+    elif time_filter == "today":
         where_clause = "WHERE date(timestamp, 'localtime') >= date('now', 'localtime')"
     elif time_filter == "7days":
         where_clause = "WHERE date(timestamp, 'localtime') >= date('now', '-7 days', 'localtime')"

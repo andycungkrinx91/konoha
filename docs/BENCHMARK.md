@@ -56,7 +56,7 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 ### Before Implementation (The Problem)
 
 1. **Extreme Token Consumption (Super-Bloated Baseline)**:
-   * Every time a session starts in Antigravity IDE or CLI, the agent receives instructions to load the full skill files (e.g., `SKILL.md` for `deep-code-explorer`, `modern-full-stack`, `websearch-deep`, `devsecops-engineer`, etc.).
+   * Every time a session starts in Antigravity IDE or CLI, the agent receives instructions to load the full skill files (e.g., `SKILL.md` for `anbu-skill`, `jonin-skill`, `chunin-skill`, `kage-skill`, etc.).
    * This loads **~72 KB** of router instructions.
    * When the agent needs to find a specific rule or practice, it traverses the router and loads the corresponding reference files and script guides. In a complete setup, this includes **~88 reference files** (~478 KB) and **~23 auxiliary scripts** (~547 KB).
    * This results in a massive **~1.1 MB payload** (over **800,000 tokens**) being pulled directly into the conversation history at startup or during early prompts.

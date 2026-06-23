@@ -195,11 +195,11 @@ function saveAgents(agents) {
 // - Deduplicated guardrails (single block, refs AGENTS.md for full details)
 // - Terse delegation table
 function generateGeminiMd(agents) {
-  // Build compact agent definitions
   const agentDefs = agents.map((a, i) => {
     const iconStr = a.icon ? `${a.icon} ` : '';
     return `${i + 1}. **${iconStr}${a.name}** — ${a.description}
    - name: \`${a.name}\`
+   - model: \`${a.modelTier}\`
    - instructions: \`${a.instructions}\``;
   }).join('\n\n');
 
@@ -230,7 +230,7 @@ ${agentDefs}
 The orchestrator MUST follow this workflow:
 1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
 2. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the \`skills-db\` MCP handles all skill lookups.**
-3. **Find Code Context**: If project source code context is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before formulating a delegation. Do NOT call \`skills-db.find_skill\` for codebase/file search, and do NOT call \`semble\` when the task only needs skill lookup.
+3. **Find Code Context**: If project source code context is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before formulating a delegation. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do NOT call \`skills-db.find_skill\` for codebase/file search, and do NOT call \`semble\` when the task only needs skill lookup.
 4. **Select Agent**: Route to the correct agent based on the table below.
 5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
    \`\`\`markdown
@@ -341,7 +341,7 @@ ${agentDefs}
 - **Workflow**:
   1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
   2. **Find Skill First**: Call \`skills-db.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP and has no knowledge of skills, whereas the \`skills-db\` MCP handles all skill lookups (using \`find_skill\` or \`optimize_report\`).**
-  3. **Find Code Context**: If project source code context is needed, use the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files before formulating a delegation. Do not call \`semble\` when the task only needs skills — use \`skills-db\` for that.
+  3. **Find Code Context**: If project source code context is needed, use the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files before formulating a delegation. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do not call \`semble\` when the task only needs skills — use \`skills-db\` for that.
   4. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
   5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory) using the fields: \`Goal\`, \`Context\`, and \`Constraints\`. You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
      \`\`\`markdown

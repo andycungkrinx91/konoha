@@ -192,16 +192,6 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```
   Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `skills-db` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
 
-### Design Match and Render Comparison
-
-To ensure built website interfaces are a 100% match with design mockups while conserving token usage, you can run pixel-by-pixel render checks:
-
-- **Run Design Match Comparison**:
-  ```bash
-  konoha render <url> <mockup-path> [diff-output-path]
-  ```
-  This command takes a screenshot of the running website URL, renders the mockup file in the browser if it has a `.svg` or `.html` extension, performs a pixel-by-pixel visual comparison, displays similarity percentages, and saves a diff image showing highlighted mismatches to `[diff-output-path]`.
-
 ### System Diagnostics and Health Checks
 
 To verify all components and configurations are operating correctly, you can run automated health checks:
@@ -217,7 +207,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.4`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.5`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```

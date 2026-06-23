@@ -40,7 +40,7 @@ Based on the user's request, load the specific reference file using `skills-db.g
 
 ## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
 > [!NOTE]
-> **Source Design Image Exception**: If you are building based on a source design image (using the `build_with_image_design` tool), this default visual effects template MUST be skipped. You MUST build the storefront strictly based on the design images and mockups without adding these default visual effects (such as the 10-theme switcher, 3D carousels, 3D hovers, SweetAlert2 modal, or watermark) unless they are explicitly shown in the design images.
+> **Source Design Reference Exception**: If you are building based on design references (using the `build_from_source` tool), this default visual effects template MUST be skipped. You MUST build the storefront strictly based on the design files and mockups without adding these default visual effects (such as the 10-theme switcher, 3D carousels, 3D hovers, SweetAlert2 modal, or watermark) unless they are explicitly shown in the design files.
 
 For EVERY website you generate or build from text, you MUST implement these premium visual features:
 1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included.
@@ -109,21 +109,16 @@ For EVERY website you generate or build from text, you MUST implement these prem
      - **Dependency Version Auto-Fix**: If `pnpm install` or `pnpm run build` fails or reports mismatched/outdated dependencies (for example, showing dependency mismatches such as `- lucide-react 1.21.0` and `+ lucide-react 0.468.0 (1.21.0 is available)`), you MUST automatically update `package.json` to specify the latest available version (or the recommended version) for the conflicting packages, and then run `pnpm install` again to align and fix the dependencies.
    - **ESLint & Svelte Check**: Run `pnpm run lint` and `pnpm run check` (svelte-check, if using SvelteKit) / `pnpm svelte-kit sync` (to generate TS config mappings first). If there are any linting or compilation warnings or errors, you MUST locate the offending files, read the exact error lines, and modify the code to fix them. Repeat this cycle until both commands output zero errors and zero warnings.
    - **pnpm build**: Run `pnpm run build` to verify the production build. If any warnings (e.g. CSS compilation warnings, unused export warnings) or errors occur, trace the cause, edit the files, and re-run the build until it completes with 100% success, zero errors, and zero warnings.
-4. **Dev Server & Design Match Comparison**:
+4. **Dev Server Verification**:
    - Once linting and build checks are completely clean, start the development server by running `pnpm run dev` in the background as an asynchronous task.
-   - You MUST run the visual rendering and comparison tool in `konoha` to verify the built site matches the design mockups 100% exactly (supporting `.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`, and `.html` mockups):
-     `konoha render http://localhost:5173 <design-mockup-path> [diff-output-path]`
-   - This command will capture a screenshot of the site, render the mockup file in the browser if it is an `.svg` or `.html` file, perform a pixel-by-pixel comparison, report similarity percentages, and save highlighted mismatches to a diff image.
-   - Check the printed similarity results. If there are mismatches, inspect the diff image using `view_file` to determine what layout or styling changes are needed, and fix the codebase until visual similarity is 100% perfect. This design match comparison workflow saves tokens by feeding text similarity metrics to the model instead of full binary image contents.
+   - Use your browser or preview tool to verify the layout and components are visually correct and functioning as expected.
 
-## SOP 5: Image-to-Code Conversion & Design Match Comparison Workflow
-*Procedure for generating UI from design image directories / mockups.*
+## SOP 5: Source Design & Code Reference Conversion Workflow
+*Procedure for generating UI from design image or reference source code directories.*
 
 1. **Auto-Select Build Method**:
-   - If the workspace contains a design image directory (e.g. `source-image-design`), you MUST call the `build_with_image_design` tool specifying the name, design directory path, and framework. In this mode, you MUST build the storefront strictly based on the design images and mockups, skipping the default premium visual effects template.
-   - If no design image directory is present, you MUST call the `build_from_text` tool, which automatically scaffolds the project and directs you to implement the default premium visual effects (theme switcher, 3D carousels, hovers, SweetAlert2, and watermark).
-2. **Direct SVG/HTML Code Translation**: If a design file is `.svg` or `.html`, read the raw code directly using `view_file`. Translate the XML vector nodes or HTML structure directly into the target code framework (Svelte/React). This guarantees a 100% perfect visual match without vision model token overhead.
+   - If the workspace contains a source design directory (e.g., `source-design`, `source-image-design`), you MUST call the `build_from_source` tool specifying the name, source directory path, and framework. In this mode, you MUST build the storefront strictly based on the reference design files, skipping the default premium visual effects template unless they are present in the reference files.
+   - If no design reference directory is present, you MUST call the `build_from_text` tool, which automatically scaffolds the project and directs you to implement the default premium visual effects (theme switcher, 3D carousels, hovers, SweetAlert2, and watermark).
+2. **Direct Reference Code Analysis**: For source code reference files (`.html`, `.xml`, `.tsx`, `.jsx`, `.ts`, `.js`, `.css`), read the relevant files using `view_file` (limiting start/end lines to avoid large context). Reconstruct or migrate component structure and logic directly.
 3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via the `view_file` tool to extract the general layout structure (grid, headers, colors). Do not load multiple images or run repetitive vision reads.
-4. **Verification Loop**: Run the built site, and run the CLI comparison command `konoha render <dev-url> <mockup-path> [diff-output-path]` to compare it pixel-by-pixel with the mockup.
-5. **Layout Alignment via Diff Metrics**: Check the mismatch metrics and bounding box coordinates (`bbox_diff`) in the JSON output. Adjust layout and spacing CSS properties (e.g. padding `px`/`py`, margins `mx`/`my`, alignment `flex`, `grid`, etc.) to resolve mismatches. Repeat this check/adjust loop without visual reloads (reducing token usage by 90%) until the page is 100% visually aligned.
 

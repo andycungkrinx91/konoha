@@ -736,11 +736,9 @@ All generated Svelte code must conform to the following baseline visual standard
 
 - **Image-to-Code Generation**: Agents can and should generate user interfaces from design images/mockups (such as png, jpg, webp, svg) present in the workspace. The agent must search the directory for design assets, analyze them, and translate the visual mockups into Svelte components.
 
-  ### Svelte-Specific Image-to-Code Design Match Comparison Workflow:
-  1. **Select Build Method**: If a design mockup folder is present, call the `build_with_image_design` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
-  2. **Direct SVG/HTML Translation**: If a design mockup file is `.svg` or `.html`, view the file's raw content. Translate XML vectors or HTML structures directly into Svelte markup. This yields a 100% accurate visual representation without vision model token overhead.
+  ### Svelte-Specific Source-to-Code Design Match Workflow:
+  1. **Select Build Method**: If a design mockup folder or reference source code is present, call the `build_from_source` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
+  2. **Direct SVG/HTML/Code Translation**: If a design reference file is `.svg`, `.html`, `.xml`, `.tsx`, `.ts`, `.js`, `.css`, view the file's raw content. Translate vectors, structures, or logic directly into Svelte markup/logic. This yields an accurate representation without vision model token overhead.
   3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first using `view_file` to capture page structure.
   4. **Start Development Server**: Bind the SvelteKit development server using `pnpm run dev`.
-  5. **Visual Verification Loop**: Run `konoha render http://localhost:5173 <design-mockup-path> [diff-output-path]` to compare the built page pixel-by-pixel with the design mockup.
-  6. **Layout Refinement via Diff Metrics**: Inspect the JSON similarity metrics and bounding box coordinates (`bbox_diff`) in the render output. Adjust Svelte component styles (Tailwind padding `px`/`py`, margins `mx`/`my`, layout `flex`, `grid`, etc.) to resolve visual mismatches. Repeat the check without visual re-reads (saving 90% of visual token usage) until the visual similarity is clean and 100% matched.
 - **Preserving Existing Codebase (Flow, Logic, and Style)**: When working inside an existing Svelte or Next.js project directory/workdir, the agent is strictly prohibited from altering the existing flow, core logic, or style guidelines of the project. It must respect and follow the current architecture, styling systems (like specific CSS setups or custom Tailwind configs), and logic flows without introducing breaking changes or refactoring existing styles.

@@ -107,6 +107,13 @@ def setup_db():
         conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
     except sqlite3.OperationalError:
         pass
+
+    # Performance indexes
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_type ON skills(type);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_skill_name ON skills(skill_name);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_agent ON tool_calls(agent);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_timestamp ON tool_calls(timestamp);")
+
     conn.commit()
     return conn
 
@@ -200,8 +207,8 @@ def optimize_content(content):
     # 1. Strip YAML frontmatter
     content = re.sub(r'^---\s*\n.*?\n---\s*(\n)?', '', content, flags=re.DOTALL)
     
-    # 2. Remove HTML comments
-    content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    # 2. Remove HTML comments (DISABLED: Dropping HTML comments breaks Svelte compiler directives and code examples)
+    # content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
     
     # 3. Remove decorative horizontal rules
     content = re.sub(r'^[ \t]*([-*_])[ \t]*(?:\1[ \t]*){2,}(?:\r?\n)?', '', content, flags=re.MULTILINE)
@@ -484,6 +491,8 @@ def main():
                         help="Specific skill names to migrate (default: auto-detect all)")
     parser.add_argument("--db-path", default=None,
                         help="Path to SQLite database (default: ~/.gemini/skills-db/skills.db)")
+    parser.add_argument("--clean", action="store_true",
+                        help="Purge all existing skills from the database before migration")
     args = parser.parse_args()
 
     # Apply overrides
@@ -536,6 +545,11 @@ def main():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     conn = setup_db()
+
+    if args.clean:
+        print("🧹 Purging existing skills from database...")
+        conn.execute("DELETE FROM skills;")
+        conn.commit()
 
     total = 0
     for skill_name in skills_to_migrate:

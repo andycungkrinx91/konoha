@@ -667,6 +667,35 @@ function startSpinner(text) {
   }
   
   return {
+    stop() {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+        process.stdout.write('\r\x1b[K');
+      }
+    },
+    start(newText) {
+      if (newText) text = newText;
+      if (isInteractive && !NO_ANIMATION && !interval) {
+        interval = setInterval(() => {
+          frameIdx = (frameIdx + 1) % frames.length;
+          const colorIdx = frameIdx % chidoriColors.length;
+          const isFlash = frameIdx % 8 === 0;
+          const color = isFlash ? '\x1b[97m' : chidoriColors[colorIdx];
+          const displayText = isFlash ? `\x1b[97m${text}` : text;
+          const crackle = () => {
+            let trail = '';
+            for (let i = 0; i < 3; i++) {
+              const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
+              const col = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
+              trail += col + ch;
+            }
+            return trail + C.reset;
+          };
+          process.stdout.write(`\r  ${color}${frames[frameIdx]}${C.reset}  ${displayText}${C.reset} ${crackle()}   `);
+        }, 80);
+      }
+    },
     update(newText) {
       text = newText;
       if (!isInteractive || NO_ANIMATION) {
@@ -676,6 +705,7 @@ function startSpinner(text) {
     success(successText) {
       if (interval) {
         clearInterval(interval);
+        interval = null;
         process.stdout.write(`\r\x1b[K  \x1b[38;2;0;255;255m⚡\x1b[0m  ${successText || text}\n`);
       } else {
         log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${successText || text}`);
@@ -684,6 +714,7 @@ function startSpinner(text) {
     warn(warnText) {
       if (interval) {
         clearInterval(interval);
+        interval = null;
         process.stdout.write(`\r\x1b[K  \x1b[38;2;255;200;0m↯\x1b[0m  ${warnText || text}\n`);
       } else {
         log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${warnText || text}`);
@@ -692,6 +723,7 @@ function startSpinner(text) {
     error(errText) {
       if (interval) {
         clearInterval(interval);
+        interval = null;
         process.stdout.write(`\r\x1b[K  \x1b[31m✗\x1b[0m  ${errText || text}\n`);
       } else {
         log(`  ${C.red}✗${C.reset} ${errText || text}`);
@@ -1047,7 +1079,7 @@ async function cmdInit(args) {
     if (skills.length > 0) {
       const spinnerMigrate = startSpinner(`Seeding default skills from: ${pkgSkillsDir}...`);
       try {
-        const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
+        const run = spawnSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
         });
         if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
@@ -1210,7 +1242,12 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
   if (allowAutoApprove) {
     skillsDbConfig.autoApprove = ['*', 'find_skill', 'list_skills', 'get_skill', 'optimize_report'];
   }
-  config.mcpServers['skills-db'] = skillsDbConfig;
+  // Only update if missing or command/args changed
+  const existingSkillsDb = config.mcpServers['skills-db'];
+  if (!existingSkillsDb || existingSkillsDb.command !== pythonCmd ||
+      !existingSkillsDb.args || existingSkillsDb.args[0] !== SERVER_PATH) {
+    config.mcpServers['skills-db'] = skillsDbConfig;
+  }
 
   let uvCmd = getUvCommand();
   if (!uvCmd) {
@@ -1236,7 +1273,11 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
   if (allowAutoApprove) {
     sembleConfig.autoApprove = ['*', 'search', 'find_related'];
   }
-  config.mcpServers['semble'] = sembleConfig;
+  // Only update if missing or command changed
+  const existingSemble = config.mcpServers['semble'];
+  if (!existingSemble || existingSemble.command !== uvxCmd) {
+    config.mcpServers['semble'] = sembleConfig;
+  }
 
   if (!silent) {
     success(`Registered 'semble' using command: ${uvxCmd}`);
@@ -1555,7 +1596,7 @@ async function cmdMigrate(args) {
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', customDir], {
+      const run = spawnSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
         encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
       });
       if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
@@ -1571,7 +1612,7 @@ async function cmdMigrate(args) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        const runFallback = spawnSync(python, [MIGRATE_PATH], {
+        const runFallback = spawnSync(python, [MIGRATE_PATH, '--clean'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
         });
         if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration failed');
@@ -1583,13 +1624,19 @@ async function cmdMigrate(args) {
       }
     } else {
       let anySuccess = false;
+      let isFirst = true;
       for (const s of skillsDirs) {
         const skills = detectCustomSkills(s.path);
         if (skills.length === 0) continue;
 
         info(`Migrating from: ${s.path}`);
         try {
-          const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
+          const argsList = [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills];
+          if (isFirst) {
+            argsList.push('--clean');
+            isFirst = false;
+          }
+          const run = spawnSync(python, argsList, {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
           });
           if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
@@ -1644,7 +1691,7 @@ async function cmdTest() {
     { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"test"}}}' },
     { name: 'List Skills', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"test"}}}' },
     { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"test"}}}' },
-    { name: 'Build with Image Design', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"build_with_image_design","arguments":{"name":"test_build","design_dir":"src","framework":"nextjs","agent":"test"}}}' },
+    { name: 'Build from Source', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"build_from_source","arguments":{"name":"test_build","source_dir":"src","framework":"nextjs","agent":"test"}}}' },
     { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"test"}}}' }
   ];
 
@@ -3605,131 +3652,7 @@ async function cmdUpgrade(args) {
   }
 }
 
-async function cmdRender(args) {
-  const url = args[0];
-  const mockupPath = args[1];
-  const diffOutput = args[2] || path.join(process.cwd(), 'diff.png');
-
-  if (!url || !mockupPath) {
-    error('Usage: konoha render <url> <mockup-path> [diff-output-path]');
-    log('Examples:');
-    log('  konoha render http://localhost:5173 assets/design-mockup.png');
-    log('  konoha render http://localhost:5173 assets/design-mockup.svg scratch/diff.png');
-    process.exit(1);
-  }
-
-  await chidoriTransition('render-qa');
-  drawLogo(false);
-  header('👁️ Design Match & Render Comparison');
-
-  log(`  URL: ${C.cyan}${url}${C.reset}`);
-  log(`  Mockup: ${C.cyan}${mockupPath}${C.reset}`);
-  log(`  Diff output: ${C.cyan}${diffOutput}${C.reset}`);
-  log('');
-
-  const python = checkPython();
-  if (!python) {
-    error('Python 3 is required but not found.');
-    process.exit(1);
-  }
-
-  // 1. Capture screenshot of target website URL using agent-browser
-  const siteScreenshot = path.join(os.tmpdir(), `site_${Date.now()}.png`);
-  const spinner1 = startSpinner(`Capturing screenshot of website: ${url}...`);
-
-  try {
-    const runSite = spawnSync('agent-browser', ['open', url, '&&', 'agent-browser', 'screenshot', siteScreenshot], {
-      shell: true,
-      encoding: 'utf-8'
-    });
-
-    if (runSite.status !== 0 || !fs.existsSync(siteScreenshot)) {
-      throw new Error(runSite.stderr || 'Failed to capture site screenshot');
-    }
-    spinner1.success('Website screenshot captured.');
-  } catch (err) {
-    spinner1.error(`Failed to capture website screenshot: ${err.message}`);
-    process.exit(1);
-  }
-
-  // 2. Prepare mockup file for comparison
-  let mockupImgToUse = mockupPath;
-  const lowerPath = mockupPath.toLowerCase();
-
-  // If mockup is SVG or HTML, render it in browser first
-  if (lowerPath.endsWith('.svg') || lowerPath.endsWith('.html') || lowerPath.endsWith('.htm')) {
-    const mockupScreenshot = path.join(os.tmpdir(), `mockup_${Date.now()}.png`);
-    const spinner2 = startSpinner(`Mockup is ${path.extname(mockupPath)} - rendering in browser first...`);
-    try {
-      const absMockupPath = path.resolve(mockupPath);
-      const mockupUrl = `file://${absMockupPath}`;
-      const runMockup = spawnSync('agent-browser', ['open', mockupUrl, '&&', 'agent-browser', 'screenshot', mockupScreenshot], {
-        shell: true,
-        encoding: 'utf-8'
-      });
-
-      if (runMockup.status !== 0 || !fs.existsSync(mockupScreenshot)) {
-        throw new Error(runMockup.stderr || 'Failed to render mockup in browser');
-      }
-      mockupImgToUse = mockupScreenshot;
-      spinner2.success('Mockup rendered to PNG.');
-    } catch (err) {
-      spinner2.error(`Failed to render mockup: ${err.message}`);
-      process.exit(1);
-    }
-  }
-
-  // 3. Perform comparison
-  const spinner3 = startSpinner('Performing pixel-by-pixel visual comparison...');
-  const compareScript = path.join(SRC_DIR, 'visual_compare.py');
-  
-  try {
-    const runCompare = spawnSync(python, [compareScript, mockupImgToUse, siteScreenshot, diffOutput, '10'], {
-      encoding: 'utf-8'
-    });
-
-    if (runCompare.status !== 0) {
-      throw new Error(runCompare.stderr || 'Comparison script failed');
-    }
-
-    const result = JSON.parse(runCompare.stdout.trim());
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    spinner3.success('Visual comparison complete.');
-    log('\n  📊 Visual Quality Report:');
-    log('  ════════════════════════════════════════════════════════════');
-    log(`    Resolution:        ${result.width}x${result.height} pixels`);
-    log(`    Total Pixels:      ${result.total_pixels.toLocaleString()}`);
-    log(`    Mismatched Pixels: ${result.mismatched_pixels > 0 ? C.red + result.mismatched_pixels.toLocaleString() + C.reset : C.green + '0' + C.reset}`);
-    
-    const simColor = result.similarity_percentage === 100 ? C.green : (result.similarity_percentage >= 95 ? C.yellow : C.red);
-    log(`    Visual Similarity: ${simColor}${result.similarity_percentage}%${C.reset}`);
-    
-    if (result.match_100_percent) {
-      log(`    Status:            ✨ ${C.green}${C.bold}100% PERFECT MATCH${C.reset}`);
-    } else {
-      log(`    Status:            ❌ ${C.red}${C.bold}DESIGN MISMATCH DETECTED${C.reset}`);
-      log(`    Diff Highlights:   Saved to ${C.cyan}${diffOutput}${C.reset}`);
-      if (result.bbox_diff) {
-        log(`    Mismatch Box:      [x_min: ${result.bbox_diff[0]}, y_min: ${result.bbox_diff[1]}, x_max: ${result.bbox_diff[2]}, y_max: ${result.bbox_diff[3]}]`);
-      }
-    }
-    log('  ════════════════════════════════════════════════════════════\n');
-
-  } catch (err) {
-    spinner3.error(`Visual comparison failed: ${err.message}`);
-    process.exit(1);
-  } finally {
-    try {
-      if (fs.existsSync(siteScreenshot)) fs.unlinkSync(siteScreenshot);
-      if (mockupImgToUse !== mockupPath && fs.existsSync(mockupImgToUse)) {
-        fs.unlinkSync(mockupImgToUse);
-      }
-    } catch (_) {}
-  }
-}
+// cmdRender removed — visual comparison feature deprecated in favor of image/source-to-code (build_from_source)
 
 async function cmdHelp() {
   await chidoriTransition('help');
@@ -3755,8 +3678,8 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
   ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from GitHub.
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
-  ${C.cyan}render${C.reset}        👁️  Design match comparison between website URL and mockup design (saves token usage).
-  ${C.cyan}doctor${C.reset}        🏥 Diagnose environment health and automatically repair missing files.
+  ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
+
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
 ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
@@ -3785,9 +3708,6 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}5. View how many tokens (and how much context window) you have saved:${C.reset}
      konoha savings
 
-  ${C.dim}6. Design match verify built website matches mockup design (saves token usage):${C.reset}
-     konoha render http://localhost:5173 assets/design-mockup.svg
-
 `);
 }
 
@@ -3815,9 +3735,6 @@ async function main() {
         break;
       case 'savings':
         await cmdSavings();
-        break;
-      case 'render':
-        await cmdRender(args);
         break;
       case 'doctor':
         await cmdDoctor();
