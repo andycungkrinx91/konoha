@@ -595,6 +595,7 @@ def build_from_source(name, source_dir, framework, agent_name=None):
     Analyze design mockup layouts and reference source files in source_dir and set up project configuration.
     """
     global WORKSPACE_ROOT
+    display_framework = "Next.js" if framework == "nextjs" else "SvelteKit" if framework == "svelte" else framework
     resolved_source_dir = source_dir
     if not os.path.isabs(resolved_source_dir):
         workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
@@ -722,9 +723,20 @@ def build_from_source(name, source_dir, framework, agent_name=None):
                 layout_hints.append(f"{m['filename']} ({m['width']}x{m['height']}, {orient})")
 
     directives = [
-        f"Build a clean {framework} storefront named '{name}' based on the source design directory '{source_dir}'.",
+        f"Build a clean {display_framework} storefront named '{name}' based on the source design directory '{source_dir}'.",
         "You MUST read and analyze the provided reference source files and design mockup images to guide your construction.",
-        "DO NOT implement the default visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, or watermark) UNLESS they are explicitly requested or depicted in the source files/mockup images."
+        "You SHOULD incorporate custom 3D interactive animations that match and enhance the specific layout and flow of the source design.",
+        "DO NOT implement the default generic visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, or 3D SweetAlert2 modal dialogs) UNLESS they are explicitly requested or depicted in the source files/mockup images.",
+        "You MUST implement the footer watermark: 'Build with Antigravity and Konoha agentic AI' in small, muted typography.",
+        "Use high-quality visually appealing dummy images (e.g., from Unsplash or placeholder services) for any required media assets that are not provided.",
+        f"Upon completion of the build, you MUST automatically run the project in production mode using pnpm (e.g., `pnpm build && pnpm start` or equivalent for the {display_framework} framework).",
+        "QUALITY GUARANTEE:",
+        "1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
+        "2. DO NOT hardcode sensitive or environment-specific values; extract them and provide a `.env.example` file.",
+        "3. Implement strict security best practices across the entire architecture.",
+        "4. Ensure all libraries are safe from known CVEs (Common Vulnerabilities and Exposures).",
+        "5. The build result MUST NOT have any errors or warnings during `pnpm lint` and `pnpm build`.",
+        f"6. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments."
     ]
 
     if detected_images:
@@ -764,6 +776,7 @@ def build_from_text(name, description, framework, agent_name=None):
     Generate structure and instructions from description, automatically including
     the default premium templates and visual effects.
     """
+    display_framework = "Next.js" if framework == "nextjs" else "SvelteKit" if framework == "svelte" else framework
     spec = {
         "status": "success",
         "project_name": name,
@@ -771,14 +784,23 @@ def build_from_text(name, description, framework, agent_name=None):
         "mode": "build_from_text",
         "description": description,
         "directives": [
-            f"Build a premium {framework} storefront named '{name}' based on the description: '{description}'.",
+            f"Build a premium {display_framework} storefront named '{name}' based on the description: '{description}'.",
             "You MUST implement all the required visual effects from the default premium template:",
             "  1. 10-Theme Switcher (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, Gold) persisted in localStorage.",
             "  2. Full-width homepage hero banner with GPU-accelerated 3D transition carousel slider (minimum 4 images).",
             "  3. Minimum of 5 interactive 3D carousels (hero, category showcase, featured items, customer lookbook, testimonials).",
             "  4. 3D GPU card hover & radial mouse-tracking glow effects on all card components.",
             "  5. Custom 3D entrance transition SweetAlert2 modal dialogs matching active theme gradients.",
-            "  6. Inline SVG/CSS custom branded logo and the footer watermark: 'Build with Antigravity and Konoha agentic AI'."
+            "  6. Inline SVG/CSS custom branded logo and the footer watermark: 'Build with Antigravity and Konoha agentic AI'.",
+            "Use high-quality visually appealing dummy images (e.g., from Unsplash or placeholder services) for any required media assets.",
+            f"Upon completion of the build, you MUST automatically run the project in production mode using pnpm (e.g., `pnpm build && pnpm start` or equivalent for the {display_framework} framework).",
+            "QUALITY GUARANTEE:",
+            "1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
+            "2. DO NOT hardcode sensitive or environment-specific values; extract them and provide a `.env.example` file.",
+            "3. Implement strict security best practices across the entire architecture.",
+            "4. Ensure all libraries are safe from known CVEs (Common Vulnerabilities and Exposures).",
+            "5. The build result MUST NOT have any errors or warnings during `pnpm lint` and `pnpm build`.",
+            f"6. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments."
         ]
     }
     res = json.dumps(spec, indent=2)

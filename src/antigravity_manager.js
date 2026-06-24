@@ -8,6 +8,8 @@ const os = require('os');
 
 const HOME = os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
+const ANTIGRAVITY_IDE_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
+const ANTIGRAVITY_CONFIG_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'config', 'agents');
 
 const BASE_TOOLS = [
   'send_message',
@@ -51,7 +53,6 @@ function buildAgentJson(agent) {
   return {
     name: agent.name,
     description: agent.description,
-    hidden: true,
     config: {
       customAgent: {
         systemPromptSections: [
@@ -92,10 +93,17 @@ function deployAgentsToDir(agents, baseDir) {
 }
 
 /**
- * Deploy global Antigravity CLI agents (~/.gemini/antigravity-cli/agents/).
+ * Deploy global Antigravity CLI/IDE agents.
  */
 function ensureAntigravityAgents(agents, options = {}) {
   const globalResult = deployAgentsToDir(agents, ANTIGRAVITY_AGENTS_GLOBAL);
+
+  try {
+    deployAgentsToDir(agents, ANTIGRAVITY_IDE_AGENTS_GLOBAL);
+  } catch (e) {}
+  try {
+    deployAgentsToDir(agents, ANTIGRAVITY_CONFIG_AGENTS_GLOBAL);
+  } catch (e) {}
 
   let projectResult = null;
   if (options.projectDir) {

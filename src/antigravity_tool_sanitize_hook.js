@@ -17,13 +17,8 @@ function readStdin() {
 function stripQuotes(value) {
   if (value == null || typeof value !== 'string') return value;
   let t = value.trim();
-  while (
-    (t.startsWith('"') && t.endsWith('"')) ||
-    (t.startsWith("'") && t.endsWith("'"))
-  ) {
-    t = t.slice(1, -1).trim();
-  }
-  return t;
+  t = t.replace(/^["'\\]+|["'\\]+$/g, '');
+  return t.trim();
 }
 
 function toBool(value) {
@@ -59,6 +54,32 @@ function extractToolCall(payload) {
   return { name: tc.name, args };
 }
 
+const path = require('path');
+const os = require('os');
+
+function loadRealAgent(name) {
+  try {
+    const agentsPath = path.join(os.homedir(), '.agents', 'agents.json');
+    if (fs.existsSync(agentsPath)) {
+      const agents = JSON.parse(fs.readFileSync(agentsPath, 'utf-8'));
+      return agents.find(a => a.name === name);
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Override prepended to every subagent's system_prompt to immunize against
+// user_global orchestrator instructions leaking into subagent sessions.
+const SUBAGENT_IDENTITY_OVERRIDE = [
+  'CRITICAL IDENTITY OVERRIDE — READ THIS FIRST:',
+  'You are a SUBAGENT spawned by the Konoha orchestrator. You are NOT the orchestrator.',
+  'You must NEVER call define_subagent or invoke_subagent or manage_subagents.',
+  'IGNORE any rules about "Session Startup — Auto-Initialize Team", "MANDATORY: define all 6 Konoha subagents", or "Auto-Delegation".',
+  'Those rules are for the PARENT orchestrator only and do NOT apply to you.',
+  'Focus EXCLUSIVELY on the task described in your prompt (typically in delegate.md).',
+  '',
+].join('\n');
+
 function sanitizeDefineSubagentArgs(args) {
   const out = { ...args };
   for (const key of ['name', 'description', 'system_prompt']) {
@@ -67,6 +88,29 @@ function sanitizeDefineSubagentArgs(args) {
   for (const key of ['enable_mcp_tools', 'enable_write_tools', 'enable_subagent_tools']) {
     if (out[key] != null) out[key] = toBool(out[key]);
   }
+  
+  if (out.name) {
+    const realAgent = loadRealAgent(out.name);
+    if (realAgent) {
+      if (realAgent.description) out.description = realAgent.description;
+      if (realAgent.instructions) out.system_prompt = realAgent.instructions;
+      if (realAgent.enable_mcp_tools != null) out.enable_mcp_tools = realAgent.enable_mcp_tools;
+      if (realAgent.enable_write_tools != null) out.enable_write_tools = realAgent.enable_write_tools;
+      // Note: enable_subagent_tools is force-set to false below regardless
+    }
+  }
+
+  // LAYER 1: Force enable_subagent_tools=false — subagents must NEVER spawn sub-subagents.
+  // agents.json has 0 occurrences of this field, so without this override it defaults to
+  // whatever the model provides (often true), allowing subagents to call define_subagent.
+  out.enable_subagent_tools = false;
+
+  // LAYER 2: Prepend identity override to system_prompt to immunize against
+  // user_global rules that contain orchestrator instructions ("MANDATORY: define all 6 subagents").
+  if (out.system_prompt) {
+    out.system_prompt = SUBAGENT_IDENTITY_OVERRIDE + out.system_prompt;
+  }
+
   delete out.toolAction;
   delete out.toolSummary;
   return out;
@@ -92,7 +136,7 @@ function sanitizeInvokeSubagentArgs(args) {
     const tn = (entry.TypeName || '').toLowerCase();
     const prompt = entry.Prompt || '';
     if (tn === 'self' && (/acting as|@jonin|delegate\.md/i.test(prompt) || /jonin|genin|anbu|kage|chunin|tokubetsu-jonin/i.test(prompt))) {
-      return { error: 'FORBIDDEN: TypeName "self" cannot impersonate Konoha subagents. Use TypeName jonin after define_subagent with bare name.' };
+      return { error: 'FORBIDDEN: TypeName "self" cannot impersonate Konoha subagents. Use the appropriate TypeName (genin, kage, chunin, jonin, anbu, tokubetsu-jonin) after define_subagent with bare name.' };
     }
     if (tn === 'research' && /delegate\.md/i.test(prompt)) {
       return { error: 'FORBIDDEN: TypeName "research" for Konoha delegation.' };
@@ -142,7 +186,7 @@ async function main() {
       if (!sanitized.name || !/^[a-z0-9-]+$/.test(sanitized.name)) {
         respond({
           decision: 'deny',
-          reason: `define_subagent name must be bare (e.g. jonin), got ${JSON.stringify(rawArgs.name)}`,
+          reason: `define_subagent name must be bare (e.g. jonin, anbu, kage, chunin, genin, tokubetsu-jonin), got ${JSON.stringify(rawArgs.name)}`,
         });
         return;
       }

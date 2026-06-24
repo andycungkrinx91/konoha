@@ -37,6 +37,13 @@
 ✗  Blocking main thread with heavy 3D compute → use Web Workers
 ✗  Using npm or yarn             → always use pnpm
 ✗  Missing lint/format scripts   → set up ESLint + Prettier on every project
+✗  Accessing window or localStorage outside onMount / browser check → triggers SSR hydration crash
+✗  Suppressing a11y warnings with svelte-ignore → write semantically correct accessible code
+✗  Directly mutating object properties in non-reactive contexts
+✗  Using on:click directive in Svelte 5 → use onclick attribute
+✗  Declaring functions inside script tags without exporting if needed
+✗  Hardcoding env values or secrets in client code → use $env/static/private
+✗  Installing deprecated/legacy Svelte components or modules → check npm/pnpm engine compatibility
 ```
 
 ## CLI Tools
@@ -180,7 +187,67 @@ Rules:
 - Every new SvelteKit project **must** have `lint` and `format` scripts configured and run before finalizing.
 - Run `pnpm lint` before every commit or PR.
 - CI must include `pnpm lint && pnpm check` as a gate.
-- Fix all Svelte compiler accessibility (a11y) diagnostics (e.g. elements with interaction handlers like click/mousemove must have roles and tabindex, hidden submit buttons must have `aria-label`).
+
+## Svelte 5 Accessibility (a11y) & Zero-Warning Interactive Controls
+
+The Svelte 5 compiler is highly strict about accessibility. To avoid build blocks or diagnostics, follow these semantic patterns for all custom components:
+
+1. **Non-Interactive Elements with Mouse/Click Events**:
+   Instead of using `svelte-ignore a11y_click_events_have_key_events`, always provide the required role, tabindex, and keydown handlers:
+   ```svelte
+   <div
+     onmousemove={handleMouseMove}
+     class="card-glow"
+     role="presentation"
+   >
+     <!-- Card content -->
+   </div>
+   ```
+2. **Custom Buttons**:
+   If a custom styled div acts as a button, use the native `<button>` element with custom styles, or add `role="button"`, `tabindex="0"`, and `onkeydown` handler:
+   ```svelte
+   <div
+     onclick={handleClick}
+     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick()}
+     class="btn-custom"
+     role="button"
+     tabindex="0"
+   >
+     Click Me
+   </div>
+   ```
+3. **Overlay & Modals**:
+   All dialog backdrops must be accessible:
+   ```svelte
+   <div
+     onclick={closeModal}
+     onkeydown={(e) => e.key === 'Escape' && closeModal()}
+     class="modal-backdrop"
+     role="button"
+     tabindex="0"
+     aria-label="Close dialog background"
+   >
+     <div
+       class="modal-content"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-title"
+     >
+       <h2 id="modal-title">Details</h2>
+     </div>
+   </div>
+   ```
+
+## SvelteKit Verification Pipeline (MANDATORY)
+
+To ensure a 100% warning-free and error-free production build, SvelteKit agents MUST run these checks and fix ALL warnings and errors before completing the task:
+1. **Format Code**: Run `pnpm run format` to clean syntax.
+2. **Type Check & Svelte Check**: Run `pnpm exec svelte-check --tsconfig ./tsconfig.json` to catch all compiler errors, type mismatches, and warnings.
+3. **Lint Check**: Run `pnpm run lint` to verify ESLint + Prettier compliance. YOU MUST FIX ALL WARNINGS AND ERRORS. If `pnpm lint` fails, the task is incomplete.
+4. **Compile Production Build**: Run `pnpm run build` to verify SvelteKit SSR/prerender compilation passes. 
+
+> [!CAUTION]
+> **Zero Tolerance for Warnings**: Do not ignore warnings from `svelte-check`, `pnpm lint`, or `pnpm build`. A build with warnings is considered a failed build. You must iterate and fix all linting and build warnings before finishing.
 
 ---
 
@@ -380,6 +447,40 @@ export const ssr = false
 
 // +page.server.ts — hybrid (default, SSR on first load)
 // No export needed, it's the default
+
+## Preventing Hydration Mismatches (SSR vs CSR)
+
+Hydration mismatches happen when the HTML rendered on the server differs from the HTML initialized in the browser. 
+
+1. **Accessing Browser-Only APIs**:
+   Never access `window`, `document`, or `localStorage` during initial rendering. Guard them using Svelte's `browser` environment flag or wrap in `onMount`:
+   ```svelte
+   <script lang="ts">
+     import { browser } from '$app/environment';
+     import { onMount } from 'svelte';
+
+     let activeTheme = $state('dark');
+
+     onMount(() => {
+       if (browser) {
+         activeTheme = localStorage.getItem('theme') || 'dark';
+       }
+     });
+   </script>
+   ```
+2. **Dynamic Content**:
+   Avoid rendering dates, times, or random numbers directly on initial server render:
+   ```svelte
+   <script lang="ts">
+     import { onMount } from 'svelte';
+     let formattedDate = $state('');
+
+     onMount(() => {
+       formattedDate = new Date().toLocaleDateString();
+     });
+   </script>
+   <span>{formattedDate}</span>
+   ```
 ```
 
 Choose per route based on data freshness needs.
@@ -736,9 +837,11 @@ All generated Svelte code must conform to the following baseline visual standard
 
 - **Image-to-Code Generation**: Agents can and should generate user interfaces from design images/mockups (such as png, jpg, webp, svg) present in the workspace. The agent must search the directory for design assets, analyze them, and translate the visual mockups into Svelte components.
 
-  ### Svelte-Specific Source-to-Code Design Match Workflow:
-  1. **Select Build Method**: If a design mockup folder or reference source code is present, call the `build_from_source` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
-  2. **Direct SVG/HTML/Code Translation**: If a design reference file is `.svg`, `.html`, `.xml`, `.tsx`, `.ts`, `.js`, `.css`, view the file's raw content. Translate vectors, structures, or logic directly into Svelte markup/logic. This yields an accurate representation without vision model token overhead.
-  3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first using `view_file` to capture page structure.
-  4. **Start Development Server**: Bind the SvelteKit development server using `pnpm run dev`.
+  ### Svelte-Specific Image-to-Code Design Match Comparison Workflow:
+  1. **Select Build Method**: If a design mockup folder is present, call the `build_from_source` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
+  2. **Direct SVG/HTML Translation**: If a mockup is `.svg` or `.html`, inspect the source directly and translate it into Svelte markup/logic to achieve 100% layout fidelity without vision token overhead.
+  3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via `view_file` to identify the general structure.
+  4. **Start Development Server**: Launch the SvelteKit development server with `pnpm run dev`.
+  5. **Visual Verification Loop**: Run `konoha render http://localhost:5173 <design-mockup-path> [diff-output-path]` to compare the running server with the design mockup.
+  6. **Layout Refinement via Diff Metrics**: Check printed similarity percentages and bounding box coordinates (`bbox_diff`) in the JSON output. Adjust Svelte layout classes (`px`, `mx`, `flex`, `grid`, etc.) to reconcile mismatches. Loop this refinement process without re-reading image files to save 90% of token usage.
 - **Preserving Existing Codebase (Flow, Logic, and Style)**: When working inside an existing Svelte or Next.js project directory/workdir, the agent is strictly prohibited from altering the existing flow, core logic, or style guidelines of the project. It must respect and follow the current architecture, styling systems (like specific CSS setups or custom Tailwind configs), and logic flows without introducing breaking changes or refactoring existing styles.

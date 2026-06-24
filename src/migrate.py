@@ -199,84 +199,18 @@ def shield_prompt_injection(content):
 def optimize_content(content):
     """
     Enhanced markdown content optimization to reduce token usage (v1.1.0).
-    Performs deeper transformations while preserving content quality.
+    Aggressive optimizations disabled to preserve skill quality and formatting.
     """
     if not content:
         return ""
     
-    # 1. Strip YAML frontmatter
-    content = re.sub(r'^---\s*\n.*?\n---\s*(\n)?', '', content, flags=re.DOTALL)
-    
-    # 2. Remove HTML comments (DISABLED: Dropping HTML comments breaks Svelte compiler directives and code examples)
-    # content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
-    
-    # 3. Remove decorative horizontal rules
-    content = re.sub(r'^[ \t]*([-*_])[ \t]*(?:\1[ \t]*){2,}(?:\r?\n)?', '', content, flags=re.MULTILINE)
-    
-    # 4. Normalize heading spacing
-    content = re.sub(r'^(#{1,6})[ \t]+', r'\1 ', content, flags=re.MULTILINE)
-    
-    # 5. Strip redundant bold/italic on headings (## **Heading** → ## Heading)
-    content = re.sub(r'^(#{1,6})\s+\*{1,3}(.*?)\*{1,3}\s*$', r'\1 \2', content, flags=re.MULTILINE)
-    
-    # 6. Strip trailing whitespace per line
+    # 1. Strip trailing whitespace per line
     content = re.sub(r'[ \t]+$', '', content, flags=re.MULTILINE)
     
-    # 7. Collapse 3+ consecutive blank lines -> 1 blank line
+    # 2. Collapse 3+ consecutive blank lines -> 1 blank line
     content = re.sub(r'\n([ \t]*\n){2,}', '\n\n', content)
     
-    # 8. Compress empty lines within code blocks (keep 1 max)
-    def compress_code_blocks(match):
-        block = match.group(0)
-        # Collapse multiple empty lines within code blocks to single empty line
-        block = re.sub(r'\n\n\n+', '\n\n', block)
-        return block
-    content = re.sub(r'```[^\n]*\n.*?```', compress_code_blocks, content, flags=re.DOTALL)
-    
-    # 9. Normalize list markers (mixed * - + → -)
-    content = re.sub(r'^(\s*)[*+](\s)', r'\1-\2', content, flags=re.MULTILINE)
-    
-    # 10. Collapse single-item nested lists (- item\n  - only_child → - item: only_child)
-    # Only when the parent has no content after the colon
-    lines = content.split('\n')
-    optimized_lines = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        # Check if this is a list item with exactly one child
-        if i + 1 < len(lines):
-            current_indent = len(line) - len(line.lstrip())
-            current_match = re.match(r'^(\s*)-\s+(.+)$', line)
-            next_match = re.match(r'^(\s*)-\s+(.+)$', lines[i + 1]) if i + 1 < len(lines) else None
-            
-            if current_match and next_match:
-                next_indent = len(next_match.group(1))
-                # Check if next is a child (deeper indent) and there's no further child at same level
-                if next_indent > current_indent:
-                    # Check if there's a sibling or deeper child after
-                    has_more_children = False
-                    if i + 2 < len(lines):
-                        after_match = re.match(r'^(\s*)-\s+', lines[i + 2])
-                        if after_match and len(after_match.group(1)) >= next_indent:
-                            has_more_children = True
-                        # Also check if the next line is non-empty and same indent as child
-                        elif lines[i + 2].strip() and not lines[i + 2].strip().startswith('#'):
-                            after_indent = len(lines[i + 2]) - len(lines[i + 2].lstrip())
-                            if after_indent >= next_indent:
-                                has_more_children = True
-                    
-                    if not has_more_children:
-                        # Merge single child into parent
-                        merged = f"{current_match.group(1)}- {current_match.group(2)}: {next_match.group(2)}"
-                        optimized_lines.append(merged)
-                        i += 2
-                        continue
-        
-        optimized_lines.append(line)
-        i += 1
-    content = '\n'.join(optimized_lines)
-    
-    # 11. Shield against prompt injections
+    # 3. Shield against prompt injections
     content = shield_prompt_injection(content)
     
     # 12. Strip leading/trailing whitespace from entire content

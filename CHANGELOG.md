@@ -14,6 +14,9 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Cursor transcript ordering**: `server.py` prefers most-recent `.jsonl` when detecting Cursor subagent attribution.
 - **Deploy utils**: `copyRecursiveIfDifferent` tolerates broken symlinks without crashing.
 - **Cursor Model Fields**: `cursorModel` and `cursorFallbackModel` added to `src/templates/agents.json` for each official subagent.
+- **Build Directives**: Added dummy image placeholders and automatic `pnpm build && pnpm start` execution to `build_from_source` and `build_from_text`.
+- **Strict Quality Guarantees**: Jonin builds now strictly enforce zero deprecated packages, safe `.env.example` extraction, security best practices, zero CVEs, and zero linting/build errors.
+- **Enhanced SvelteKit Skills Reference**: Updated `.agents/skills/jonin-skill/references/svelte-code-expert.md` with advanced Svelte 5 Accessibility (a11y) guidelines, a strict verification pipeline (`svelte-check`, typescript compiler, `pnpm lint`), SSR hydration safety (guarding browser-only APIs), and image-to-code layout similarity comparison loops.
 
 ### Fixed
 - **`ensureAutoSetup()` never invoked**: Restored silent auto-bootstrap on every `konoha` command (was defined but never called since v1.0.9).
@@ -30,6 +33,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **`build_from_source` image-to-code**: When mockup images are detected, response sets `image_to_code_required`, `required_skills`, `skill_load_sequence`, `delegate_constraints`, absolute image paths, forbids `build_from_text`, and mandates `get_skill` + mockup `view_file` before UI coding.
 - **Jonin skill bootstrap**: Jonin instructions and orchestrator `delegate.md` rules require loading all `required_skills` via `get_skill`; image builds forbid default premium template in delegation briefs.
 - **`konoha migrate` quality**: `optimize_content()` is now lossless-safe (no list restructuring, no ingest-time injection shielding); deprecated skills purged after each migrate.
+- **Subagent Identity Spawning (Antigravity CLI)**: Removed `hidden: true` from the `antigravity_manager.js` deployer to ensure `invoke_subagent` correctly loads custom ninja instructions instead of falling back to the default generic agent profile.
 
 ### Changed
 - **`konoha init`**: Prompts for Cursor IDE/CLI configuration consent and deploys global + project Cursor configs.
