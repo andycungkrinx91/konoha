@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-23.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.7](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.7_2026-06-25.md)
 
 | | |
 |:---:|:---:|
@@ -112,7 +112,7 @@ Once installed, the following CLI commands are available:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.1.6) and check for updates from GitHub |
+| `konoha version` | Display current local version (1.1.7) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
@@ -129,18 +129,19 @@ Once installed, the following CLI commands are available:
 ~/.gemini/
 ├── config/
 │   └── mcp_config.json   ← skills-db + semble + konoha-files MCP (Antigravity)
-├── skills-db/
-│   ├── server.py          ← skills-db MCP (Python, stdlib only)
-│   ├── file_tools_mcp.js  ← konoha-files MCP (Node orchestration)
-│   ├── file_tools_launcher.js ← cross-platform MCP launcher
-│   ├── file_tools_router.js
-│   ├── platform_utils.js  ← cross-OS path/Python helpers
-│   ├── .node_exec_path    ← recorded Node path (auto)
-│   ├── .python_cmd        ← recorded Python command (auto)
-│   ├── file_tools/        ← Python streaming helpers
-│   ├── migrate.py         ← Migration script
-│   └── skills.db          ← SQLite FTS5 database
 └── GEMINI.md              ← Orchestrator + subagent instructions
+
+~/.konoha/
+├── server.py          ← skills-db MCP (Python, stdlib only)
+├── file_tools_mcp.js  ← konoha-files MCP (Node orchestration)
+├── file_tools_launcher.js ← cross-platform MCP launcher
+├── file_tools_router.js
+├── platform_utils.js  ← cross-OS path/Python helpers
+├── .node_exec_path    ← recorded Node path (auto)
+├── .python_cmd        ← recorded Python command (auto)
+├── file_tools/        ← Python streaming helpers
+├── migrate.py         ← Migration script
+└── skills.db          ← SQLite FTS5 database
 
 ~/.cursor/
 ├── mcp.json               ← skills-db + semble + konoha-files MCP (Cursor)
@@ -172,11 +173,11 @@ Konoha runs on **Linux**, **macOS**, and **Windows**. The installer auto-detects
 
 | OS | Python | Konoha paths | konoha-files launcher |
 |----|--------|--------------|----------------------|
-| Linux | `python3` | `~/.gemini/skills-db/` | `node file_tools_launcher.js` |
-| macOS | `python3` | `~/.gemini/skills-db/` | `node file_tools_launcher.js` |
-| Windows | `py -3` / `python` | `%USERPROFILE%\.gemini\skills-db\` | `node file_tools_launcher.js` |
+| Linux | `python3` | `~/.konoha/` | `node file_tools_launcher.js` |
+| macOS | `python3` | `~/.konoha/` | `node file_tools_launcher.js` |
+| Windows | `py -3` / `python` | `%USERPROFILE%\.konoha\` | `node file_tools_launcher.js` |
 
-Recorded at install time: `~/.gemini/skills-db/.node_exec_path`, `.python_cmd`. Run `konoha doctor --yes` to repair after OS or Node/Python upgrades.
+Recorded at install time: `~/.konoha/.node_exec_path`, `.python_cmd`. Run `konoha doctor --yes` to repair after OS or Node/Python upgrades.
 
 ---
 
@@ -239,7 +240,7 @@ Find files semantically related to a given file — useful for understanding dep
 
 ### konoha-files — Token-Efficient File Tools
 
-The `konoha-files` server (Node.js orchestration + Python workers) provides capped, context-safe file operations. Registered via `node ~/.gemini/skills-db/file_tools_launcher.js` (cross-platform; resolves Node from `.node_exec_path`).
+The `konoha-files` server (Node.js orchestration + Python workers) provides capped, context-safe file operations. Registered via `node ~/.konoha/file_tools_launcher.js` (cross-platform; resolves Node from `.node_exec_path`).
 
 | Tool | Purpose | Token guard |
 |------|---------|-------------|
@@ -261,7 +262,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 1. 🍃 Genin (Junior Scout)
 * **Operational Role**: Codebase Reconnaissance & Scout
-* **Primary Model**: `Gemini 2.5 Flash` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Primary Model**: `Gemini 3.1 Flash-Lite`
 * **Key Responsibilities**:
   - Fast, read-only code exploration.
   - Traces codepaths, maps dependencies, and analyzes repository structure.
@@ -300,7 +301,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
 * **Operational Role**: Technical Writing, Documentation, & API Specification
-* **Primary Model**: `Gemini 2.5 Flash` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Primary Model**: `Gemini 3.1 Flash-Lite`
 * **Key Responsibilities**:
   - Authors and maintains README files, API documentations, runbooks, and onboarding guides.
   - Emphasizes reader-first principles, clean code blocks, and visual diagrams.

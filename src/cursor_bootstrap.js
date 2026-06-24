@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Cursor sessionStart hook — silently ensures Konoha MCP + subagents are registered.
- * Self-contained (no package-relative requires) so it works from ~/.gemini/skills-db/.
+ * Self-contained (no package-relative requires) so it works from ~/.konoha/.
  * Exits 0 always (fail-open).
  */
 const fs = require('fs');
@@ -16,8 +16,8 @@ const CURSOR_AGENTS = path.join(CURSOR_DIR, 'agents');
 const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
 const AGENTS_SKILLS = path.join(HOME, '.agents', 'skills');
 const AGENTS_JSON = path.join(HOME, '.agents', 'agents.json');
-const SERVER_PATH = path.join(HOME, '.gemini', 'skills-db', 'server.py');
-const FILE_TOOLS_MCP_PATH = path.join(HOME, '.gemini', 'skills-db', 'file_tools_mcp.js');
+const SERVER_PATH = path.join(HOME, '.konoha', 'server.py');
+const FILE_TOOLS_MCP_PATH = path.join(HOME, '.konoha', 'file_tools_mcp.js');
 
 const SEMBLE_POLICY_LINE =
   '- **Code search default**: Use `semble` MCP (`search`, `find_related`) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor `Grep`/`Glob`/`SemanticSearch`. Always pass absolute `repo`. Skills: `skills-db` only — never semble for skills.';
@@ -30,6 +30,7 @@ const DEFAULT_CURSOR_MODELS = {
   anbu: 'inherit',
   'tokubetsu-jonin': 'inherit'
 };
+
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -68,6 +69,18 @@ function adaptInstructionsForCursor(instructions) {
     .trim();
 }
 
+function buildKonohaFilesMcpEntry() {
+  const launcherJs = path.join(HOME, '.konoha', 'file_tools_launcher.js');
+  const mcpJs = path.join(HOME, '.konoha', 'file_tools_mcp.js');
+  if (!fs.existsSync(mcpJs)) return null;
+  const target = fs.existsSync(launcherJs) ? launcherJs : mcpJs;
+  return {
+    type: 'stdio',
+    command: 'node',
+    args: [target]
+  };
+}
+
 function registerMcp(python) {
   if (!fileExists(SERVER_PATH)) return;
   ensureDir(CURSOR_DIR);
@@ -96,7 +109,7 @@ function registerMcp(python) {
     }
   };
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
-    const entry = deployUtils.buildKonohaFilesMcpEntry('cursor');
+    const entry = buildKonohaFilesMcpEntry();
     if (entry) {
       servers['konoha-files'] = entry;
     }

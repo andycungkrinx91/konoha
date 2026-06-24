@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "python3",
       "args": [
-        "${userHome}/.gemini/skills-db/server.py"
+        "${userHome}/.konoha/server.py"
       ]
     },
     "semble": {
@@ -22,7 +22,7 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "${userHome}/.gemini/skills-db/file_tools_launcher.js"
+        "${userHome}/.konoha/file_tools_launcher.js"
       ]
     }
   }

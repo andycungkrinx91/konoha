@@ -29,7 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-DB_PATH = os.path.expanduser("~/.gemini/skills-db/skills.db")
+DB_PATH = os.path.expanduser("~/.konoha/skills.db")
 SKILLS_DIR = os.path.expanduser("~/.agents/skills/")
 
 # Official Konoha skills (built-in, shipped with the package)
@@ -100,11 +100,16 @@ def setup_db():
             total_library_bytes INTEGER,
             bytes_saved INTEGER,
             tokens_saved INTEGER,
-            agent TEXT
+            agent TEXT,
+            client TEXT
         );
     """)
     try:
         conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE tool_calls ADD COLUMN client TEXT;")
     except sqlite3.OperationalError:
         pass
 
@@ -112,6 +117,7 @@ def setup_db():
     conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_type ON skills(type);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_skill_name ON skills(skill_name);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_agent ON tool_calls(agent);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_client ON tool_calls(client);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_timestamp ON tool_calls(timestamp);")
 
     conn.commit()
@@ -424,7 +430,7 @@ def main():
     parser.add_argument("--skills", nargs="*", default=None,
                         help="Specific skill names to migrate (default: auto-detect all)")
     parser.add_argument("--db-path", default=None,
-                        help="Path to SQLite database (default: ~/.gemini/skills-db/skills.db)")
+                        help="Path to SQLite database (default: ~/.konoha/skills.db)")
     parser.add_argument("--clean", action="store_true",
                         help="Purge all existing skills from the database before migration")
     args = parser.parse_args()

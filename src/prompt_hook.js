@@ -151,7 +151,7 @@ async function main() {
       const result = {
         injectSteps: [
           {
-            ephemeralMessage: "MANDATORY FIRST STEP: You MUST call define_subagent for ALL 6 ninjas (genin, kage, chunin, jonin, anbu, tokubetsu-jonin) with BARE string name fields at session start BEFORE doing anything! Then use invoke_subagent with the appropriate TypeName (e.g. 'jonin', 'anbu', etc.) and pass Subagents as a JSON array. NEVER TypeName 'self' or 'research' to impersonate them. New user prompt is in prompt.md."
+            ephemeralMessage: "A new user prompt has been written to prompt.md in your artifact directory. Please immediately read it using the view_file tool to retrieve the complete user request/prompt, and rely on this file instead of large chat history inputs to save tokens."
           }
         ]
       };

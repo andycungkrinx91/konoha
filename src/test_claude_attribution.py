@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-by-one Cursor MCP attribution test for konoha agent status counters."""
+"""One-by-one Claude Code MCP attribution test for konoha agent status counters."""
 import json
 import os
 import shutil
@@ -12,7 +12,7 @@ import uuid
 SERVER = os.path.expanduser("~/.konoha/server.py")
 DB = os.path.expanduser("~/.konoha/skills.db")
 STATS = os.path.expanduser("~/.konoha/agent_stats.py")
-PROJECTS = os.path.expanduser("~/.cursor/projects")
+PROJECTS = os.path.expanduser("~/.claude/projects")
 
 REGISTERED = frozenset(
     ["genin", "kage", "chunin", "jonin", "anbu", "tokubetsu-jonin"]
@@ -80,7 +80,7 @@ def mcp_find_skill_no_agent(keyword):
         print("-----------------------------------", file=sys.stderr)
 
 
-def cursor_transcript_line(text, task_subagent=None):
+def claude_transcript_line(text, task_subagent=None):
     blocks = [{"type": "text", "text": text}]
     if task_subagent:
         blocks.append(
@@ -93,28 +93,26 @@ def cursor_transcript_line(text, task_subagent=None):
     return json.dumps({"role": "assistant", "message": {"content": blocks}})
 
 
-def setup_cursor_session(text, mtime_offset=7200):
-    project_slug = "konoha-cursor-attribution-test"
+def setup_claude_session(text, mtime_offset=7200):
+    project_slug = "konoha-claude-attribution-test"
     conv_id = str(uuid.uuid4())
-    conv_dir = os.path.join(
-        PROJECTS, project_slug, "agent-transcripts", conv_id
-    )
+    conv_dir = os.path.join(PROJECTS, project_slug)
     os.makedirs(conv_dir, exist_ok=True)
     transcript_path = os.path.join(conv_dir, f"{conv_id}.jsonl")
     with open(transcript_path, "w", encoding="utf-8") as f:
-        f.write(cursor_transcript_line(text) + "\n")
+        f.write(claude_transcript_line(text) + "\n")
     now = time.time() + mtime_offset
     os.utime(transcript_path, (now, now))
-    return conv_dir
+    return conv_dir, transcript_path
 
 
 def main():
     results = []
-    keyword_base = f"konoha-cursor-test-{int(time.time())}"
+    keyword_base = f"konoha-claude-test-{int(time.time())}"
 
     for idx, (agent, text, _task) in enumerate(AGENTS):
         before = load_stats().get(agent, {}).get("today", 0)
-        conv = setup_cursor_session(text, mtime_offset=7200 + idx * 120)
+        conv_dir, transcript_path = setup_claude_session(text, mtime_offset=7200 + idx * 120)
         try:
             mcp_find_skill_no_agent(f"{keyword_base}-{agent}")
             logged = last_logged_agent()
@@ -126,12 +124,10 @@ def main():
                 f"logged={logged} today {before}->{after}"
             )
         finally:
-            shutil.rmtree(
-                os.path.dirname(os.path.dirname(conv)), ignore_errors=True
-            )
+            shutil.rmtree(conv_dir, ignore_errors=True)
 
     before_direct = direct_today(load_stats())
-    conv = setup_cursor_session(
+    conv_dir, transcript_path = setup_claude_session(
         "[Konoha] orchestrator active. Calling skills-db.find_skill(...)",
         mtime_offset=7200 + len(AGENTS) * 120,
     )
@@ -148,20 +144,17 @@ def main():
             f"logged={logged} direct today {before_direct}->{after_direct}"
         )
     finally:
-        shutil.rmtree(
-            os.path.dirname(os.path.dirname(conv)), ignore_errors=True
-        )
+        shutil.rmtree(conv_dir, ignore_errors=True)
 
     # Task-tool delegation path (orchestrator delegates, subagent would call MCP)
     before = load_stats().get("anbu", {}).get("today", 0)
-    conv = setup_cursor_session(
+    conv_dir, transcript_path = setup_claude_session(
         "[Konoha] orchestrator active. Delegating to anbu.",
         mtime_offset=7200 + (len(AGENTS) + 1) * 120,
     )
-    transcript_path = os.path.join(conv, os.listdir(conv)[0])
     with open(transcript_path, "a", encoding="utf-8") as f:
         f.write(
-            cursor_transcript_line("Delegating.", task_subagent="anbu") + "\n"
+            claude_transcript_line("Delegating.", task_subagent="anbu") + "\n"
         )
     now = time.time() + 7200 + (len(AGENTS) + 1) * 120
     os.utime(transcript_path, (now, now))
@@ -176,9 +169,7 @@ def main():
             f"logged={logged} today {before}->{after}"
         )
     finally:
-        shutil.rmtree(
-            os.path.dirname(os.path.dirname(conv)), ignore_errors=True
-        )
+        shutil.rmtree(conv_dir, ignore_errors=True)
 
     failed = [r for r in results if not r[1]]
     print(f"\nPassed {len(results) - len(failed)}/{len(results)}")

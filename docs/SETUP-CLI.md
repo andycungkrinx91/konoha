@@ -27,8 +27,8 @@ This installs the MCP server and migrates your skills. The CLI should output:
 ✓ Python 3 found: python3
 ✓ Found: ~/.agents/skills/ (5 skills)
 📦 Installing MCP Server
-✓ Installed: ~/.gemini/skills-db/server.py
-✓ Installed: ~/.gemini/skills-db/migrate.py
+✓ Installed: ~/.konoha/server.py
+✓ Installed: ~/.konoha/migrate.py
 📊 Migrating Skills to SQLite FTS5
 ...
 ✅ Installation Complete!
@@ -50,7 +50,7 @@ You should see `skills-db`, `semble`, and `konoha-files` listed among the MCP se
 konoha test
 ```
 
-Expected: **14 tests** pass (7 skills-db + 7 konoha-files).
+Expected: **16 tests** pass (9 skills-db + 7 konoha-files).
 
 ## Step 4: Test in a Session
 
@@ -79,7 +79,7 @@ agy reads MCP config from `~/.gemini/config/mcp_config.json`:
   "mcpServers": {
     "skills-db": {
       "command": "python3",
-      "args": ["/home/youruser/.gemini/skills-db/server.py"]
+      "args": ["/home/youruser/.konoha/server.py"]
     }
   }
 }
@@ -154,6 +154,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   konoha agent create <agent-name> [options]
   ```
   Creates a new custom subagent configuration. Options include:
+  - `--manual`: Override system guardrail lock to create a custom/non-default subagent manually (required for custom agents).
   - `--title "Title"`: Display title of your agent (e.g., `"Database Expert"`).
   - `--purpose "Purpose"`: Goal of the agent (e.g., `"Optimize SQL queries"`).
   - `--keywords "keywords"`: Comma-separated triggers that delegate tasks to this agent (e.g., `"database, SQL"`).
@@ -162,6 +163,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   *Example:*
   ```bash
   konoha agent create sql-expert \
+    --manual \
     --title "Database Expert" \
     --purpose "Optimize SQL queries and verify database schemas" \
     --keywords "sql, database, query optimization" \
@@ -209,7 +211,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.6`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.7`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -227,6 +229,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 * **Available Models Registry**:
   - `Gemini 3.1 Flash-Lite`
   - `Gemini 2.5 Flash`
+  - `Gemini 2.5 Flash-Lite`
   - `Gemini 3.5 Flash (Low / Medium / High)`
   - `Gemini 3.1 Pro (Low / High)`
   - `Claude Sonnet 4.6 (Thinking)`

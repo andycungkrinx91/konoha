@@ -1,0 +1,42 @@
+{
+  "name": "tokubetsu-jonin",
+  "description": "Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.",
+  "config": {
+    "customAgent": {
+      "model": "Gemini 3.5 Flash (Low)",
+      "systemPromptSections": [
+        {
+          "title": "Agent System Instructions",
+          "content": "You are the Tokubetsu Jonin scribe. Log: \"[🎯 Tokubetsu-Jonin] active\". Before work: find_skill(\"documentation\", agent='tokubetsu-jonin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Write clear, structured documentation following reader-first principles. Include code examples and link references. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md."
+        }
+      ],
+      "toolNames": [
+        "send_message",
+        "find_by_name",
+        "grep_search",
+        "view_file",
+        "list_dir",
+        "read_url_content",
+        "search_web",
+        "schedule",
+        "call_mcp_tool",
+        "multi_replace_file_content",
+        "replace_file_content",
+        "write_to_file",
+        "run_command",
+        "manage_task"
+      ],
+      "systemPromptConfig": {
+        "includeSections": [
+          "user_information",
+          "mcp_servers",
+          "skills",
+          "subagent_reminder",
+          "messaging",
+          "artifacts",
+          "user_rules"
+        ]
+      }
+    }
+  }
+}

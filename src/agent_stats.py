@@ -5,7 +5,7 @@ import json
 import sys
 import os
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.gemini/skills-db/skills.db")
+db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/skills.db")
 
 # Check for prune command
 if len(sys.argv) > 3 and sys.argv[2] == "--prune":
@@ -44,9 +44,18 @@ try:
             total_library_bytes INTEGER,
             bytes_saved INTEGER,
             tokens_saved INTEGER,
-            agent TEXT
+            agent TEXT,
+            client TEXT
         );
     """)
+    try:
+        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE tool_calls ADD COLUMN client TEXT;")
+    except sqlite3.OperationalError:
+        pass
     
     # Run query
     query = """

@@ -90,7 +90,7 @@ All official subagents default to **`model: inherit`** (Cursor Auto session mode
 When MCP tools omit the `agent` parameter, `detect_active_agent()` resolves identity from:
 
 - **Cursor**: `~/.cursor/projects/*/agent-transcripts/*/*.jsonl` — `Task` `subagent_type`, subagent `[Agent] active` text logs, or `[Konoha] orchestrator active`.
-- **Antigravity**: `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` — delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts.
+- **Antigravity**: `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` — delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts. If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
 
 Recent Cursor sessions are preferred over stale Antigravity brain folders so counters stay accurate in multi-client setups.
 
@@ -99,6 +99,7 @@ Recent Cursor sessions are preferred over stale Antigravity brain folders so cou
 ```bash
 python3 src/test_cursor_attribution.py   # Cursor one-by-one attribution
 python3 src/test_agent_attribution.py    # Antigravity one-by-one attribution
+python3 src/test_claude_attribution.py   # Claude Code one-by-one attribution
 ```
 
 ## Protected Default Subagents
@@ -128,7 +129,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 1. Check `~/.cursor/mcp.json` contains `skills-db`, `semble`, and `konoha-files`.
 2. Run `konoha doctor --yes`.
-3. Run `node ~/.gemini/skills-db/cursor_bootstrap.js` (must exit 0).
+3. Run `node ~/.konoha/cursor_bootstrap.js` (must exit 0).
 4. Restart Cursor.
 
 ### Wrong agent in `konoha agent status`

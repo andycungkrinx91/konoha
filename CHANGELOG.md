@@ -2,9 +2,41 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [1.1.7] - 2026-06-25
+
+### Added
+- **Dynamic Skill Checklist Injection**: Compilers and deployment generators dynamically strip any legacy find_skill instructions and inject active `Before work: find_skill` calls directly at compile/generation boundaries based on the agent's current `skills` array.
+- **Direct Tool Calls Fallback**: Integrated fallback mechanism to execute skills using Direct Tool Calls in the main coordinator thread when no specialized subagent embeds the matching skill.
+- **Persistent Upgrade Marker**: Replaced inline checks for default skills with a persistent `.upgraded_v1.1.1` marker file to determine upgrade status, allowing complete freedom to change or unembed official skills per agent.
+- **Depth Calculation Correction**: Fixed loop counter reset bugs in nested task structures by loading depth metadata from both incoming and target `delegate.md` directories.
+- **Clean config on disk**: Automatically migrate and clean `~/.agents/agents.json` on disk to remove hardcoded checklists, keeping user configurations clean.
+
+### Changed
+- **Host-Agnostic Storage Migration**: Relocated the central Konoha installation, SQLite FTS5 database (`skills.db`), Python server, and JavaScript hooks from `~/.gemini/skills-db` to `~/.konoha/` to provide a tool-agnostic folder structure suitable for multi-agent integrations (Antigravity, Cursor, Claude Code, OpenCode).
+- **Client Integration Paths**: Updated client configuration managers and template bootstrap scripts (`src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/cursor_bootstrap.js`) to register servers using the new `~/.konoha/` path.
+- **Boundary Validation Update**: Enhanced the Python server's (`src/server.py`) workspace boundary validation (`is_path_visible`) to permit read/write visibility inside `~/.konoha/` and to support custom skills directories containing `.konoha/skills`.
+
+### Fixed
+- **Subagent Skill Customization**: Decoupled the agent formats checking mechanism (`isAlreadyUpgraded`) from the presence of default skills in `agents.json` by using a persistent marker file (`.upgraded_v1.1.1`). This permits users to freely add, change, or unembed official skills for each subagent.
+- **Unembedding Skill Prompt Sync**: Ensured that the `Before work: find_skill(...)` section is correctly cleaned up and removed from the subagent's `instructions` when all skills are unembedded from that agent, preventing checklists and guidelines of unembedded skills from persisting.
+- **Exclusion of Development Skills**: Excluded the internal development skill `konoha` (containing `konoha-maintenance` knowledge) from global directory initialization and auto-setup checks. This preserves the skill as a workspace-local resource for Konoha developers and prevents it from copying to regular users' default configurations on fresh installs.
+- **Active Agent Scan Robustness**: Resolved transient race conditions in `detect_active_agent()` by verifying file existence before sorting active agent session files.
+- **IDE Telemetry Coverage**: Extended token calculation logic in `src/db_savings.py` to cover both `antigravity-cli` and `antigravity-ide` session folders.
+- **Self-Test Workspace Independence**: Refactored the `cmdTest()` subcommand in `bin/cli.js` to create and verify a temporary test directory containing a mock file for the `build_from_source` test, removing the reliance on a relative `"src"` path under the current working directory.
+
 ## [1.1.6] - 2026-06-23
 
 ### Added
+- **Antigravity Session Isolation**: Enhanced `detect_active_agent()` in `src/server.py` to check `os.environ.get("ANTIGRAVITY_CONVERSATION_ID")` first. If present, it isolates the transcript and active agent search strictly to the active conversation directory, preventing cross-session tool misattributions and hallucinations.
+- **Antigravity Delegation Guard**: Safety guardrail (`Never touch logic delegated in Antigravity`) built into `src/agent_manager.js`, `src/cursor_manager.js`, rules templates, and global instructions to protect the orchestrator's delegated flow.
+- **Automated Transient Task Cleanup**: Configured rule exceptions and guidelines in `src/agent_manager.js`, `src/cursor_manager.js`, and `SKILL.md` to automate the cleanup of transient agent task files (under `scratch/tasks/`) silently and immediately without requiring manual user confirmation.
+- **Konoha MCP Tools Reference**: Documented full schemas, parameter definitions, and descriptions for all available tools across the `skills-db`, `semble`, and `konoha-files` MCP servers directly within `konoha-maintenance` `SKILL.md` to establish localized developer knowledge.
+- **Optimize Thought Tokens**: Embedded thought optimization rule (`Optimize Thought Tokens`) directing agents to keep thought processes concise and implementation-focused to minimize output and reasoning token costs under thinking models.
+- **Planning-to-File (Thought-to-Markdown)**: Integrated planning-to-file convention directing the orchestrator and subagents to output complex design plans, step-by-step implementations, and deep reasoning to workspace plan markdown files (e.g. `plan.md`) instead of verbose conversation logs, optimizing token limits and execution logs.
+- **Skills-DB "By Call Type" breakdown**: Added call type distribution metrics to `konoha savings`, displaying tool call frequency, ratio, and visual horizontal bar charts for all Skills-DB tools (e.g. `find_skill`, `get_skill`, `list_skills`, etc.) styled to align perfectly with Semble's layout.
+- **Thought Token Tracking**: Scans and parses conversation transcripts under `<appDataDir>/brain/*/.system_generated/logs/transcript.jsonl` to calculate model reasoning/thought tokens (character count / 4) and generated response tokens.
+- **Period Savings Telemetry Refinement**: Replaced the redundant percentage column (`(100%)`) in the period table of `konoha savings` with the actual estimated thought tokens used per period (e.g. `(thought: 95.0k)`).
+- **Agent-tier Cost Computation**: Calculates the exact USD context input cost saved based on the model tier configured for the active agent (Flash: `$0.075/1M` input, Pro: `$1.25/1M` input), net of output/thought generation costs.
 - **Cursor IDE/CLI Auto-Setup**: New `src/cursor_manager.js` registers `skills-db`, `semble`, and `konoha-files` in `~/.cursor/mcp.json`, deploys Konoha ninja subagents to `~/.cursor/agents/` with embedded **Cursor model slugs** (`composer-2.5-fast`, `claude-opus-4-8-thinking-high`, `gpt-5.3-codex`, etc.), writes project `.cursor/rules/konoha.mdc` orchestrator rules, and configures Cursor CLI MCP permissions in `~/.cursor/cli-config.json`.
 - **Cursor skills mirror**: `deploy_utils.syncCursorSkillsFromAgents()` mirrors `~/.agents/skills/` → `~/.cursor/skills/` and project `.cursor/skills/` on init, `ensureAutoSetup`, `konoha skill add`, and Cursor `sessionStart` hook.
 - **Safe JSON merge**: `mcp_clients_manager.js`, `cursor_manager.js`, and `bin/cli.js` no longer reset user MCP config on parse errors.
@@ -19,6 +51,16 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Enhanced SvelteKit Skills Reference**: Updated `.agents/skills/jonin-skill/references/svelte-code-expert.md` with advanced Svelte 5 Accessibility (a11y) guidelines, a strict verification pipeline (`svelte-check`, typescript compiler, `pnpm lint`), SSR hydration safety (guarding browser-only APIs), and image-to-code layout similarity comparison loops.
 
 ### Fixed
+- **CLI Client Telemetry Attribution**: Fixed client resolution in `src/server.py` so tool calls made via the `agy` CLI are correctly attributed to the CLI instead of the generic fallback `antigravity` (IDE).
+- **Symmetric Provider Breakdown Columns**: Symmetrically widened the table columns to `20` visual characters, split the generic `antigravity` provider into `Antigravity IDE` and `Antigravity CLI`, and formatted token counts using the standard suffix `Token` instead of `t`.
+- **Database & Custom Skills Preservation on Uninstall**: Refactored `cmdUninstall` in `bin/cli.js` to preserve the SQLite metrics database files (`skills.db*`) and selectively delete only default official skills from the global skills directory (`~/.agents/skills/`), leaving custom user skills untouched.
+- **Subagent Discovery Across Surfaces**: Fixed subagent discovery issues where custom subagents were not listed in the prompt (`Available subagents: research, self`) by ensuring subagent configurations are deployed to the CLI and IDE global agents directories (`~/.gemini/antigravity-cli/agents/` and `~/.gemini/antigravity-ide/agents/`), and correctly passing `projectDir` during deployment.
+- **`readline` is not defined in `konoha skill search`**: Fixed ReferenceError crash by importing the Node.js `readline` library in `src/skill_manager.js`.
+- **Semble Call Parsing in Combined Savings**: Fixed regex patterns in `bin/cli.js` to correctly capture and parse Semble call counts formatted with suffixes (such as `1.0k` or `1.5M`).
+- **`konoha saving` subcommand alias**: Added `saving` as a routed alias for `savings` in `bin/cli.js` for smoother command execution.
+- **Cursor session start hook ReferenceError**: Fixed `ReferenceError: deployUtils is not defined` inside `src/cursor_bootstrap.js` by defining a self-contained local implementation of `buildKonohaFilesMcpEntry()`, restoring automatic client self-healing and config sync in Cursor.
+- **Session isolation boundary leak**: Excluded Cursor projects search from `brain_dirs` in `detect_active_agent()` inside `src/server.py` when `ANTIGRAVITY_CONVERSATION_ID` is set, preserving strict session isolation across concurrent IDE sessions.
+- **Subagent delegation LLM parsing**: Fixed LLM parsing issue where orchestrator gets `CORTEX_STEP_TYPE_INVOKE_SUBAGENT` error by removing model tier annotations from template files (`GEMINI.md` and `AGENTS.md`) and roster generation in `agent_manager.js`. Also pre-registered hidden global agent configurations in `src/antigravity_manager.js` and restored the `buildDefineSubagentArgs` helper function to prevent runtime crashes during init.
 - **`ensureAutoSetup()` never invoked**: Restored silent auto-bootstrap on every `konoha` command (was defined but never called since v1.0.9).
 - **Cursor path visibility**: `server.py` now allows `~/.cursor/` and `.cursor/skills` paths in workspace scoping checks.
 - **`konoha agent status` Antigravity attribution**: `detect_active_agent()` no longer false-positives on `VIEW_FILE` transcript lines (e.g. GEMINI.md content containing `[Genin] active`). Delegated subagents are resolved from `prompt.md` plus recent `PLANNER_RESPONSE` transcripts; stale brain folders are skipped.

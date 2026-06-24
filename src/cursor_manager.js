@@ -16,7 +16,7 @@ const CURSOR_AGENTS_GLOBAL = path.join(CURSOR_DIR, 'agents');
 const CURSOR_SKILLS_GLOBAL = path.join(CURSOR_DIR, 'skills');
 const CURSOR_HOOKS_GLOBAL = path.join(CURSOR_DIR, 'hooks.json');
 const CURSOR_CLI_CONFIG = path.join(CURSOR_DIR, 'cli-config.json');
-const SKILLS_DB_DIR = path.join(HOME, '.gemini', 'skills-db');
+const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 const CURSOR_BOOTSTRAP_PATH = path.join(SKILLS_DB_DIR, 'cursor_bootstrap.js');
@@ -92,7 +92,24 @@ function generateCursorSubagent(agent) {
   const model = resolveCursorModel(agent);
   const readonly = agent.name === 'genin';
   const description = `${agent.description} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-  const body = adaptInstructionsForCursor(agent.instructions);
+  
+  let instructions = agent.instructions || '';
+  // Strip any existing Before work: find_skill(...) checklist calls
+  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
+
+  if (agent.skills && agent.skills.length > 0) {
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
+    const logMatch = instructions.match(logPattern);
+    if (logMatch) {
+      const insertIndex = logMatch.index + logMatch[0].length;
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+    } else {
+      instructions = `Before work: ${findSkillCalls} ` + instructions;
+    }
+  }
+
+  const body = adaptInstructionsForCursor(instructions);
   const sembleLine = buildSembleSearchPolicyCompact();
   const fileToolsLine = buildFileToolsPolicyCompact();
 
@@ -113,7 +130,7 @@ function generateCursorSubagent(agent) {
 function generateCursorRule(agents) {
   const agentList = agents.map(a => `\`${a.name}\` (${resolveCursorModel(a)})`).join(', ');
   const delegationRows = agents
-    .map(a => `| ${a.delegationKeywords || a.delegateWhen} | \`${a.name}\` |`)
+    .map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`)
     .join('\n');
 
   return `---
@@ -123,7 +140,7 @@ alwaysApply: true
 
 # Konoha — Cursor Orchestrator
 
-You are the **Konoha orchestrator**. Act as coordinator only — delegate specialized work to Konoha subagents via the **Task** tool.
+You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to Konoha subagents via the **Task** tool if the matching skill is embedded in their configuration. If not embedded, run the task directly via Direct Tool Calls.
 
 ## Subagents (auto-loaded from \`.cursor/agents/\`)
 
@@ -135,15 +152,16 @@ Each subagent has an embedded **Cursor model** in its frontmatter. When using Ta
 
 ## Mandatory workflow
 
-1. **Skills first**: Call \`skills-db\` MCP \`find_skill\` with keywords from the user prompt (pass \`agent\` when available). Never load SKILL.md files directly.
+1. **Skills first**: Call \`skills-db\` MCP \`find_skill\` with keywords from the user prompt (pass \`agent\` when available) to find the related skill reference. Never load SKILL.md files directly.
 2. **Code context**: If source code search is needed, call \`semble\` MCP (\`search\` / \`find_related\`). Never use semble for skill lookup. **Do NOT use Cursor \`Grep\`, \`Glob\`, or \`SemanticSearch\` — semble is the default search tool.**
 3. **File reads**: After semble locates targets, use \`konoha-files\` MCP for reads/grep/structure — **never Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`.**
-4. **Select agent** using the table below.
-5. **Delegate** via Task tool to the matching subagent. Pass skill reference names discovered in step 1.
-6. **Synthesize** subagent results for the user.
+4. **Match agent by skill**: Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any subagent.
+   - **If embedded**: Delegate via Task tool to the matching subagent. Pass skill reference names discovered in step 1.
+   - **If NOT embedded**: Run the task directly in the main agent (orchestrator) using Direct Tool Calls (like write_to_file, replace_file_content, run_command) and apply that skill's guidelines.
+5. **Synthesize**: Present results to the user.
 
-| Task type | Subagent |
-|-----------|----------|
+| Embedded Skills | Subagent |
+|---|---|
 ${delegationRows}
 
 ${buildSembleSearchPolicy()}
@@ -162,8 +180,13 @@ ${buildFileToolsPolicy()}
 ## Guardrails
 
 - Log at response start: \`[Konoha] orchestrator active. Calling skills-db.find_skill(...)\`
+- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
+- **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
+- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations.
+- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - Read-only for \`.env\`, \`terraform.tfvars\`, \`secrets.yaml\` unless user approves
-- Execute commands yourself; never ask the user to run verification steps
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`scratch/tasks/\` which must be executed silently and automatically.
 - On rate limits, retry with \`${CURSOR_FALLBACK_MODEL}\`
 
 Full team config: \`~/.agents/AGENTS.md\`
@@ -261,12 +284,12 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   );
 
   // Portable project config — cross-platform JS launcher (node on PATH in Cursor/IDE)
-  servers['skills-db'].args = ['${userHome}/.gemini/skills-db/server.py'];
+  servers['skills-db'].args = ['${userHome}/.konoha/server.py'];
   if (servers['konoha-files']) {
     servers['konoha-files'] = {
       type: 'stdio',
       command: 'node',
-      args: ['${userHome}/.gemini/skills-db/file_tools_launcher.js']
+      args: ['${userHome}/.konoha/file_tools_launcher.js']
     };
   }
 
@@ -325,7 +348,7 @@ function registerCursorCliPermissions(silent = true) {
     'Mcp(konoha-files, find_files_clean)',
     'Shell(konoha)',
     'Shell(node bin/cli.js)',
-    'Shell(node */.gemini/skills-db/cursor_bootstrap.js)'
+    'Shell(node */.konoha/cursor_bootstrap.js)'
   ];
 
   let updated = false;

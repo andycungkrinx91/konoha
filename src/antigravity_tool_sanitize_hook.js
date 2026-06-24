@@ -111,8 +111,7 @@ function sanitizeDefineSubagentArgs(args) {
     out.system_prompt = SUBAGENT_IDENTITY_OVERRIDE + out.system_prompt;
   }
 
-  delete out.toolAction;
-  delete out.toolSummary;
+  return out;
   return out;
 }
 
@@ -144,8 +143,7 @@ function sanitizeInvokeSubagentArgs(args) {
   }
 
   out.Subagents = cleaned;
-  delete out.toolAction;
-  delete out.toolSummary;
+  return { args: out };
   return { args: out };
 }
 
@@ -193,7 +191,7 @@ async function main() {
       if (argsChanged(rawArgs, sanitized)) {
         respond({
           decision: 'allow',
-          overwrite: { name: 'define_subagent', args: sanitized },
+          overwrite: { args: sanitized },
         });
         return;
       }
@@ -210,7 +208,7 @@ async function main() {
       if (argsChanged(rawArgs, result.args)) {
         respond({
           decision: 'allow',
-          overwrite: { name: 'invoke_subagent', args: result.args },
+          overwrite: { args: result.args },
         });
         return;
       }

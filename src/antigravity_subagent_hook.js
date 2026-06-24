@@ -11,7 +11,7 @@ const path = require('path');
 const os = require('os');
 
 const HOME = os.homedir();
-const SKILLS_DB_DIR = path.join(HOME, '.gemini', 'skills-db');
+const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const REGISTRY_DIR = path.join(SKILLS_DB_DIR, '.subagent_registered');
 const USER_AGENTS_JSON = path.join(HOME, '.agents', 'agents.json');
 const GLOBAL_CLI_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
@@ -71,11 +71,19 @@ function brainDirFromTranscript(transcriptPath) {
 function deploySessionAgents(agents, brainDir) {
   if (!brainDir) return;
   const base = path.join(brainDir, '.agents', 'agents');
+  const antigravityManager = require('./antigravity_manager');
   for (const agent of agents) {
     try {
       const destDir = path.join(base, agent.name);
       fs.mkdirSync(destDir, { recursive: true });
-      fs.writeFileSync(path.join(destDir, 'agent.json'), JSON.stringify(agent, null, 2), 'utf-8');
+      const payload = antigravityManager.buildAgentJson({
+        name: agent.name,
+        description: agent.description,
+        instructions: agent.instructions,
+        constraints: agent.constraints || '',
+        modelTier: agent.modelTier,
+      });
+      fs.writeFileSync(path.join(destDir, 'agent.json'), JSON.stringify(payload, null, 2) + '\n', 'utf-8');
     } catch {}
   }
 }
@@ -166,48 +174,8 @@ async function main() {
       deploySessionAgents(agents, brainDir);
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    // STEP 2: ONLY inject the ephemeral nudge for CONFIRMED orchestrators.
-    // At invocation 0 the transcript is empty → isConfirmedOrchestrator
-    // returns false → no ephemeral is injected for EITHER session type.
-    // The orchestrator still works because user_global rules contain
-    // the full subagent initialization instructions.
-    // From invocation 1+, the transcript has content and the orchestrator
-    // can be positively confirmed.
-    // ──────────────────────────────────────────────────────────────────
-    if (!isConfirmedOrchestrator(transcriptPath)) {
-      process.stdout.write('{}\n');
-      process.exit(0);
-    }
-
-    if (!conversationId || !isFirstInvocation(invocationNum)) {
-      process.stdout.write('{}\n');
-      process.exit(0);
-    }
-
-    fs.mkdirSync(REGISTRY_DIR, { recursive: true });
-    const guardPath = path.join(REGISTRY_DIR, conversationId);
-    const firstRun = !fs.existsSync(guardPath);
-    if (firstRun) {
-      fs.writeFileSync(guardPath, new Date().toISOString(), 'utf-8');
-    }
-
-    if (!firstRun) {
-      process.stdout.write('{}\n');
-      process.exit(0);
-    }
-
-    const agents = loadAgents();
-    const names = agents.map((a) => a.name).join(', ');
-    process.stdout.write(
-      JSON.stringify({
-        injectSteps: [
-          {
-            ephemeralMessage: `[Konoha] Session start: call define_subagent for each ninja (${names}) with BARE string fields — name must be bare (e.g. 'jonin' or 'anbu', not '\\"jonin\\"'). enable_* must be boolean true/false, not strings. Then invoke_subagent with Subagents as a JSON array (not a string) and the appropriate TypeName (e.g., 'jonin', 'anbu', etc.). NEVER TypeName 'self' to impersonate them.`,
-          },
-        ],
-      }) + '\n'
-    );
+    process.stdout.write('{}\n');
+    process.exit(0);
   } catch {
     process.stdout.write('{}\n');
   }

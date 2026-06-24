@@ -10,9 +10,9 @@ import sys
 import time
 import uuid
 
-SERVER = os.path.expanduser("~/.gemini/skills-db/server.py")
-DB = os.path.expanduser("~/.gemini/skills-db/skills.db")
-STATS = os.path.expanduser("~/.gemini/skills-db/agent_stats.py")
+SERVER = os.path.expanduser("~/.konoha/server.py")
+DB = os.path.expanduser("~/.konoha/skills.db")
+STATS = os.path.expanduser("~/.konoha/agent_stats.py")
 BRAIN_CLI = os.path.expanduser("~/.gemini/antigravity-cli/brain")
 BRAIN_IDE = os.path.expanduser("~/.gemini/antigravity-ide/brain")
 
@@ -54,7 +54,7 @@ def last_logged_agent():
     return (row[0] or "").lower() if row else None
 
 
-def mcp_find_skill_no_agent(keyword):
+def mcp_find_skill_no_agent(keyword, conv_id=None):
     req = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -64,15 +64,26 @@ def mcp_find_skill_no_agent(keyword):
             "arguments": {"keyword": keyword, "limit": 1, "compact": True},
         },
     }
+    env = os.environ.copy()
+    if conv_id:
+        env["ANTIGRAVITY_CONVERSATION_ID"] = conv_id
+    else:
+        env.pop("ANTIGRAVITY_CONVERSATION_ID", None)
+
     proc = subprocess.run(
         [sys.executable, SERVER],
         input=json.dumps(req) + "\n",
+        env=env,
         capture_output=True,
         text=True,
         timeout=30,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr or proc.stdout)
+    if proc.stderr:
+        print(f"\n--- SERVER STDERR FOR {keyword} ---", file=sys.stderr)
+        print(proc.stderr, file=sys.stderr)
+        print("-----------------------------------", file=sys.stderr)
 
 
 def setup_brain(brain_root, prompt_text, planner_line, mtime_offset=3600):
@@ -102,7 +113,7 @@ def main():
         before = load_stats().get(agent, {}).get("today", 0)
         conv = setup_brain(BRAIN_CLI, prompt, planner, mtime_offset=7200 + idx * 120)
         try:
-            mcp_find_skill_no_agent(f"{keyword_base}-{agent}")
+            mcp_find_skill_no_agent(f"{keyword_base}-{agent}", conv_id=os.path.basename(conv))
             logged = last_logged_agent()
             after = load_stats().get(agent, {}).get("today", 0)
             ok = logged == agent and after == before + 1
@@ -122,7 +133,7 @@ def main():
         mtime_offset=7200 + len(AGENTS) * 120,
     )
     try:
-        mcp_find_skill_no_agent(f"{keyword_base}-orchestrator")
+        mcp_find_skill_no_agent(f"{keyword_base}-orchestrator", conv_id=os.path.basename(conv))
         logged = last_logged_agent()
         after_direct = direct_today(load_stats())
         ok = logged == "orchestrator" and after_direct == before_direct + 1

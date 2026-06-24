@@ -34,7 +34,7 @@ const { runSplashScreen } = require('../src/splash');
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const HOME = os.homedir();
-const SKILLS_DB_DIR = path.join(HOME, '.gemini', 'skills-db');
+const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const MCP_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'mcp_config.json');
 const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
 const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
@@ -453,9 +453,13 @@ function startAgentTui(agents) {
     render();
 
     // Start key listener
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding('utf8');
+    if (process.stdin && typeof process.stdin.setRawMode === 'function') {
+      process.stdin.setRawMode(true);
+    }
+    if (process.stdin) {
+      process.stdin.resume();
+      process.stdin.setEncoding('utf8');
+    }
 
     function onKey(key) {
       // ctrl+c (SIGINT)
@@ -486,12 +490,18 @@ function startAgentTui(agents) {
       }
     }
 
-    process.stdin.on('data', onKey);
+    if (process.stdin) {
+      process.stdin.on('data', onKey);
+    }
 
     function cleanup() {
-      process.stdin.removeListener('data', onKey);
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
+      if (process.stdin) {
+        process.stdin.removeListener('data', onKey);
+        if (typeof process.stdin.setRawMode === 'function') {
+          process.stdin.setRawMode(false);
+        }
+        process.stdin.pause();
+      }
       // Show cursor
       process.stdout.write('\x1b[?25h');
     }
@@ -527,12 +537,14 @@ function askQuestion(query) {
       }
     };
 
-    const wasRaw = process.stdin.isRaw;
-    if (!wasRaw) {
+    const wasRaw = process.stdin && process.stdin.isRaw;
+    if (process.stdin && !wasRaw && typeof process.stdin.setRawMode === 'function') {
       process.stdin.setRawMode(true);
     }
-    process.stdin.resume();
-    process.stdin.on('data', onData);
+    if (process.stdin) {
+      process.stdin.resume();
+      process.stdin.on('data', onData);
+    }
 
     rlInstance.question(query, (answer) => {
       if (!resolved) {
@@ -543,9 +555,11 @@ function askQuestion(query) {
     });
 
     function cleanup() {
-      process.stdin.removeListener('data', onData);
-      if (!wasRaw) {
-        process.stdin.setRawMode(false);
+      if (process.stdin) {
+        process.stdin.removeListener('data', onData);
+        if (!wasRaw && typeof process.stdin.setRawMode === 'function') {
+          process.stdin.setRawMode(false);
+        }
       }
     }
   });
@@ -1039,7 +1053,7 @@ async function cmdInit(args) {
   const dirs = [
     path.join(HOME, '.gemini'),
     path.join(HOME, '.agents'),
-    path.join(HOME, '.gemini', 'skills-db'),
+    SKILLS_DB_DIR,
     path.join(HOME, '.gemini', 'antigravity-cli'),
     path.join(HOME, '.gemini', 'config'),
     path.join(HOME, '.cursor'),
@@ -1073,7 +1087,7 @@ async function cmdInit(args) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1151,7 +1165,7 @@ async function cmdInit(args) {
       files.forEach(entry => {
         const name = entry.name;
         if (entry.isDirectory()) {
-          if (name.endsWith('-skill') || name === 'konoha') {
+          if (name.endsWith('-skill')) {
             const srcPath = path.join(pkgSkillsDir, name);
             const destPath = path.join(globalSkillsDir, name);
             copyRecursive(srcPath, destPath);
@@ -1202,6 +1216,12 @@ async function cmdInit(args) {
     copyFile(subagentHookSrc, subagentHookDest);
   }
 
+  const antigravityManagerSrc = path.join(SRC_DIR, 'antigravity_manager.js');
+  const antigravityManagerDest = path.join(SKILLS_DB_DIR, 'antigravity_manager.js');
+  if (fileExists(antigravityManagerSrc)) {
+    copyFile(antigravityManagerSrc, antigravityManagerDest);
+  }
+
   const sanitizeHookSrc = path.join(SRC_DIR, 'antigravity_tool_sanitize_hook.js');
   const sanitizeHookDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
   if (fileExists(sanitizeHookSrc)) {
@@ -1214,7 +1234,7 @@ async function cmdInit(args) {
     copyFile(cursorBootstrapSrc, cursorBootstrapDest);
   }
   installFileTools(true);
-  spinner3.success('All files installed to ~/.gemini/skills-db/');
+  spinner3.success('All files installed to ~/.konoha/');
 
   // 5. Run migration (seed default rank skills only)
   if (fileExists(pkgSkillsDir)) {
@@ -1551,7 +1571,7 @@ function registerPermissions(silent = false) {
     const requiredGrants = [
       'command(node bin/cli.js)',
       'command(konoha)',
-      'command(node "' + path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js') + '")',
+      'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
       'mcp(semble/search)',
       'mcp(semble/find_related)',
       'mcp(semble/*)',
@@ -1609,9 +1629,9 @@ function registerHooks(silent = false, allowHooks) {
     }
   }
 
-  const promptHookPath = path.join(HOME, '.gemini', 'skills-db', 'prompt_hook.js');
-  const subagentHookPath = path.join(HOME, '.gemini', 'skills-db', 'antigravity_subagent_hook.js');
-  const sanitizeHookPath = path.join(HOME, '.gemini', 'skills-db', 'antigravity_tool_sanitize_hook.js');
+  const promptHookPath = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
+  const subagentHookPath = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
+  const sanitizeHookPath = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
   const hookExists = config['konoha-prompt-hook'] !== undefined;
   const sanitizeExists = config['konoha-tool-sanitize'] !== undefined;
   const legacySubagentHook = config['konoha-subagent-hook'] !== undefined;
@@ -1798,7 +1818,7 @@ function ensureAutoSetup() {
   const dirs = [
     path.join(HOME, '.gemini'),
     path.join(HOME, '.agents'),
-    path.join(HOME, '.gemini', 'skills-db'),
+    SKILLS_DB_DIR,
     path.join(HOME, '.gemini', 'antigravity-cli'),
     path.join(HOME, '.gemini', 'config'),
     path.join(HOME, '.cursor'),
@@ -1811,7 +1831,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -1831,7 +1851,7 @@ function ensureAutoSetup() {
       files.forEach(entry => {
         const name = entry.name;
         if (entry.isDirectory()) {
-          if (name.endsWith('-skill') || name === 'konoha') {
+          if (name.endsWith('-skill')) {
             const srcPath = path.join(pkgSkillsDir, name);
             const destPath = path.join(globalSkillsDir, name);
             copyRecursiveIfDifferent(srcPath, destPath);
@@ -2054,14 +2074,40 @@ async function cmdTest() {
     process.exit(1);
   }
 
+  let tempTestDir = '';
+  try {
+    tempTestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-test-'));
+    fs.writeFileSync(path.join(tempTestDir, 'index.css'), '/* test style */');
+  } catch (e) {
+    warn(`Could not create temp directory for build_from_source test: ${e.message}`);
+  }
+
+  const buildFromSourceDir = tempTestDir || 'src';
+  const buildFromSourceReq = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 8,
+    method: "tools/call",
+    params: {
+      name: "build_from_source",
+      arguments: {
+        name: "test_build",
+        source_dir: buildFromSourceDir,
+        framework: "nextjs",
+        agent: "jonin"
+      }
+    }
+  });
+
   const tests = [
     { name: 'Initialize', req: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' },
     { name: 'List Tools', req: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' },
-    { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"test"}}}' },
-    { name: 'List Skills', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"test"}}}' },
-    { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"test"}}}' },
-    { name: 'Build from Source', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"build_from_source","arguments":{"name":"test_build","source_dir":"src","framework":"nextjs","agent":"test"}}}' },
-    { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"test"}}}' }
+    { name: 'Find Skill (genin-skill)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"genin-skill","agent":"genin"}}}' },
+    { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"kage"}}}' },
+    { name: 'List Skills', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"chunin"}}}' },
+    { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"anbu"}}}' },
+    { name: 'Get Skill (tokubetsu-jonin-skill)', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"tokubetsu-jonin-skill","agent":"tokubetsu-jonin"}}}' },
+    { name: 'Build from Source', req: buildFromSourceReq },
+    { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"jonin"}}}' }
   ];
 
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
@@ -2109,78 +2155,87 @@ async function cmdTest() {
 
   let allPassed = true;
 
-  for (const test of tests) {
-    try {
-      const inputParts = [];
-      if (test.init) inputParts.push(test.init);
-      inputParts.push(test.req);
-      const input = inputParts.join('\n');
+  try {
+    for (const test of tests) {
+      try {
+        const inputParts = [];
+        if (test.init) inputParts.push(test.init);
+        inputParts.push(test.req);
+        const input = inputParts.join('\n');
 
-      const run = test.useNode
-        ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
-            input,
-            encoding: 'utf-8',
-            timeout: 15000,
-            cwd: path.join(SRC_DIR, '..')
-          })
-        : spawnSync(python, [SERVER_PATH], {
-            input: test.req,
-            encoding: 'utf-8',
-            timeout: 10000
-          });
-      if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
-      const lines = run.stdout.trim().split('\n').filter(Boolean);
-      const response = JSON.parse(lines[lines.length - 1]);
-      if (response.error) {
-        error(`${test.name}: ${response.error.message}`);
-        allPassed = false;
-      } else {
-        // Parse tool content response to check for tool-level errors
-        let toolError = null;
-        try {
-          const content = JSON.parse(response.result.content[0].text);
-          if (content.error) {
-            toolError = content.error;
-          }
-        } catch (e) {}
-
-        if (toolError) {
-          error(`${test.name}: FAILED - ${toolError}`);
+        const run = test.useNode
+          ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
+              input,
+              encoding: 'utf-8',
+              timeout: 15000,
+              cwd: path.join(SRC_DIR, '..')
+            })
+          : spawnSync(python, [SERVER_PATH], {
+              input: test.req,
+              encoding: 'utf-8',
+              timeout: 10000,
+              cwd: path.join(SRC_DIR, '..')
+            });
+        if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
+        const lines = run.stdout.trim().split('\n').filter(Boolean);
+        const response = JSON.parse(lines[lines.length - 1]);
+        if (response.error) {
+          error(`${test.name}: ${response.error.message}`);
           allPassed = false;
         } else {
-          success(`${test.name}: OK`);
+          // Parse tool content response to check for tool-level errors
+          let toolError = null;
+          try {
+            const content = JSON.parse(response.result.content[0].text);
+            if (content.error) {
+              toolError = content.error;
+            }
+          } catch (e) {}
 
-          // Show extra info for specific tests
-          if (test.name === 'Find Skill (security)') {
-            try {
-              const content = JSON.parse(response.result.content[0].text);
-              info(`  Found ${content.found} results for "security"`);
-              if (content.results) {
-                content.results.forEach(r => {
-                  log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`);
-                });
-              }
-            } catch {}
-          }
+          if (toolError) {
+            error(`${test.name}: FAILED - ${toolError}`);
+            allPassed = false;
+          } else {
+            success(`${test.name}: OK`);
 
-          if (test.name === 'List Skills') {
-            try {
-              const content = JSON.parse(response.result.content[0].text);
-              info(`  Total indexed: ${content.total} entries`);
-            } catch {}
-          }
+            // Show extra info for specific tests
+            if (test.name === 'Find Skill (security)') {
+              try {
+                const content = JSON.parse(response.result.content[0].text);
+                info(`  Found ${content.found} results for "security"`);
+                if (content.results) {
+                  content.results.forEach(r => {
+                    log(`  ${C.dim}→ ${r.name} (${r.type})${C.reset}`);
+                  });
+                }
+              } catch {}
+            }
 
-          if (test.name === 'Get Skill (anbu-skill)') {
-            try {
-              const content = JSON.parse(response.result.content[0].text);
-              info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
-            } catch {}
+            if (test.name === 'List Skills') {
+              try {
+                const content = JSON.parse(response.result.content[0].text);
+                info(`  Total indexed: ${content.total} entries`);
+              } catch {}
+            }
+
+            if (test.name === 'Get Skill (anbu-skill)') {
+              try {
+                const content = JSON.parse(response.result.content[0].text);
+                info(`  Retrieved skill: ${content.name} (${content.byte_size} bytes)`);
+              } catch {}
+            }
           }
         }
+      } catch (e) {
+        error(`${test.name}: FAILED - ${e.message}`);
+        allPassed = false;
       }
-    } catch (e) {
-      error(`${test.name}: FAILED - ${e.message}`);
-      allPassed = false;
+    }
+  } finally {
+    if (tempTestDir) {
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true });
+      } catch (e) {}
     }
   }
 
@@ -2378,30 +2433,40 @@ async function cmdStatus() {
     'kage': '🌀'
   };
 
-  const subHeaders = ['Rank / Name', 'Model (Cursor)', 'Skills Configuration'];
-  const subAligns = ['left', 'left', 'left'];
+  const subHeaders = [
+    'Rank / Name',
+    'Model (Antigravity)',
+    'Model (Cursor)',
+    'Model (Claude)',
+    'Skills Configuration'
+  ];
+  const subAligns = ['left', 'left', 'left', 'left', 'left'];
   const subRows = [];
   const subRowColors = [];
 
   agents.forEach(a => {
     const icon = a.icon || iconMap[a.name] || '👤';
     const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
+    const agyModel = a.modelTier || '-';
     const cursorModel = a.cursorModel || cursorManager.resolveCursorModel(a);
+    const claudeModel = a.claudeModel || 'Claude Sonnet 4.6 (Thinking)';
     const activeSkills = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
 
-    subRows.push([displayName, cursorModel, activeSkills]);
-    subRowColors.push(['', '', '']);
+    subRows.push([displayName, agyModel, cursorModel, claudeModel, activeSkills]);
+    subRowColors.push(['', '', '', '', '']);
   });
 
   const subWidths = computeTableWidths(subHeaders, subRows, {
-    minWidths: [18, 20, 24],
-    maxWidths: [24, 36, 48]
+    minWidths: [18, 24, 16, 28, 24],
+    maxWidths: [24, 40, 24, 40, 48]
   });
   drawTable(subHeaders, subWidths, subAligns, subRows, subRowColors, NINJA_THEME, {
     columnFormatters: [
       (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
+      (cell) => applyGradient(cell, FIRE_THEME, 0.85),
       (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-      (cell) => applyGradient(cell, LEAF_THEME, 0.8)
+      (cell) => applyGradient(cell, LEAF_THEME, 0.85),
+      (cell) => applyGradient(cell, NINJA_THEME, 0.8)
     ]
   });
 
@@ -2569,6 +2634,9 @@ async function cmdDoctor() {
 
   const subagentHookScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
   checkAndRepairFile('antigravity_subagent_hook.js', subagentHookScriptDest, 'Subagent Hook Script (antigravity_subagent_hook.js)');
+
+  const antigravityManagerScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_manager.js');
+  checkAndRepairFile('antigravity_manager.js', antigravityManagerScriptDest, 'Antigravity Manager Script (antigravity_manager.js)');
 
   const sanitizeHookScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
   checkAndRepairFile('antigravity_tool_sanitize_hook.js', sanitizeHookScriptDest, 'Tool Sanitize Hook (antigravity_tool_sanitize_hook.js)');
@@ -3007,10 +3075,22 @@ async function cmdUninstall() {
   await chidoriTransition('uninstall');
   header('🗑️  Uninstalling Skills-DB');
 
-  // Remove server files
+  // Remove server files (preserving the skills.db database and its metrics)
   if (fileExists(SKILLS_DB_DIR)) {
-    fs.rmSync(SKILLS_DB_DIR, { recursive: true });
-    success(`Removed: ${SKILLS_DB_DIR}`);
+    const files = fs.readdirSync(SKILLS_DB_DIR);
+    files.forEach(file => {
+      if (file !== 'skills.db' && file !== 'skills.db-journal' && file !== 'skills.db-wal' && file !== 'skills.db-shm') {
+        const filePath = path.join(SKILLS_DB_DIR, file);
+        try {
+          if (fs.statSync(filePath).isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(filePath);
+          }
+        } catch (e) {}
+      }
+    });
+    success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved skills.db)`);
   }
 
   // Remove from MCP config
@@ -3057,9 +3137,32 @@ async function cmdUninstall() {
     success('Restored AGENTS.md from backup');
   }
 
+  // Remove default official skills from global skills directory
+  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  const globalSkillsDir = path.join(HOME, '.agents', 'skills');
+  if (fileExists(pkgSkillsDir) && fileExists(globalSkillsDir)) {
+    try {
+      const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
+      files.forEach(entry => {
+        const name = entry.name;
+        const targetPath = path.join(globalSkillsDir, name);
+        if (fileExists(targetPath)) {
+          const isOfficial = (entry.isDirectory() && (name.endsWith('-skill') || name === 'konoha')) ||
+                             (entry.isFile() && name.endsWith('-skill.md'));
+          if (isOfficial) {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            success(`Removed official skill: ${targetPath}`);
+          }
+        }
+      });
+    } catch (err) {
+      // ignore
+    }
+  }
+
   log('');
   success('Skills-DB uninstalled.');
-  info('Your original skills in ~/.agents/skills/ are untouched.');
+  info('Your custom skills in ~/.agents/skills/ are untouched.');
 
   // Remove Cursor-specific Konoha configuration
   try {
@@ -3236,7 +3339,7 @@ async function cmdSavings() {
           return String(t);
         };
 
-        const formatSavings = (tokens, pct) => {
+        const formatSavings = (tokens, pct, thoughtTokens) => {
           const width = 18;
           const filledCount = Math.min(width, Math.max(0, Math.round((pct / 100) * width)));
           const filled = '█'.repeat(filledCount);
@@ -3248,18 +3351,88 @@ async function cmdSavings() {
             coloredFilled = applyGradient(filled, theme);
           }
           
-          return `[${coloredFilled}${C.dim}${empty}${C.reset}]  ~${C.bold}${formatTokens(tokens).padEnd(5)}${C.reset} tokens (${C.green}${pct}%${C.reset})`;
+          const thoughtVal = thoughtTokens || 0;
+          const thoughtText = ` (thought: ${formatTokens(thoughtVal)})`;
+          return `[${coloredFilled}${C.dim}${empty}${C.reset}]  ~${C.bold}${formatTokens(tokens).padEnd(5)}${C.reset} tokens${C.yellow}${thoughtText}${C.reset}`;
         };
 
         // Table
         log('    ' + applyGradientToBorders('┌──────────────┬─────────┬──────────────┬────────────────────────────────────────────────────────┐', LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Period', 12)}${C.reset} │ ${C.bold}${padEndVisual('Calls', 7)}${C.reset} │ ${C.bold}${padEndVisual('Bytes Saved', 12)}${C.reset} │ ${C.bold}${padEndVisual('Visual Savings (Tokens / %)', 54)}${C.reset} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Period', 12)}${C.reset} │ ${C.bold}${padEndVisual('Calls', 7)}${C.reset} │ ${C.bold}${padEndVisual('Bytes Saved', 12)}${C.reset} │ ${C.bold}${padEndVisual('Visual Savings (Tokens / thought)', 54)}${C.reset} │`, LEAF_THEME));
         log('    ' + applyGradientToBorders('├──────────────┼─────────┼──────────────┼────────────────────────────────────────────────────────┤', LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${padEndVisual('Today', 12)} │ ${padEndVisual(stats.today.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.today.bytes), 12)} │ ${padEndVisual(formatSavings(stats.today.tokens, stats.today.pct || 0), 54)} │`, LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${padEndVisual('Last 7 days', 12)} │ ${padEndVisual(stats.last7days.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.last7days.bytes), 12)} │ ${padEndVisual(formatSavings(stats.last7days.tokens, stats.last7days.pct || 0), 54)} │`, LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${padEndVisual('All time', 12)} │ ${padEndVisual(stats.alltime.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.alltime.bytes), 12)} │ ${padEndVisual(formatSavings(stats.alltime.tokens, stats.alltime.pct || 0), 54)} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${padEndVisual('Today', 12)} │ ${padEndVisual(stats.today.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.today.bytes), 12)} │ ${padEndVisual(formatSavings(stats.today.tokens, stats.today.pct || 0, stats.today.thought_tokens), 54)} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${padEndVisual('Last 7 days', 12)} │ ${padEndVisual(stats.last7days.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.last7days.bytes), 12)} │ ${padEndVisual(formatSavings(stats.last7days.tokens, stats.last7days.pct || 0, stats.last7days.thought_tokens), 54)} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${padEndVisual('All time', 12)} │ ${padEndVisual(stats.alltime.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.alltime.bytes), 12)} │ ${padEndVisual(formatSavings(stats.alltime.tokens, stats.alltime.pct || 0, stats.alltime.thought_tokens), 54)} │`, LEAF_THEME));
         log('    ' + applyGradientToBorders('└──────────────┴─────────┴──────────────┴────────────────────────────────────────────────────────┘', LEAF_THEME));
         log('');
+
+        // Provider Breakdown Table
+        log(`    ${C.bold}Provider Breakdown${C.reset}`);
+        log('    ' + applyGradientToBorders('┌──────────────────────┬──────────────────────┬──────────────────────┬──────────────────────┐', LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Provider', 20)}${C.reset} │ ${C.bold}${padEndVisual('Today', 20)}${C.reset} │ ${C.bold}${padEndVisual('Last 7 Days', 20)}${C.reset} │ ${C.bold}${padEndVisual('All Time', 20)}${C.reset} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders('├──────────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤', LEAF_THEME));
+
+        const clients = [
+          { name: 'Antigravity IDE', key: 'antigravity', icon: '🌌' },
+          { name: 'Antigravity CLI', key: 'agy', icon: '🚀' },
+          { name: 'Cursor', key: 'cursor', icon: '🌊' },
+          { name: 'Claude Code', key: 'claudecode', icon: '🌀' }
+        ];
+
+        clients.forEach(client => {
+          const clientLabel = `${client.icon} ${client.name}`;
+          
+          const todayStats = stats.today.by_client ? (stats.today.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
+          const last7Stats = stats.last7days.by_client ? (stats.last7days.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
+          const alltimeStats = stats.alltime.by_client ? (stats.alltime.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
+          
+          const formatCellText = (cStats) => {
+            if (!cStats || cStats.calls === 0) return '0 (0 Token)';
+            return `${cStats.calls} (${formatTokens(cStats.tokens)} Token)`;
+          };
+
+          const todayText = formatCellText(todayStats);
+          const last7Text = formatCellText(last7Stats);
+          const allTimeText = formatCellText(alltimeStats);
+
+          log('    ' + applyGradientToBorders(`│ ${padEndVisual(clientLabel, 20)} │ ${padEndVisual(todayText, 20)} │ ${padEndVisual(last7Text, 20)} │ ${padEndVisual(allTimeText, 20)} │`, LEAF_THEME));
+        });
+        log('    ' + applyGradientToBorders('└──────────────────────┴──────────────────────┴──────────────────────┴──────────────────────┘', LEAF_THEME));
+        log('');
+
+        if (stats.by_call_type && stats.by_call_type.length > 0) {
+          log(`    ${C.bold}By Call Type${C.reset}`);
+          log(`    ${applyGradient('────────────────────────────────────────────────────────────────────────', LEAF_THEME)}`);
+          log(`    ${C.bold}#     Call type            Calls  Share${C.reset}`);
+          log(`    ${applyGradient('────────────────────────────────────────────────────────────────────────', LEAF_THEME)}`);
+          
+          const totalCalls = stats.by_call_type.reduce((sum, item) => sum + item.calls, 0);
+          stats.by_call_type.forEach((item, index) => {
+            const idxStr = `${index + 1}.`;
+            const num = idxStr.padEnd(6);
+            const toolName = item.tool.padEnd(20);
+            const calls = String(item.calls).padStart(6);
+            
+            let bar = '';
+            let pctText = '  0%';
+            if (totalCalls > 0) {
+              const itemPct = Math.round((item.calls / totalCalls) * 100);
+              pctText = `${itemPct}%`.padStart(4);
+              const filledCount = Math.min(16, Math.max(0, Math.round((item.calls / totalCalls) * 16)));
+              const finalFilledCount = (item.calls > 0) ? Math.max(1, filledCount) : filledCount;
+              const filled = '█'.repeat(finalFilledCount);
+              const empty = '░'.repeat(16 - finalFilledCount);
+              const coloredFilled = finalFilledCount > 0 ? applyGradient(filled, LEAF_THEME) : '';
+              bar = `${coloredFilled}${C.dim}${empty}${C.reset}`;
+            } else {
+              bar = `${C.dim}${'░'.repeat(16)}${C.reset}`;
+            }
+            log(`      ${num}${toolName}${calls}  ${bar}   ${pctText}`);
+          });
+          log(`    ${applyGradient('════════════════════════════════════════════════════════════════════════', LEAF_THEME)}`);
+          log('');
+        }
+
 
         global.skillsDbTodayCalls = stats.today.calls;
         global.skillsDbTodayTokens = stats.today.tokens;
@@ -3332,34 +3505,40 @@ async function cmdSavings() {
     for (const line of lines) {
       const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
       
-      const todayMatch = cleanLine.match(/^Today\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^Today\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const todayMatch = cleanLine.match(/^Today\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^Today\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (todayMatch) {
-        sembleTodayCalls = parseInt(todayMatch[1], 10) || 0;
-        const val = parseFloat(todayMatch[2]);
-        const unit = (todayMatch[3] || '').toLowerCase();
+        const callVal = parseFloat(todayMatch[1]);
+        const callUnit = (todayMatch[2] || '').toLowerCase();
+        sembleTodayCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
+        const val = parseFloat(todayMatch[3]);
+        const unit = (todayMatch[4] || '').toLowerCase();
         sembleTodayTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleTodayPct = parseInt(todayMatch[4] || '0', 10) || 0;
+        sembleTodayPct = parseInt(todayMatch[5] || '0', 10) || 0;
       }
 
-      const last7Match = cleanLine.match(/^Last\s+7\s+days\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^Last\s+7\s+days\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const last7Match = cleanLine.match(/^Last\s+7\s+days\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^Last\s+7\s+days\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (last7Match) {
-        sembleLast7DaysCalls = parseInt(last7Match[1], 10) || 0;
-        const val = parseFloat(last7Match[2]);
-        const unit = (last7Match[3] || '').toLowerCase();
+        const callVal = parseFloat(last7Match[1]);
+        const callUnit = (last7Match[2] || '').toLowerCase();
+        sembleLast7DaysCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
+        const val = parseFloat(last7Match[3]);
+        const unit = (last7Match[4] || '').toLowerCase();
         sembleLast7DaysTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleLast7DaysPct = parseInt(last7Match[4] || '0', 10) || 0;
+        sembleLast7DaysPct = parseInt(last7Match[5] || '0', 10) || 0;
       }
 
-      const allTimeMatch = cleanLine.match(/^All\s+time\s+(\d+)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^All\s+time\s+(\d+)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
+      const allTimeMatch = cleanLine.match(/^All\s+time\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
+        || cleanLine.match(/^All\s+time\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
       if (allTimeMatch) {
-        sembleAllTimeCalls = parseInt(allTimeMatch[1], 10) || 0;
-        const val = parseFloat(allTimeMatch[2]);
-        const unit = (allTimeMatch[3] || '').toLowerCase();
+        const callVal = parseFloat(allTimeMatch[1]);
+        const callUnit = (allTimeMatch[2] || '').toLowerCase();
+        sembleAllTimeCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
+        const val = parseFloat(allTimeMatch[3]);
+        const unit = (allTimeMatch[4] || '').toLowerCase();
         sembleAllTimeTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleAllTimePct = parseInt(allTimeMatch[4] || '0', 10) || 0;
+        sembleAllTimePct = parseInt(allTimeMatch[5] || '0', 10) || 0;
       }
     }
   } catch (e) {
@@ -3671,6 +3850,10 @@ async function cmdAgent(args) {
       break;
     }
     case 'models': {
+      if (!process.stdin || !process.stdin.isTTY) {
+        error('Cannot configure agent models in non-interactive mode.');
+        process.exit(1);
+      }
       let agentName = subArgs[0];
       const agents = agentManager.loadAgents();
       if (agents.length === 0) {
@@ -3824,6 +4007,10 @@ async function cmdAgent(args) {
       break;
     }
     case 'skill': {
+      if (!process.stdin || !process.stdin.isTTY) {
+        error('Cannot configure agent skills in non-interactive mode.');
+        process.exit(1);
+      }
       let agentName = subArgs[0];
       let agents = agentManager.loadAgents();
       if (agents.length === 0) {
@@ -4137,17 +4324,24 @@ async function cmdModels(args) {
       const agentModelRows = agents.map(a => {
         const icon = a.icon || '👤';
         const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-        return [displayName, a.modelTier || '-'];
+        return [
+          displayName,
+          a.modelTier || '-',
+          a.cursorModel || 'inherit',
+          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)'
+        ];
       });
-      const agentModelHeaders = ['Subagent', 'Assigned Model Tier / Name'];
+      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model'];
       const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
-        minWidths: [18, 28],
-        maxWidths: [24, 80]
+        minWidths: [18, 24, 16, 28],
+        maxWidths: [24, 40, 24, 40]
       });
-      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left'], agentModelRows, [], NINJA_THEME, {
+      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
         columnFormatters: [
           (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
-          (cell) => applyGradient(cell, LEAF_THEME, 0.85)
+          (cell) => applyGradient(cell, LEAF_THEME, 0.85),
+          (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
+          (cell) => applyGradient(cell, FIRE_THEME, 0.85)
         ]
       });
       log('');
@@ -4495,6 +4689,7 @@ async function main() {
       case 'status':
         await cmdStatus();
         break;
+      case 'saving':
       case 'savings':
         await cmdSavings();
         break;

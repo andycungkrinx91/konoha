@@ -1,55 +1,13 @@
 # Global Agent Instructions
 
-## Session Startup — Auto-Initialize Team
-
-**MANDATORY**: At the START of every session, define all 6 Konoha subagents using `define_subagent` (see quoting rules below). Do this before delegation.
-
-### define_subagent — CRITICAL quoting rules
-
-At session start, call `define_subagent` once per ninja (**genin, kage, chunin, jonin, anbu, tokubetsu-jonin**). Use **bare JSON strings** — extra quotes break `invoke_subagent` (shows 0 active subagents).
-
-Example (`genin`):
-```json
-{
-  "name": "genin",
-  "description": "Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.",
-  "system_prompt": "You are a Genin scout. Log: \"[🍃 Genin] active\". Before work: find_skill(\"genin-skill\", agent='genin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Read-only — NEVER modify files. Report findings with exact file paths and line numbers. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.",
-  "enable_mcp_tools": true,
-  "enable_write_tools": false,
-  "enable_subagent_tools": false
-}
-```
-
-- `name` must be bare: `jonin` — NEVER `"jonin"` or `\"jonin\"`
-- `enable_mcp_tools` / `enable_write_tools` / `enable_subagent_tools` must be JSON booleans, not strings
-- Copy `system_prompt` from ~/.agents/agents.json for each agent
-
-### invoke_subagent — CRITICAL format
-
-`Subagents` must be a **JSON array object**, NOT a stringified array:
-
-```json
-{
-  "Subagents": [
-    {
-      "TypeName": "jonin",
-      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
-      "Workspace": "inherit"
-    }
-  ]
-}
-```
-
-**FORBIDDEN:** `TypeName: "self"` or `invoke_subagent` with self to impersonate jonin. If jonin fails, re-run `define_subagent` with bare names — never fall back to self.
-
 ### Team roster (reference — full instructions in ~/.agents/agents.json)
 
-1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files. (model: Gemini 2.5 Flash)
-2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving. (model: Gemini 3.1 Pro (High))
-3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations. (model: Gemini 3.5 Flash (Low))
-4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web. (model: Gemini 3.5 Flash (High))
-5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm). (model: Gemini 3.1 Pro (High))
-6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides. (model: Gemini 2.5 Flash)
+1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.
+2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
+3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.
+4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
+5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
+6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
 
 ### Image / mockup builds — delegate.md rules (CRITICAL)
 
@@ -66,24 +24,26 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 > [!IMPORTANT]
 > **Orchestrator Role & Auto-Delegation**:
-> - The main agent (Antigravity orchestrator) MUST act strictly as a coordinator.
-> - It is STRICTLY prohibited from executing direct tool calls (such as `write_to_file`, `replace_file_content`, or `run_command` in the parent conversation). It must always delegate them.
-> - Doing direct execution breaks guardrails.
+> - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to subagents when a matched skill is embedded in their configuration.
+> - If the matched skill is NOT embedded in any subagent, the main agent runs the task directly via Direct Tool Calls.
 
 The orchestrator MUST follow this workflow:
 1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
 2. **Find Skill First**: Call `skills-db.find_skill` or `optimize_report` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the `skills-db` MCP handles all skill lookups.**
 3. **Find Code Context**: If project source code context is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do NOT call `skills-db.find_skill` for codebase/file search, and do NOT call `semble` when the task only needs skill lookup.
-4. **Select Agent**: Route to the correct agent based on the table below.
+4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill:
+   - Check the team roster to see if the discovered skill is embedded in the `skills` array of any subagent.
+   - **If embedded**: Delegate the task to that matched subagent by preparing a file-based delegation (Step 5) and invoking them (Step 6).
+   - **If NOT embedded**: Run the task directly in the main agent (orchestrator) using Direct Tool Calls (like `write_to_file`, `replace_file_content`, `run_command`) and apply that skill's guidelines.
 5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must embed a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
    ```markdown
    ---
    depth: <N>
    ---
    ```
-   Before writing or updating `delegate.md`, read the existing `depth` metadata:
-   - If `depth` exists, increment it (`depth = depth + 1`).
-   - If it does not exist, initialize it to `depth: 1`.
+   Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are a subagent executing a delegated task) or the target `delegate.md` (if it already exists):
+   - If a depth value `N` is found in either, write the new `delegate.md` with `depth: N + 1`.
+   - Otherwise, initialize it to `depth: 1`.
    - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
    - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
    Categorize the main content clearly:
@@ -91,26 +51,27 @@ The orchestrator MUST follow this workflow:
    - **Context**: Relevant files, code snippets, and background details discovered via `semble`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. `anbu-skill/ci-cd-security`)**.
    - **Constraints**: Rule constraints and target files.
 6. **Delegate**: Invoke the subagent using the subagent TypeName corresponding to the chosen agent (e.g., `anbu`, `genin`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the subagent's prompt. The subagent will read `delegate.md` from the absolute path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool `skills-db.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the subagent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-7. **Await Results**: Read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` to finalize the step, report back, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This resets the depth counter for subsequent tasks.
+7. **Await Results**: Read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` to finalize the step, report back, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
+8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
 
-The orchestrator ONLY delegates to the defined subagents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Dynamic auto-creation of subagents is prohibited.
+The orchestrator ONLY delegates to the defined subagents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) if the matching skill is embedded in their configuration. Dynamic auto-creation of subagents is prohibited.
 
 **Direct Tool Calls Policy**:
-- It is strictly prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. `@jonin` for UI/frontend tasks, `@anbu` for backend tasks, `@genin` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
+- It is strictly prohibited to execute Direct Tool Calls in the orchestrator thread for tasks that can be handled by subagents with embedded skills (e.g. `@jonin` for UI/frontend tasks, `@anbu` for backend tasks, `@genin` for codebase exploration, etc.). You MUST delegate to the corresponding subagent if the skill is embedded in their configuration.
 - You are ONLY allowed to fall back to Direct Tool Calls if the required skill is NOT embedded in any active subagents, or if a subagent hits total quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
 - **NEVER** use `invoke_subagent` with `TypeName: "self"` to impersonate jonin/anbu/genin when delegation fails — re-run `define_subagent` with bare names instead.
 - Do NOT spawn shadow subagents under any circumstances.
 - **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call `skills-db.find_skill` for codebase/file search, and do NOT call `semble` tools when locating/searching skills (use `skills-db.find_skill` instead).
 
-| Task type | Subagent TypeName |
+| Embedded Skills | Subagent TypeName |
 |-----------|----------|
-| Understand codebase, trace flows, map dependencies | `genin` |
-| Architecture decisions, security review, deep analysis | `kage` |
-| External research, documentation, best practices | `chunin` |
-| UI design, frontend components, styling | `jonin` |
-| Backend logic, bug fixing, DevOps, infrastructure, CI/CD | `anbu` |
-| Technical writing, README, API docs, runbooks, onboarding | `tokubetsu-jonin` |
-| Simple/trivial tasks | MUST still be delegated (unless in quota fallback mode). Main agent acts ONLY as orchestrator. |
+| `deep-code-explorer` | `genin` |
+| `modern-full-stack`, `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `websearch-deep` | `chunin` |
+| `modern-full-stack`, `agent-browser` | `jonin` |
+| `modern-full-stack`, `devsecops-engineer`, `agent-browser` | `anbu` |
+| `documentation` | `tokubetsu-jonin` |
+| Simple/trivial tasks | Delegate to the matching agent if skill is embedded. Otherwise, main agent runs directly. |
 
 For complex multi-domain tasks, invoke multiple subagents in parallel.
 
@@ -123,9 +84,14 @@ For complex multi-domain tasks, invoke multiple subagents in parallel.
 - **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: `[{Icon} {Name}] active. Calling skills-db.find_skill('...')`
 - **No Auto-Creation of Subagents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Subagents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any `git` command. Use `rg` or semble instead.
+- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
+- **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
+- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations.
+- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: On `RESOURCE_EXHAUSTED`/`429`, fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
 Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md`

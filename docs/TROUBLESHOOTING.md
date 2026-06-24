@@ -47,7 +47,7 @@ npx github:andycungkrinx91/konoha init
      "mcpServers": {
        "skills-db": {
          "command": "python3",
-         "args": ["/home/youruser/.gemini/skills-db/server.py"]
+         "args": ["/home/youruser/.konoha/server.py"]
        }
      }
    }
@@ -69,7 +69,7 @@ npx github:andycungkrinx91/konoha init
 
 3. Run the bootstrap hook manually (must exit 0):
    ```bash
-   node ~/.gemini/skills-db/cursor_bootstrap.js
+   node ~/.konoha/cursor_bootstrap.js
    echo $?   # should print 0
    ```
 
@@ -111,7 +111,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 1. Verify files are installed:
    ```bash
-   ls ~/.gemini/skills-db/file_tools_mcp.js ~/.gemini/skills-db/file_tools_launcher.sh ~/.gemini/skills-db/file_tools/
+   ls ~/.konoha/file_tools_mcp.js ~/.konoha/file_tools_launcher.sh ~/.konoha/file_tools/
    ```
 
 2. Repair and refresh Cursor MCP config:
@@ -127,7 +127,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 4. Smoke test (Linux/macOS/Git Bash):
    ```bash
-   node ~/.gemini/skills-db/file_tools_launcher.js <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+   node ~/.konoha/file_tools_launcher.js <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
    ```
    **Windows (PowerShell):**
    ```powershell
@@ -149,8 +149,9 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 Agent attribution when the `agent` MCP parameter is omitted is resolved by `detect_active_agent()` in `server.py`:
 
-- **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise).
+- **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise). If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
 - **Cursor**: Scans `~/.cursor/projects/*/agent-transcripts/` for `Task` `subagent_type`, subagent `[Agent] active` logs, or `[Konoha] orchestrator active`.
+- **Claude Code**: Scans `~/.claude/projects/*/*.jsonl` for assistant message blocks containing subagent `[Agent] active` activation strings or Task delegation.
 
 **Fixes:**
 1. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
@@ -159,6 +160,7 @@ Agent attribution when the `agent` MCP parameter is omitted is resolved by `dete
    ```bash
    python3 src/test_agent_attribution.py
    python3 src/test_cursor_attribution.py
+   python3 src/test_claude_attribution.py
    ```
 
 Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Calls** — this is expected.
@@ -198,9 +200,9 @@ The agent's instructions must be updated. Check the following:
 
 On Linux/macOS, ensure the server script and assets are readable:
 ```bash
-chmod 644 ~/.gemini/skills-db/server.py
-chmod 644 ~/.gemini/skills-db/migrate.py
-chmod 644 ~/.gemini/skills-db/skills.db
+chmod 644 ~/.konoha/server.py
+chmod 644 ~/.konoha/migrate.py
+chmod 644 ~/.konoha/skills.db
 ```
 
 ---
@@ -225,7 +227,7 @@ Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents
   ```json
   {
     "command": "python",
-    "args": ["C:/Users/youruser/.gemini/skills-db/server.py"]
+    "args": ["C:/Users/youruser/.konoha/server.py"]
   }
   ```
 
@@ -233,7 +235,7 @@ Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents
 * **Line endings**: If you get `SyntaxError` when running the server, convert the CRLF line endings to LF:
   ```powershell
   # PowerShell
-  (Get-Content ~/.gemini/skills-db/server.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.gemini/skills-db/server.py -NoNewline
+  (Get-Content ~/.konoha/server.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.konoha/server.py -NoNewline
   ```
 
 ---
@@ -242,7 +244,7 @@ Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents
 
 If the SQLite database becomes corrupted, remove it and rebuild the index:
 ```bash
-rm ~/.gemini/skills-db/skills.db
+rm ~/.konoha/skills.db
 konoha migrate
 ```
 
@@ -252,12 +254,12 @@ konoha migrate
 
 **skills-db (Python):**
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.gemini/skills-db/server.py
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.konoha/server.py
 ```
 
 **konoha-files (Node):**
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.gemini/skills-db/file_tools_mcp.js
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.konoha/file_tools_mcp.js
 ```
 
 *Expected output:* A JSON response containing `protocolVersion` and `serverInfo` (initialize) or a `tools` array (tools/list).
@@ -286,4 +288,4 @@ The system and agent configurations will automatically and immediately fallback 
 1. Run `konoha status` for diagnostic info
 2. Run `konoha test` for server health check
 3. Run `konoha doctor --yes` for auto-repair (Antigravity + Cursor)
-4. Check the logs at `~/.gemini/skills-db/` for any error files
+4. Check the logs at `~/.konoha/` for any error files

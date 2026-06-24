@@ -4,7 +4,7 @@
   "mcp": {
     "skills-db": {
       "type": "local",
-      "command": ["python3", "${HOME}/.gemini/skills-db/server.py"],
+      "command": ["python3", "${HOME}/.konoha/server.py"],
       "enabled": true
     },
     "semble": {
@@ -14,7 +14,7 @@
     },
     "konoha-files": {
       "type": "local",
-      "command": ["node", "${HOME}/.gemini/skills-db/file_tools_mcp.js"],
+      "command": ["node", "${HOME}/.konoha/file_tools_mcp.js"],
       "enabled": true
     }
   }

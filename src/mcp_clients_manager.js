@@ -9,7 +9,7 @@ const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 
 const HOME = os.homedir();
-const SKILLS_DB_DIR = path.join(HOME, '.gemini', 'skills-db');
+const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 

@@ -58,6 +58,8 @@ konoha doctor --yes
 
 **Verify**: `/mcp` in Claude Code session.
 
+**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.json` to leverage Claude 3.5 Sonnet in Claude Code. View assignments with `konoha models list`.
+
 ---
 
 ## OpenCode (global)

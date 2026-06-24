@@ -5,7 +5,7 @@ import json
 import sys
 import os
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.gemini/skills-db/skills.db")
+db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/skills.db")
 
 try:
     conn = sqlite3.connect(db_path)

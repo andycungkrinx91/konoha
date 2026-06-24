@@ -8,7 +8,7 @@ const platform = require('./platform_utils');
 
 const HOME = os.homedir();
 const SRC_DIR = __dirname;
-const SKILLS_DB_DIR = path.join(HOME, '.gemini', 'skills-db');
+const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 const FILE_TOOLS_LAUNCHER_JS = path.join(SKILLS_DB_DIR, 'file_tools_launcher.js');
 const FILE_TOOLS_LAUNCHER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_launcher.sh');

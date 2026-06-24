@@ -20,7 +20,7 @@ npx github:andycungkrinx91/konoha init
 ```
 
 This manual script or the auto-setup routine will:
-1. Create `~/.gemini/skills-db/` with the MCP server and database
+1. Create `~/.konoha/` with the MCP server and database
 2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5
 3. Register `skills-db` in `~/.gemini/config/mcp_config.json`
 4. Update `~/.gemini/GEMINI.md` with new subagent instructions
@@ -163,7 +163,7 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
   "mcpServers": {
     "skills-db": {
       "command": "python3",
-      "args": ["/home/user/.gemini/skills-db/server.py"],
+      "args": ["/home/user/.konoha/server.py"],
       "autoApprove": ["*", "find_skill", "list_skills", "get_skill"]
     },
     "semble": {
@@ -173,7 +173,7 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
     },
     "konoha-files": {
       "command": "/usr/bin/node",
-      "args": ["/home/user/.gemini/skills-db/file_tools_mcp.js"],
+      "args": ["/home/user/.konoha/file_tools_mcp.js"],
       "autoApprove": ["*", "read_file_head", "read_file_range", "file_info", "token_efficient_grep", "get_file_structure", "find_files_clean"]
     }
   }

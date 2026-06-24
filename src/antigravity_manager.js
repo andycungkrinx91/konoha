@@ -1,15 +1,11 @@
-/**
- * Deploy Konoha ninja subagents as native Antigravity CLI agent.json files.
- * Pre-registration avoids broken LLM define_subagent calls (e.g. name "\"jonin\"").
- */
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
 const HOME = os.homedir();
-const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
-const ANTIGRAVITY_IDE_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
-const ANTIGRAVITY_CONFIG_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'config', 'agents');
+const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'config', 'agents');
+const ANTIGRAVITY_CLI_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
+const ANTIGRAVITY_IDE_GLOBAL = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
 
 const BASE_TOOLS = [
   'send_message',
@@ -45,20 +41,42 @@ function agentAllowsWriteTools(agent) {
   return !/read-only/i.test(agent.constraints || '');
 }
 
+function processAgentInstructions(agent) {
+  let instructions = agent.instructions || '';
+  // Strip any existing Before work: find_skill(...) checklist calls
+  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
+
+  if (agent.skills && agent.skills.length > 0) {
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
+    const logMatch = instructions.match(logPattern);
+    if (logMatch) {
+      const insertIndex = logMatch.index + logMatch[0].length;
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+    } else {
+      instructions = `Before work: ${findSkillCalls} ` + instructions;
+    }
+  }
+  return instructions;
+}
+
 function buildAgentJson(agent) {
   const tools = agentAllowsWriteTools(agent)
     ? [...BASE_TOOLS, ...WRITE_TOOLS]
     : [...BASE_TOOLS];
+
+  const processedInstructions = processAgentInstructions(agent);
 
   return {
     name: agent.name,
     description: agent.description,
     config: {
       customAgent: {
+        model: agent.modelTier,
         systemPromptSections: [
           {
             title: 'Agent System Instructions',
-            content: agent.instructions,
+            content: processedInstructions,
           },
         ],
         toolNames: tools,
@@ -85,25 +103,17 @@ function deployAgentsToDir(agents, baseDir) {
         fs.writeFileSync(agentPath, payload, 'utf8');
         deployed += 1;
       }
-    } catch (err) {
-      // Fail silently for read-only dirs
-    }
+    } catch (err) {}
   }
   return { deployed, dir: baseDir };
 }
 
-/**
- * Deploy global Antigravity CLI/IDE agents.
- */
 function ensureAntigravityAgents(agents, options = {}) {
   const globalResult = deployAgentsToDir(agents, ANTIGRAVITY_AGENTS_GLOBAL);
 
-  try {
-    deployAgentsToDir(agents, ANTIGRAVITY_IDE_AGENTS_GLOBAL);
-  } catch (e) {}
-  try {
-    deployAgentsToDir(agents, ANTIGRAVITY_CONFIG_AGENTS_GLOBAL);
-  } catch (e) {}
+  // Deploy to CLI and IDE specific directories as well for full discovery coverage
+  deployAgentsToDir(agents, ANTIGRAVITY_CLI_GLOBAL);
+  deployAgentsToDir(agents, ANTIGRAVITY_IDE_GLOBAL);
 
   let projectResult = null;
   if (options.projectDir) {
@@ -111,31 +121,20 @@ function ensureAntigravityAgents(agents, options = {}) {
     projectResult = deployAgentsToDir(agents, projectAgentsDir);
   }
 
-  if (!options.silent && globalResult.deployed > 0) {
-    console.log(
-      `✓ Deployed ${globalResult.deployed} Antigravity agent.json file(s) to ${ANTIGRAVITY_AGENTS_GLOBAL}`
-    );
-  }
-
   return { global: globalResult, project: projectResult };
 }
 
 function buildDefineSubagentArgs(agent) {
+  const processedInstructions = processAgentInstructions(agent);
   return {
     name: agent.name,
     description: agent.description,
-    system_prompt: agent.instructions,
+    system_prompt: processedInstructions,
+    model: agent.modelTier,
     enable_mcp_tools: true,
     enable_write_tools: agentAllowsWriteTools(agent),
     enable_subagent_tools: false,
   };
-}
-
-function buildAntigravityPreinstalledAgentsNote(agents) {
-  const names = agents.map((a) => `\`${a.name}\``).join(', ');
-  return `### Konoha subagents (${names})
-
-Pre-installed at \`~/.gemini/antigravity-cli/agents/<name>/agent.json\`. **At session start**, call \`define_subagent\` for each ninja per definitions below (GEMINI.md). The \`konoha-subagent-hook\` also injects programmatic registration on first turn as a backup.`;
 }
 
 module.exports = {
@@ -143,5 +142,4 @@ module.exports = {
   buildAgentJson,
   buildDefineSubagentArgs,
   ensureAntigravityAgents,
-  buildAntigravityPreinstalledAgentsNote,
 };

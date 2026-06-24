@@ -4,56 +4,14 @@
 
 ## Team Roles & Delegation
 
-## Session Startup — Auto-Initialize Team
-
-**MANDATORY**: At the START of every session, define all 6 Konoha subagents using `define_subagent` (see GEMINI.md quoting rules). Do this before delegation.
-
-### define_subagent — CRITICAL quoting rules
-
-At session start, call `define_subagent` once per ninja (**genin, kage, chunin, jonin, anbu, tokubetsu-jonin**). Use **bare JSON strings** — extra quotes break `invoke_subagent` (shows 0 active subagents).
-
-Example (`genin`):
-```json
-{
-  "name": "genin",
-  "description": "Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.",
-  "system_prompt": "You are a Genin scout. Log: \"[🍃 Genin] active\". Before work: find_skill(\"genin-skill\", agent='genin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Read-only — NEVER modify files. Report findings with exact file paths and line numbers. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.",
-  "enable_mcp_tools": true,
-  "enable_write_tools": false,
-  "enable_subagent_tools": false
-}
-```
-
-- `name` must be bare: `jonin` — NEVER `"jonin"` or `\"jonin\"`
-- `enable_mcp_tools` / `enable_write_tools` / `enable_subagent_tools` must be JSON booleans, not strings
-- Copy `system_prompt` from ~/.agents/agents.json for each agent
-
-### invoke_subagent — CRITICAL format
-
-`Subagents` must be a **JSON array object**, NOT a stringified array:
-
-```json
-{
-  "Subagents": [
-    {
-      "TypeName": "jonin",
-      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
-      "Workspace": "inherit"
-    }
-  ]
-}
-```
-
-**FORBIDDEN:** `TypeName: "self"` or `invoke_subagent` with self to impersonate jonin. If jonin fails, re-run `define_subagent` with bare names — never fall back to self.
-
 ### Team roster
 
-1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files. (model: Gemini 2.5 Flash)
-2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving. (model: Gemini 3.1 Pro (High))
-3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations. (model: Gemini 3.5 Flash (Low))
-4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web. (model: Gemini 3.5 Flash (High))
-5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm). (model: Gemini 3.1 Pro (High))
-6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides. (model: Gemini 2.5 Flash)
+1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.
+2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
+3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.
+4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
+5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
+6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
 
 ### Image / mockup builds — delegate.md rules (CRITICAL)
 
@@ -69,23 +27,25 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 ### @orchestrator — Task Coordinator
 - **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
 - **Auto-Delegation**:
-  - The main agent (Antigravity orchestrator) MUST act strictly as a coordinator.
-  - It is STRICTLY prohibited from executing direct tool calls (such as `write_to_file`, `replace_file_content`, or `run_command` in the parent conversation). It must always delegate them.
-  - Doing direct execution breaks guardrails.
+  - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to subagents when a matched skill is embedded in their configuration.
+  - If the matched skill is NOT embedded in any subagent, the main agent runs the task directly via Direct Tool Calls.
 - **Workflow**:
   1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
   2. **Find Skill First**: Call `skills-db.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP and has no knowledge of skills, whereas the `skills-db` MCP handles all skill lookups (using `find_skill` or `optimize_report`).**
   3. **Find Code Context**: If project source code context is needed, use the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do not call `semble` when the task only needs skills — use `skills-db` for that.
-  4. **Select Agent**: Based on the discovered skills and task domain, find the correct agent.
+  4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill:
+     - Check the team roster to see if the discovered skill is embedded in the `skills` array of any subagent.
+     - **If embedded**: Delegate the task to that matched subagent by preparing a file-based delegation (Step 5) and invoking them (Step 6).
+     - **If NOT embedded**: Run the task directly in the main agent (orchestrator) using Direct Tool Calls (like `write_to_file`, `replace_file_content`, `run_command`) and apply that skill's guidelines.
   5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory) using the fields: `Goal`, `Context`, and `Constraints`. You must include a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
      ```markdown
      ---
      depth: <N>
      ---
      ```
-     Before writing or updating `delegate.md`, read the existing `depth` metadata:
-     - If `depth` exists, increment it (`depth = depth + 1`).
-     - If it does not exist, initialize it to `depth: 1`.
+     Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are a subagent executing a delegated task) or the target `delegate.md` (if it already exists):
+     - If a depth value `N` is found in either, write the new `delegate.md` with `depth: N + 1`.
+     - Otherwise, initialize it to `depth: 1`.
      - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
      - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
      Categorize the main content clearly:
@@ -93,65 +53,60 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
      - **Context**: Relevant files, code snippets, and background details discovered via `semble`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. `anbu-skill/ci-cd-security`)**.
      - **Constraints**: Rule constraints and target files.
   6. **Delegate**: Invoke the subagent using the subagent TypeName corresponding to the chosen agent (e.g., `anbu`, `genin`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the subagent's prompt. The subagent will read `delegate.md` from the path specified in your invocation prompt to run the task, and write its output to `result.md` at the path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool `skills-db.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the subagent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-  7. **Await Results**: Once you are woken up by the system notifying you of subagent completion or updates, read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` once complete to consume the output, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This resets the depth counter for subsequent tasks.
-- **Constraints**: ONLY delegates to defined subagents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Dynamic auto-creation of subagents is prohibited. It is prohibited to execute Direct Tool Calls for tasks that can be handled by subagents with embedded skills (e.g. `@jonin` for UI/frontend, `@anbu` for backend). Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (`RESOURCE_EXHAUSTED` / `429`). In direct tool call mode, if project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly.
+  7. **Await Results**: Once you are woken up by the system notifying you of subagent completion or updates, read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` once complete to consume the output, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
+  8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
+- **Constraints**: ONLY delegates to defined subagents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin` if the matching skill is embedded in their configuration. Dynamic auto-creation of subagents is prohibited. It is prohibited to execute Direct Tool Calls in the orchestrator thread for tasks that can be handled by subagents with embedded skills. Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
 
-| Subtask type | Subagent TypeName |
+| Embedded Skills | Subagent TypeName |
 |---|---|
-| Understand codebase, trace flows, map dependencies | `genin` |
-| Architecture decisions, security review, deep analysis | `kage` |
-| External research, documentation, best practices | `chunin` |
-| UI design, frontend components, styling | `jonin` |
-| Backend logic, bug fixing, DevOps, infrastructure, CI/CD | `anbu` |
-| Technical writing, README, API docs, runbooks, onboarding | `tokubetsu-jonin` |
-| Simple/trivial task | MUST be delegated (unless quota fallback). Main agent = orchestrator only. |
+| `deep-code-explorer` | `genin` |
+| `modern-full-stack`, `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `websearch-deep` | `chunin` |
+| `modern-full-stack`, `agent-browser` | `jonin` |
+| `modern-full-stack`, `devsecops-engineer`, `agent-browser` | `anbu` |
+| `documentation` | `tokubetsu-jonin` |
+| Simple/trivial task | Delegate to the matching agent if skill is embedded. Otherwise, main agent runs directly. |
 
 **FORBIDDEN for Konoha work:** `TypeName: "self"` or `TypeName: "research"` to impersonate jonin/anbu/genin. Never run `run_command` / `write_to_file` in the orchestrator thread for delegated work.
 
 ### @genin — 🍃 Codebase Exploration
-- **Model tier**: Gemini 2.5 Flash
 - **Purpose**: Fast, read-only codebase navigation and analysis
-- **Skills**: `genin-skill`
+- **Skills**: `deep-code-explorer`
 - **Delegate when**: Need to understand code structure, trace how something works, map dependencies
 - **Constraints**: Read-only — does not modify files. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search symbols with `semble` → open relevant files → summarize with file paths and line numbers.
 
 ### @kage — 🌀 Village Leader & Architect
-- **Model tier**: Gemini 3.1 Pro (High)
 - **Purpose**: Expert-level analysis for critical decisions and high-level strategy
-- **Skills**: `kage-skill`
+- **Skills**: `modern-full-stack`, `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill`
 - **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
 - **Constraints**: Always assess risk, blast radius, and rollback plan. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.
 
 ### @chunin — 📜 Research & Intel
-- **Model tier**: Gemini 3.5 Flash (Low)
 - **Purpose**: Web research, documentation lookup, evidence synthesis with citations
-- **Skills**: `chunin-skill`
+- **Skills**: `websearch-deep`
 - **Delegate when**: Need external information, library docs, best practices, technology comparisons, compliance standards
 - **Constraints**: Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. External research only — redirect codebase questions to @genin. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Decompose question → multi-query generation → parallel search → source ranking → evidence synthesis → cited report.
 
 ### @jonin — 🛡️ UI & Frontend Specialist
-- **Model tier**: Gemini 3.5 Flash (High)
 - **Purpose**: Build premium, production-ready user interfaces
-- **Skills**: `jonin-skill`
+- **Skills**: `modern-full-stack`, `agent-browser`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
 - **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
 
 ### @anbu — 👥 Backend Specialist, Bug Fixing, & DevOps
-- **Model tier**: Gemini 3.1 Pro (High)
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems
-- **Skills**: `anbu-skill`
+- **Skills**: `modern-full-stack`, `devsecops-engineer`, `agent-browser`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
 
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
-- **Model tier**: Gemini 2.5 Flash
 - **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
-- **Skills**: `tokubetsu-jonin-skill`, `documentation-writer`
+- **Skills**: `documentation`
 - **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates
 - **Constraints**: Follow reader-first principles, include code examples, and link references. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search skills/references with `skills-db` → construct clear documentation → show code examples/commands → link references.
@@ -164,6 +119,7 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 3. **Skills-DB first**: Call `find_skill(keyword, agent='{your_name}')` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking `find_skill`, `get_skill`, or `list_skills`, always pass `agent='{your_name}'`.
 5. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. `result.md.tmp`) first, then rename/move it atomically to `result.md` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
+6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to `plan.md` in the task directory (e.g. `scratch/tasks/<task_id>/plan.md`) first. Refer to this plan in your final `result.md` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
 
 ### Conditional Tools (use only when needed)
 - **Semble for code search**: If the task requires searching project source code (not skills), call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Prefer `semble` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
@@ -171,9 +127,14 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 ### Safety Guardrails
 - **Tool Boundaries**: Call **`semble` MCP** (`search` and `find_related` tools) directly for codebase search. Call **`skills-db` MCP** for all skill/instruction lookup. **Never mix them; do not query `semble` for skills, and never call find_skill for codebase/file search. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any `git` command. Use `rg` (ripgrep) or semble MCP instead.
+- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
+- **Optimize Thought Tokens**: In the thought/thinking process, keep explanations concise and directly focused on implementation steps. Avoid writing extensive explanations, essays, or redundant logs in the thought block to minimize output/thought token costs.
+- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations.
+- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **No Auto-Creation of Subagents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Subagents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
@@ -192,6 +153,7 @@ Recovery: Wait for the quota window to reset, reduce concurrent requests, or upg
 |---|---|---|
 | Gemini 3.1 Flash-Lite | Fast | `flash-lite-3.1`, `gemini-3.1-flash-lite` |
 | Gemini 2.5 Flash | Fast | `flash-2.5`, `gemini-2.5-flash` |
+| Gemini 2.5 Flash-Lite | Fast | `flash-lite-2.5`, `gemini-2.5-flash-lite` |
 | Gemini 3.5 Flash (Low) | Fast | `flash-low`, `low` |
 | Gemini 3.5 Flash (Medium) | Fast | `flash-medium`, `medium` |
 | Gemini 3.5 Flash (High) | Fast | `flash-high`, `high` |

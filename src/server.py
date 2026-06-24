@@ -34,8 +34,9 @@ if hasattr(sys.stdin, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-DB_PATH = os.path.expanduser("~/.gemini/skills-db/skills.db")
+DB_PATH = os.path.expanduser("~/.konoha/skills.db")
 WORKSPACE_ROOT = None
+ACTIVE_CLIENT = None
 
 
 def sanitize_fts5_query(query):
@@ -184,13 +185,14 @@ def is_path_visible(file_path):
     # Normalize paths (resolve symlinks, remove relative segments, lowercase drive letters on Windows)
     norm_fp = os.path.normcase(os.path.realpath(file_path))
     
-    # Check if the path contains custom/workspace skills directories (.agents/skills or .gemini/skills)
+    # Check if the path contains custom/workspace skills directories (.agents/skills, .gemini/skills, or .konoha/skills)
     normalized_slash_path = norm_fp.replace(os.sep, "/")
-    if ".agents/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path:
+    if ".agents/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path or ".konoha/skills" in normalized_slash_path:
         return True
 
     global_agents = os.path.normcase(os.path.realpath(os.path.expanduser("~/.agents")))
     global_gemini = os.path.normcase(os.path.realpath(os.path.expanduser("~/.gemini")))
+    global_konoha = os.path.normcase(os.path.realpath(os.path.expanduser("~/.konoha")))
     
     # Use captured WORKSPACE_ROOT if available, otherwise fallback to os.getcwd()
     workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
@@ -210,6 +212,8 @@ def is_path_visible(file_path):
         return True
     if norm_fp.startswith(global_gemini + os.sep) or norm_fp == global_gemini:
         return True
+    if norm_fp.startswith(global_konoha + os.sep) or norm_fp == global_konoha:
+        return True
         
     if not is_generic_workspace:
         if norm_fp.startswith(current_workspace + os.sep) or norm_fp == current_workspace:
@@ -223,8 +227,78 @@ def content_hash(content):
     return hashlib.md5(content.encode('utf-8')).hexdigest()[:12]
 
 
+import time
+
+# Global variable to track the last tool call time per agent to group calls into turns/interactions.
+# If an agent calls a tool within 60 seconds of its previous call, we consider it part of the same
+# interaction turn. We only credit the baseline_bytes savings ONCE per interaction turn.
+LAST_CALL_TIMES = {}
+
+
+def detect_active_client():
+    import glob
+    try:
+        global ACTIVE_CLIENT
+        
+        # Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
+        conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+        if conv_id:
+            cli_dir = os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}")
+            if os.path.isdir(cli_dir):
+                return "agy"
+            ide_dir = os.path.expanduser(f"~/.gemini/antigravity-ide/brain/{conv_id}")
+            if os.path.isdir(ide_dir):
+                return "antigravity"
+
+        if ACTIVE_CLIENT:
+            return ACTIVE_CLIENT
+
+        if conv_id:
+            return "antigravity"
+        
+        brain_dirs = [
+            os.path.expanduser("~/.gemini/antigravity-ide/brain"),
+            os.path.expanduser("~/.gemini/antigravity-cli/brain"),
+            os.path.expanduser("~/.cursor/projects"),
+            os.path.expanduser("~/.claude/projects"),
+        ]
+        all_files = []
+        for brain_dir in brain_dirs:
+            if not os.path.isdir(brain_dir):
+                continue
+            if "cursor" in brain_dir:
+                pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*", "*.jsonl")
+                all_files.extend(glob.glob(pattern_transcript))
+            elif "claude" in brain_dir:
+                pattern_transcript = os.path.join(brain_dir, "*", "*.jsonl")
+                all_files.extend(glob.glob(pattern_transcript))
+            else:
+                pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
+                pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
+                all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
+                
+        if not all_files:
+            return "antigravity"
+            
+        all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        most_recent = all_files[0]
+        
+        if "cursor" in most_recent:
+            return "cursor"
+        elif "claude" in most_recent:
+            return "claudecode"
+        elif "antigravity-cli" in most_recent:
+            return "agy"
+        else:
+            return "antigravity"
+    except Exception:
+        pass
+    return "antigravity"
+
+
 def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
     """Log the tool call and calculate token savings."""
+    global LAST_CALL_TIMES
     try:
         conn = get_db()
         
@@ -238,7 +312,16 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
             pass
         
         returned_bytes = len(returned_content)
-        if tool_name == "get_skill":
+        
+        current_time = time.time()
+        agent_key = (agent_name or "direct").lower()
+        last_time = LAST_CALL_TIMES.get(agent_key, 0)
+        
+        # Check if this tool call is part of a new interaction turn (more than 60s since last call)
+        is_new_turn = (current_time - last_time) > 60
+        LAST_CALL_TIMES[agent_key] = current_time
+        
+        if tool_name == "get_skill" or not is_new_turn:
             bytes_saved = 0
             tokens_saved = 0
             total_library_bytes = returned_bytes
@@ -247,10 +330,11 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
             tokens_saved = int(bytes_saved / 4)
             total_library_bytes = baseline_bytes
             
+        client_name = detect_active_client()
         conn.execute("""
-            INSERT INTO tool_calls (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (tool_name, query_str, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent_name))
+            INSERT INTO tool_calls (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent, client)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (tool_name, query_str, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent_name, client_name))
         
         conn.commit()
         conn.close()
@@ -813,25 +897,47 @@ def detect_active_agent():
     import json
     import re
     try:
-        brain_dirs = [
-            os.path.expanduser("~/.gemini/antigravity-ide/brain"),
-            os.path.expanduser("~/.gemini/antigravity-cli/brain"),
-            os.path.expanduser("~/.cursor/projects"),
-        ]
+        conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+        global ACTIVE_CLIENT
+        if ACTIVE_CLIENT in ["cursor", "claudecode"]:
+            conv_id = None
+        if conv_id:
+            brain_dirs = [
+                os.path.expanduser(f"~/.gemini/antigravity-ide/brain/{conv_id}"),
+                os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}"),
+            ]
+        else:
+            brain_dirs = [
+                os.path.expanduser("~/.gemini/antigravity-ide/brain"),
+                os.path.expanduser("~/.gemini/antigravity-cli/brain"),
+                os.path.expanduser("~/.cursor/projects"),
+                os.path.expanduser("~/.claude/projects"),
+            ]
         all_files = []
         for brain_dir in brain_dirs:
             if not os.path.isdir(brain_dir):
                 continue
             
             if "cursor" in brain_dir:
-                # Cursor paths: ~/.cursor/projects/*/agent-transcripts/*.jsonl
-                pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*.jsonl")
+                # Cursor paths: ~/.cursor/projects/*/agent-transcripts/*/*.jsonl
+                pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*", "*.jsonl")
                 all_files.extend(glob.glob(pattern_transcript))
+            elif "claude" in brain_dir:
+                # Claude Code paths: ~/.claude/projects/*/*.jsonl
+                pattern_transcript = os.path.join(brain_dir, "*", "*.jsonl")
+                all_files.extend(glob.glob(pattern_transcript))
+            elif conv_id and ("antigravity-ide" in brain_dir or "antigravity-cli" in brain_dir):
+                # Session-isolated Antigravity paths
+                pattern_prompt = os.path.join(brain_dir, "prompt.md")
+                pattern_transcript = os.path.join(brain_dir, ".system_generated", "logs", "transcript.jsonl")
+                all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
             else:
                 # Antigravity paths
                 pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
                 pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
                 all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
+        # Filter only existing files to prevent FileNotFoundError during sort if concurrently deleted
+        all_files = [f for f in all_files if os.path.exists(f)]
         if not all_files:
             return None
             
@@ -846,6 +952,9 @@ def detect_active_agent():
             elif "agent-transcripts" in fpath:
                 # For Cursor: .cursor/projects/<project>/agent-transcripts/xyz.jsonl
                 conv_dir = os.path.dirname(os.path.dirname(fpath))
+            elif "claude" in fpath:
+                # For Claude: ~/.claude/projects/<project>/<sessionId>.jsonl
+                conv_dir = fpath
             else:
                 conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
                 
@@ -864,17 +973,20 @@ def detect_active_agent():
                         prompt_content = f.read()
                     
                     # Search for [Icon Agent] active
-                    match = re.search(r"\[([^\]]+)\]\s+active", prompt_content)
-                    if match:
-                        agent_name = match.group(1).split()[-1].lower()
-                        if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
-                            detected = agent_name
-                        elif agent_name in ["antigravity", "orchestrator"]:
-                            detected = "orchestrator"
+                    if "[konoha] orchestrator active" in prompt_content.lower() or "[konoha] active" in prompt_content.lower() or "orchestrator active" in prompt_content.lower():
+                        detected = "orchestrator"
+                    else:
+                        match = re.search(r"\[([^\]]+)\]\s+active", prompt_content)
+                        if match:
+                            agent_name = match.group(1).split()[-1].lower()
+                            if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                                detected = agent_name
+                            elif agent_name in ["antigravity", "orchestrator"]:
+                                detected = "orchestrator"
                             
                     if not detected:
                         # Search for explicit "You are the X agent" or "Log: ... X ... active"
-                        for candidate in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                        for candidate in ["anbu", "genin", "chunin", "tokubetsu-jonin", "jonin", "kage"]:
                             if re.search(rf"\b{candidate}\b", prompt_content, re.IGNORECASE):
                                 if re.search(rf"you\s+are\s+(?:the|a)\s+{candidate}\s+(?:agent|subagent|scout|builder|intel|scribe|leader)", prompt_content, re.IGNORECASE):
                                     detected = candidate
@@ -887,11 +999,8 @@ def detect_active_agent():
                     
             # 2. Try transcript.jsonl (Antigravity or Cursor)
             if not detected:
-                # Try Cursor path first
-                cursor_transcripts = glob.glob(os.path.join(conv_dir, "agent-transcripts", "*.jsonl"))
-                if cursor_transcripts:
-                    cursor_transcripts.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-                    transcript_path = cursor_transcripts[0]
+                if ("agent-transcripts" in fpath or "claude" in fpath) and fpath.endswith(".jsonl"):
+                    transcript_path = fpath
                 else:
                     transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
                     
@@ -902,9 +1011,37 @@ def detect_active_agent():
                         for line in reversed(lines):
                             try:
                                 data = json.loads(line)
-                                content = data.get("content", "")
+                                content = ""
+                                
+                                # Extract content from Cursor format
+                                if isinstance(data, dict) and "message" in data:
+                                    message = data.get("message", {})
+                                    if isinstance(message, dict):
+                                        content_list = message.get("content", [])
+                                        if isinstance(content_list, list):
+                                            for block in content_list:
+                                                if isinstance(block, dict):
+                                                    if block.get("type") == "text":
+                                                        content += " " + block.get("text", "")
+                                                    elif block.get("type") == "tool_use" and block.get("name") == "Task":
+                                                        tool_input = block.get("input", {})
+                                                        if isinstance(tool_input, dict) and "subagent_type" in tool_input:
+                                                            detected = tool_input["subagent_type"]
+                                                            break
+                                            if detected:
+                                                break
+                                
+                                # Extract content from standard format
+                                if not content and isinstance(data, dict):
+                                    content = data.get("content", "")
+                                    
                                 if not content:
                                     continue
+                                    
+                                if "[konoha] orchestrator active" in content.lower() or "[konoha] active" in content.lower() or "orchestrator active" in content.lower():
+                                    detected = "orchestrator"
+                                    break
+                                    
                                 match = re.search(r"\[([^\]]+)\]\s+active", content)
                                 if match:
                                     agent_name = match.group(1).split()[-1].lower()
@@ -920,10 +1057,7 @@ def detect_active_agent():
                         pass
             
             if detected:
-                if detected in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
-                    return detected
-                elif detected == "orchestrator" and not fallback_agent:
-                    fallback_agent = "orchestrator"
+                return detected
                     
             # Check up to 15 most recent folders to find a subagent
             if len(visited_dirs) >= 15:
@@ -944,8 +1078,27 @@ def handle_request(req):
         return None
 
     if method == "initialize":
-        global WORKSPACE_ROOT
+        global WORKSPACE_ROOT, ACTIVE_CLIENT
         params = req.get("params", {})
+        
+        # Detect active client from clientInfo
+        client_info = params.get("clientInfo", {})
+        client_name = (client_info.get("name") or "").lower()
+        if "cursor" in client_name:
+            ACTIVE_CLIENT = "cursor"
+        elif "claude" in client_name:
+            ACTIVE_CLIENT = "claudecode"
+        elif "antigravity-cli" in client_name or "agy" in client_name:
+            ACTIVE_CLIENT = "agy"
+        elif "antigravity" in client_name or "ide" in client_name:
+            conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+            if conv_id and os.path.isdir(os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}")):
+                ACTIVE_CLIENT = "agy"
+            else:
+                ACTIVE_CLIENT = "antigravity"
+        else:
+            # Fallback to file detection
+            ACTIVE_CLIENT = detect_active_client()
         
         # 1. Try rootUri
         root_uri = params.get("rootUri")

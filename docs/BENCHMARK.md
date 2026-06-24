@@ -1,6 +1,6 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-23**). Metrics combine **skills-db**, **semble**, and **konoha-files** usage.
+This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **skills-db**, **semble**, and **konoha-files** usage.
 
 > Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
@@ -10,13 +10,13 @@ This report presents **live** token savings metrics from `konoha savings` on thi
 
 By moving from full-disk file loading to on-demand context injection, developers achieve a combined context reduction of **83% to 98% average per query**.
 
-### 📈 Live Savings Summary (2026-06-23)
+### 📈 Live Savings Summary (2026-06-25)
 
 | Period | Total Calls | Cumulative Saved | Token Reduction |
 |:---|:---:|:---:|:---:|
-| **Today** | 295 | ~107 MB (~28.3M tokens) | **99%** |
-| **Last 7 Days** | 960 | ~235 MB (~65M tokens) | **98%** |
-| **All Time** | 2,904 | ~302 MB (~110M tokens) | **97%** |
+| **Today** | 332 | ~111.81 MB (~29.3M tokens) | **99%** |
+| **Last 7 Days** | 609 | ~190.90 MB (~50.0M tokens) | **99%** |
+| **All Time** | 1,301 | ~290.47 MB (~76.1M tokens) | **98%** |
 
 ---
 
@@ -26,11 +26,11 @@ Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at
 
 | Period | Total Calls | Cumulative Data Saved | Token Reduction |
 |:---|:---:|:---:|:---:|
-| **Today** | 289 | 107.02 MB | **~28.1M tokens (99%)** |
-| **Last 7 Days** | 834 | 230.52 MB | **~60.4M tokens (99%)** |
-| **All Time** | 2,064 | 301.57 MB | **~79.1M tokens (97%)** |
+| **Today** | 77 | 67.18 MB | **~17.6M tokens (99%)** |
+| **Last 7 Days** | 201 | 124.91 MB | **~32.7M tokens (99%)** |
+| **All Time** | 201 | 124.91 MB | **~32.7M tokens (99%)** |
 
-*Source: `python3 ~/.gemini/skills-db/db_savings.py ~/.gemini/skills-db/skills.db`*
+*Source: `python3 ~/.konoha/db_savings.py ~/.konoha/skills.db`*
 
 ---
 
@@ -40,9 +40,9 @@ Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at
 
 | Period | Search Queries | Cumulative Tokens Saved | Average Reduction |
 |:---|:---:|:---:|:---:|
-| **Today** | 6 | **~230.6k tokens** | 99% |
-| **Last 7 Days** | 126 | **~4.6M tokens** | 98% |
-| **All Time** | 840 | **~30.8M tokens** | 96% |
+| **Today** | 255 | **~11.7M tokens** | 99% |
+| **Last 7 Days** | 408 | **~17.3M tokens** | 99% |
+| **All Time** | 1,100 | **~43.4M tokens** | 97% |
 
 *Source: `uvx --from semble[mcp]@latest semble savings`*
 
@@ -77,13 +77,13 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 
 ---
 
-## 🧪 Release QA Gates (v1.1.6)
+## 🧪 Release QA Gates (v1.1.7)
 
 Before public release, verify:
 
 | Check | Command | Expected |
 |-------|---------|----------|
-| MCP integration | `konoha test` | 14/14 PASS |
+| MCP integration | `konoha test` | 16/16 PASS |
 | Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 PASS |
 | Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 PASS |
 | Environment health | `konoha doctor --yes` | All checks passed |
@@ -126,7 +126,7 @@ Before public release, verify:
    * A single, lightweight CLI tool `konoha` installs the server, migrates the files, and registers it.
    * Installs to a standardized path:
      * MCP Config: `~/.gemini/config/mcp_config.json` (registers the server across all Antigravity tools)
-     * Executables & DB: `~/.gemini/skills-db/`
+     * Executables & DB: `~/.konoha/`
      * Global Prompt Instructions: `~/.gemini/GEMINI.md`
    * Fully cross-platform: auto-detects paths and Python configurations on Windows, macOS, and Linux.
    * **Multi-client**: Claude Code (`~/.claude.json`), OpenCode (`~/.config/opencode/opencode.json`), Cursor — see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).

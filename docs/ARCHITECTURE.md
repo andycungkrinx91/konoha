@@ -4,7 +4,7 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.1.6)
+title: Konoha System Architecture (v1.1.7)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -61,7 +61,7 @@ flowchart TB
     %% ── Layer 4: Persistence ──────────────────────────────────
     subgraph L4 ["Layer 4 — Persistence"]
         direction LR
-        DB[("🗄️ SQLite DB<br>skills.db")]
+        DB[("🗄️ SQLite DB<br/>~/.konoha/skills.db")]
         FTS5("🔍 FTS5 Index<br>BM25 Ranking")
         Codebase("📂 Codebase<br>Workspace Files")
     end

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const readline = require('readline');
 const https = require('https');
 const { execSync, spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
@@ -156,6 +157,11 @@ function runInteractiveSearch(query) {
         console.log(`    Source: github.com/${item.source}`);
       });
       console.log('────────────────────────────────────────────────────────────');
+
+      if (!process.stdin || !process.stdin.isTTY) {
+        console.log('❌ Interactive search requires a TTY terminal.');
+        return;
+      }
 
       const rl = readline.createInterface({
         input: process.stdin,
