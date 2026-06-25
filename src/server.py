@@ -48,25 +48,27 @@ def sanitize_fts5_query(query):
     if not query:
         return ""
     
-    # 1. Preprocess NEAR(...) expressions to ensure they are validly formatted
+    # Extract and protect valid NEAR expressions
+    nears = []
     def replace_near(match):
         full_expr = match.group(0)
-        # Valid NEAR syntax: NEAR(term1 term2 ... [, distance]) where terms are alphanumeric words
         valid_pattern = r'^NEAR\(\s*[a-zA-Z0-9_-]+(?:\s+[a-zA-Z0-9_-]+)+(?:\s*,\s*\d+)?\s*\)$'
         if re.match(valid_pattern, full_expr, re.IGNORECASE):
             inner = re.search(r'\(([^)]*)\)', full_expr).group(1)
             inner_cleaned = " ".join(inner.split())
-            return f"NEAR({inner_cleaned})"
+            placeholder = f"__NEAR_PLACEHOLDER_{len(nears)}__"
+            nears.append(f"NEAR({inner_cleaned})")
+            return placeholder
         else:
-            # Malformed: strip parentheses and make it lowercase near
             inner = re.search(r'\(([^)]*)\)', full_expr)
             inner_text = inner.group(1) if inner else ""
             return f"near {inner_text}"
             
     query = re.sub(r'\bNEAR\s*\(([^)]*)\)', replace_near, query, flags=re.IGNORECASE)
 
-    # Remove caret (^) and colon (:)
-    query = re.sub(r'[\^:]', ' ', query)
+    # Replace all punctuation/operators (including colons, carets, hyphens, slashes, commas) 
+    # except alphanumeric, spaces, underscores, wildcards, quotes, and parentheses.
+    query = re.sub(r'[^a-zA-Z0-9_\s*()"]', ' ', query)
     
     # Balance double quotes (strip all if odd count)
     if query.count('"') % 2 != 0:
@@ -79,6 +81,10 @@ def sanitize_fts5_query(query):
     # Strip dangling asterisks (asterisks must be at the end of alphanumeric word characters)
     query = re.sub(r'(?<![a-zA-Z0-9])\*', ' ', query)
     query = re.sub(r'\*(?=[a-zA-Z0-9])', ' ', query)
+
+    # Restore protected NEAR expressions
+    for i, near_val in enumerate(nears):
+        query = query.replace(f"__NEAR_PLACEHOLDER_{i}__", near_val)
     
     # Handle bare/dangling operators AND, OR, NOT
     words = query.split()
@@ -98,15 +104,14 @@ def sanitize_fts5_query(query):
             if is_dangling:
                 sanitized_words.append(w.lower())
             else:
-                # Keep operator only if it is not dangling and surrounded by parenthesis or grouping
                 sanitized_words.append(w_upper)
         elif w_upper == 'NEAR':
-            # Bare NEAR without parenthesis
             sanitized_words.append(w.lower())
         else:
             sanitized_words.append(w)
             
     return " ".join(sanitized_words)
+
 
 
 def shield_prompt_injection(content):
@@ -410,7 +415,8 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
 
     # Fallback: LIKE search on tags and name
     if not rows:
-        like_keyword = re.sub(r'[^\w\s]', '', sanitized_keyword)
+        # Convert any punctuation to space, split, and join with % to match punctuated words (like jonin-skill)
+        like_keyword = "%" + "%".join(re.sub(r'[^\w\s]', ' ', keyword).split()) + "%"
         rows = conn.execute("""
             SELECT name, skill_name, type, tags,
                    content, byte_size, line_count, file_path,
@@ -419,7 +425,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
             WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
             ORDER BY byte_size ASC
             LIMIT 50
-        """, (f"%{like_keyword}%", f"%{like_keyword}%", f"%{like_keyword}%")).fetchall()
+        """, (like_keyword, like_keyword, like_keyword)).fetchall()
 
     conn.close()
 
@@ -600,7 +606,8 @@ def optimize_report(keyword=None, agent_name=None):
             rows = []
         
         if not rows:
-            like_keyword = re.sub(r'[^\w\s]', '', sanitized_keyword)
+            # Convert any punctuation to space, split, and join with % to match punctuated words (like jonin-skill)
+            like_keyword = "%" + "%".join(re.sub(r'[^\w\s]', ' ', keyword).split()) + "%"
             rows = conn.execute("""
                 SELECT name, skill_name, type, tags,
                        content, byte_size, line_count, file_path,
@@ -609,7 +616,7 @@ def optimize_report(keyword=None, agent_name=None):
                 WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
                 ORDER BY byte_size ASC
                 LIMIT 10
-            """, (f"%{like_keyword}%", f"%{like_keyword}%", f"%{like_keyword}%")).fetchall()
+            """, (like_keyword, like_keyword, like_keyword)).fetchall()
     else:
         rows = conn.execute("""
             SELECT name, skill_name, type, tags,
@@ -672,6 +679,25 @@ def optimize_report(keyword=None, agent_name=None):
     })
     log_tool_call("optimize_report", keyword or "", res, agent_name=agent_name)
     return res
+
+
+def get_agent_skills(agent_name):
+    """Read agent's skills list from ~/.agents/agents.json. Returns None if agent not found."""
+    if not agent_name:
+        return None
+    try:
+        agents_json_path = os.path.expanduser("~/.agents/agents.json")
+        if os.path.exists(agents_json_path):
+            with open(agents_json_path, 'r', encoding='utf-8') as f:
+                agents = json.load(f)
+                for agent in agents:
+                    if isinstance(agent, dict) and agent.get("name") == agent_name:
+                        skills = agent.get("skills")
+                        return list(skills) if skills is not None else []
+    except Exception as e:
+        sys.stderr.write(f"[mcp skills-db] Error reading agents.json: {str(e)}\n")
+        sys.stderr.flush()
+    return None
 
 
 def build_from_source(name, source_dir, framework, agent_name=None):
@@ -807,20 +833,41 @@ def build_from_source(name, source_dir, framework, agent_name=None):
                 layout_hints.append(f"{m['filename']} ({m['width']}x{m['height']}, {orient})")
 
     directives = [
-        f"Build a clean {display_framework} storefront named '{name}' based on the source design directory '{source_dir}'.",
-        "You MUST read and analyze the provided reference source files and design mockup images to guide your construction.",
-        "You SHOULD incorporate custom 3D interactive animations that match and enhance the specific layout and flow of the source design.",
-        "DO NOT implement the default generic visual effects template (such as the 10-theme switcher, 3D carousel hero, 3D interactive carousels, 3D GPU card hovers, or 3D SweetAlert2 modal dialogs) UNLESS they are explicitly requested or depicted in the source files/mockup images.",
-        "You MUST implement the footer watermark: 'Build with Antigravity and Konoha agentic AI' in small, muted typography.",
-        "Use high-quality visually appealing dummy images (e.g., from Unsplash or placeholder services) for any required media assets that are not provided.",
-        f"Upon completion of the build, you MUST automatically run the project in production mode using pnpm (e.g., `pnpm build && pnpm start` or equivalent for the {display_framework} framework).",
+        f"Build a clean {display_framework} website named '{name}' based on the source design directory '{source_dir}'.",
+        "DESIGN FIDELITY DIRECTIVES (MANDATORY — ZERO EXCEPTION):",
+        "  1. **100% EXACT MATCH WITH SOURCE DESIGN**: You MUST reproduce the source design with pixel-perfect accuracy. NO hallucination, NO invention, NO adding elements that don't exist in the source. Match layout, colors, spacing, typography, and component structure exactly as shown in the source files/mockups.",
+        "  2. **NO DARK MODE**: All layouts MUST be Light Mode only. NEVER use dark backgrounds, dark themes, or dark color schemes unless the source design explicitly uses them. If the source design is dark, replicate it exactly.",
+        "  3. **Premium 3D Effect Animations on ALL Page Components**: Enhance the source design with premium 3D animations on every component: 3D perspective tilt on hover for cards, GPU-accelerated entrance animations on scroll-into-view, parallax depth effects, floating animations on icons, staggered 3D cascade reveals for grids, and smooth spring-based micro-interactions. These animations must ENHANCE the source design without altering its layout or structure.",
+        "  4. **Footer Watermark**: The footer MUST include the watermark: `Build by Konoha` in small, elegant, muted typography.",
+        "  5. **Custom Error Pages (4xx & 5xx)**: Create unique, premium, and visually delightful error pages for 400, 403, 404, 500, 502, and 503 status codes with cute 3D animated illustrations, gradient accents, clear error messages, helpful navigation links, and smooth entrance animations.",
+        "DO NOT implement the default generic visual effects template (such as the 10-theme switcher, generic 3D carousels, or SweetAlert2 premium dialogs) UNLESS they are explicitly present in the source design files/mockups.",
+        "You MUST read and analyze every provided reference source file and design mockup image to guide your construction.",
+        "Use high-quality visually appealing placeholder images (e.g., from Unsplash or picsum.photos) for any required media assets not provided in the source directory.",
+        "PERFORMANCE DIRECTIVES:",
+        "  1. Lazy load all heavy components (3D, WebGL, carousels) with dynamic imports and `ssr: false`.",
+        "  2. Use `next/image` (Next.js) or optimized image components for all images.",
+        "  3. Split 3D bundles from main bundle. Minimize client-side JavaScript.",
+        "  4. Respect `prefers-reduced-motion` with graceful fallbacks.",
+        "SEO DIRECTIVES:",
+        "  1. Implement proper `<title>`, `<meta name='description'>`, Open Graph, and Twitter Card meta tags on every page.",
+        "  2. Use semantic HTML5 elements and proper heading hierarchy (single `<h1>` per page).",
+        "  3. Generate `sitemap.xml` and `robots.txt`. Add structured data (JSON-LD).",
+        "  4. Ensure all images have descriptive `alt` attributes. Use canonical URLs.",
+        "SECURITY DIRECTIVES:",
+        "  1. Implement CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy headers.",
+        "  2. Sanitize all user inputs. Use CSRF protection for forms and server actions.",
+        "  3. Never expose API keys, tokens, or secrets to the client/browser.",
         "QUALITY GUARANTEE:",
-        "1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
-        "2. DO NOT hardcode sensitive or environment-specific values; extract them and provide a `.env.example` file.",
-        "3. Implement strict security best practices across the entire architecture.",
-        "4. Ensure all libraries are safe from known CVEs (Common Vulnerabilities and Exposures).",
-        "5. The build result MUST NOT have any errors or warnings during `pnpm lint` and `pnpm build`.",
-        f"6. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments."
+        "  1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately.",
+        "  2. DO NOT hardcode ANY sensitive or environment-specific values. Provide a `.env.example` file.",
+        "  3. Ensure ALL libraries are safe from known CVEs. Run `pnpm audit` and resolve vulnerabilities.",
+        "  4. The build result MUST have ZERO errors and ZERO warnings during both `pnpm lint` and `pnpm build`.",
+        f"  5. Ensure the final result is highly stable for production-grade {display_framework} deployments.",
+        f"Upon completion, you MUST start the dev server with auto-open: `pnpm run dev --open` (or equivalent for {display_framework}) so the result opens automatically in the browser for live preview.",
+        "EXISTING PROJECT GUARDRAILS:",
+        "  1. If working in an existing project, NEVER touch or modify existing logic, components, or code that the user did not explicitly ask to change.",
+        "  2. Only do exactly what the user requested. If you have improvement ideas, ASK the user first.",
+        "  3. NEVER hallucinate, fabricate, or silently update/change design elements without the user's explicit approval."
     ]
 
     if detected_images:
@@ -839,6 +886,39 @@ def build_from_source(name, source_dir, framework, agent_name=None):
         if all_colors:
             directives.append(f"Detected color palette from mockups: {', '.join(all_colors[:10])}. Use these colors as the primary design palette.")
 
+    # Read skills assigned to the active agent or default to the "jonin" agent's skill
+    agent_skills = None
+    if agent_name:
+        agent_skills = get_agent_skills(agent_name)
+    
+    if agent_skills is None:
+        # Fall back to "jonin" agent's skills dynamically
+        agent_skills = get_agent_skills("jonin")
+        
+    if agent_skills is None:
+        # Defaults based on standard agent roles if agents.json is not readable/found
+        target_agent = agent_name if agent_name in ["jonin", "anbu", "kage", "genin", "chunin", "tokubetsu-jonin"] else "jonin"
+        if target_agent == "jonin":
+            agent_skills = ["jonin-skill"]
+        elif target_agent == "anbu":
+            agent_skills = ["anbu-skill"]
+        elif target_agent == "kage":
+            agent_skills = ["kage-skill"]
+        elif target_agent == "genin":
+            agent_skills = ["genin-skill"]
+        elif target_agent == "chunin":
+            agent_skills = ["chunin-skill"]
+        elif target_agent == "tokubetsu-jonin":
+            agent_skills = ["tokubetsu-jonin-skill"]
+        else:
+            agent_skills = []
+
+    absolute_image_paths = []
+    if detected_images:
+        for m in detected_images:
+            fpath = os.path.join(resolved_source_dir, m["filename"])
+            absolute_image_paths.append(os.path.abspath(fpath))
+
     spec = {
         "status": "success",
         "project_name": name,
@@ -847,7 +927,13 @@ def build_from_source(name, source_dir, framework, agent_name=None):
         "source_directory": resolved_source_dir,
         "detected_images": detected_images,
         "detected_sources": detected_sources,
-        "directives": directives
+        "directives": directives,
+        "image_to_code_required": len(detected_images) > 0,
+        "required_skills": agent_skills,
+        "skill_load_sequence": agent_skills,
+        "delegate_constraints": directives,
+        "absolute_image_paths": absolute_image_paths,
+        "forbid_build_from_text": len(detected_images) > 0
     }
 
     res = json.dumps(spec, indent=2)
@@ -861,31 +947,96 @@ def build_from_text(name, description, framework, agent_name=None):
     the default premium templates and visual effects.
     """
     display_framework = "Next.js" if framework == "nextjs" else "SvelteKit" if framework == "svelte" else framework
+    
+    # Read skills assigned to the active agent or default to the "jonin" agent's skill
+    agent_skills = None
+    if agent_name:
+        agent_skills = get_agent_skills(agent_name)
+    
+    if agent_skills is None:
+        # Fall back to "jonin" agent's skills dynamically
+        agent_skills = get_agent_skills("jonin")
+        
+    if agent_skills is None:
+        # Defaults based on standard agent roles if agents.json is not readable/found
+        target_agent = agent_name if agent_name in ["jonin", "anbu", "kage", "genin", "chunin", "tokubetsu-jonin"] else "jonin"
+        if target_agent == "jonin":
+            agent_skills = ["jonin-skill"]
+        elif target_agent == "anbu":
+            agent_skills = ["anbu-skill"]
+        elif target_agent == "kage":
+            agent_skills = ["kage-skill"]
+        elif target_agent == "genin":
+            agent_skills = ["genin-skill"]
+        elif target_agent == "chunin":
+            agent_skills = ["chunin-skill"]
+        elif target_agent == "tokubetsu-jonin":
+            agent_skills = ["tokubetsu-jonin-skill"]
+        else:
+            agent_skills = []
+
+    build_directives = [
+            f"Build a premium, elegant {display_framework} website named '{name}' based on the description: '{description}'.",
+            "DESIGN DIRECTIVES (MANDATORY — ZERO EXCEPTION):",
+            "  1. **NO DARK MODE**: All layouts MUST be Light Mode only. NEVER use dark backgrounds, dark themes, or dark color schemes. Backgrounds must be clean, bright, and elegant (white, off-white, subtle warm grays, or light gradient washes).",
+            "  2. **Premium Gradient Color Theme**: Use a single, cohesive premium gradient color palette throughout the entire site. Define CSS custom properties for `--gradient-primary` (e.g. `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`), `--gradient-accent`, `--color-primary`, `--color-accent` in `globals.css` / `app.css`. All buttons, headings, icons, borders, and interactive elements must use these gradient variables. NO flat/generic colors (plain red, blue, green). Use curated HSL-based harmonious palettes.",
+            "  3. **10-Theme Switcher (Light Mode Only)**: Implement the custom 10-theme switcher component. It MUST NOT include dark mode options (since the site is strictly Light Mode), but instead provide 10 distinct, premium gradient color themes for the user to select from dynamically.",
+            "  4. **Premium 3D Effect Animations on ALL Page Components**: EVERY visible component must have premium 3D animations — not just carousels. This includes: 3D perspective tilt on hover for all cards/sections, GPU-accelerated entrance animations (using `perspective`, `rotateX`/`rotateY`, `translateZ`, `scale`) on scroll-into-view, 3D flip/rotate transitions for modals and dialogs, parallax depth effects on hero sections, floating/levitate animations on feature icons, staggered 3D cascade reveals for grid items, and smooth spring-based micro-interactions on all interactive elements. Use `will-change: transform` and `transform: translateZ(0)` for GPU acceleration.",
+            "  5. **Premium & Elegant Look**: The design must feel luxurious and state-of-the-art. Use modern premium typography (Google Fonts: Inter, Outfit, or Playfair Display for headings), generous whitespace, smooth glassmorphism (`backdrop-blur`), subtle shadows with depth layers, and polished border treatments. Every element must feel intentionally crafted.",
+            "  6. **Homepage Hero Banner 3D Carousel**: Full-width edge-to-edge hero section with interactive 3D carousel slider (minimum 4 images), GPU-accelerated 3D split-opening drapes effect, smooth autoplay with controls. Must be highly responsive for mobile/desktop.",
+            "  7. **3D GPU Card Hover & Animated Glows**: ALL card components must feature 3D perspective rotation on hover combined with radial mouse-tracking gradient glow borders.",
+            "  8. **Custom 3D SweetAlert2 Dialogs**: All system alerts/confirmations MUST use `sweetalert2` with 3D entrance transitions and gradient-styled confirm buttons.",
+            "  9. **Custom Styled SVG/CSS Logo**: Premium inline SVG icon + gradient typography logo in header and footer, dynamically displaying the project name.",
+            "  10. **Footer Watermark**: The footer MUST feature the watermark: `Build by Konoha` in small, elegant, muted typography.",
+            "  11. **Custom Error Pages (4xx & 5xx)**: Create unique, premium, and visually delightful error pages for 400, 403, 404, 500, 502, and 503 status codes. Each error page must feature: a cute/friendly 3D animated illustration or character (using CSS 3D transforms or Framer Motion), the gradient color theme, a clear error message with helpful navigation links, and smooth entrance animations. These pages should make users smile even when encountering errors.",
+            "  12. **Mobile Bottom Navigation**: Sticky bottom nav bar with Lucide icons for mobile, using gradient theme variables.",
+            "Use high-quality visually appealing placeholder images (e.g., from Unsplash or picsum.photos) for any required media assets.",
+            "PERFORMANCE DIRECTIVES:",
+            "  1. Lazy load all heavy components (3D, WebGL, carousels) with dynamic imports and `ssr: false`.",
+            "  2. Use `next/image` (Next.js) or optimized image components for all images with proper `width`, `height`, `loading='lazy'`, and `sizes` attributes.",
+            "  3. Split 3D bundles from main bundle using `optimizePackageImports` in framework config.",
+            "  4. Respect `prefers-reduced-motion` with graceful fallbacks.",
+            "  5. Minimize client-side JavaScript — default to Server Components (Next.js) or server-side rendering where possible.",
+            "  6. Use code splitting and tree shaking. No unused imports or dead code.",
+            "SEO DIRECTIVES:",
+            "  1. Implement proper `<title>` and `<meta name='description'>` on every page with unique, keyword-rich content.",
+            "  2. Use a single `<h1>` per page with proper heading hierarchy (h1 > h2 > h3).",
+            "  3. Use semantic HTML5 elements (`<nav>`, `<main>`, `<article>`, `<section>`, `<aside>`, `<footer>`).",
+            "  4. Add Open Graph (`og:title`, `og:description`, `og:image`) and Twitter Card meta tags.",
+            "  5. Generate `sitemap.xml` and `robots.txt`.",
+            "  6. Add structured data (JSON-LD) for the primary content type.",
+            "  7. Ensure all images have descriptive `alt` attributes.",
+            "  8. Use canonical URLs to prevent duplicate content.",
+            "SECURITY DIRECTIVES:",
+            "  1. Implement Content Security Policy (CSP) headers.",
+            "  2. Add X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy headers.",
+            "  3. Sanitize all user inputs. Never use `dangerouslySetInnerHTML` with user-provided content.",
+            "  4. Use CSRF protection for all form submissions and server actions.",
+            "  5. Never expose API keys, tokens, or secrets to the client/browser. All sensitive values MUST be server-side only.",
+            "  6. Validate and sanitize server-side. Use parameterized queries for any database operations.",
+            "QUALITY GUARANTEE:",
+            "  1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
+            "  2. DO NOT hardcode ANY sensitive or environment-specific values. Extract ALL secrets, API keys, database URLs, and configuration values into `.env` files. Provide a `.env.example` file with placeholder values and comments documenting each variable.",
+            "  3. Ensure ALL libraries and dependencies are safe from known CVEs (Common Vulnerabilities and Exposures). Run `pnpm audit` and resolve any vulnerabilities.",
+            "  4. The build result MUST have ZERO errors and ZERO warnings during both `pnpm lint` and `pnpm build`. No exceptions.",
+            f"  5. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments.",
+            f"Upon completion, you MUST start the dev server with auto-open: `pnpm run dev --open` (or equivalent for {display_framework}) so the result opens automatically in the browser for live preview.",
+            "EXISTING PROJECT GUARDRAILS:",
+            "  1. If working in an existing project, NEVER touch or modify existing logic, components, or code that the user did not explicitly ask to change.",
+            "  2. Only do exactly what the user requested. If you have improvement ideas, ASK the user first before implementing.",
+            "  3. NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, or functionality without the user's explicit knowledge and approval."
+        ]
+
     spec = {
         "status": "success",
         "project_name": name,
         "framework": framework,
         "mode": "build_from_text",
         "description": description,
-        "directives": [
-            f"Build a premium {display_framework} storefront named '{name}' based on the description: '{description}'.",
-            "You MUST implement all the required visual effects from the default premium template:",
-            "  1. 10-Theme Switcher (Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, Gold) persisted in localStorage.",
-            "  2. Full-width homepage hero banner with GPU-accelerated 3D transition carousel slider (minimum 4 images).",
-            "  3. Minimum of 5 interactive 3D carousels (hero, category showcase, featured items, customer lookbook, testimonials).",
-            "  4. 3D GPU card hover & radial mouse-tracking glow effects on all card components.",
-            "  5. Custom 3D entrance transition SweetAlert2 modal dialogs matching active theme gradients.",
-            "  6. Inline SVG/CSS custom branded logo and the footer watermark: 'Build with Antigravity and Konoha agentic AI'.",
-            "Use high-quality visually appealing dummy images (e.g., from Unsplash or placeholder services) for any required media assets.",
-            f"Upon completion of the build, you MUST automatically run the project in production mode using pnpm (e.g., `pnpm build && pnpm start` or equivalent for the {display_framework} framework).",
-            "QUALITY GUARANTEE:",
-            "1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
-            "2. DO NOT hardcode sensitive or environment-specific values; extract them and provide a `.env.example` file.",
-            "3. Implement strict security best practices across the entire architecture.",
-            "4. Ensure all libraries are safe from known CVEs (Common Vulnerabilities and Exposures).",
-            "5. The build result MUST NOT have any errors or warnings during `pnpm lint` and `pnpm build`.",
-            f"6. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments."
-        ]
+        "directives": build_directives,
+        "required_skills": agent_skills,
+        "skill_load_sequence": agent_skills,
+        "delegate_constraints": build_directives
     }
     res = json.dumps(spec, indent=2)
     log_tool_call("build_from_text", f"name={name}, description={description}, framework={framework}", res, agent_name=agent_name)
@@ -896,16 +1047,42 @@ def detect_active_agent():
     import glob
     import json
     import re
+    import sqlite3
+    global WORKSPACE_ROOT, ACTIVE_CLIENT
     try:
         conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
-        global ACTIVE_CLIENT
         if ACTIVE_CLIENT in ["cursor", "claudecode"]:
             conv_id = None
+
+        brain_dirs = []
         if conv_id:
             brain_dirs = [
                 os.path.expanduser(f"~/.gemini/antigravity-ide/brain/{conv_id}"),
                 os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}"),
             ]
+        elif WORKSPACE_ROOT:
+            # Map WORKSPACE_ROOT to Cursor and Claude project slugs for session isolation
+            normalized_path = os.path.normpath(WORKSPACE_ROOT).strip("/")
+            slug = normalized_path.replace("/", "-")
+            
+            # Cursor project directory: ~/.cursor/projects/home-user-path-to-workspace
+            cursor_dir = os.path.expanduser(f"~/.cursor/projects/{slug}")
+            if os.path.isdir(cursor_dir):
+                brain_dirs.append(cursor_dir)
+                
+            # Claude project directory: ~/.claude/projects/-home-user-path-to-workspace
+            claude_dir = os.path.expanduser(f"~/.claude/projects/-{slug}")
+            if os.path.isdir(claude_dir):
+                brain_dirs.append(claude_dir)
+                
+            # Fallback to general scan if slug directories don't exist
+            if not brain_dirs:
+                brain_dirs = [
+                    os.path.expanduser("~/.gemini/antigravity-ide/brain"),
+                    os.path.expanduser("~/.gemini/antigravity-cli/brain"),
+                    os.path.expanduser("~/.cursor/projects"),
+                    os.path.expanduser("~/.claude/projects"),
+                ]
         else:
             brain_dirs = [
                 os.path.expanduser("~/.gemini/antigravity-ide/brain"),
@@ -913,18 +1090,25 @@ def detect_active_agent():
                 os.path.expanduser("~/.cursor/projects"),
                 os.path.expanduser("~/.claude/projects"),
             ]
+
         all_files = []
         for brain_dir in brain_dirs:
             if not os.path.isdir(brain_dir):
                 continue
-            
+
             if "cursor" in brain_dir:
-                # Cursor paths: ~/.cursor/projects/*/agent-transcripts/*/*.jsonl
-                pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*", "*.jsonl")
+                # Cursor paths: ~/.cursor/projects/*/agent-transcripts/*/*.jsonl or local workspace match
+                if WORKSPACE_ROOT and brain_dir.endswith(slug):
+                    pattern_transcript = os.path.join(brain_dir, "agent-transcripts", "*", "*.jsonl")
+                else:
+                    pattern_transcript = os.path.join(brain_dir, "*", "agent-transcripts", "*", "*.jsonl")
                 all_files.extend(glob.glob(pattern_transcript))
             elif "claude" in brain_dir:
-                # Claude Code paths: ~/.claude/projects/*/*.jsonl
-                pattern_transcript = os.path.join(brain_dir, "*", "*.jsonl")
+                # Claude Code paths: ~/.claude/projects/*/*.jsonl or local workspace match
+                if WORKSPACE_ROOT and brain_dir.endswith("-" + slug):
+                    pattern_transcript = os.path.join(brain_dir, "*.jsonl")
+                else:
+                    pattern_transcript = os.path.join(brain_dir, "*", "*.jsonl")
                 all_files.extend(glob.glob(pattern_transcript))
             elif conv_id and ("antigravity-ide" in brain_dir or "antigravity-cli" in brain_dir):
                 # Session-isolated Antigravity paths
@@ -936,132 +1120,204 @@ def detect_active_agent():
                 pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
                 pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
                 all_files.extend(glob.glob(pattern_prompt) + glob.glob(pattern_transcript))
+
         # Filter only existing files to prevent FileNotFoundError during sort if concurrently deleted
         all_files = [f for f in all_files if os.path.exists(f)]
-        if not all_files:
-            return None
-            
-        all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
         
+        detected = None
         visited_dirs = set()
         fallback_agent = None
-        
-        for fpath in all_files:
-            if fpath.endswith("prompt.md"):
-                conv_dir = os.path.dirname(fpath)
-            elif "agent-transcripts" in fpath:
-                # For Cursor: .cursor/projects/<project>/agent-transcripts/xyz.jsonl
-                conv_dir = os.path.dirname(os.path.dirname(fpath))
-            elif "claude" in fpath:
-                # For Claude: ~/.claude/projects/<project>/<sessionId>.jsonl
-                conv_dir = fpath
-            else:
-                conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
-                
-            conv_dir = os.path.normpath(conv_dir)
-            if conv_dir in visited_dirs:
-                continue
-            visited_dirs.add(conv_dir)
-            
-            detected = None
-            
-            # 1. Try prompt.md first (guaranteed to be written/created before subagent starts)
-            prompt_path = os.path.join(conv_dir, "prompt.md")
-            if os.path.exists(prompt_path):
-                try:
-                    with open(prompt_path, "r", encoding="utf-8") as f:
-                        prompt_content = f.read()
-                    
-                    # Search for [Icon Agent] active
-                    if "[konoha] orchestrator active" in prompt_content.lower() or "[konoha] active" in prompt_content.lower() or "orchestrator active" in prompt_content.lower():
-                        detected = "orchestrator"
-                    else:
-                        match = re.search(r"\[([^\]]+)\]\s+active", prompt_content)
-                        if match:
-                            agent_name = match.group(1).split()[-1].lower()
-                            if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
-                                detected = agent_name
-                            elif agent_name in ["antigravity", "orchestrator"]:
-                                detected = "orchestrator"
-                            
-                    if not detected:
-                        # Search for explicit "You are the X agent" or "Log: ... X ... active"
-                        for candidate in ["anbu", "genin", "chunin", "tokubetsu-jonin", "jonin", "kage"]:
-                            if re.search(rf"\b{candidate}\b", prompt_content, re.IGNORECASE):
-                                if re.search(rf"you\s+are\s+(?:the|a)\s+{candidate}\s+(?:agent|subagent|scout|builder|intel|scribe|leader)", prompt_content, re.IGNORECASE):
-                                    detected = candidate
-                                    break
-                                if re.search(rf"Log:\s*\"\[.*{candidate}.*\]\s*active\"", prompt_content, re.IGNORECASE):
-                                    detected = candidate
-                                    break
-                except Exception:
-                    pass
-                    
-            # 2. Try transcript.jsonl (Antigravity or Cursor)
-            if not detected:
-                if ("agent-transcripts" in fpath or "claude" in fpath) and fpath.endswith(".jsonl"):
-                    transcript_path = fpath
+
+        if all_files:
+            all_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+            for fpath in all_files:
+                if fpath.endswith("prompt.md"):
+                    conv_dir = os.path.dirname(fpath)
+                elif "agent-transcripts" in fpath:
+                    # For Cursor: .cursor/projects/<project>/agent-transcripts/xyz.jsonl
+                    conv_dir = os.path.dirname(os.path.dirname(fpath))
+                elif "claude" in fpath:
+                    # For Claude: ~/.claude/projects/<project>/<sessionId>.jsonl
+                    conv_dir = fpath
                 else:
-                    transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
-                    
-                if os.path.exists(transcript_path):
+                    conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
+
+                conv_dir = os.path.normpath(conv_dir)
+                if conv_dir in visited_dirs:
+                    continue
+                visited_dirs.add(conv_dir)
+
+                # 1. Try prompt.md first (guaranteed to be written/created before subagent starts)
+                prompt_path = os.path.join(conv_dir, "prompt.md")
+                if os.path.exists(prompt_path):
                     try:
-                        with open(transcript_path, "r", encoding="utf-8") as f:
-                            lines = f.readlines()
-                        for line in reversed(lines):
-                            try:
+                        with open(prompt_path, "r", encoding="utf-8") as f:
+                            prompt_content = f.read()
+
+                        # Search for [Icon Agent] active
+                        if "[konoha] orchestrator active" in prompt_content.lower() or "[konoha] active" in prompt_content.lower() or "orchestrator active" in prompt_content.lower():
+                            detected = "orchestrator"
+                        else:
+                            match = re.search(r"\[([^\]]+)\]\s+active", prompt_content)
+                            if match:
+                                agent_name = match.group(1).split()[-1].lower()
+                                if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                                    detected = agent_name
+                                elif agent_name in ["antigravity", "orchestrator"]:
+                                    detected = "orchestrator"
+
+                        if not detected:
+                            # Search for explicit "You are the X agent" or "Log: ... X ... active"
+                            for candidate in ["anbu", "genin", "chunin", "tokubetsu-jonin", "jonin", "kage"]:
+                                if re.search(rf"\b{candidate}\b", prompt_content, re.IGNORECASE):
+                                    if re.search(rf"you\s+are\s+(?:the|a)\s+{candidate}\s+(?:agent|subagent|scout|builder|intel|scribe|leader)", prompt_content, re.IGNORECASE):
+                                        detected = candidate
+                                        break
+                                    if re.search(rf"Log:\s*\"\[.*{candidate}.*\]\s*active\"", prompt_content, re.IGNORECASE):
+                                        detected = candidate
+                                        break
+                    except Exception:
+                        pass
+
+                # 2. Try transcript.jsonl (Antigravity or Cursor)
+                if not detected:
+                    if ("agent-transcripts" in fpath or "claude" in fpath) and fpath.endswith(".jsonl"):
+                        transcript_path = fpath
+                    else:
+                        transcript_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
+
+                    if os.path.exists(transcript_path):
+                        try:
+                            with open(transcript_path, "r", encoding="utf-8") as f:
+                                lines = f.readlines()
+                            for line in reversed(lines):
+                                try:
+                                    data = json.loads(line)
+                                    content = ""
+
+                                    # Extract content from Cursor format
+                                    if isinstance(data, dict) and "message" in data:
+                                        message = data.get("message", {})
+                                        if isinstance(message, dict):
+                                            content_list = message.get("content", [])
+                                            if isinstance(content_list, list):
+                                                for block in content_list:
+                                                    if isinstance(block, dict):
+                                                        if block.get("type") == "text":
+                                                            content += " " + block.get("text", "")
+                                                        elif block.get("type") == "tool_use" and block.get("name") == "Task":
+                                                            tool_input = block.get("input", {})
+                                                            if isinstance(tool_input, dict) and "subagent_type" in tool_input:
+                                                                detected = tool_input["subagent_type"]
+                                                                break
+                                                if detected:
+                                                    break
+
+                                    # Extract content from standard format
+                                    if not content and isinstance(data, dict):
+                                        content = data.get("content", "")
+
+                                    if not content:
+                                        continue
+
+                                    if "[konoha] orchestrator active" in content.lower() or "[konoha] active" in content.lower() or "orchestrator active" in content.lower():
+                                        detected = "orchestrator"
+                                        break
+
+                                    match = re.search(r"\[([^\]]+)\]\s+active", content)
+                                    if match:
+                                        agent_name = match.group(1).split()[-1].lower()
+                                        if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                                            detected = agent_name
+                                            break
+                                        elif agent_name in ["antigravity", "orchestrator"]:
+                                            detected = "orchestrator"
+                                            break
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+
+                if detected:
+                    # Save active session mapping to SQLite database
+                    try:
+                        conn = sqlite3.connect(DB_PATH)
+                        conn.execute("""
+                            CREATE TABLE IF NOT EXISTS active_sessions (
+                                client TEXT NOT NULL,
+                                workspace_root TEXT NOT NULL,
+                                session_id TEXT NOT NULL,
+                                transcript_path TEXT,
+                                last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                PRIMARY KEY (client, workspace_root)
+                            );
+                        """)
+                        sess_id = conv_id
+                        if not sess_id:
+                            parts = os.path.normpath(fpath).split(os.sep)
+                            if "agent-transcripts" in parts:
+                                idx = parts.index("agent-transcripts")
+                                if idx + 1 < len(parts):
+                                    sess_id = parts[idx+1]
+                            elif "claude" in parts:
+                                sess_id = os.path.splitext(os.path.basename(fpath))[0]
+                        
+                        if sess_id:
+                            conn.execute("""
+                                INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
+                                VALUES (?, ?, ?, ?, datetime('now'))
+                            """, (ACTIVE_CLIENT or "unknown", WORKSPACE_ROOT or "unknown", sess_id, fpath))
+                            conn.commit()
+                        conn.close()
+                    except Exception as err:
+                        sys.stderr.write(f"  [Warning] Failed to write active session: {str(err)}\n")
+                        sys.stderr.flush()
+                    return detected
+
+                # Check up to 15 most recent folders to find a subagent
+                if len(visited_dirs) >= 15:
+                    break
+
+        # Fallback to database query if no active session files were found
+        if WORKSPACE_ROOT:
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                row = conn.execute("""
+                    SELECT session_id, transcript_path FROM active_sessions
+                    WHERE client = ? AND workspace_root = ?
+                """, (ACTIVE_CLIENT or "unknown", WORKSPACE_ROOT)).fetchone()
+                conn.close()
+                if row:
+                    sess_id, tx_path = row
+                    if tx_path and os.path.exists(tx_path):
+                        try:
+                            with open(tx_path, "r", encoding="utf-8") as f:
+                                lines = f.readlines()
+                            for line in reversed(lines):
                                 data = json.loads(line)
                                 content = ""
-                                
-                                # Extract content from Cursor format
                                 if isinstance(data, dict) and "message" in data:
                                     message = data.get("message", {})
                                     if isinstance(message, dict):
                                         content_list = message.get("content", [])
                                         if isinstance(content_list, list):
                                             for block in content_list:
-                                                if isinstance(block, dict):
-                                                    if block.get("type") == "text":
-                                                        content += " " + block.get("text", "")
-                                                    elif block.get("type") == "tool_use" and block.get("name") == "Task":
-                                                        tool_input = block.get("input", {})
-                                                        if isinstance(tool_input, dict) and "subagent_type" in tool_input:
-                                                            detected = tool_input["subagent_type"]
-                                                            break
-                                            if detected:
-                                                break
-                                
-                                # Extract content from standard format
+                                                if isinstance(block, dict) and block.get("type") == "text":
+                                                    content += " " + block.get("text", "")
                                 if not content and isinstance(data, dict):
                                     content = data.get("content", "")
-                                    
-                                if not content:
-                                    continue
-                                    
-                                if "[konoha] orchestrator active" in content.lower() or "[konoha] active" in content.lower() or "orchestrator active" in content.lower():
-                                    detected = "orchestrator"
-                                    break
-                                    
-                                match = re.search(r"\[([^\]]+)\]\s+active", content)
-                                if match:
-                                    agent_name = match.group(1).split()[-1].lower()
-                                    if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
-                                        detected = agent_name
-                                        break
-                                    elif agent_name in ["antigravity", "orchestrator"]:
-                                        detected = "orchestrator"
-                                        break
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-            
-            if detected:
-                return detected
-                    
-            # Check up to 15 most recent folders to find a subagent
-            if len(visited_dirs) >= 15:
-                break
+                                if content:
+                                    match = re.search(r"\[([^\]]+)\]\s+active", content)
+                                    if match:
+                                        agent_name = match.group(1).split()[-1].lower()
+                                        if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
+                                            return agent_name
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
         return fallback_agent
     except Exception:
         pass
@@ -1069,7 +1325,6 @@ def detect_active_agent():
 
 
 def handle_request(req):
-    """Handle a single JSON-RPC request."""
     method = req.get("method")
     rid = req.get("id")
 

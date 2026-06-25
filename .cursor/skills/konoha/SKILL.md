@@ -126,7 +126,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Command | Action |
 |---------|--------|
 | `node bin/cli.js init --force` | Re-installs server, forces re-migration of all active skills, registers MCP, and redeploys subagent profiles. |
-| `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries first. |
+| `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries, and automatically reconfigures integrations for Antigravity, Claude Code, Cursor, and OpenCode. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
 | `node bin/cli.js version` | Displays the current local version (1.1.6) and checks for updates from GitHub. |
@@ -144,20 +144,25 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Session Isolation & Security**: Maintainers must always ensure that session-bound context tracking, attribution, or metadata reads remain strictly isolated to the active conversation directory (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution, info leaks, or hallucinations.
 - **Knowledge & Rule Maintenance**: When adding new logic, CLI commands, or safety updates to the codebase, maintainers MUST update the rule templates (`src/agent_manager.js`, `src/cursor_manager.js`), the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`), and the compliance reports (`docs/SecurityCompliance/`) to ensure the system's runtime policies and agent instructions stay perfectly in sync. Additionally, maintainers must always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 
-### 2. Process Spawning
+### 2. Query Sanitization & Robustness
+- FTS5 search queries must be sanitized using `sanitize_fts5_query(query)` to prevent compilation and parsing syntax errors (e.g. from hyphens `-`, slashes `/`, carets `^`, colons `:`, commas `,`, unbalanced quotes/parentheses, or dangling wildcards `*`).
+- The sanitization logic must replace punctuation that acts as special syntax operators in FTS5 with spaces, while keeping alphanumeric characters, spaces, underscores, and balanced quotes/parentheses. Valid `NEAR(...)` expressions should be protected with placeholders and restored post-sanitization.
+- Fallback searches using `LIKE` must replace punctuation with `%` placeholders (e.g., converting punctuated words like `modern-full-stack` to `%modern%full%stack%`) to allow matching punctuated names in the database even if FTS5 fails or is bypassed.
+
+### 3. Process Spawning
 - **NEVER** use raw string concatenation in shell execution commands (`execSync`).
 - **ALWAYS** use parameterized spawns (`spawnSync`) and validate inputs (checking name regex `/^[a-zA-Z0-9_-]+$/` and URL schemes) to protect against command injection.
 
-### 3. Persistent Storage
+### 4. Persistent Storage
 - User configurations (e.g. subagent JSON settings) must be saved to the user's home directory (`~/.agents/agents.json`).
 - Template files inside `src/templates/` serve only as fallbacks. Package template updates should fail silently in read-only global node_modules environments.
 
-### 4. Subagent Model Fields (Host IDE)
+### 5. Subagent Model Fields (Host IDE)
 - Konoha stores optional model preferences in `agents.json` (`model`, `cursorModel`, `claudeModel`) and injects them into generated `GEMINI.md`, `AGENTS.md`, and `~/.cursor/agents/*.md`.
 - **Konoha does not implement multi-provider LLM routing.** Model selection, API calls, and quota handling are owned by the host IDE (Antigravity model registry, Cursor `model: inherit` slugs, Claude Code, OpenCode).
 - Antigravity orchestrator templates may document quota fallback behavior for coordinators; that is IDE policy text, not a Konoha runtime component.
 
-### 5. Compliance Reports
+### 6. Compliance Reports
 - Whenever updating Konoha versions or conducting security checks, you MUST generate a compliance report in the `docs/SecurityCompliance/` folder using the exact filename format: `security_compliance_report_google_policy_<version>_<YYYY-MM-DD>.md`.
 - **Mandatory Compliance Report Structure**: All generated compliance reports MUST strictly adhere to the following Markdown structure to maintain auditing transparency:
   1. **# Security and Compliance Review: Konoha Project [vVersion]** (H1 Header)
@@ -167,14 +172,14 @@ Maintainers must use these CLI commands to build, inspect, and test the database
      - **Impact**: The security benefit or policy compliance outcome (e.g. preventing silent writes).
   4. **## Conclusion**: Summary of the overall security posture and final verification declaration.
 
-### 6. Changelog Maintenance
+### 7. Changelog Maintenance
 - Whenever you make an update to the codebase or bump the version, you MUST update the `CHANGELOG.md` file to reflect your changes.
 
-### 7. File Modification Rule
+### 8. File Modification Rule
 - **File Modification Rule**: Only use `sed` if you are modifying an existing file (e.g., replacing specific strings or appending lines).
 - **README Protection Rule**: DO NOT change the structure, layout, or existing content of README.md. When updating README.md, you MUST only modify specific strings (like version numbers) using targeted search-and-replace.
 
-### 8. Agent Telemetry and Call Statistics
+### 9. Agent Telemetry and Call Statistics
 - **Case-Insensitive Grouping**: Agent status metrics calculation must aggregate statistics case-insensitively using lowercase agent names (`GROUP BY LOWER(agent)`), resolving misattribution to `Direct Tool Calls`.
 - **Self-Test Agent Role Coverage**: The CLI self-test suite (`node bin/cli.js test`) must simulate tool calls using the 6 official agent identities (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) rather than a generic `"test"` identifier. This guarantees that initial out-of-the-box telemetry accurately registers call counts for all configured subagents immediately upon verification.
 - **Dynamic Active Agent Detection**: When the `agent` parameter is omitted from MCP tool arguments, `detect_active_agent()` resolves identity from:
@@ -194,6 +199,8 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Visual Mockup or Reference Source Context Detection**: When a task requests building or scaffolding a website or user interface, the agent must check if a source design or reference source code folder (e.g., `source-design`, `source-image-design`) exists.
 - **`build_from_source` Tool**: If design mockups or reference source code files are present, the agent must invoke `build_from_source`. This tool instructs the build processor to strictly match layout design mockups and reference source code files while disabling the default premium template visual effects (10-theme switcher, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, and watermark) unless they are explicitly requested or shown in the source files.
 - **`build_from_text` Tool**: If no visual design mockup or reference source code directory exists, the agent must call `build_from_text` to scaffold the project using standard premium interactive features and templates.
+- **Dynamic Agent Skill Resolution**: The `build_from_source` and `build_from_text` tools must dynamically resolve calling agent skills from `agents.json` to configure the correct dynamic skillset list, falling back to the `"jonin"` agent's skills list, and finally falling back to standard hardcoded defaults (e.g., `["jonin-skill"]`) only if `agents.json` cannot be read.
+- **Light Mode and Split-Opening Drapes Carousel**: Visual template guidelines inside `build_from_text` prohibit dark mode/backgrounds (enforcing Light Mode only) and mandate full-width responsive homepage carousels styled with a GPU-accelerated 3D split-opening drapes slide transition effect.
 
 ### 11. Migration Optimization and Database Integrity
 - **Preserving Markdown Integrity (HTML Comments)**: When optimizing skills during the `konoha migrate` process (`src/migrate.py`), the system MUST NEVER strip HTML comments (`<!-- -->`). Stripping HTML comments is destructive and drops the quality of skills because it accidentally removes critical Svelte compiler directives (e.g., `<!-- svelte-ignore a11y_click_events_have_key_events -->`) and structural markdown markers (e.g., `<!-- slide -->` for carousels).
@@ -225,6 +232,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 16. Antigravity Orchestrator File Pipeline
 - **Flow**: `prompt_hook.js` → `prompt.md` → orchestrator reads/analyzes → `delegate.md` → subagent → `result.md` → user report.
+- **Continuation Safety**: `prompt_hook.js` avoids overwriting `prompt.md` on simple continuation keywords (e.g. `continue`, `go`, `proceed`), preserving the original prompt across turn boundaries.
 - **Forbidden**: `@self`, `@research`, direct project edits in orchestrator conversation.
 - **Generator**: `buildOrchestratorWorkflow()` in `agent_manager.js` — shared by `GEMINI.md` and `AGENTS.md`.
 
@@ -252,7 +260,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 20. Release QA Gates (public release checklist)
 | Gate | Command | Pass |
 |------|---------|------|
-| MCP tests | `konoha test` | 14/14 |
+| MCP tests | `konoha test` | 16/16 |
 | Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 |
 | Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 |
 | Claude attribution | `python3 src/test_claude_attribution.py` | 8/8 |
@@ -284,16 +292,25 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 24. Orchestrator Guardrails & Thought Token Optimization (v1.1.6 QA)
 - **Antigravity Session Isolation**: Isolates dynamic subagent detection in `detect_active_agent()` by targeting only the active `ANTIGRAVITY_CONVERSATION_ID` environment directory (no wildcards), ensuring concurrent active sessions do not read transcripts or prompts from other sessions.
+- **Session Isolation Sandbox Exception**: Appended a path-specific exception to the `Session Isolation Guard` in `src/agent_manager.js`, `src/cursor_manager.js`, and rule templates (`GEMINI.md`, `AGENTS.md`) to permit subagents to read `delegate.md` and write `result.md` files in the parent orchestrator task folder, bypassing sandboxed file read/write denials.
 - **Antigravity Delegation Guard**: Safety guardrail (`Never touch logic delegated in Antigravity`) built into `src/agent_manager.js`, `src/cursor_manager.js`, rules templates, and global instructions to protect the orchestrator's delegated flow.
 - **Optimize Thought Tokens**: Embedded thought optimization rule (`Optimize Thought Tokens`) directing agents to keep thought processes concise and implementation-focused to minimize output and reasoning token costs under thinking models.
 - **Planning-to-File (Thought-to-Markdown)**: Convention directing the orchestrator and subagents to write complex designs, multi-step implementation plans, and deep architectural analyses to a markdown file (such as `plan.md` or `scratch/plan.md`) instead of outputting massive text or thinking blocks in the conversation thread. This keeps conversation histories light and optimizes token efficiency.
 - **Automated Transient Task Cleanup**: Deleting temporary scratch task directories and transient execution states (under `scratch/tasks/`) must be automated and performed silently/immediately without asking the user for confirmation, distinguishing them from destructive operations on persistent user databases or files.
 - **Rule Synchronization**: Automatically deployed to `~/.gemini/GEMINI.md`, `~/.agents/AGENTS.md`, and project `.cursor/rules/konoha.mdc` on rule regeneration (`node -e "require('./src/agent_manager').regenerateAndDeploy()"`).
+- **Subagent Registration Instructions**: The dynamic rules generators in `src/agent_manager.js` append the output of `buildDefineSubagentGuide(agents)` after the design delegate guide. This explicitly instructs the orchestrator to call `define_subagent` at session startup for all configured subagents using bare JSON parameters, and enforces a **Critical Turn Boundary Rule** where the orchestrator must end its turn after definitions before calling `invoke_subagent`, preventing premature 'agent not found' errors.
 
 ### 25. Provider-Specific Savings Attribution (v1.1.6 QA)
 - **Active Client Detection**: `detect_active_client()` in `src/server.py` dynamically resolves the calling client by checking the environment variable `ANTIGRAVITY_CONVERSATION_ID` (always maps to `antigravity`) or scanning transcript files in `~/.cursor/projects` and `~/.claude/projects` to find the most recently modified session.
 - **Client Column Telemetry**: The `client` column is registered in the `tool_calls` table and populated during `log_tool_call()`.
 - **TUI Display**: `konoha savings` displays a dedicated "Provider Breakdown" table, showing Today, Last 7 Days, and All Time statistics (calls and tokens) partitioned specifically across `Antigravity IDE`, `Antigravity CLI (agy)`, `Cursor`, and `Claude Code`.
+
+### 26. Dynamic Skill Routing & Clean Configs (v1.1.9)
+- **Clean Configuration Files**: `~/.agents/agents.json` on disk is kept completely free of hardcoded `Before work: find_skill(...)` checks. This avoids checklist bloat and keeps the source-of-truth file concise.
+- **Dynamic Checklists & Generation**: Roster compilers in [src/cursor_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/cursor_manager.js) and [src/antigravity_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/antigravity_manager.js) dynamically strip any residual/legacy checklist instructions and inject the appropriate `Before work: find_skill` checklist at compilation/deployment time based *only* on the agent's current active `skills` array.
+- **Direct Tool Calls Fallback**: If a discovered skill is not embedded in any subagent configuration, the task coordinator routes the execution directly to the main orchestrator thread to execute the task using Direct Tool Calls rather than nesting subagents.
+- **Persistent Upgrade Marker**: Uses a persistent marker file (`~/.agents/.upgraded_v1.1.1`) to decouple the agent format checks from the presence of default skills in `agents.json`, enabling users to freely add, change, or unembed official skills for each subagent.
+- **Depth Calculation Correction**: Resolves depth calculation resetting in nested task directories by reading from both incoming `delegate.md` and target `delegate.md` files to ensure accurate sequence tracing.
 
 ## Konoha MCP Tools Reference
 

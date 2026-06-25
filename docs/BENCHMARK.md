@@ -77,7 +77,7 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 
 ---
 
-## 🧪 Release QA Gates (v1.1.7)
+## 🧪 Release QA Gates (v1.1.6)
 
 Before public release, verify:
 

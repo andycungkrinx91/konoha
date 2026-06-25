@@ -136,7 +136,17 @@ async function main() {
         if (!fs.existsSync(artifactDirectoryPath)) {
           fs.mkdirSync(artifactDirectoryPath, { recursive: true });
         }
-        fs.writeFileSync(path.join(artifactDirectoryPath, 'prompt.md'), lastInput, 'utf-8');
+        const promptFilePath = path.join(artifactDirectoryPath, 'prompt.md');
+        let shouldWrite = true;
+        if (fs.existsSync(promptFilePath)) {
+          const trimmedInput = lastInput.trim().toLowerCase();
+          if (/^(continue|go|proceed|next|ok|yes|y)$/i.test(trimmedInput)) {
+            shouldWrite = false;
+          }
+        }
+        if (shouldWrite) {
+          fs.writeFileSync(promptFilePath, lastInput, 'utf-8');
+        }
       } catch (e) {
         // ignore write errors
       }

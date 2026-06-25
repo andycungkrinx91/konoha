@@ -103,6 +103,16 @@ def setup_db():
             agent TEXT,
             client TEXT
         );
+
+        -- Table to store active sessions to prevent cross-session pollution
+        CREATE TABLE IF NOT EXISTS active_sessions (
+            client TEXT NOT NULL,
+            workspace_root TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            transcript_path TEXT,
+            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (client, workspace_root)
+        );
     """)
     try:
         conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")

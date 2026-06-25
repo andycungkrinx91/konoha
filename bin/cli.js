@@ -4623,6 +4623,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
   ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from GitHub.
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
+  ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history and prune database space.
   ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
 
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
@@ -4653,7 +4654,342 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}5. View how many tokens (and how much context window) you have saved:${C.reset}
      konoha savings
 
+  ${C.dim}6. View database disk space and active session size:${C.reset}
+     konoha data view
+
 `);
+}
+
+function cmdDataHelp() {
+  log(`
+${C.cyan}konoha data${C.reset} — Manage SQLite active session history and database size
+
+${C.bold}USAGE${C.reset}
+  konoha data <subcommand>
+
+${C.bold}SUBCOMMANDS${C.reset}
+  ${C.cyan}view${C.reset}      📊 See how much disk size and records are in your database knowledge data.
+  ${C.cyan}prune${C.reset}     🧹 Clean up old active sessions and usage logs, then vacuum disk space.
+  ${C.cyan}export${C.reset}    📤 Export indexed skills and database knowledge into a Markdown report.
+  ${C.cyan}vacuum${C.reset}    ⚡ Defragment and compress SQLite database file directly.
+
+${C.bold}EXAMPLES${C.reset}
+  ${C.dim}1. View current database statistics:${C.reset}
+     konoha data view
+
+  ${C.dim}2. Prune usage logs and clean database free space:${C.reset}
+     konoha data prune
+
+  ${C.dim}3. Export skills database to a Markdown persona file:${C.reset}
+     konoha data export
+
+  ${C.dim}4. Defragment and compress database size directly:${C.reset}
+     konoha data vacuum
+`);
+}
+
+async function cmdData(args) {
+  await chidoriTransition('data');
+  const subcommand = args[0];
+
+  if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+    cmdDataHelp();
+    process.exit(0);
+  }
+
+  switch (subcommand) {
+    case 'view':
+      await cmdDataView();
+      break;
+    case 'prune':
+      await cmdDataPrune();
+      break;
+    case 'export':
+      await cmdDataExport();
+      break;
+    case 'vacuum':
+      await cmdDataVacuum();
+      break;
+    default:
+      error(`Unknown data subcommand: ${subcommand}`);
+      cmdDataHelp();
+      process.exit(1);
+  }
+}
+
+async function cmdDataView() {
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const script = `
+import sqlite3, os, sys, json
+db_path = sys.argv[1]
+conn = sqlite3.connect(db_path)
+db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+
+try:
+    skills_count = conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
+except Exception:
+    skills_count = 0
+
+try:
+    tool_calls_count = conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0]
+except Exception:
+    tool_calls_count = 0
+
+try:
+    sessions_count = conn.execute("SELECT COUNT(*) FROM active_sessions").fetchone()[0]
+except Exception:
+    sessions_count = 0
+
+try:
+    page_count = conn.execute("PRAGMA page_count;").fetchone()[0]
+    freelist_count = conn.execute("PRAGMA freelist_count;").fetchone()[0]
+    page_size = conn.execute("PRAGMA page_size;").fetchone()[0]
+    freelist_size = freelist_count * page_size
+except Exception:
+    freelist_size = 0
+
+print(json.dumps({
+    "db_size": db_size,
+    "skills_count": skills_count,
+    "tool_calls_count": tool_calls_count,
+    "sessions_count": sessions_count,
+    "freelist_size": freelist_size
+}))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 });
+      if (run.status === 0) {
+        const data = JSON.parse(run.stdout.trim());
+        const sizeMb = (data.db_size / (1024 * 1024)).toFixed(2);
+        const freeMb = (data.freelist_size / (1024 * 1024)).toFixed(2);
+        
+        log(`\n${C.cyan}📊 Konoha Database Statistics${C.reset}`);
+        log(`════════════════════════════════════════════════════════════`);
+        log(`  ${C.bold}Database path:${C.reset}  ${DB_PATH}`);
+        log(`  ${C.bold}Disk Size:${C.reset}      ${sizeMb} MB`);
+        log(`  ${C.bold}Indexed Skills:${C.reset} ${data.skills_count} skills`);
+        log(`  ${C.bold}Usage Logs:${C.reset}     ${data.tool_calls_count} records`);
+        log(`  ${C.bold}Active Sessions:${C.reset} ${data.sessions_count} sessions`);
+        log(`  ${C.bold}Prunable Space:${C.reset}  ${freeMb} MB (vacuumable)`);
+        log(`════════════════════════════════════════════════════════════`);
+        log(`Use ${C.cyan}konoha data prune${C.reset} to clear usage logs and shrink database size.\n`);
+      } else {
+        error(`Failed to retrieve database statistics: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to view database statistics: ${err.message}`);
+  }
+}
+
+async function cmdDataPrune() {
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      info('Pruning database (clearing session history, old usage logs)...');
+      const script = `
+import sqlite3, os, sys, json
+db_path = sys.argv[1]
+conn = sqlite3.connect(db_path)
+size_before = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+
+# Prune tables
+try:
+    conn.execute("DELETE FROM tool_calls;")
+except Exception:
+    pass
+
+try:
+    conn.execute("DELETE FROM active_sessions;")
+except Exception:
+    pass
+
+conn.commit()
+
+# Compress
+try:
+    conn.execute("VACUUM;")
+except Exception:
+    pass
+
+size_after = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+print(json.dumps({
+    "size_before": size_before,
+    "size_after": size_after,
+    "saved": max(size_before - size_after, 0)
+}))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
+      if (run.status === 0) {
+        const data = JSON.parse(run.stdout.trim());
+        const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);
+        const sizeAfterMb = (data.size_after / (1024 * 1024)).toFixed(2);
+        const savedMb = (data.saved / (1024 * 1024)).toFixed(2);
+
+        success('Successfully pruned active session mappings and usage logs!');
+        log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
+        log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
+        log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
+      } else {
+        error(`Failed to prune database: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to prune database: ${err.message}`);
+  }
+}
+
+async function cmdDataVacuum() {
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      info('Vacuuming database (compressing SQLite files and reclaiming disk space)...');
+      const script = `
+import sqlite3, os, sys, json
+db_path = sys.argv[1]
+conn = sqlite3.connect(db_path)
+size_before = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+
+# Compress
+try:
+    conn.execute("VACUUM;")
+except Exception:
+    pass
+
+size_after = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+print(json.dumps({
+    "size_before": size_before,
+    "size_after": size_after,
+    "saved": max(size_before - size_after, 0)
+}))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
+      if (run.status === 0) {
+        const data = JSON.parse(run.stdout.trim());
+        const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);
+        const sizeAfterMb = (data.size_after / (1024 * 1024)).toFixed(2);
+        const savedMb = (data.saved / (1024 * 1024)).toFixed(2);
+
+        success('Successfully vacuumed database!');
+        log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
+        log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
+        log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
+      } else {
+        error(`Failed to vacuum database: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to vacuum database: ${err.message}`);
+  }
+}
+
+async function cmdDataExport() {
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yy = String(now.getFullYear()).slice(-2);
+      const ms = String(now.getMilliseconds()).padStart(3, '0');
+      const filename = `konoha-persona-${dd}${mm}${yy}${ms}.md`;
+      const exportPath = path.join(process.cwd(), filename);
+
+      info(`Exporting database to Markdown at ${exportPath}...`);
+
+      const script = `
+import sqlite3, sys, os, json
+db_path = sys.argv[1]
+export_path = sys.argv[2]
+conn = sqlite3.connect(db_path)
+
+try:
+    skills = conn.execute("SELECT name, skill_name, type, tags, content, byte_size, line_count FROM skills ORDER BY name ASC").fetchall()
+except Exception as e:
+    skills = []
+
+try:
+    sessions = conn.execute("SELECT client, workspace_root, session_id, last_active_at FROM active_sessions ORDER BY last_active_at DESC").fetchall()
+except Exception:
+    sessions = []
+
+try:
+    tool_calls_sum = conn.execute("SELECT COUNT(*), SUM(bytes_saved), SUM(tokens_saved) FROM tool_calls").fetchone()
+except Exception:
+    tool_calls_sum = (0, 0, 0)
+
+with open(export_path, "w", encoding="utf-8") as f:
+    f.write("# 🍃 Konoha Persona & Knowledge Export\\n\\n")
+    f.write(f"Generated Database Dump: {db_path}\\n")
+    f.write("This file contains the structured skills, agent identities, and active sessions database.\\n\\n")
+    
+    f.write("## 👤 Special Agent Village Roster\\n")
+    agents_path = os.path.expanduser("~/.agents/agents.json")
+    if os.path.exists(agents_path):
+        try:
+            with open(agents_path, "r", encoding="utf-8") as af:
+                agents_data = json.load(af)
+            for a in agents_data:
+                icon = a.get("icon", "👤")
+                f.write(f"- **{icon} {a.get('name')}** (Model: {a.get('modelTier')}): {a.get('description')}\\n")
+        except Exception:
+            f.write("Failed to load agents configuration.\\n")
+    else:
+        f.write("No ~/.agents/agents.json found.\\n")
+    f.write("\\n")
+    
+    f.write("## 📚 Indexed Reference Skills\\n")
+    if not skills:
+        f.write("No skills currently indexed in the SQLite database.\\n")
+    else:
+        for name, skill_name, stype, tags, content, size, lines in skills:
+            f.write(f"### 📦 {name} ({stype})\\n")
+            f.write(f"- **Skill Group**: {skill_name}\\n")
+            f.write(f"- **Tags**: {tags or ''}\\n")
+            f.write(f"- **Size**: {size} bytes ({lines} lines)\\n\\n")
+            f.write("#### Instruction Content:\\n")
+            f.write("\`\`\`markdown\\n")
+            f.write(content.strip() + "\\n")
+            f.write("\`\`\`\\n\\n")
+            f.write("---\\n\\n")
+
+    f.write("## 📊 Active Workspace Sessions\\n")
+    if not sessions:
+        f.write("No active workspace sessions recorded.\\n")
+    else:
+        f.write("| Client | Workspace Root | Session ID | Last Active |\\n")
+        f.write("| --- | --- | --- | --- |\\n")
+        for client, root, sess_id, last_active in sessions:
+            f.write(f"| {client} | {root} | {sess_id} | {last_active} |\\n")
+    f.write("\\n")
+
+    f.write("## 📉 Token Telemetry Summary\\n")
+    calls, bytes_saved, tokens_saved = tool_calls_sum
+    f.write(f"- **Total Tool Invocations**: {calls or 0}\\n")
+    f.write(f"- **Cumulative Bytes Saved**: {bytes_saved or 0} bytes\\n")
+    f.write(f"- **Cumulative Tokens Saved**: {tokens_saved or 0} tokens\\n")
+
+print("success")
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH, exportPath], { encoding: 'utf-8', timeout: 15000 });
+      if (run.status === 0 && run.stdout.trim() === 'success') {
+        success(`Successfully exported database knowledge base to ${exportPath}!`);
+      } else {
+        error(`Failed to export database: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to export database: ${err.message}`);
+  }
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -4714,6 +5050,9 @@ async function main() {
         break;
       case 'models':
         await cmdModels(args);
+        break;
+      case 'data':
+        await cmdData(args);
         break;
       case 'help':
       case '--help':

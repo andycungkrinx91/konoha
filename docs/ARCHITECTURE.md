@@ -4,7 +4,7 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.1.7)
+title: Konoha System Architecture (v1.1.6)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────

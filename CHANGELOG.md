@@ -2,31 +2,18 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [1.1.7] - 2026-06-25
+## [1.1.6] - 2026-06-25
 
 ### Added
+- **Active Sessions Telemetry & Pruning**: Implemented active session tracking inside SQLite database, allowing users to view total DB statistics using `konoha data view`, prune old mappings using `konoha data prune`, and vacuum the database directly using `konoha data vacuum`.
+- **Knowledge Base Exporting**: Added the `konoha data export` subcommand to export the database's skills, agent village roster, and active sessions telemetry into a Markdown file (e.g., `konoha-persona-ddmmyyms.md`) in the current working directory.
+- **Session Isolation and Leak Prevention**: Restricted workspace scan directories to files matching the active workspace slug to prevent cross-session context leaks and hallucinations in Cursor, Claude Code, and Antigravity.
+- **Main Agent Konoha-Files Boundary**: Updated the orchestrator's global agent instruction templates (`GEMINI.md` and `AGENTS.md`) and compiler configuration manager (`agent_manager.js`) to mandate that the main agent (coordinating orchestrator) utilizes the `konoha-files` MCP server for all file reads and line greps instead of generic file utilities.
 - **Dynamic Skill Checklist Injection**: Compilers and deployment generators dynamically strip any legacy find_skill instructions and inject active `Before work: find_skill` calls directly at compile/generation boundaries based on the agent's current `skills` array.
 - **Direct Tool Calls Fallback**: Integrated fallback mechanism to execute skills using Direct Tool Calls in the main coordinator thread when no specialized subagent embeds the matching skill.
 - **Persistent Upgrade Marker**: Replaced inline checks for default skills with a persistent `.upgraded_v1.1.1` marker file to determine upgrade status, allowing complete freedom to change or unembed official skills per agent.
 - **Depth Calculation Correction**: Fixed loop counter reset bugs in nested task structures by loading depth metadata from both incoming and target `delegate.md` directories.
 - **Clean config on disk**: Automatically migrate and clean `~/.agents/agents.json` on disk to remove hardcoded checklists, keeping user configurations clean.
-
-### Changed
-- **Host-Agnostic Storage Migration**: Relocated the central Konoha installation, SQLite FTS5 database (`skills.db`), Python server, and JavaScript hooks from `~/.gemini/skills-db` to `~/.konoha/` to provide a tool-agnostic folder structure suitable for multi-agent integrations (Antigravity, Cursor, Claude Code, OpenCode).
-- **Client Integration Paths**: Updated client configuration managers and template bootstrap scripts (`src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/cursor_bootstrap.js`) to register servers using the new `~/.konoha/` path.
-- **Boundary Validation Update**: Enhanced the Python server's (`src/server.py`) workspace boundary validation (`is_path_visible`) to permit read/write visibility inside `~/.konoha/` and to support custom skills directories containing `.konoha/skills`.
-
-### Fixed
-- **Subagent Skill Customization**: Decoupled the agent formats checking mechanism (`isAlreadyUpgraded`) from the presence of default skills in `agents.json` by using a persistent marker file (`.upgraded_v1.1.1`). This permits users to freely add, change, or unembed official skills for each subagent.
-- **Unembedding Skill Prompt Sync**: Ensured that the `Before work: find_skill(...)` section is correctly cleaned up and removed from the subagent's `instructions` when all skills are unembedded from that agent, preventing checklists and guidelines of unembedded skills from persisting.
-- **Exclusion of Development Skills**: Excluded the internal development skill `konoha` (containing `konoha-maintenance` knowledge) from global directory initialization and auto-setup checks. This preserves the skill as a workspace-local resource for Konoha developers and prevents it from copying to regular users' default configurations on fresh installs.
-- **Active Agent Scan Robustness**: Resolved transient race conditions in `detect_active_agent()` by verifying file existence before sorting active agent session files.
-- **IDE Telemetry Coverage**: Extended token calculation logic in `src/db_savings.py` to cover both `antigravity-cli` and `antigravity-ide` session folders.
-- **Self-Test Workspace Independence**: Refactored the `cmdTest()` subcommand in `bin/cli.js` to create and verify a temporary test directory containing a mock file for the `build_from_source` test, removing the reliance on a relative `"src"` path under the current working directory.
-
-## [1.1.6] - 2026-06-23
-
-### Added
 - **Antigravity Session Isolation**: Enhanced `detect_active_agent()` in `src/server.py` to check `os.environ.get("ANTIGRAVITY_CONVERSATION_ID")` first. If present, it isolates the transcript and active agent search strictly to the active conversation directory, preventing cross-session tool misattributions and hallucinations.
 - **Antigravity Delegation Guard**: Safety guardrail (`Never touch logic delegated in Antigravity`) built into `src/agent_manager.js`, `src/cursor_manager.js`, rules templates, and global instructions to protect the orchestrator's delegated flow.
 - **Automated Transient Task Cleanup**: Configured rule exceptions and guidelines in `src/agent_manager.js`, `src/cursor_manager.js`, and `SKILL.md` to automate the cleanup of transient agent task files (under `scratch/tasks/`) silently and immediately without requiring manual user confirmation.

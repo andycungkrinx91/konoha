@@ -28,10 +28,10 @@ Each subagent has an embedded **Cursor model** in its frontmatter. When using Ta
 | Embedded Skills | Subagent |
 |---|---|
 | `deep-code-explorer` | `genin` |
-| `modern-full-stack`, `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
 | `websearch-deep` | `chunin` |
-| `modern-full-stack`, `agent-browser` | `jonin` |
-| `modern-full-stack`, `devsecops-engineer`, `agent-browser` | `anbu` |
+| `agent-browser`, `modern-full-stack` | `jonin` |
+| `devsecops-engineer`, `agent-browser` | `anbu` |
 | `documentation` | `tokubetsu-jonin` |
 
 ### Default Code Search — Semble MCP Only
@@ -90,7 +90,7 @@ Konoha installs **konoha-files** as the token-efficient replacement for built-in
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations.
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - Read-only for `.env`, `terraform.tfvars`, `secrets.yaml` unless user approves
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.

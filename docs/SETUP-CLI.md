@@ -211,7 +211,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.7`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.6`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```

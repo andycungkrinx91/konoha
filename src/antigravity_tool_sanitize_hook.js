@@ -81,14 +81,25 @@ const SUBAGENT_IDENTITY_OVERRIDE = [
 ].join('\n');
 
 function sanitizeDefineSubagentArgs(args) {
-  const out = { ...args };
+  const out = {};
+  for (const key of Object.keys(args || {})) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'name') out.name = args[key];
+    else if (lowerKey === 'description') out.description = args[key];
+    else if (lowerKey === 'system_prompt' || lowerKey === 'systemprompt') out.system_prompt = args[key];
+    else if (lowerKey === 'enable_mcp_tools' || lowerKey === 'enablemcptools') out.enable_mcp_tools = args[key];
+    else if (lowerKey === 'enable_write_tools' || lowerKey === 'enablewritetools') out.enable_write_tools = args[key];
+    else if (lowerKey === 'enable_subagent_tools' || lowerKey === 'enablesubagenttools') out.enable_subagent_tools = args[key];
+    else out[key] = args[key];
+  }
+
   for (const key of ['name', 'description', 'system_prompt']) {
     if (out[key] != null) out[key] = stripQuotes(out[key]);
   }
   for (const key of ['enable_mcp_tools', 'enable_write_tools', 'enable_subagent_tools']) {
     if (out[key] != null) out[key] = toBool(out[key]);
   }
-  
+
   if (out.name) {
     const realAgent = loadRealAgent(out.name);
     if (realAgent) {
@@ -112,18 +123,31 @@ function sanitizeDefineSubagentArgs(args) {
   }
 
   return out;
-  return out;
 }
 
 function sanitizeInvokeSubagentArgs(args) {
-  const out = { ...args };
+  const out = {};
+  for (const key of Object.keys(args || {})) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'subagents') out.Subagents = args[key];
+    else out[key] = args[key];
+  }
+
   const subs = parseSubagents(out.Subagents);
   if (!Array.isArray(subs)) {
     return { error: 'Subagents must be a JSON array, not a string.' };
   }
 
   const cleaned = subs.map((entry) => {
-    const e = { ...entry };
+    const e = {};
+    for (const key of Object.keys(entry || {})) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'typename' || lowerKey === 'type_name') e.TypeName = entry[key];
+      else if (lowerKey === 'role') e.Role = entry[key];
+      else if (lowerKey === 'prompt') e.Prompt = entry[key];
+      else if (lowerKey === 'workspace') e.Workspace = entry[key];
+      else e[key] = entry[key];
+    }
     if (e.TypeName != null) e.TypeName = stripQuotes(e.TypeName);
     if (e.Role != null) e.Role = stripQuotes(e.Role);
     if (e.Prompt != null) e.Prompt = stripQuotes(e.Prompt);
@@ -143,7 +167,6 @@ function sanitizeInvokeSubagentArgs(args) {
   }
 
   out.Subagents = cleaned;
-  return { args: out };
   return { args: out };
 }
 
