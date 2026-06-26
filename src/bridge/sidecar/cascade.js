@@ -1,0 +1,257 @@
+'use strict';
+
+const vscode = require('vscode');
+const path = require('path');
+const { log, verboseLog } = require('../utils');
+const { extractText } = require('../images');
+const { discoverSidecar } = require('./discovery');
+const { makeH2JsonCall, makeH2ProtoCall, makeH2ProtoStreamingCall } = require('./rpc');
+const { encodeProto, decodeProto } = require('./proto');
+
+// ─────────────────────────────────────────────
+// Proto-compatible Metadata builder
+// Matches exa.codeium_common_pb.Metadata
+// ─────────────────────────────────────────────
+
+function buildMetadata(ctx) {
+  return {
+    ideName: 'antigravity',
+    extensionName: 'antigravity',
+    extensionVersion: '0.2.0',
+    os: process.platform,
+    sessionId: ctx.sessionId || '',
+  };
+}
+
+// ─────────────────────────────────────────────
+// Cascade Conversations
+// StartCascade → SendUserCascadeMessage → poll GetCascadeTrajectory
+// ─────────────────────────────────────────────
+
+function getConversationKey(messages, workspaceDir) {
+  const userMsgs = messages.filter((m) => m.role === 'user').map((m) => extractText(m.content));
+  const prefix = workspaceDir ? path.basename(workspaceDir) : 'default';
+  if (userMsgs.length === 0) return `${prefix}_system_${Date.now()}`;
+  return `${prefix}_${String(userMsgs[0]).substring(0, 50)}`;
+}
+
+async function callSidecarChat(
+  ctx,
+  messages,
+  modelValue = 1035,
+  workspaceDir = null,
+  workspaceUri = null,
+  images = [],
+) {
+  const info = await discoverSidecar(ctx);
+  if (!info) throw new Error('Sidecar not discovered');
+
+  let userMessage = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => extractText(m.content))
+    .join('\n');
+  const mainCsrf = info.csrfTokens[0];
+  const vlog = (msg) => verboseLog(ctx, msg);
+
+  // Find a working LS port
+  const lsPorts = info.actualPorts.filter((p) => p !== info.extensionServerPort);
+  let lsPort = null;
+  for (const port of lsPorts) {
+    try {
+      await makeH2JsonCall(port, mainCsrf, info.certPath, 'GetStatus', {});
+      lsPort = port;
+      break;
+    } catch (e) {
+      vlog(`  port ${port} failed: ${e.message.substring(0, 40)}`);
+    }
+  }
+  if (!lsPort) throw new Error('No reachable LS port');
+
+  const convKey = getConversationKey(messages, workspaceDir);
+  let cascadeId = null;
+
+  // Retry loop: start fresh cascade on each attempt (capacity errors leave error steps)
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 10000;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      log(ctx, `  ⏳ Retry ${attempt + 1}/${MAX_RETRIES} after ${RETRY_DELAY_MS / 1000}s backoff...`);
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    }
+
+    // --- CONVERSATION MULTIPLEXING ---
+    if (ctx.cascadePromises.has(convKey)) {
+      vlog(`  ♻️ Awaiting concurrent cascade creation for conv: ${convKey.replace(/\n/g, '')}...`);
+      cascadeId = await ctx.cascadePromises.get(convKey);
+      vlog(`  ♻️ Concurrently Reused cascade: ${cascadeId.substring(0, 8)}`);
+    } else if (
+      ctx.activeCascades.has(convKey) &&
+      Date.now() - ctx.activeCascades.get(convKey).lastUsed < 1000 * 60 * 60 * 4
+    ) {
+      cascadeId = ctx.activeCascades.get(convKey).id;
+      ctx.activeCascades.get(convKey).lastUsed = Date.now();
+      vlog(`  ♻️ Reused existing conversation: ${cascadeId.substring(0, 8)}`);
+    } else {
+      // Must create a new Cascade. Lock the workspace globally to prevent race conditions across parallel conversations!
+      const promise = (async () => {
+        while (ctx.isWorkspaceSwitching) await new Promise((r) => setTimeout(r, 100));
+        ctx.isWorkspaceSwitching = true;
+        try {
+          let originalFolders = null;
+          if (workspaceDir) {
+            const targetUri = vscode.Uri.file(workspaceDir);
+            const currentFolders = vscode.workspace.workspaceFolders || [];
+            const currentFsPaths = currentFolders.map((f) => f.uri.fsPath);
+
+            // Strict match ensures we drop "playground" if it's open alongside the target
+            const isStrictMatch = currentFsPaths.length === 1 && currentFsPaths[0] === workspaceDir;
+
+            if (!isStrictMatch) {
+              originalFolders = currentFolders.map((f) => ({ uri: f.uri, name: f.name }));
+              const success = vscode.workspace.updateWorkspaceFolders(0, currentFolders.length, {
+                uri: targetUri,
+                name: path.basename(workspaceDir),
+              });
+              if (success) {
+                vlog(`  📂 Switched workspace strictly to: ${workspaceDir}`);
+                await new Promise((r) => setTimeout(r, 1000)); // Crucial LSP propagation delay
+              } else {
+                log(ctx, `  ⚠️ updateWorkspaceFolders failed`);
+                originalFolders = null;
+              }
+            } else {
+              vlog(`  📂 Workspace already exclusively correct: ${workspaceDir}`);
+            }
+          }
+
+          const startPayload = {
+            metadata: buildMetadata(ctx),
+            source: 1, // CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT
+          };
+          if (workspaceUri) {
+            startPayload.workspaceUris = [workspaceUri];
+          }
+          const startBytes = encodeProto('exa.language_server_pb.StartCascadeRequest', startPayload);
+          const respBytes = await makeH2ProtoCall(lsPort, mainCsrf, info.certPath, 'StartCascade', startBytes);
+          const startResult = decodeProto('exa.language_server_pb.StartCascadeResponse', respBytes);
+          const newId = startResult && startResult.cascadeId;
+
+          if (originalFolders && originalFolders.length > 0) {
+            const current = vscode.workspace.workspaceFolders || [];
+            vscode.workspace.updateWorkspaceFolders(0, current.length, ...originalFolders);
+            vlog(`  ♻️ Restored ${originalFolders.length} workspace folders`);
+          }
+
+          if (!newId) throw new Error('StartCascade failed to return cascadeId');
+          return newId;
+        } finally {
+          ctx.isWorkspaceSwitching = false;
+        }
+      })();
+
+      ctx.cascadePromises.set(convKey, promise);
+      try {
+        cascadeId = await promise;
+        ctx.activeCascades.set(convKey, { id: cascadeId, lastUsed: Date.now() });
+        log(ctx, `  🆕 New Cascade created: ${cascadeId.substring(0, 8)} (attempt ${attempt + 1})`);
+      } catch (err) {
+        ctx.cascadePromises.delete(convKey);
+        throw err;
+      } finally {
+        ctx.cascadePromises.delete(convKey);
+      }
+    }
+
+    // Send message
+    const conversationalConfig = { agenticMode: false };
+    if (workspaceUri) {
+      conversationalConfig.overrideWorkspaceDirExperimentalUseOnly = workspaceUri;
+    }
+    const sendPayload = {
+      cascadeId,
+      items: [{ text: userMessage }],
+      metadata: buildMetadata(ctx),
+      clientType: 1, // CHAT_CLIENT_REQUEST_STREAM_CLIENT_TYPE_IDE
+      messageOrigin: 1, // AGENT_MESSAGE_ORIGIN_IDE
+      cascadeConfig: {
+        plannerConfig: {
+          conversational: conversationalConfig,
+          requestedModel: { model: modelValue },
+        },
+      },
+    };
+    // Inject images via the `media` field (field 14) with raw bytes.
+    // The `images` field (field 6) is deprecated and silently ignored by the sidecar.
+    if (images && images.length > 0) {
+      sendPayload.media = images.map((img) => ({
+        mimeType: img.mimeType || 'image/png',
+        inlineData: new Uint8Array(Buffer.from(img.base64Data, 'base64')),
+      }));
+      vlog(`  🖼️ Injected ${images.length} image(s) via media field into payload`);
+    }
+    try {
+      const sendBytes = encodeProto('exa.language_server_pb.SendUserCascadeMessageRequest', sendPayload);
+      await makeH2ProtoStreamingCall(lsPort, mainCsrf, info.certPath, 'SendUserCascadeMessage', sendBytes);
+      log(ctx, `  ✅ SendUserCascadeMessage dispatched (attempt ${attempt + 1})`);
+      vlog(`  📦 Payload: ${JSON.stringify(sendPayload).substring(0, 1000)}`);
+    } catch (e) {
+      log(ctx, `  ⚠️ SendUserCascadeMessage failed: ${e.message.substring(0, 60)}`);
+      ctx.activeCascades.delete(convKey);
+      continue; // retry with fresh cascade
+    }
+
+    // Poll trajectory until PLANNER_RESPONSE + IDLE
+    const pollStart = Date.now();
+    const maxWait = 300000; // Wait up to 5 minutes, thinking models can be very slow
+    let shouldRetry = false;
+    while (Date.now() - pollStart < maxWait) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const elapsed = Math.round((Date.now() - pollStart) / 1000);
+      try {
+        const traj = await makeH2JsonCall(lsPort, mainCsrf, info.certPath, 'GetCascadeTrajectory', { cascadeId });
+        const steps = (traj && traj.trajectory && traj.trajectory.steps) || [];
+        const status = traj && traj.status;
+        vlog(`  [poll ${elapsed}s] steps=${steps.length} status=${status}`);
+
+        if (steps.length > 0 && status === 'CASCADE_RUN_STATUS_IDLE') {
+          // Look for response text in PLANNER_RESPONSE steps
+          for (const step of [...steps].reverse()) {
+            if (step.type !== 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') continue;
+            const pr = step.plannerResponse;
+            if (!pr) continue;
+            const text = pr.modifiedResponse || pr.response || pr.content || pr.thinking;
+            if (text && text.trim().length >= 3) {
+              log(ctx, `✅ Response ready (${text.length} chars, attempt ${attempt + 1})`);
+              return text.trim();
+            }
+          }
+          // Check for capacity error → fail fast, don't retry (each retry burns more quota)
+          if (
+            steps.some(
+              (s) =>
+                s.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE' &&
+                JSON.stringify(s.errorMessage || '')
+                  .toLowerCase()
+                  .includes('capacity'),
+            )
+          ) {
+            log(ctx, `  🛑 Capacity error (attempt ${attempt + 1}), failing fast (no retry to preserve quota)`);
+            ctx.activeCascades.delete(convKey);
+            shouldRetry = false; // Don't retry — model is capacity-exhausted, retrying just wastes quota
+          } else {
+            log(ctx, `  ⚠️ IDLE with no PLANNER_RESPONSE after ${elapsed}s`);
+            ctx.activeCascades.delete(convKey);
+            shouldRetry = false; // Fail fast to Tier 2 instead of spamming duplicates
+          }
+          break;
+        }
+      } catch (e) {
+        vlog(`  [poll error] ${e.message.substring(0, 80)}`);
+      }
+    }
+    if (!shouldRetry) break;
+  }
+  throw new Error(`Cascade failed after ${MAX_RETRIES} attempts (model capacity exhausted)`);
+}
+
+module.exports = { getConversationKey, callSidecarChat };

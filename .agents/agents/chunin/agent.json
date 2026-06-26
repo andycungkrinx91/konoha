@@ -3,7 +3,7 @@
   "description": "Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.",
   "config": {
     "customAgent": {
-      "model": "Gemini 3.5 Flash (Low)",
+      "model": "Gemini 3.5 Flash (Low) | Fallback when fail Gemini 3.1 Flash-Lite",
       "systemPromptSections": [
         {
           "title": "Agent System Instructions",

@@ -135,6 +135,12 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `python3 src/test_agent_attribution.py` | One-by-one Antigravity MCP agent attribution verification. |
 | `python3 src/test_cursor_attribution.py` | One-by-one Cursor MCP agent attribution verification. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
+| `node bin/cli.js bridge status` | Shows runtime status and details of all configured LLM bridges. |
+| `node bin/cli.js bridge list` | Lists all configured bridges in a formatted summary table. |
+| `node bin/cli.js bridge create <name>` | Interactively creates a new bridge (supports custom OpenAI-compatible endpoints). |
+| `node bin/cli.js bridge delete <name>` | Deletes a bridge configuration. |
+| `node bin/cli.js bridge enable <name>` | Enables a bridge configuration. |
+| `node bin/cli.js bridge disable <name>` | Disables a bridge configuration. |
 
 ## Development Guidelines
 
@@ -210,6 +216,9 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 12. Subagent Model Property Allocation
 - **Antigravity Model Injection**: When generating `GEMINI.md` or `AGENTS.md` in `src/agent_manager.js`, inject `model: \`<modelTier>\`` into `define_subagent` so subagents use configured Gemini/Claude tiers.
 - **Cursor Model Injection**: `src/cursor_manager.js` deploys `~/.cursor/agents/*.md` with `model: inherit` (Cursor Auto) by default for Free-tier compatibility. Override via `cursorModel` in `agents.json` when explicit slugs are needed.
+- **Claude & OpenCode Model Configuration**: Support whitelisting client-specific configurations via `--claude`, `--cursor`, and `--opencode` flags in the `konoha models embed` subcommand, allowing granular control over subagent LLM assignments per client IDE/CLI.
+- **Models Subcommand Status & Listing**: The `konoha models status` subcommand prints current subagent model mappings for all clients. The `konoha models list` subcommand additionally includes a comprehensive table of all available/active Antigravity and bridge models.
+- **Status OpenCode Mapping**: The `konoha status` command displays the active model settings for OpenCode alongside Cursor and Claude Code integrations in its subagents list table.
 
 ### 13. Cursor IDE/CLI Integration
 - **Auto-Setup**: `ensureAutoSetup()` + `cursor_manager.ensureCursorSetup()` register MCP, subagents, hooks, CLI permissions, and mirror skills to `~/.cursor/skills/`.
@@ -225,9 +234,10 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 15. Token-Efficient File Tools (`konoha-files` MCP)
 - **Architecture**: Node.js `file_tools_mcp.js` + `file_tools_router.js` orchestrate; Python scripts in `src/file_tools/` perform streaming I/O.
-- **Tools**: `read_file_head` (≤200 lines), `read_file_range` (≤500 lines), `file_info`, `token_efficient_grep` (≤20 matches), `get_file_structure`, `find_files_clean`.
+- **Tools**: `read_file_head` (≤200 lines), `read_file_range` (≤500 lines), `file_info`, `token_efficient_grep` (≤20 matches), `get_file_structure`, `find_files_clean` (which automatically skips VCS, lockfiles, `go-dist`, and `vendor` directories during file walks to prevent context bloat).
 - **Launcher**: `file_tools_launcher.js` (cross-platform) + `.node_exec_path` / `.python_cmd` records; Unix also ships `file_tools_launcher.sh`.
-- **Install**: `installFileTools()` copies to `~/.konoha/`; registered as `konoha-files` in Antigravity `mcp_config.json` and Cursor `mcp.json`.
+- **Proxy Gateway & LLM Bridges Integration**: Automatically starts the central Proxy Gateway on port `11434` and all enabled bridges in `bridges.json` (such as `antigravity` on port `11435` and `adacode` on port `11436`) in-process when `konoha-files` MCP server initializes, providing multi-provider routing and formatting compatibility. The Proxy Gateway automatically intercepts and returns `{"input_tokens": 0}` with a `200 OK` status for `POST /v1/messages/count_tokens` preflight queries (frequently made by the Claude CLI and Cherry Studio) to bypass gateway failures and prevent retry loops.
+- **Install**: `installFileTools()` copies files to `~/.konoha/` (including `bridge/` submodules), sets up runtime dependencies via local `npm install`, and registers it as `konoha-files` in Antigravity `mcp_config.json` and Cursor `mcp.json`.
 - **Tests**: `konoha test` runs MCP integration tests for all four tools.
 
 ### 16. Antigravity Orchestrator File Pipeline
@@ -239,7 +249,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 17. Multi-CLI MCP Clients (Claude Code, OpenCode, others)
 - **Install once**: `konoha init` deploys servers to `~/.konoha/` regardless of IDE.
 - **Auto-detect**: `src/mcp_clients_manager.js` configures Claude Code / OpenCode **only when** `claude` or `opencode` CLI is on PATH (or config dir exists).
-- **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) only — no project `.mcp.json`.
+- **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) and deploys the 6 official ninja subagents to `~/.claude/agents/` with whitelisted allowed-tools matching `mcp_semble_*`, `mcp_skills-db_*`, `mcp_konoha-files_*`.
 - **Claude Code Active Agent Detection**: Scans `~/.claude/projects/*/*.jsonl` session transcripts. Resolves session directories uniquely using `conv_dir = fpath` to isolate telemetry per session.
 - **OpenCode (auto)**: Merges into `~/.config/opencode/opencode.json` (`mcp`) only — no project `opencode.json`.
 - **Not installed**: Skip silently; manual fallback templates in `docs/templates/` (`claude-code.mcp.json`, `opencode.mcp.json`).
@@ -299,6 +309,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Automated Transient Task Cleanup**: Deleting temporary scratch task directories and transient execution states (under `scratch/tasks/`) must be automated and performed silently/immediately without asking the user for confirmation, distinguishing them from destructive operations on persistent user databases or files.
 - **Rule Synchronization**: Automatically deployed to `~/.gemini/GEMINI.md`, `~/.agents/AGENTS.md`, and project `.cursor/rules/konoha.mdc` on rule regeneration (`node -e "require('./src/agent_manager').regenerateAndDeploy()"`).
 - **Subagent Registration Instructions**: The dynamic rules generators in `src/agent_manager.js` append the output of `buildDefineSubagentGuide(agents)` after the design delegate guide. This explicitly instructs the orchestrator to call `define_subagent` at session startup for all configured subagents using bare JSON parameters, and enforces a **Critical Turn Boundary Rule** where the orchestrator must end its turn after definitions before calling `invoke_subagent`, preventing premature 'agent not found' errors.
+- **Client Orchestration Logic Flow Alignment**: Configured configuration deployment managers (`agent_manager.js`, `bin/cli.js`) to deploy customized, platform-native rule configurations for all MCP clients. Antigravity and OpenCode utilize the global subagent rules (`GEMINI.md` / `AGENTS.md`), Cursor deploys Composer-native Task orchestration rules (`konoha.mdc`), and Claude Code receives single-agent direct execution rules (`CLAUDE.md`). This eliminates platform incompatibilities and resolves bugs where Claude Code failed to execute embedded skills due to missing subagent tools.
 
 ### 25. Provider-Specific Savings Attribution (v1.1.6 QA)
 - **Active Client Detection**: `detect_active_client()` in `src/server.py` dynamically resolves the calling client by checking the environment variable `ANTIGRAVITY_CONVERSATION_ID` (always maps to `antigravity`) or scanning transcript files in `~/.cursor/projects` and `~/.claude/projects` to find the most recently modified session.
@@ -392,7 +403,7 @@ Provides streaming, token-efficient filesystem tools.
 * **`get_file_structure`**: Parse class, function, or method signature declarations to map file layout.
   * *Arguments*:
     - `path` (string, required): Target file path.
-* **`find_files_clean`**: Fast file glob search skipping VCS and lockfiles.
+* **`find_files_clean`**: Fast file glob search skipping VCS, lockfiles, and compiler/vendor distribution folders (specifically ignoring `go-dist` and `vendor` directories in walk cycles to prevent context bloat).
   * *Arguments*:
     - `pattern` (string, optional): Glob pattern (e.g. '*.js').
     - `dir` (string, optional): Scan root directory.

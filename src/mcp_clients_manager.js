@@ -7,6 +7,10 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
+const {
+  buildSembleSearchPolicyCompact,
+  buildFileToolsPolicyCompact
+} = require('./search_policy');
 
 const HOME = os.homedir();
 const SKILLS_DB_DIR = path.join(HOME, '.konoha');
@@ -14,6 +18,7 @@ const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 
 const CLAUDE_JSON = path.join(HOME, '.claude.json');
+const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.json');
 const OPENCODE_GLOBAL = path.join(HOME, '.config', 'opencode', 'opencode.json');
 
 const KONOHA_MCP_NAMES = ['skills-db', 'semble', 'konoha-files'];
@@ -188,6 +193,32 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
   );
 }
 
+function registerClaudeCodePermissions(silent = true) {
+  const grants = [
+    'mcp__skills-db__*',
+    'mcp__konoha-files__*',
+    'mcp__semble__*'
+  ];
+
+  return mergeJsonFile(
+    CLAUDE_SETTINGS,
+    (config) => {
+      if (!config.permissions) config.permissions = {};
+      if (!config.permissions.allow) config.permissions.allow = [];
+
+      let updated = false;
+      for (const grant of grants) {
+        if (!config.permissions.allow.includes(grant)) {
+          config.permissions.allow.push(grant);
+          updated = true;
+        }
+      }
+      return updated;
+    },
+    silent
+  );
+}
+
 function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!fileExists(serverPath)) return false;
   const entries = buildOpenCodeMcpEntries({ pythonCmd, serverPath, uvxCmd });
@@ -204,12 +235,163 @@ function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true)
   );
 }
 
+function resolveClaudeModel(agent) {
+  const val = (agent.claudeModel || '').toLowerCase();
+  if (val.includes('haiku')) return 'haiku';
+  if (val.includes('opus')) return 'opus';
+  return 'sonnet';
+}
+
+function adaptInstructionsForClaudeCode(instructions) {
+  if (!instructions) return '';
+  return instructions
+    .replace(/Always set RequestFeedback:\s*false\s+and\s+UserFacing:\s*false\s+in\s+ArtifactMetadata\s+when\s+writing\s+files\.?\s*/gi, '')
+    .replace(/view_file/g, 'Read')
+    .replace(/write_to_file/g, 'Write')
+    .replace(/replace_file_content/g, 'Edit')
+    .replace(/run_command/g, 'Bash')
+    // MCP tool mapping for Claude Code double underscore format
+    .replace(/skills-db\.find_skill/g, 'mcp__skills-db__find_skill')
+    .replace(/skills-db\.get_skill/g, 'mcp__skills-db__get_skill')
+    .replace(/skills-db\.list_skills/g, 'mcp__skills-db__list_skills')
+    .replace(/skills-db\.optimize_report/g, 'mcp__skills-db__optimize_report')
+    .replace(/skills-db\.build_from_source/g, 'mcp__skills-db__build_from_source')
+    .replace(/skills-db\.build_from_text/g, 'mcp__skills-db__build_from_text')
+    .replace(/semble\.search/g, 'mcp__semble__search')
+    .replace(/semble\.find_related/g, 'mcp__semble__find_related')
+    .replace(/read_file_head/g, 'mcp__konoha-files__read_file_head')
+    .replace(/read_file_range/g, 'mcp__konoha-files__read_file_range')
+    .replace(/file_info/g, 'mcp__konoha-files__file_info')
+    .replace(/token_efficient_grep/g, 'mcp__konoha-files__token_efficient_grep')
+    .replace(/get_file_structure/g, 'mcp__konoha-files__get_file_structure')
+    .replace(/find_files_clean/g, 'mcp__konoha-files__find_files_clean')
+    .trim();
+}
+
+function generateClaudeCodeSubagent(agent) {
+  const model = resolveClaudeModel(agent);
+  const description = `${agent.description || ''} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+
+  let instructions = agent.instructions || '';
+  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
+  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
+  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
+  instructions = instructions.trim();
+  if (instructions && !instructions.endsWith('.')) {
+    instructions += '.';
+  }
+  instructions += " Never delegate: Claude Code is a single-agent environment. Do NOT write delegate.md/result.md files or invoke/delegate to subagents.";
+
+  if (agent.skills && agent.skills.length > 0) {
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
+    const logMatch = instructions.match(logPattern);
+    if (logMatch) {
+      const insertIndex = logMatch.index + logMatch[0].length;
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+    } else {
+      instructions = `Before work: ${findSkillCalls} ` + instructions;
+    }
+  }
+
+  const body = adaptInstructionsForClaudeCode(instructions);
+  const sembleLine = buildSembleSearchPolicyCompact();
+  const fileToolsLine = buildFileToolsPolicyCompact();
+
+  const frontmatter = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+    `model: ${model}`,
+    'allowed-tools:',
+    '  - Read',
+    '  - Write',
+    '  - Edit',
+    '  - Grep',
+    '  - Glob',
+    '  - Bash',
+    '  - TodoRead',
+    '  - TodoWrite',
+    '  - WebSearch',
+    '  - mcp__semble__*',
+    '  - mcp__skills-db__*',
+    '  - mcp__konoha-files__*',
+    '---',
+    ''
+  ];
+
+  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
+}
+
+function deployClaudeCodeSubagents(agents, silent = true) {
+  if (!agents || agents.length === 0) return false;
+
+  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  const backupDir = path.join(HOME, '.claude', 'agents_backup');
+  ensureDir(claudeAgentsDir);
+
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+
+  // Backup existing non-official agents
+  if (fileExists(claudeAgentsDir)) {
+    try {
+      const files = fs.readdirSync(claudeAgentsDir);
+      files.forEach((file) => {
+        const basename = path.basename(file, '.md');
+        if (file.endsWith('.md') && !official.includes(basename)) {
+          ensureDir(backupDir);
+          const srcPath = path.join(claudeAgentsDir, file);
+          const destPath = path.join(backupDir, file);
+          fs.copyFileSync(srcPath, destPath);
+          fs.unlinkSync(srcPath);
+          if (!silent) {
+            console.log(`✓ Backed up and removed non-Konoha agent: ${file}`);
+          }
+        }
+      });
+    } catch (e) {
+      if (!silent) {
+        console.warn(`Warning during agent backup: ${e.message}`);
+      }
+    }
+  }
+
+  let deployed = 0;
+  for (const agent of agents) {
+    if (!official.includes(agent.name)) continue;
+
+    const destPath = path.join(claudeAgentsDir, `${agent.name}.md`);
+    const content = generateClaudeCodeSubagent(agent);
+    let shouldWrite = true;
+
+    if (fileExists(destPath)) {
+      try {
+        shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
+      } catch {
+        shouldWrite = true;
+      }
+    }
+
+    if (shouldWrite) {
+      fs.writeFileSync(destPath, content);
+      deployed++;
+    }
+  }
+
+  if (!silent && deployed > 0) {
+    console.log(`✓ Deployed ${deployed} Claude Code subagents to ${claudeAgentsDir}`);
+  }
+  return deployed > 0;
+}
+
 function ensureClaudeCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    silent = true
+    ruleContent = null,
+    silent = true,
+    agents = []
   } = options;
 
   if (!isClaudeCodeInstalled()) {
@@ -223,6 +405,16 @@ function ensureClaudeCodeSetup(options = {}) {
   }
 
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
+  registerClaudeCodePermissions(silent);
+
+  if (ruleContent) {
+    deployClaudeCodeRules(ruleContent, silent);
+  }
+
+  if (agents && agents.length > 0) {
+    deployClaudeCodeSubagents(agents, silent);
+  }
+
   return { ok: true };
 }
 
@@ -263,7 +455,9 @@ function getClaudeCodeStatus() {
     globalConfig: fileExists(CLAUDE_JSON),
     mcpSkillsDb: false,
     mcpSemble: false,
-    mcpKonohaFiles: false
+    mcpKonohaFiles: false,
+    permissionsAllowed: false,
+    agentsCount: 0
   };
 
   if (status.globalConfig) {
@@ -274,6 +468,25 @@ function getClaudeCodeStatus() {
       status.mcpSemble = health.semble;
       status.mcpKonohaFiles = health.konohaFiles;
     } catch {}
+  }
+
+  if (fileExists(CLAUDE_SETTINGS)) {
+    try {
+      const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
+      const allowed = settings?.permissions?.allow || [];
+      status.permissionsAllowed =
+        allowed.includes('mcp__skills-db__*') &&
+        allowed.includes('mcp__konoha-files__*') &&
+        allowed.includes('mcp__semble__*');
+    } catch {}
+  }
+
+  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  for (const name of official) {
+    if (fileExists(path.join(claudeAgentsDir, `${name}.md`))) {
+      status.agentsCount++;
+    }
   }
 
   return status;
@@ -313,6 +526,42 @@ function removeKonohaFromMcpBlock(block) {
   return updated;
 }
 
+function deployClaudeCodeRules(ruleContent, silent = true) {
+  const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
+  ensureDir(path.dirname(CLAUDE_MD));
+
+  const startMarker = '\n<!-- KONOHA-START -->\n';
+  const endMarker = '\n<!-- KONOHA-END -->\n';
+  const wrapper = startMarker + ruleContent + endMarker;
+
+  let existing = '';
+  if (fileExists(CLAUDE_MD)) {
+    try {
+      existing = fs.readFileSync(CLAUDE_MD, 'utf-8');
+    } catch {}
+  }
+
+  // Strip existing Konoha rules if present
+  let cleanContent = existing;
+  const startIndex = existing.indexOf(startMarker);
+  const endIndex = existing.indexOf(endMarker);
+  if (startIndex !== -1 && endIndex !== -1) {
+    cleanContent = existing.slice(0, startIndex) + existing.slice(endIndex + endMarker.length);
+  }
+
+  const finalContent = cleanContent.trim() + '\n' + wrapper;
+
+  try {
+    fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
+    if (!silent) {
+      console.log(`✓ Deployed Konoha instructions to ${CLAUDE_MD}`);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function removeClaudeCodeConfig(silent = true) {
   if (fileExists(CLAUDE_JSON)) {
     try {
@@ -322,6 +571,78 @@ function removeClaudeCodeConfig(silent = true) {
         silent
       );
     } catch {}
+  }
+  if (fileExists(CLAUDE_SETTINGS)) {
+    try {
+      mergeJsonFile(
+        CLAUDE_SETTINGS,
+        (config) => {
+          if (config.permissions && config.permissions.allow) {
+            const initialLength = config.permissions.allow.length;
+            config.permissions.allow = config.permissions.allow.filter(
+              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__semble__*'
+            );
+            return config.permissions.allow.length !== initialLength;
+          }
+          return false;
+        },
+        silent
+      );
+    } catch {}
+  }
+
+  const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
+  if (fileExists(CLAUDE_MD)) {
+    try {
+      const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
+      const startMarker = '\n<!-- KONOHA-START -->\n';
+      const endMarker = '\n<!-- KONOHA-END -->\n';
+      const startIndex = content.indexOf(startMarker);
+      const endIndex = content.indexOf(endMarker);
+      if (startIndex !== -1 && endIndex !== -1) {
+        const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
+        fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
+        if (!silent) {
+          console.log(`✓ Removed Konoha instructions from ${CLAUDE_MD}`);
+        }
+      }
+    } catch {}
+  }
+
+  // Remove Claude Code subagents
+  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
+  const backupDir = path.join(HOME, '.claude', 'agents_backup');
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  for (const name of official) {
+    const p = path.join(claudeAgentsDir, `${name}.md`);
+    if (fileExists(p)) {
+      try {
+        fs.unlinkSync(p);
+      } catch {}
+    }
+  }
+
+  // Restore backed up agents
+  if (fileExists(backupDir)) {
+    try {
+      const files = fs.readdirSync(backupDir);
+      files.forEach((file) => {
+        if (file.endsWith('.md')) {
+          const srcPath = path.join(backupDir, file);
+          const destPath = path.join(claudeAgentsDir, file);
+          fs.copyFileSync(srcPath, destPath);
+          fs.unlinkSync(srcPath);
+          if (!silent) {
+            console.log(`✓ Restored original agent: ${file}`);
+          }
+        }
+      });
+      fs.rmdirSync(backupDir);
+    } catch (e) {
+      if (!silent) {
+        console.warn(`Warning during agent restore: ${e.message}`);
+      }
+    }
   }
 }
 
@@ -339,6 +660,7 @@ function removeOpenCodeConfig(silent = true) {
 
 module.exports = {
   CLAUDE_JSON,
+  CLAUDE_SETTINGS,
   OPENCODE_GLOBAL,
   KONOHA_MCP_NAMES,
   isClaudeCodeInstalled,
@@ -346,11 +668,15 @@ module.exports = {
   buildStdioMcpServers,
   buildOpenCodeMcpEntries,
   registerClaudeCodeGlobalMcp,
+  registerClaudeCodePermissions,
+  deployClaudeCodeRules,
   registerOpenCodeGlobalMcp,
   ensureClaudeCodeSetup,
   ensureOpenCodeSetup,
   getClaudeCodeStatus,
   getOpenCodeStatus,
   removeClaudeCodeConfig,
-  removeOpenCodeConfig
+  removeOpenCodeConfig,
+  generateClaudeCodeSubagent,
+  deployClaudeCodeSubagents
 };

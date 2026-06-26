@@ -159,17 +159,21 @@ function loadAgents() {
           changed = true;
         }
 
-        // v1.1.6: Sync Cursor model slugs for IDE/CLI subagents
-        if (defAgent.cursorModel && a.cursorModel !== defAgent.cursorModel) {
+        // v1.1.6: Sync Cursor, Claude, and OpenCode model slugs for IDE/CLI subagents if they are not defined
+        if (a.cursorModel === undefined && defAgent.cursorModel) {
           a.cursorModel = defAgent.cursorModel;
           changed = true;
         }
-        if (defAgent.cursorFallbackModel && a.cursorFallbackModel !== defAgent.cursorFallbackModel) {
+        if (a.cursorFallbackModel === undefined && defAgent.cursorFallbackModel) {
           a.cursorFallbackModel = defAgent.cursorFallbackModel;
           changed = true;
         }
-        if (defAgent.claudeModel && a.claudeModel !== defAgent.claudeModel) {
+        if (a.claudeModel === undefined && defAgent.claudeModel) {
           a.claudeModel = defAgent.claudeModel;
+          changed = true;
+        }
+        if (a.opencodeModel === undefined) {
+          a.opencodeModel = defAgent.opencodeModel || 'inherit';
           changed = true;
         }
       }
@@ -402,6 +406,63 @@ Full team configuration, model registry, and operational conventions: \`~/.agent
   return content;
 }
 
+function generateClaudeCodeMd(agents) {
+  const delegationRows = agents.map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`).join('\n');
+
+  const content = `# Claude Code — Global Agent Instructions
+
+You are the **Claude Code agent** equipped with Konoha MCP servers (\`skills-db\`, \`semble\`, \`konoha-files\`).
+
+## Mandatory workflow
+
+1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
+2. **Find Skill First**: Call \`skills-db.find_skill\` or \`optimize_report\` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP and has no knowledge of skills, whereas the \`skills-db\` MCP handles all skill lookups.**
+3. **Find Code Context**: If project source code context is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do NOT call \`skills-db.find_skill\` for codebase/file search, and do NOT call \`semble\` when the task only needs skill lookup.
+4. **Load and Apply Skill (Never Delegate)**: Since Claude Code runs as a single-agent session (without subagent delegation), you MUST NEVER attempt to delegate tasks to other subagents or write/expect a \`delegate.md\` file. You MUST load the discovered skill reference using the MCP tool \`skills-db.get_skill\` and execute the task directly yourself using your Direct Tool Calls, strictly applying the guidelines, constraints, and instructions from that skill!
+5. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. \`scratch/plan.md\` or \`.cursor/plan.md\`) and refer to it, keeping the conversation log light and token-efficient.
+
+## Tools & Guardrails
+
+- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha-files\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
+- **Skills-DB MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns quota tokens. Always use \`skills-db\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
+- **Konoha-Files MCP**: If project file reading, structure inspection, info checks, or line greps are needed, call the **\`konoha-files\` MCP** tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) directly after locating targets with \`semble\`. Do NOT use raw \`cat\`, \`head\`, \`tail\`, \`grep\`, or built-in file tools unless \`konoha-files\` is unavailable.
+- **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`skills-db\` MCP** for all skill/instruction lookup. Call **\`konoha-files\` MCP** for all file reads and line-level grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`skills-db\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
+- **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling skills-db.find_skill('...')\`
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
+- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
+- **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
+- **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
+- **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
+
+| Embedded Skills | Subagent TypeName |
+|-----------|----------|
+${delegationRows}
+| Simple/trivial tasks | Main agent runs directly using Direct Tool Calls. |
+`;
+
+  return content
+    .replace(/view_file/g, 'Read')
+    .replace(/write_to_file/g, 'Write')
+    .replace(/replace_file_content/g, 'Edit')
+    .replace(/run_command/g, 'Bash')
+    // MCP tool mapping for Claude Code double underscore format
+    .replace(/skills-db\.find_skill/g, 'mcp__skills-db__find_skill')
+    .replace(/skills-db\.get_skill/g, 'mcp__skills-db__get_skill')
+    .replace(/skills-db\.list_skills/g, 'mcp__skills-db__list_skills')
+    .replace(/skills-db\.optimize_report/g, 'mcp__skills-db__optimize_report')
+    .replace(/skills-db\.build_from_source/g, 'mcp__skills-db__build_from_source')
+    .replace(/skills-db\.build_from_text/g, 'mcp__skills-db__build_from_text')
+    .replace(/semble\.search/g, 'mcp__semble__search')
+    .replace(/semble\.find_related/g, 'mcp__semble__find_related')
+    .replace(/read_file_head/g, 'mcp__konoha-files__read_file_head')
+    .replace(/read_file_range/g, 'mcp__konoha-files__read_file_range')
+    .replace(/file_info/g, 'mcp__konoha-files__file_info')
+    .replace(/token_efficient_grep/g, 'mcp__konoha-files__token_efficient_grep')
+    .replace(/get_file_structure/g, 'mcp__konoha-files__get_file_structure')
+    .replace(/find_files_clean/g, 'mcp__konoha-files__find_files_clean');
+}
+
 
 
 function generateAgentsMd(agents) {
@@ -550,7 +611,14 @@ Load **semble** when project source code search is needed — do NOT load it for
 // Regenerate template files and deploy them
 
 // Regenerate template files and deploy them
-function regenerateAndDeploy(silent = false) {
+function regenerateAndDeploy(silentOrOptions = false) {
+  const silent = typeof silentOrOptions === 'boolean' ? silentOrOptions : (silentOrOptions.silent || false);
+  const pythonCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.pythonCmd || 'python3') : 'python3';
+  const serverPath = typeof silentOrOptions === 'object' ? (silentOrOptions.serverPath || SERVER_PATH) : SERVER_PATH;
+  const uvxCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.uvxCmd || 'uvx') : 'uvx';
+  const projectRoot = typeof silentOrOptions === 'object' ? (silentOrOptions.projectRoot || null) : null;
+  const deployProject = typeof silentOrOptions === 'object' ? (silentOrOptions.deployProject || false) : false;
+
   const agents = loadAgents();
   if (agents.length === 0) return;
 
@@ -581,9 +649,15 @@ function regenerateAndDeploy(silent = false) {
   // Deploy Cursor IDE/CLI subagents, rules, and hooks
   try {
     cursorManager.ensureCursorSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
       agents,
+      projectRoot,
+      deployProject,
       silent: true,
-      allowHooks: true
+      allowHooks: true,
+      ruleContent: null
     });
   } catch (e) {
     // Fail silently if Cursor dirs are not writable
@@ -598,14 +672,26 @@ function regenerateAndDeploy(silent = false) {
 
   // Deploy Claude Code MCP setup
   try {
-    mcpClientsManager.ensureClaudeCodeSetup({ silent: true });
+    mcpClientsManager.ensureClaudeCodeSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
+      silent: true,
+      ruleContent: generateClaudeCodeMd(agents),
+      agents
+    });
   } catch (e) {
     // Fail silently if Claude configs are not writable
   }
 
   // Deploy OpenCode MCP setup
   try {
-    mcpClientsManager.ensureOpenCodeSetup({ silent: true });
+    mcpClientsManager.ensureOpenCodeSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
+      silent: true
+    });
   } catch (e) {
     // Fail silently if OpenCode configs are not writable
   }
@@ -736,19 +822,24 @@ function deleteAgent(name) {
 }
 
 // Update subagent model tier
-function updateAgentModel(agentName, modelName) {
+function updateAgentModel(agentName, modelName, clientType = 'antigravity') {
   const agents = loadAgents();
   const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
-  
+
   if (!agent) {
     throw new Error(`Subagent "${agentName}" not found.`);
   }
 
-  if (agent.modelTier === modelName) {
+  let field = 'modelTier';
+  if (clientType === 'cursor') field = 'cursorModel';
+  else if (clientType === 'claude') field = 'claudeModel';
+  else if (clientType === 'opencode') field = 'opencodeModel';
+
+  if (agent[field] === modelName) {
     return false; // Already set
   }
 
-  agent.modelTier = modelName;
+  agent[field] = modelName;
   saveAgents(agents);
   regenerateAndDeploy();
   return true;
@@ -763,5 +854,8 @@ module.exports = {
   unembedSkill,
   deleteAgent,
   updateAgentModel,
-  buildDefineSubagentGuide
+  buildDefineSubagentGuide,
+  generateGeminiMd,
+  generateAgentsMd,
+  generateClaudeCodeMd
 };

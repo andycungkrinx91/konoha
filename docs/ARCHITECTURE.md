@@ -138,9 +138,9 @@ flowchart TB
     class CLI,AgentConfig,MCPConfig mgmtNode
 ```
 
-> **Legend** — 🔵 Presentation (host IDE runs the model) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble + konoha-files MCP &nbsp;|&nbsp; 🟠 Persistence
+> **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble + konoha-files MCP &nbsp;|&nbsp; 🟠 Persistence
 >
-> Konoha does **not** implement multi-provider LLM routing. Subagents execute inside the host IDE (Antigravity, Cursor, Claude Code, or OpenCode), which owns model selection and API calls.
+> In version 1.1.6, Konoha implements a central **Proxy Gateway** (port 11434) and dynamic **LLM Bridges** (ports 11435, 11436, etc.) to multiplex and route requests across different LLM providers (e.g. Antigravity, custom OpenAI endpoints). Subagents query the gateway using alias model names in the format `<bridge_name>-<model_name>`.
 
 ## Query Lifecycle
 
@@ -233,7 +233,7 @@ sequenceDiagram
     end
     deactivate SkillsDB
 
-    Note over Agent,IDE: Step 6: Execute task using host IDE model<br>(Konoha does not route LLM providers)
+    Note over Agent,IDE: Step 6: Execute task via Proxy Gateway & LLM Bridge routing<br>(model name: <bridge_name>-<model_name>)
 
     %% --- Response Phase ---
     Note over Agent: Step 7: Write Result & Complete

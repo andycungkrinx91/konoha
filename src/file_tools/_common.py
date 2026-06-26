@@ -9,7 +9,7 @@ import sys
 SKIP_DIR_NAMES = {
     '.git', 'node_modules', 'dist', 'build', 'venv', '.venv',
     '__pycache__', '.tox', '.mypy_cache', '.pytest_cache', '.next',
-    'coverage', '.nyc_output', 'target'
+    'coverage', '.nyc_output', 'target', 'go-dist', 'vendor'
 }
 
 SKIP_FILE_NAMES = {

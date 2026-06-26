@@ -137,9 +137,30 @@ function buildDefineSubagentArgs(agent) {
   };
 }
 
+function removeAntigravityAgents(silent = true) {
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const dirs = [
+    ANTIGRAVITY_AGENTS_GLOBAL,
+    ANTIGRAVITY_CLI_GLOBAL,
+    ANTIGRAVITY_IDE_GLOBAL
+  ];
+
+  for (const baseDir of dirs) {
+    for (const name of official) {
+      const agentDir = path.join(baseDir, name);
+      if (fs.existsSync(agentDir)) {
+        try {
+          fs.rmSync(agentDir, { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  }
+}
+
 module.exports = {
   ANTIGRAVITY_AGENTS_GLOBAL,
   buildAgentJson,
   buildDefineSubagentArgs,
   ensureAntigravityAgents,
+  removeAntigravityAgents,
 };

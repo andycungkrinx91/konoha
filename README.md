@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-25.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-26.md)
 
 | | |
 |:---:|:---:|
@@ -27,6 +27,7 @@
 
 ## 📖 Setup & Usage Guides
 
+* [LLM Bridge & Proxy Gateway Guide](docs/LLM-BRIDGE-GATEWAY.md)
 * [Antigravity IDE Setup Guide](docs/SETUP-IDE.md)
 * [Antigravity CLI Setup Guide](docs/SETUP-CLI.md)
 * [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md)
@@ -120,6 +121,7 @@ Once installed, the following CLI commands are available:
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
 | `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `models`, `skill`, `delete`, `status`) |
 | `konoha models <subcommand>` | Manage available LLM models and assign them to subagents |
+| `konoha bridge <subcommand>` | Manage LLM bridge proxy gateway (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
 
@@ -140,6 +142,7 @@ Once installed, the following CLI commands are available:
 ├── .node_exec_path    ← recorded Node path (auto)
 ├── .python_cmd        ← recorded Python command (auto)
 ├── file_tools/        ← Python streaming helpers
+├── bridge/            ← LLM Bridge and Proxy Gateway runtime modules
 ├── migrate.py         ← Migration script
 └── skills.db          ← SQLite FTS5 database
 

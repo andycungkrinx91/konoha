@@ -235,6 +235,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
   - `Claude Sonnet 4.6 (Thinking)`
   - `Claude Opus 4.6 (Thinking)`
   - `GPT-OSS 120B (Medium)`
+  - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `11434`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched, listed in `konoha models list`, and available for selection.
 
 * **Fallback Configuration**:
   Subagents default to using `Gemini 3.1 Flash-Lite` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.

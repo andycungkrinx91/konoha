@@ -41,6 +41,7 @@
     "url": "https://github.com/andycungkrinx91/konoha"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
     "@inquirer/prompts": "^8.5.2",
     "chalk": "^4.1.2",
     "chalk-animation": "^2.0.3",

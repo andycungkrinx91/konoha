@@ -127,7 +127,10 @@ function generateCursorSubagent(agent) {
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
 }
 
-function generateCursorRule(agents) {
+function generateCursorRule(agents, ruleContent = null) {
+  if (ruleContent) {
+    return `---\ndescription: Konoha multi-agent orchestration — delegate to ninja subagents via Task tool, use skills-db MCP for skills\nalwaysApply: true\n---\n\n` + ruleContent;
+  }
   const agentList = agents.map(a => `\`${a.name}\` (${resolveCursorModel(a)})`).join(', ');
   const delegationRows = agents
     .map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`)
@@ -450,7 +453,7 @@ function deployCursorSubagents(agents, silent = true) {
   return deployed > 0;
 }
 
-function deployProjectCursor(projectRoot, agents, silent = true) {
+function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = null) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
@@ -469,7 +472,7 @@ function deployProjectCursor(projectRoot, agents, silent = true) {
 
   // Deploy orchestrator rule
   const rulePath = path.join(rulesDir, 'konoha.mdc');
-  fs.writeFileSync(rulePath, generateCursorRule(agents));
+  fs.writeFileSync(rulePath, generateCursorRule(agents, ruleContent));
 
   if (!silent) {
     console.log(`✓ Deployed project Cursor config to ${cursorDir}`);
@@ -507,7 +510,8 @@ function ensureCursorSetup(options = {}) {
     projectRoot = null,
     deployProject = true,
     silent = true,
-    allowHooks = true
+    allowHooks = true,
+    ruleContent = null
   } = options;
 
   copyCursorHelperScripts(silent);
@@ -535,7 +539,7 @@ function ensureCursorSetup(options = {}) {
     if (deployProject) {
       const root = projectRoot || process.cwd();
       try {
-        deployProjectCursor(root, agents, silent);
+        deployProjectCursor(root, agents, silent, ruleContent);
       } catch {}
     }
   }
@@ -573,6 +577,41 @@ function removeCursorConfig(silent = true) {
         fs.unlinkSync(p);
       } catch {}
     }
+  }
+
+  // Remove Cursor CLI permissions
+  if (fileExists(CURSOR_CLI_CONFIG)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
+      if (config.permissions && config.permissions.allow) {
+        const grants = [
+          'Mcp(skills-db)',
+          'Mcp(skills-db, find_skill)',
+          'Mcp(skills-db, get_skill)',
+          'Mcp(skills-db, list_skills)',
+          'Mcp(skills-db, optimize_report)',
+          'Mcp(semble)',
+          'Mcp(semble, search)',
+          'Mcp(semble, find_related)',
+          'Mcp(konoha-files)',
+          'Mcp(konoha-files, read_file_head)',
+          'Mcp(konoha-files, read_file_range)',
+          'Mcp(konoha-files, file_info)',
+          'Mcp(konoha-files, token_efficient_grep)',
+          'Mcp(konoha-files, get_file_structure)',
+          'Mcp(konoha-files, find_files_clean)',
+          'Shell(konoha)',
+          'Shell(node bin/cli.js)',
+          'Shell(node */.konoha/cursor_bootstrap.js)'
+        ];
+        const initialLength = config.permissions.allow.length;
+        config.permissions.allow = config.permissions.allow.filter(p => !grants.includes(p));
+        if (config.permissions.allow.length !== initialLength) {
+          fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
+          if (!silent) console.log('✓ Removed Konoha permissions from ~/.cursor/cli-config.json');
+        }
+      }
+    } catch {}
   }
 
   // Remove sessionStart bootstrap hook

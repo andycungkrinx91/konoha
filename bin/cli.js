@@ -28,6 +28,7 @@ const skillManager = require('../src/skill_manager');
 const cursorManager = require('../src/cursor_manager');
 const mcpClientsManager = require('../src/mcp_clients_manager');
 const deployUtils = require('../src/deploy_utils');
+const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
 
 
@@ -1096,17 +1097,18 @@ async function cmdInit(args) {
       installFileTools(true);
       registerMcp(python, true, allowAutoApprove);
       registerHooks(true, allowHooks);
+      const agentsForSetup = agentManager.loadAgents();
       if (allowCursor) {
-        const agents = agentManager.loadAgents();
         cursorManager.ensureCursorSetup({
           pythonCmd: python,
           serverPath: SERVER_PATH,
           uvxCmd: getUvxCommand(),
-          agents,
+          agents: agentsForSetup,
           projectRoot: currentCwd,
           deployProject: true,
           silent: true,
-          allowHooks: true
+          allowHooks: true,
+          ruleContent: null
         });
         cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, getUvxCommand(), true);
       }
@@ -1115,7 +1117,9 @@ async function cmdInit(args) {
           pythonCmd: python,
           serverPath: SERVER_PATH,
           uvxCmd: getUvxCommand(),
-          silent: true
+          ruleContent: agentManager.generateClaudeCodeMd(agentsForSetup),
+          silent: true,
+          agents: agentsForSetup
         });
       }
       if (allowOpenCode) {
@@ -1288,20 +1292,21 @@ async function cmdInit(args) {
   spinner6.success('AGENTS.md updated.');
 
   // 10. Configure Cursor IDE/CLI
+  const setupAgents = agentManager.loadAgents();
   if (allowCursor) {
     header('🖱️  Configuring Cursor IDE/CLI');
     const spinner7 = startSpinner('Registering Cursor MCP, subagents, and hooks...');
-    const agents = agentManager.loadAgents();
     const uvxCmd = getUvxCommand();
     cursorManager.ensureCursorSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
       uvxCmd,
-      agents,
+      agents: setupAgents,
       projectRoot: currentCwd,
       deployProject: true,
       silent: true,
-      allowHooks: true
+      allowHooks: true,
+      ruleContent: null
     });
     cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
     spinner7.success('Cursor IDE/CLI configured.');
@@ -1316,7 +1321,9 @@ async function cmdInit(args) {
       pythonCmd: python,
       serverPath: SERVER_PATH,
       uvxCmd,
-      silent: true
+      ruleContent: agentManager.generateClaudeCodeMd(setupAgents),
+      silent: true,
+      agents: setupAgents
     });
     spinnerClaude.success('Claude Code MCP configured.');
   } else if (!claudeInstalled) {
@@ -1616,6 +1623,65 @@ function registerPermissions(silent = false) {
   }
 }
 
+function unregisterPermissions(silent = false) {
+  const settingsPaths = [
+    SETTINGS_PATH,
+    path.join(HOME, '.gemini', 'settings.json')
+  ];
+
+  for (const settingsPath of settingsPaths) {
+    if (!fileExists(settingsPath)) continue;
+
+    let settings = {};
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch {
+      continue;
+    }
+
+    if (settings.permissions && settings.permissions.allow) {
+      const requiredGrants = [
+        'command(node bin/cli.js)',
+        'command(konoha)',
+        'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
+        'mcp(semble/search)',
+        'mcp(semble/find_related)',
+        'mcp(semble/*)',
+        'mcp(konoha-files/read_file_head)',
+        'mcp(konoha-files/read_file_range)',
+        'mcp(konoha-files/file_info)',
+        'mcp(konoha-files/token_efficient_grep)',
+        'mcp(konoha-files/get_file_structure)',
+        'mcp(konoha-files/find_files_clean)',
+        'mcp(konoha-files/*)',
+        'mcp(skills-db/find_skill)',
+        'mcp(skills-db/list_skills)',
+        'mcp(skills-db/get_skill)',
+        'mcp(skills-db/optimize_report)',
+        'mcp(skills-db/*)'
+      ];
+
+      const initialLength = settings.permissions.allow.length;
+      settings.permissions.allow = settings.permissions.allow.filter(
+        (grant) => !requiredGrants.includes(grant)
+      );
+
+      if (settings.permissions.allow.length !== initialLength) {
+        try {
+          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+          if (!silent) {
+            success(`Removed command permissions from: ${settingsPath}`);
+          }
+        } catch (e) {
+          if (!silent) {
+            warn(`Could not update settings.json: ${e.message}`);
+          }
+        }
+      }
+    }
+  }
+}
+
 function registerHooks(silent = false, allowHooks) {
   const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
   ensureDir(path.dirname(HOOKS_CONFIG_PATH));
@@ -1872,43 +1938,6 @@ function ensureAutoSetup() {
   registerMcp(python, true);
   registerHooks(true, true);
 
-  // 4b. Configure Cursor IDE/CLI silently
-  try {
-    const agents = agentManager.loadAgents();
-    cursorManager.ensureCursorSetup({
-      pythonCmd: python,
-      serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
-      agents,
-      projectRoot: currentCwd,
-      deployProject: false,
-      silent: true,
-      allowHooks: true
-    });
-  } catch (e) {}
-
-  // 4c. Configure Claude Code & OpenCode when their CLIs are installed
-  try {
-    const python = checkPython() || 'python3';
-    const uvxCmd = getUvxCommand();
-    if (mcpClientsManager.isClaudeCodeInstalled()) {
-      mcpClientsManager.ensureClaudeCodeSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        silent: true
-      });
-    }
-    if (mcpClientsManager.isOpenCodeInstalled()) {
-      mcpClientsManager.ensureOpenCodeSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        silent: true
-      });
-    }
-  } catch (e) {}
-
   // 5. Ensure agents.json is initialized with defaults if missing
   const agentsJsonPath = path.join(HOME, '.agents', 'agents.json');
   if (!fileExists(agentsJsonPath)) {
@@ -1917,17 +1946,23 @@ function ensureAutoSetup() {
     } catch (e) {}
   }
 
-  // 6. Ensure GEMINI.md and AGENTS.md are initialized/regenerated if missing
-  if (!fileExists(GEMINI_MD_PATH) || !fileExists(AGENTS_MD_PATH)) {
-    const originalLog = console.log;
-    console.log = () => {};
-    try {
-      agentManager.regenerateAndDeploy();
-    } catch (e) {
-      // ignore
-    } finally {
-      console.log = originalLog;
-    }
+  // 6. Ensure GEMINI.md, AGENTS.md, subagents, and client integrations are fully deployed/updated
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    const uvxCmd = getUvxCommand();
+    agentManager.regenerateAndDeploy({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd,
+      projectRoot: currentCwd,
+      deployProject: false,
+      silent: true
+    });
+  } catch (e) {
+    // ignore
+  } finally {
+    console.log = originalLog;
   }
 
   // 7. Silently trigger migration if database file (skills.db) is missing
@@ -2383,12 +2418,21 @@ async function cmdStatus() {
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
   if (claudeStatus.installed) {
     sectionTitle('Claude Code Integrations:', NINJA_THEME);
+    const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.mcpKonohaFiles && claudeStatus.permissionsAllowed;
     drawIntegrationRow(
       '~/.claude.json',
-      claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.mcpKonohaFiles,
-      claudeStatus.globalConfig ? 'skills-db + semble + konoha-files' : 'not configured',
+      claudeOk,
+      claudeStatus.permissionsAllowed ? 'skills-db + semble + konoha-files' : 'skills-db + semble + konoha-files (permissions missing)',
       NINJA_THEME
     );
+    if (claudeStatus.agentsCount > 0) {
+      drawIntegrationRow(
+        'Claude subagents',
+        true,
+        `${claudeStatus.agentsCount}/6 in ~/.claude/agents/`,
+        NINJA_THEME
+      );
+    }
   } else {
     log(`\n  ${applyGradient('Claude Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (template: docs/templates/claude-code.mcp.json)', CHIDORI_THEME, 0.6)}`);
   }
@@ -2438,9 +2482,10 @@ async function cmdStatus() {
     'Model (Antigravity)',
     'Model (Cursor)',
     'Model (Claude)',
+    'Model (OpenCode)',
     'Skills Configuration'
   ];
-  const subAligns = ['left', 'left', 'left', 'left', 'left'];
+  const subAligns = ['left', 'left', 'left', 'left', 'left', 'left'];
   const subRows = [];
   const subRowColors = [];
 
@@ -2450,15 +2495,16 @@ async function cmdStatus() {
     const agyModel = a.modelTier || '-';
     const cursorModel = a.cursorModel || cursorManager.resolveCursorModel(a);
     const claudeModel = a.claudeModel || 'Claude Sonnet 4.6 (Thinking)';
+    const opencodeModel = a.opencodeModel || 'inherit';
     const activeSkills = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
 
-    subRows.push([displayName, agyModel, cursorModel, claudeModel, activeSkills]);
-    subRowColors.push(['', '', '', '', '']);
+    subRows.push([displayName, agyModel, cursorModel, claudeModel, opencodeModel, activeSkills]);
+    subRowColors.push(['', '', '', '', '', '']);
   });
 
   const subWidths = computeTableWidths(subHeaders, subRows, {
-    minWidths: [18, 24, 16, 28, 24],
-    maxWidths: [24, 40, 24, 40, 48]
+    minWidths: [18, 24, 16, 28, 16, 24],
+    maxWidths: [24, 40, 24, 40, 24, 48]
   });
   drawTable(subHeaders, subWidths, subAligns, subRows, subRowColors, NINJA_THEME, {
     columnFormatters: [
@@ -2466,6 +2512,7 @@ async function cmdStatus() {
       (cell) => applyGradient(cell, FIRE_THEME, 0.85),
       (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
       (cell) => applyGradient(cell, LEAF_THEME, 0.85),
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
       (cell) => applyGradient(cell, NINJA_THEME, 0.8)
     ]
   });
@@ -2920,7 +2967,8 @@ async function cmdDoctor() {
         projectRoot: currentCwd,
         deployProject: false,
         silent: true,
-        allowHooks: true
+        allowHooks: true,
+        ruleContent: null
       });
       const repaired = cursorManager.getCursorStatus();
       if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles && repaired.subagentsGlobal >= 6) {
@@ -2941,21 +2989,25 @@ async function cmdDoctor() {
     const claudeHealthy =
       claudeStatus.mcpSkillsDb &&
       claudeStatus.mcpSemble &&
-      claudeStatus.mcpKonohaFiles;
+      claudeStatus.mcpKonohaFiles &&
+      claudeStatus.permissionsAllowed;
     if (claudeHealthy) {
-      record('Claude Code (~/.claude.json)', 'HEALTHY', 'skills-db, semble, and konoha-files active');
+      record('Claude Code (~/.claude.json)', 'HEALTHY', 'skills-db, semble, and konoha-files active & allowed');
     } else {
       try {
         const python = checkPython() || 'python3';
+        const agents = agentManager.loadAgents();
+        const ruleContent = agentManager.generateClaudeCodeMd(agents);
         mcpClientsManager.ensureClaudeCodeSetup({
           pythonCmd: python,
           serverPath: SERVER_PATH,
           uvxCmd: getUvxCommand(),
+          ruleContent,
           silent: true
         });
         const repaired = mcpClientsManager.getClaudeCodeStatus();
-        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles) {
-          record('Claude Code (~/.claude.json)', 'REPAIRED', 'Registered Konoha MCP servers');
+        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles && repaired.permissionsAllowed) {
+          record('Claude Code (~/.claude.json)', 'REPAIRED', 'Registered Konoha MCP servers & allowed tools');
           repairsDone++;
         } else {
           record('Claude Code (~/.claude.json)', 'WARNING', 'Partial Claude Code setup — run konoha init');
@@ -3178,6 +3230,16 @@ async function cmdUninstall() {
     success('Removed Konoha entries from Claude Code / OpenCode global MCP configs (when present)');
   } catch {
     warn('Could not fully clean Claude Code / OpenCode configuration');
+  }
+
+  // Remove Antigravity-specific configurations
+  try {
+    registerHooks(true, false);
+    unregisterPermissions(true);
+    antigravityManager.removeAntigravityAgents(true);
+    success('Removed Konoha entries from Antigravity (hooks, permissions, subagents)');
+  } catch {
+    warn('Could not fully clean Antigravity configuration');
   }
 }
 
@@ -3879,6 +3941,8 @@ async function cmdAgent(args) {
       let fallbackModel = null;
       let resolvedModelString = null;
 
+      const activeModelsList = await getActiveModels();
+
       while (true) {
         if (step === 'SELECT_AGENT') {
           header('Choose Subagent');
@@ -3910,14 +3974,14 @@ async function cmdAgent(args) {
         else if (step === 'SELECT_PRIMARY') {
           header(`Configure Models for @${agentName}`);
           log('Select primary model:');
-          AVAILABLE_MODELS.forEach((m, idx) => {
+          activeModelsList.forEach((m, idx) => {
             const numStr = `${idx + 1}`.padStart(2);
             const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
             log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
           });
           log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
 
-          const primaryAns = await askQuestion(`\nSelect primary model (1-${AVAILABLE_MODELS.length}): `);
+          const primaryAns = await askQuestion(`\nSelect primary model (1-${activeModelsList.length}): `);
           if (isCancel(primaryAns)) {
             if (agentPassedOnCli) {
               info('Exiting model configuration.');
@@ -3929,11 +3993,11 @@ async function cmdAgent(args) {
           }
 
           const primaryNum = parseInt(primaryAns, 10);
-          if (isNaN(primaryNum) || primaryNum < 1 || primaryNum > AVAILABLE_MODELS.length) {
+          if (isNaN(primaryNum) || primaryNum < 1 || primaryNum > activeModelsList.length) {
             error('Invalid primary model selection.');
             continue;
           }
-          primaryModel = AVAILABLE_MODELS[primaryNum - 1];
+          primaryModel = activeModelsList[primaryNum - 1];
           step = 'ASK_FALLBACK';
         }
         
@@ -3961,15 +4025,15 @@ async function cmdAgent(args) {
           const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
           header('Select Fallback Model');
           log('Select fallback model to use when the primary model fails:');
-          AVAILABLE_MODELS.forEach((m, idx) => {
+          activeModelsList.forEach((m, idx) => {
             const numStr = `${idx + 1}`.padStart(2);
             const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
             log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
           });
           log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
 
-          const defaultIndex = AVAILABLE_MODELS.findIndex(m => m.name === defaultFallbackModelName) + 1;
-          const fallbackNumAns = await askQuestion(`\nSelect fallback model (1-${AVAILABLE_MODELS.length}) [${defaultIndex}]: `);
+          const defaultIndex = activeModelsList.findIndex(m => m.name === defaultFallbackModelName) + 1;
+          const fallbackNumAns = await askQuestion(`\nSelect fallback model (1-${activeModelsList.length}) [${defaultIndex}]: `);
           if (isCancel(fallbackNumAns)) {
             step = 'ASK_FALLBACK';
             continue;
@@ -3979,11 +4043,11 @@ async function cmdAgent(args) {
           if (fallbackNumAns.trim() === '') {
             fallbackNum = defaultIndex;
           }
-          if (isNaN(fallbackNum) || fallbackNum < 1 || fallbackNum > AVAILABLE_MODELS.length) {
+          if (isNaN(fallbackNum) || fallbackNum < 1 || fallbackNum > activeModelsList.length) {
             error('Invalid fallback model selection.');
             continue;
           }
-          fallbackModel = AVAILABLE_MODELS[fallbackNum - 1];
+          fallbackModel = activeModelsList[fallbackNum - 1];
           resolvedModelString = `${primaryModel.name} | Fallback when fail ${fallbackModel.name}`;
           step = 'SAVE';
         }
@@ -4249,6 +4313,55 @@ const AVAILABLE_MODELS = [
   { name: 'GPT-OSS 120B (Medium)', tag: 'Standard', aliases: ['gpt', 'gpt-oss', 'gpt-oss-120b', 'gpt-120b'] }
 ];
 
+async function getActiveModels() {
+  const models = [...AVAILABLE_MODELS];
+  const active = await checkPortActive(11434);
+  if (!active) return models;
+
+  return new Promise((resolve) => {
+    const http = require('http');
+    const req = http.get('http://127.0.0.1:11434/v1/models', (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json && Array.isArray(json.data)) {
+            const existing = new Set(models.map(m => m.name.toLowerCase()));
+            for (const m of json.data) {
+              const id = m.id;
+              if (!existing.has(id.toLowerCase())) {
+                let tag = 'Bridge';
+                if (id.includes('claude')) tag = 'Reasoning';
+                else if (id.includes('gpt')) tag = 'Standard';
+                else if (id.includes('gemini')) {
+                  if (id.includes('flash')) tag = 'Fast';
+                  else tag = 'Standard';
+                }
+                models.push({
+                  name: id,
+                  tag,
+                  aliases: [id.toLowerCase()]
+                });
+              }
+            }
+          }
+          resolve(models);
+        } catch {
+          resolve(models);
+        }
+      });
+    });
+    req.on('error', () => {
+      resolve(models);
+    });
+    req.setTimeout(5000, () => {
+      req.destroy();
+      resolve(models);
+    });
+  });
+}
+
 function cmdModelsHelp() {
   log(`
   ${C.bold}🤖 Antigravity Models Management Help 🤖${C.reset}
@@ -4262,12 +4375,16 @@ ${C.bold}USAGE${C.reset}
   konoha models <subcommand> [args]
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}list${C.reset}                                 List all available Antigravity model tiers and current agent mapping.
-  ${C.cyan}embed <agent-name> <model-expression>${C.reset}  Set the model for an agent (supports fallback expressions).
-  ${C.cyan}reset${C.reset}                                Clear local usage logs in sqlite db to restore model quotas.
+  ${C.cyan}list${C.reset}                                           List all available Antigravity model tiers and current agent mapping.
+  ${C.cyan}embed <agent-name> <model-expression> [options]${C.reset}    Set the model for an agent (supports fallback expressions).
+                                                      Options:
+                                                        --cursor    Configure for Cursor IDE/CLI
+                                                        --claude    Configure for Claude Code
+                                                        --opencode  Configure for OpenCode
+  ${C.cyan}reset${C.reset}                                          Clear local usage logs in sqlite db to restore model quotas.
 
 ${C.bold}MODEL EXPRESSIONS${C.reset}
-  You can specify a single model, or a primary model with a fallback:
+  You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor/OpenCode):
   - Single model: "Gemini 3.1 Flash-Lite"
   - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
 
@@ -4278,7 +4395,10 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}2. Manually set @chunin's model with a fallback:${C.reset}
      konoha models embed chunin "Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
 
-  ${C.dim}3. Reset local usage logs and model quotas:${C.reset}
+  ${C.dim}3. Set Cursor model for @chunin:${C.reset}
+     konoha models embed chunin "Gemini 3.5 Flash (Low)" --cursor
+
+  ${C.dim}4. Reset local usage logs and model quotas:${C.reset}
      konoha models reset
 `);
 }
@@ -4293,6 +4413,8 @@ async function cmdModels(args) {
     process.exit(0);
   }
 
+  const activeModelsList = await getActiveModels();
+
   const printModelRow = (col1, col2, col1Color = '', col2Color = '') => {
     const c1 = col1Color ? `${col1Color}${padEndVisual(col1, 30)}${C.reset}` : padEndVisual(col1, 30);
     const c2 = col2Color ? `${col2Color}${padEndVisual(col2, 12)}${C.reset}` : padEndVisual(col2, 12);
@@ -4306,11 +4428,43 @@ async function cmdModels(args) {
   };
 
   switch (subcommand) {
+    case 'status': {
+      const agents = agentManager.loadAgents();
+
+      header('Subagent Model Configurations');
+      const agentModelRows = agents.map(a => {
+        const icon = a.icon || '👤';
+        const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
+        return [
+          displayName,
+          a.modelTier || '-',
+          a.cursorModel || 'inherit',
+          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)',
+          a.opencodeModel || 'inherit'
+        ];
+      });
+      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model', 'OpenCode Model'];
+      const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
+        minWidths: [18, 24, 16, 28, 16],
+        maxWidths: [24, 40, 24, 40, 24]
+      });
+      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
+        columnFormatters: [
+          (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
+          (cell) => applyGradient(cell, LEAF_THEME, 0.85),
+          (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
+          (cell) => applyGradient(cell, FIRE_THEME, 0.85),
+          (cell) => applyGradient(cell, CHIDORI_THEME, 0.85)
+        ]
+      });
+      log('');
+      break;
+    }
     case 'list': {
       const agents = agentManager.loadAgents();
 
       header('Available Antigravity Models');
-      const modelRows = AVAILABLE_MODELS.map(m => [m.name, m.tag || '-']);
+      const modelRows = activeModelsList.map(m => [m.name, m.tag || '-']);
       const modelHeaders = ['Model Name', 'Tag'];
       const modelWidths = computeTableWidths(modelHeaders, modelRows, { minWidths: [24, 10], maxWidths: [42, 16] });
       drawTable(modelHeaders, modelWidths, ['left', 'left'], modelRows, [], RASENGAN_THEME, {
@@ -4328,30 +4482,48 @@ async function cmdModels(args) {
           displayName,
           a.modelTier || '-',
           a.cursorModel || 'inherit',
-          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)'
+          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)',
+          a.opencodeModel || 'inherit'
         ];
       });
-      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model'];
+      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model', 'OpenCode Model'];
       const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
-        minWidths: [18, 24, 16, 28],
-        maxWidths: [24, 40, 24, 40]
+        minWidths: [18, 24, 16, 28, 16],
+        maxWidths: [24, 40, 24, 40, 24]
       });
-      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
+      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
         columnFormatters: [
           (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
           (cell) => applyGradient(cell, LEAF_THEME, 0.85),
           (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-          (cell) => applyGradient(cell, FIRE_THEME, 0.85)
+          (cell) => applyGradient(cell, FIRE_THEME, 0.85),
+          (cell) => applyGradient(cell, CHIDORI_THEME, 0.85)
         ]
       });
       log('');
       break;
     }
     case 'embed': {
+      let clientType = 'antigravity';
+      const claudeIdx = subArgs.indexOf('--claude');
+      const cursorIdx = subArgs.indexOf('--cursor');
+      const opencodeIdx = subArgs.indexOf('--opencode');
+
+      if (claudeIdx >= 0) {
+        clientType = 'claude';
+        subArgs.splice(claudeIdx, 1);
+      } else if (cursorIdx >= 0) {
+        clientType = 'cursor';
+        subArgs.splice(cursorIdx, 1);
+      } else if (opencodeIdx >= 0) {
+        clientType = 'opencode';
+        subArgs.splice(opencodeIdx, 1);
+      }
+
       const agentName = subArgs[0];
       const modelInput = subArgs.slice(1).join(' ');
       if (!agentName || !modelInput) {
-        error('Usage: konoha models embed <agent-name> <model-name>');
+        error('Usage: konoha models embed <agent-name> <model-name> [--cursor|--claude|--opencode]');
         process.exit(1);
       }
 
@@ -4359,14 +4531,18 @@ async function cmdModels(args) {
       try {
         const resolveModelString = (input) => {
           const searchStr = input.trim();
-          
+
+          if (searchStr.toLowerCase() === 'inherit') {
+            return 'inherit';
+          }
+
           if (!searchStr.includes('|')) {
-            const foundModel = AVAILABLE_MODELS.find(m => 
-              m.name.toLowerCase() === searchStr.toLowerCase() || 
+            const foundModel = activeModelsList.find(m =>
+              m.name.toLowerCase() === searchStr.toLowerCase() ||
               m.aliases.includes(searchStr.toLowerCase())
             );
             if (!foundModel) throw new Error(`Unknown model: "${input}"`);
-            
+
             const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
             if (foundModel.name !== defaultFallbackModelName) {
               return `${foundModel.name} | Fallback when fail ${defaultFallbackModelName}`;
@@ -4378,14 +4554,14 @@ async function cmdModels(args) {
           const left = parts[0].trim();
           const right = parts[1].trim();
           
-          const foundPrimary = AVAILABLE_MODELS.find(m => 
+          const foundPrimary = activeModelsList.find(m => 
             m.name.toLowerCase() === left.toLowerCase() || 
             m.aliases.includes(left.toLowerCase())
           );
           if (!foundPrimary) throw new Error(`Unknown primary model: "${left}"`);
           
           let foundFallback = null;
-          const sortedModels = [...AVAILABLE_MODELS].sort((a, b) => b.name.length - a.name.length);
+          const sortedModels = [...activeModelsList].sort((a, b) => b.name.length - a.name.length);
           for (const m of sortedModels) {
             if (right.toLowerCase().includes(m.name.toLowerCase())) {
               foundFallback = m;
@@ -4412,12 +4588,12 @@ async function cmdModels(args) {
       }
 
       try {
-        const updated = agentManager.updateAgentModel(agentName, resolvedModelString);
+        const updated = agentManager.updateAgentModel(agentName, resolvedModelString, clientType);
         if (updated) {
-          success(`Successfully embedded model "${resolvedModelString}" into @${agentName}`);
+          success(`Successfully embedded model "${resolvedModelString}" into @${agentName} for ${clientType}`);
           info('Re-deployed team configurations.');
         } else {
-          warn(`Model "${resolvedModelString}" is already embedded in @${agentName}`);
+          warn(`Model "${resolvedModelString}" is already embedded in @${agentName} for ${clientType}`);
         }
       } catch (err) {
         error(`Failed to embed model: ${err.message}`);
@@ -4625,6 +4801,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
   ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history and prune database space.
   ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
+  ${C.cyan}bridge${C.reset}        🌉 Manage multiple LLM bridge configurations (status, list, create, delete, enable, disable).
 
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
@@ -4714,6 +4891,416 @@ async function cmdData(args) {
       error(`Unknown data subcommand: ${subcommand}`);
       cmdDataHelp();
       process.exit(1);
+  }
+}
+
+function getBridgesConfigPath() {
+  const dir = path.join(os.homedir(), '.konoha');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return path.join(dir, 'bridges.json');
+}
+
+function loadBridges() {
+  const p = getBridgesConfigPath();
+  if (!fs.existsSync(p)) {
+    const defaultBridges = [
+      {
+        name: 'antigravity',
+        port: 11435,
+        provider: 'antigravity',
+        enabled: true
+      }
+    ];
+    fs.writeFileSync(p, JSON.stringify(defaultBridges, null, 2) + '\n');
+    return defaultBridges;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveBridges(bridges) {
+  const p = getBridgesConfigPath();
+  fs.writeFileSync(p, JSON.stringify(bridges, null, 2) + '\n');
+}
+
+function checkPortActive(port) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(500);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, '127.0.0.1');
+  });
+}
+
+function getNextAvailablePort(bridges) {
+  let maxPort = 11435;
+  for (const b of bridges) {
+    if (b.port && b.port > maxPort) {
+      maxPort = b.port;
+    }
+  }
+  return maxPort + 1;
+}
+
+function cmdBridgeHelp() {
+  header('Konoha Bridge Management');
+  log(`
+Usage:
+  konoha bridge status                   Show status of all configured bridges
+  konoha bridge list                     List all configured bridges in a table
+  konoha bridge models                   List all served models by all active bridges
+  konoha bridge create <bridge name>     Create a new bridge configuration (supports OpenAI providers)
+  konoha bridge delete <bridge name>     Delete a bridge configuration
+  konoha bridge enable <bridge name>     Enable a bridge configuration
+  konoha bridge disable <bridge name>    Disable a bridge configuration
+
+Examples:
+  konoha bridge create my-openai
+  konoha bridge enable my-openai
+  konoha bridge status
+`);
+}
+
+async function cmdBridge(args) {
+  const subcommand = args[0];
+  const subArgs = args.slice(1);
+
+  if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+    cmdBridgeHelp();
+    process.exit(0);
+  }
+
+  switch (subcommand) {
+    case 'status':
+      await cmdBridgeStatus();
+      break;
+    case 'list':
+      await cmdBridgeList();
+      break;
+    case 'models':
+      await cmdBridgeModels();
+      break;
+    case 'delete':
+      await cmdBridgeDelete(subArgs[0]);
+      break;
+    case 'enable':
+      await cmdBridgeEnable(subArgs[0]);
+      break;
+    case 'disable':
+      await cmdBridgeDisable(subArgs[0]);
+      break;
+    case 'create':
+      await cmdBridgeCreate(subArgs[0]);
+      break;
+    default:
+      error(`Unknown bridge subcommand: ${subcommand}`);
+      log(`Run ${C.cyan}konoha bridge help${C.reset} for usage.`);
+      process.exit(1);
+  }
+}
+
+async function cmdBridgeList() {
+  const bridges = loadBridges();
+  header('Configured Bridges');
+
+  if (bridges.length === 0) {
+    log('  No bridges configured.');
+    return;
+  }
+
+  const rows = [];
+  for (const b of bridges) {
+    const active = await checkPortActive(b.port);
+    rows.push([
+      b.name,
+      String(b.port),
+      b.provider,
+      b.enabled ? 'Enabled' : 'Disabled',
+      active ? 'Running' : 'Stopped',
+      b.targetUrl || '-'
+    ]);
+  }
+
+  const headers = ['Name', 'Port', 'Provider', 'Configured Status', 'Runtime Status', 'Target URL'];
+  const widths = computeTableWidths(headers, rows, { minWidths: [15, 6, 12, 10, 10, 20] });
+  drawTable(headers, widths, ['left', 'left', 'left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+      (cell) => cell,
+      (cell) => cell,
+      (cell) => cell.includes('Enabled') ? `${C.green}${cell}${C.reset}` : `${C.dim}${cell}${C.reset}`,
+      (cell) => cell.includes('Running') ? `${C.green}${cell}${C.reset}` : `${C.red}${cell}${C.reset}`,
+      (cell) => cell
+    ]
+  });
+}
+
+async function cmdBridgeModels() {
+  const http = require('http');
+  header('Served Models via Proxy Gateway');
+
+  const gatewayActive = await checkPortActive(11434);
+  if (!gatewayActive) {
+    error('Proxy Gateway is not running on port 11434.');
+    warn('Ensure the konoha-files MCP server is running to start the gateway and enabled bridges.');
+    return;
+  }
+
+  try {
+    const modelsData = await new Promise((resolve, reject) => {
+      const req = http.get('http://127.0.0.1:11434/v1/models', (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse models response JSON.'));
+          }
+        });
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.setTimeout(2000, () => {
+        req.destroy();
+        reject(new Error('Request timed out.'));
+      });
+    });
+
+    if (!modelsData || !Array.isArray(modelsData.data) || modelsData.data.length === 0) {
+      log('  No models are currently served by any active bridges.');
+      return;
+    }
+
+    const rows = [];
+    for (const m of modelsData.data) {
+      const idx = m.id.indexOf('-');
+      let bridge = '-';
+      let baseModel = m.id;
+      if (idx !== -1) {
+        bridge = m.id.substring(0, idx);
+        baseModel = m.id.substring(idx + 1);
+      }
+      rows.push([
+        bridge,
+        baseModel,
+        m.id,
+        m.owned_by || '-'
+      ]);
+    }
+
+    const headers = ['Bridge', 'Base Model Name', 'Full Alias Model ID', 'Owned By'];
+    const widths = computeTableWidths(headers, rows, { minWidths: [12, 25, 45, 12] });
+    drawTable(headers, widths, ['left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
+      columnFormatters: [
+        (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+        (cell) => cell,
+        (cell) => `${C.bold}${cell}${C.reset}`,
+        (cell) => cell
+      ]
+    });
+  } catch (err) {
+    error(`Failed to query served models: ${err.message}`);
+  }
+}
+
+async function cmdBridgeStatus() {
+  const bridges = loadBridges();
+  header('Bridge Status Report');
+
+  const gatewayActive = await checkPortActive(11434);
+  log(`  ${C.bold}Proxy Gateway${C.reset} on port ${C.bold}11434${C.reset}: ${gatewayActive ? `${C.green}● RUNNING${C.reset}` : `${C.red}○ STOPPED${C.reset}`}`);
+  log('  ────────────────────────────────────────────────────────────');
+
+  let activeCount = 0;
+  for (const b of bridges) {
+    const active = await checkPortActive(b.port);
+    const statusStr = active 
+      ? `${C.green}● RUNNING${C.reset}` 
+      : (b.enabled ? `${C.red}○ STOPPED (Enabled)${C.reset}` : `${C.dim}○ DISABLED${C.reset}`);
+    
+    log(`  ${applyGradient(b.name, RASENGAN_THEME)} on port ${C.bold}${b.port}${C.reset} [${b.provider}]: ${statusStr}`);
+    if (b.targetUrl) {
+      log(`    ${C.dim}Target URL: ${b.targetUrl}${C.reset}`);
+    }
+    if (active) {
+      activeCount++;
+    }
+  }
+
+  log('');
+  if (activeCount > 0) {
+    success(`${activeCount} bridge(s) active and listening.`);
+  } else {
+    warn('No active bridges are currently running. Ensure the konoha-files MCP server is running to start enabled bridges.');
+  }
+}
+
+async function cmdBridgeDelete(name) {
+  if (!name) {
+    error('Please specify a bridge name to delete.');
+    log(`Usage: ${C.cyan}konoha bridge delete <bridge name>${C.reset}`);
+    process.exit(1);
+  }
+
+  const bridges = loadBridges();
+  const index = bridges.findIndex(b => b.name === name);
+  if (index === -1) {
+    error(`Bridge "${name}" not found.`);
+    process.exit(1);
+  }
+
+  const deleted = bridges.splice(index, 1)[0];
+  saveBridges(bridges);
+  success(`Deleted bridge "${deleted.name}".`);
+}
+
+async function cmdBridgeEnable(name) {
+  if (!name) {
+    error('Please specify a bridge name to enable.');
+    log(`Usage: ${C.cyan}konoha bridge enable <bridge name>${C.reset}`);
+    process.exit(1);
+  }
+
+  const bridges = loadBridges();
+  const bridge = bridges.find(b => b.name === name);
+  if (!bridge) {
+    error(`Bridge "${name}" not found.`);
+    process.exit(1);
+  }
+
+  if (bridge.enabled) {
+    warn(`Bridge "${name}" is already enabled.`);
+    return;
+  }
+
+  bridge.enabled = true;
+  saveBridges(bridges);
+  success(`Enabled bridge "${name}". The runtime has been started automatically.`);
+}
+
+async function cmdBridgeDisable(name) {
+  if (!name) {
+    error('Please specify a bridge name to disable.');
+    log(`Usage: ${C.cyan}konoha bridge disable <bridge name>${C.reset}`);
+    process.exit(1);
+  }
+
+  const bridges = loadBridges();
+  const bridge = bridges.find(b => b.name === name);
+  if (!bridge) {
+    error(`Bridge "${name}" not found.`);
+    process.exit(1);
+  }
+
+  if (!bridge.enabled) {
+    warn(`Bridge "${name}" is already disabled.`);
+    return;
+  }
+
+  bridge.enabled = false;
+  saveBridges(bridges);
+  success(`Disabled bridge "${name}". The runtime has been stopped automatically.`);
+}
+
+async function cmdBridgeCreate(name) {
+  let bridgeName = name;
+  if (!bridgeName) {
+    bridgeName = await askQuestion('Enter bridge name: ');
+    if (!bridgeName) {
+      error('Bridge name is required.');
+      process.exit(1);
+    }
+  }
+
+  const nameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!nameRegex.test(bridgeName)) {
+    error('Invalid bridge name. Use only alphanumeric characters, hyphens, and underscores.');
+    process.exit(1);
+  }
+
+  const bridges = loadBridges();
+  if (bridges.some(b => b.name === bridgeName)) {
+    error(`Bridge "${bridgeName}" already exists.`);
+    process.exit(1);
+  }
+
+  log(`\nCreating bridge "${C.bold}${bridgeName}${C.reset}"...\n`);
+
+  let provider = await askQuestion('Enter provider (antigravity / openai) [default: openai]: ');
+  provider = provider.toLowerCase() || 'openai';
+  if (provider !== 'antigravity' && provider !== 'openai') {
+    error('Invalid provider. Must be "antigravity" or "openai".');
+    process.exit(1);
+  }
+
+  const defaultPort = getNextAvailablePort(bridges);
+  let portStr = await askQuestion(`Enter local port [default: ${defaultPort}]: `);
+  let port = portStr ? parseInt(portStr, 10) : defaultPort;
+  if (isNaN(port) || port <= 0 || port > 65535) {
+    error('Invalid port number.');
+    process.exit(1);
+  }
+
+  if (bridges.some(b => b.port === port)) {
+    error(`Port ${port} is already configured for another bridge.`);
+    process.exit(1);
+  }
+
+  let targetUrl = '';
+  let apiKey = '';
+
+  if (provider === 'openai') {
+    while (!targetUrl) {
+      targetUrl = await askQuestion('Enter OpenAI-compatible target URL (e.g. https://api.openai.com/v1): ');
+      if (!targetUrl) {
+        warn('Target URL is required for OpenAI provider.');
+      }
+    }
+    apiKey = await askQuestion('Enter API Key (optional): ');
+  }
+
+  const newBridge = {
+    name: bridgeName,
+    port,
+    provider,
+    enabled: true
+  };
+
+  if (provider === 'openai') {
+    newBridge.targetUrl = targetUrl;
+    if (apiKey) {
+      newBridge.apiKey = apiKey;
+    }
+  }
+
+  bridges.push(newBridge);
+  saveBridges(bridges);
+
+  success(`Successfully created bridge "${bridgeName}"!`);
+  log(`  Port: ${port}`);
+  log(`  Provider: ${provider}`);
+  if (provider === 'openai') {
+    log(`  Target URL: ${targetUrl}`);
+    log(`  API Key: ${apiKey ? '••••••••' : '(none)'}`);
   }
 }
 
@@ -5053,6 +5640,9 @@ async function main() {
         break;
       case 'data':
         await cmdData(args);
+        break;
+      case 'bridge':
+        await cmdBridge(args);
         break;
       case 'help':
       case '--help':

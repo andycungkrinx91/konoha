@@ -1,20 +1,26 @@
 /**
  * Shared install/deploy helpers for Konoha CLI and Cursor bootstrap.
  */
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const platform = require('./platform_utils');
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const platform = require("./platform_utils");
 
 const HOME = os.homedir();
 const SRC_DIR = __dirname;
-const SKILLS_DB_DIR = path.join(HOME, '.konoha');
-const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
-const FILE_TOOLS_LAUNCHER_JS = path.join(SKILLS_DB_DIR, 'file_tools_launcher.js');
-const FILE_TOOLS_LAUNCHER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_launcher.sh');
-const FILE_TOOLS_NODE_PATH_FILE = path.join(SKILLS_DB_DIR, '.node_exec_path');
-const FILE_TOOLS_PYTHON_CMD_FILE = path.join(SKILLS_DB_DIR, '.python_cmd');
-const FILE_TOOLS_PY_DIR = path.join(SKILLS_DB_DIR, 'file_tools');
+const SKILLS_DB_DIR = path.join(HOME, ".konoha");
+const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, "file_tools_mcp.js");
+const FILE_TOOLS_LAUNCHER_JS = path.join(
+  SKILLS_DB_DIR,
+  "file_tools_launcher.js",
+);
+const FILE_TOOLS_LAUNCHER_PATH = path.join(
+  SKILLS_DB_DIR,
+  "file_tools_launcher.sh",
+);
+const FILE_TOOLS_NODE_PATH_FILE = path.join(SKILLS_DB_DIR, ".node_exec_path");
+const FILE_TOOLS_PYTHON_CMD_FILE = path.join(SKILLS_DB_DIR, ".python_cmd");
+const FILE_TOOLS_PY_DIR = path.join(SKILLS_DB_DIR, "file_tools");
 
 function fileExists(p) {
   try {
@@ -78,9 +84,12 @@ function listSkillEntries(skillsDir) {
   const entries = [];
   try {
     for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-      if (entry.isDirectory() && fileExists(path.join(skillsDir, entry.name, 'SKILL.md'))) {
+      if (
+        entry.isDirectory() &&
+        fileExists(path.join(skillsDir, entry.name, "SKILL.md"))
+      ) {
         entries.push(entry.name);
-      } else if (entry.isFile() && entry.name.endsWith('-skill.md')) {
+      } else if (entry.isFile() && entry.name.endsWith("-skill.md")) {
         entries.push(entry.name);
       }
     }
@@ -103,19 +112,15 @@ function mirrorSkillsDirectory(srcDir, destDir) {
 }
 
 function syncCursorSkillsFromAgents(options = {}) {
-  const {
-    projectRoot = null,
-    deployProject = false,
-    silent = true
-  } = options;
+  const { projectRoot = null, deployProject = false, silent = true } = options;
 
-  const agentsGlobal = path.join(HOME, '.agents', 'skills');
-  const cursorGlobal = path.join(HOME, '.cursor', 'skills');
+  const agentsGlobal = path.join(HOME, ".agents", "skills");
+  const cursorGlobal = path.join(HOME, ".cursor", "skills");
   let total = mirrorSkillsDirectory(agentsGlobal, cursorGlobal);
 
   if (deployProject && projectRoot && fileExists(projectRoot)) {
-    const projectAgents = path.join(projectRoot, '.agents', 'skills');
-    const projectCursor = path.join(projectRoot, '.cursor', 'skills');
+    const projectAgents = path.join(projectRoot, ".agents", "skills");
+    const projectCursor = path.join(projectRoot, ".cursor", "skills");
     const src = fileExists(projectAgents) ? projectAgents : agentsGlobal;
     total += mirrorSkillsDirectory(src, projectCursor);
   }
@@ -128,7 +133,7 @@ function syncCursorSkillsFromAgents(options = {}) {
 
 function writeNodeExecPathRecord() {
   try {
-    const nodePath = process.execPath || 'node';
+    const nodePath = process.execPath || "node";
     fs.writeFileSync(FILE_TOOLS_NODE_PATH_FILE, `${nodePath}\n`);
   } catch {}
 }
@@ -144,7 +149,7 @@ function writePythonCmdRecord(pythonCmd) {
  * Build konoha-files MCP stdio entry (Linux, macOS, Windows).
  * @param {'cursor'|'global'|'execPath'} mode
  */
-function buildKonohaFilesMcpEntry(mode = 'execPath') {
+function buildKonohaFilesMcpEntry(mode = "execPath") {
   if (!fileExists(FILE_TOOLS_MCP_PATH)) {
     return null;
   }
@@ -154,24 +159,29 @@ function buildKonohaFilesMcpEntry(mode = 'execPath') {
     : FILE_TOOLS_MCP_PATH;
   const useJsLauncher = launcherJs !== FILE_TOOLS_MCP_PATH;
 
-  if (mode === 'cursor' || mode === 'global') {
+  if (mode === "cursor" || mode === "global") {
     return {
-      type: 'stdio',
-      command: 'node',
-      args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH]
+      type: "stdio",
+      command: "node",
+      args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
     };
   }
 
   return {
-    type: 'stdio',
-    command: process.execPath || 'node',
-    args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH]
+    type: "stdio",
+    command: process.execPath || "node",
+    args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
   };
 }
 
 function installFileTools(silent = true, pythonCmd = null) {
   ensureDir(SKILLS_DB_DIR);
-  ['file_tools_mcp.js', 'file_tools_router.js', 'file_tools_launcher.js', 'platform_utils.js'].forEach((f) => {
+  [
+    "file_tools_mcp.js",
+    "file_tools_router.js",
+    "file_tools_launcher.js",
+    "platform_utils.js",
+  ].forEach((f) => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
     if (fileExists(src)) {
@@ -179,7 +189,7 @@ function installFileTools(silent = true, pythonCmd = null) {
     }
   });
 
-  const launcherShSrc = path.join(SRC_DIR, 'file_tools_launcher.sh');
+  const launcherShSrc = path.join(SRC_DIR, "file_tools_launcher.sh");
   if (fileExists(launcherShSrc)) {
     copyIfDifferent(launcherShSrc, FILE_TOOLS_LAUNCHER_PATH);
     if (!platform.IS_WIN) {
@@ -192,9 +202,46 @@ function installFileTools(silent = true, pythonCmd = null) {
   writeNodeExecPathRecord();
   writePythonCmdRecord(pythonCmd);
 
-  const srcPyDir = path.join(SRC_DIR, 'file_tools');
+  const srcPyDir = path.join(SRC_DIR, "file_tools");
   if (fileExists(srcPyDir)) {
     copyRecursiveIfDifferent(srcPyDir, FILE_TOOLS_PY_DIR);
+  }
+
+  const srcBridgeDir = path.join(SRC_DIR, "bridge");
+  const destBridgeDir = path.join(SKILLS_DB_DIR, "bridge");
+  if (fileExists(srcBridgeDir)) {
+    copyRecursiveIfDifferent(srcBridgeDir, destBridgeDir);
+
+    try {
+      const { execSync } = require("child_process");
+      const pkgPath = path.join(SKILLS_DB_DIR, "package.json");
+      if (!fileExists(pkgPath)) {
+        fs.writeFileSync(
+          pkgPath,
+          JSON.stringify(
+            {
+              name: "konoha-runtime",
+              version: "1.0.0",
+              dependencies: {
+                "@bufbuild/protobuf": "^2.11.0",
+              },
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+      }
+      execSync("npm install --no-audit --no-fund", {
+        cwd: SKILLS_DB_DIR,
+        stdio: "ignore",
+      });
+    } catch (err) {
+      if (!silent) {
+        console.warn(
+          `[warning] Failed to install npm dependencies in ~/.konoha: ${err.message}`,
+        );
+      }
+    }
   }
   return fileExists(FILE_TOOLS_MCP_PATH);
 }
@@ -219,5 +266,5 @@ module.exports = {
   writeNodeExecPathRecord,
   writePythonCmdRecord,
   buildKonohaFilesMcpEntry,
-  installFileTools
+  installFileTools,
 };
