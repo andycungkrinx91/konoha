@@ -146,20 +146,27 @@ def query_stats(conn, time_filter=None):
         where_clause = "WHERE date(timestamp, 'localtime') >= date('now', 'localtime')"
     elif time_filter == "7days":
         where_clause = "WHERE date(timestamp, 'localtime') >= date('now', '-7 days', 'localtime')"
-        
+
+    # Get actual library baseline size
+    try:
+        baseline_row = conn.execute("SELECT SUM(byte_size) FROM skills").fetchone()
+        library_baseline_bytes = baseline_row[0] or 550000
+    except Exception:
+        library_baseline_bytes = 550000
+
     query = f"""
-        SELECT 
+        SELECT
             COUNT(*) as calls,
             COALESCE(SUM(bytes_saved), 0) as bytes,
             COALESCE(SUM(tokens_saved), 0) as tokens,
-            COALESCE(SUM(bytes_saved + returned_bytes), 0) as total_bytes
+            COALESCE(SUM(bytes_saved + returned_bytes), 0) as total_tool_calls_bytes
         FROM tool_calls
         {where_clause}
     """
     row = conn.execute(query).fetchone()
     total_bytes = row[3]
     pct = round((row[1] / total_bytes * 100)) if total_bytes > 0 else 0
-    
+
     saved_usd = query_input_savings_cost(conn, time_filter)
     out_stats = calculate_model_tokens(time_filter)
     net_saved_usd = max(0.0, saved_usd - out_stats["output_cost_usd"])
@@ -202,6 +209,7 @@ def query_stats(conn, time_filter=None):
         "tokens": row[2],
         "pct": pct,
         "total_bytes": total_bytes,
+        "db_size_bytes": library_baseline_bytes,
         "saved_usd": saved_usd,
         "content_tokens": out_stats["content_tokens"],
         "thought_tokens": out_stats["thought_tokens"],
@@ -214,10 +222,10 @@ try:
     if not os.path.exists(db_path):
         print(json.dumps({"error": f"Database not found at {db_path}"}))
         sys.exit(1)
-        
-    conn = sqlite3.connect(db_path)
     
-    # Ensure table exists
+    conn = sqlite3.connect(db_path)
+
+    # Ensure table exists (agent/client included in CREATE to avoid redundant ALTER)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS tool_calls (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -232,15 +240,7 @@ try:
             client TEXT
         );
     """)
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN client TEXT;")
-    except sqlite3.OperationalError:
-        pass
-    
+
     stats_today = query_stats(conn, "today")
     stats_7days = query_stats(conn, "7days")
     stats_all = query_stats(conn, "all")

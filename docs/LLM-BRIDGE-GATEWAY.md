@@ -1,307 +1,227 @@
-# Konoha LLM Bridge & Proxy Gateway
+# Konoha Bridge Gateway
 
-The **Konoha LLM Bridge and Proxy Gateway** provides a unified local API server to serve, multiplex, and route requests across multiple LLM providers (such as Antigravity sidecar, custom OpenAI endpoints, Anthropic, or Gemini) from a single entry point.
+The **Konoha Bridge Gateway** provides a unified local API server (port 19999) to route, multiplex, and stream LLM requests across multiple OpenAI-compatible providers from a single entry point.
 
----
-
-## Feature Architecture
-
-### 1. Proxy Gateway Architecture (Port 11434)
-The Proxy Gateway serves as a central reverse proxy and routing layer. It receives all client requests, performs path/route checks (including intercepting preflight requests like `count_tokens`), validates model prefixes, and routes requests to the appropriate active bridge.
+## Architecture
 
 ```mermaid
 graph TD
-    %% Styling
-    classDef client fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef client  fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef gateway fill:#1e293b,stroke:#475569,stroke-width:2px,color:#e2e8f0;
-    classDef step fill:#1e3a8a,stroke:#3b82f6,stroke-width:1px,color:#f8fafc;
-    classDef error fill:#7f1d1d,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
+    classDef bridge  fill:#1e3a8a,stroke:#3b82f6,stroke-width:1px,color:#f8fafc;
+    classDef db      fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
+    classDef proto   fill:#4c1d95,stroke:#a78bfa,stroke-width:1px,color:#ede9fe;
 
-    Client["💻 Client (Claude Code, Cursor, SDKs)"]:::client
-    Gateway["⚡ Proxy Gateway (Port 11434)"]:::gateway
-    RouteCheck{"Route Check?"}:::step
-    CountTokensMock["Mock Token Count<br/>(200 OK: input_tokens=0)"]:::step
-    ModelPrefix{"Model name has '-' prefix?"}:::step
-    InvalidError["400 Error<br/>(Invalid model prefix)"]:::error
-    BridgeCheck{"Bridge running?"}:::step
-    NotRunning["404 Error<br/>(Bridge not configured)"]:::error
-    Forward["Forward to Target Bridge Port"]:::step
-    RewriteModel["Rewrite Model key in Response"]:::step
+    Client["Client\n(Claude Code, Cursor, OpenCode, SDKs)"]:::client
+    Gateway["Proxy Gateway\nPort 19999"]:::gateway
+    SQLite[("SQLite\n~/.konoha/skills.db\nbridges table")]:::db
+    Sidecar["Sidecar Discovery\nUDP broadcast (port 19899)"]:::proto
+    Cascade["Cascade Failover\nproto → raw → gRPC"]:::proto
+    BridgeA["API-Key Bridge\n<name>-<model>"]:::bridge
+    BridgeB["Compatible Bridge\nOllama / vLLM / LM Studio"]:::bridge
+    OpenAI["OpenAI API\napi.openai.com"]:::bridge
+    LocalLLM["Local LLM\n(port 11437, etc.)"]:::bridge
 
-    Client -->|HTTP Request| Gateway
-    Gateway --> RouteCheck
-    RouteCheck -->|POST /v1/messages/count_tokens| CountTokensMock
-    RouteCheck -->|Other routes| ModelPrefix
-    ModelPrefix -->|No| InvalidError
-    ModelPrefix -->|Yes (e.g., adacode-claude-sonnet-4-6)| BridgeCheck
-    BridgeCheck -->|No| NotRunning
-    BridgeCheck -->|Yes| Forward
-    Forward -->|Get response| RewriteModel
-    RewriteModel -->|Return to Client| Client
+    Client -->|HTTP/REST| Gateway
+    Gateway -->|Read config| SQLite
+    Gateway -->|POST| BridgeA
+    Gateway -->|POST| BridgeB
+    BridgeA --> OpenAI
+    BridgeB --> LocalLLM
+    Gateway -->|Discover| Sidecar
+    Sidecar --> Cascade
+    Cascade -->|Fallback chain| BridgeA
 ```
 
-### 2. LLM Bridges Architecture (Ports 11435, 11436, etc.)
-LLM Bridges run as local endpoints representing individual providers. They act as translation layers (converting formats like Anthropic messages or Gemini Content into standard OpenAI payloads if necessary) and dispatch the calls to the final backend engines.
+## Supported Providers
 
-```mermaid
-graph TD
-    %% Styling
-    classDef gateway fill:#1e293b,stroke:#475569,stroke-width:2px,color:#e2e8f0;
-    classDef bridge fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef ext fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
+| Provider Type | CLI Alias | Model Format | Source |
+|---|---|---|---|
+| **OpenAI API Key** | `openai` | `<bridge_name>-<model>` | Direct OpenAI API |
+| **OpenAI Compatible** | `compatible` | `<bridge_name>-<model>` | Ollama, vLLM, LM Studio, etc. |
+| **Antigravity Sidecar** | `antigravity` | `<bridge_name>-<model>` | Local `agy` CLI / Antigravity IDE (requires live session) |
 
-    Gateway["⚡ Proxy Gateway"]:::gateway
-    
-    subgraph AntigravityBridge [Antigravity Bridge - Port 11435]
-        AGRouter{"Request Route?"}:::bridge
-        PassiveDiscovery["Passive Discovery (Find active sidecar)"]:::bridge
-        H2Connect["HTTP/2 Connect Call"]:::bridge
-    end
-    
-    subgraph OpenAIBridge [OpenAI / AdaCode Bridge - Port 11436]
-        OAIRouter{"Request Route?"}:::bridge
-        Translate["Translate Anthropic/Gemini to OpenAI format"]:::bridge
-        FetchUpstream["HTTPS Fetch (Upstream API)"]:::bridge
-    end
+> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v1.1.6+.
 
-    Sidecar["🤖 Antigravity Sidecar (connect/HTTP2)"]:::ext
-    AdacodeAPI["☁️ AdaCode Cloud API (HTTPS)"]:::ext
+## API Endpoints
 
-    Gateway -->|Forwarded request| AGRouter
-    AGRouter -->|/v1/chat/completions or /v1/messages| PassiveDiscovery
-    PassiveDiscovery -->|Finds active ports| H2Connect
-    H2Connect --> Sidecar
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz` | None | Health check |
+| `GET` | `/v1/models` | None | List all models from all active bridges |
+| `POST` | `/v1/chat/completions` | None | Chat completions (auto-routed by model prefix) |
+| `POST` | `/v1/messages` | None | Anthropic Messages API format |
+| `POST` | `/v1/messages.beta` | None | Anthropic Messages beta format |
+| `POST` | `/v1/gemini/*` | None | Google Gemini API format |
+| `GET` | `/v1/bridge-list` | None | List all configured bridges |
 
-    Gateway -->|Forwarded request| OAIRouter
-    OAIRouter -->|/v1/messages or /v1beta/models| Translate
-    Translate --> FetchUpstream
-    FetchUpstream --> AdacodeAPI
-```
+## Model Naming Rules
 
----
+### Standard Bridges (`provider: openai` or `openai-compatible`)
 
-## Key Features
-
-### 1. Dynamic Configuration & Hot-Reloading
-The `konoha-files` MCP server monitors the bridges configuration file (`~/.konoha/bridges.json`). Whenever changes occur (e.g. creating, deleting, enabling, or disabling a bridge), the MCP server automatically syncs:
-- **Enabling/Creating**: Spawns and binds the HTTP bridge server to its configured port instantly.
-- **Disabling/Deleting**: Safely stops and unbinds the port.
-- **Gateway Auto-Listen**: Because the Proxy Gateway holds a dynamic reference to the active bridges registry, it immediately begins routing requests to newly enabled bridges or handles disabled bridges gracefully without restarting the server.
-
-### 2. Model Alias Prefixing
-To route to a specific bridge, prepend the bridge name to the base model name:
-$$\text{model} = \langle\text{bridge\_name}\rangle-\langle\text{base\_model\_name}\rangle$$
+Format: `<bridge_name>-<model>`
 
 Examples:
-- `antigravity-gemini-3.5-flash-low` routes to the **antigravity** bridge.
-- `adacode-claude-sonnet-4-6` routes to the **adacode** bridge with the model `"claude-sonnet-4-6"`.
-
-### 3. Response Model Rewriting & Interception
-The Gateway intercepts responses from the backend bridges (both JSON bodies and Server-Sent Event streaming chunks) and rewrites the `"model"` field back to the requested prefix-alias format. This prevents client SDKs from throwing mismatch errors.
-To guarantee text-rewriting reliability, client `accept-encoding` headers are stripped during forwarding, ensuring responses are always raw text.
-
-### 4. Strict Passive Discovery Policy
-To comply with Google credentials and session policies, the Antigravity bridge employs a strict passive process discovery strategy. It connects only to already active, user-initiated client sessions (via the host IDE or `agy` CLI). The bridge will never spawn, host, or execute background sidecar daemon instances automatically. If no active user session is discovered, calls will fail silently with `Sidecar not discovered` to protect user credentials.
-
-### 5. Anthropic Preflight Token Mocking
-To support the Claude CLI, Cherry Studio, and other Anthropic-compatible clients that request input token count estimation before sending completions, the Proxy Gateway intercepts `POST /v1/messages/count_tokens` requests. It returns a mock preflight response:
-```json
-{
-  "input_tokens": 0
-}
 ```
-with an HTTP `200 OK` status. This prevents the gateway from returning errors on preflight queries and avoids client-side retry loops.
+my-ollama-llama3.1          # Ollama bridge
+lm-studio-mistral-7b        # LM Studio bridge
+gpt-api-gpt-4o              # OpenAI API key bridge
+```
 
----
+### Enhanced Model Resolution Flow
 
-## Subcommands Reference
+1. Extract model name from request (e.g. `gpt-api-gpt-4o`)
+2. Split by first hyphen: bridge = `gpt-api`, model = `gpt-4o`
+3. Query SQLite `bridges` table for `name = 'gpt-api'`
+4. If bridge provider is `antigravity`, verify Antigravity sidecar session is alive via `isAntigravitySessionLive()`
+5. Check `quota_unavailable_until` — exclude expired bridges
+6. Resolve to an inner bridge, cache the lookup for 30 seconds
+7. Forward request with mapped model name
 
-Manage bridges dynamically from the terminal:
+## Bridge Management
 
-* **Check Status**:
-  ```bash
-  konoha bridge status
-  ```
-* **List Bridges**:
-  ```bash
-  konoha bridge list
-  ```
-* **List Served Models**:
-  ```bash
-  konoha bridge models
-  ```
-* **Create a Bridge**:
-  ```bash
-  konoha bridge create [name]
-  ```
-* **Delete a Bridge**:
-  ```bash
-  konoha bridge delete <name>
-  ```
-* **Enable a Bridge**:
-  ```bash
-  konoha bridge enable <name>
-  ```
-* **Disable a Bridge**:
-  ```bash
-  konoha bridge disable <name>
-  ```
-
----
-
-## Detailed Curl Testing
-
-Below are specific commands to test and verify the gateway using `curl`. All calls should target the central **Proxy Gateway on port 11434**.
-
-### 1. List Available Models (Aggregated)
-Fetch models from all active bridges. The IDs in the returned list are automatically prefixed with their respective bridge name.
+### Creating Bridges
 
 ```bash
-curl -s http://localhost:11434/v1/models | jq .
+konoha bridge create   # Interactive wizard
 ```
 
-*Example Output Snippet:*
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "antigravity-gemini-3.5-flash-low",
-      "object": "model",
-      "created": 1700000000,
-      "owned_by": "google"
-    },
-    {
-      "id": "adacode-claude-sonnet-4-6",
-      "object": "model",
-      "created": 1782473595,
-      "owned_by": "anthropic"
-    }
-  ]
-}
+Wizard prompts:
+```
+Choose provider type:
+  1  OpenAI API Key
+  2  OpenAI Compatible (Ollama, LM Studio, vLLM)
+
+Enter choice [1/2]:
 ```
 
-### 2. OpenAI / Chat Completions (Non-Streaming)
-Forward a standard OpenAI chat completion request. The response model name is rewritten back to match the input request.
+For **OpenAI API Key** (option 1):
+- Prompts: bridge name, port, target URL, API key
+- Stores in `~/.konoha/skills.db` bridges table
 
-#### Test Antigravity Bridge:
-```bash
-curl -s -X POST http://localhost:11434/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "antigravity-gemini-3.5-flash-low",
-    "messages": [{"role": "user", "content": "say hi"}],
-    "max_tokens": 5
-  }' | jq .
-```
+For **OpenAI Compatible** (option 2):
+- Prompts: bridge name, port, target URL (required), API key (optional)
+- Example: `http://localhost:11437/v1/chat/completions`
 
-#### Test Adacode Bridge:
-```bash
-curl -s -X POST http://localhost:11434/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "adacode-claude-sonnet-4-6",
-    "messages": [{"role": "user", "content": "say hi"}],
-    "max_tokens": 5
-  }' | jq .
-```
-
-*Example Output:*
-```json
-{
-  "id": "chatcmpl-3bac8e17-a766-4bc3-aad3-fde1d70422f5",
-  "object": "chat.completion",
-  "created": 1782471626,
-  "model": "adacode-claude-sonnet-4-6",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Hi there! How can I help you today?"
-      },
-      "finish_reason": "stop"
-    }
-  ]
-}
-```
-
-### 3. OpenAI / Chat Completions (Streaming)
-Request a streaming response (`"stream": true`). The gateway rewrites model fields inside each SSE chunk on the fly.
+### Managing Bridges
 
 ```bash
-curl -s -X POST http://localhost:11434/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "adacode-claude-sonnet-4-6",
-    "messages": [{"role": "user", "content": "say hi"}],
-    "max_tokens": 5,
-    "stream": true
-  }'
+konoha bridge list              # Table of all configured bridges
+konoha bridge status            # Detailed status with runtime connectivity check
+konoha bridge models            # All models served across active bridges
+konoha bridge enable <name>     # Enable a disabled bridge
+konoha bridge disable <name>    # Disable without deleting
+konoha bridge delete <name>     # Remove bridge entirely
+konoha bridge start             # Start gateway daemon (port 19999)
+konoha bridge stop              # Stop gateway daemon
 ```
 
-*Example Output:*
-```text
-data: {"id":"chatcmpl-22fbbe2c-4c5b-43cc-b936-8d1f5dfbf657","object":"chat.completion.chunk","created":1782471635,"model":"adacode-claude-sonnet-4-6","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi! How can I help you today?"},"finish_reason":null}]}
+## Sidecar Discovery
 
-data: {"id":"chatcmpl-22fbbe2c-4c5b-43cc-b936-8d1f5dfbf657","object":"chat.completion.chunk","created":1782471635,"model":"adacode-claude-sonnet-4-6","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+The gateway supports automatic sidecar discovery for detecting local LLM instances:
 
-data: [DONE]
+1. **UDP broadcast** on port 19899 to discover running sidecars
+2. **Cascade fallback**: proto codec → raw JSON → gRPC
+3. Auto-registering discovered instances as bridges
+
+## Gateway Protections
+
+### Streaming Timeout Protection
+
+- Gateway never times out during streaming — upstream timeout is extended automatically
+- SSE error frames are HTML-entity escaped to prevent framing corruption
+- Null bytes and non-printable characters are stripped from error messages
+- Response body size is capped at 200MB per request
+
+### Concurrent Request Limits
+
+- Maximum concurrent chat requests: configurable (default varies)
+- Rate limiting: minimum interval between requests enforced
+- Excess requests receive 429 responses with retry guidance
+
+### Request Validation
+
+- Malformed JSON returns `400 Invalid JSON`
+- `[object Object]` serialized messages detected and rejected with clear error
+- Missing messages field returns `400 Invalid Request`
+- Empty message content validated
+
+### Quota-Aware Bridge Routing
+
+When an upstream bridge returns `RESOURCE_EXHAUSTED` or HTTP `429`:
+
+1. The bridge name + model pair is persisted in `quota_unavailable_until` (epoch ms).
+2. `resolveBridgeAndModel()` excludes that bridge-model combo until the timer expires.
+3. Gateway rotates to the next available bridge in round-robin order.
+4. CLI commands `konoha bridge set-quota <name> <epoch_ms>` and `clear-quota <name>` allow manual management.
+
+### Header Sanitization
+
+The gateway strips the following inbound headers before forwarding to inner bridges:
+
+- `Authorization`, `x-api-key` — API keys are only injected by the bridge (not proxied).
+- `x-forwarded-*`, `x-request-id`, `x-client-*`, `x-konoha-gateway-*` — metadata headers.
+
+This ensures local clients never need to send API keys to the gateway, and upstream bridges receive only clean requests.
+
+### Response Model Rewriting
+
+Both streaming and non-streaming responses have their `"model"` field rewritten back to the gateway alias:
+
+- OpenAI: extracts `"model"` from response JSON.
+- Anthropic: rewrites `"model_id"` field.
+- Gemini: rewrites `"model"` in JSON response.
+
+For example, a request to `adacode-claude-sonnet-4-6` gets rewritten to return `"model": "adacode-claude-sonnet-4-6"` even though the upstream bridge responds with its internal model name.
+
+### Compression Safety
+
+The gateway sets `Accept-Encoding: identity` on forwarded requests to guarantee uncompressed responses. This ensures regex-based model name rewriting is reliable.
+
+## Bridge Schema
+
+### SQLite Database: `~/.konoha/skills.db`
+
+```sql
+CREATE TABLE bridges (
+    name                    TEXT    PRIMARY KEY,
+    port                    INTEGER NOT NULL,
+    provider                TEXT    NOT NULL,   -- openai | openai-compatible | antigravity
+    enabled                 INTEGER NOT NULL DEFAULT 1,
+    target_url              TEXT,
+    api_key                 TEXT,
+    quota_unavailable_until INTEGER DEFAULT NULL  -- epoch ms; NULL = Available
+);
 ```
 
-### 4. Anthropic Messages (Non-Streaming)
-Forward a standard Anthropic client request to `/v1/messages`.
+### Python CLI: `src/db_bridges.py`
 
 ```bash
-curl -s -X POST http://localhost:11434/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "antigravity-claude-sonnet-4-6",
-    "messages": [{"role": "user", "content": "say hi"}],
-    "max_tokens": 5
-  }' | jq .
+python3 src/db_bridges.py --list
+python3 src/db_bridges.py --upsert '{"name":"my-bridge","port":11437,...}'
+python3 src/db_bridges.py --delete my-bridge
+python3 src/db_bridges.py --enable my-bridge
+python3 src/db_bridges.py --disable my-bridge
+python3 src/db_bridges.py --set-quota my-bridge 1719545535000
+python3 src/db_bridges.py --clear-quota my-bridge
 ```
 
-*Example Output:*
-```json
-{
-  "id": "msg_01...",
-  "type": "message",
-  "role": "assistant",
-  "model": "antigravity-claude-sonnet-4-6",
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello! How can I help you?"
-    }
-  ]
-}
-```
+## Gateway Source Files
 
-### 5. Gemini / generateContent (Non-Streaming)
-Forward a native Google Gemini format request to `/v1beta/models/...:generateContent`.
-
-```bash
-curl -s -X POST http://localhost:11434/v1beta/models/antigravity-gemini-3.5-flash-low:generateContent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [{"parts": [{"text": "say hi"}]}]
-  }' | jq .
-```
-
-*Example Output:*
-```json
-{
-  "candidates": [
-    {
-      "content": {
-        "role": "model",
-        "parts": [{"text": "Hi! How can I help?"}]
-      },
-      "finishReason": "STOP",
-      "index": 0
-    }
-  ],
-  "modelVersion": "antigravity-gemini-3.5-flash-low"
-}
-```
+| File | Role |
+|---|---|
+| `src/bridge/server.js` | HTTP server entrypoint, request routing |
+| `src/bridge/gateway.js` | Proxy gateway logic, model resolution, concurrent request guard |
+| `src/bridge/handlers/openai.js` | OpenAI `/v1/chat/completions` handler |
+| `src/bridge/handlers/anthropic.js` | Anthropic `/v1/messages` handler |
+| `src/bridge/handlers/gemini.js` | Google Gemini API handler |
+| `src/bridge/handlers/proxy.js` | Generic reverse-proxy handler |
+| `src/bridge/sidecar/discovery.js` | Sidecar discovery via UDP broadcast |
+| `src/bridge/sidecar/cascade.js` | Cascade failover chain (proto → raw → gRPC) |
+| `src/bridge/sidecar/proto.js` | Protobuf codec using `@bufbuild/protobuf` |
+| `src/bridge/sidecar/raw.js` | Raw inference codec |
+| `src/bridge/sidecar/rpc.js` | RPC client for sidecar communication |
+| `src/bridge/context.js` | Bridge context management (per-bridge state) |
+| `src/bridge/models.js` | Model mapping utilities |
+| `src/bridge/utils.js` | Shared utilities (logging, streaming helpers, readBody) |
+| `src/db_bridges.py` | SQLite bridge CRUD + quota persistence |

@@ -19,11 +19,11 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 > **Visual Excellence is Mandatory**: You must never deliver a "basic" or "minimal viable" design. Every component must feel premium, using modern typography, harmonious colors, smooth gradients, and interactive micro-animations.
 
 > [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`skills-db` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
 
 ## Domain Routing
 
-Based on the user's request, load the specific reference file using `skills-db.get_skill("jonin-skill/<reference-name>")` to understand the architecture and conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
+Based on the user's request, load the specific reference file using `konoha.get_skill("jonin-skill/<reference-name>")` to understand the architecture and conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
 
 | If the request involves... | Load this reference |
 |---|---|

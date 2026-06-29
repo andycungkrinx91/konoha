@@ -20,7 +20,7 @@ const SERVER_PATH = path.join(HOME, '.konoha', 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(HOME, '.konoha', 'file_tools_mcp.js');
 
 const SEMBLE_POLICY_LINE =
-  '- **Code search default**: Use `semble` MCP (`search`, `find_related`) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor `Grep`/`Glob`/`SemanticSearch`. Always pass absolute `repo`. Skills: `skills-db` only — never semble for skills.';
+  '- **Code search default**: Use `semble` MCP (`search`, `find_related`) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor `Grep`/`Glob`/`SemanticSearch`. Always pass absolute `repo`. Skills: `konoha.find_skill` only — never semble for skills.';
 
 const DEFAULT_CURSOR_MODELS = {
   genin: 'inherit',
@@ -82,7 +82,6 @@ function buildKonohaFilesMcpEntry() {
 }
 
 function registerMcp(python) {
-  if (!fileExists(SERVER_PATH)) return;
   ensureDir(CURSOR_DIR);
   let config = null;
   if (fileExists(CURSOR_MCP)) {
@@ -95,13 +94,18 @@ function registerMcp(python) {
   } else {
     config = { mcpServers: {} };
   }
+  let updated = false;
+  // Clean legacy servers if present
+  if (config.mcpServers['skills-db']) {
+    delete config.mcpServers['skills-db'];
+    updated = true;
+  }
+  if (config.mcpServers['konoha-files']) {
+    delete config.mcpServers['konoha-files'];
+    updated = true;
+  }
 
   const servers = {
-    'skills-db': {
-      type: 'stdio',
-      command: python,
-      args: [SERVER_PATH]
-    },
     semble: {
       type: 'stdio',
       command: getUvx(),
@@ -111,11 +115,9 @@ function registerMcp(python) {
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = buildKonohaFilesMcpEntry();
     if (entry) {
-      servers['konoha-files'] = entry;
+      servers['konoha'] = entry;
     }
   }
-
-  let updated = false;
   for (const [name, entry] of Object.entries(servers)) {
     const existing = config.mcpServers[name];
     if (

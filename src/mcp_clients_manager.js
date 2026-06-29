@@ -21,7 +21,7 @@ const CLAUDE_JSON = path.join(HOME, '.claude.json');
 const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.json');
 const OPENCODE_GLOBAL = path.join(HOME, '.config', 'opencode', 'opencode.json');
 
-const KONOHA_MCP_NAMES = ['skills-db', 'semble', 'konoha-files'];
+const KONOHA_MCP_NAMES = ['konoha', 'semble'];
 
 function fileExists(p) {
   try {
@@ -81,11 +81,6 @@ function buildStdioMcpServers(options = {}) {
   } = options;
 
   const servers = {
-    'skills-db': {
-      type: 'stdio',
-      command: pythonCmd,
-      args: [serverPath]
-    },
     semble: {
       type: 'stdio',
       command: uvxCmd,
@@ -96,7 +91,7 @@ function buildStdioMcpServers(options = {}) {
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = deployUtils.buildKonohaFilesMcpEntry('cursor');
     if (entry) {
-      servers['konoha-files'] = entry;
+      servers['konoha'] = entry;
     }
   }
 
@@ -180,23 +175,39 @@ function mergeOpenCodeMcpBlock(existing, entries) {
   return updated;
 }
 
+function backupFile(filePath, silent = true) {
+  const backPath = filePath + '.back';
+  if (fileExists(filePath) && !fileExists(backPath)) {
+    fs.copyFileSync(filePath, backPath);
+    if (!silent) console.log(`  ✓ Backed up ${path.basename(filePath)} → ${path.basename(backPath)}`);
+  }
+}
+
 function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!fileExists(serverPath)) return false;
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd });
-  return mergeJsonFile(
-    CLAUDE_JSON,
-    (config) => {
-      if (!config.mcpServers) config.mcpServers = {};
-      return mergeMcpServersBlock(config.mcpServers, servers);
-    },
-    silent
-  );
+
+  // Backup existing config once, then replace mcpServers with only Konoha servers
+  backupFile(CLAUDE_JSON, silent);
+
+  let existingConfig = {};
+  if (fileExists(CLAUDE_JSON)) {
+    try {
+      existingConfig = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
+    } catch { /* ignore parse errors, start fresh */ }
+  }
+
+  // Replace mcpServers entirely with only Konoha servers
+  existingConfig.mcpServers = servers;
+  ensureDir(path.dirname(CLAUDE_JSON));
+  fs.writeFileSync(CLAUDE_JSON, JSON.stringify(existingConfig, null, 2) + '\n');
+  if (!silent) console.log(`  ✓ ${path.basename(CLAUDE_JSON)} replaced with Konoha-only MCP servers`);
+  return true;
 }
 
 function registerClaudeCodePermissions(silent = true) {
   const grants = [
-    'mcp__skills-db__*',
-    'mcp__konoha-files__*',
+    'mcp__konoha__*',
     'mcp__semble__*'
   ];
 
@@ -222,17 +233,26 @@ function registerClaudeCodePermissions(silent = true) {
 function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!fileExists(serverPath)) return false;
   const entries = buildOpenCodeMcpEntries({ pythonCmd, serverPath, uvxCmd });
-  return mergeJsonFile(
-    OPENCODE_GLOBAL,
-    (config) => {
-      if (!config.$schema) {
-        config.$schema = 'https://opencode.ai/config.json';
-      }
-      if (!config.mcp) config.mcp = {};
-      return mergeOpenCodeMcpBlock(config.mcp, entries);
-    },
-    silent
-  );
+
+  // Backup existing config once, then replace mcp block with only Konoha servers
+  backupFile(OPENCODE_GLOBAL, silent);
+
+  let existingConfig = {};
+  if (fileExists(OPENCODE_GLOBAL)) {
+    try {
+      existingConfig = JSON.parse(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
+    } catch { /* ignore parse errors, start fresh */ }
+  }
+
+  if (!existingConfig.$schema) {
+    existingConfig.$schema = 'https://opencode.ai/config.json';
+  }
+  // Replace mcp block entirely with only Konoha servers
+  existingConfig.mcp = entries;
+  ensureDir(path.dirname(OPENCODE_GLOBAL));
+  fs.writeFileSync(OPENCODE_GLOBAL, JSON.stringify(existingConfig, null, 2) + '\n');
+  if (!silent) console.log(`  ✓ ${path.basename(OPENCODE_GLOBAL)} replaced with Konoha-only MCP servers`);
+  return true;
 }
 
 function resolveClaudeModel(agent) {
@@ -251,20 +271,20 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/replace_file_content/g, 'Edit')
     .replace(/run_command/g, 'Bash')
     // MCP tool mapping for Claude Code double underscore format
-    .replace(/skills-db\.find_skill/g, 'mcp__skills-db__find_skill')
-    .replace(/skills-db\.get_skill/g, 'mcp__skills-db__get_skill')
-    .replace(/skills-db\.list_skills/g, 'mcp__skills-db__list_skills')
-    .replace(/skills-db\.optimize_report/g, 'mcp__skills-db__optimize_report')
-    .replace(/skills-db\.build_from_source/g, 'mcp__skills-db__build_from_source')
-    .replace(/skills-db\.build_from_text/g, 'mcp__skills-db__build_from_text')
+    .replace(/(?:skills-db|konoha)\.find_skill/g, 'mcp__konoha__find_skill')
+    .replace(/(?:skills-db|konoha)\.get_skill/g, 'mcp__konoha__get_skill')
+    .replace(/(?:skills-db|konoha)\.list_skills/g, 'mcp__konoha__list_skills')
+    .replace(/(?:skills-db|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
+    .replace(/(?:skills-db|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
+    .replace(/(?:skills-db|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
     .replace(/semble\.search/g, 'mcp__semble__search')
     .replace(/semble\.find_related/g, 'mcp__semble__find_related')
-    .replace(/read_file_head/g, 'mcp__konoha-files__read_file_head')
-    .replace(/read_file_range/g, 'mcp__konoha-files__read_file_range')
-    .replace(/file_info/g, 'mcp__konoha-files__file_info')
-    .replace(/token_efficient_grep/g, 'mcp__konoha-files__token_efficient_grep')
-    .replace(/get_file_structure/g, 'mcp__konoha-files__get_file_structure')
-    .replace(/find_files_clean/g, 'mcp__konoha-files__find_files_clean')
+    .replace(/read_file_head/g, 'mcp__konoha__read_file_head')
+    .replace(/read_file_range/g, 'mcp__konoha__read_file_range')
+    .replace(/file_info/g, 'mcp__konoha__file_info')
+    .replace(/token_efficient_grep/g, 'mcp__konoha__token_efficient_grep')
+    .replace(/get_file_structure/g, 'mcp__konoha__get_file_structure')
+    .replace(/find_files_clean/g, 'mcp__konoha__find_files_clean')
     .trim();
 }
 
@@ -280,7 +300,6 @@ function generateClaudeCodeSubagent(agent) {
   if (instructions && !instructions.endsWith('.')) {
     instructions += '.';
   }
-  instructions += " Never delegate: Claude Code is a single-agent environment. Do NOT write delegate.md/result.md files or invoke/delegate to subagents.";
 
   if (agent.skills && agent.skills.length > 0) {
     const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
@@ -314,8 +333,7 @@ function generateClaudeCodeSubagent(agent) {
     '  - TodoWrite',
     '  - WebSearch',
     '  - mcp__semble__*',
-    '  - mcp__skills-db__*',
-    '  - mcp__konoha-files__*',
+    '  - mcp__konoha__*',
     '---',
     ''
   ];
@@ -391,7 +409,9 @@ function ensureClaudeCodeSetup(options = {}) {
     uvxCmd = 'uvx',
     ruleContent = null,
     silent = true,
-    agents = []
+    agents = [],
+    projectRoot = null,
+    deployProject = false
   } = options;
 
   if (!isClaudeCodeInstalled()) {
@@ -413,6 +433,12 @@ function ensureClaudeCodeSetup(options = {}) {
 
   if (agents && agents.length > 0) {
     deployClaudeCodeSubagents(agents, silent);
+  }
+
+  if (deployProject && projectRoot) {
+    try {
+      deployProjectClaudeMd(projectRoot, agents, silent, ruleContent);
+    } catch {}
   }
 
   return { ok: true };
@@ -443,9 +469,9 @@ function ensureOpenCodeSetup(options = {}) {
 function readMcpHealth(config, key = 'mcpServers') {
   const block = config[key] || config.mcp || {};
   return {
-    skillsDb: !!block['skills-db'],
+    konoha: !!block['konoha'],
     semble: !!block.semble,
-    konohaFiles: !!block['konoha-files']
+    skillsDb: !!block['konoha']
   };
 }
 
@@ -453,9 +479,9 @@ function getClaudeCodeStatus() {
   const status = {
     installed: isClaudeCodeInstalled(),
     globalConfig: fileExists(CLAUDE_JSON),
-    mcpSkillsDb: false,
+    mcpKonoha: false,
     mcpSemble: false,
-    mcpKonohaFiles: false,
+    mcpSkillsDb: false,
     permissionsAllowed: false,
     agentsCount: 0
   };
@@ -464,9 +490,9 @@ function getClaudeCodeStatus() {
     try {
       const config = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
       const health = readMcpHealth(config, 'mcpServers');
-      status.mcpSkillsDb = health.skillsDb;
+      status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
-      status.mcpKonohaFiles = health.konohaFiles;
+      status.mcpSkillsDb = health.skillsDb;
     } catch {}
   }
 
@@ -475,8 +501,7 @@ function getClaudeCodeStatus() {
       const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
       const allowed = settings?.permissions?.allow || [];
       status.permissionsAllowed =
-        allowed.includes('mcp__skills-db__*') &&
-        allowed.includes('mcp__konoha-files__*') &&
+        allowed.includes('mcp__konoha__*') &&
         allowed.includes('mcp__semble__*');
     } catch {}
   }
@@ -496,18 +521,18 @@ function getOpenCodeStatus() {
   const status = {
     installed: isOpenCodeInstalled(),
     globalConfig: fileExists(OPENCODE_GLOBAL),
-    mcpSkillsDb: false,
+    mcpKonoha: false,
     mcpSemble: false,
-    mcpKonohaFiles: false
+    mcpSkillsDb: false
   };
 
   if (status.globalConfig) {
     try {
       const config = JSON.parse(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
       const health = readMcpHealth(config, 'mcp');
-      status.mcpSkillsDb = health.skillsDb;
+      status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
-      status.mcpKonohaFiles = health.konohaFiles;
+      status.mcpSkillsDb = health.skillsDb;
     } catch {}
   }
 
@@ -527,6 +552,7 @@ function removeKonohaFromMcpBlock(block) {
 }
 
 function deployClaudeCodeRules(ruleContent, silent = true) {
+  if (!ruleContent) return false;
   const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
   ensureDir(path.dirname(CLAUDE_MD));
 
@@ -562,7 +588,83 @@ function deployClaudeCodeRules(ruleContent, silent = true) {
   }
 }
 
-function removeClaudeCodeConfig(silent = true) {
+function deployProjectClaudeMd(projectRoot, _agents, silent = true, ruleContent = null) {
+  if (!projectRoot || !fileExists(projectRoot)) return false;
+  if (!ruleContent) return false;
+
+  const CLAUDE_MD = path.join(projectRoot, 'CLAUDE.md');
+  ensureDir(path.dirname(CLAUDE_MD));
+
+  const startMarker = '\n<!-- KONOHA-START -->\n';
+  const endMarker = '\n<!-- KONOHA-END -->\n';
+  const wrapper = startMarker + ruleContent + endMarker;
+
+  let existing = '';
+  if (fileExists(CLAUDE_MD)) {
+    try {
+      existing = fs.readFileSync(CLAUDE_MD, 'utf-8');
+    } catch {}
+  }
+
+  // Strip existing Konoha rules if present
+  let cleanContent = existing;
+  const startIndex = existing.indexOf(startMarker);
+  const endIndex = existing.indexOf(endMarker);
+  if (startIndex !== -1 && endIndex !== -1) {
+    cleanContent = existing.slice(0, startIndex) + existing.slice(endIndex + endMarker.length);
+  }
+
+  const finalContent = cleanContent.trim() + '\n' + wrapper;
+
+  // Only write if content would actually change
+  let hadExistingBlock = (startIndex !== -1 && endIndex !== -1);
+  if (!hadExistingBlock && fileExists(CLAUDE_MD)) {
+    try {
+      const currentFile = fs.readFileSync(CLAUDE_MD, 'utf-8');
+      if (currentFile === finalContent) {
+        return false; // Nothing changed
+      }
+    } catch {}
+  }
+
+  try {
+    fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
+    if (!silent) {
+      console.log(`✓ Deployed Konoha instructions to ${CLAUDE_MD}`);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeProjectClaudeMd(projectRoot, silent = true) {
+  if (!projectRoot || !fileExists(projectRoot)) return false;
+
+  const CLAUDE_MD = path.join(projectRoot, 'CLAUDE.md');
+  if (!fileExists(CLAUDE_MD)) return false;
+
+  try {
+    const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
+    const startMarker = '\n<!-- KONOHA-START -->\n';
+    const endMarker = '\n<!-- KONOHA-END -->\n';
+    const startIndex = content.indexOf(startMarker);
+    const endIndex = content.indexOf(endMarker);
+    if (startIndex !== -1 && endIndex !== -1) {
+      const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
+      fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
+      if (!silent) {
+        console.log(`✓ Removed Konoha instructions from ${CLAUDE_MD}`);
+      }
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+function removeClaudeCodeConfig(silent = true, options = {}) {
+  const { projectRoot = null, removeProject = false } = options;
+
   if (fileExists(CLAUDE_JSON)) {
     try {
       mergeJsonFile(
@@ -580,7 +682,7 @@ function removeClaudeCodeConfig(silent = true) {
           if (config.permissions && config.permissions.allow) {
             const initialLength = config.permissions.allow.length;
             config.permissions.allow = config.permissions.allow.filter(
-              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__semble__*'
+              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*'
             );
             return config.permissions.allow.length !== initialLength;
           }
@@ -588,6 +690,13 @@ function removeClaudeCodeConfig(silent = true) {
         },
         silent
       );
+    } catch {}
+  }
+
+  // Remove per-project CLAUDE.md if specified
+  if (removeProject && projectRoot) {
+    try {
+      removeProjectClaudeMd(projectRoot, silent);
     } catch {}
   }
 
@@ -670,6 +779,8 @@ module.exports = {
   registerClaudeCodeGlobalMcp,
   registerClaudeCodePermissions,
   deployClaudeCodeRules,
+  deployProjectClaudeMd,
+  removeProjectClaudeMd,
   registerOpenCodeGlobalMcp,
   ensureClaudeCodeSetup,
   ensureOpenCodeSetup,

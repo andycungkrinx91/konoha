@@ -53,81 +53,40 @@ When the user prompt involves modifying or working within an existing project:
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
 
-### define_subagent — CRITICAL quoting rules
-
-At session start, call `define_subagent` once per ninja (**genin, kage, chunin, jonin, anbu, tokubetsu-jonin**). Use **bare JSON strings** — extra quotes break `invoke_subagent`. Do NOT call `manage_subagents` or poll for status. Subagents execute asynchronously, and `manage_subagents` list will show 0 active subagents when no task is running, which is normal.
-
-**CRITICAL TURN BOUNDARY RULE:** After calling `define_subagent` for the subagents, you MUST immediately end your turn (by calling no more tools) before attempting to invoke any subagent. This allows the Antigravity platform to register the new subagents into the session. You can ONLY call `invoke_subagent` in a subsequent turn after the definitions have been processed. Never define and invoke subagents in the same response turn.
-
-Example (`genin`):
-```json
-{
-  "name": "genin",
-  "description": "Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.",
-  "system_prompt": "You are a Genin scout. Log: \"[🍃 Genin] active\". Before work: find_skill(\"deep-code-explorer\", agent='genin'). If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Read-only — NEVER modify files. Report findings with exact file paths and line numbers. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.",
-  "model": "Gemini 3.5 Flash (Low)",
-  "enable_mcp_tools": true,
-  "enable_write_tools": false,
-  "enable_subagent_tools": false
-}
-```
-
-- `name` must be bare: `jonin` — NEVER `"jonin"` or `\"jonin\"`
-- `enable_mcp_tools` / `enable_write_tools` / `enable_subagent_tools` must be JSON booleans, not strings
-- Copy `system_prompt` from ~/.agents/agents.json for each agent
-
-### invoke_subagent — CRITICAL format
-
-`Subagents` must be a **JSON array object**, NOT a stringified array:
-
-```json
-{
-  "Subagents": [
-    {
-      "TypeName": "jonin",
-      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
-      "Workspace": "inherit"
-    }
-  ]
-}
-```
-
-**FORBIDDEN:** `TypeName: "self"` or `invoke_subagent` with self to impersonate jonin. If jonin fails, re-run `define_subagent` with bare names — never fall back to self.
-
 ### @orchestrator — Task Coordinator
 - **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
 - **Auto-Delegation**:
-  - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to subagents when a matched skill is embedded in their configuration.
-  - If the matched skill is NOT embedded in any subagent, the main agent runs the task directly via Direct Tool Calls.
+  - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to specialized ninja agents (defined globally).
+  - Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited. The orchestrator must always route and delegate tasks to the specialized agents.
 - **Workflow**:
   1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-  2. **Find Skill First**: Call `skills-db.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP and has no knowledge of skills, whereas the `skills-db` MCP handles all skill lookups (using `find_skill` or `optimize_report`).**
-  3. **Find Code Context**: If project source code context is needed, use the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do not call `semble` when the task only needs skills — use `skills-db` for that.
-  4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill:
-     - Check the team roster to see if the discovered skill is embedded in the `skills` array of any subagent.
-     - **If embedded**: Delegate the task to that matched subagent by preparing a file-based delegation (Step 5) and invoking them (Step 6).
-     - **If NOT embedded**: Run the task directly in the main agent (orchestrator) using Direct Tool Calls (like `write_to_file`, `replace_file_content`, `run_command`) and apply that skill's guidelines.
-  5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory) using the fields: `Goal`, `Context`, and `Constraints`. You must include a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
+  2. **Find Skill First**: Call `konoha.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP and has no knowledge of skills, whereas the `konoha` MCP handles all skill lookups.**
+  3. **Find Code Context**: If project source code context is needed, use the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do not call `semble` when the task only needs skills — use `konoha` for that.
+  4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
+     - Check the team roster to see if the discovered skill is embedded in the `skills` array of any agent.
+     - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to `@kage`; backend, script automation, and database to `@anbu`; frontend styling and UI implementation to `@jonin`; documentation to `@tokubetsu-jonin`).
+     - The orchestrator always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
+  5. **Prepare File-Based Delegation**: Write the structured delegation parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must include a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
      ```markdown
      ---
      depth: <N>
      ---
      ```
-     Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are a subagent executing a delegated task) or the target `delegate.md` (if it already exists):
+     Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are an agent executing a delegated task) or the target `delegate.md` (if it already exists):
      - If a depth value `N` is found in either, write the new `delegate.md` with `depth: N + 1`.
      - Otherwise, initialize it to `depth: 1`.
-     - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the subagent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
+     - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the agent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
      - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
      Categorize the main content clearly:
      - **Goal**: Clear explanation of what needs to be accomplished.
      - **Context**: Relevant files, code snippets, and background details discovered via `semble`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. `anbu-skill/ci-cd-security`)**.
      - **Constraints**: Rule constraints and target files.
-  6. **Delegate**: Invoke the subagent using the subagent TypeName corresponding to the chosen agent (e.g., `anbu`, `genin`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the subagent's prompt. The subagent will read `delegate.md` from the path specified in your invocation prompt to run the task, and write its output to `result.md` at the path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the subagent MUST immediately load and read those specific reference documents using the MCP tool `skills-db.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the subagent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-  7. **Await Results**: Once you are woken up by the system notifying you of subagent completion or updates, read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` once complete to consume the output, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
+  6. **Delegate**: Invoke the ninja agent using the agent TypeName (e.g., `anbu`, `kage`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the agent's prompt. The agent will read `delegate.md` from the path specified in your invocation prompt to run the task, and write its output to `result.md` at the path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the agent MUST immediately load and read those specific reference documents using the MCP tool `konoha.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the agent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
+  7. **Await Results**: Once you are woken up by the system notifying you of agent completion or updates, read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` once complete to consume the output, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
   8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
-- **Constraints**: ONLY delegates to defined subagents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin` if the matching skill is embedded in their configuration. Dynamic auto-creation of subagents is prohibited. It is prohibited to execute Direct Tool Calls in the orchestrator thread for tasks that can be handled by subagents with embedded skills. Only use Direct Tool Calls if the required skill is not embedded in any active subagents, or if a subagent hits quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
+- **Constraints**: ONLY delegates to defined ninja agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Dynamic auto-creation of agents is prohibited. It is prohibited to execute Direct Tool Calls in the orchestrator thread for project tasks. Only use Direct Tool Calls as a fallback if all agents hit quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
 
-| Embedded Skills | Subagent TypeName |
+| Embedded Skills | Agent TypeName |
 |---|---|
 | `deep-code-explorer` | `genin` |
 | `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
@@ -135,7 +94,7 @@ Example (`genin`):
 | `agent-browser`, `modern-full-stack` | `jonin` |
 | `devsecops-engineer`, `agent-browser` | `anbu` |
 | `documentation` | `tokubetsu-jonin` |
-| Simple/trivial task | Delegate to the matching agent if skill is embedded. Otherwise, main agent runs directly. |
+| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 
 **FORBIDDEN for Konoha work:** `TypeName: "self"` or `TypeName: "research"` to impersonate jonin/anbu/genin. Never run `run_command` / `write_to_file` in the orchestrator thread for delegated work.
 
@@ -143,61 +102,61 @@ Example (`genin`):
 - **Purpose**: Fast, read-only codebase navigation and analysis
 - **Skills**: `deep-code-explorer`
 - **Delegate when**: Need to understand code structure, trace how something works, map dependencies
-- **Constraints**: Read-only — does not modify files. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Constraints**: Read-only — does not modify files. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search symbols with `semble` → open relevant files → summarize with file paths and line numbers.
 
 ### @kage — 🌀 Village Leader & Architect
 - **Purpose**: Expert-level analysis for critical decisions and high-level strategy
 - **Skills**: `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill`
 - **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
-- **Constraints**: Always assess risk, blast radius, and rollback plan. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Constraints**: Always assess risk, blast radius, and rollback plan. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.
 
 ### @chunin — 📜 Research & Intel
 - **Purpose**: Web research, documentation lookup, evidence synthesis with citations
 - **Skills**: `websearch-deep`
 - **Delegate when**: Need external information, library docs, best practices, technology comparisons, compliance standards
-- **Constraints**: Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. External research only — redirect codebase questions to @genin. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Constraints**: Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. External research only — redirect codebase questions to @genin. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Decompose question → multi-query generation → parallel search → source ranking → evidence synthesis → cited report.
 
 ### @jonin — 🛡️ UI & Frontend Specialist
 - **Purpose**: Build premium, production-ready user interfaces
 - **Skills**: `agent-browser`, `modern-full-stack`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
-- **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
 
 ### @anbu — 👥 Backend Specialist, Bug Fixing, & DevOps
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems
 - **Skills**: `devsecops-engineer`, `agent-browser`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD
-- **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
 
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
 - **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
 - **Skills**: `documentation`
 - **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates
-- **Constraints**: Follow reader-first principles, include code examples, and link references. Call skills-db.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
-- **Workflow**: Search skills/references with `skills-db` → construct clear documentation → show code examples/commands → link references.
+- **Constraints**: Follow reader-first principles, include code examples, and link references. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
+- **Workflow**: Search skills/references with `konoha` → construct clear documentation → show code examples/commands → link references.
 
 ## Operational Conventions — All Agents
 
 ### Mandatory Protocol (every agent must follow)
-1. **Log on start**: Output `[{Icon} {Name}] active. Calling skills-db.find_skill('...')` at the start of every response.
-2. **Read File-Based Task**: Read the delegation parameters from the absolute path to `delegate.md` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. `anbu-skill/ci-cd-security`), you MUST immediately call the MCP tool `skills-db.get_skill` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
-3. **Skills-DB first**: Call `find_skill(keyword, agent='{your_name}')` before starting any task. Never load SKILL.md files directly.
+1. **Log on start**: Output `[{Icon} {Name}] active. Calling konoha.find_skill('...')` at the start of every response.
+2. **Read File-Based Task**: Read the delegation parameters from the absolute path to `delegate.md` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. `anbu-skill/ci-cd-security`), you MUST immediately call the MCP tool `konoha.get_skill` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
+3. **Konoha first**: Call `find_skill(keyword, agent='{your_name}')` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking `find_skill`, `get_skill`, or `list_skills`, always pass `agent='{your_name}'`.
 5. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. `result.md.tmp`) first, then rename/move it atomically to `result.md` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
 6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to `plan.md` in the task directory (e.g. `scratch/tasks/<task_id>/plan.md`) first. Refer to this plan in your final `result.md` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
 
 ### Conditional Tools (use only when needed)
-- **Semble for code search**: If the task requires searching project source code (not skills), call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Prefer `semble` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
-- **Konoha-Files for file reads**: If project file reading, structure inspection, info checks, or line greps are needed, call the **`konoha-files` MCP** tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`) directly after locating targets with `semble`. Do NOT use raw `cat`, `head`, `tail`, `grep`, or built-in file tools unless `konoha-files` is unavailable.
-- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **`konoha-files` MCP** (`read_file_head`, `read_file_range`, etc.) instead of the built-in `view_file` or `Read` tool. When reading files, ALWAYS specify a precise `StartLine` and `EndLine` range (no more than 50-100 lines) containing the target code discovered via `semble` search. Avoid loading massive files into your context window.
+- **Semble for code search**: If the task requires searching project source code (not skills), call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Prefer `semble` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
+- **Konoha for file reads**: If project file reading, structure inspection, info checks, or line greps are needed, call the **`konoha` MCP** tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`) directly after locating targets with `semble`. Do NOT use raw `cat`, `head`, `tail`, `grep`, or built-in file tools unless `konoha` is unavailable.
+- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **`konoha` MCP** (`read_file_head`, `read_file_range`, etc.) instead of the built-in `view_file` or `Read` tool. When reading files, ALWAYS specify a precise `StartLine` and `EndLine` range (no more than 50-100 lines) containing the target code discovered via `semble` search. Avoid loading massive files into your context window.
 
 ### Safety Guardrails
-- **Tool Boundaries**: Call **`semble` MCP** directly for codebase search. Call **`skills-db` MCP** for all skill/instruction lookup. Call **`konoha-files` MCP** for all file reads and line-level grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills/reference documents. NEVER use `semble` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
+- **Tool Boundaries**: Call **`semble` MCP** directly for codebase search. Call **`konoha` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills/reference documents. NEVER use `semble` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any `git` command. Use `rg` (ripgrep) or semble MCP instead.
@@ -206,7 +165,7 @@ Example (`genin`):
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **No Auto-Creation of Subagents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Subagents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
+- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.
@@ -241,6 +200,5 @@ Load **semble** when project source code search is needed — do NOT load it for
 | MCP | Command | Load When |
 |---|---|---|
 | **semble** | `uvx --from semble[mcp] semble` | Project source code search needed |
-| **skills-db** | python3 server.py | Always (skill discovery) |
-| **konoha-files** | node ~/.konoha/file_tools_launcher.js | File operations and reads |
+| **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
 | cloudrun | `npx -y @google-cloud/cloud-run-mcp` | GCP deployments |

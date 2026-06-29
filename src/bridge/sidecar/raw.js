@@ -243,38 +243,6 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
     return { content: text, toolCalls: null };
   }
 
-  const info = await discoverSidecar(ctx);
-  if (!info) throw new Error('Sidecar not discovered');
-
-  if (!info.csrfTokens || info.csrfTokens.length === 0) {
-    throw new Error('Sidecar discovered but no CSRF tokens available');
-  }
-  const mainCsrf = info.csrfTokens[0];
-
-  // Find a working LS port — try non-extension ports first, then extension port as fallback.
-  // The LS ports may have died while the extension port stays alive; trying all ports
-  // avoids 'No reachable LS port' when the sidecar recycles its gRPC listeners.
-  const lsPorts = [
-    ...info.actualPorts.filter((p) => p !== info.extensionServerPort),
-    info.extensionServerPort, // last resort — extension port may also serve LS gRPC
-  ];
-  let lsPort = null;
-  for (const port of lsPorts) {
-    try {
-      await makeH2JsonCall(port, mainCsrf, info.certPath, 'GetStatus', {});
-      lsPort = port;
-      break;
-    } catch {
-      // try next port
-    }
-  }
-  if (!lsPort) {
-    // Invalidate sidecar cache so next request re-discovers fresh ports
-    ctx.sidecarInfo = null;
-    ctx.sidecarInfoTimestamp = 0;
-    throw new Error('No reachable LS port');
-  }
-
   // Format the prompt
   const prompt = formatMessagesAsPrompt(messages, tools);
 
@@ -284,21 +252,68 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
   // Large prompts or slow thinking models can take several minutes.
   const INFERENCE_TIMEOUT_MS = 900000; // 15 minutes
 
+  // The JSON GetModelResponse endpoint expects the numeric model enum value
+  // (e.g. 1018), NOT the proto-style string ("MODEL_PLACEHOLDER_M18"). Sending
+  // the string causes 2013 "invalid params, unknown model" rejections. The
+  // cascade path already sends numeric values; raw inference must do the same.
+  const numericModelValue = MODEL_ENUM_TO_VALUE[modelEnum] || 1035;
   const reqBody = {
     prompt,
-    model: modelEnum,
+    model: numericModelValue,
   };
 
-  // Retry loop for transient RESOURCE_EXHAUSTED / model-not-found errors.
+  // Retry loop for transient gRPC / connection / sidecar / resource limits.
   // enqueueInference serializes all calls: only 1 GetModelResponse at a time,
   // with a 2-second cooldown between consecutive calls.
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY_MS = 5000;
+  const MAX_RETRIES = 4;
+  const RETRY_DELAY_MS = 2000;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       log(ctx, `⏳ Retry ${attempt}/${MAX_RETRIES} after ${RETRY_DELAY_MS / 1000}s backoff...`);
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    }
+
+    let info, mainCsrf, lsPort;
+    try {
+      info = await discoverSidecar(ctx);
+      if (!info) throw new Error('Sidecar not discovered');
+
+      if (!info.csrfTokens || info.csrfTokens.length === 0) {
+        throw new Error('Sidecar discovered but no CSRF tokens available');
+      }
+      mainCsrf = info.csrfTokens[0];
+
+      // Find a working LS port — try non-extension ports first, then extension port as fallback.
+      const lsPorts = [
+        ...info.actualPorts.filter((p) => p !== info.extensionServerPort),
+        info.extensionServerPort,
+      ];
+      for (const port of lsPorts) {
+        try {
+          await makeH2JsonCall(port, mainCsrf, info.certPath, 'GetStatus', {});
+          lsPort = port;
+          break;
+        } catch {
+          // try next port
+        }
+      }
+      if (!lsPort) {
+        throw new Error('No reachable LS port');
+      }
+    } catch (discoveryErr) {
+      const isRetryable =
+        discoveryErr.message.includes('Sidecar not discovered') ||
+        discoveryErr.message.includes('No reachable LS port') ||
+        discoveryErr.message.includes('CSRF');
+
+      if (attempt < MAX_RETRIES && isRetryable) {
+        log(ctx, `⚠️ Sidecar discovery attempt ${attempt + 1} failed: ${discoveryErr.message}`);
+        ctx.sidecarInfo = null;
+        ctx.sidecarInfoTimestamp = 0;
+        continue;
+      }
+      throw discoveryErr;
     }
 
     try {
@@ -311,8 +326,6 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
       log(ctx, `🧠 Raw response: ${responseText.length} chars`);
 
       // Check if upstream silently returned a Google API proxy error as plaintext.
-      // Only flag short responses (< 1000 chars) — longer responses are valid completions
-      // where the model may quote these strings while discussing error-handling code.
       if (
         responseText.length < 1000 &&
         (responseText.includes("Method doesn't allow unregistered callers") ||
@@ -354,10 +367,21 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
       const isRetryable =
         errMsg.includes('RESOURCE_EXHAUSTED') ||
         errMsg.includes('model not found') ||
-        errMsg.includes('unknown model key');
+        errMsg.includes('unknown model key') ||
+        errMsg.includes('Sidecar not discovered') ||
+        errMsg.includes('No reachable LS port') ||
+        errMsg.includes('H2 connect') ||
+        errMsg.includes('H2 timeout') ||
+        errMsg.includes('ECONNRESET') ||
+        errMsg.includes('socket hang up') ||
+        errMsg.includes('empty content') ||
+        errMsg.includes('INTERNAL') ||
+        errMsg.includes('HTTP 500');
 
       if (attempt < MAX_RETRIES && isRetryable) {
         log(ctx, `⚠️ Raw inference attempt ${attempt + 1} failed: ${errMsg.substring(0, 100)}`);
+        ctx.sidecarInfo = null;
+        ctx.sidecarInfoTimestamp = 0;
         continue;
       }
       throw err;

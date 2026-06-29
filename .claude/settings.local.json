@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__konoha-files__read_file_range",
+      "Read(//home/andycungkrinx/.konoha/**)",
+      "mcp__konoha-files__token_efficient_grep",
+      "mcp__semble__search",
+      "Bash(netstat -ltnp)",
+      "Bash(curl -s -X POST http://127.0.0.1:11434/healthz)",
+      "Bash(curl -s -X POST http://localhost:11434/v1/chat/completions -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(kill -TERM 39906)",
+      "Bash(curl -s -X POST http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d '{\"model\":\"antigravity-gemini-3.5-flash-low\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":5}')",
+      "Bash(curl -sv -X POST http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d '{\"model\":\"antigravity-gemini-3.5-flash-low\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":5}')",
+      "Read(//home/andycungkrinx/.claude/**)",
+      "Bash(konoha status *)",
+      "Bash(python3 -c 'import sys,json; d=json.load\\(sys.stdin\\); *)",
+      "Bash(konoha agent *)",
+      "Bash(sed -i \"/const __perf = \\(l\\)/d\" bin/cli.js)",
+      "Bash(sed -i \"/const __t = Date.now/d\" bin/cli.js)",
+      "Bash(sed -i \"/__perf\\('/d\" bin/cli.js)",
+      "Bash(NO_ANIMATION=1 node --require ./prof_inject.js bin/cli.js agent status)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

@@ -33,7 +33,7 @@ try:
         
     conn = sqlite3.connect(db_path)
     
-    # Ensure table exists (safeguard)
+    # Ensure table exists (safeguard — agent/client included in CREATE to avoid redundant ALTER)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS tool_calls (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,14 +48,6 @@ try:
             client TEXT
         );
     """)
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN client TEXT;")
-    except sqlite3.OperationalError:
-        pass
     
     # Run query
     query = """

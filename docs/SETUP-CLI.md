@@ -10,8 +10,8 @@
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
-> **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.9` for Google Policy compliance, running **any** `konoha` command automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools.
+> **Zero-Prompt Auto-Setup**:
+> Konoha now auto-configures every detected IDE/CLI client (Antigravity, Cursor, Claude Code, OpenCode) during `konoha init` or the automatic `ensureAutoSetup()` bootstrap triggered by any `konoha` command. The only prompt shown is a single consent question: "Initialize Konoha and modify ~/.gemini configurations?". All other clients are configured automatically based on what is detected on the system.
 >
 > If you still want to perform a manual clean initialization, run:
 
@@ -42,7 +42,7 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `skills-db`, `semble`, and `konoha-files` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
+You should see `konoha`, `semble`, and `konoha` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
 
 ## Step 3: Verify Skills-DB Works
 
@@ -63,7 +63,7 @@ agy
 Then ask:
 
 ```
-Search for "terraform aws" using the skills-db MCP tool.
+Search for "terraform aws" using the konoha MCP tool.
 ```
 
 The agent should call `find_skill("terraform aws")` and return relevant anbu-skill references — without loading any SKILL.md files.
@@ -77,7 +77,7 @@ agy reads MCP config from `~/.gemini/config/mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "skills-db": {
+    "konoha": {
       "command": "python3",
       "args": ["/home/youruser/.konoha/server.py"]
     }
@@ -194,7 +194,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```bash
   konoha savings
   ```
-  Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `skills-db` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
+  Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
 
 ### System Diagnostics and Health Checks
 
@@ -235,7 +235,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
   - `Claude Sonnet 4.6 (Thinking)`
   - `Claude Opus 4.6 (Thinking)`
   - `GPT-OSS 120B (Medium)`
-  - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `11434`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched, listed in `konoha models list`, and available for selection.
+  - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `19999`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched, listed in `konoha models list`, and available for selection.
 
 * **Fallback Configuration**:
   Subagents default to using `Gemini 3.1 Flash-Lite` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
@@ -258,10 +258,10 @@ The installer registers whitelisted command prefixes in `~/.gemini/antigravity-c
 This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
 
 ### 2. Tool Auto-Approvals
-The installer registers tool auto-approval settings for the `skills-db`, `semble`, and `konoha-files` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
-- **`skills-db`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
+The installer registers tool auto-approval settings for the `konoha`, `semble`, and `konoha` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+- **`konoha`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
 - **`semble`**: Auto-approves `search` and `find_related`.
-- **`konoha-files`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
+- **`konoha`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
 
 These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.
 

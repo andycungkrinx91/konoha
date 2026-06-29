@@ -1,12 +1,5 @@
 {
   "mcpServers": {
-    "skills-db": {
-      "type": "stdio",
-      "command": "python3",
-      "args": [
-        "${userHome}/.konoha/server.py"
-      ]
-    },
     "semble": {
       "type": "stdio",
       "command": "uvx",
@@ -18,7 +11,7 @@
         "all"
       ]
     },
-    "konoha-files": {
+    "konoha": {
       "type": "stdio",
       "command": "node",
       "args": [

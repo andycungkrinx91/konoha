@@ -1,11 +1,11 @@
 ---
 name: konoha-maintenance
-description: Guidelines and instructions for maintaining, extending, and debugging the Konoha SQLite FTS5 Skills-DB system.
+description: Guidelines and instructions for maintaining, extending, and debugging the Konoha SQLite FTS5 Skills-DB system, MCP middleware, and Bridge Router.
 ---
 
 # Konoha Maintenance Skill
 
-This skill contains the structural guidelines, command specifications, and architectural rules for maintaining and developing the **Konoha** SQLite FTS5 Skills-DB application.
+This skill contains the structural guidelines, command specifications, and architectural rules for maintaining and developing the **Konoha** SQLite FTS5 Skills-DB application, MCP middleware, and Bridge Router.
 
 ## System Architecture
 
@@ -48,13 +48,12 @@ graph TB
     end
 
     subgraph Layer3 ["3. MCP Middleware Layer"]
-        SkillsDB["⚙️ skills-db MCP<br>FTS5 skill search"]
+        KonohaMCP["⚡ konoha MCP<br>Skills FTS5 & File Operations (12 tools)"]
         Semble["🔮 Semble MCP<br>Semantic code search"]
-        KonohaFiles["📁 konoha-files MCP<br>Token-efficient file tools"]
     end
 
     subgraph Layer4 ["4. Persistence Layer"]
-        DB[("🗄️ SQLite Database <br/> ~/.konoha/skills.db")]
+        DB[("🗄️ SQLite Database <br/> ~/.konoha/skills.db (skills & bridges tables)")]
         FTS5["🔍 SQLite FTS5 <br/> Full-Text Index"]
         Codebase["📂 Workspace Files"]
     end
@@ -72,31 +71,30 @@ graph TB
     Router -->|Delegate task| Queue
     Queue -->|Task parameters| Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage
 
-    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|find_skill / get_skill| SkillsDB
+    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|find_skill / get_skill / file operations| KonohaMCP
     Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|search / find_related| Semble
-    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|read / grep / structure| KonohaFiles
 
-    SkillsDB -->|SQL query| DB
+    KonohaMCP -->|SQL query & File I/O| DB
     DB <-->|BM25 ranking| FTS5
     Semble -->|Semantic index| Codebase
-    KonohaFiles -->|Streamed reads| Codebase
+    KonohaMCP -->|Streamed reads| Codebase
 
     Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|Write result.md| Queue
     Queue -->|Read output| Router
     Router -->|Synthesized response| IDE
     IDE -->|Final answer| User
 
-    IDE -.- SkillsDB
+    IDE -.- KonohaMCP
 
     class User,IDE presentation;
     class Router,Queue orchestration;
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage cognitive;
-    class SkillsDB,Semble,KonohaFiles middleware;
+    class KonohaMCP,Semble middleware;
     class DB,FTS5,Codebase persistence;
     class CLI,AgentConfig,MCPConfig mgmt;
 ```
 
-> **Note:** Konoha does not implement multi-provider LLM routing. The host IDE owns model selection, API calls, and any quota handling. Konoha provides MCP middleware, subagent orchestration, and on-demand skill retrieval.
+> **Note:** Konoha implements multi-provider LLM routing via the Bridge Router (port `19999`). The router handles `openai`, `openai-compatible`, and `antigravity` providers with quota-aware rotation. See [LLM-BRIDGE-GATEWAY.md](../../docs/LLM-BRIDGE-GATEWAY.md) for details.
 
 ## Database Schema
 
@@ -135,12 +133,15 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `python3 src/test_agent_attribution.py` | One-by-one Antigravity MCP agent attribution verification. |
 | `python3 src/test_cursor_attribution.py` | One-by-one Cursor MCP agent attribution verification. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
-| `node bin/cli.js bridge status` | Shows runtime status and details of all configured LLM bridges. |
-| `node bin/cli.js bridge list` | Lists all configured bridges in a formatted summary table. |
-| `node bin/cli.js bridge create <name>` | Interactively creates a new bridge (supports custom OpenAI-compatible endpoints). |
+| `node bin/cli.js bridge status` | Shows runtime status and details of all configured bridges. |
+| `node bin/cli.js bridge list` | Lists all configured bridges in a formatted table with provider info. |
+| `node bin/cli.js bridge models` | Lists all models served by all active bridges. |
+| `node bin/cli.js bridge create` | Interactive wizard: choose API Key (OpenAI/Compatible) or Antigravity (passive sidecar). |
 | `node bin/cli.js bridge delete <name>` | Deletes a bridge configuration. |
 | `node bin/cli.js bridge enable <name>` | Enables a bridge configuration. |
 | `node bin/cli.js bridge disable <name>` | Disables a bridge configuration. |
+| `node bin/cli.js bridge start` | Starts the Bridge Gateway daemon on port 19999. |
+| `node bin/cli.js bridge stop` | Stops the Bridge Gateway daemon. |
 
 ## Development Guidelines
 
@@ -162,11 +163,29 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 4. Persistent Storage
 - User configurations (e.g. subagent JSON settings) must be saved to the user's home directory (`~/.agents/agents.json`).
 - Template files inside `src/templates/` serve only as fallbacks. Package template updates should fail silently in read-only global node_modules environments.
+- **Bridge SQLite schema** (`~/.konoha/skills.db`, table `bridges`):
+  ```sql
+  CREATE TABLE bridges (
+      name                    TEXT    PRIMARY KEY,
+      port                    INTEGER NOT NULL,
+      provider                TEXT    NOT NULL,  -- openai | openai-compatible | antigravity
+      enabled                 INTEGER NOT NULL DEFAULT 1,
+      target_url              TEXT,
+      api_key                 TEXT,
+      quota_unavailable_until INTEGER DEFAULT NULL  -- epoch ms; NULL = Available
+  );
+  ```
+  `db_bridges.py` manages this table. New actions: `--set-quota <name> <epoch_ms>`, `--clear-quota <name>`.
+  The `quota_unavailable_until` column persists quota state across gateway restarts. On startup, the gateway `quotaRotator` (in `src/bridge/gateway.js`) reads this column and re-arms in-memory timers.
 
 ### 5. Subagent Model Fields (Host IDE)
 - Konoha stores optional model preferences in `agents.json` (`model`, `cursorModel`, `claudeModel`) and injects them into generated `GEMINI.md`, `AGENTS.md`, and `~/.cursor/agents/*.md`.
-- **Konoha does not implement multi-provider LLM routing.** Model selection, API calls, and quota handling are owned by the host IDE (Antigravity model registry, Cursor `model: inherit` slugs, Claude Code, OpenCode).
-- Antigravity orchestrator templates may document quota fallback behavior for coordinators; that is IDE policy text, not a Konoha runtime component.
+- **Konoha Bridge Router**: Konoha implements full multi-provider LLM routing via the Bridge Router (port `19999`). The router handles three provider types:
+  - `openai`: Direct OpenAI API key — model prefix `<bridge_name>-<model>`.
+  - `openai-compatible`: Any OpenAI-compatible provider (Ollama, LM Studio, vLLM) — model prefix `<bridge_name>-<model>`.
+  - `antigravity`: Passive sidecar against a running `agy` CLI / Antigravity IDE session. The gateway verifies session liveness via `isAntigravitySessionLive()` before routing.
+- **Quota Rotation**: The gateway's `quotaRotator` (in `src/bridge/gateway.js`) round-robins across enabled bridges. On 429 / `RESOURCE_EXHAUSTED`, the bridge is marked Unavailable with a `quota_unavailable_until` epoch timestamp. State is persisted to SQLite (`quota_unavailable_until` column) and restored on startup.
+- Antigravity orchestrator templates may document model selection conventions; Konoha enforces routing at the proxy level.
 
 ### 6. Compliance Reports
 - Whenever updating Konoha versions or conducting security checks, you MUST generate a compliance report in the `docs/SecurityCompliance/` folder using the exact filename format: `security_compliance_report_google_policy_<version>_<YYYY-MM-DD>.md`.
@@ -232,13 +251,13 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Rule**: All codebase discovery uses `semble.search` / `find_related` with absolute `repo`. Forbidden: grep, glob, find, rg, Cursor `Grep`/`Glob`/`SemanticSearch` (fallback: `rg` once if semble unavailable).
 - **Upgrade Path**: `loadAgents()` syncs constraints when `NEVER use grep` marker is missing.
 
-### 15. Token-Efficient File Tools (`konoha-files` MCP)
+### 15. Token-Efficient File Tools (`konoha` MCP)
 - **Architecture**: Node.js `file_tools_mcp.js` + `file_tools_router.js` orchestrate; Python scripts in `src/file_tools/` perform streaming I/O.
 - **Tools**: `read_file_head` (≤200 lines), `read_file_range` (≤500 lines), `file_info`, `token_efficient_grep` (≤20 matches), `get_file_structure`, `find_files_clean` (which automatically skips VCS, lockfiles, `go-dist`, and `vendor` directories during file walks to prevent context bloat).
 - **Launcher**: `file_tools_launcher.js` (cross-platform) + `.node_exec_path` / `.python_cmd` records; Unix also ships `file_tools_launcher.sh`.
-- **Proxy Gateway & LLM Bridges Integration**: Automatically starts the central Proxy Gateway on port `11434` and all enabled bridges in `bridges.json` (such as `antigravity` on port `11435` and `adacode` on port `11436`) in-process when `konoha-files` MCP server initializes, providing multi-provider routing and formatting compatibility. The Proxy Gateway automatically intercepts and returns `{"input_tokens": 0}` with a `200 OK` status for `POST /v1/messages/count_tokens` preflight queries (frequently made by the Claude CLI and Cherry Studio) to bypass gateway failures and prevent retry loops.
-- **Install**: `installFileTools()` copies files to `~/.konoha/` (including `bridge/` submodules), sets up runtime dependencies via local `npm install`, and registers it as `konoha-files` in Antigravity `mcp_config.json` and Cursor `mcp.json`.
-- **Tests**: `konoha test` runs MCP integration tests for all four tools.
+- **Konoha Bridge Router Integration**: Automatically starts the Konoha Bridge Router on port `19999` and all enabled bridges (such as `openai` on port `11435`) in-process when the `konoha` MCP server initializes, providing multi-provider routing and formatting compatibility. The router automatically intercepts and returns `{"input_tokens": 0}` with a `200 OK` status for `POST /v1/messages/count_tokens` preflight queries (frequently made by the Claude CLI and Cherry Studio) to bypass router failures and prevent retry loops.
+- **Install**: `installFileTools()` copies files to `~/.konoha/` (including `bridge/` submodules), sets up runtime dependencies via local `npm install`, and registers it as `konoha` in Antigravity `mcp_config.json` and Cursor `mcp.json`.
+- **Tests**: `konoha test` runs MCP integration tests for all tools.
 
 ### 16. Antigravity Orchestrator File Pipeline
 - **Flow**: `prompt_hook.js` → `prompt.md` → orchestrator reads/analyzes → `delegate.md` → subagent → `result.md` → user report.
@@ -249,12 +268,12 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 17. Multi-CLI MCP Clients (Claude Code, OpenCode, others)
 - **Install once**: `konoha init` deploys servers to `~/.konoha/` regardless of IDE.
 - **Auto-detect**: `src/mcp_clients_manager.js` configures Claude Code / OpenCode **only when** `claude` or `opencode` CLI is on PATH (or config dir exists).
-- **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) and deploys the 6 official ninja subagents to `~/.claude/agents/` with whitelisted allowed-tools matching `mcp_semble_*`, `mcp_skills-db_*`, `mcp_konoha-files_*`.
+- **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) and deploys the 6 official ninja subagents to `~/.claude/agents/` with whitelisted allowed-tools matching `mcp_semble_*`, `mcp_konoha_*`.
 - **Claude Code Active Agent Detection**: Scans `~/.claude/projects/*/*.jsonl` session transcripts. Resolves session directories uniquely using `conv_dir = fpath` to isolate telemetry per session.
 - **OpenCode (auto)**: Merges into `~/.config/opencode/opencode.json` (`mcp`) only — no project `opencode.json`.
 - **Not installed**: Skip silently; manual fallback templates in `docs/templates/` (`claude-code.mcp.json`, `opencode.mcp.json`).
 - **Self-heal**: `ensureAutoSetup()` and `konoha doctor --yes` repair when CLI is present.
-- **Tool boundaries** (all clients): `skills-db` = skills only; `semble` = code search; `konoha-files` = bounded file I/O.
+- **Tool boundaries** (all clients): `semble` = code search; `konoha` = skills & bounded file reads.
 - **Documentation**: `docs/SETUP-MCP-CLIENTS.md`.
 
 ### 18. Workspace-Local Skills (Konoha repo sessions)
@@ -262,7 +281,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **konoha-maintenance**: Lives at `.agents/skills/konoha/SKILL.md` (`name: konoha-maintenance`). After migrate, agents discover it via `find_skill("konoha maintenance")` — do not load the full SKILL.md into context.
 - **Session start in konoha folder**: Run `konoha migrate` after pull; call `find_skill` for architecture/CLI/release knowledge before editing core files.
 
-### 19. konoha-files Path Sandbox (v1.1.6+)
+### 19. konoha Path Sandbox (v1.1.6+)
 - **JS**: `file_tools_router.js` `assertWithinWorkspace()` before spawning Python workers.
 - **Python**: `file_tools/_common.py` `assert_within_workspace()` on every resolved path.
 - **Rejected**: Absolute paths outside workspace root (e.g. `/etc/passwd`). Relative paths resolve against MCP workspace cwd.
@@ -284,7 +303,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 21. Agent Attribution Fixes (v1.1.6 QA)
 - **Cursor preference**: `detect_active_agent()` only prefers recent Cursor when Cursor is the top-ranked session by transcript mtime.
 - **Orchestrator**: Return `orchestrator` immediately when detected in ranked scan (no deferred fallback that lets lower-ranked subagents win).
-- **cursor_bootstrap.js**: Registers `konoha-files`; preserves semble policy line on subagent `.md` files; syncs Cursor skills mirror.
+- **cursor_bootstrap.js**: Registers `konoha`; preserves semble policy line on subagent `.md` files; syncs Cursor skills mirror.
 - **install/repair**: `registerHooks(true, true)` on first auto-setup; semble `args` repair; project `.cursor/mcp.json` merge; `deploy_utils.installFileTools()` shared by CLI and Cursor manager.
 
 ### 22. CLI TUI (v1.1.6)
@@ -325,86 +344,41 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ## Konoha MCP Tools Reference
 
-Konoha relies on three distinct Model Context Protocol (MCP) servers to optimize token efficiency and codebase discoverability: `skills-db`, `semble`, and `konoha-files`.
+Konoha relies on two model context protocol (MCP) servers to optimize token efficiency and codebase discoverability: `semble` and `konoha`.
 
-### 1. `skills-db` MCP Server
-Used for searching, listing, and retrieving localized agent skills and references indexed in the SQLite FTS5 database.
+### 1. `konoha` MCP Server (Unified 12 Tools)
+Serves all skill knowledge retrieval, bounded file operations, and project scaffolding tools.
 
 * **`find_skill`**: Search skills by keyword using FTS.
-  * *Arguments*:
-    - `keyword` (string, required): Search terms (e.g. 'ci/cd security').
-    - `limit` (integer, default 3): Max results (max 5).
-    - `compact` (boolean, default false): If true, returns 500-char preview.
-    - `agent` (string, optional): Name of the calling subagent.
+  * *Arguments*: `keyword` (string, required), `limit` (integer, default 3), `compact` (boolean, default false), `agent` (string, optional).
 * **`get_skill`**: Retrieve full un-truncated skill/reference content.
-  * *Arguments*:
-    - `name` (string, required): Exact skill or reference name (e.g. 'anbu-skill/token-safety').
-    - `agent` (string, optional): Name of the calling subagent.
+  * *Arguments*: `name` (string, required), `agent` (string, optional).
 * **`list_skills`**: List all registered skills and metadata.
-  * *Arguments*:
-    - `fields` (array of strings, optional): Fields to return (name, type, size, tags, lines, skill_name).
-    - `agent` (string, optional): Name of the calling subagent.
+  * *Arguments*: `fields` (array of strings, optional), `agent` (string, optional).
 * **`optimize_report`**: Generates a table of contents and token footprint summary.
-  * *Arguments*:
-    - `keyword` (string, optional): Filter by search keyword.
-    - `agent` (string, optional): Name of the calling subagent.
+  * *Arguments*: `keyword` (string, optional), `agent` (string, optional).
 * **`build_from_source`**: Scaffolds layouts matching visual design mockups in `source-design`.
-  * *Arguments*:
-    - `name` (string, required): Project folder name.
-    - `source_dir` (string, required): Source design directory path.
-    - `framework` (string, required): 'nextjs' or 'svelte'.
-    - `agent` (string, optional): Calling subagent name.
+  * *Arguments*: `name` (string, required), `source_dir` (string, required), `framework` (string, required), `agent` (string, optional).
 * **`build_from_text`**: Scaffolds a premium template design from text prompt descriptions.
-  * *Arguments*:
-    - `name` (string, required): Project folder name.
-    - `description` (string, required): Layout requirements text.
-    - `framework` (string, required): 'nextjs' or 'svelte'.
-    - `agent` (string, optional): Calling subagent name.
+  * *Arguments*: `name` (string, required), `description` (string, required), `framework` (string, required), `agent` (string, optional).
+* **`read_file_head`**: Preview the top N lines (default 80, max 200).
+  * *Arguments*: `path` (string, required), `max_lines` (number, optional).
+* **`read_file_range`**: Stream a precise line range (strictly capped at 500 lines).
+  * *Arguments*: `path` (string, required), `start_line` (number, required), `end_line` (number, required).
+* **`file_info`**: Read size, line count, and last modified metadata.
+  * *Arguments*: `path` (string, required).
+* **`token_efficient_grep`**: Regex line matcher capped at 20-50 matches.
+  * *Arguments*: `pattern` (string, required), `dir` (string, optional), `glob` (string, optional), `ignore_case` (boolean, default false), `max_matches` (number, default 20).
+* **`get_file_structure`**: Parse class, function, or method signature declarations.
+  * *Arguments*: `path` (string, required).
+* **`find_files_clean`**: Fast file glob search skipping VCS, lockfiles, and build distribution folders.
+  * *Arguments*: `pattern` (string, optional), `dir` (string, optional).
 
 ### 2. `semble` MCP Server
 Used for semantic code searches and locating codebase references in workspace source files.
 
 * **`search`**: Search files semantically.
-  * *Arguments*:
-    - `query` (string, required): Code structure or behavior description.
-    - `repo` (string, required): Local directory path to search.
-    - `top_k` (integer, default 5): Number of matches.
-    - `max_snippet_lines` (integer, default 10): Source lines per snippet.
+  * *Arguments*: `query` (string, required), `repo` (string, required), `top_k` (integer, default 5), `max_snippet_lines` (integer, default 10).
 * **`find_related`**: Locate code similar to a known file path and line location.
-  * *Arguments*:
-    - `file_path` (string, required): Relative workspace file path.
-    - `line` (integer, required): 1-indexed line number.
-    - `repo` (string, required): Workspace folder path.
-    - `top_k` (integer, default 5): Number of results.
-    - `max_snippet_lines` (integer, default 10): Lines per snippet.
-
-### 3. `konoha-files` MCP Server
-Provides streaming, token-efficient filesystem tools.
-
-* **`read_file_head`**: Preview the top N lines.
-  * *Arguments*:
-    - `path` (string, required): Target file path.
-    - `max_lines` (number, default 80, max 200): Lines to read.
-* **`read_file_range`**: Stream a precise line range (strictly capped at 500 lines).
-  * *Arguments*:
-    - `path` (string, required): Target file path.
-    - `start_line` (number, required): Start line.
-    - `end_line` (number, required): End line (inclusive).
-* **`file_info`**: Read size, line count, and last modified metadata (without loading file content).
-  * *Arguments*:
-    - `path` (string, required): Target file path.
-* **`token_efficient_grep`**: Regex line matcher capped at 20-50 matches.
-  * *Arguments*:
-    - `pattern` (string, required): Python regex pattern.
-    - `dir` (string, optional): Search directory.
-    - `glob` (string, optional): Filename glob filter.
-    - `ignore_case` (boolean, default false): Case-insensitive match.
-    - `max_matches` (number, default 20, max 50): Cap.
-* **`get_file_structure`**: Parse class, function, or method signature declarations to map file layout.
-  * *Arguments*:
-    - `path` (string, required): Target file path.
-* **`find_files_clean`**: Fast file glob search skipping VCS, lockfiles, and compiler/vendor distribution folders (specifically ignoring `go-dist` and `vendor` directories in walk cycles to prevent context bloat).
-  * *Arguments*:
-    - `pattern` (string, optional): Glob pattern (e.g. '*.js').
-    - `dir` (string, optional): Scan root directory.
+  * *Arguments*: `file_path` (string, required), `line` (integer, required), `repo` (string, required), `top_k` (integer, default 5), `max_snippet_lines` (integer, default 10).
 

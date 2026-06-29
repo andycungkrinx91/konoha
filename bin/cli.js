@@ -140,7 +140,8 @@ const CHIDORI_THEME = [
 const LIGHTNING_CHARS = ['Z', '⌁', '⚡', '↯', 'ϟ', '═'];
 const CHIDORI_SPINNER_FRAMES = ['⚡', '϶', '⌁', '↯', '✹', '✷', '⚡', 'ϟ'];
 
-const NO_ANIMATION = process.env.NO_ANIMATE === '1' || process.argv.includes('--no-animate') || process.env.CI === 'true';
+// Forced true: all animations disabled for fast, deterministic CLI output.
+const NO_ANIMATION = true;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1026,30 +1027,17 @@ async function cmdInit(args) {
     return;
   }
 
-  const allowAutoApprove = isNonInteractive ? true : await confirm({ message: 'Allow for skills-db and semble for auto approve in ~/.gemini/config/mcp_config.json?', default: true });
-  const allowHooks = isNonInteractive ? true : await confirm({ message: 'Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', default: true });
-  const allowCursor = isNonInteractive ? true : await confirm({ message: 'Configure Konoha for Cursor IDE and Cursor CLI (~/.cursor/mcp.json, subagents, hooks)?', default: true });
-
+  // Auto-configure all detected MCP clients without prompting.
+  // Only the "Initialize Konoha?" consent prompt above is asked.
+  // Skipped silently when the client is not detected.
+  const allowAutoApprove = true;
+  const allowHooks = true;
+  const cursorInstalled = cursorManager.isCursorInstalled();
   const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
   const opencodeInstalled = mcpClientsManager.isOpenCodeInstalled();
-  let allowClaudeCode = false;
-  let allowOpenCode = false;
-  if (claudeInstalled) {
-    allowClaudeCode = isNonInteractive
-      ? true
-      : await confirm({
-          message: 'Configure Konoha for Claude Code (~/.claude.json)?',
-          default: true
-        });
-  }
-  if (opencodeInstalled) {
-    allowOpenCode = isNonInteractive
-      ? true
-      : await confirm({
-          message: 'Configure Konoha for OpenCode (~/.config/opencode/opencode.json)?',
-          default: true
-        });
-  }
+  const allowCursor = cursorInstalled;
+  const allowClaudeCode = claudeInstalled;
+  const allowOpenCode = opencodeInstalled;
   // 1. Ensure the directories exist
   const dirs = [
     path.join(HOME, '.gemini'),
@@ -1076,6 +1064,21 @@ async function cmdInit(args) {
   }
   spinner1.success(`Python 3 found: ${python}`);
 
+  // 2b. Ensure uv is installed (dependency for semble and uvx-based MCP tools)
+  const spinner1b = startSpinner('Checking uv (Python package manager)...');
+  let uvInstalled = installUv(false);
+  if (!uvInstalled) {
+    try {
+      execSync('uv --version', { stdio: 'ignore' });
+      uvInstalled = true;
+      spinner1b.success('uv is available on PATH.');
+    } catch {
+      spinner1b.warn('uv not found — semble MCP will install lazily on first use.');
+    }
+  } else {
+    spinner1b.success('uv installed successfully.');
+  }
+
   // 3. Check for existing installation
   if (fileExists(SERVER_PATH) && fileExists(DB_PATH)) {
     warn('Skills-DB already installed.');
@@ -1088,13 +1091,14 @@ async function cmdInit(args) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
         if (fileExists(src)) copyIfDifferent(src, dest);
       });
       installFileTools(true);
+      autoInstallKonohaBridgeExtension(true);
       registerMcp(python, true, allowAutoApprove);
       registerHooks(true, allowHooks);
       const agentsForSetup = agentManager.loadAgents();
@@ -1119,7 +1123,9 @@ async function cmdInit(args) {
           uvxCmd: getUvxCommand(),
           ruleContent: agentManager.generateClaudeCodeMd(agentsForSetup),
           silent: true,
-          agents: agentsForSetup
+          agents: agentsForSetup,
+          projectRoot: currentCwd,
+          deployProject: true
         });
       }
       if (allowOpenCode) {
@@ -1240,6 +1246,9 @@ async function cmdInit(args) {
   installFileTools(true);
   spinner3.success('All files installed to ~/.konoha/');
 
+  // Install Konoha Bridge extension for Antigravity IDE
+  autoInstallKonohaBridgeExtension(true);
+
   // 5. Run migration (seed default rank skills only)
   if (fileExists(pkgSkillsDir)) {
     header('📊 Seeding Default Subagent Skills to SQLite FTS5');
@@ -1323,7 +1332,9 @@ async function cmdInit(args) {
       uvxCmd,
       ruleContent: agentManager.generateClaudeCodeMd(setupAgents),
       silent: true,
-      agents: setupAgents
+      agents: setupAgents,
+      projectRoot: currentCwd,
+      deployProject: true
     });
     spinnerClaude.success('Claude Code MCP configured.');
   } else if (!claudeInstalled) {
@@ -1348,7 +1359,24 @@ async function cmdInit(args) {
 
   // 11. Summary
   header('✅ Installation Complete!');
+
+  // Per-client auto-config summary
+  const ok = `${C.green}✓${C.reset}`;
+  const skip = `${C.dim}✗${C.reset}`;
   const summaryLines = [
+    `Auto-configured clients:`,
+    `${ok} Antigravity   ${C.dim}~/.gemini/config/mcp_config.json + hooks${C.reset}`,
+    allowCursor
+      ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.json + subagents${C.reset}`
+      : `${skip} Cursor        ${C.dim}(not installed)${C.reset}`,
+    claudeInstalled
+      ? `${ok} Claude Code   ${C.dim}~/.claude.json${C.reset}`
+      : `${skip} Claude Code   ${C.dim}(not installed)${C.reset}`,
+    opencodeInstalled
+      ? `${ok} OpenCode      ${C.dim}~/.config/opencode/opencode.json${C.reset}`
+      : `${skip} OpenCode      ${C.dim}(not installed)${C.reset}`,
+    '─',
+    `Installed files:`,
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
     `Migration:  ${C.dim}${MIGRATE_PATH}${C.reset}`,
     `Database:   ${C.dim}${DB_PATH}${C.reset}`,
@@ -1358,12 +1386,6 @@ async function cmdInit(args) {
     `Cursor MCP: ${C.dim}${cursorManager.CURSOR_MCP_GLOBAL}${C.reset}`,
     `Cursor Agents: ${C.dim}${cursorManager.CURSOR_AGENTS_GLOBAL}${C.reset}`,
   ];
-  if (claudeInstalled) {
-    summaryLines.push(`Claude Code:  ${C.dim}${mcpClientsManager.CLAUDE_JSON}${C.reset}`);
-  }
-  if (opencodeInstalled) {
-    summaryLines.push(`OpenCode:     ${C.dim}${mcpClientsManager.OPENCODE_GLOBAL}${C.reset}`);
-  }
   drawBox('Installed Files', summaryLines, LEAF_THEME);
   log('');
 
@@ -1375,6 +1397,12 @@ async function cmdInit(args) {
 }
 
 function installUv(silent = false) {
+  // Skip if uv is already on PATH — saves ~12s per CLI invocation
+  try {
+    execSync('uv --version', { stdio: 'ignore' });
+    return true;
+  } catch {}
+
   if (!silent) info('Attempting to auto-install "uv" for Semble MCP...');
   try {
     const stdioOpt = silent ? 'ignore' : 'inherit';
@@ -1440,44 +1468,59 @@ function getUvxCommand() {
   return 'uvx';
 }
 
+function autoInstallKonohaBridgeExtension(silent = false) {
+  const antigravityExtDir = path.join(HOME, '.antigravity', 'extensions');
+  const vscodeExtDir = path.join(HOME, '.vscode', 'extensions');
+  const targetDirName = 'andycungkrinx91.konoha-bridge-1.0.0';
+  const targetPathAntigravity = path.join(antigravityExtDir, targetDirName);
+  const targetPathVscode = path.join(vscodeExtDir, targetDirName);
+
+  if (fileExists(targetPathAntigravity) && fileExists(path.join(targetPathAntigravity, 'package.json'))) {
+    if (!silent) log(`  ⚡ Konoha Bridge extension already installed in Antigravity IDE.`);
+    return true;
+  }
+
+  if (!silent) info('Installing Konoha Bridge extension into Antigravity IDE...');
+  try {
+    ensureDir(antigravityExtDir);
+    ensureDir(vscodeExtDir);
+
+    const cloneRes = spawnSync('git', ['clone', 'https://github.com/andycungkrinx91/konoha-bridge', targetPathAntigravity], { stdio: 'ignore' });
+    if (cloneRes.status === 0 && fileExists(targetPathAntigravity)) {
+      spawnSync('cp', ['-r', targetPathAntigravity, targetPathVscode], { stdio: 'ignore' });
+      if (!silent) success('Successfully installed Konoha Bridge extension into Antigravity IDE!');
+      return true;
+    }
+  } catch (err) {
+    if (!silent) warn(`Failed to auto-install konoha-bridge extension: ${err.message}`);
+  }
+  return false;
+}
+
 function registerMcp(python, silent = false, allowAutoApprove = true) {
   const pythonCmd = python || checkPython() || 'python3';
   
   ensureDir(path.dirname(MCP_CONFIG_PATH));
 
-  let config = { mcpServers: {} };
+  // Backup existing config once before replacing
+  const backupPath = MCP_CONFIG_PATH + '.back';
+  if (fileExists(MCP_CONFIG_PATH) && !fileExists(backupPath)) {
+    fs.copyFileSync(MCP_CONFIG_PATH, backupPath);
+    if (!silent) info(`Backed up existing config → ${path.basename(backupPath)}`);
+  }
 
+  // Load existing non-MCP config keys to preserve (e.g. other settings)
+  let config = { mcpServers: {} };
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
       config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
       if (!config.mcpServers) config.mcpServers = {};
-      if (!silent) {
-        info('Existing MCP config found, registering servers...');
-      }
     } catch {
-      if (!silent) {
-        warn(`Skipped MCP config update: invalid JSON in ${MCP_CONFIG_PATH}`);
-      }
-      return;
+      if (!silent) warn(`Invalid JSON in ${MCP_CONFIG_PATH}, starting fresh.`);
+      config = { mcpServers: {} };
     }
   } else {
-    if (!silent) {
-      info('Creating new MCP config...');
-    }
-  }
-
-  const skillsDbConfig = {
-    command: pythonCmd,
-    args: [SERVER_PATH]
-  };
-  if (allowAutoApprove) {
-    skillsDbConfig.autoApprove = ['*', 'find_skill', 'list_skills', 'get_skill', 'optimize_report'];
-  }
-  // Only update if missing or command/args changed
-  const existingSkillsDb = config.mcpServers['skills-db'];
-  if (!existingSkillsDb || existingSkillsDb.command !== pythonCmd ||
-      !existingSkillsDb.args || existingSkillsDb.args[0] !== SERVER_PATH) {
-    config.mcpServers['skills-db'] = skillsDbConfig;
+    if (!silent) info('Creating new MCP config...');
   }
 
   let uvCmd = getUvCommand();
@@ -1504,49 +1547,39 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
   if (allowAutoApprove) {
     sembleConfig.autoApprove = ['*', 'search', 'find_related'];
   }
-  // Only update if missing or command/args changed
-  const existingSemble = config.mcpServers['semble'];
-  if (
-    !existingSemble ||
-    existingSemble.command !== uvxCmd ||
-    JSON.stringify(existingSemble.args || []) !== JSON.stringify(sembleConfig.args)
-  ) {
-    config.mcpServers['semble'] = sembleConfig;
-  }
 
-  const nodeCmd = process.execPath;
-  const fileToolsConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
-  if (fileToolsConfig && allowAutoApprove) {
-    fileToolsConfig.autoApprove = [
+  const konohaConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
+  if (konohaConfig && allowAutoApprove) {
+    konohaConfig.autoApprove = [
       '*',
       'read_file_head',
       'read_file_range',
       'file_info',
       'token_efficient_grep',
       'get_file_structure',
-      'find_files_clean'
+      'find_files_clean',
+      'find_skill',
+      'list_skills',
+      'get_skill',
+      'optimize_report',
+      'build_from_source',
+      'build_from_text'
     ];
   }
-  const existingFileTools = config.mcpServers['konoha-files'];
-  if (fileToolsConfig) {
-    if (
-      !existingFileTools ||
-      existingFileTools.command !== fileToolsConfig.command ||
-      JSON.stringify(existingFileTools.args || []) !== JSON.stringify(fileToolsConfig.args || [])
-    ) {
-      config.mcpServers['konoha-files'] = fileToolsConfig;
-    }
-  } else if (existingFileTools) {
-    delete config.mcpServers['konoha-files'];
-  }
+
+  // Merge Konoha servers into existing mcpServers (preserve user's other servers)
+  config.mcpServers['semble'] = sembleConfig;
+  if (konohaConfig) config.mcpServers['konoha'] = konohaConfig;
+  delete config.mcpServers['skills-db'];
+  delete config.mcpServers['konoha-files'];
 
   if (!silent) {
-    success(`Registered 'semble' using command: ${uvxCmd}`);
+    success(`Registered 'semble' and 'konoha' MCP servers.`);
   }
 
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
   if (!silent) {
-    success(`MCP config updated with skills-db and semble: ${MCP_CONFIG_PATH}`);
+    success(`Merged Konoha servers into: ${MCP_CONFIG_PATH}`);
   }
 
   if (allowAutoApprove) {
@@ -1582,18 +1615,19 @@ function registerPermissions(silent = false) {
       'mcp(semble/search)',
       'mcp(semble/find_related)',
       'mcp(semble/*)',
-      'mcp(konoha-files/read_file_head)',
-      'mcp(konoha-files/read_file_range)',
-      'mcp(konoha-files/file_info)',
-      'mcp(konoha-files/token_efficient_grep)',
-      'mcp(konoha-files/get_file_structure)',
-      'mcp(konoha-files/find_files_clean)',
-      'mcp(konoha-files/*)',
-      'mcp(skills-db/find_skill)',
-      'mcp(skills-db/list_skills)',
-      'mcp(skills-db/get_skill)',
-      'mcp(skills-db/optimize_report)',
-      'mcp(skills-db/*)'
+      'mcp(konoha/read_file_head)',
+      'mcp(konoha/read_file_range)',
+      'mcp(konoha/file_info)',
+      'mcp(konoha/token_efficient_grep)',
+      'mcp(konoha/get_file_structure)',
+      'mcp(konoha/find_files_clean)',
+      'mcp(konoha/find_skill)',
+      'mcp(konoha/list_skills)',
+      'mcp(konoha/get_skill)',
+      'mcp(konoha/optimize_report)',
+      'mcp(konoha/build_from_source)',
+      'mcp(konoha/build_from_text)',
+      'mcp(konoha/*)'
     ];
 
     let updated = false;
@@ -1658,7 +1692,20 @@ function unregisterPermissions(silent = false) {
         'mcp(skills-db/list_skills)',
         'mcp(skills-db/get_skill)',
         'mcp(skills-db/optimize_report)',
-        'mcp(skills-db/*)'
+        'mcp(skills-db/*)',
+        'mcp(konoha/read_file_head)',
+        'mcp(konoha/read_file_range)',
+        'mcp(konoha/file_info)',
+        'mcp(konoha/token_efficient_grep)',
+        'mcp(konoha/get_file_structure)',
+        'mcp(konoha/find_files_clean)',
+        'mcp(konoha/find_skill)',
+        'mcp(konoha/list_skills)',
+        'mcp(konoha/get_skill)',
+        'mcp(konoha/optimize_report)',
+        'mcp(konoha/build_from_source)',
+        'mcp(konoha/build_from_text)',
+        'mcp(konoha/*)'
       ];
 
       const initialLength = settings.permissions.allow.length;
@@ -1880,6 +1927,7 @@ function installFileTools(silent = true) {
 }
 
 function ensureAutoSetup() {
+  // --- PERF MARKER ---
   // 1. Ensure the directories exist
   const dirs = [
     path.join(HOME, '.gemini'),
@@ -1897,7 +1945,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -1934,7 +1982,9 @@ function ensureAutoSetup() {
   }
 
   // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
+  autoInstallKonohaBridgeExtension(true);
   const python = checkPython() || 'python3';
+  installUv(true); // Quiet install for semble/uvx
   registerMcp(python, true);
   registerHooks(true, true);
 
@@ -1949,8 +1999,13 @@ function ensureAutoSetup() {
   // 6. Ensure GEMINI.md, AGENTS.md, subagents, and client integrations are fully deployed/updated
   const originalLog = console.log;
   console.log = () => {};
+  let uvxCmd = 'uvx';
   try {
-    const uvxCmd = getUvxCommand();
+    uvxCmd = getUvxCommand();
+  } catch (e) {
+    // ignore
+  }
+  try {
     agentManager.regenerateAndDeploy({
       pythonCmd: python,
       serverPath: SERVER_PATH,
@@ -1963,6 +2018,57 @@ function ensureAutoSetup() {
     // ignore
   } finally {
     console.log = originalLog;
+  }
+
+  // 6b. Auto-configure detected MCP clients (Cursor / Claude Code / OpenCode)
+  // Detection-based skip; no prompts. Mirrors the cmdInit zero-prompt flow.
+  const autoSetupAgents = (() => {
+    try { return agentManager.loadAgents(); } catch { return []; }
+  })();
+  if (cursorManager.isCursorInstalled()) {
+    try {
+      cursorManager.ensureCursorSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        agents: autoSetupAgents,
+        projectRoot: currentCwd,
+        deployProject: false,
+        silent: true,
+        allowHooks: true,
+        ruleContent: null
+      });
+    } catch (e) {
+      // ignore — silent self-heal
+    }
+  }
+  if (mcpClientsManager.isClaudeCodeInstalled()) {
+    try {
+      mcpClientsManager.ensureClaudeCodeSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        ruleContent: agentManager.generateClaudeCodeMd(autoSetupAgents),
+        silent: true,
+        agents: autoSetupAgents,
+        projectRoot: currentCwd,
+        deployProject: true
+      });
+    } catch (e) {
+      // ignore — silent self-heal
+    }
+  }
+  if (mcpClientsManager.isOpenCodeInstalled()) {
+    try {
+      mcpClientsManager.ensureOpenCodeSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        silent: true
+      });
+    } catch (e) {
+      // ignore — silent self-heal
+    }
   }
 
   // 7. Silently trigger migration if database file (skills.db) is missing
@@ -2364,9 +2470,8 @@ async function cmdStatus() {
         drawIntegrationRow(name, hasServer, cmdStr, RASENGAN_THEME);
       };
 
-      printMcpRow('skills-db');
+      printMcpRow('konoha');
       printMcpRow('semble');
-      printMcpRow('konoha-files');
     } catch {
       error('MCP config parse failed');
     }
@@ -2379,8 +2484,8 @@ async function cmdStatus() {
   const cursorStatus = cursorManager.getCursorStatus();
   drawIntegrationRow(
     '~/.cursor/mcp.json',
-    cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble && cursorStatus.mcpKonohaFiles,
-    cursorStatus.mcpGlobal ? 'skills-db + semble + konoha-files' : 'not configured',
+    cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble,
+    cursorStatus.mcpGlobal ? 'konoha + semble' : 'not configured',
     NINJA_THEME
   );
   drawIntegrationRow(
@@ -2418,11 +2523,11 @@ async function cmdStatus() {
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
   if (claudeStatus.installed) {
     sectionTitle('Claude Code Integrations:', NINJA_THEME);
-    const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.mcpKonohaFiles && claudeStatus.permissionsAllowed;
+    const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.permissionsAllowed;
     drawIntegrationRow(
       '~/.claude.json',
       claudeOk,
-      claudeStatus.permissionsAllowed ? 'skills-db + semble + konoha-files' : 'skills-db + semble + konoha-files (permissions missing)',
+      claudeStatus.permissionsAllowed ? 'konoha + semble' : 'konoha + semble (permissions missing)',
       NINJA_THEME
     );
     if (claudeStatus.agentsCount > 0) {
@@ -2443,8 +2548,8 @@ async function cmdStatus() {
     sectionTitle('OpenCode Integrations:', NINJA_THEME);
     drawIntegrationRow(
       '~/.config/opencode/',
-      openCodeStatus.mcpSkillsDb && openCodeStatus.mcpSemble && openCodeStatus.mcpKonohaFiles,
-      openCodeStatus.globalConfig ? 'skills-db + semble + konoha-files' : 'not configured',
+      openCodeStatus.mcpSkillsDb && openCodeStatus.mcpSemble,
+      openCodeStatus.globalConfig ? 'konoha + semble' : 'not configured',
       NINJA_THEME
     );
   } else {
@@ -2724,35 +2829,35 @@ async function cmdDoctor() {
     try {
       installFileTools(true);
       if (fileExists(FILE_TOOLS_MCP_PATH)) {
-        record('File Tools MCP (konoha-files)', 'REPAIRED', 'Installed konoha-files MCP server and Python helpers');
+        record('File Tools MCP (konoha)', 'REPAIRED', 'Installed konoha MCP server and Python helpers');
         repairsDone++;
       } else {
-        record('File Tools MCP (konoha-files)', 'FAILED', 'file_tools_mcp.js missing after install');
+        record('File Tools MCP (konoha)', 'FAILED', 'file_tools_mcp.js missing after install');
         hasErrors = true;
       }
     } catch (e) {
-      record('File Tools MCP (konoha-files)', 'FAILED', e.message);
+      record('File Tools MCP (konoha)', 'FAILED', e.message);
       hasErrors = true;
     }
   }
 
   const fileToolsSmoke = smokeTestKonohaFilesMcp(true);
   if (fileToolsSmoke.ok) {
-    record('konoha-files MCP smoke test', 'HEALTHY', `${fileToolsSmoke.toolCount} tools via launcher`);
+    record('konoha MCP smoke test', 'HEALTHY', `${fileToolsSmoke.toolCount} tools via launcher`);
   } else {
     const directSmoke = smokeTestKonohaFilesMcp(false);
     if (directSmoke.ok) {
-      record('konoha-files MCP smoke test', 'WARNING', `Launcher failed (${fileToolsSmoke.error}); direct node OK (${directSmoke.toolCount} tools)`);
+      record('konoha MCP smoke test', 'WARNING', `Launcher failed (${fileToolsSmoke.error}); direct node OK (${directSmoke.toolCount} tools)`);
       try {
         installFileTools(true);
         const retry = smokeTestKonohaFilesMcp(true);
         if (retry.ok) {
-          record('konoha-files launcher', 'REPAIRED', 'Launcher script refreshed');
+          record('konoha launcher', 'REPAIRED', 'Launcher script refreshed');
           repairsDone++;
         }
       } catch {}
     } else {
-      record('konoha-files MCP smoke test', 'FAILED', directSmoke.error || fileToolsSmoke.error);
+      record('konoha MCP smoke test', 'FAILED', directSmoke.error || fileToolsSmoke.error);
       hasErrors = true;
     }
   }
@@ -2810,22 +2915,18 @@ async function cmdDoctor() {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
       const servers = config.mcpServers || {};
-      const skillsOk = servers['skills-db'] &&
-        servers['skills-db'].command === python &&
-        servers['skills-db'].args &&
-        servers['skills-db'].args[0] === SERVER_PATH;
       const sembleOk = servers['semble'] &&
         JSON.stringify(servers['semble'].args || []) === JSON.stringify(expectedSembleArgs);
-      const fileToolsOk = servers['konoha-files'] &&
-        servers['konoha-files'].args &&
-        servers['konoha-files'].args[0] === FILE_TOOLS_MCP_PATH &&
-        (servers['konoha-files'].command === nodeCmd || servers['konoha-files'].command === 'node');
-      mcpHealthy = skillsOk && sembleOk && fileToolsOk;
+      const konohaOk = servers['konoha'] &&
+        servers['konoha'].args &&
+        (servers['konoha'].args[0] === FILE_TOOLS_MCP_PATH || servers['konoha'].args[0] === path.join(HOME, '.konoha', 'file_tools_launcher.js')) &&
+        (servers['konoha'].command === nodeCmd || servers['konoha'].command === 'node');
+      mcpHealthy = sembleOk && konohaOk;
     } catch {}
   }
 
   if (mcpHealthy) {
-    record('MCP Config (mcp_config.json)', 'HEALTHY', 'skills-db, semble, and konoha-files are active');
+    record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha and semble are active');
   } else {
     if (!python) {
       record('MCP Config (mcp_config.json)', 'FAILED', 'Incomplete registration; missing Python 3');
@@ -2833,7 +2934,7 @@ async function cmdDoctor() {
     } else {
       try {
         registerMcp(python);
-        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered skills-db, semble, and konoha-files in config');
+        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and semble in config');
         repairsDone++;
       } catch (e) {
         record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
@@ -2951,7 +3052,7 @@ async function cmdDoctor() {
   const cursorStatus = cursorManager.getCursorStatus();
   const cursorHealthy = cursorStatus.mcpSkillsDb &&
     cursorStatus.mcpSemble &&
-    cursorStatus.mcpKonohaFiles &&
+    cursorStatus.mcpKonoha &&
     cursorStatus.subagentsGlobal >= 6;
   if (cursorHealthy) {
     record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP, subagents, and hooks configured');
@@ -2971,7 +3072,7 @@ async function cmdDoctor() {
         ruleContent: null
       });
       const repaired = cursorManager.getCursorStatus();
-      if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles && repaired.subagentsGlobal >= 6) {
+      if (repaired.mcpKonoha && repaired.mcpSemble && repaired.subagentsGlobal >= 6) {
         record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP, subagents, and session hook');
         repairsDone++;
       } else {
@@ -2987,12 +3088,11 @@ async function cmdDoctor() {
   if (mcpClientsManager.isClaudeCodeInstalled()) {
     const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
     const claudeHealthy =
-      claudeStatus.mcpSkillsDb &&
+      claudeStatus.mcpKonoha &&
       claudeStatus.mcpSemble &&
-      claudeStatus.mcpKonohaFiles &&
       claudeStatus.permissionsAllowed;
     if (claudeHealthy) {
-      record('Claude Code (~/.claude.json)', 'HEALTHY', 'skills-db, semble, and konoha-files active & allowed');
+      record('Claude Code (~/.claude.json)', 'HEALTHY', 'konoha and semble active & allowed');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3006,7 +3106,7 @@ async function cmdDoctor() {
           silent: true
         });
         const repaired = mcpClientsManager.getClaudeCodeStatus();
-        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles && repaired.permissionsAllowed) {
+        if (repaired.mcpKonoha && repaired.mcpSemble && repaired.permissionsAllowed) {
           record('Claude Code (~/.claude.json)', 'REPAIRED', 'Registered Konoha MCP servers & allowed tools');
           repairsDone++;
         } else {
@@ -3023,11 +3123,10 @@ async function cmdDoctor() {
   if (mcpClientsManager.isOpenCodeInstalled()) {
     const openCodeStatus = mcpClientsManager.getOpenCodeStatus();
     const openCodeHealthy =
-      openCodeStatus.mcpSkillsDb &&
       openCodeStatus.mcpSemble &&
-      openCodeStatus.mcpKonohaFiles;
+      openCodeStatus.mcpKonoha;
     if (openCodeHealthy) {
-      record('OpenCode (~/.config/opencode/)', 'HEALTHY', 'skills-db, semble, and konoha-files active');
+      record('OpenCode (~/.config/opencode/)', 'HEALTHY', 'konoha and semble active');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3038,7 +3137,7 @@ async function cmdDoctor() {
           silent: true
         });
         const repaired = mcpClientsManager.getOpenCodeStatus();
-        if (repaired.mcpSkillsDb && repaired.mcpSemble && repaired.mcpKonohaFiles) {
+        if (repaired.mcpSemble && repaired.mcpKonoha) {
           record('OpenCode (~/.config/opencode/)', 'REPAIRED', 'Registered Konoha MCP servers');
           repairsDone++;
         } else {
@@ -3163,6 +3262,11 @@ async function cmdUninstall() {
       if (config.mcpServers && config.mcpServers['konoha-files']) {
         delete config.mcpServers['konoha-files'];
         success('Removed konoha-files from MCP config');
+        updated = true;
+      }
+      if (config.mcpServers && config.mcpServers['konoha']) {
+        delete config.mcpServers['konoha'];
+        success('Removed konoha from MCP config');
         updated = true;
       }
       if (updated) {
@@ -3377,7 +3481,6 @@ async function cmdSavings() {
   if (scriptToUse && fileExists(DB_PATH)) {
     try {
       log(`\n  ${C.bold}${applyGradient('1. ⚡ Skills-DB (konoha) Savings', LEAF_THEME)}${C.reset}`);
-      log(`     ${C.dim}Calculated relative to full context index sizing (~550 KB baseline)${C.reset}\n`);
 
       const run = spawnSync(python, [scriptToUse, DB_PATH], {
         encoding: 'utf-8',
@@ -3386,6 +3489,9 @@ async function cmdSavings() {
       if (run.status !== 0) throw new Error(run.stderr || 'Savings query failed');
       const output = run.stdout;
       const stats = JSON.parse(output.trim());
+
+      const actualBaselineKB = (stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? 550000) / 1024;
+      log(`     ${C.dim}Calculated relative to full context index sizing (${actualBaselineKB.toFixed(0)} KB actual baseline)${C.reset}\n`);
       
       if (stats.error) {
         log(`     ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);
@@ -3500,16 +3606,20 @@ async function cmdSavings() {
         global.skillsDbTodayTokens = stats.today.tokens;
         global.skillsDbTodayBytes = stats.today.bytes;
         global.skillsDbTodayTotalBytes = stats.today.total_bytes;
+        global.skillsDbTodayPct = stats.today.pct;
+        global.skillsDbTodayDbSize = stats.today.db_size_bytes;
 
         global.skillsDbLast7DaysCalls = stats.last7days.calls;
         global.skillsDbLast7DaysTokens = stats.last7days.tokens;
         global.skillsDbLast7DaysBytes = stats.last7days.bytes;
         global.skillsDbLast7DaysTotalBytes = stats.last7days.total_bytes;
+        global.skillsDbLast7DaysPct = stats.last7days.pct;
 
         global.skillsDbAllTimeCalls = stats.alltime.calls;
         global.skillsDbAllTimeTokens = stats.alltime.tokens;
         global.skillsDbAllTimeBytes = stats.alltime.bytes;
         global.skillsDbAllTimeTotalBytes = stats.alltime.total_bytes;
+        global.skillsDbAllTimePct = stats.alltime.pct;
       }
     } catch (e) {
       log(`     ${C.yellow}⚠${C.reset} Could not read Skills-DB savings: ${e.message}`);
@@ -3564,50 +3674,58 @@ async function cmdSavings() {
     log(indentedSemble);
 
     const lines = sembleOutput.split('\n');
+
+    // Unified regex that matches all Semble savings output formats
+    // Format: "Today 1.2k calls  ~45.6k tokens  ~45.6k tokens  (X%)" or similar variants
+    const SEMBLE_REGEX = /^(Today|Last\s+7\s+days|All\s+time)\s+(\d+\.?\d*)([kKmM]?)(?:\s+(?:calls|searches?))?\s+(?:~?)(\d+\.?\d*)([kKmM]?)\s+tokens(?:\s+\((\d+)%\))?(?:.*?(\d+)%)?/i;
+
     for (const line of lines) {
       const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
-      
-      const todayMatch = cleanLine.match(/^Today\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^Today\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
-      if (todayMatch) {
-        const callVal = parseFloat(todayMatch[1]);
-        const callUnit = (todayMatch[2] || '').toLowerCase();
-        sembleTodayCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
-        const val = parseFloat(todayMatch[3]);
-        const unit = (todayMatch[4] || '').toLowerCase();
-        sembleTodayTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleTodayPct = parseInt(todayMatch[5] || '0', 10) || 0;
-      }
+      if (!cleanLine) continue;
 
-      const last7Match = cleanLine.match(/^Last\s+7\s+days\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^Last\s+7\s+days\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
-      if (last7Match) {
-        const callVal = parseFloat(last7Match[1]);
-        const callUnit = (last7Match[2] || '').toLowerCase();
-        sembleLast7DaysCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
-        const val = parseFloat(last7Match[3]);
-        const unit = (last7Match[4] || '').toLowerCase();
-        sembleLast7DaysTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleLast7DaysPct = parseInt(last7Match[5] || '0', 10) || 0;
-      }
+      const match = cleanLine.match(SEMBLE_REGEX);
+      if (match) {
+        const period = match[1]; // 'Today', 'Last 7 days', 'All time'
+        const rawCalls = parseFloat(match[2]);
+        const callUnit = (match[3] || '').toLowerCase();
+        const rawTokens = parseFloat(match[4]);
+        const tokenUnit = (match[5] || '').toLowerCase();
+        const explicitPct = parseInt(match[6], 10);
+        const trailingPct = parseInt(match[7], 10);
 
-      const allTimeMatch = cleanLine.match(/^All\s+time\s+([0-9.]+)([kKmM]?)\s+~?([0-9.]+)([M|k]?)\s+tokens\s+.*?(\d+)%/i)
-        || cleanLine.match(/^All\s+time\s+([0-9.]+)([kKmM]?)\s+\[.*?\]\s+~?([0-9.]+)([M|k]?)\s+tokens(?:\s+\((\d+)%\))?/i);
-      if (allTimeMatch) {
-        const callVal = parseFloat(allTimeMatch[1]);
-        const callUnit = (allTimeMatch[2] || '').toLowerCase();
-        sembleAllTimeCalls = callUnit === 'm' ? Math.round(callVal * 1000000) : (callUnit === 'k' ? Math.round(callVal * 1000) : Math.round(callVal));
-        const val = parseFloat(allTimeMatch[3]);
-        const unit = (allTimeMatch[4] || '').toLowerCase();
-        sembleAllTimeTokens = unit === 'm' ? Math.round(val * 1000000) : (unit === 'k' ? Math.round(val * 1000) : Math.round(val));
-        sembleAllTimePct = parseInt(allTimeMatch[5] || '0', 10) || 0;
+        // Use whichever percentage we find (explicit first, trailing second)
+        let pct = explicitPct || trailingPct || 0;
+
+        const calls = callUnit === 'm' ? Math.round(rawCalls * 1000000) : (callUnit === 'k' ? Math.round(rawCalls * 1000) : Math.round(rawCalls));
+        const tokens = tokenUnit === 'm' ? Math.round(rawTokens * 1000000) : (tokenUnit === 'k' ? Math.round(rawTokens * 1000) : Math.round(rawTokens));
+
+        // Store based on period
+        if (period.startsWith('Today')) {
+          sembleTodayCalls = calls;
+          sembleTodayTokens = tokens;
+          sembleTodayPct = pct;
+        } else if (period.startsWith('Last')) {
+          sembleLast7DaysCalls = calls;
+          sembleLast7DaysTokens = tokens;
+          sembleLast7DaysPct = pct;
+        } else {
+          sembleAllTimeCalls = calls;
+          sembleAllTimeTokens = tokens;
+          sembleAllTimePct = pct;
+        }
+      } else if (cleanLine.length > 3) {
+        // Skip empty lines, but log unmatched lines for debugging
+        // Uncomment for debugging: log(`  [debug] Unmatched Semble line: "${cleanLine}"`);
       }
     }
   } catch (e) {
     log(`     ${C.yellow}⚠${C.reset} Could not fetch Semble savings: ${e.message}`);
   }
 
-  // 3. Combined Summary
+  // 3. Combined Summary (show both systems separately + blended view)
+  // Note: combined metrics are shown for reference only. The two systems
+  // measure different things (Konoha: FTS5 savings, Semble: semantic code search),
+  // so totals are approximate and for overview purposes.
   const combinedTodayCalls = (global.skillsDbTodayCalls || 0) + sembleTodayCalls;
   const combinedTodayTokens = (global.skillsDbTodayTokens || 0) + sembleTodayTokens;
   const combinedTodayBytes = (global.skillsDbTodayBytes || 0) + (sembleTodayTokens * 4);
@@ -3620,29 +3738,36 @@ async function cmdSavings() {
   const combinedAllTimeTokens = (global.skillsDbAllTimeTokens || 0) + sembleAllTimeTokens;
   const combinedAllTimeBytes = (global.skillsDbAllTimeBytes || 0) + (sembleAllTimeTokens * 4);
 
-  // Calculate true combined savings percentages
+  // Calculate true combined savings percentages using additive method
   const skillsDbTodaySavedBytes = global.skillsDbTodayBytes || 0;
   const skillsDbTodayTotalBytes = global.skillsDbTodayTotalBytes || 0;
   const sembleTodaySavedBytes = sembleTodayTokens * 4;
+  // derive Semble total from saved + pct, or skip if pct is 0
+  const sembleTodayTotalBytes = (sembleTodayPct > 0 && sembleTodayTokens > 0)
+    ? Math.round(sembleTodaySavedBytes / (sembleTodayPct / 100))
+    : (skillsDbTodayTotalBytes > 0 ? skillsDbTodayTotalBytes : 0);
   const combinedTodaySavedBytes = skillsDbTodaySavedBytes + sembleTodaySavedBytes;
-  const sembleTodayTotalBytes = (sembleTodayPct > 0) ? (sembleTodaySavedBytes) / (sembleTodayPct / 100) : sembleTodaySavedBytes;
-  const combinedTodayTotalBytes = skillsDbTodayTotalBytes + sembleTodayTotalBytes;
+  const combinedTodayTotalBytes = skillsDbTodayTotalBytes + (sembleTodayPct > 0 ? sembleTodayTotalBytes : 0);
   const combinedTodayPct = (combinedTodayTotalBytes > 0) ? Math.round((combinedTodaySavedBytes / combinedTodayTotalBytes) * 100) : 0;
 
   const skillsDbLast7DaysSavedBytes = global.skillsDbLast7DaysBytes || 0;
   const skillsDbLast7DaysTotalBytes = global.skillsDbLast7DaysTotalBytes || 0;
   const sembleLast7DaysSavedBytes = sembleLast7DaysTokens * 4;
+  const sembleLast7DaysTotalBytes = (sembleLast7DaysPct > 0 && sembleLast7DaysTokens > 0)
+    ? Math.round(sembleLast7DaysSavedBytes / (sembleLast7DaysPct / 100))
+    : (skillsDbLast7DaysTotalBytes > 0 ? skillsDbLast7DaysTotalBytes : 0);
   const combinedLast7DaysSavedBytes = skillsDbLast7DaysSavedBytes + sembleLast7DaysSavedBytes;
-  const sembleLast7DaysTotalBytes = (sembleLast7DaysPct > 0) ? (sembleLast7DaysSavedBytes) / (sembleLast7DaysPct / 100) : sembleLast7DaysSavedBytes;
-  const combinedLast7DaysTotalBytes = skillsDbLast7DaysTotalBytes + sembleLast7DaysTotalBytes;
+  const combinedLast7DaysTotalBytes = skillsDbLast7DaysTotalBytes + (sembleLast7DaysPct > 0 ? sembleLast7DaysTotalBytes : 0);
   const combinedLast7DaysPct = (combinedLast7DaysTotalBytes > 0) ? Math.round((combinedLast7DaysSavedBytes / combinedLast7DaysTotalBytes) * 100) : 0;
 
   const skillsDbAllTimeSavedBytes = global.skillsDbAllTimeBytes || 0;
   const skillsDbAllTimeTotalBytes = global.skillsDbAllTimeTotalBytes || 0;
   const sembleAllTimeSavedBytes = sembleAllTimeTokens * 4;
+  const sembleAllTimeTotalBytes = (sembleAllTimePct > 0 && sembleAllTimeTokens > 0)
+    ? Math.round(sembleAllTimeSavedBytes / (sembleAllTimePct / 100))
+    : (skillsDbAllTimeTotalBytes > 0 ? skillsDbAllTimeTotalBytes : 0);
   const combinedAllTimeSavedBytes = skillsDbAllTimeSavedBytes + sembleAllTimeSavedBytes;
-  const sembleAllTimeTotalBytes = (sembleAllTimePct > 0) ? (sembleAllTimeSavedBytes) / (sembleAllTimePct / 100) : sembleAllTimeSavedBytes;
-  const combinedAllTimeTotalBytes = skillsDbAllTimeTotalBytes + sembleAllTimeTotalBytes;
+  const combinedAllTimeTotalBytes = skillsDbAllTimeTotalBytes + (sembleAllTimePct > 0 ? sembleAllTimeTotalBytes : 0);
   const combinedAllTimePct = (combinedAllTimeTotalBytes > 0) ? Math.round((combinedAllTimeSavedBytes / combinedAllTimeTotalBytes) * 100) : 0;
 
   const formatBytesComb = (b) => {
@@ -3664,7 +3789,7 @@ async function cmdSavings() {
     `${C.bold}Last 7 Days:${C.reset}  ${String(combinedLast7DaysCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedLast7DaysTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedLast7DaysBytes)}${C.reset} equivalent) (${C.green}${combinedLast7DaysPct}%${C.reset})`,
     `${C.bold}All Time:${C.reset}     ${String(combinedAllTimeCalls).padStart(5)} calls   ~${C.bold}${formatTokensComb(combinedAllTimeTokens).padEnd(7)}${C.reset} tokens (~${C.bold}${formatBytesComb(combinedAllTimeBytes)}${C.reset} equivalent) (${C.green}${combinedAllTimePct}%${C.reset})`,
     '─',
-    `Token reduction:       ${C.bold}${C.green}83-98%${C.reset} average per query`,
+    `Actual savings per query:  ${C.bold}${C.green}${combinedTodayPct > 0 ? combinedTodayPct : combinedLast7DaysPct > 0 ? combinedLast7DaysPct : combinedAllTimePct > 0 ? combinedAllTimePct : global.skillsDbTodayPct > 0 ? global.skillsDbTodayPct : global.skillsDbAllTimePct > 0 ? global.skillsDbAllTimePct : 0}${C.reset}% average per query (computed from live database metrics)`,
   ];
   drawBox('Combined Savings Metric', combinedSummaryLines, FIRE_THEME);
   log('');
@@ -4315,12 +4440,12 @@ const AVAILABLE_MODELS = [
 
 async function getActiveModels() {
   const models = [...AVAILABLE_MODELS];
-  const active = await checkPortActive(11434);
+  const active = await checkPortActive(19999);
   if (!active) return models;
 
   return new Promise((resolve) => {
     const http = require('http');
-    const req = http.get('http://127.0.0.1:11434/v1/models', (res) => {
+    const req = http.get('http://127.0.0.1:19999/v1/models', (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
@@ -4801,7 +4926,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
   ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history and prune database space.
   ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
-  ${C.cyan}bridge${C.reset}        🌉 Manage multiple LLM bridge configurations (status, list, create, delete, enable, disable).
+  ${C.cyan}bridge${C.reset}        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
 
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
@@ -4897,35 +5022,49 @@ async function cmdData(args) {
 function getBridgesConfigPath() {
   const dir = path.join(os.homedir(), '.konoha');
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
   return path.join(dir, 'bridges.json');
 }
 
 function loadBridges() {
-  const p = getBridgesConfigPath();
-  if (!fs.existsSync(p)) {
-    const defaultBridges = [
-      {
-        name: 'antigravity',
-        port: 11435,
-        provider: 'antigravity',
-        enabled: true
-      }
-    ];
-    fs.writeFileSync(p, JSON.stringify(defaultBridges, null, 2) + '\n');
-    return defaultBridges;
-  }
+  const python = checkPython() || 'python3';
+  const dbScript = fileExists(path.join(SRC_DIR, 'db_bridges.py'))
+    ? path.join(SRC_DIR, 'db_bridges.py')
+    : path.join(SKILLS_DB_DIR, 'db_bridges.py');
   try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (err) {
-    return [];
-  }
+    const res = spawnSync(python, [dbScript, '--list'], { encoding: 'utf-8' });
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout);
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveBridgeSqlite(action, data) {
+  const python = checkPython() || 'python3';
+  const dbScript = fileExists(path.join(SRC_DIR, 'db_bridges.py'))
+    ? path.join(SRC_DIR, 'db_bridges.py')
+    : path.join(SKILLS_DB_DIR, 'db_bridges.py');
+  try {
+    if (action === 'upsert') {
+      spawnSync(python, [dbScript, '--upsert', JSON.stringify(data)], { encoding: 'utf-8' });
+    } else if (action === 'delete') {
+      spawnSync(python, [dbScript, '--delete', data], { encoding: 'utf-8' });
+    } else if (action === 'enable') {
+      spawnSync(python, [dbScript, '--enable', data], { encoding: 'utf-8' });
+    } else if (action === 'disable') {
+      spawnSync(python, [dbScript, '--disable', data], { encoding: 'utf-8' });
+    }
+  } catch (e) {}
 }
 
 function saveBridges(bridges) {
-  const p = getBridgesConfigPath();
-  fs.writeFileSync(p, JSON.stringify(bridges, null, 2) + '\n');
+  if (Array.isArray(bridges)) {
+    for (const b of bridges) {
+      saveBridgeSqlite('upsert', b);
+    }
+  }
 }
 
 function checkPortActive(port) {
@@ -4950,7 +5089,7 @@ function checkPortActive(port) {
 }
 
 function getNextAvailablePort(bridges) {
-  let maxPort = 11435;
+  let maxPort = 11436;
   for (const b of bridges) {
     if (b.port && b.port > maxPort) {
       maxPort = b.port;
@@ -4966,15 +5105,21 @@ Usage:
   konoha bridge status                   Show status of all configured bridges
   konoha bridge list                     List all configured bridges in a table
   konoha bridge models                   List all served models by all active bridges
-  konoha bridge create <bridge name>     Create a new bridge configuration (supports OpenAI providers)
+  konoha bridge start                    Start the bridge gateway service in background (standalone daemon)
+  konoha bridge stop                     Stop background bridge gateway service
+  konoha bridge create [name]            Create a bridge - interactive: choose API Key
   konoha bridge delete <bridge name>     Delete a bridge configuration
   konoha bridge enable <bridge name>     Enable a bridge configuration
   konoha bridge disable <bridge name>    Disable a bridge configuration
 
 Examples:
-  konoha bridge create my-openai
-  konoha bridge enable my-openai
+  konoha bridge start                     (Launch standalone bridge proxy on port 19999)
+  konoha bridge create                    (Interactive - choose API Key, then provider)
   konoha bridge status
+
+Provider: OpenAI Compatible (universal - works with all OpenAI-compatible APIs)
+  1  OpenAI           - https://api.openai.com/v1
+  2  OpenAI Compatible - any OpenAI-compatible API (Ollama, LM Studio, vLLM, ...)
 `);
 }
 
@@ -4997,6 +5142,13 @@ async function cmdBridge(args) {
     case 'models':
       await cmdBridgeModels();
       break;
+    case 'start':
+    case 'daemon':
+      await cmdBridgeStart();
+      break;
+    case 'stop':
+      await cmdBridgeStop();
+      break;
     case 'delete':
       await cmdBridgeDelete(subArgs[0]);
       break;
@@ -5016,6 +5168,51 @@ async function cmdBridge(args) {
   }
 }
 
+async function cmdBridgeStart() {
+  const { spawn } = require('child_process');
+  header('Starting Bridge Proxy Gateway Service');
+
+  const gatewayActive = await checkPortActive(19999);
+  if (gatewayActive) {
+    warn('Proxy Gateway is already running on port 19999.');
+    return;
+  }
+
+  const mcpScript = fileExists(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
+    ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
+    : path.join(SRC_DIR, 'file_tools_mcp.js');
+
+  const child = spawn(process.execPath || 'node', [mcpScript], {
+    detached: true,
+    stdio: 'ignore',
+    env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
+  });
+  child.unref();
+
+  await new Promise((r) => setTimeout(r, 1000));
+  const nowActive = await checkPortActive(19999);
+  if (nowActive) {
+    success('Bridge Proxy Gateway started successfully in background on port 19999.');
+  } else {
+    warn('Background process spawned. Run "konoha bridge status" to check binding status.');
+  }
+}
+
+async function cmdBridgeStop() {
+  const { execSync } = require('child_process');
+  header('Stopping Bridge Proxy Gateway Service');
+  try {
+    if (process.platform === 'win32') {
+      execSync('taskkill /f /im node.exe', { stdio: 'ignore' });
+    } else {
+      execSync('pkill -f file_tools_mcp.js', { stdio: 'ignore' });
+    }
+    success('Stopped background bridge proxy gateway services.');
+  } catch (e) {
+    warn('No active background bridge services were running.');
+  }
+}
+
 async function cmdBridgeList() {
   const bridges = loadBridges();
   header('Configured Bridges');
@@ -5028,10 +5225,14 @@ async function cmdBridgeList() {
   const rows = [];
   for (const b of bridges) {
     const active = await checkPortActive(b.port);
+    const providerLabel = {
+        'openai-compatible': 'OpenAI Compatible',
+        'openai':            'OpenAI'
+      }[b.provider] || b.provider || '-';
     rows.push([
       b.name,
       String(b.port),
-      b.provider,
+      providerLabel,
       b.enabled ? 'Enabled' : 'Disabled',
       active ? 'Running' : 'Stopped',
       b.targetUrl || '-'
@@ -5056,16 +5257,16 @@ async function cmdBridgeModels() {
   const http = require('http');
   header('Served Models via Proxy Gateway');
 
-  const gatewayActive = await checkPortActive(11434);
+  const gatewayActive = await checkPortActive(19999);
   if (!gatewayActive) {
-    error('Proxy Gateway is not running on port 11434.');
+    error('Proxy Gateway is not running on port 19999.');
     warn('Ensure the konoha-files MCP server is running to start the gateway and enabled bridges.');
     return;
   }
 
   try {
     const modelsData = await new Promise((resolve, reject) => {
-      const req = http.get('http://127.0.0.1:11434/v1/models', (res) => {
+      const req = http.get('http://127.0.0.1:19999/v1/models', (res) => {
         let data = '';
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
@@ -5079,7 +5280,7 @@ async function cmdBridgeModels() {
       req.on('error', (err) => {
         reject(err);
       });
-      req.setTimeout(2000, () => {
+      req.setTimeout(6000, () => {
         req.destroy();
         reject(new Error('Request timed out.'));
       });
@@ -5126,31 +5327,51 @@ async function cmdBridgeStatus() {
   const bridges = loadBridges();
   header('Bridge Status Report');
 
-  const gatewayActive = await checkPortActive(11434);
-  log(`  ${C.bold}Proxy Gateway${C.reset} on port ${C.bold}11434${C.reset}: ${gatewayActive ? `${C.green}● RUNNING${C.reset}` : `${C.red}○ STOPPED${C.reset}`}`);
-  log('  ────────────────────────────────────────────────────────────');
+  const gatewayActive = await checkPortActive(19999);
+  const rows = [];
+  
+  rows.push([
+    'Proxy Gateway',
+    '19999',
+    'Gateway Router',
+    gatewayActive ? 'RUNNING' : 'STOPPED',
+    'http://localhost:19999/v1'
+  ]);
 
   let activeCount = 0;
   for (const b of bridges) {
     const active = await checkPortActive(b.port);
-    const statusStr = active 
-      ? `${C.green}● RUNNING${C.reset}` 
-      : (b.enabled ? `${C.red}○ STOPPED (Enabled)${C.reset}` : `${C.dim}○ DISABLED${C.reset}`);
-    
-    log(`  ${applyGradient(b.name, RASENGAN_THEME)} on port ${C.bold}${b.port}${C.reset} [${b.provider}]: ${statusStr}`);
-    if (b.targetUrl) {
-      log(`    ${C.dim}Target URL: ${b.targetUrl}${C.reset}`);
-    }
-    if (active) {
-      activeCount++;
-    }
+    if (active) activeCount++;
+    const statusText = active
+      ? 'RUNNING'
+      : (b.enabled ? 'STOPPED' : 'DISABLED');
+    rows.push([
+      b.name,
+      String(b.port),
+      b.provider || 'custom',
+      statusText,
+      b.targetUrl || '-'
+    ]);
   }
 
+  const headers = ['Bridge Service', 'Port', 'Provider', 'Status', 'Target URL'];
+  const widths = computeTableWidths(headers, rows, { minWidths: [18, 6, 14, 12, 25] });
+  drawTable(headers, widths, ['left', 'left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.8),
+      (cell) => cell,
+      gradientStatusCell,
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.7)
+    ]
+  });
+
   log('');
-  if (activeCount > 0) {
-    success(`${activeCount} bridge(s) active and listening.`);
+  if (activeCount > 0 || gatewayActive) {
+    success(`${activeCount + (gatewayActive ? 1 : 0)} bridge service(s) active and listening.`);
   } else {
-    warn('No active bridges are currently running. Ensure the konoha-files MCP server is running to start enabled bridges.');
+    warn('No active bridges running. Bridges are hosted in-process by konoha MCP.');
+    log(`  ${C.dim}Tip: Start an active MCP IDE session or run ${C.cyan}konoha bridge start${C.dim} to run in background.${C.reset}`);
   }
 }
 
@@ -5169,7 +5390,7 @@ async function cmdBridgeDelete(name) {
   }
 
   const deleted = bridges.splice(index, 1)[0];
-  saveBridges(bridges);
+  saveBridgeSqlite('delete', deleted.name);
   success(`Deleted bridge "${deleted.name}".`);
 }
 
@@ -5192,8 +5413,7 @@ async function cmdBridgeEnable(name) {
     return;
   }
 
-  bridge.enabled = true;
-  saveBridges(bridges);
+  saveBridgeSqlite('enable', name);
   success(`Enabled bridge "${name}". The runtime has been started automatically.`);
 }
 
@@ -5216,93 +5436,67 @@ async function cmdBridgeDisable(name) {
     return;
   }
 
-  bridge.enabled = false;
-  saveBridges(bridges);
+  saveBridgeSqlite('disable', name);
   success(`Disabled bridge "${name}". The runtime has been stopped automatically.`);
 }
 
 async function cmdBridgeCreate(name) {
+  const nameRegex = /^[a-zA-Z0-9_-]+$/;
+  const bridges = loadBridges();
+
+  log('\n' + applyGradient('  Konoha Bridge — Create New Bridge', CHIDORI_THEME, 0.9) + '\n');
+  log(`  Provider: OpenAI Compatible (works with OpenAI, Ollama, LMStudio, vLLM, Groq, AnyLLM, etc.)\n`);
+
+  // Bridge name
   let bridgeName = name;
   if (!bridgeName) {
-    bridgeName = await askQuestion('Enter bridge name: ');
-    if (!bridgeName) {
-      error('Bridge name is required.');
-      process.exit(1);
-    }
+    bridgeName = await askQuestion('  Bridge name: ');
+    if (!bridgeName) { error('Bridge name is required.'); process.exit(1); }
   }
-
-  const nameRegex = /^[a-zA-Z0-9_-]+$/;
   if (!nameRegex.test(bridgeName)) {
-    error('Invalid bridge name. Use only alphanumeric characters, hyphens, and underscores.');
+    error('Invalid bridge name. Use only alphanumeric, hyphens, underscores.');
     process.exit(1);
   }
-
-  const bridges = loadBridges();
   if (bridges.some(b => b.name === bridgeName)) {
     error(`Bridge "${bridgeName}" already exists.`);
     process.exit(1);
   }
 
-  log(`\nCreating bridge "${C.bold}${bridgeName}${C.reset}"...\n`);
-
-  let provider = await askQuestion('Enter provider (antigravity / openai) [default: openai]: ');
-  provider = provider.toLowerCase() || 'openai';
-  if (provider !== 'antigravity' && provider !== 'openai') {
-    error('Invalid provider. Must be "antigravity" or "openai".');
-    process.exit(1);
-  }
-
+  // Port
   const defaultPort = getNextAvailablePort(bridges);
-  let portStr = await askQuestion(`Enter local port [default: ${defaultPort}]: `);
-  let port = portStr ? parseInt(portStr, 10) : defaultPort;
-  if (isNaN(port) || port <= 0 || port > 65535) {
-    error('Invalid port number.');
-    process.exit(1);
-  }
+  const portStr = await askQuestion(`  Listen port [${defaultPort}]: `);
+  const port = portStr ? parseInt(portStr, 10) : defaultPort;
+  if (isNaN(port) || port <= 0 || port > 65535) { error('Invalid port.'); process.exit(1); }
+  if (bridges.some(b => b.port === port)) { error(`Port ${port} already in use.`); process.exit(1); }
 
-  if (bridges.some(b => b.port === port)) {
-    error(`Port ${port} is already configured for another bridge.`);
-    process.exit(1);
-  }
-
+  // Target URL
   let targetUrl = '';
-  let apiKey = '';
-
-  if (provider === 'openai') {
-    while (!targetUrl) {
-      targetUrl = await askQuestion('Enter OpenAI-compatible target URL (e.g. https://api.openai.com/v1): ');
-      if (!targetUrl) {
-        warn('Target URL is required for OpenAI provider.');
-      }
-    }
-    apiKey = await askQuestion('Enter API Key (optional): ');
+  while (!targetUrl) {
+    const prompt = '  Target URL (e.g. https://api.openai.com/v1 or http://localhost:11434/v1): ';
+    const input = await askQuestion(prompt);
+    targetUrl = input?.trim() || '';
+    if (!targetUrl) warn('  Target URL is required.');
   }
+
+  // API Key
+  const apiKey = await askQuestion('  API Key (required for most APIs): ');
+  if (!apiKey?.trim()) { error('API Key is required.'); process.exit(1); }
 
   const newBridge = {
     name: bridgeName,
     port,
-    provider,
+    provider: 'openai-compatible',
+    targetUrl,
+    apiKey: apiKey.trim(),
     enabled: true
   };
 
-  if (provider === 'openai') {
-    newBridge.targetUrl = targetUrl;
-    if (apiKey) {
-      newBridge.apiKey = apiKey;
-    }
-  }
-
-  bridges.push(newBridge);
-  saveBridges(bridges);
-
-  success(`Successfully created bridge "${bridgeName}"!`);
-  log(`  Port: ${port}`);
-  log(`  Provider: ${provider}`);
-  if (provider === 'openai') {
-    log(`  Target URL: ${targetUrl}`);
-    log(`  API Key: ${apiKey ? '••••••••' : '(none)'}`);
-  }
+  saveBridgeSqlite('upsert', newBridge);
+  log('');
+  success(`Bridge "${bridgeName}" created!`);
+  log(`  Provider : OpenAI Compatible\n`);
 }
+
 
 async function cmdDataView() {
   try {

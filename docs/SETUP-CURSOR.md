@@ -1,6 +1,6 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v1.1.6+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity. The same `skills-db` + `semble` + `konoha-files` MCP stack and six ninja subagents work in both environments.
+Konoha **v1.1.6+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity. The same `konoha` + `semble` MCP stack and six ninja subagents work in both environments.
 
 ## Prerequisites
 
@@ -11,19 +11,19 @@ Konoha **v1.1.6+** supports **Cursor IDE** and **Cursor CLI** alongside Antigrav
 
 ## Step 1: Install Konoha (Auto-Setup)
 
-Running any `konoha` command triggers `ensureAutoSetup()`, which self-heals MCP and subagent configuration.
+Running any `konoha` command triggers `ensureAutoSetup()`, which self-heals MCP and subagent configuration for all detected clients (Antigravity, Cursor, Claude Code, OpenCode) without prompting.
 
-For a full interactive install (including Cursor consent prompt):
+For a full install:
 
 ```bash
 npx github:andycungkrinx91/konoha init
 ```
 
-When prompted **"Configure Konoha for Cursor IDE and Cursor CLI?"**, answer **Yes** to deploy:
+Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` binary on PATH) and skip silently otherwise. The following paths are deployed:
 
 | Path | Purpose |
 |------|---------|
-| `~/.cursor/mcp.json` | Registers `skills-db` + `semble` + `konoha-files` MCP servers |
+| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then **replaced** with `konoha` + `semble` only |
 | `~/.cursor/agents/*.md` | Six official ninja subagents (`model: inherit`) |
 | `~/.cursor/skills/` | Agent skills mirrored from `~/.agents/skills/` (same layout as Antigravity) |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
@@ -32,6 +32,10 @@ When prompted **"Configure Konoha for Cursor IDE and Cursor CLI?"**, answer **Ye
 | `.cursor/rules/konoha.mdc` | Orchestrator delegation rules |
 | `.cursor/agents/*.md` (project) | Project-scoped subagent definitions |
 | `.cursor/skills/` (project) | Project-scoped skills (mirrored from `.agents/skills/` or `~/.agents/skills/`) |
+
+> [!NOTE]
+> Your original `~/.cursor/mcp.json` is preserved in `~/.cursor/mcp.json.back`. To restore:
+> `cp ~/.cursor/mcp.json.back ~/.cursor/mcp.json`
 
 ## Step 2: Verify Installation
 
@@ -50,11 +54,11 @@ Close and reopen Cursor (or start a new agent session) so MCP servers and subage
 ## How Cursor Orchestration Works
 
 1. **Orchestrator** (main agent) reads `.cursor/rules/konoha.mdc`.
-2. **Skills first**: Call `skills-db.find_skill` (pass `agent` when known).
+2. **Skills first**: Call `konoha.find_skill` (pass `agent` when known).
 3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
 4. **Delegate** via the **Task** tool with `subagent_type` matching a ninja name (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`).
 5. Subagents are auto-loaded from `~/.cursor/agents/` and project `.cursor/agents/`.
-6. **Skills on disk**: Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.cursor/skills/` on `konoha init`). Agents still load skill **content** via `skills-db` MCP — do not read `SKILL.md` files directly into context.
+6. **Skills on disk**: Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.cursor/skills/` on `konoha init`). Agents still load skill **content** via `konoha` MCP — do not read `SKILL.md` files directly into context.
 
 ### Default search / grep / find → semble
 
@@ -66,11 +70,11 @@ When Konoha is installed, **semble MCP is the default** for all codebase discove
 | Shell `grep`, `rg`, `find` | `semble.search` with `repo` = absolute project path |
 | Antigravity built-in grep/glob | `semble` MCP |
 
-`skills-db` remains for skill lookup only — never use it (or semble) for the wrong purpose. If semble MCP is down after retry, `rg` is allowed once as a documented fallback.
+`konoha` remains for skill lookup and file reads — never use it (or semble) for the wrong purpose. If semble MCP is down after retry, `rg` is allowed once as a documented fallback.
 
-### Token-efficient file reads (`konoha-files`)
+### Token-efficient file reads (`konoha`)
 
-After semble locates targets, use **konoha-files** MCP for precise, capped file operations:
+After semble locates targets, use **konoha** MCP for precise, capped file operations:
 
 | Tool | Use when |
 |------|----------|
@@ -117,9 +121,8 @@ Custom subagents you create via `konoha agent create` can still be deleted.
 
 Cursor CLI reads `~/.cursor/cli-config.json` for MCP permissions. After `konoha init`, these grants are added:
 
-- `Mcp(skills-db)`, `Mcp(skills-db, find_skill)`, `Mcp(skills-db, get_skill)`, …
 - `Mcp(semble)`, `Mcp(semble, search)`, `Mcp(semble, find_related)`
-- `Mcp(konoha-files)`, `Mcp(konoha-files, read_file_head)`, `Mcp(konoha-files, read_file_range)`, `Mcp(konoha-files, file_info)`, `Mcp(konoha-files, token_efficient_grep)`, `Mcp(konoha-files, get_file_structure)`, `Mcp(konoha-files, find_files_clean)`
+- `Mcp(konoha)`, `Mcp(konoha, read_file_head)`, `Mcp(konoha, read_file_range)`, `Mcp(konoha, file_info)`, `Mcp(konoha, token_efficient_grep)`, `Mcp(konoha, get_file_structure)`, `Mcp(konoha, find_files_clean)`, `Mcp(konoha, find_skill)`, `Mcp(konoha, get_skill)`, `Mcp(konoha, list_skills)`, `Mcp(konoha, optimize_report)`, `Mcp(konoha, build_from_source)`, `Mcp(konoha, build_from_text)`
 
 Run `konoha doctor --yes` to repair missing permissions.
 
@@ -127,7 +130,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 ### MCP not detected in Cursor
 
-1. Check `~/.cursor/mcp.json` contains `skills-db`, `semble`, and `konoha-files`.
+1. Check `~/.cursor/mcp.json` contains `konoha` and `semble`.
 2. Run `konoha doctor --yes`.
 3. Run `node ~/.konoha/cursor_bootstrap.js` (must exit 0).
 4. Restart Cursor.

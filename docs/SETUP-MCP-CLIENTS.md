@@ -1,13 +1,13 @@
 # MCP Client Setup — Claude Code, OpenCode & Other Agentic CLIs
 
-Konoha registers **skills-db**, **semble**, and **konoha-files** globally — same pattern as Antigravity and Cursor:
+Konoha registers **konoha** and **semble** globally for all supported clients. On first install, the existing config file is **backed up** to `<file>.back`, then **replaced** with only Konoha MCP servers:
 
-| Client | Auto-setup with `konoha init` | Global config only |
-|--------|------------------------------|-------------------|
-| **Antigravity** | Always | `~/.gemini/config/mcp_config.json` |
-| **Cursor** | Yes (with consent) | `~/.cursor/mcp.json` + project `.cursor/` + `~/.cursor/skills/` mirror |
-| **Claude Code** | When `claude` CLI detected | `~/.claude.json` → `mcpServers` |
-| **OpenCode** | When `opencode` CLI detected | `~/.config/opencode/opencode.json` → `mcp` |
+| Client | Auto-setup with `konoha init` | Config backed up to | Replaced with |
+|--------|------------------------------|---------------------|---------------|
+| **Antigravity** | Always | `mcp_config.json.back` | `konoha` + `semble` only |
+| **Cursor** | Yes (auto if detected) | `mcp.json.back` | `konoha` + `semble` only |
+| **Claude Code** | When `claude` CLI detected | `.claude.json.back` | `konoha` + `semble` only |
+| **OpenCode** | When `opencode` CLI detected | `opencode.json.back` | `konoha` + `semble` only |
 
 Claude Code and OpenCode use **global config only** — Konoha does not write project `.mcp.json` or `opencode.json`.
 
@@ -56,7 +56,7 @@ konoha doctor --yes
 
 **Writes**:
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
-- `~/.claude/agents/` → Six official ninja subagents (`genin.md`, `kage.md`, `chunin.md`, `jonin.md`, `anbu.md`, `tokubetsu-jonin.md`) configured with whitelisted tools (`allowed-tools` whitelist matching `mcp__semble__*`, `mcp__skills-db__*`, `mcp__konoha-files__*`).
+- `~/.claude/agents/` → Six official ninja subagents (`genin.md`, `kage.md`, `chunin.md`, `jonin.md`, `anbu.md`, `tokubetsu-jonin.md`) configured with whitelisted tools (`allowed-tools` whitelist matching `mcp__semble__*`, `mcp__konoha__*`).
 
 **Verify**: `/agents` and `/mcp` in Claude Code session.
 
@@ -76,14 +76,14 @@ konoha doctor --yes
 
 ## Agent workflow (all clients)
 
-1. `skills-db` `find_skill` for skills
+1. `konoha` `find_skill` for skills
 2. `semble` `search` / `find_related` for code
-3. `konoha-files` for bounded file reads
-4. `ag-local-bridge` runs in-process inside `konoha-files` on port `11435` to expose OpenAI/Anthropic/Gemini APIs locally.
+3. `konoha` for bounded file reads
+4. The Konoha Bridge Router runs in-process inside the `konoha` MCP server. The router listens on `19999` and routes to inner OpenAI / Local LLM bridges based on model name prefixes. Local clients do not send API keys to the router.
 
 In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 
-**Cursor note:** Skills on disk are mirrored to `~/.cursor/skills/`; agents still load skill **content** via `skills-db` — do not read `SKILL.md` files directly into context.
+**Cursor note:** Skills on disk are mirrored to `~/.cursor/skills/`; agents still load skill **content** via `konoha` — do not read `SKILL.md` files directly into context.
 
 ---
 
@@ -96,3 +96,72 @@ In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 | CLI not installed | Use `docs/templates/` → merge into **global** config |
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+---
+
+## Adding Multiple Bridges
+
+Konoha Bridge Router supports multiple bridges per provider for failover or quota rotation.
+
+### Add a bridge
+
+```bash
+konoha bridge create
+# => choose 1 (OpenAI API Key)         => prompts for name, port, target URL, API key
+# => choose 2 (OpenAI Compatible)     => prompts for name, port, target URL, API key
+# => choose 3 (Antigravity Sidecar)   => passive, requires live Antigravity IDE session
+```
+
+### Manage bridges
+
+```bash
+konoha bridge list              # List all bridges with provider info
+konoha bridge status            # Runtime status (AWAITING SIDECAR for Antigravity if IDE is closed)
+konoha bridge enable <name>     # Enable a bridge
+konoha bridge disable <name>    # Disable a bridge
+konoha bridge delete <name>     # Remove a bridge
+
+# Start the gateway
+konoha bridge start
+```
+
+### Configure your IDE client to point at the gateway
+
+Set your client's API base URL and key to:
+
+```
+API Base URL: http://127.0.0.1:19999/v1
+API Key:      any-value   (gateway does not enforce key)
+```
+
+### Model names for OAuth bridges
+
+All OAuth user slots share the `openai-` prefix namespace:
+
+```
+openai-gpt-4o
+openai-o1
+openai-gpt-4o-mini
+```
+
+For API-key bridges (Ollama, LM Studio, etc.) model names use `<bridge_name>-<model>`:
+
+```
+my-ollama-llama3
+lm-studio-mistral-7b
+```
+
+### Quota rotation
+
+When one OAuth account hits a rate limit, the gateway automatically:
+1. Marks that bridge Unavailable (persisted to SQLite)
+2. Routes to the next available user account
+3. Restores the bridge when OpenAI's reset time arrives
+
+Check live status:
+
+```bash
+konoha bridge quota
+```
+
+See [LLM-BRIDGE-GATEWAY.md](LLM-BRIDGE-GATEWAY.md) for full architecture details.

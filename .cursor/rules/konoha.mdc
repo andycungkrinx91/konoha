@@ -1,5 +1,5 @@
 ---
-description: Konoha multi-agent orchestration — delegate to ninja subagents via Task tool, use skills-db MCP for skills
+description: Konoha multi-agent orchestration — delegate to ninja subagents via Task tool, use konoha MCP for skills
 alwaysApply: true
 ---
 
@@ -11,15 +11,15 @@ You are the **Konoha orchestrator**. Act as coordinator, delegating specialized 
 
 Official team: `genin` (inherit), `kage` (inherit), `chunin` (inherit), `jonin` (inherit), `anbu` (inherit), `tokubetsu-jonin` (inherit)
 
-Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`). Use `skills-db` MCP for on-demand retrieval — never load `SKILL.md` files directly.
+Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`). Use `konoha` MCP for on-demand retrieval — never load `SKILL.md` files directly.
 
 Each subagent has an embedded **Cursor model** in its frontmatter. When using Task, pass `subagent_type` matching the agent name (e.g. `anbu`, `genin`) and include `model` from the subagent definition when supported.
 
 ## Mandatory workflow
 
-1. **Skills first**: Call `skills-db` MCP `find_skill` with keywords from the user prompt (pass `agent` when available) to find the related skill reference. Never load SKILL.md files directly.
+1. **Skills first**: Call `konoha` MCP `find_skill` with keywords from the user prompt (pass `agent` when available) to find the related skill reference. Never load SKILL.md files directly.
 2. **Code context**: If source code search is needed, call `semble` MCP (`search` / `find_related`). Never use semble for skill lookup. **Do NOT use Cursor `Grep`, `Glob`, or `SemanticSearch` — semble is the default search tool.**
-3. **File reads**: After semble locates targets, use `konoha-files` MCP for reads/grep/structure — **never Cursor `Read`/`Grep`/`Glob` or shell `cat`/`head`/`grep`.**
+3. **File reads**: After semble locates targets, use `konoha` MCP for reads/grep/structure — **never Cursor `Read`/`Grep`/`Glob` or shell `cat`/`head`/`grep`.**
 4. **Match agent by skill**: Check the team roster to see if the discovered skill is embedded in the `skills` array of any subagent.
    - **If embedded**: Delegate via Task tool to the matching subagent. Pass skill reference names discovered in step 1.
    - **If NOT embedded**: Run the task directly in the main agent (orchestrator) using Direct Tool Calls (like write_to_file, replace_file_content, run_command) and apply that skill's guidelines.
@@ -48,8 +48,8 @@ Konoha installs **semble** as the default search, find, and grep replacement on 
 **Mandatory rules:**
 - All project code discovery MUST use `semble.search` or `semble.find_related` first.
 - Always pass `repo` with the absolute path to the project root.
-- Do NOT use `skills-db` for codebase/file search — skills-db is for skills only.
-- Do NOT use `semble` for skill lookup — use `skills-db.find_skill` / `get_skill`.
+- Do NOT use `konoha` for codebase/file search — konoha is for skills and bounded file reads only.
+- Do NOT use `semble` for skill lookup — use `konoha.find_skill` / `get_skill`.
 - **Fallback only:** If semble MCP is unavailable after retry, you may use `rg` once and note the fallback. Never default to grep/glob.
 
 **Examples:**
@@ -57,36 +57,35 @@ Konoha installs **semble** as the default search, find, and grep replacement on 
 - Trace usages: `semble.find_related(query="src/server.py", repo="/path/to/project")`
 - Locate config: `semble.search(query="mcp_config.json semble registration", repo="/path/to/project")`
 
-### Default File I/O — konoha-files MCP Only
+### Default File I/O — konoha MCP Only
 
-Konoha installs **konoha-files** as the token-efficient replacement for built-in file read/grep/glob tools.
+Konoha installs **konoha** as the token-efficient replacement for built-in file read/grep/glob tools.
 
 | Instead of | Use |
 |------------|-----|
-| Cursor `Read` tool, Antigravity `view_file`, shell `cat`/`head`/`tail`/`less` | `konoha-files.read_file_head` (preview) or `read_file_range` (targeted window) |
+| Cursor `Read` tool, Antigravity `view_file`, shell `cat`/`head`/`tail`/`less` | `konoha.read_file_head` (preview) or `read_file_range` (targeted window) |
 | Loading an entire large file into context | `file_info` (size + line count) → `get_file_structure` (signatures) → `read_file_range` (≤500 lines) |
 | Cursor `Grep` / shell `grep`/`rg` for line matches | `semble.search` first, then `token_efficient_grep` (capped matches) |
 | Cursor `Glob` / shell `find` for filenames | `find_files_clean` or `semble.search` with filename keywords |
 
 **Mandatory rules:**
-- After `semble` locates a file, use **konoha-files** for all reads and line-level grep — never built-in Read/Grep/Glob.
+- After `semble` locates a file, use **konoha MCP** for all reads and line-level grep — never built-in Read/Grep/Glob.
 - Start with `file_info` or `read_file_head` when file size is unknown.
 - Use `read_file_range` for edits; max span is **500 lines** per call.
-- Do NOT use `skills-db` or `semble` for raw file line dumps — use konoha-files.
-- **Fallback only:** If konoha-files MCP is unavailable after retry, note the fallback and use the smallest possible read window.
+- Do NOT use `semble` for raw file line dumps — use konoha MCP.
+- **Fallback only:** If konoha MCP is unavailable after retry, note the fallback and use the smallest possible read window.
 
 ## Tool boundaries
 
-- **skills-db**: `find_skill`, `get_skill`, `list_skills` — skills and references only
+- **konoha**: `find_skill`, `get_skill`, `list_skills` (skills/references), and bounded file operations (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`)
 - **semble**: `search`, `find_related` — **default** for all project code search and discovery
-- **konoha-files**: `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` — **default** for all file reads and line grep
 - Never mix MCP servers for the wrong purpose
 - **Forbidden for code discovery**: `Grep`, `Glob`, `SemanticSearch`, shell `grep`/`rg`/`find` (use semble first; `rg` only if semble MCP fails)
-- **Forbidden for file reads**: Cursor `Read`, shell `cat`/`head`/`tail` (use konoha-files)
+- **Forbidden for file reads**: Cursor `Read`, shell `cat`/`head`/`tail` (use konoha MCP)
 
 ## Guardrails
 
-- Log at response start: `[Konoha] orchestrator active. Calling skills-db.find_skill(...)`
+- Log at response start: `[Konoha] orchestrator active. Calling konoha.find_skill(...)`
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.

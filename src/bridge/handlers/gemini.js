@@ -79,6 +79,19 @@ function geminiToolsToOpenAi(tools) {
 // Gemini response builders
 // ─────────────────────────────────────────────
 
+function buildGeminiDelta(text, modelKey) {
+  return {
+    candidates: [
+      {
+        content: { role: 'model', parts: text ? [{ text }] : [] },
+        finishReason: 'STOP',
+        index: 0,
+      },
+    ],
+    modelVersion: modelKey,
+  };
+}
+
 function buildGeminiResponse(text, toolCalls, modelKey) {
   const parts = [];
 
@@ -110,6 +123,37 @@ function buildGeminiResponse(text, toolCalls, modelKey) {
   };
 }
 
+// Stream text by word chunks with small delays. The Gemini SDK reads a newline-
+// delimited JSON array; we open the array, emit incremental deltas, then close.
+async function streamGeminiResponse(res, text, modelKey) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.writeHead(200);
+  res.write('[\n');
+  if (text) {
+    const tokens = text.match(/\S+\s*|\s+/g) || [text];
+    let acc = '';
+    for (const tok of tokens) {
+      if (res.writableEnded) return;
+      acc += tok;
+      const chunk = buildGeminiDelta(acc, modelKey);
+      res.write(JSON.stringify(chunk) + ',\n');
+      acc = '';
+      // Yield to the event loop so the client receives each chunk incrementally.
+      await new Promise(r => setImmediate(r));
+    }
+  }
+  // Final completion chunk.
+  const final = {
+    candidates: [{ content: { role: 'model', parts: [] }, finishReason: 'STOP', index: 0 }],
+    usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 },
+    modelVersion: modelKey,
+  };
+  res.write(JSON.stringify(final) + '\n]\n');
+  res.end();
+}
+
 // ─────────────────────────────────────────────
 // POST /v1beta/models/:model:generateContent
 // POST /v1beta/models/:model:streamGenerateContent
@@ -130,6 +174,12 @@ async function handleGeminiGenerateContent(ctx, req, res, modelFromPath) {
   // Resolve model — modelFromPath comes from the URL like "gemini-3.1-pro-high"
   const resolved = resolveModel(modelFromPath || payload.model);
   ctx.requestedModel = modelFromPath || payload.model;
+
+  // OpenAI provider — skip sidecar enum mapping
+  if (ctx.bridgeConfig && ctx.bridgeConfig.provider === 'openai') {
+    return handleGeminiToOpenAi(ctx, req, res, isStream, payload, modelFromPath);
+  }
+
   log(ctx, `📡 [Gemini] Model: ${resolved.key} (enum=${resolved.value})`);
 
   const modelEnum = VALUE_TO_MODEL_ENUM[resolved.value];
@@ -190,14 +240,17 @@ async function handleGeminiGenerateContent(ctx, req, res, modelFromPath) {
     const responseBody = buildGeminiResponse(raw.content || '', raw.toolCalls, resolved.key);
 
     if (isStream) {
-      // Gemini streaming: each chunk is a JSON object separated by newlines, wrapped in array brackets
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Transfer-Encoding', 'chunked');
-      res.writeHead(200);
-      // For simplicity, write the whole response as a single chunk wrapped in an array
-      res.write('[\n' + JSON.stringify(responseBody) + '\n]\n');
-      res.end();
+      // For tool-call responses we can't stream incrementally — fall back to single chunk.
+      if (raw.toolCalls && raw.toolCalls.length > 0) {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        res.writeHead(200);
+        res.write('[\n' + JSON.stringify(responseBody) + '\n]\n');
+        res.end();
+      } else {
+        await streamGeminiResponse(res, raw.content || '', resolved.key);
+      }
     } else {
       sendJson(res, 200, responseBody);
     }
@@ -273,4 +326,52 @@ function parseGeminiPath(pathname) {
   return { model, isStream };
 }
 
-module.exports = { handleGeminiGenerateContent, parseGeminiPath };
+// ─────────────────────────────────────────────
+// Gemini format adapter for OpenAI provider
+// Converts Gemini → OpenAI → callRawInference → Gemini response
+// ─────────────────────────────────────────────
+
+async function handleGeminiToOpenAi(ctx, req, res, isStream, payload, modelFromPath) {
+  let openAiMessages = geminiContentsToOpenAi(
+    payload.contents,
+    payload.systemInstruction || payload.system_instruction,
+  );
+  let openAiTools = geminiToolsToOpenAi(payload.tools);
+  const sanitized = sanitizeRequest({ messages: openAiMessages, tools: openAiTools });
+  openAiMessages = sanitized.messages;
+  openAiTools = sanitized.tools;
+
+  ctx.requestedModel = modelFromPath || payload.model;
+
+  try {
+    const raw = await callRawInference(ctx, openAiMessages, null, openAiTools, []);
+    if (!raw || (!raw.content && !raw.toolCalls)) throw new Error('Empty response');
+
+    const responseBody = buildGeminiResponse(raw.content || '', raw.toolCalls, ctx.requestedModel);
+
+    if (isStream) {
+      if (raw.toolCalls && raw.toolCalls.length > 0) {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        res.writeHead(200);
+        res.write('[\n' + JSON.stringify(responseBody) + '\n]\n');
+        res.end();
+      } else {
+        await streamGeminiResponse(res, raw.content || '', ctx.requestedModel);
+      }
+    } else {
+      sendJson(res, 200, responseBody);
+    }
+  } catch (err) {
+    sendJson(res, err.statusCode || 502, {
+      error: {
+        code: err.statusCode || 502,
+        message: err.message || 'OpenAI provider error',
+        status: err.statusCode === 401 || err.statusCode === 403 ? 'UNAUTHENTICATED' : 'INTERNAL',
+      },
+    });
+  }
+}
+
+module.exports = { handleGeminiGenerateContent, parseGeminiPath, handleGeminiToOpenAi };

@@ -41,11 +41,11 @@ npx github:andycungkrinx91/konoha init
    cat ~/.gemini/config/mcp_config.json
    ```
 
-2. Verify the `skills-db` entry matches:
+2. Verify the `konoha` entry matches:
    ```json
    {
      "mcpServers": {
-       "skills-db": {
+       "konoha": {
          "command": "python3",
          "args": ["/home/youruser/.konoha/server.py"]
        }
@@ -54,7 +54,7 @@ npx github:andycungkrinx91/konoha init
    ```
 
 3. **Restart Antigravity IDE/CLI** — MCP configuration files are only read once on startup.
-4. For CLI, run `agy inspect` to verify if `skills-db` is successfully loaded.
+4. For CLI, run `agy inspect` to verify if `konoha` is successfully loaded.
 
 ---
 
@@ -65,7 +65,7 @@ npx github:andycungkrinx91/konoha init
    cat ~/.cursor/mcp.json
    ```
 
-2. Verify `skills-db`, `semble`, and `konoha-files` entries are present (installed by `konoha init` or `konoha doctor --yes`).
+2. Verify `konoha`, `semble`, and `konoha` entries are present (installed by `konoha init` or `konoha doctor --yes`).
 
 3. Run the bootstrap hook manually (must exit 0):
    ```bash
@@ -105,9 +105,9 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ---
 
-### 📁 `konoha-files` MCP Not Working
+### 📁 `konoha` MCP Not Working
 
-**Symptoms:** Cursor shows `konoha-files` with **0 tools** or "not connected".
+**Symptoms:** Cursor shows `konoha` with **0 tools** or "not connected".
 
 1. Verify files are installed:
    ```bash
@@ -190,7 +190,7 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
 
 The agent's instructions must be updated. Check the following:
 
-1. `~/.gemini/GEMINI.md` — should contain instructions for `skills-db` references, NOT "Load and follow".
+1. `~/.gemini/GEMINI.md` — should contain instructions for `konoha` references, NOT "Load and follow".
 2. IDE User Rules — should match the updated `GEMINI.md`.
 3. If necessary, force-reinstall instructions: `npx github:andycungkrinx91/konoha init --force`
 
@@ -209,7 +209,7 @@ chmod 644 ~/.konoha/skills.db
 
 ### 🪞 Cursor Skills Mirror Missing or Stale
 
-Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents/skills/` → `.cursor/skills/` when project deploy is enabled). Skill **content** is still loaded via `skills-db` MCP — the mirror is filesystem parity for Cursor.
+Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents/skills/` → `.cursor/skills/` when project deploy is enabled). Skill **content** is still loaded via `konoha` MCP — the mirror is filesystem parity for Cursor.
 
 **Symptoms:** `~/.cursor/skills/` empty, outdated, or missing a skill you added to `~/.agents/skills/`.
 
@@ -282,6 +282,76 @@ The system and agent configurations will automatically and immediately fallback 
 2. **Upgrade Google AI Subscription**:
    - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
    - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
+
+## Bridge Gateway Troubleshooting
+
+### Port Already in Use
+
+```bash
+# Check if something is already on port 19999
+lsof -i :19999
+# Kill the process if needed
+kill -9 $(lsof -t -i :19999)
+```
+
+### Gateway Won't Start
+
+1. Ensure no other process is using port 19999
+2. Check that `node >= 18.0.0` is installed:
+   ```bash
+   node --version
+   ```
+3. Verify bridge configuration is valid:
+   ```bash
+   konoha bridge list
+   ```
+
+### Request Times Out / No Response
+
+1. Check if the bridge is reachable:
+   ```bash
+   curl http://127.0.0.1:19999/healthz
+   ```
+2. Verify the target bridge is enabled:
+   ```bash
+   konoha bridge status
+   ```
+3. Check the bridge's target URL is accessible:
+   ```bash
+   curl -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"llama3.1","messages":[{"role":"user","content":"hi"}]}'
+   ```
+
+### Streaming Produces Garbled / Corrupted Output
+
+- This is handled automatically by the gateway (HTML entity escaping, null byte stripping)
+- If you still see framing issues, ensure your client supports SSE `text/event-stream` content type
+- Check the gateway logs at `~/.konoha/` for error output
+
+### Error: "Invalid JSON" or "[object Object]"
+
+- Ensure your client sends a properly formatted JSON body
+- Messages should be an array of objects with `role` and `content`
+- If you see `"[object Object]"` in the request, your serialization is incorrect — this is a client error
+
+---
+
+### Stale Antigravity / Sidecar Bridge
+
+If Antigravity IDE was shut down but its bridge remains registered as `AVAILABLE`:
+
+1. Run `konoha bridge status` — sidecar-gated bridges show `AWAITING SIDECAR` when the IDE is closed.
+2. If you still see `AVAILABLE` on a dead session, run `konoha bridge delete antigravity` and recreate via `konoha bridge create` after restarting Antigravity.
+3. Alternatively, disable temporarily: `konoha bridge disable antigravity`
+
+### Bridge Returns 429 / RESOURCE_EXHAUSTED
+
+The gateway automatically rotates to the next available bridge when rate limits are hit. You can also:
+
+1. Check quota state: `konoha bridge status`
+2. Clear manual quota: `konoha bridge clear-quota <bridge-name>`
+3. Set manual quota expiration: `konoha bridge set-quota <bridge-name> <epoch_ms>`
+
+---
 
 ## Getting Help
 

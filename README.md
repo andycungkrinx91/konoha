@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB?logo=python&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2018%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2014%20Tools-10b981)](README.md)
 [![Token Savings](https://img.shields.io/badge/Token%20Savings-83--98%25-9ece6a)](README.md)
 
 > SQLite FTS5 Skills-DB for Antigravity, Cursor, Claude Code, and OpenCode — on-demand skill content via MCP, reducing token usage by **83-98%**.
@@ -16,7 +16,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-26.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-27.md)
 
 | | |
 |:---:|:---:|
@@ -27,7 +27,7 @@
 
 ## 📖 Setup & Usage Guides
 
-* [LLM Bridge & Proxy Gateway Guide](docs/LLM-BRIDGE-GATEWAY.md)
+* [Konoha Bridge Router Guide](docs/LLM-BRIDGE-GATEWAY.md)
 * [Antigravity IDE Setup Guide](docs/SETUP-IDE.md)
 * [Antigravity CLI Setup Guide](docs/SETUP-CLI.md)
 * [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md)
@@ -71,8 +71,8 @@ For a detailed breakdown of Konoha's internal mechanics, including system layers
 ## 🚀 Quick Start
 
 > [!IMPORTANT]
-> **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.9`, Konoha features an auto-setup routine with built-in interactive `@inquirer/prompts` flows to comply with Google Policy. Running *any* `konoha` command (or launching the CLI for the first time) automatically triggers the bootstrap sequence. However, to ensure user consent, the CLI will interactively prompt you with Yes/No questions before modifying any `~/.gemini` configurations or configuring permanent auto-approval permissions for MCP tools.
+> **Zero-Prompt Auto-Setup**:
+> Running `konoha init` (or any `konoha` command, which auto-triggers `ensureAutoSetup()`) configures every detected IDE/CLI client in one shot. Konoha asks a single consent prompt ("Initialize Konoha and modify ~/.gemini configurations?"), then auto-configures all detected MCP clients (Antigravity, Cursor, Claude Code, OpenCode) without further prompting. Clients not detected on the system are skipped silently. Pass `--yes` or set `CI=true` to suppress all prompts.
 
 Get Konoha up and running in under 2 minutes:
 
@@ -113,84 +113,102 @@ Once installed, the following CLI commands are available:
 | `konoha migrate` | Re-index skills (run after editing skills) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (1.1.6) and check for updates from GitHub |
+| `konoha version` | Display current local version and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
+| `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
+| `konoha bridge list` | List all configured bridges with port/provider/quota state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
 | `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `models`, `skill`, `delete`, `status`) |
 | `konoha models <subcommand>` | Manage available LLM models and assign them to subagents |
-| `konoha bridge <subcommand>` | Manage LLM bridge proxy gateway (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
+| `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
+
+## 🛰️ Konoha Bridge Router
+
+Konoha ships a local **Konoha Bridge Router** on port **`19999`** that multiplexes requests across one or more inner **LLM Bridges**. The router forwards requests to a bridge based on the model name prefix `<bridge-name>-<model-name>`, strips inbound `Authorization` / `x-api-key` / `x-konoha-gateway-*` headers, and forwards to `127.0.0.1:<bridge-port>`. Local clients never need to send an API key to the router.
+
+Default bridge configuration (persisted in the `bridges` table of `~/.konoha/skills.db` via `src/db_bridges.py`):
+
+Configure bridges with `konoha bridge create` (interactive wizard). You can add multiple bridges for different providers:
+
+| Bridge Name | Default Port | Provider | Behavior |
+|:---|:---:|:---|:---|
+| `antigravity` | `11435` | `antigravity` | Passive sidecar against a running `agy` CLI / Antigravity IDE session (no OAuth credentials are stored locally). |
+| `adacode` | `11436` | `openai` | Outbound proxy to a real upstream (e.g. `https://api.adacode.ai/v1`) using an API key stored in `bridges.apiKey`. |
+| `gpt-api` | User-defined | `openai` | Direct proxy to OpenAI-compatible endpoints (e.g. `https://api.openai.com/v1`). |
+| `my-ollama` | User-defined | `openai-compatible` | Proxy to local LLM instances (e.g. Ollama, vLLM). |
+
+> **Note:** `openai-oauth` (device code flow) support was removed in v1.1.6+. Use `openai` (API key) or `openai-compatible` bridges instead.
+
+Model routing examples:
+
+- `antigravity-gemini-3.1-pro-high` → gateway routes to the `antigravity` inner bridge on port `11435`.
+- `adacode-claude-sonnet-4-6` → gateway strips `adacode-`, forwards `claude-sonnet-4-6` to the inner bridge on port `11436`.
+- `my-ollama-llama3` → gateway strips `my-ollama-`, forwards `llama3` to the inner bridge on its designated local port.
+- `gpt-api-gpt-4o` → gateway routes to `gpt-api` bridge configured with your OpenAI API key.
+
+Quota-aware routing: when a bridge returns `RESOURCE_EXHAUSTED` or HTTP `429`, its `quota_unavailable_until` timestamp is set and the gateway automatically rotates to the next eligible bridge.
+
+Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
 ## What Gets Installed
 
 ```
 ~/.gemini/
 ├── config/
-│   └── mcp_config.json   ← skills-db + semble + konoha-files MCP (Antigravity)
+│   └── mcp_config.json   ← konoha + semble MCP (Antigravity)
 └── GEMINI.md              ← Orchestrator + subagent instructions
 
 ~/.konoha/
-├── server.py          ← skills-db MCP (Python, stdlib only)
-├── file_tools_mcp.js  ← konoha-files MCP (Node orchestration)
+├── server.py          ← Python skill worker
+├── file_tools_mcp.js  ← konoha MCP server & Proxy Gateway runtime
 ├── file_tools_launcher.js ← cross-platform MCP launcher
 ├── file_tools_router.js
 ├── platform_utils.js  ← cross-OS path/Python helpers
 ├── .node_exec_path    ← recorded Node path (auto)
 ├── .python_cmd        ← recorded Python command (auto)
 ├── file_tools/        ← Python streaming helpers
-├── bridge/            ← LLM Bridge and Proxy Gateway runtime modules
+├── bridge/            ← Konoha Bridge Router runtime modules
 ├── migrate.py         ← Migration script
-└── skills.db          ← SQLite FTS5 database
+└── skills.db          ← SQLite FTS5 database (+ `bridges` table for bridge configs)
 
 ~/.cursor/
-├── mcp.json               ← skills-db + semble + konoha-files MCP (Cursor)
+├── mcp.json               ← konoha + semble MCP (Cursor)
 ├── agents/                ← Six ninja subagents (model: inherit)
 ├── skills/                ← Agent skills (mirrored from ~/.agents/skills/)
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
 
-~/.claude.json             ← skills-db + semble + konoha-files (Claude Code, global only)
+~/.claude.json             ← konoha + semble (Claude Code, global only)
 ~/.config/opencode/
-└── opencode.json          ← skills-db + semble + konoha-files (OpenCode, global only)
+└── opencode.json          ← konoha + semble (OpenCode, global only)
 ```
 
 ---
 
 ## Re-indexing After Skill Changes
 
-If you add, edit, or remove skills:
+Run `konoha migrate` whenever you add, edit, or remove skills:
 
 ```bash
 konoha migrate
 ```
 
-This re-scans `~/.agents/skills/` and updates the database. It's idempotent — safe to run repeatedly. `konoha skill add` and `konoha doctor --yes` also refresh the Cursor skills mirror (`~/.cursor/skills/` and project `.cursor/skills/` when deployed).
-
-## Cross-Platform Notes
-
-Konoha runs on **Linux**, **macOS**, and **Windows**. The installer auto-detects Python (`python3`, `python`, or `py -3` on Windows), Node (`process.execPath` + `file_tools_launcher.js`), and `uv`/`uvx` paths.
-
-| OS | Python | Konoha paths | konoha-files launcher |
-|----|--------|--------------|----------------------|
-| Linux | `python3` | `~/.konoha/` | `node file_tools_launcher.js` |
-| macOS | `python3` | `~/.konoha/` | `node file_tools_launcher.js` |
-| Windows | `py -3` / `python` | `%USERPROFILE%\.konoha\` | `node file_tools_launcher.js` |
-
-Recorded at install time: `~/.konoha/.node_exec_path`, `.python_cmd`. Run `konoha doctor --yes` to repair after OS or Node/Python upgrades.
+This updates `skills.db`, syncs `.cursor/skills/` and `~/.agents/skills/`, and refreshes all system instructions automatically.
 
 ---
 
 ## MCP Tools Available
 
-After installation, Konoha registers **3 MCP servers** that work together:
+After installation, Konoha registers **2 MCP servers** that work together:
 
-### skills-db — Skill Knowledge Search
+### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The `skills-db` server exposes 6 tools for on-demand skill retrieval and project scaffolding:
+The unified `konoha` server exposes 12 tools for skill retrieval, bounded file operations, and project scaffolding:
 
 #### `find_skill(keyword, limit?)`
 Search skills by keyword using FTS5 full-text search.
@@ -200,8 +218,6 @@ find_skill("terraform aws")     → anbu-skill references
 find_skill("sveltekit tailwind") → jonin-skill references
 find_skill("code review")       → genin-skill references
 ```
-
-Returns top 3 matches with 4KB content previews. Truncated results include a hint to use `get_skill()` for full content.
 
 #### `get_skill(name)`
 Get full content of a specific skill/reference by exact name.
@@ -223,28 +239,7 @@ Scaffold from design mockups or reference source files (`.png`, `.html`, `.tsx`,
 #### `build_from_text(name, description, framework)`
 Scaffold from a text prompt using default premium templates.
 
-### semble — Semantic Code Search (default)
-
-The `semble` server provides AI-powered semantic code search across the entire codebase. Registered via `uvx --from semble[mcp]@latest semble`. **Use semble instead of built-in grep/glob/find or Cursor `Grep`/`Glob`/`SemanticSearch` for codebase discovery.**
-
-#### `search(query)`
-Semantic search across the codebase — understands code meaning, not just text matching.
-
-```javascript
-semble.search("authentication middleware")  → relevant code files
-semble.search("database connection pool")   → connection handling code
-```
-
-#### `find_related(file_path)`
-Find files semantically related to a given file — useful for understanding dependencies and impact.
-
-> [!IMPORTANT]
-> **All agents must use `semble` for semantic code discovery** — not built-in grep/glob, shell `grep`/`rg`/`find`, or Cursor `Grep`/`Glob`/`SemanticSearch`. Use `rg` only if semble MCP is unavailable after retry.
-
-### konoha-files — Token-Efficient File Tools
-
-The `konoha-files` server (Node.js orchestration + Python workers) provides capped, context-safe file operations. Registered via `node ~/.konoha/file_tools_launcher.js` (cross-platform; resolves Node from `.node_exec_path`).
-
+#### Bounded File Tools
 | Tool | Purpose | Token guard |
 |------|---------|-------------|
 | `read_file_head(path, max_lines?)` | Preview first N lines (default 80) | Max **200** lines |
@@ -255,7 +250,19 @@ The `konoha-files` server (Node.js orchestration + Python workers) provides capp
 | `find_files_clean(pattern, dir)` | Glob walk with blacklist | Skips `.git`, `node_modules`, `dist`, lockfiles |
 
 > [!IMPORTANT]
-> **All agents must use konoha-files** for file reads and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** → **konoha-files**.
+> **All agents must use konoha** for skill lookups, file reads, and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** (semantic code search) → **konoha** (skills & file operations).
+
+### semble — Semantic Code Search (default)
+
+The `semble` server provides AI-powered semantic code search across the entire codebase. Registered via `uvx --from semble[mcp]@latest semble`. **Use semble instead of built-in grep/glob/find or Cursor `Grep`/`Glob`/`SemanticSearch` for codebase discovery.**
+
+> Semble by MinishLab — [@software{minishlab2026semble}](https://github.com/MinishLab/semble). Uses ~98% fewer tokens than grep+read.
+
+#### `search(query)`
+Semantic search across the codebase — understands code meaning, not just text matching.
+
+#### `find_related(file_path)`
+Find files semantically related to a given file — useful for understanding dependencies and impact.
 
 ---
 
@@ -330,7 +337,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 >
 > * **Proactive Execution (No commanding back)**: Subagents must never instruct the user to manually create/edit files or run terminal commands that the agent is equipped to perform itself.
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
-> * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha-files` for targeted reads/grep; `rg` only if semble MCP is unavailable.
+> * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep; `rg` only if semble MCP is unavailable.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 6 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
 > * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits except quota fallback.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
@@ -439,7 +446,19 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 
 ## Credits
 
-Special thanks to [semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic search capability that forms the second half of Konoha's optimization stack.
+Special thanks to [semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic code search capability that forms the second half of Konoha's optimization stack.
+
+**Citation:** If you use Konoha in academic research, please also cite Semble as follows:
+
+```bibtex
+@software{minishlab2026semble,
+  author       = {{van Dongen}, Thomas and Stephan Tulkens},
+  title        = {Semble: Fast and Accurate Code Search for Agents},
+  year         = {2026},
+  url          = {https://github.com/MinishLab/semble},
+  organization = {MinishLab}
+}
+```
 
 ## License
 

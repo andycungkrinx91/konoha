@@ -1,6 +1,6 @@
 'use strict';
 
-const vscode = require('vscode');
+let vscode; try { vscode = require('vscode'); } catch {}
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -14,6 +14,18 @@ const { log } = require('../utils');
 // Finds the running language_server process and
 // extracts ports, CSRF tokens, and cert path.
 //
+// AUTH DECISION: We use passive sidecar discovery (CSRF + mTLS) rather than
+// reading ~/.gemini/oauth_creds.json or speaking directly to Google APIs.
+// Why:
+//   1. The bridge talks only to the user's own running sidecar process.
+//   2. No credentials are persisted, transmitted, or stored by the bridge.
+//   3. The CSRF token and mTLS cert are scoped to the user's session.
+//      This is functionally identical to the official Antigravity IDE.
+//   4. Using raw Google OAuth tokens (refresh/access) would require storing
+//      sensitive credentials on disk and could be flagged as policy-violating
+//      by Google if token issuance patterns deviate from the official client.
+// ─────────────────────────────────────────────
+
 // Platform strategies:
 //   Windows – Get-CimInstance Win32_Process (PowerShell)
 //   macOS   – ps aux + lsof -iTCP -sTCP:LISTEN
@@ -451,6 +463,17 @@ async function _discoverSidecarOnce(ctx) {
       const candidate = path.join(agExt.extensionPath, 'dist', 'languageServer', 'cert.pem');
       if (fs.existsSync(candidate)) certPath = candidate;
     }
+    // Standalone fallback: when vscode.extensions isn't available,
+    // derive cert path from the process binary path.
+    // The binary is at e.g. /opt/antigravity-ide/resources/app/extensions/antigravity/bin/language_server_linux_x64
+    // cert.pem lives at <ext-dir>/dist/languageServer/cert.pem
+    if (!certPath) {
+      const binMatch = commandLine.match(/(\/opt\/antigravity-ide\/.+?\/extensions\/\w+\/bin\/)/);
+      if (binMatch) {
+        const resolved = path.resolve(binMatch[1], '..', 'dist', 'languageServer', 'cert.pem');
+        if (fs.existsSync(resolved)) certPath = resolved;
+      }
+    }
 
     // 5. Collect tokens (main CSRF first — that's what the HTTPS server validates)
     const csrfTokens = [];
@@ -495,4 +518,101 @@ async function _discoverSidecarOnce(ctx) {
   }
 }
 
-module.exports = { discoverSidecar, SIDECAR_BINARY_NAMES, getPlatformStrategy, encodeWorkspaceId };
+// ─────────────────────────────────────────────
+// Fast liveness check (binary existence only — no port/CSRF parsing)
+// Used by the bridge lifecycle gate so the HTTP listener on :11435 only
+// binds when the user has actually opened Antigravity CLI/IDE.
+// ─────────────────────────────────────────────
+
+const _livenessCache = { ts: 0, result: null };
+const _livenessCacheMs = 3000;
+
+async function _livenessWindows(binaryNames) {
+  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+  const tasklistExe = `${sysRoot}\\System32\\tasklist.exe`;
+  for (const bin of binaryNames) {
+    try {
+      const { stdout } = await execWithFallback(
+        'tasklist',
+        tasklistExe,
+        ['/FI', `IMAGENAME eq ${bin}`, '/FO', 'CSV', '/NH'],
+        { encoding: 'utf8', timeout: 1500 },
+      );
+      const out = (stdout || '').trim();
+      if (out && !/No tasks/i.test(out)) {
+        const firstPidMatch = out.split(/\r?\n/)[0].match(/"[^"]+","(\d+)"/);
+        return { live: true, reason: `${bin} running (pid=${firstPidMatch ? firstPidMatch[1] : '?'})` };
+      }
+    } catch (err) {
+      // tasklist failure for one binary — try the next
+    }
+  }
+  return { live: false, reason: `none of ${binaryNames.join(', ')} running` };
+}
+
+async function _livenessUnix(binaryNames, psArgs, grepPattern) {
+  try {
+    const { stdout } = await execFileAsync('/bin/ps', psArgs, { encoding: 'utf8', timeout: 1500 });
+    const lines = (stdout || '').split('\n');
+    for (const line of lines) {
+      const fields = line.trim().split(/\s+/);
+      if (fields.length < 2) continue;
+      const comm = fields[1];
+      if (comm === 'PID' || comm === 'COMMAND') continue; // skip header line
+      const m = comm.match(grepPattern);
+      if (m) {
+        return { live: true, reason: `${m[0]} running (pid=${fields[0]})` };
+      }
+    }
+  } catch (err) {
+    // ps failed — assume not live rather than crashing the bridge
+  }
+  return { live: false, reason: `none of ${binaryNames.join(', ')} running` };
+}
+
+/**
+ * Returns whether ANY Antigravity binary (agy CLI or Antigravity IDE's
+ * embedded language_server) is currently executing on this machine.
+ *
+ * This is the cheap path used by the bridge lifecycle gate — it does NOT
+ * parse ports, CSRF tokens, or certificate paths. Those are still resolved
+ * lazily by `discoverSidecar()` on the first request after the bridge
+ * boots.
+ *
+ * Result is cached for 3 seconds to absorb repeated `syncBridges()` ticks.
+ *
+ * @returns {Promise<{live: boolean, reason: string}>}
+ */
+async function isAntigravitySessionLive() {
+  const now = Date.now();
+  if (_livenessCache.result && now - _livenessCache.ts < _livenessCacheMs) {
+    return _livenessCache.result;
+  }
+
+  const { binaryNames } = getPlatformStrategy();
+  let result;
+  if (process.platform === 'win32') {
+    result = await _livenessWindows(binaryNames);
+  } else if (process.platform === 'darwin') {
+    // macOS comm is the full binary name (no 15-char limit), but allow
+    // for both with-suffix and without-suffix variants.
+    result = await _livenessUnix(binaryNames, ['-ax', '-o', 'pid,comm'], /^(agy|language_server_mac(os|os_arm)?)$/);
+  } else {
+    // Linux comm field is truncated to TASK_COMM_LEN = 15 chars by the
+    // kernel, so `language_server_linux_x64` shows up as `language_server`.
+    // Match the truncated prefix to avoid false negatives.
+    result = await _livenessUnix(binaryNames, ['-A', '-o', 'pid,comm'], /^(agy|language_server(_linux|_linux_x64|_linux_arm64)?)$/);
+  }
+
+  _livenessCache.ts = now;
+  _livenessCache.result = result;
+  return result;
+}
+
+module.exports = {
+  discoverSidecar,
+  isAntigravitySessionLive,
+  SIDECAR_BINARY_NAMES,
+  getPlatformStrategy,
+  encodeWorkspaceId,
+};

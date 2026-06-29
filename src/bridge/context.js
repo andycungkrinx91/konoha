@@ -3,57 +3,38 @@
 const { randomUUID } = require('crypto');
 
 /**
- * Shared mutable state for the AG Local Bridge extension.
+ * Shared mutable state for the in-process Konoha bridge (was: AG Local Bridge extension).
  *
- * All state that was previously scattered as module-level `let` variables
- * in the monolithic extension.js is consolidated here. A single context
- * object is created in activate() and passed to every module.
+ * Previously bundled the full VS Code extension state (output channel, status bar,
+ * H2 interceptor captures, captured CSRF tokens). After the VS Code extension
+ * was retired, only the fields actually consumed by the in-process HTTP server,
+ * sidecar, and Cascade remain.
  */
 function createContext() {
   return {
     // Identity (for Metadata proto payloads)
     sessionId: randomUUID() + Date.now().toString(),
-    extensionVersion: '1.1.0',
 
-    // VS Code UI
-    /** @type {import('vscode').OutputChannel | null} */
-    outputChannel: null,
-    /** @type {import('vscode').StatusBarItem | null} */
-    statusBarItem: null,
+    // Bridge configuration (assigned by file_tools_mcp.js from bridges.json)
+    bridgeConfig: null,
 
     // HTTP server
     /** @type {import('http').Server | null} */
     server: null,
 
-    // Sidecar discovery cache
+    // Sidecar discovery cache (consumed by sidecar/discovery.js)
     sidecarInfo: null,
     sidecarInfoTimestamp: 0,
     SIDECAR_CACHE_TTL: 300000, // 5 minutes (discovery is expensive on Windows)
 
-    // Concurrency guard
-    chatRequestsInFlight: 0,
-    MAX_CONCURRENT_REQUESTS: 3,
-
-    // Rate limiting / loop-breaking
+    // Rate limiting / loop-breaking (consumed by handlers/openai.js)
     lastResponseTimestamp: 0,
     MIN_REQUEST_INTERVAL_MS: 200, // 200ms cooldown between responses
     lastUserMessageHash: '',
     lastUserMessageTimestamp: 0,
     DEDUP_WINDOW_MS: 1000, // 1s dedup window
 
-    // CSRF token intercepted from Antigravity's own outgoing requests
-    interceptedCsrf: null,
-    interceptedPort: null,
-
-    // Interceptor originals (stored for uninstall)
-    _originalHttpsRequest: null,
-    _originalCreateServer: null,
-
-    // H2 interceptor captured payloads
-    capturedPayloads: [],
-    MAX_CAPTURES: 20,
-
-    // Cascade conversation state
+    // Cascade conversation state (consumed by sidecar/cascade.js)
     isWorkspaceSwitching: false,
     activeCascades: new Map(), // convKey -> { id, lastUsed }
     cascadePromises: new Map(), // convKey -> Promise<string>

@@ -169,6 +169,12 @@ async function handleAnthropicMessages(ctx, req, res) {
   // Resolve model
   const resolved = resolveModel(payload.model);
   ctx.requestedModel = payload.model;
+
+  // OpenAI provider — skip sidecar enum mapping
+  if (ctx.bridgeConfig && ctx.bridgeConfig.provider === 'openai') {
+    return handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId);
+  }
+
   log(ctx, `📡 [Anthropic] Model: ${resolved.key} (enum=${resolved.value})`);
 
   const modelEnum = VALUE_TO_MODEL_ENUM[resolved.value];
@@ -407,4 +413,86 @@ async function handleCountTokens(ctx, req, res) {
   sendJson(res, 200, { input_tokens: 0 });
 }
 
-module.exports = { handleAnthropicMessages, handleCountTokens };
+// ─────────────────────────────────────────────
+// Anthropic format adapter for OpenAI provider
+// Converts Anthropic → OpenAI → callRawInference → Anthropic response
+// ─────────────────────────────────────────────
+
+async function handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId) {
+  let openAiMessages = anthropicMessagesToOpenAi(payload.system, payload.messages || []);
+  let openAiTools = anthropicToolsToOpenAi(payload.tools);
+
+  const sanitized = sanitizeRequest({ messages: openAiMessages, tools: openAiTools });
+  openAiMessages = sanitized.messages;
+  openAiTools = sanitized.tools;
+
+  ctx.requestedModel = payload.model;
+
+  try {
+    const raw = await callRawInference(ctx, openAiMessages, null, openAiTools, []);
+    if (!raw || (!raw.content && !raw.toolCalls)) throw new Error('Empty response');
+
+    const responseText = raw.content || '';
+
+    if (isStream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.writeHead(200);
+
+      // message_start
+      writeAnthropicEvent(res, 'message_start', {
+        type: 'message_start',
+        message: buildAnthropicMessage(msgId, ctx.requestedModel),
+      });
+
+      // content_block (text)
+      writeAnthropicEvent(res, 'content_block_start', {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: '' },
+      });
+      writeAnthropicEvent(res, 'content_block_delta', {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: responseText },
+      });
+      writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
+
+      writeAnthropicEvent(res, 'message_delta', {
+        type: 'message_delta',
+        delta: { stop_reason: responseText ? 'end_turn' : 'tool_use', stop_sequence: null },
+        usage: { output_tokens: 0 },
+      });
+      writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
+      res.end();
+    } else {
+      const content = [];
+      if (raw.toolCalls) {
+        for (const tc of raw.toolCalls) {
+          let input;
+          try { input = JSON.parse(tc.function.arguments || '{}'); } catch { input = {}; }
+          content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+        }
+      }
+      if (responseText) content.push({ type: 'text', text: responseText });
+      sendJson(res, 200, {
+        id: `msg_${msgId}`,
+        type: 'message',
+        role: 'assistant',
+        model: ctx.requestedModel,
+        content,
+        stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      });
+    }
+  } catch (err) {
+    sendJson(res, err.statusCode || 502, {
+      type: 'error',
+      error: { type: err.isUpstreamError ? 'api_error' : 'upstream_error', message: err.message }
+    });
+  }
+}
+
+module.exports = { handleAnthropicMessages, handleCountTokens, handleAnthropicToOpenAi };

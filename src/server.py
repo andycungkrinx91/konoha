@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-skills-db MCP Server (v1.1.6 — Token-Optimized)
+konoha MCP Server (v1.1.6 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -389,7 +389,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
     Returns top matches with content previews.
     compact=True returns smaller previews (500 chars) for initial discovery.
     """
-    sys.stderr.write(f"[mcp skills-db] tool_call: find_skill(keyword='{keyword}', limit={limit}, compact={compact})\n")
+    sys.stderr.write(f"[mcp konoha] tool_call: find_skill(keyword='{keyword}', limit={limit}, compact={compact})\n")
     sys.stderr.flush()
     conn = get_db()
 
@@ -482,7 +482,7 @@ def list_skills(agent_name=None, fields=None):
     List all indexed skills with their metadata.
     fields: optional list of fields to include (e.g. ["name","type"]) to reduce payload.
     """
-    sys.stderr.write(f"[mcp skills-db] tool_call: list_skills(fields={fields})\n")
+    sys.stderr.write(f"[mcp konoha] tool_call: list_skills(fields={fields})\n")
     sys.stderr.flush()
     conn = get_db()
     rows = conn.execute("""
@@ -527,7 +527,7 @@ def list_skills(agent_name=None, fields=None):
 
 def get_skill(name, agent_name=None):
     """Get the full content of a specific skill or reference by exact name."""
-    sys.stderr.write(f"[mcp skills-db] tool_call: get_skill(name='{name}')\n")
+    sys.stderr.write(f"[mcp konoha] tool_call: get_skill(name='{name}')\n")
     sys.stderr.flush()
     conn = get_db()
     row = conn.execute("""
@@ -582,7 +582,7 @@ def optimize_report(keyword=None, agent_name=None):
     
     This lets agents make informed decisions about whether to call get_skill for full content.
     """
-    sys.stderr.write(f"[mcp skills-db] tool_call: optimize_report(keyword='{keyword}')\n")
+    sys.stderr.write(f"[mcp konoha] tool_call: optimize_report(keyword='{keyword}')\n")
     sys.stderr.flush()
     conn = get_db()
     
@@ -695,7 +695,7 @@ def get_agent_skills(agent_name):
                         skills = agent.get("skills")
                         return list(skills) if skills is not None else []
     except Exception as e:
-        sys.stderr.write(f"[mcp skills-db] Error reading agents.json: {str(e)}\n")
+        sys.stderr.write(f"[mcp konoha] Error reading agents.json: {str(e)}\n")
         sys.stderr.flush()
     return None
 
@@ -1377,10 +1377,10 @@ def handle_request(req):
                 WORKSPACE_ROOT = uri_to_path(root_path)
                         
         if WORKSPACE_ROOT:
-            sys.stderr.write(f"[mcp skills-db] Initialized with workspace root: {WORKSPACE_ROOT}\n")
+            sys.stderr.write(f"[mcp konoha] Initialized with workspace root: {WORKSPACE_ROOT}\n")
             sys.stderr.flush()
         else:
-            sys.stderr.write(f"[mcp skills-db] Initialized with no workspace root; using cwd: {os.getcwd()}\n")
+            sys.stderr.write(f"[mcp konoha] Initialized with no workspace root; using cwd: {os.getcwd()}\n")
             sys.stderr.flush()
 
         return {
@@ -1389,7 +1389,7 @@ def handle_request(req):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "skills-db", "version": "1.1.6"}
+                "serverInfo": {"name": "konoha", "version": "1.1.6"}
             }
         }
 
@@ -1631,4 +1631,22 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[1] == "--tool":
+        tool_name = sys.argv[2]
+        raw_args = sys.argv[3] if len(sys.argv) > 3 else "{}"
+        try:
+            args = json.loads(raw_args)
+        except Exception:
+            args = {}
+        fake_req = {
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": args},
+            "id": 1
+        }
+        resp = handle_request(fake_req)
+        if resp and "result" in resp and "content" in resp["result"]:
+            print(resp["result"]["content"][0]["text"])
+        else:
+            print(json.dumps({"error": "Failed to execute tool"}))
+        sys.exit(0)
     main()

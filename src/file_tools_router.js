@@ -183,13 +183,46 @@ function findFilesClean({ pattern, dir }) {
   });
 }
 
+function runPythonSkillTool(toolName, args) {
+  const serverPyPath = path.join(__dirname, 'server.py');
+  if (!fs.existsSync(serverPyPath)) {
+    return { error: `Python server helper not found: ${serverPyPath}` };
+  }
+  let result;
+  try {
+    result = spawnSync(getPythonCommand(), [serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
+      encoding: 'utf-8',
+      timeout: SCRIPT_TIMEOUT_MS,
+      maxBuffer: 16 * 1024 * 1024,
+      shell: platform.IS_WIN
+    });
+  } catch (err) {
+    return { error: err.message || String(err) };
+  }
+  if (result.error) {
+    return { error: result.error.message || String(result.error) };
+  }
+  const stdout = (result.stdout || '').trim();
+  const stderr = (result.stderr || '').trim();
+  if (!stdout) {
+    return { error: stderr || `Python script exited with code ${result.status}` };
+  }
+  return { text: stdout };
+}
+
 const TOOL_HANDLERS = {
   read_file_range: readFileRange,
   read_file_head: readFileHead,
   file_info: fileInfo,
   token_efficient_grep: tokenEfficientGrep,
   get_file_structure: getFileStructure,
-  find_files_clean: findFilesClean
+  find_files_clean: findFilesClean,
+  find_skill: (args) => runPythonSkillTool('find_skill', args),
+  list_skills: (args) => runPythonSkillTool('list_skills', args),
+  get_skill: (args) => runPythonSkillTool('get_skill', args),
+  optimize_report: (args) => runPythonSkillTool('optimize_report', args),
+  build_from_source: (args) => runPythonSkillTool('build_from_source', args),
+  build_from_text: (args) => runPythonSkillTool('build_from_text', args)
 };
 
 function dispatchTool(name, args) {
@@ -284,6 +317,80 @@ function listToolSchemas() {
           pattern: { type: 'string', description: 'Glob pattern (e.g. "*.py", "**/*.test.js")' },
           dir: { type: 'string', description: 'Root directory (default: workspace root)' }
         }
+      }
+    },
+    {
+      name: 'find_skill',
+      description: 'Search SQLite FTS5 database for skills matching keyword. Returns top matching skill chunks.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string', description: 'Search keyword or query string' },
+          limit: { type: 'number', description: 'Maximum number of results to return (default 3, max 5)' },
+          agent: { type: 'string', description: 'Calling subagent name (optional)' },
+          compact: { type: 'boolean', description: 'Return 500-char compact previews (default false)' }
+        },
+        required: ['keyword']
+      }
+    },
+    {
+      name: 'list_skills',
+      description: 'List indexed skill names and metadata from SQLite database.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          agent: { type: 'string', description: 'Calling subagent name (optional)' },
+          fields: { type: 'array', items: { type: 'string' }, description: 'Specific fields to return (optional)' }
+        }
+      }
+    },
+    {
+      name: 'get_skill',
+      description: 'Retrieve full content of a specific skill or reference by exact name.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Exact skill or reference name (e.g. "anbu-skill" or "anbu-skill/ci-cd-security")' },
+          agent: { type: 'string', description: 'Calling subagent name (optional)' }
+        },
+        required: ['name']
+      }
+    },
+    {
+      name: 'optimize_report',
+      description: 'Analyze token footprint and return token optimization recommendations for skills.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string', description: 'Skill topic or keyword (optional)' },
+          agent: { type: 'string', description: 'Calling subagent name (optional)' }
+        }
+      }
+    },
+    {
+      name: 'build_from_source',
+      description: 'Build UI components/apps with 100% exact layout/color match to input mockup images.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Project or component name' },
+          source_dir: { type: 'string', description: 'Directory containing source design mockup images' },
+          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
+        },
+        required: ['name', 'source_dir', 'framework']
+      }
+    },
+    {
+      name: 'build_from_text',
+      description: 'Scaffold modern UI applications directly from text description using premium design standards.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Project name' },
+          description: { type: 'string', description: 'Text description of desired web application or UI' },
+          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
+        },
+        required: ['name', 'description', 'framework']
       }
     }
   ];

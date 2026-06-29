@@ -10,9 +10,9 @@
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
-> **Auto-Setup with Interactive Consent**:
-> Starting with version `1.0.9` for Google Policy compliance, running **any** `konoha` command (or executing an agent session) automatically triggers the bootstrap routine (`ensureAutoSetup()`). The CLI will now interactively prompt you using `@inquirer/prompts` Yes/No flows before modifying any `~/.gemini` configurations, setting up subagents, or auto-approving MCP tools. The silent `postinstall` script has been removed.
-> 
+> **Zero-Prompt Auto-Setup**:
+> Konoha now auto-configures every detected IDE/CLI client (Antigravity, Cursor, Claude Code, OpenCode) during `konoha init` or the automatic `ensureAutoSetup()` bootstrap triggered by any `konoha` command. The only prompt shown is a single consent question: "Initialize Konoha and modify ~/.gemini configurations?". All other clients are configured automatically based on what is detected on the system.
+>
 > If you prefer a manual setup or want to perform a clean initialization, run:
 
 ```bash
@@ -22,8 +22,13 @@ npx github:andycungkrinx91/konoha init
 This manual script or the auto-setup routine will:
 1. Create `~/.konoha/` with the MCP server and database
 2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5
-3. Register `skills-db` in `~/.gemini/config/mcp_config.json`
-4. Update `~/.gemini/GEMINI.md` with new subagent instructions
+3. **Back up** existing `~/.gemini/config/mcp_config.json` → `mcp_config.json.back` (first install only)
+4. **Replace** `~/.gemini/config/mcp_config.json` with only Konoha servers (`konoha` + `semble`)
+5. Update `~/.gemini/GEMINI.md` with new subagent instructions
+
+> [!NOTE]
+> Your original config is safely preserved in `mcp_config.json.back`. To restore it, run:
+> `cp ~/.gemini/config/mcp_config.json.back ~/.gemini/config/mcp_config.json`
 
 ## Step 2: Verify Installation
 
@@ -107,12 +112,12 @@ To maintain stability and enforce security, the Antigravity system implements th
 > [!IMPORTANT]
 > **Tool Usage & Operational Guardrails:**
 >
-> * **Skills-DB MCP**: Use `find_skill(keyword)` to search for relevant skill content on-demand. Use `get_skill(name)` for full content when previews are truncated. Use `list_skills()` to see all available skills. **NEVER load SKILL.md files directly from disk** — always use the `skills-db` MCP tools.
+> * **konoha MCP**: Use `find_skill(keyword)` to search for relevant skill content on-demand. Use `get_skill(name)` for full content when previews are truncated. Use `list_skills()` to see all available skills. **NEVER load SKILL.md files directly from disk** — always use the `konoha` MCP tools.
 > * **Semble Semantic Search (default)**: Konoha replaces grep/glob/find with **semble** (`search`, `find_related`) for semantic codebase discovery. Do not use built-in grep/glob tools or shell `grep`/`rg`/`find` — use semble first (`rg` only if semble MCP is unavailable).
 > * **konoha-files (token-efficient reads)**: After semble locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha-files** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
 > * **Agent-Browser CLI**: Use `agent-browser` (or `npx agent-browser`) to interact with live web pages, submit forms, take screenshots, inspect elements, and run visual end-to-end verifications.
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
->   `[🍃 Genin] scout active. Calling skills-db.find_skill('keyword') and/or semble.search(...)`
+>   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
 > * **Locked Subagent Delegation**: Subagent delegation is strictly restricted to the 6 official Konoha agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Never use Antigravity built-ins `@self` or `@research` — use parallel Konoha subagents or `genin`/`chunin` instead. Defining or creating custom subagents is prohibited.
 > * **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited.
@@ -142,7 +147,7 @@ Open a new Antigravity IDE conversation and ask:
 Use find_skill to search for "terraform aws" and tell me what you find.
 ```
 
-The agent should use the `skills-db` MCP tool instead of loading a SKILL.md file.
+The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 
 ## Auto-Approved Permissions & YOLO Mode
 
@@ -153,15 +158,15 @@ To support uninterrupted background task execution and avoid blocking prompt ove
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
-- **`skills-db`**: Automatically permits skill search, listing, fetching, and build tools.
+- **`konoha`**: Automatically permits skill search, listing, fetching, and build tools.
 - **`semble`**: Automatically permits semantic code search (`search`, `find_related`).
-- **`konoha-files`**: Automatically permits token-efficient file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`).
+- **`konoha`**: Automatically permits token-efficient file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`).
 
 This is configured inside `~/.gemini/config/mcp_config.json`. Example structure (paths vary by platform):
 ```json
 {
   "mcpServers": {
-    "skills-db": {
+    "konoha": {
       "command": "python3",
       "args": ["/home/user/.konoha/server.py"],
       "autoApprove": ["*", "find_skill", "list_skills", "get_skill"]
@@ -171,7 +176,7 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
       "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
       "autoApprove": ["*", "search", "find_related"]
     },
-    "konoha-files": {
+    "konoha": {
       "command": "/usr/bin/node",
       "args": ["/home/user/.konoha/file_tools_mcp.js"],
       "autoApprove": ["*", "read_file_head", "read_file_range", "file_info", "token_efficient_grep", "get_file_structure", "find_files_clean"]

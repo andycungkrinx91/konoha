@@ -29,7 +29,7 @@ flowchart TB
 
     %% ── Layer 1.5: Management & Configuration ──────────────────
     subgraph LM ["Layer 1.5 — Management & Configuration"]
-        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, models, skill, agent)"]
+        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, bridge, skill, agent)"]
         AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
         MCPConfig["📄 MCP Config<br>(~/.gemini/config/mcp_config.json<br>~/.cursor/mcp.json<br>~/.claude.json<br>~/.config/opencode/opencode.json)"]
     end
@@ -53,15 +53,14 @@ flowchart TB
     %% ── Layer 3: MCP Middleware ────────────────────────────────
     subgraph L3 ["Layer 3 — MCP Middleware"]
         direction LR
-        SkillsDB("⚙️ skills-db MCP<br>FTS5 Sanitizer & Injection Shield")
+        KonohaMCP("⚡ konoha MCP<br>Skills FTS5 & File Operations (12 tools)")
         Semble("🔮 Semble MCP<br>Semantic Code Search")
-        KonohaFiles("📁 konoha-files MCP<br>Token-Efficient File Tools")
     end
 
     %% ── Layer 4: Persistence ──────────────────────────────────
     subgraph L4 ["Layer 4 — Persistence"]
         direction LR
-        DB[("🗄️ SQLite DB<br/>~/.konoha/skills.db")]
+        DB[("🗄️ SQLite DB<br/>~/.konoha/skills.db (skills & bridges tables)")]
         FTS5("🔍 FTS5 Index<br>BM25 Ranking")
         Codebase("📂 Codebase<br>Workspace Files")
     end
@@ -72,7 +71,7 @@ flowchart TB
 
     %% CLI and Configuration flow
     CLI -->|"Updates configuration"| MCPConfig
-    CLI -->|"Manages agents/models"| AgentConfig
+    CLI -->|"Manages agents/bridges"| AgentConfig
     CLI -->|"Triggers index/migration"| DB
     IDE -->|"Loads MCP servers"| MCPConfig
     Router -->|"Reads agent definitions"| AgentConfig
@@ -85,12 +84,12 @@ flowchart TB
     Queue -->|"4. Read parameters"| Tokubetsu
     Queue -->|"4. Read parameters"| Kage
 
-    Genin -->|"5a. find_skill()"| SkillsDB
-    Chunin -->|"5a. find_skill()"| SkillsDB
-    Jonin -->|"5a. find_skill()"| SkillsDB
-    Anbu -->|"5a. find_skill()"| SkillsDB
-    Tokubetsu -->|"5a. find_skill()"| SkillsDB
-    Kage -->|"5a. find_skill()"| SkillsDB
+    Genin -->|"5a. find_skill() / file ops"| KonohaMCP
+    Chunin -->|"5a. find_skill() / file ops"| KonohaMCP
+    Jonin -->|"5a. find_skill() / file ops"| KonohaMCP
+    Anbu -->|"5a. find_skill() / file ops"| KonohaMCP
+    Tokubetsu -->|"5a. find_skill() / file ops"| KonohaMCP
+    Kage -->|"5a. find_skill() / file ops"| KonohaMCP
 
     Genin -->|"5b. search()"| Semble
     Chunin -->|"5b. search()"| Semble
@@ -99,17 +98,10 @@ flowchart TB
     Tokubetsu -->|"5b. search()"| Semble
     Kage -->|"5b. search()"| Semble
 
-    Genin -->|"5c. read/grep/structure"| KonohaFiles
-    Chunin -->|"5c. read/grep/structure"| KonohaFiles
-    Jonin -->|"5c. read/grep/structure"| KonohaFiles
-    Anbu -->|"5c. read/grep/structure"| KonohaFiles
-    Tokubetsu -->|"5c. read/grep/structure"| KonohaFiles
-    Kage -->|"5c. read/grep/structure"| KonohaFiles
-
-    SkillsDB -->|"6. SQL query"| DB
+    KonohaMCP -->|"6. SQL query & File I/O"| DB
     DB <-->|"7. FTS5 search"| FTS5
     Semble -->|"6. Semantic index"| Codebase
-    KonohaFiles -->|"6. Streamed reads"| Codebase
+    KonohaMCP -->|"6. Streamed reads"| Codebase
 
     Genin -->|"7. Write output"| Queue
     Chunin -->|"7. Write output"| Queue
@@ -122,7 +114,7 @@ flowchart TB
     IDE -->|"10. Context-aware response"| User
 
     %% ── Layout Alignment ──────────────────────────────────────
-    IDE ~~~ SkillsDB
+    IDE ~~~ KonohaMCP
 
     %% ── Apply Styles ──────────────────────────────────────────
     class User userNode
@@ -130,17 +122,17 @@ flowchart TB
     class Router routerNode
     class Queue queueNode
     class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage agentNode
-    class SkillsDB mcpNode
-    class Semble,KonohaFiles sembleNode
+    class KonohaMCP mcpNode
+    class Semble sembleNode
     class DB dbNode
     class FTS5 ftsNode
     class Codebase codeNode
     class CLI,AgentConfig,MCPConfig mgmtNode
 ```
 
-> **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 skills-db MCP &nbsp;|&nbsp; 🩵 Semble + konoha-files MCP &nbsp;|&nbsp; 🟠 Persistence
+> **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 konoha MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
 >
-> In version 1.1.6, Konoha implements a central **Proxy Gateway** (port 11434) and dynamic **LLM Bridges** (ports 11435, 11436, etc.) to multiplex and route requests across different LLM providers (e.g. Antigravity, custom OpenAI endpoints). Subagents query the gateway using alias model names in the format `<bridge_name>-<model_name>`.
+> In version 1.1.6, Konoha implements SQLite database storage for bridges (`~/.konoha/skills.db`) and automated installation of the `konoha-bridge` extension into Antigravity IDE and VS Code.
 
 ## Query Lifecycle
 
@@ -233,7 +225,7 @@ sequenceDiagram
     end
     deactivate SkillsDB
 
-    Note over Agent,IDE: Step 6: Execute task via Proxy Gateway & LLM Bridge routing<br>(model name: <bridge_name>-<model_name>)
+    Note over Agent,IDE: Step 6: Execute task via Konoha Bridge Router<br>(model name: <bridge_name>-<model_name>)
 
     %% --- Response Phase ---
     Note over Agent: Step 7: Write Result & Complete

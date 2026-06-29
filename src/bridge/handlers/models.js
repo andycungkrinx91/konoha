@@ -40,10 +40,14 @@ async function handleModels(ctx, req, res) {
 
     try {
       log(ctx, `📡 Fetching OpenAI models from: ${requestUrl}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
       const response = await fetch(requestUrl, {
         method: 'GET',
-        headers
+        headers,
+        signal: controller.signal
       });
+      clearTimeout(timer);
 
       if (!response.ok) {
         throw new Error(`Upstream returned HTTP ${response.status}`);

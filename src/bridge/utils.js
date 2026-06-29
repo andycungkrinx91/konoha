@@ -1,6 +1,6 @@
 'use strict';
 
-const vscode = require('vscode');
+let vscode; try { vscode = require('vscode'); } catch {}
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -26,7 +26,7 @@ function log(ctx, msg, isError = false) {
   if (config.get('logRequests', false)) {
     try {
       const logFilePath = path.join(os.tmpdir(), 'ag-local-bridge.log');
-      fs.appendFileSync(logFilePath, `[${ts}] ${msg}\n`, 'utf8');
+      fs.appendFileSync(logFilePath, `[${ts}] ${redactSecrets(String(msg))}\n`, 'utf8');
     } catch {
       // ignore filesystem errors for log files
     }
@@ -42,16 +42,17 @@ function verboseLog(ctx, msg, fullContent = null) {
     // If a massive payload was provided, append it explicitly to a separate payload file, nicely formatted
     if (fullContent !== null) {
       try {
-        let formattedContent = fullContent;
+        let redactedContent = fullContent;
         if (typeof fullContent === 'string') {
           try {
-            formattedContent = JSON.stringify(JSON.parse(fullContent), null, 2);
+            const parsed = JSON.parse(fullContent);
+            redactedContent = JSON.stringify(redactPayloadKeys(parsed), null, 2);
           } catch {
             // not valid JSON, leave as is
           }
         } else if (typeof fullContent === 'object') {
           try {
-            formattedContent = JSON.stringify(fullContent, null, 2);
+            redactedContent = JSON.stringify(redactPayloadKeys(fullContent), null, 2);
           } catch {
             // fallback
           }
@@ -61,7 +62,7 @@ function verboseLog(ctx, msg, fullContent = null) {
         const ts = new Date().toISOString().slice(11, 23);
         fs.appendFileSync(
           payloadLogPath,
-          `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${formattedContent}\n--- [END PAYLOAD DUMP] ---\n`,
+          `\n--- [${ts}] FULL PAYLOAD DUMP ---\n${redactedContent}\n--- [END PAYLOAD DUMP] ---\n`,
           'utf8',
         );
       } catch {
@@ -80,6 +81,38 @@ function updateStatusBar(ctx, running, port) {
   ctx.statusBarItem.text = running ? `$(radio-tower) AG Bridge :${port}` : '$(warning) AG Bridge OFF';
   ctx.statusBarItem.backgroundColor = running ? undefined : new vscode.ThemeColor('statusBarItem.warningBackground');
   ctx.statusBarItem.show();
+}
+
+/**
+ * Redact common secret patterns in payload strings written to disk.
+ * Protects against accidental exfiltration via payload logs when
+ * logRequests=true is enabled.
+ */
+function redactSecrets(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/("api[_-]?key"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"')
+    .replace(/("token"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"')
+    .replace(/("authorization"\s*:\s*)"([^"]{4})[^"]*(")/gi, '$1"$2****"');
+}
+
+/** Recursively redact sensitive keys from a JSON-compatible value */
+function redactPayloadKeys(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(redactPayloadKeys);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const lk = k.toLowerCase();
+    if (lk.match(/(api.?key|password|secret|auth_|bearer|credential|token|authorization|x-api|api.?key)/)) {
+      out[k] = '***REDACTED***';
+    } else if (typeof v === 'object' && v !== null) {
+      out[k] = Array.isArray(v) ? v.map(redactPayloadKeys) : redactPayloadKeys(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────
