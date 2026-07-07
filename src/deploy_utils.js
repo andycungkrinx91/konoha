@@ -100,8 +100,26 @@ function listSkillEntries(skillsDir) {
 function mirrorSkillsDirectory(srcDir, destDir) {
   if (!fileExists(srcDir)) return 0;
   ensureDir(destDir);
+  const srcEntries = listSkillEntries(srcDir);
+  const srcEntriesSet = new Set(srcEntries.map(e => e.toLowerCase()));
+
+  // Prune destDir of entries no longer in srcDir
+  const destEntries = listSkillEntries(destDir);
+  for (const entry of destEntries) {
+    if (!srcEntriesSet.has(entry.toLowerCase())) {
+      const destPath = path.join(destDir, entry);
+      try {
+        if (fs.statSync(destPath).isDirectory()) {
+          fs.rmSync(destPath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(destPath);
+        }
+      } catch (e) {}
+    }
+  }
+
   let mirrored = 0;
-  for (const name of listSkillEntries(srcDir)) {
+  for (const name of srcEntries) {
     const src = path.join(srcDir, name);
     const dest = path.join(destDir, name);
     const existed = fileExists(dest);
@@ -186,6 +204,7 @@ function installFileTools(silent = true, pythonCmd = null) {
     "file_tools_launcher.js",
     "platform_utils.js",
     "db_bridges.py",
+    "db_agents.py",
   ].forEach((f) => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);

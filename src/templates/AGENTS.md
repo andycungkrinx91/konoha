@@ -17,7 +17,7 @@
 
 When the user prompt mentions `source-image-design`, design images, or mockups:
 
-1. Orchestrator calls `skills-db.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
+1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
 2. **Constraints section** MUST include:
    - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
    - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
@@ -34,7 +34,7 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
 
-1. The orchestrator MUST call the MCP tool `skills-db.build_from_text`(name, description, framework) first before writing `delegate.md`.
+1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
 3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
 4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
@@ -53,61 +53,73 @@ When the user prompt involves modifying or working within an existing project:
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
 
+### Antigravity subagent invocation — Hook-Assisted Translation (CRITICAL)
+
+The Antigravity platform itself has hard-coded restrictions and only accepts `self` (always) and `research` (read-only investigations) as valid TypeName values. Custom subagent TypeNames (genin, kage, chunin, jonin, anbu, tokubetsu-jonin, etc.) are natively rejected by the platform.
+
+To solve this, Konoha implements a pre-tool sanitization hook (`antigravity_tool_sanitize_hook.js`) that automatically intercepts, sanitizes, and translates subagent invocation arguments under the hood:
+- Subagents are invoked using their official bare names: `TypeName: "genin"`, `TypeName: "jonin"`, etc.
+- The hook translates read-only subagents (`genin`, `chunin`) to `TypeName: "research"`.
+- The hook translates writing subagents (`kage`, `jonin`, `anbu`, `tokubetsu-jonin`) to `TypeName: "self"`.
+- The hook automatically prepends the subagent's complete instructions, constraints, and identity overrides to the `Prompt` field so they run with full role fidelity.
+
+### Supported invocation pattern
+
+You can call `invoke_subagent` using the official ninja names as `TypeName` parameters (e.g., `genin`, `jonin`, etc.). Do NOT attempt to use `TypeName: "self"` to manually impersonate subagents, as that is deprecated. Let the hook handle the translation and instruction injection automatically.
+
+### Optional: spawn research for parallel read-only work
+
+```json
+{
+  "Subagents": [
+    {
+      "TypeName": "research",
+      "Prompt": "Investigate <X> in <repo>. Return findings only — do not modify files.",
+      "Workspace": "inherit"
+    }
+  ]
+}
+```
+
+Use research when you need a deep parallel scan of a large codebase or documentation set without blocking the main thread. Do not use it for tasks that require file edits, builds, or deployments.
+
 ### @orchestrator — Task Coordinator
-- **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
-- **Auto-Delegation**:
-  - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to specialized ninja agents (defined globally).
-  - Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited. The orchestrator must always route and delegate tasks to the specialized agents.
+- **Purpose**: Orchestrates tasks by loading skill references and executing directly. Runs as TypeName: "self" — the primary Antigravity thread.
+- **Orchestration Model**:
+  - The Antigravity platform only accepts "self" and "research" as valid TypeName values. Custom Ninja TypeName values are rejected at invocation time.
+  - The orchestrator does NOT delegate — it loads skill references via konoha.find_skill + konoha.get_skill, then performs the work using its native tools.
+  - For parallel read-only research, optionally spawn TypeName: "research" subagents.
 - **Workflow**:
-  1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-  2. **Find Skill First**: Call `konoha.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP and has no knowledge of skills, whereas the `konoha` MCP handles all skill lookups.**
-  3. **Find Code Context**: If project source code context is needed, use the **`semble` MCP** (`search` or `find_related` tools) to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do not call `semble` when the task only needs skills — use `konoha` for that.
-  4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
-     - Check the team roster to see if the discovered skill is embedded in the `skills` array of any agent.
-     - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to `@kage`; backend, script automation, and database to `@anbu`; frontend styling and UI implementation to `@jonin`; documentation to `@tokubetsu-jonin`).
-     - The orchestrator always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
-  5. **Prepare File-Based Delegation**: Write the structured delegation parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must include a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
-     ```markdown
-     ---
-     depth: <N>
-     ---
-     ```
-     Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are an agent executing a delegated task) or the target `delegate.md` (if it already exists):
-     - If a depth value `N` is found in either, write the new `delegate.md` with `depth: N + 1`.
-     - Otherwise, initialize it to `depth: 1`.
-     - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the agent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
-     - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
-     Categorize the main content clearly:
-     - **Goal**: Clear explanation of what needs to be accomplished.
-     - **Context**: Relevant files, code snippets, and background details discovered via `semble`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. `anbu-skill/ci-cd-security`)**.
-     - **Constraints**: Rule constraints and target files.
-  6. **Delegate**: Invoke the ninja agent using the agent TypeName (e.g., `anbu`, `kage`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the agent's prompt. The agent will read `delegate.md` from the path specified in your invocation prompt to run the task, and write its output to `result.md` at the path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the agent MUST immediately load and read those specific reference documents using the MCP tool `konoha.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the agent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-  7. **Await Results**: Once you are woken up by the system notifying you of agent completion or updates, read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` once complete to consume the output, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
-  8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
-- **Constraints**: ONLY delegates to defined ninja agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Dynamic auto-creation of agents is prohibited. It is prohibited to execute Direct Tool Calls in the orchestrator thread for project tasks. Only use Direct Tool Calls as a fallback if all agents hit quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
+  1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
+  2. **Find Skill**: Call `konoha.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names.
+  3. **Load Skill**: Call `konoha.get_skill()` to fetch the full content of the discovered skill.
+  4. **Execute Directly**: Perform the task using native tools. Do NOT attempt to delegate to subagents.
+  5. **Planning-to-File**: Write detailed analysis or plans to a markdown file and refer to it, keeping the conversation log light.
+- **Constraints**: ONLY references skill definitions from the defined ninja agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Dynamic auto-creation of agents is prohibited.
+- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.
 
-| Embedded Skills | Agent TypeName |
+| Skill Name | Agent Definition |
 |---|---|
-| `deep-code-explorer` | `genin` |
-| `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety` | `genin` |
+| `agent-browser`, `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`, `jonin-skill`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/tailwind-design-system`, `konoha`, `websearch-deep` | `kage` |
 | `websearch-deep` | `chunin` |
-| `agent-browser`, `modern-full-stack` | `jonin` |
-| `devsecops-engineer`, `agent-browser` | `anbu` |
-| `documentation` | `tokubetsu-jonin` |
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
+| `agent-browser`, `modern-full-stack`, `modern-full-stack/3d-web-experience`, `modern-full-stack/ai-sdk`, `modern-full-stack/bug-reporting`, `modern-full-stack/character-hygiene`, `modern-full-stack/code-review-security`, `modern-full-stack/command-safety`, `modern-full-stack/fastapi-code-review`, `modern-full-stack/fastapi-expert`, `modern-full-stack/fastapi-templates`, `modern-full-stack/full-stack-workflows`, `modern-full-stack/golang-concurrency`, `modern-full-stack/golang-fundamentals`, `modern-full-stack/golang-performance`, `modern-full-stack/golang-security`, `modern-full-stack/golang-testing`, `modern-full-stack/guardrails`, `modern-full-stack/javascript-pro`, `modern-full-stack/langchain-fundamentals`, `modern-full-stack/langchain-rag`, `modern-full-stack/laravel-security`, `modern-full-stack/laravel-specialist`, `modern-full-stack/mcp-evaluation`, `modern-full-stack/mcp-python-server`, `modern-full-stack/mcp-server-development`, `modern-full-stack/mcp-typescript-server`, `modern-full-stack/mysql-best-practices`, `modern-full-stack/n8n-builtin-functions`, `modern-full-stack/n8n-code-javascript`, `modern-full-stack/n8n-common-patterns`, `modern-full-stack/n8n-data-access`, `modern-full-stack/n8n-error-patterns`, `modern-full-stack/nextjs-16-complete-guide`, `modern-full-stack/nextjs-code-expert`, `modern-full-stack/nextjs-creative-stack`, `modern-full-stack/nextjs-security`, `modern-full-stack/nextjs-ui-expert`, `modern-full-stack/pnpm`, `modern-full-stack/postgresql-code-review`, `modern-full-stack/prd`, `modern-full-stack/qdrant-clients-sdk`, `modern-full-stack/quality-checklist`, `modern-full-stack/router`, `modern-full-stack/secret-safety`, `modern-full-stack/skill-creator`, `modern-full-stack/sqlite-database-expert`, `modern-full-stack/svelte-code-expert`, `modern-full-stack/svelte-code-writer`, `modern-full-stack/svelte-components`, `modern-full-stack/svelte-ui-expert`, `modern-full-stack/tailwind-design-system`, `modern-full-stack/tailwind4-expert`, `modern-full-stack/token-safety`, `modern-full-stack/vite` | `jonin` |
+| `agent-browser`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety` | `anbu` |
+| `documentation`, `documentation/mermaid-architecture`, `documentation/mermaid-core`, `documentation/prd-creation`, `documentation/router`, `documentation/task-generation`, `documentation/technical-writing` | `tokubetsu-jonin` |
+| Simple/trivial task | Main agent executes directly using native tools. |
 
-**FORBIDDEN for Konoha work:** `TypeName: "self"` or `TypeName: "research"` to impersonate jonin/anbu/genin. Never run `run_command` / `write_to_file` in the orchestrator thread for delegated work.
+**FORBIDDEN for Konoha work**: Attempting to invoke custom TypeName values (genin, kage, etc.). These are rejected at invocation time by the Antigravity platform.
 
 ### @genin — 🍃 Codebase Exploration
 - **Purpose**: Fast, read-only codebase navigation and analysis
-- **Skills**: `deep-code-explorer`
+- **Skills**: `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety`
 - **Delegate when**: Need to understand code structure, trace how something works, map dependencies
 - **Constraints**: Read-only — does not modify files. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search symbols with `semble` → open relevant files → summarize with file paths and line numbers.
 
 ### @kage — 🌀 Village Leader & Architect
 - **Purpose**: Expert-level analysis for critical decisions and high-level strategy
-- **Skills**: `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill`
+- **Skills**: `agent-browser`, `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`, `jonin-skill`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/tailwind-design-system`, `konoha`, `websearch-deep`
 - **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
 - **Constraints**: Always assess risk, blast radius, and rollback plan. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.
@@ -121,21 +133,21 @@ When the user prompt involves modifying or working within an existing project:
 
 ### @jonin — 🛡️ UI & Frontend Specialist
 - **Purpose**: Build premium, production-ready user interfaces
-- **Skills**: `agent-browser`, `modern-full-stack`
+- **Skills**: `agent-browser`, `modern-full-stack`, `modern-full-stack/3d-web-experience`, `modern-full-stack/ai-sdk`, `modern-full-stack/bug-reporting`, `modern-full-stack/character-hygiene`, `modern-full-stack/code-review-security`, `modern-full-stack/command-safety`, `modern-full-stack/fastapi-code-review`, `modern-full-stack/fastapi-expert`, `modern-full-stack/fastapi-templates`, `modern-full-stack/full-stack-workflows`, `modern-full-stack/golang-concurrency`, `modern-full-stack/golang-fundamentals`, `modern-full-stack/golang-performance`, `modern-full-stack/golang-security`, `modern-full-stack/golang-testing`, `modern-full-stack/guardrails`, `modern-full-stack/javascript-pro`, `modern-full-stack/langchain-fundamentals`, `modern-full-stack/langchain-rag`, `modern-full-stack/laravel-security`, `modern-full-stack/laravel-specialist`, `modern-full-stack/mcp-evaluation`, `modern-full-stack/mcp-python-server`, `modern-full-stack/mcp-server-development`, `modern-full-stack/mcp-typescript-server`, `modern-full-stack/mysql-best-practices`, `modern-full-stack/n8n-builtin-functions`, `modern-full-stack/n8n-code-javascript`, `modern-full-stack/n8n-common-patterns`, `modern-full-stack/n8n-data-access`, `modern-full-stack/n8n-error-patterns`, `modern-full-stack/nextjs-16-complete-guide`, `modern-full-stack/nextjs-code-expert`, `modern-full-stack/nextjs-creative-stack`, `modern-full-stack/nextjs-security`, `modern-full-stack/nextjs-ui-expert`, `modern-full-stack/pnpm`, `modern-full-stack/postgresql-code-review`, `modern-full-stack/prd`, `modern-full-stack/qdrant-clients-sdk`, `modern-full-stack/quality-checklist`, `modern-full-stack/router`, `modern-full-stack/secret-safety`, `modern-full-stack/skill-creator`, `modern-full-stack/sqlite-database-expert`, `modern-full-stack/svelte-code-expert`, `modern-full-stack/svelte-code-writer`, `modern-full-stack/svelte-components`, `modern-full-stack/svelte-ui-expert`, `modern-full-stack/tailwind-design-system`, `modern-full-stack/tailwind4-expert`, `modern-full-stack/token-safety`, `modern-full-stack/vite`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
 - **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
 
 ### @anbu — 👥 Backend Specialist, Bug Fixing, & DevOps
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems
-- **Skills**: `devsecops-engineer`, `agent-browser`
+- **Skills**: `agent-browser`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
 
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
 - **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
-- **Skills**: `documentation`
+- **Skills**: `documentation`, `documentation/mermaid-architecture`, `documentation/mermaid-core`, `documentation/prd-creation`, `documentation/router`, `documentation/task-generation`, `documentation/technical-writing`
 - **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates
 - **Constraints**: Follow reader-first principles, include code examples, and link references. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search skills/references with `konoha` → construct clear documentation → show code examples/commands → link references.
@@ -144,14 +156,14 @@ When the user prompt involves modifying or working within an existing project:
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output `[{Icon} {Name}] active. Calling konoha.find_skill('...')` at the start of every response.
-2. **Read File-Based Task**: Read the delegation parameters from the absolute path to `delegate.md` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. `anbu-skill/ci-cd-security`), you MUST immediately call the MCP tool `konoha.get_skill` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
+2. **Read File-Based Task**: Read the delegation parameters from the absolute path to `delegate.md` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. `devsecops-engineer/ci-cd-security`), you MUST immediately call the MCP tool `konoha.get_skill` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
 3. **Konoha first**: Call `find_skill(keyword, agent='{your_name}')` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking `find_skill`, `get_skill`, or `list_skills`, always pass `agent='{your_name}'`.
 5. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. `result.md.tmp`) first, then rename/move it atomically to `result.md` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
 6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to `plan.md` in the task directory (e.g. `scratch/tasks/<task_id>/plan.md`) first. Refer to this plan in your final `result.md` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
 
 ### Conditional Tools (use only when needed)
-- **Semble for code search**: If the task requires searching project source code (not skills), call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Prefer `semble` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
+- **Semble for code search**: If the task requires searching project source code (not skills), call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns API tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.** Prefer `semble` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
 - **Konoha for file reads**: If project file reading, structure inspection, info checks, or line greps are needed, call the **`konoha` MCP** tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`) directly after locating targets with `semble`. Do NOT use raw `cat`, `head`, `tail`, `grep`, or built-in file tools unless `konoha` is unavailable.
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **`konoha` MCP** (`read_file_head`, `read_file_range`, etc.) instead of the built-in `view_file` or `Read` tool. When reading files, ALWAYS specify a precise `StartLine` and `EndLine` range (no more than 50-100 lines) containing the target code discovered via `semble` search. Avoid loading massive files into your context window.
 
@@ -170,12 +182,6 @@ When the user prompt involves modifying or working within an existing project:
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.
 - **Security**: Never expose secrets, use least privilege, redact credentials as `[REDACTED]`.
-
-### Quota & Rate Limits
-On `RESOURCE_EXHAUSTED` or HTTP `429`, automatically fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output:
-> "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
-
-Recovery: Wait for the quota window to reset, reduce concurrent requests, or upgrade subscription tier.
 
 ## Model Registry
 

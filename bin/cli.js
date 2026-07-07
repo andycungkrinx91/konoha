@@ -2106,6 +2106,78 @@ function updateAgentsMd(silent = false) {
   agentManager.regenerateAndDeploy(silent);
 }
 
+function moveUnusedSkills(skillsDirs, agents) {
+  const activeSkills = new Set();
+  for (const agent of agents) {
+    if (agent.skills && Array.isArray(agent.skills)) {
+      for (const s of agent.skills) {
+        const parent = s.split('/')[0];
+        const cleanParent = parent.endsWith('.md') ? parent.slice(0, -3) : parent;
+        activeSkills.add(cleanParent.toLowerCase());
+      }
+    }
+  }
+
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const yyyymmdd = `${yyyy}${mm}${dd}`;
+
+  for (const dirObj of skillsDirs) {
+    const skillsDir = dirObj.path;
+    if (!fileExists(skillsDir)) continue;
+
+    const absSkillsDir = path.resolve(skillsDir);
+    const projectAgentsSkills = path.resolve(currentCwd, '.agents', 'skills');
+    const projectAgentSkills = path.resolve(currentCwd, '.agent', 'skills');
+    if ((absSkillsDir === projectAgentsSkills || absSkillsDir === projectAgentSkills) && currentCwd !== HOME) {
+      info(`Skipping pruning for project-level skills directory: ${skillsDir}`);
+      continue;
+    }
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+    } catch (e) {
+      continue;
+    }
+
+    const backupSkillsDir = path.join(HOME, '.agents.backup', 'skills');
+
+    for (const entry of entries) {
+      const skillName = entry.name;
+      let isSkill = false;
+
+      if (entry.isDirectory() && fileExists(path.join(skillsDir, skillName, 'SKILL.md'))) {
+        isSkill = true;
+      } else if (entry.isFile() && skillName.endsWith('-skill.md')) {
+        isSkill = true;
+      }
+
+      if (!isSkill) continue;
+
+      const cleanName = skillName.endsWith('.md') ? skillName.slice(0, -3) : skillName;
+      if (!activeSkills.has(cleanName.toLowerCase())) {
+        const srcPath = path.join(skillsDir, skillName);
+        const destPath = path.join(backupSkillsDir, `${cleanName}-${yyyymmdd}${entry.isFile() ? '.md' : ''}`);
+
+        info(`🧹 Found unused/unembedded skill "${skillName}". Moving to backup...`);
+        try {
+          fs.mkdirSync(backupSkillsDir, { recursive: true });
+          if (fs.existsSync(destPath)) {
+            fs.rmSync(destPath, { recursive: true, force: true });
+          }
+          fs.renameSync(srcPath, destPath);
+          success(`✓ Moved: ${skillName} ➔ ${destPath}`);
+        } catch (err) {
+          warn(`⚠️ Failed to move ${skillName}: ${err.message}`);
+        }
+      }
+    }
+  }
+}
+
 async function cmdMigrate(args) {
   await chidoriTransition('migrate');
   header('📊 Re-running Skills Migration');
@@ -2119,6 +2191,14 @@ async function cmdMigrate(args) {
   if (!fileExists(MIGRATE_PATH)) {
     error('Migration script not found. Run "konoha init" first.');
     process.exit(1);
+  }
+
+  const hasForce = args.includes('--force');
+  if (hasForce) {
+    info('Pruning unused/unembedded skills to prevent duplicate content...');
+    const agents = agentManager.loadAgents();
+    const skillsDirs = detectSkillsDirs();
+    moveUnusedSkills(skillsDirs, agents);
   }
 
   // Check for custom skills dir

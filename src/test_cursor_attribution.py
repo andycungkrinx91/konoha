@@ -19,14 +19,14 @@ REGISTERED = frozenset(
 )
 
 AGENTS = [
-    ("genin", "[🍃 Genin] active. Calling skills-db.find_skill(...)", None),
-    ("kage", "[🌀 Kage] active. Calling skills-db.find_skill(...)", None),
-    ("chunin", "[📜 Chunin] active. Calling skills-db.find_skill(...)", None),
-    ("jonin", "[🛡️ Jonin] active. Calling skills-db.find_skill(...)", None),
-    ("anbu", "[👥 Anbu] active. Calling skills-db.find_skill(...)", None),
+    ("genin", "[🍃 Genin] active. Calling konoha.find_skill(...)", None),
+    ("kage", "[🌀 Kage] active. Calling konoha.find_skill(...)", None),
+    ("chunin", "[📜 Chunin] active. Calling konoha.find_skill(...)", None),
+    ("jonin", "[🛡️ Jonin] active. Calling konoha.find_skill(...)", None),
+    ("anbu", "[👥 Anbu] active. Calling konoha.find_skill(...)", None),
     (
         "tokubetsu-jonin",
-        "[🎯 Tokubetsu-Jonin] active. Calling skills-db.find_skill(...)",
+        "[🎯 Tokubetsu-Jonin] active. Calling konoha.find_skill(...)",
         None,
     ),
 ]
@@ -132,7 +132,7 @@ def main():
 
     before_direct = direct_today(load_stats())
     conv = setup_cursor_session(
-        "[Konoha] orchestrator active. Calling skills-db.find_skill(...)",
+        "[Konoha] orchestrator active. Calling konoha.find_skill(...)",
         mtime_offset=7200 + len(AGENTS) * 120,
     )
     try:

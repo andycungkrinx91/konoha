@@ -535,7 +535,7 @@ function ensureCursorSetup(options = {}) {
   deployUtils.installFileTools(silent, pythonCmd);
 
   if (!fileExists(serverPath)) {
-    return { ok: false, reason: 'skills-db server not installed' };
+    return { ok: false, reason: 'konoha server not installed' };
   }
 
   registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent);
@@ -602,11 +602,6 @@ function removeCursorConfig(silent = true) {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
       if (config.permissions && config.permissions.allow) {
         const grants = [
-          'Mcp(skills-db)',
-          'Mcp(skills-db, find_skill)',
-          'Mcp(skills-db, get_skill)',
-          'Mcp(skills-db, list_skills)',
-          'Mcp(skills-db, optimize_report)',
           'Mcp(semble)',
           'Mcp(semble, search)',
           'Mcp(semble, find_related)',

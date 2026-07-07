@@ -68,9 +68,13 @@ konoha doctor --yes
 
 **Detection**: `opencode` in PATH, or `~/.config/opencode/`.
 
-**Writes**: `~/.config/opencode/opencode.json` → `mcp` (`type: local`).
+**Writes**:
+- `~/.config/opencode/opencode.json` → `mcp` (`type: local`).
+- `~/.config/opencode/agents/` → Six official ninja subagents (`genin.md`, `kage.md`, `chunin.md`, `jonin.md`, `anbu.md`, `tokubetsu-jonin.md`) configured with whitelisted tools.
 
-**Verify**: `opencode mcp list`
+**Verify**: `opencode mcp list` and list the `~/.config/opencode/agents/` directory.
+
+**Model Default**: Configured with `opencodeModel` (defaults to `"inherit"`). View assignments with `konoha models list`.
 
 ---
 
@@ -101,7 +105,7 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Adding Multiple Bridges
 
-Konoha Bridge Router supports multiple bridges per provider for failover or quota rotation.
+Konoha Bridge Router supports multiple bridges per provider for failover.
 
 ### Add a bridge
 
@@ -151,17 +155,8 @@ my-ollama-llama3
 lm-studio-mistral-7b
 ```
 
-### Quota rotation
+### Automatic failover
 
-When one OAuth account hits a rate limit, the gateway automatically:
-1. Marks that bridge Unavailable (persisted to SQLite)
-2. Routes to the next available user account
-3. Restores the bridge when OpenAI's reset time arrives
-
-Check live status:
-
-```bash
-konoha bridge quota
-```
+When a bridge returns an error, the gateway automatically routes to the next available bridge (round-robin across providers).
 
 See [LLM-BRIDGE-GATEWAY.md](LLM-BRIDGE-GATEWAY.md) for full architecture details.

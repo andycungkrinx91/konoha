@@ -183,6 +183,33 @@ function findFilesClean({ pattern, dir }) {
   });
 }
 
+function searchFile({ query, dir, top_k }) {
+  const resolvedDir = resolveInputPath(dir || '.');
+  try {
+    const k = top_k || 5;
+    const args = ['--from', 'semble[mcp]@latest', 'semble', 'search', query, resolvedDir, '-k', String(k), '--content', 'all'];
+    
+    const result = spawnSync('uvx', args, {
+      encoding: 'utf-8',
+      timeout: 60000,
+      maxBuffer: 16 * 1024 * 1024,
+      shell: platform.IS_WIN
+    });
+    
+    if (result.error) {
+      return { error: `Failed to execute uvx semble: ${result.error.message}` };
+    }
+    
+    if (result.status !== 0) {
+      return { error: `Semble search failed: ${result.stderr}` };
+    }
+    
+    return { text: result.stdout };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 function runPythonSkillTool(toolName, args) {
   const serverPyPath = path.join(__dirname, 'server.py');
   if (!fs.existsSync(serverPyPath)) {
@@ -203,9 +230,8 @@ function runPythonSkillTool(toolName, args) {
     return { error: result.error.message || String(result.error) };
   }
   const stdout = (result.stdout || '').trim();
-  const stderr = (result.stderr || '').trim();
-  if (!stdout) {
-    return { error: stderr || `Python script exited with code ${result.status}` };
+  if (result.status !== 0) {
+    return { error: (result.stderr || '').trim() || `Exit code ${result.status}` };
   }
   return { text: stdout };
 }
@@ -217,6 +243,7 @@ const TOOL_HANDLERS = {
   token_efficient_grep: tokenEfficientGrep,
   get_file_structure: getFileStructure,
   find_files_clean: findFilesClean,
+  search_file: searchFile,
   find_skill: (args) => runPythonSkillTool('find_skill', args),
   list_skills: (args) => runPythonSkillTool('list_skills', args),
   get_skill: (args) => runPythonSkillTool('get_skill', args),
@@ -320,13 +347,27 @@ function listToolSchemas() {
       }
     },
     {
+      name: 'search_file',
+      description:
+        'Semantic search/find file content or code within the workspace using semble.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Semantic search query or natural language description of what you are looking for' },
+          dir: { type: 'string', description: 'Directory to search within (optional, defaults to workspace root)' },
+          top_k: { type: 'integer', description: 'Number of results to return (optional, default 5)' }
+        },
+        required: ['query']
+      }
+    },
+    {
       name: 'find_skill',
       description: 'Search SQLite FTS5 database for skills matching keyword. Returns top matching skill chunks.',
       inputSchema: {
         type: 'object',
         properties: {
           keyword: { type: 'string', description: 'Search keyword or query string' },
-          limit: { type: 'number', description: 'Maximum number of results to return (default 3, max 5)' },
+          limit: { type: 'number', description: 'Maximum number of results to return (default 5, max 10)' },
           agent: { type: 'string', description: 'Calling subagent name (optional)' },
           compact: { type: 'boolean', description: 'Return 500-char compact previews (default false)' }
         },
@@ -350,7 +391,7 @@ function listToolSchemas() {
       inputSchema: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Exact skill or reference name (e.g. "anbu-skill" or "anbu-skill/ci-cd-security")' },
+          name: { type: 'string', description: 'Exact skill or reference name (e.g. "devsecops-engineer" or "devsecops-engineer/ci-cd-security")' },
           agent: { type: 'string', description: 'Calling subagent name (optional)' }
         },
         required: ['name']
@@ -411,6 +452,7 @@ function validateInstall() {
     'token_efficient_grep.py',
     'get_file_structure.py',
     'find_files_clean.py',
+    'search_file.py',
     '_common.py'
   ]) {
     if (!fs.existsSync(path.join(TOOLS_DIR, script))) {

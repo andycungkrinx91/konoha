@@ -66,6 +66,23 @@ When using agent skills with Antigravity IDE/CLI, Cursor IDE/CLI, Claude Code, o
 
 For a detailed breakdown of Konoha's internal mechanics, including system layers, data flows, and query lifecycle sequence diagrams, please see the [System Architecture Guide](docs/ARCHITECTURE.md).
 
+### Workflow: Forced MCP Delegation
+
+All non-trivial work on a Konoha-configured host **MUST** flow through the Konoha MCP and Semble MCP tools and be delegated to a konoha subagent — never executed solo by the main orchestrator.
+
+- **Skill lookup** (`konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`.
+- **Codebase search** (`semble.search`, `semble.find_related`) — always via `semble` MCP, never `grep`/`rg`/`find`.
+- **Bounded file reads** — `konoha.read_file_head` / `read_file_range` / `file_info` / `token_efficient_grep`, never generic `Read` / `Grep` / `Glob` / shell `cat`/`head`/`tail`.
+- **Subagent routing** — match the task domain to a ninja agent:
+  - `@genin` — codebase exploration, codepath tracing
+  - `@kage` — architecture, security, deep analysis
+  - `@chunin` — web research, documentation synthesis
+  - `@jonin` — UI/frontend (SvelteKit, Next.js, Tailwind)
+  - `@anbu` — backend, bug fixing, DevOps
+  - `@tokubetsu-jonin` — technical writing, docs, READMEs
+
+**The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** Trivial edits on a known file may run inline; everything else routes through a subagent.
+
 ---
 
 ## 🚀 Quick Start
@@ -110,13 +127,13 @@ Once installed, the following CLI commands are available:
 | Command | Description |
 |:---|:---|
 | `konoha init` | Full install: server + migration + MCP config + GEMINI.md |
-| `konoha migrate` | Re-index skills (run after editing skills) |
+| `konoha migrate [--force]` | Re-index skills. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicate entries occur (skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode. |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
-| `konoha bridge list` | List all configured bridges with port/provider/quota state |
+| `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
@@ -131,14 +148,19 @@ Once installed, the following CLI commands are available:
 
 Konoha ships a local **Konoha Bridge Router** on port **`19999`** that multiplexes requests across one or more inner **LLM Bridges**. The router forwards requests to a bridge based on the model name prefix `<bridge-name>-<model-name>`, strips inbound `Authorization` / `x-api-key` / `x-konoha-gateway-*` headers, and forwards to `127.0.0.1:<bridge-port>`. Local clients never need to send an API key to the router.
 
-Default bridge configuration (persisted in the `bridges` table of `~/.konoha/skills.db` via `src/db_bridges.py`):
+Bridge configuration examples (bridges are registered manually by the user — the `bridges` table starts empty on install and is persisted in `~/.konoha/skills.db` via `src/db_bridges.py`):
+
+Bridges are registered manually by the user (the tables start empty on install).
+
+Examples:
+
+- Ollama-compatible endpoint — default `http://localhost:11434`
+- OpenAI-compatible endpoint — provide your own API key
 
 Configure bridges with `konoha bridge create` (interactive wizard). You can add multiple bridges for different providers:
 
 | Bridge Name | Default Port | Provider | Behavior |
 |:---|:---:|:---|:---|
-| `antigravity` | `11435` | `antigravity` | Passive sidecar against a running `agy` CLI / Antigravity IDE session (no OAuth credentials are stored locally). |
-| `adacode` | `11436` | `openai` | Outbound proxy to a real upstream (e.g. `https://api.adacode.ai/v1`) using an API key stored in `bridges.apiKey`. |
 | `gpt-api` | User-defined | `openai` | Direct proxy to OpenAI-compatible endpoints (e.g. `https://api.openai.com/v1`). |
 | `my-ollama` | User-defined | `openai-compatible` | Proxy to local LLM instances (e.g. Ollama, vLLM). |
 
@@ -146,12 +168,10 @@ Configure bridges with `konoha bridge create` (interactive wizard). You can add 
 
 Model routing examples:
 
-- `antigravity-gemini-3.1-pro-high` → gateway routes to the `antigravity` inner bridge on port `11435`.
-- `adacode-claude-sonnet-4-6` → gateway strips `adacode-`, forwards `claude-sonnet-4-6` to the inner bridge on port `11436`.
 - `my-ollama-llama3` → gateway strips `my-ollama-`, forwards `llama3` to the inner bridge on its designated local port.
 - `gpt-api-gpt-4o` → gateway routes to `gpt-api` bridge configured with your OpenAI API key.
 
-Quota-aware routing: when a bridge returns `RESOURCE_EXHAUSTED` or HTTP `429`, its `quota_unavailable_until` timestamp is set and the gateway automatically rotates to the next eligible bridge.
+Automatic failover: when a bridge returns an error, the gateway automatically rotates to the next eligible bridge.
 
 Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
@@ -198,6 +218,12 @@ Run `konoha migrate` whenever you add, edit, or remove skills:
 konoha migrate
 ```
 
+To clean up and archive unused or unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with the `--force` flag. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:
+
+```bash
+konoha migrate --force
+```
+
 This updates `skills.db`, syncs `.cursor/skills/` and `~/.agents/skills/`, and refreshes all system instructions automatically.
 
 ---
@@ -208,7 +234,7 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 12 tools for skill retrieval, bounded file operations, and project scaffolding:
+The unified `konoha` server exposes 13 tools for skill retrieval, bounded file operations, and project scaffolding:
 
 #### `find_skill(keyword, limit?)`
 Search skills by keyword using FTS5 full-text search.
@@ -248,6 +274,7 @@ Scaffold from a text prompt using default premium templates.
 | `token_efficient_grep(pattern, dir, glob?, ignore_case?)` | Compressed regex search | Max **20** matches (cap 50) |
 | `get_file_structure(path)` | Class/function signatures only (no bodies) | AST (Python) / regex (JS/TS) |
 | `find_files_clean(pattern, dir)` | Glob walk with blacklist | Skips `.git`, `node_modules`, `dist`, lockfiles |
+| `search_file(query, dir?, top_k?)` | Semantic code/file search using semble | Semble-powered semantic search |
 
 > [!IMPORTANT]
 > **All agents must use konoha** for skill lookups, file reads, and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** (semantic code search) → **konoha** (skills & file operations).
@@ -339,9 +366,9 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep; `rg` only if semble MCP is unavailable.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 6 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
-> * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits except quota fallback.
+> * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
-> * **Quota Fallback**: In the event of API rate limits or `429 / RESOURCE_EXHAUSTED` errors, the system will fallback to `Gemini 3.1 Flash-Lite` and use direct tool calls instead of spawning additional subagents.
+> * **Rate Limit Fallback**: In the event of API rate limits, the system will fallback to `Gemini 3.1 Flash-Lite` and use direct tool calls instead of spawning additional subagents.
 
 ---
 

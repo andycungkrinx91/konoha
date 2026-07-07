@@ -11,10 +11,10 @@ This skill contains the structural guidelines, command specifications, and archi
 
 **ABSOLUTE RULE:** All work MUST go through the **konoha MCP** and **semble MCP** tools — never execute tasks solo, never bypass the agent delegation workflow.
 
-- **Always use `konoha` MCP** (`mcp__konoha__find_skill`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills`, `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `build_from_source`, `build_from_text`, `optimize_report`) for skills, skill discovery, bounded file operations, and agent delegation. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
-- **Always use `semble` MCP** (`mcp__semble__search`, `mcp__semble__find_related`) for codebase search. Never use `grep`, `rg`, `find`, `glob`, or built-in `Read`/`Grep`/`Glob` tools for code discovery — always delegate to a konoha subagent via the semble MCP.
+- **Always use `konoha` MCP** (`mcp__konoha__find_skill`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills`, `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`, `build_from_source`, `build_from_text`, `optimize_report`) for skills, skill discovery, bounded file operations, and agent delegation. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
+- **Always use `semble` MCP** (`mcp__semble__search`, `mcp__semble__find_related`) or `konoha.search_file` for codebase search. Never use `grep`, `rg`, `find`, `glob`, or built-in `Read`/`Grep`/`Glob` tools for code discovery — always delegate to a konoha subagent via the semble MCP.
 - **Never use `semble` for skills** — use `konoha.find_skill` / `konoha.get_skill` only.
-- **Never use `konoha` for codebase search** — use `semble.search` / `semble.find_related` only.
+- **Never use `konoha` for codebase search** — use `semble.search` / `semble.find_related` (or `konoha.search_file`) only.
 
 Any **non-trivial task MUST be delegated** to the appropriate konoha subagent:
 
@@ -172,7 +172,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Command | Action |
 |---------|--------|
 | `node bin/cli.js init --force` | Re-installs server, forces re-migration of all active skills, registers MCP, and redeploys subagent profiles. |
-| `node bin/cli.js migrate` | Re-indexes all detected skill folders, removing stale entries, and automatically reconfigures integrations for Antigravity, Claude Code, Cursor, and OpenCode. |
+| `node bin/cli.js migrate [--force]` | Re-indexes all detected skill folders. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicates occur (while skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
 | `node bin/cli.js version` | Displays the current local version (1.1.6) and checks for updates from GitHub. |
@@ -254,9 +254,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 5. Subagent Model Fields (Host IDE)
 - Konoha stores optional model preferences in `agents.json` (`model`, `cursorModel`, `claudeModel`) and injects them into generated `GEMINI.md`, `AGENTS.md`, and `~/.cursor/agents/*.md`.
-- **Konoha Bridge Router**: Konoha implements full multi-provider LLM routing via the Bridge Router (port `19999`). Two default bridges are shipped:
-  - `antigravity` (port `11435`, provider `antigravity`): Passive sidecar against a running `agy` CLI / Antigravity IDE session. Sidecar-gated — verified via `isAntigravitySessionLive()`.
-  - `adacode` (port `11436`, provider `openai`): Outbound proxy to a real upstream (e.g. `https://api.adacode.ai/v1`) using an API key stored in `bridges.apiKey`.
+- **Konoha Bridge Router**: Konoha implements full multi-provider LLM routing via the Bridge Router (port `19999`). Bridges are registered manually by the user (the tables start empty on install).
   - Model prefix resolution (checked in order):
     1. **Bridge-prefix lookup**: `<bridge_name>-<model>` resolved against the named bridge first.
     2. **Exact match**: Look up the exact model name in the cache across all bridges.
@@ -331,7 +329,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 15. Token-Efficient File Tools (`konoha` MCP)
 - **Architecture**: Node.js `file_tools_mcp.js` + `file_tools_router.js` orchestrate; Python scripts in `src/file_tools/` perform streaming I/O.
-- **Tools**: `read_file_head` (≤200 lines), `read_file_range` (≤500 lines), `file_info`, `token_efficient_grep` (≤20 matches), `get_file_structure`, `find_files_clean` (which automatically skips VCS, lockfiles, `go-dist`, and `vendor` directories during file walks to prevent context bloat).
+- **Tools**: `read_file_head` (≤200 lines), `read_file_range` (≤500 lines), `file_info`, `token_efficient_grep` (≤20 matches), `get_file_structure`, `find_files_clean` (which automatically skips VCS, lockfiles, `go-dist`, and `vendor` directories during file walks to prevent context bloat), `search_file` (semantic search using `semble`).
 - **Launcher**: `file_tools_launcher.js` (cross-platform) + `.node_exec_path` / `.python_cmd` records; Unix also ships `file_tools_launcher.sh`.
 - **Konoha Bridge Router Integration**: Automatically starts the Konoha Bridge Router on port `19999` and all enabled bridges (such as `openai` on port `11435`) in-process when the `konoha` MCP server initializes, providing multi-provider routing and formatting compatibility. The router automatically intercepts and returns `{"input_tokens": 0}` with a `200 OK` status for `POST /v1/messages/count_tokens` preflight queries (frequently made by the Claude CLI and Cherry Studio) to bypass router failures and prevent retry loops.
 - **Install**: `installFileTools()` copies files to `~/.konoha/` (including `bridge/` submodules), sets up runtime dependencies via local `npm install`, and registers it as `konoha` in Antigravity `mcp_config.json` and Cursor `mcp.json`.
@@ -452,6 +450,8 @@ Serves all skill knowledge retrieval, bounded file operations, and project scaff
   * *Arguments*: `path` (string, required).
 * **`find_files_clean`**: Fast file glob search skipping VCS, lockfiles, and build distribution folders.
   * *Arguments*: `pattern` (string, optional), `dir` (string, optional).
+* **`search_file`**: Semantic code/file search across the workspace using semble.
+  * *Arguments*: `query` (string, required), `dir` (string, optional), `top_k` (integer, default 5).
 
 ### 2. `semble` MCP Server
 Used for semantic code searches and locating codebase references in workspace source files.

@@ -50,7 +50,7 @@ You should see `konoha`, `semble`, and `konoha` listed among the MCP servers. If
 konoha test
 ```
 
-Expected: **16 tests** pass (9 skills-db + 7 konoha-files).
+Expected: **16 tests** pass (9 konoha + 7 konoha-files).
 
 ## Step 4: Test in a Session
 
@@ -87,7 +87,7 @@ agy reads MCP config from `~/.gemini/config/mcp_config.json`:
 
 ### GEMINI.md Location
 
-agy reads global instructions from `~/.gemini/GEMINI.md`. The installer updates this file with skills-db instructions.
+agy reads global instructions from `~/.gemini/GEMINI.md`. The installer updates this file with konoha instructions.
 
 ### Skills Source Directory
 
@@ -112,6 +112,10 @@ The migration script auto-detects and reads skills from standard directories. It
 2. Re-run migration:
    ```bash
    konoha migrate
+   ```
+   *Note: If you have unused or unembedded skills in your skills directory that you want to move to `.agents.backup/skills/{name-skill}-yyyymmdd` and prune from the index (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with `--force`. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:*
+   ```bash
+   konoha migrate --force
    ```
 
 The migration is idempotent — it replaces existing entries with updated content.
@@ -239,9 +243,6 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 
 * **Fallback Configuration**:
   Subagents default to using `Gemini 3.1 Flash-Lite` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
-
-* **Quota Exceeded Recovery**:
-  In case of total quota exhaustion, the system will output the standard Antigravity account limit warning. Refer to the recovery steps (using `gcloud auth login` or subscription upgrades) documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Auto-Approved Permissions & Commands Whitelisting
 

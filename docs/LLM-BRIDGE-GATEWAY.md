@@ -74,7 +74,7 @@ gpt-api-gpt-4o              # OpenAI API key bridge
 2. Split by first hyphen: bridge = `gpt-api`, model = `gpt-4o`
 3. Query SQLite `bridges` table for `name = 'gpt-api'`
 4. If bridge provider is `antigravity`, verify Antigravity sidecar session is alive via `isAntigravitySessionLive()`
-5. Check `quota_unavailable_until` — exclude expired bridges
+5. Check bridge `enabled` flag — exclude disabled bridges
 6. Resolve to an inner bridge, cache the lookup for 30 seconds
 7. Forward request with mapped model name
 
@@ -146,14 +146,21 @@ The gateway supports automatic sidecar discovery for detecting local LLM instanc
 - Missing messages field returns `400 Invalid Request`
 - Empty message content validated
 
-### Quota-Aware Bridge Routing
+### Bridge Failover
 
-When an upstream bridge returns `RESOURCE_EXHAUSTED` or HTTP `429`:
+The gateway itself does **not** rotate across bridges mid-request. Per request:
 
-1. The bridge name + model pair is persisted in `quota_unavailable_until` (epoch ms).
-2. `resolveBridgeAndModel()` excludes that bridge-model combo until the timer expires.
-3. Gateway rotates to the next available bridge in round-robin order.
-4. CLI commands `konoha bridge set-quota <name> <epoch_ms>` and `clear-quota <name>` allow manual management.
+1. `resolveBridgeAndModel()` picks **one** bridge using a 3-step priority: (a) `<bridge_name>-<model>` prefix match, (b) exact model-name match across the combined bridge model cache, (c) fallback to the first active bridge (see `src/bridge/gateway.js:65-110`).
+2. The gateway forwards the request to that single bridge and **pipes the response verbatim** (status code, headers, body) back to the client. There is no 429-driven rotation loop at the gateway layer — a 429 from the bridge is passed straight through to the caller.
+
+**Where retries actually happen:**
+
+- **Sidecar raw inference path** (`src/bridge/sidecar/raw.js:268-275`): `callRawInference` runs its own retry loop — up to 4 attempts with a 2-second backoff between each — for transient gRPC / connection / sidecar-discoverable / `RESOURCE_EXHAUSTED` errors. This happens inside the sidecar bridge process before the gateway ever sees the response.
+- **Cascade path** (`src/bridge/sidecar/cascade.js:75-82`): up to 3 retries with 10s backoff, restarting the cascade on each attempt.
+- **RPC path** (`src/bridge/sidecar/rpc.js:277-292`): `_withRetry` wraps transient H2 connect/timeout errors (2 retries).
+- **Per-handler error translation**: format adapters such as `src/bridge/handlers/gemini.js:259-304` detect rate-limit-style errors (`429`, `RESOURCE_EXHAUSTED`, `capacity`, `H2 timeout`, `Sidecar not discovered`, etc.) and translate them into a proper 429 response with a `Retry-After` header for the client. They do not retry.
+
+**No global round-robin rotator**: the gateway has no mechanism that, on 429, picks the next bridge and re-sends the same request. Multi-bridge availability is a routing-time concern (model-to-bridge mapping), not a runtime failover concern. If you need cross-bridge failover, the caller (client SDK) must implement it.
 
 ### Header Sanitization
 
@@ -184,13 +191,12 @@ The gateway sets `Accept-Encoding: identity` on forwarded requests to guarantee 
 
 ```sql
 CREATE TABLE bridges (
-    name                    TEXT    PRIMARY KEY,
-    port                    INTEGER NOT NULL,
-    provider                TEXT    NOT NULL,   -- openai | openai-compatible | antigravity
-    enabled                 INTEGER NOT NULL DEFAULT 1,
-    target_url              TEXT,
-    api_key                 TEXT,
-    quota_unavailable_until INTEGER DEFAULT NULL  -- epoch ms; NULL = Available
+    name        TEXT    PRIMARY KEY,
+    port        INTEGER NOT NULL,
+    provider    TEXT    NOT NULL,   -- openai | openai-compatible | antigravity
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    target_url  TEXT,
+    api_key     TEXT
 );
 ```
 
@@ -202,8 +208,6 @@ python3 src/db_bridges.py --upsert '{"name":"my-bridge","port":11437,...}'
 python3 src/db_bridges.py --delete my-bridge
 python3 src/db_bridges.py --enable my-bridge
 python3 src/db_bridges.py --disable my-bridge
-python3 src/db_bridges.py --set-quota my-bridge 1719545535000
-python3 src/db_bridges.py --clear-quota my-bridge
 ```
 
 ## Gateway Source Files
@@ -224,4 +228,4 @@ python3 src/db_bridges.py --clear-quota my-bridge
 | `src/bridge/context.js` | Bridge context management (per-bridge state) |
 | `src/bridge/models.js` | Model mapping utilities |
 | `src/bridge/utils.js` | Shared utilities (logging, streaming helpers, readBody) |
-| `src/db_bridges.py` | SQLite bridge CRUD + quota persistence |
+| `src/db_bridges.py` | SQLite bridge CRUD |

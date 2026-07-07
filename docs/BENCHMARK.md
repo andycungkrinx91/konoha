@@ -1,6 +1,6 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **skills-db**, **semble**, and **konoha-files** usage.
+This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **konoha**, **semble**, and **konoha-files** usage.
 
 > Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
@@ -87,7 +87,7 @@ Before public release, verify:
 | Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 PASS |
 | Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 PASS |
 | Environment health | `konoha doctor --yes` | All checks passed |
-| Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → skills-db, semble, konoha-files |
+| Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → konoha, semble, konoha-files |
 | OpenCode MCP (if CLI installed) | `konoha status` | `~/.config/opencode/opencode.json` → all three servers |
 | Cursor skills mirror | `konoha status` | `~/.cursor/skills/` synced from `~/.agents/skills/` |
 | Skills indexed | `konoha status` | 48+ entries (includes `konoha-maintenance`) |

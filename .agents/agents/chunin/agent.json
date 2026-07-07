@@ -3,7 +3,7 @@
   "description": "Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.",
   "config": {
     "customAgent": {
-      "model": "adacode-claude-sonnet-4-6 | Fallback when fail antigravity-gemini-3.5-flash-low",
+      "model": "Gemini 3.1 Pro (High) | Fallback when fail Gemini 3.1 Flash-Lite",
       "systemPromptSections": [
         {
           "title": "Agent System Instructions",

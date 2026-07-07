@@ -4,21 +4,22 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.1.6)
+title: Konoha System Architecture (v1.1.7)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
     classDef userNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef ideNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef routerNode fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
-    classDef agentNode fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#e0e7ff;
+    classDef orchestratorNode fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#e0e7ff;
+    classDef researchNode fill:#312e81,stroke:#a5b4fc,stroke-width:2px,color:#e0e7ff;
     classDef mcpNode fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#ecfdf5;
     classDef sembleNode fill:#134e4a,stroke:#2dd4bf,stroke-width:2px,color:#ccfbf1;
     classDef dbNode fill:#451a03,stroke:#fb923c,stroke-width:2px,color:#fff7ed;
     classDef ftsNode fill:#451a03,stroke:#fbbf24,stroke-width:2px,color:#fff7ed;
     classDef codeNode fill:#1c1917,stroke:#a8a29e,stroke-width:2px,color:#e7e5e4;
     classDef mgmtNode fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#dbeafe;
-    classDef queueNode fill:#2d1a4a,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff;
+    classDef skillNode fill:#451a03,stroke:#fbbf24,stroke-width:2px,color:#fff7ed;
 
     %% ── Layer 1: Presentation ──────────────────────────────────
     subgraph L1 ["Layer 1 — Presentation"]
@@ -27,7 +28,7 @@ flowchart TB
         IDE("💻 Antigravity IDE/CLI<br>Cursor IDE/CLI<br>Claude Code / OpenCode / MCP clients")
     end
 
-    %% ── Layer 1.5: Management & Configuration ──────────────────
+    %% ── Layer 1.5: Management & Configuration ─────────────────
     subgraph LM ["Layer 1.5 — Management & Configuration"]
         CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, bridge, skill, agent)"]
         AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
@@ -36,18 +37,9 @@ flowchart TB
 
     %% ── Layer 2: Cognitive Agent Orchestration ─────────────────
     subgraph L2 ["Layer 2 — Cognitive Agent Orchestration"]
-        Router{"🔀 Task Router<br>GEMINI.md Rules"}
-        Queue["📂 File Queue<br>(isolated tasks/<task_id> folders)"]
-
-        subgraph AgentPool ["Ninja Agent Pool"]
-            direction LR
-            Genin("🍃 Genin<br>Scout")
-            Chunin("📜 Chunin<br>Intel")
-            Jonin("🛡️ Jonin<br>UI Builder")
-            Anbu("👥 Anbu<br>Backend / DevOps")
-            Tokubetsu("🎯 Tokubetsu<br>Scribe")
-            Kage("🌀 Kage<br>Architect")
-        end
+        Orchestrator["🌀 Self/Orchestrator<br>(TypeName: self — runs as the primary Antigravity thread)"]
+        SkillRefs["📚 Ninja Skill References<br>genin • kage • chunin • jonin • anbu • tokubetsu-jonin"]
+        Research["🔬 research (optional)<br>(TypeName: research — read-only parallel scan)"]
     end
 
     %% ── Layer 3: MCP Middleware ────────────────────────────────
@@ -67,50 +59,32 @@ flowchart TB
 
     %% ── Data Flow ──────────────────────────────────────────────
     User -->|"1. Natural language prompt"| IDE
-    IDE -->|"2. Evaluate rules"| Router
+    IDE -->|"2. Read prompt.md & plan"| Orchestrator
 
     %% CLI and Configuration flow
     CLI -->|"Updates configuration"| MCPConfig
     CLI -->|"Manages agents/bridges"| AgentConfig
     CLI -->|"Triggers index/migration"| DB
     IDE -->|"Loads MCP servers"| MCPConfig
-    Router -->|"Reads agent definitions"| AgentConfig
+    Orchestrator -->|"Reads rules + agent definitions"| AgentConfig
 
-    Router -->|"3. Write task"| Queue
-    Queue -->|"4. Read parameters"| Genin
-    Queue -->|"4. Read parameters"| Chunin
-    Queue -->|"4. Read parameters"| Jonin
-    Queue -->|"4. Read parameters"| Anbu
-    Queue -->|"4. Read parameters"| Tokubetsu
-    Queue -->|"4. Read parameters"| Kage
+    Orchestrator -->|"3a. find_skill() → load reference"| SkillRefs
+    SkillRefs -->|"3b. load SOPs into orchestrator context"| Orchestrator
 
-    Genin -->|"5a. find_skill() / file ops"| KonohaMCP
-    Chunin -->|"5a. find_skill() / file ops"| KonohaMCP
-    Jonin -->|"5a. find_skill() / file ops"| KonohaMCP
-    Anbu -->|"5a. find_skill() / file ops"| KonohaMCP
-    Tokubetsu -->|"5a. find_skill() / file ops"| KonohaMCP
-    Kage -->|"5a. find_skill() / file ops"| KonohaMCP
+    Orchestrator -.->|"4. Optional: parallel read-only scan"| Research
+    Research -->|"find_skill / read-only tools"| KonohaMCP
+    Research -->|"search()"| Semble
 
-    Genin -->|"5b. search()"| Semble
-    Chunin -->|"5b. search()"| Semble
-    Jonin -->|"5b. search()"| Semble
-    Anbu -->|"5b. search()"| Semble
-    Tokubetsu -->|"5b. search()"| Semble
-    Kage -->|"5b. search()"| Semble
+    Orchestrator -->|"5a. find_skill() / file ops"| KonohaMCP
+    Orchestrator -->|"5b. search() / find_related()"| Semble
 
     KonohaMCP -->|"6. SQL query & File I/O"| DB
     DB <-->|"7. FTS5 search"| FTS5
     Semble -->|"6. Semantic index"| Codebase
     KonohaMCP -->|"6. Streamed reads"| Codebase
 
-    Genin -->|"7. Write output"| Queue
-    Chunin -->|"7. Write output"| Queue
-    Jonin -->|"7. Write output"| Queue
-    Anbu -->|"7. Write output"| Queue
-    Tokubetsu -->|"7. Write output"| Queue
-    Kage -->|"7. Write output"| Queue
-    Queue -->|"8. Read output"| Router
-    Router -->|"9. Return response"| IDE
+    Orchestrator -->|"8. Direct tool calls (Read/Edit/Bash/WebFetch)"| Codebase
+    Orchestrator -->|"9. Synthesize & return"| IDE
     IDE -->|"10. Context-aware response"| User
 
     %% ── Layout Alignment ──────────────────────────────────────
@@ -119,9 +93,9 @@ flowchart TB
     %% ── Apply Styles ──────────────────────────────────────────
     class User userNode
     class IDE ideNode
-    class Router routerNode
-    class Queue queueNode
-    class Genin,Chunin,Jonin,Anbu,Tokubetsu,Kage agentNode
+    class Orchestrator routerNode
+    class SkillRefs skillNode
+    class Research researchNode
     class KonohaMCP mcpNode
     class Semble sembleNode
     class DB dbNode
@@ -130,115 +104,109 @@ flowchart TB
     class CLI,AgentConfig,MCPConfig mgmtNode
 ```
 
-> **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Agents &nbsp;|&nbsp; 🟢 konoha MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
+> **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Skill references &nbsp;|&nbsp; 🟢 konoha MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
 >
-> In version 1.1.6, Konoha implements SQLite database storage for bridges (`~/.konoha/skills.db`) and automated installation of the `konoha-bridge` extension into Antigravity IDE and VS Code.
+> In version 1.1.7, Konoha implements SQLite database storage for both bridges and ninja agent skills (`~/.konoha/skills.db`), enabling dynamic skill resolution at rules compile-time and automated installation of the `konoha-bridge` extension into Antigravity IDE and VS Code.
+>
+> **Orchestration model (Antigravity):** The orchestrator runs as the primary thread and coordinates tasks by delegating to specialized konoha subagents. While Antigravity natively only accepts `TypeName: "self"` and `TypeName: "research"`, the Konoha hook (`antigravity_tool_sanitize_hook.js`) automatically translates ninja names (e.g., `"jonin"` → `"self"`, `"genin"` → `"research"`) and injects the agent's full instructions into the Prompt. The orchestrator delegates by calling `invoke_subagent` using the ninja name, and the hook handles the rest.
 
 ## Query Lifecycle
 
 ```mermaid
 ---
-title: Runtime Query Lifecycle with Multi-MCP
+title: Runtime Query Lifecycle (Orchestrator as Self)
 ---
 sequenceDiagram
     actor User as "👤 User"
     participant IDE as "💻 Host IDE (Antigravity / Cursor / Claude / OpenCode)"
-    participant Router as "🔀 Orchestrator (Main)"
-    participant SkillsDB as "⚙️ skills-db MCP"
+    participant Orchestrator as "🌀 Self/Orchestrator"
+    participant Subagent as "🤖 Ninja Subagent"
+    participant KonohaMCP as "⚙️ konoha MCP"
     participant Semble as "🔮 Semble MCP"
     participant KonohaFiles as "📁 konoha-files MCP"
-    participant Queue as "📂 File Queue (tasks/<task_id>/)"
-    participant Agent as "🥷 Ninja Agent"
+    participant Research as "🔬 research (optional)"
     participant DB as "🗄️ SQLite FTS5"
+    participant Codebase as "📂 Workspace"
 
     User->>IDE: Natural language prompt
     activate IDE
-    Note over IDE: Antigravity: prompt_hook writes prompt.md
-    IDE->>Router: Evaluate task (read prompt.md)
-    activate Router
+    Note over IDE: prompt_hook writes prompt.md
+    IDE->>Orchestrator: Load prompt.md as the task spec
+    activate Orchestrator
 
     %% --- Skill Discovery Phase ---
-    Note over Router: Step 1: Skill Discovery
-    Router->>SkillsDB: find_skill() or optimize_report()
-    activate SkillsDB
-    Note over SkillsDB: Sanitize query keyword
-    SkillsDB->>DB: FTS5 MATCH query
-    DB-->>SkillsDB: Return ranked results
-    Note over SkillsDB: Shield against prompt injection
-    SkillsDB-->>Router: Top relevant skills
-    deactivate SkillsDB
+    Note over Orchestrator: Step 1: Skill Discovery (konoha MCP)
+    Orchestrator->>KonohaMCP: find_skill(keyword) / optimize_report()
+    activate KonohaMCP
+    Note over KonohaMCP: Sanitize query keyword
+    KonohaMCP->>DB: FTS5 MATCH query
+    DB-->>KonohaMCP: Return ranked results
+    Note over KonohaMCP: Shield against prompt injection
+    KonohaMCP-->>Orchestrator: Top relevant skills
+    deactivate KonohaMCP
+
+    Orchestrator->>KonohaMCP: get_skill(name)
+    activate KonohaMCP
+    KonohaMCP-->>Orchestrator: Full reference instructions (Shielded)
+    deactivate KonohaMCP
 
     %% --- Context Discovery ---
-    Note over Router: Step 2: Context Discovery
-    Router->>Semble: search() / find_related()
+    Note over Orchestrator: Step 2: Codebase Context (semble MCP)
+    Orchestrator->>Semble: search() / find_related()
     activate Semble
-    Semble-->>Router: Project context & code targets
+    Semble-->>Orchestrator: Project context & code targets
     deactivate Semble
 
     opt Targeted read / capped grep / structure map
-        Router->>KonohaFiles: read_file_range / token_efficient_grep / get_file_structure
+        Orchestrator->>KonohaFiles: read_file_range / token_efficient_grep / get_file_structure
         activate KonohaFiles
-        KonohaFiles-->>Router: Compressed file output
+        KonohaFiles-->>Orchestrator: Compressed file output
         deactivate KonohaFiles
     end
 
-    %% --- Routing Phase ---
-    Note over Router: Step 3: Markdown Delegation
-    Note over Router: Create isolated task directory
-    Note over Router: Increment depth: check depth <= 7
-    Router->>Queue: Write task to tasks/<task_id>/delegate.md
-    activate Queue
-    Router->>Agent: Launch agent (pass delegate.md & result.md paths)
-    deactivate Router
-    activate Agent
-
-    %% --- Agent Execution Phase ---
-    Note over Agent: Step 4: Load Task & SOPs
-    Agent->>Queue: Read task from prompt-specified delegate.md path
-    deactivate Queue
-    Agent->>SkillsDB: find_skill("anbu-skill")
-    activate SkillsDB
-    Note over SkillsDB: Sanitize & Shield
-    SkillsDB-->>Agent: Load SOPs (Neutralized)
-    deactivate SkillsDB
-
-    %% --- Skills-DB Search Phase ---
-    Note over Agent: Step 5: Additional Skills via Direct Tool Calls
-    Agent->>SkillsDB: find_skill(keyword)
-    activate SkillsDB
-    Note over SkillsDB: Sanitize query keyword
-    SkillsDB->>DB: Execute FTS5 MATCH query with BM25 ranking
-    activate DB
-    DB-->>SkillsDB: Retrieve ranked results
-    deactivate DB
-    Note over SkillsDB: Shield retrieved content
-
-    alt Content truncated (>4KB)
-        SkillsDB-->>Agent: 4KB preview (Shielded) + get_skill hint
-        Agent->>SkillsDB: get_skill(name)
-        activate SkillsDB
-        Note over SkillsDB: Shield retrieved content
-        SkillsDB-->>Agent: Return full reference instructions (Shielded)
-        deactivate SkillsDB
-    else Content fits (<=4KB)
-        SkillsDB-->>Agent: Complete reference instructions (Shielded)
+    %% --- Optional parallel read-only scan ---
+    opt Large repo scan in parallel
+        Orchestrator->>Research: spawn TypeName: research (read-only)
+        activate Research
+        Research->>KonohaMCP: find_skill / read-only tools
+        Research->>Semble: search / find_related
+        Research-->>Orchestrator: Return findings only
+        deactivate Research
     end
-    deactivate SkillsDB
 
-    Note over Agent,IDE: Step 6: Execute task via Konoha Bridge Router<br>(model name: <bridge_name>-<model_name>)
+    %% --- Execution Phase ---
+    Note over Orchestrator: Step 3: Delegate (invoke_subagent)
+    Orchestrator->>Subagent: spawn TypeName: ninja (e.g., jonin, anbu)
+    activate Subagent
+    Note over Subagent: Hook translates ninja TypeName to self/research
+    Subagent->>Codebase: Read / Edit / Write / Bash / WebFetch
+    Codebase-->>Subagent: Tool results
+    Subagent-->>Orchestrator: Return final result
+    deactivate Subagent
 
     %% --- Response Phase ---
-    Note over Agent: Step 7: Write Result & Complete
-    Note over Agent: Write atomically to result.md.tmp then rename to result.md
-    Agent->>Queue: Write output to result.md
-    activate Queue
-    deactivate Agent
-    activate Router
-    Router->>Queue: Read result.md from task directory
-    deactivate Queue
-    Note over Router: Step 8: Clean up task directory (delete tasks/<task_id>/)
-    Router-->>IDE: Synthesized response
-    deactivate Router
+    Note over Orchestrator: Step 4: Synthesize & Return
+    Orchestrator-->>IDE: Synthesized response
+    deactivate Orchestrator
     IDE-->>User: Formatted final answer
     deactivate IDE
 ```
+
+> **Hook-Assisted Invocation**: While the Antigravity platform natively only permits `self` and `research` TypeNames, Konoha's pre-tool hook (`antigravity_tool_sanitize_hook.js`) automatically translates ninja TypeNames (`genin`, `chunin` to `research`, and others to `self`) and prepends their instructions at invocation time. Thus, custom subagents (`genin`, `jonin`, etc.) can be called normally and run with full role fidelity.
+
+## Forced MCP Usage & Delegation Policy
+
+**ABSOLUTE RULE:** All non-trivial work MUST go through the **konoha MCP** and **semble MCP** tools — never execute tasks solo, never bypass the agent delegation workflow.
+
+- **Skill discovery**: Always via `konoha` MCP (`find_skill`, `get_skill`, `list_skills`). Never use `semble` for skills.
+- **Codebase search**: Always via `semble` MCP (`search`, `find_related`). Never use `grep`, `rg`, `find`, `glob`, or generic `Read`/`Grep` tools for code discovery.
+- **File reads**: Always via `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`). Never use shell `cat`/`head`/`tail`/`less` or generic Read/Grep tools.
+- **Non-trivial delegation**: Any task that requires code changes, multi-step planning, or specialized expertise MUST be delegated to a konoha subagent:
+  - `@genin` — codebase search, tracing codepaths, read-only exploration
+  - `@kage` — architecture decisions, security review, deep analysis, risk assessment
+  - `@chunin` — web research, documentation synthesis, citation-backed recommendations
+  - `@jonin` — UI/frontend development (SvelteKit, Next.js, Tailwind)
+  - `@anbu` — backend dev, bug fixing, DevOps, infrastructure
+  - `@tokubetsu-jonin` — technical writing, documentation, API specs
+
+**The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** The only exception is simple/trivial tasks (single read/edit on a known file) which may be executed directly.

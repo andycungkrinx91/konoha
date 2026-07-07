@@ -18,6 +18,33 @@ const GLOBAL_CLI_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'age
 const GLOBAL_IDE_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
 const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'config', 'agents');
 
+/**
+ * Official ninja roster — the ONLY agent directory names allowed inside a
+ * session's `.agents/agents/` directory. Anything else (e.g. a leaked
+ * `define_subagent` artifact from a previous orchestrator run, or stale
+ * `test-*` debug agents) is purged by `cleanStaleSessionAgents` so it cannot
+ * shadow the real roster and break `Agent(name: ...)` invocations.
+ */
+const OFFICIAL_NINJAS = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+
+/**
+ * Remove any directory under `base` whose name is NOT in the official ninja
+ * whitelist. Defense-in-depth against leaked `define_subagent` artifacts and
+ * stale test agents. Safe-by-default: silent on every error path.
+ */
+function cleanStaleSessionAgents(base) {
+  if (!fs.existsSync(base)) return;
+  const official = new Set(OFFICIAL_NINJAS);
+  try {
+    const entries = fs.readdirSync(base, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (official.has(entry.name)) continue;
+      try { fs.rmSync(path.join(base, entry.name), { recursive: true, force: true }); } catch {}
+    }
+  } catch {}
+}
+
 function readStdin() {
   return new Promise((resolve) => {
     let data = '';
@@ -71,6 +98,10 @@ function brainDirFromTranscript(transcriptPath) {
 function deploySessionAgents(agents, brainDir) {
   if (!brainDir) return;
   const base = path.join(brainDir, '.agents', 'agents');
+  // Auto-cleanup: purge any leaked/stale agent directories from prior sessions
+  // before we write the official roster. This prevents `define_subagent` artifacts
+  // and stale `test-*` agents from shadowing real ninjas.
+  cleanStaleSessionAgents(base);
   const antigravityManager = require('./antigravity_manager');
   for (const agent of agents) {
     try {
@@ -82,6 +113,7 @@ function deploySessionAgents(agents, brainDir) {
         instructions: agent.instructions,
         constraints: agent.constraints || '',
         modelTier: agent.modelTier,
+        skills: agent.skills || [],
       });
       fs.writeFileSync(path.join(destDir, 'agent.json'), JSON.stringify(payload, null, 2) + '\n', 'utf-8');
     } catch {}

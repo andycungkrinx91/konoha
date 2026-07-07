@@ -285,6 +285,7 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/token_efficient_grep/g, 'mcp__konoha__token_efficient_grep')
     .replace(/get_file_structure/g, 'mcp__konoha__get_file_structure')
     .replace(/find_files_clean/g, 'mcp__konoha__find_files_clean')
+    .replace(/search_file/g, 'mcp__konoha__search_file')
     .trim();
 }
 
@@ -342,46 +343,26 @@ function generateClaudeCodeSubagent(agent) {
 }
 
 function deployClaudeCodeSubagents(agents, silent = true) {
-  if (!agents || agents.length === 0) return false;
-
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-  const backupDir = path.join(HOME, '.claude', 'agents_backup');
   ensureDir(claudeAgentsDir);
 
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-
-  // Backup existing non-official agents
-  if (fileExists(claudeAgentsDir)) {
+  // Delete konoha.md subagent if it exists
+  const konohaPath = path.join(claudeAgentsDir, 'konoha.md');
+  if (fs.existsSync(konohaPath)) {
     try {
-      const files = fs.readdirSync(claudeAgentsDir);
-      files.forEach((file) => {
-        const basename = path.basename(file, '.md');
-        if (file.endsWith('.md') && !official.includes(basename)) {
-          ensureDir(backupDir);
-          const srcPath = path.join(claudeAgentsDir, file);
-          const destPath = path.join(backupDir, file);
-          fs.copyFileSync(srcPath, destPath);
-          fs.unlinkSync(srcPath);
-          if (!silent) {
-            console.log(`✓ Backed up and removed non-Konoha agent: ${file}`);
-          }
-        }
-      });
+      fs.unlinkSync(konohaPath);
     } catch (e) {
       if (!silent) {
-        console.warn(`Warning during agent backup: ${e.message}`);
+        console.warn(`Warning deleting konoha agent: ${e.message}`);
       }
     }
   }
 
-  let deployed = 0;
+  // Deploy all 6 subagents from agents list
   for (const agent of agents) {
-    if (!official.includes(agent.name)) continue;
-
     const destPath = path.join(claudeAgentsDir, `${agent.name}.md`);
     const content = generateClaudeCodeSubagent(agent);
     let shouldWrite = true;
-
     if (fileExists(destPath)) {
       try {
         shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
@@ -392,14 +373,13 @@ function deployClaudeCodeSubagents(agents, silent = true) {
 
     if (shouldWrite) {
       fs.writeFileSync(destPath, content);
-      deployed++;
     }
   }
 
-  if (!silent && deployed > 0) {
-    console.log(`✓ Deployed ${deployed} Claude Code subagents to ${claudeAgentsDir}`);
+  if (!silent) {
+    console.log(`✓ Deployed Claude Code subagents to ${claudeAgentsDir}`);
   }
-  return deployed > 0;
+  return true;
 }
 
 function ensureClaudeCodeSetup(options = {}) {
@@ -421,7 +401,7 @@ function ensureClaudeCodeSetup(options = {}) {
   deployUtils.installFileTools(silent);
 
   if (!fileExists(serverPath)) {
-    return { ok: false, reason: 'skills-db server not installed' };
+    return { ok: false, reason: 'konoha server not installed' };
   }
 
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
@@ -444,12 +424,97 @@ function ensureClaudeCodeSetup(options = {}) {
   return { ok: true };
 }
 
+function resolveOpenCodeModel(agent) {
+  return agent.opencodeModel || 'inherit';
+}
+
+function generateOpenCodeSubagent(agent) {
+  const model = resolveOpenCodeModel(agent);
+  const description = `${agent.description || ''} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+
+  let instructions = agent.instructions || '';
+  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
+  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
+  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
+  instructions = instructions.trim();
+  if (instructions && !instructions.endsWith('.')) {
+    instructions += '.';
+  }
+
+  if (agent.skills && agent.skills.length > 0) {
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
+    const logMatch = instructions.match(logPattern);
+    if (logMatch) {
+      const insertIndex = logMatch.index + logMatch[0].length;
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+    } else {
+      instructions = `Before work: ${findSkillCalls} ` + instructions;
+    }
+  }
+
+  const body = adaptInstructionsForClaudeCode(instructions);
+  const sembleLine = buildSembleSearchPolicyCompact();
+  const fileToolsLine = buildFileToolsPolicyCompact();
+
+  const frontmatter = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\\"').replace(/\n/g, ' ')}"`,
+    `model: ${model}`,
+    'allowed-tools:',
+    '  - Read',
+    '  - Write',
+    '  - Edit',
+    '  - Grep',
+    '  - Glob',
+    '  - Bash',
+    '  - TodoRead',
+    '  - TodoWrite',
+    '  - WebSearch',
+    '  - mcp__semble__*',
+    '  - mcp__konoha__*',
+    '---',
+    ''
+  ];
+
+  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
+}
+
+function deployOpenCodeSubagents(agents, silent = true) {
+  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
+  ensureDir(opencodeAgentsDir);
+
+  for (const agent of agents) {
+    const destPath = path.join(opencodeAgentsDir, `${agent.name}.md`);
+    const content = generateOpenCodeSubagent(agent);
+    let shouldWrite = true;
+    if (fileExists(destPath)) {
+      try {
+        shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
+      } catch {
+        shouldWrite = true;
+      }
+    }
+
+    if (shouldWrite) {
+      fs.writeFileSync(destPath, content);
+    }
+  }
+
+  if (!silent) {
+    console.log(`✓ Deployed OpenCode subagents to ${opencodeAgentsDir}`);
+  }
+  return true;
+}
+
 function ensureOpenCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    silent = true
+    silent = true,
+    agents = []
   } = options;
 
   if (!isOpenCodeInstalled()) {
@@ -459,10 +524,15 @@ function ensureOpenCodeSetup(options = {}) {
   deployUtils.installFileTools(silent);
 
   if (!fileExists(serverPath)) {
-    return { ok: false, reason: 'skills-db server not installed' };
+    return { ok: false, reason: 'konoha server not installed' };
   }
 
   registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
+
+  if (agents && agents.length > 0) {
+    deployOpenCodeSubagents(agents, silent);
+  }
+
   return { ok: true };
 }
 
@@ -523,7 +593,8 @@ function getOpenCodeStatus() {
     globalConfig: fileExists(OPENCODE_GLOBAL),
     mcpKonoha: false,
     mcpSemble: false,
-    mcpSkillsDb: false
+    mcpSkillsDb: false,
+    agentsCount: 0
   };
 
   if (status.globalConfig) {
@@ -534,6 +605,14 @@ function getOpenCodeStatus() {
       status.mcpSemble = health.semble;
       status.mcpSkillsDb = health.skillsDb;
     } catch {}
+  }
+
+  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  for (const name of official) {
+    if (fileExists(path.join(opencodeAgentsDir, `${name}.md`))) {
+      status.agentsCount++;
+    }
   }
 
   return status;
@@ -765,6 +844,18 @@ function removeOpenCodeConfig(silent = true) {
       );
     } catch {}
   }
+
+  // Remove OpenCode subagents
+  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  for (const name of official) {
+    const p = path.join(opencodeAgentsDir, `${name}.md`);
+    if (fileExists(p)) {
+      try {
+        fs.unlinkSync(p);
+      } catch {}
+    }
+  }
 }
 
 module.exports = {
@@ -789,5 +880,8 @@ module.exports = {
   removeClaudeCodeConfig,
   removeOpenCodeConfig,
   generateClaudeCodeSubagent,
-  deployClaudeCodeSubagents
+  deployClaudeCodeSubagents,
+  resolveOpenCodeModel,
+  generateOpenCodeSubagent,
+  deployOpenCodeSubagents
 };

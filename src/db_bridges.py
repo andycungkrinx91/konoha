@@ -26,16 +26,9 @@ def get_db_connection():
             provider TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
             target_url TEXT,
-            api_key TEXT,
-            quota_unavailable_until INTEGER DEFAULT NULL
+            api_key TEXT
         );
     """)
-    # Migration guard: add quota_unavailable_until if missing (existing DBs)
-    try:
-        conn.execute("ALTER TABLE bridges ADD COLUMN quota_unavailable_until INTEGER DEFAULT NULL;")
-        conn.commit()
-    except Exception:
-        pass  # Column already exists
     conn.commit()
     return conn
 
@@ -69,8 +62,8 @@ def auto_migrate_json_if_needed(conn):
         target_url = b.get("targetUrl") or b.get("target_url")
         api_key = b.get("apiKey") or b.get("api_key")
         cursor.execute("""
-            INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key, quota_unavailable_until)
-            VALUES (?, ?, ?, ?, ?, ?, NULL)
+            INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (name, port, provider, enabled, target_url, api_key))
     conn.commit()
 
@@ -78,7 +71,7 @@ def list_bridges():
     conn = get_db_connection()
     auto_migrate_json_if_needed(conn)
     cursor = conn.cursor()
-    cursor.execute("SELECT name, port, provider, enabled, target_url, api_key, quota_unavailable_until FROM bridges")
+    cursor.execute("SELECT name, port, provider, enabled, target_url, api_key FROM bridges")
     rows = cursor.fetchall()
     result = []
     for r in rows:
@@ -92,8 +85,6 @@ def list_bridges():
             item["targetUrl"] = r["target_url"]
         if r["api_key"]:
             item["apiKey"] = r["api_key"]
-        if r["quota_unavailable_until"]:
-            item["quotaUnavailableUntil"] = r["quota_unavailable_until"]
         result.append(item)
     conn.close()
     return result
@@ -112,8 +103,8 @@ def upsert_bridge(bridge_dict):
 
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key, quota_unavailable_until)
-        VALUES (?, ?, ?, ?, ?, ?, NULL)
+        INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (name, port, provider, enabled, target_url, api_key))
     conn.commit()
     conn.close()
@@ -129,22 +120,6 @@ def set_enabled(name, enabled_bool):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE bridges SET enabled = ? WHERE name = ?", (1 if enabled_bool else 0, name))
-    conn.commit()
-    conn.close()
-
-def set_quota_unavailable(name, until_epoch_ms):
-    """Mark a bridge quota-unavailable until the given epoch millisecond timestamp."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE bridges SET quota_unavailable_until = ? WHERE name = ?", (int(until_epoch_ms), name))
-    conn.commit()
-    conn.close()
-
-def clear_quota_unavailable(name):
-    """Clear quota-unavailable state for a bridge (mark as available again)."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE bridges SET quota_unavailable_until = NULL WHERE name = ?", (name,))
     conn.commit()
     conn.close()
 
@@ -176,16 +151,6 @@ def main():
         if len(sys.argv) < 3:
             sys.exit(1)
         set_enabled(sys.argv[2], False)
-        print(json.dumps({"ok": True}))
-    elif cmd == "--set-quota" or cmd == "set-quota":
-        if len(sys.argv) < 4:
-            sys.exit(1)
-        set_quota_unavailable(sys.argv[2], sys.argv[3])
-        print(json.dumps({"ok": True}))
-    elif cmd == "--clear-quota" or cmd == "clear-quota":
-        if len(sys.argv) < 3:
-            sys.exit(1)
-        clear_quota_unavailable(sys.argv[2])
         print(json.dumps({"ok": True}))
     else:
         print(json.dumps(list_bridges()))

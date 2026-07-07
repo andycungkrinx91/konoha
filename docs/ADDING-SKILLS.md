@@ -63,6 +63,12 @@ Run the migration command to scan your skills directories and index the new cont
 konoha migrate
 ```
 
+If you want to prune and backup unused skills that are no longer associated with any active agents in `agents.json` to `.agents.backup/skills/{name-skill}-yyyymmdd` (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with the `--force` flag. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:
+
+```bash
+konoha migrate --force
+```
+
 The migration automatically:
 1. Scans `~/.agents/skills/` and `./.agents/skills/`.
 2. Indexes the main `SKILL.md` instructions.

@@ -51,7 +51,7 @@ Close and reopen Antigravity IDE to pick up the new MCP server configuration.
 
 ## Step 4: Update IDE User Rules
 
-Open Antigravity IDE settings and update your **User Rules** to use skills-db instead of loading SKILL.md files directly.
+Open Antigravity IDE settings and update your **User Rules** to use konoha MCP instead of loading SKILL.md files directly.
 
 Replace any subagent instructions that say:
 ```
@@ -60,7 +60,7 @@ Load and follow ~/.agents/skills/<skill>/SKILL.md
 
 With:
 ```
-Before starting any task, call skills-db find_skill with keywords relevant to your task.
+Before starting any task, call konoha MCP find_skill with keywords relevant to your task.
 Do NOT load SKILL.md files directly — always use find_skill.
 ```
 
@@ -70,40 +70,46 @@ Do NOT load SKILL.md files directly — always use find_skill.
 
 If Antigravity IDE User Rules must be set manually, copy the contents of `~/.gemini/GEMINI.md` after running `konoha migrate`.
 
-### Mandatory File-Based Delegation Pipeline (Antigravity)
+### Orchestration Model — Hook-Assisted Subagent Invocation
 
-Every user request follows this pipeline. The main agent is a **coordinator only** — it never executes project work directly (except quota fallback).
+Konoha implements a pre-tool sanitization hook (`antigravity_tool_sanitize_hook.js`) that automatically translates custom ninja TypeNames (`genin`, `kage`, `chunin`, etc.) to platform-allowed values (`self` / `research`) and dynamically injects their system prompts. Therefore, custom TypeNames can be called normally and run with full role fidelity.
 
-| Step | Actor | Action | File |
-|------|-------|--------|------|
-| 1 | `prompt_hook.js` | User message captured | `prompt.md` |
-| 2 | Orchestrator | Read & analyze request | read `prompt.md` |
-| 3 | Orchestrator | Discover skills / code (discovery MCP only) | — |
-| 4 | Orchestrator | Select **one** Konoha subagent | `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin` (as `invoke_subagent` `TypeName`) |
-| 5 | Orchestrator | Write delegation brief | `scratch/tasks/<task_id>/delegate.md` |
-| 6 | Orchestrator | Call `invoke_subagent` with `TypeName`, then **end turn** | — |
-| 7 | Subagent | Read brief & execute | read `delegate.md` |
-| 8 | Subagent | Write completion report | `scratch/tasks/<task_id>/result.md` |
-| 9 | Orchestrator | Summarize for user & cleanup | read `result.md` |
+Concretely, the orchestrator:
 
-**Naming:** `delegate.md` = delegation brief (your `DELEGATED.md` equivalent). `result.md` = subagent report (your `REPORT.md` equivalent).
+1. Runs as `TypeName: "self"` — the orchestrator **is** the primary Antigravity thread.
+2. Acts as a coordinator, loading skill references via `konoha.find_skill` + `konoha.get_skill`.
+3. **Delegates** non-trivial tasks to specialized ninja subagents using `invoke_subagent` with the appropriate ninja TypeName. The pre-tool hook handles translation and instruction injection automatically.
+4. Optionally spawns `TypeName: "research"` subagents for parallel, read-only scans of large codebases or documentation.
+5. Writes intermediate notes, plans, or scratch artifacts to disk (`prompt.md`, scratch files) to keep the chat log light.
 
-**Forbidden for orchestrator:** `@self`, `@research`, typing `@jonin` in chat instead of calling `invoke_subagent`, impersonating subagents, custom/shadow agents, and direct `write_to_file` / `run_command` on project source.
+#### Task lifecycle
 
-**Delegation API:** After `delegate.md` is written, call `invoke_subagent` with Konoha `TypeName` (`jonin`, `anbu`, etc.). **Never** use `TypeName: "self"` or `"research"`. Konoha auto-registers subagents at session start via the `antigravity_subagent_hook.js` PreInvocation hook (programmatic `define_subagent` with bare names). Run `konoha migrate` and start a **new session** if `subagent not found` errors persist.
+| Step | Actor | Action | Artifact |
+|------|-------|--------|----------|
+| 1 | `prompt_hook.js` | Capture user message | `prompt.md` |
+| 2 | Self/Orchestrator | Read & analyze request | reads `prompt.md` |
+| 3 | Self/Orchestrator | Discover skills (`konoha.find_skill` / `optimize_report`) | — |
+| 4 | Self/Orchestrator | Load full skill reference (`konoha.get_skill`) | — |
+| 5 | Self/Orchestrator | Delegate to Subagent (`invoke_subagent`) | — |
+| 6 | Subagent | Execute task via native tools | `Read` / `Edit` / `Write` / `Bash` / `WebFetch` |
+| 7 | Subagent | Return results to Orchestrator | — |
+| 8 | Self/Orchestrator | Synthesize & respond | final answer |
 
-| Task type | Subagent TypeName |
-|-----------|-------------------|
-| Understand codebase, trace flows, map dependencies | `genin` |
-| Architecture decisions, security review, deep analysis | `kage` |
-| External research, documentation, best practices | `chunin` |
-| UI design, frontend components, styling | `jonin` |
-| Backend logic, bug fixing, DevOps, infrastructure, CI/CD | `anbu` |
-| Technical writing, README, API docs, runbooks, onboarding | `tokubetsu-jonin` |
-| Parallel / multi-domain work | Multiple Konoha subagents in parallel |
-| Simple/trivial tasks | MUST still delegate (quota fallback only) |
+#### Skill → agent reference (used by orchestrator only)
 
-Full orchestrator rules, guardrails, and subagent protocol: `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md`.
+| Skill | Reference agent |
+|-------|-----------------|
+| `deep-code-explorer` | `genin` |
+| `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `websearch-deep` | `chunin` |
+| `agent-browser`, `modern-full-stack` | `jonin` |
+| `devsecops-engineer`, `agent-browser` | `anbu` |
+| `documentation` | `tokubetsu-jonin` |
+| Simple/trivial task | Main agent executes directly using native tools |
+
+**Hook-Assisted Invocation**: Custom ninja subagents are fully supported via `invoke_subagent` as the pre-tool hook transparently maps them to platform-compatible endpoints.
+
+Full orchestrator rules and subagent protocol: `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md`.
 
 ## 🛡️ Default Tools & Guardrails
 
@@ -119,25 +125,12 @@ To maintain stability and enforce security, the Antigravity system implements th
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
-> * **Locked Subagent Delegation**: Subagent delegation is strictly restricted to the 6 official Konoha agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Never use Antigravity built-ins `@self` or `@research` — use parallel Konoha subagents or `genin`/`chunin` instead. Defining or creating custom subagents is prohibited.
-> * **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited.
+> * **Subagent Delegation Model**: Custom `TypeName` values (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are dynamically translated under the hood by Konoha's pre-tool hook to platform-allowed values (`self` / `research`) and injected with their complete instructions. Calling ninja agents directly via `invoke_subagent` is fully supported.
+> * **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited — `define_subagent` may silently succeed but the resulting `TypeName` is rejected at invocation.
 > * **No Git Execution**: AI agents must **NEVER** execute any `git` command whatsoever. Use **semble** MCP for code search (`rg` only if semble MCP is unavailable).
-> * **Recursive Loop Circuit Breaker**: File queue transitions via `scratch/tasks/<task_id>/delegate.md` must embed and track delegation depth metadata (`depth: <N>`). If depth exceeds 7 continuously, the circuit breaker must freeze the file state, halt the subagent pool, and prompt the user for validation.
+> * **Recursive Loop Circuit Breaker**: The orchestrator tracks delegation/iteration depth to prevent infinite loops via repeated skill-loading + re-execution cycles. If depth exceeds 7 continuously, the circuit breaker halts and prompts the user for validation.
 > * **Indirect Prompt Injection Shielding**: Incoming or retrieved skill text assets are treated as untrusted and automatically run through a defensive parsing layer to neutralize spoofed headers or instructions.
 > * **FTS5 Query Sanitization**: Built-in regex-based sanitization automatically cleans search queries to prevent FTS5 MATCH compilation failures (unbalanced quotes, bare AND/OR/NOT/NEAR operators).
-> * **Quota & Rate Limits Handling**: In case of Quota Limits or API errors (such as `RESOURCE_EXHAUSTED` or `429` errors), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task. The agent and the runtime must immediately and automatically fallback to using `Gemini 3.1 Flash-Lite` for all subsequent requests to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent must halt execution gracefully and output this exact warning:
->   "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
-
-### 🛠️ Step-by-Step Guide to Resolve Quota Exhaustion:
-
-1. **Resume the Coding Session**:
-   - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
-   - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
-
-2. **Upgrade Google AI Subscription**:
-   - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
-   - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
-```
 
 ## Step 5: Verify in IDE
 

@@ -131,13 +131,13 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```
    **Windows (PowerShell):**
    ```powershell
-   '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.gemini\skills-db\file_tools_launcher.js
+   '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
    Expected: JSON listing **6 tools**.
 
 5. **Restart Cursor** after repair.
 
-6. Run `konoha test` — expects **14 tests** (7 skills-db + 7 konoha-files).
+6. Run `konoha test` — expects **16 tests** (9 konoha + 7 konoha-files).
 
 **Common errors:**
 - `Refused: requested span is N lines (max 500)` — narrow `read_file_range` window.
@@ -252,7 +252,7 @@ konoha migrate
 
 ### 🧪 Checking the MCP Server Manually
 
-**skills-db (Python):**
+**konoha (Python):**
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.konoha/server.py
 ```
@@ -264,24 +264,11 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.kono
 
 *Expected output:* A JSON response containing `protocolVersion` and `serverInfo` (initialize) or a `tools` array (tools/list).
 
-## Quota Limits, Rate Limits, and API Errors
+## API Rate Limits and Errors
 
-If a task execution encounters quota limits, rate limits, or API errors (such as `RESOURCE_EXHAUSTED` or HTTP `429` status codes), the coordinator will NOT spawn shadow subagents. Instead, it will immediately fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
+If a task execution encounters rate limits or API errors, the coordinator will fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
 
-The system and agent configurations will automatically and immediately fallback to `Gemini 3.1 Flash-Lite` to ensure continuous operational capability. If both the primary model and cloud fallback models return `RESOURCE_EXHAUSTED` or `429` errors, the system is in total quota exhaustion. In this case, the agent will halt execution gracefully and output this exact warning:
-
-> [!WARNING]
-> "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
-
-### Step-by-Step Guide to Resolve Quota Exhaustion:
-
-1. **Resume the Coding Session**:
-   - **IDE User**: Close the current agent panel/chat session and start a new one, or reload your workspace window.
-   - **CLI User**: Simply run your previous CLI command (e.g., `konoha` or your target command) to resume the session.
-
-2. **Upgrade Google AI Subscription**:
-   - **Google AI Studio**: Go to [Google AI Studio](https://aistudio.google.com/) to add billing information or upgrade your tier.
-   - **Google Cloud Console**: Visit the [Google Cloud Console](https://console.cloud.google.com/) to associate a billing account with your project or request a quota limit increase.
+The system and agent configurations will automatically fallback to `Gemini 3.1 Flash-Lite` to ensure continuous operational capability.
 
 ## Bridge Gateway Troubleshooting
 
@@ -343,13 +330,13 @@ If Antigravity IDE was shut down but its bridge remains registered as `AVAILABLE
 2. If you still see `AVAILABLE` on a dead session, run `konoha bridge delete antigravity` and recreate via `konoha bridge create` after restarting Antigravity.
 3. Alternatively, disable temporarily: `konoha bridge disable antigravity`
 
-### Bridge Returns 429 / RESOURCE_EXHAUSTED
+### Bridge Returns Rate Limit Errors
 
 The gateway automatically rotates to the next available bridge when rate limits are hit. You can also:
 
-1. Check quota state: `konoha bridge status`
-2. Clear manual quota: `konoha bridge clear-quota <bridge-name>`
-3. Set manual quota expiration: `konoha bridge set-quota <bridge-name> <epoch_ms>`
+1. Check bridge status: `konoha bridge status`
+2. Disable a failing bridge: `konoha bridge disable <bridge-name>`
+3. Remove and recreate: `konoha bridge delete <bridge-name>` then `konoha bridge create`
 
 ---
 

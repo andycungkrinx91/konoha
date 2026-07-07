@@ -19,7 +19,10 @@
       "Bash(sed -i \"/const __t = Date.now/d\" bin/cli.js)",
       "Bash(sed -i \"/__perf\\('/d\" bin/cli.js)",
       "Bash(NO_ANIMATION=1 node --require ./prof_inject.js bin/cli.js agent status)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(python3 /home/andycungkrinx/experiment/portofolio/data/konoha/src/db_agents.py list)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 *)"
     ]
   }
 }

@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('child_process');
+const platform = require('./platform_utils');
 const cursorManager = require('./cursor_manager');
 const antigravityManager = require('./antigravity_manager');
 const mcpClientsManager = require('./mcp_clients_manager');
@@ -30,17 +32,39 @@ const FINGERPRINT_PATH = path.join(HOME, '.konoha', '.deploy-fingerprint');
 
 let isRegenerating = false;
 
-// Load agents from JSON
+function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
+  if (!allDbSkills || allDbSkills.length === 0) return [];
+  const allowed = configuredSkills || [];
+  return allDbSkills.filter(s => {
+    const base = s.split('/')[0];
+    if (allowed.includes(s) || allowed.includes(base)) return true;
+    return false;
+  });
+}
+
+// Load agents from SQLite or JSON
 function loadAgents() {
   let agents = [];
+  let loadedFromDb = false;
   let loadedFromUser = false;
-  if (fs.existsSync(USER_AGENTS_JSON_PATH)) {
+
+  try {
+    const pythonCmd = platform.detectPythonOrDefault();
+    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+    const res = spawnSync(pythonCmd, [dbAgentsScript, 'list'], { encoding: 'utf8' });
+    if (res.status === 0) {
+      agents = JSON.parse(res.stdout.trim());
+      loadedFromDb = true;
+    }
+  } catch (e) {}
+
+  if (!loadedFromDb && fs.existsSync(USER_AGENTS_JSON_PATH)) {
     try {
       agents = JSON.parse(fs.readFileSync(USER_AGENTS_JSON_PATH, 'utf-8'));
       loadedFromUser = true;
     } catch (e) {}
   }
-  
+
   // Load defaults
   let defaults = [];
   if (fs.existsSync(DEFAULT_AGENTS_JSON_PATH)) {
@@ -49,7 +73,58 @@ function loadAgents() {
     } catch (e) {}
   }
 
-  if (loadedFromUser) {
+  if (agents.length === 0 && defaults.length > 0) {
+    agents = defaults;
+    try {
+      const pythonCmd = platform.detectPythonOrDefault();
+      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+      // Bulk upsert via a single Python invocation to avoid N process startups
+      spawnSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
+    } catch (e) {}
+  }
+
+  // Query installed skills from SQLite database dynamically
+  let allDbSkills = [];
+  const dbPath = path.join(HOME, '.konoha', 'skills.db');
+  if (fs.existsSync(dbPath)) {
+    try {
+      const pythonCmd = platform.detectPythonOrDefault();
+      const script = `import sqlite3, sys, json
+try:
+    conn = sqlite3.connect(sys.argv[1])
+    rows = conn.execute("SELECT DISTINCT name FROM skills").fetchall()
+    print(json.dumps([r[0] for r in rows]))
+except Exception:
+    print("[]")`;
+      const res = spawnSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
+      if (res.status === 0) {
+        allDbSkills = JSON.parse(res.stdout.trim());
+      }
+    } catch (e) {}
+  }
+
+  // Dynamically resolve skills for each agent based on SQLite contents
+  if (agents.length > 0) {
+    agents = agents.map(a => {
+      const defAgent = defaults.find(d => d.name === a.name);
+      // Determine base configured skills (if not present, fallback to default template skills)
+      let configuredSkills = a.skills || [];
+      if (configuredSkills.length === 0 && defAgent) {
+        configuredSkills = defAgent.skills || [];
+      }
+      
+      if (allDbSkills.length === 0) {
+        // Fallback to configured list if SQLite DB is empty/unmigrated
+        a.skills = configuredSkills;
+      } else {
+        // Resolve sub-skills/reference files dynamically from SQLite
+        a.skills = getSkillsForAgentFromDb(configuredSkills, allDbSkills);
+      }
+      return a;
+    });
+  }
+
+  if (loadedFromDb || loadedFromUser) {
     // Upgrade existing agents if their instructions do not specify passing the agent parameter
     let upgraded = false;
 
@@ -120,7 +195,7 @@ function loadAgents() {
 
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (a.instructions) {
-          const needsAgentUpgrade = a.instructions.includes('skills-db.find_skill') && !a.instructions.includes('agent=');
+          const needsAgentUpgrade = /\b(?:skills-db|konoha)\.find_skill/.test(a.instructions) && !a.instructions.includes('agent=');
           const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
@@ -225,13 +300,21 @@ function loadAgents() {
   return [];
 }
 
-// Save agents to JSON
+// Save agents to SQLite (authoritative) then mirror to JSON cache
 function saveAgents(agents) {
+  // 1. Persist to JSON file first (external consumers read this)
   const agentsDir = path.dirname(USER_AGENTS_JSON_PATH);
   if (!fs.existsSync(agentsDir)) {
     fs.mkdirSync(agentsDir, { recursive: true });
   }
   fs.writeFileSync(USER_AGENTS_JSON_PATH, JSON.stringify(agents, null, 2) + '\n');
+
+  // 2. Write to SQLite as source of truth via import (single transaction)
+  try {
+    const pythonCmd = platform.detectPythonOrDefault();
+    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+    spawnSync(pythonCmd, [dbAgentsScript, 'import'], { encoding: 'utf8' });
+  } catch (e) {}
 }
 
 function buildAgentReferenceList(agents) {
@@ -242,40 +325,36 @@ function buildAgentReferenceList(agents) {
 }
 
 function buildDefineSubagentGuide(agents) {
-  const sample = antigravityManager.buildDefineSubagentArgs(agents[0]);
   const names = agents.map((a) => a.name).join(', ');
-  return `### define_subagent — CRITICAL quoting rules
+  return `### Antigravity subagent invocation — Hook-Assisted Translation (CRITICAL)
 
-At session start, call \`define_subagent\` once per ninja (**${names}**). Use **bare JSON strings** — extra quotes break \`invoke_subagent\`. Do NOT call \`manage_subagents\` or poll for status. Subagents execute asynchronously, and \`manage_subagents\` list will show 0 active subagents when no task is running, which is normal.
+The Antigravity platform itself has hard-coded restrictions and only accepts \`self\` (always) and \`research\` (read-only investigations) as valid TypeName values. Custom subagent TypeNames (${names}, etc.) are natively rejected by the platform.
 
-**CRITICAL TURN BOUNDARY RULE:** After calling \`define_subagent\` for the subagents, you MUST immediately end your turn (by calling no more tools) before attempting to invoke any subagent. This allows the Antigravity platform to register the new subagents into the session. You can ONLY call \`invoke_subagent\` in a subsequent turn after the definitions have been processed. Never define and invoke subagents in the same response turn.
+To solve this, Konoha implements a pre-tool sanitization hook (\`antigravity_tool_sanitize_hook.js\`) that automatically intercepts, sanitizes, and translates subagent invocation arguments under the hood:
+- Subagents are invoked using their official bare names: \`TypeName: "genin"\`, \`TypeName: "jonin"\`, etc.
+- The hook translates read-only subagents (\`genin\`, \`chunin\`) to \`TypeName: "research"\`.
+- The hook translates writing subagents (\`kage\`, \`jonin\`, \`anbu\`, \`tokubetsu-jonin\`) to \`TypeName: "self"\`.
+- The hook automatically prepends the subagent's complete instructions, constraints, and identity overrides to the \`Prompt\` field so they run with full role fidelity.
 
-Example (\`${agents[0].name}\`):
-\`\`\`json
-${JSON.stringify(sample, null, 2)}
-\`\`\`
+### Supported invocation pattern
 
-- \`name\` must be bare: \`jonin\` — NEVER \`"jonin"\` or \`\\"jonin\\"\`
-- \`enable_mcp_tools\` / \`enable_write_tools\` / \`enable_subagent_tools\` must be JSON booleans, not strings
-- Copy \`system_prompt\` from ~/.agents/agents.json for each agent
+You can call \`invoke_subagent\` using the official ninja names as \`TypeName\` parameters (e.g., \`genin\`, \`jonin\`, etc.). Do NOT attempt to use \`TypeName: "self"\` to manually impersonate subagents, as that is deprecated. Let the hook handle the translation and instruction injection automatically.
 
-### invoke_subagent — CRITICAL format
-
-\`Subagents\` must be a **JSON array object**, NOT a stringified array:
+### Optional: spawn research for parallel read-only work
 
 \`\`\`json
 {
   "Subagents": [
     {
-      "TypeName": "jonin",
-      "Prompt": "Read <ABS>/delegate.md. Write report to <ABS>/result.md.",
+      "TypeName": "research",
+      "Prompt": "Investigate <X> in <repo>. Return findings only — do not modify files.",
       "Workspace": "inherit"
     }
   ]
 }
 \`\`\`
 
-**FORBIDDEN:** \`TypeName: "self"\` or \`invoke_subagent\` with self to impersonate jonin. If jonin fails, re-run \`define_subagent\` with bare names — never fall back to self.`;
+Use research when you need a deep parallel scan of a large codebase or documentation set without blocking the main thread. Do not use it for tasks that require file edits, builds, or deployments.`;
 }
 
 function buildImageDesignDelegateGuide() {
@@ -283,7 +362,7 @@ function buildImageDesignDelegateGuide() {
 
 When the user prompt mentions \`source-image-design\`, design images, or mockups:
 
-1. Orchestrator calls \`skills-db.build_from_source\`(name, source_dir, framework) before writing \`delegate.md\`.
+1. Orchestrator calls \`konoha.build_from_source\`(name, source_dir, framework) before writing \`delegate.md\`.
 2. **Constraints section** MUST include:
    - \`build_from_source\` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
    - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
@@ -300,7 +379,7 @@ When the user prompt mentions \`source-image-design\`, design images, or mockups
 
 When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
 
-1. The orchestrator MUST call the MCP tool \`skills-db.build_from_text\`(name, description, framework) first before writing \`delegate.md\`.
+1. The orchestrator MUST call the MCP tool \`konoha.build_from_text\`(name, description, framework) first before writing \`delegate.md\`.
 2. Do NOT call \`ask_question\` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by \`build_from_text\` directly.
 3. In \`delegate.md\`, pass the directives and specifications returned by \`build_from_text\` directly under constraints and delegate the build to the \`jonin\` agent.
 4. **Mandatory directives** for text-based builds (already included in \`build_from_text\` output):
@@ -320,11 +399,64 @@ When the user prompt involves modifying or working within an existing project:
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.`;
 }
 
+function getSkillDescriptions(skillsList) {
+  const dbPath = path.join(HOME, '.konoha', 'skills.db');
+  if (!fs.existsSync(dbPath) || !skillsList || skillsList.length === 0) return {};
+  try {
+    const platform = require('./platform_utils');
+    const pythonCmd = platform.detectPythonOrDefault();
+    const script = `import sqlite3, sys, json
+try:
+    conn = sqlite3.connect(sys.argv[1])
+    skills = json.loads(sys.argv[2])
+    res = {}
+    for s in skills:
+        row = conn.execute("SELECT content FROM skills WHERE name = ?", (s,)).fetchone()
+        if row:
+            content = row[0]
+            desc = ""
+            if content.startswith("---"):
+                parts = content.split("---")
+                if len(parts) >= 3:
+                    for line in parts[1].split("\\n"):
+                        if line.strip().startswith("description:"):
+                            desc = line.split("description:")[1].strip()
+                            if desc.startswith('"') and desc.endswith('"'): desc = desc[1:-1]
+                            if desc.startswith("'") and desc.endswith("'"): desc = desc[1:-1]
+                            break
+            if not desc:
+                row_desc = conn.execute("SELECT tags FROM skills WHERE name = ?", (s,)).fetchone()
+                if row_desc: desc = row_desc[0].replace(",", " ")
+            res[s] = desc
+    print(json.dumps(res))
+except Exception:
+    print("{}")`;
+    const res = spawnSync(pythonCmd, ['-c', script, dbPath, JSON.stringify(skillsList)], { encoding: 'utf8' });
+    if (res.status === 0) {
+      return JSON.parse(res.stdout.trim());
+    }
+  } catch (e) {}
+  return {};
+}
+
 function generateGeminiMd(agents) {
-  const delegationRows = agents.map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`).join('\n');
+  const skillRows = agents.map(a => {
+    const skill = a.skills && a.skills.length > 0 ? a.skills[0] : 'simple-task';
+    return `| ${skill} | \`${a.name}\` |`;
+  }).join('\n');
 
   // Build official agent name list
   const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
+
+  const baseSkills = [...new Set(agents.flatMap(a => {
+    return (a.skills || []).map(s => s.split('/')[0]);
+  }))];
+  const skillDescs = getSkillDescriptions(baseSkills);
+  const dynamicTableRows = baseSkills.map(skill => {
+    const desc = skillDescs[skill] || 'Specialized skill';
+    const cleanDesc = desc.replace(/[\r\n|]/g, ' ').trim().slice(0, 100);
+    return `| ${cleanDesc} | \`${skill}\` | \`${skill}\` |`;
+  }).join('\n');
 
   const content = `# Global Agent Instructions
 
@@ -334,65 +466,40 @@ ${buildAgentReferenceList(agents)}
 
 ${buildImageDesignDelegateGuide()}
 
-## Auto-Delegation
+${buildDefineSubagentGuide(agents)}
+
+## Orchestration Model
 
 > [!IMPORTANT]
-> **Orchestrator Role & Auto-Delegation**:
-> - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to ninja agents (defined globally).
-> - Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited. The orchestrator must always route and delegate tasks to the specialized ninja agents.
+> **Orchestrator Role**: The main agent runs as the primary Antigravity thread and acts as the **orchestrator only**. It coordinates and delegates tasks to konoha subagents — it does NOT execute non-trivial implementation tasks itself.
+>
+> Antigravity only accepts \`"self"\` and \`"research"\` as valid TypeName values, but the Konoha hook (\`antigravity_tool_sanitize_hook.js\`) automatically translates ninja names (e.g., \`"jonin"\` → \`"self"\`, \`"genin"\` → \`"research"\`) and prepends full agent instructions to the Prompt. Use ninja names directly — the hook handles everything.
 
-The orchestrator MUST follow this workflow:
-1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the \`konoha\` MCP handles all skill lookups.**
-3. **Find Code Context**: If project source code context is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before formulating a delegation. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do NOT call \`konoha.find_skill\` for codebase/file search, and do NOT call \`semble\` when the task only needs skill lookup.
-4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
-   - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any ninja agent.
-   - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to \`@kage\`; backend, script automation, and database to \`@anbu\`; frontend styling and UI implementation to \`@jonin\`; documentation to \`@tokubetsu-jonin\`).
-   - The orchestrator always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
-5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must embed a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
-   \`\`\`markdown
-   ---
-   depth: <N>
-   ---
-   \`\`\`
-   Before writing or updating the new \`delegate.md\`, read the \`depth\` metadata from your current incoming \`delegate.md\` (if you are an agent executing a delegated task) or the target \`delegate.md\` (if it already exists):
-   - If a depth value \`N\` is found in either, write the new \`delegate.md\` with \`depth: N + 1\`.
-   - Otherwise, initialize it to \`depth: 1\`.
-   - **Circuit Breaker**: If \`depth > 7\`, you MUST immediately stop the execution loop, freeze the file state, halt the agent pool, write a circuit breaker warning to \`scratch/tasks/<task_id>/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
-   - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
-   Categorize the main content clearly:
-   - **Goal**: Clear explanation of what needs to be accomplished.
-   - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
-   - **Constraints**: Rule constraints and target files.
-6. **Delegate**: Invoke the ninja agent using the TypeName corresponding to the chosen agent (e.g., \`anbu\`, \`genin\`, etc.). Pass the absolute paths of \`delegate.md\` and \`result.md\` in the agent's prompt. The agent will read \`delegate.md\` from the absolute path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the agent MUST immediately load and read those specific reference documents using the MCP tool \`konoha.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the agent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-7. **Await Results**: Read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` to finalize the step, report back, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
-8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. \`scratch/tasks/<task_id>/plan.md\`) and refer to it, keeping the conversation log light and token-efficient.
+The orchestrator follows this workflow:
+1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
+2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt to discover specific skill reference names. **Do NOT call \`semble\` tools when locating skills.**
+3. **Load Skill Reference**: Call \`konoha.get_skill\` to fetch the full content of the discovered skill.
+4. **Delegate to Konoha Subagent**: Use \`invoke_subagent\` with the appropriate ninja TypeName (e.g., \`"jonin"\`, \`"anbu"\`, \`"genin"\`). The hook translates the TypeName and injects the agent's full instructions into the Prompt automatically. Write a detailed task description in the Prompt field including skill references, constraints, and files to modify.
+5. **Parallel Read-Only Research**: Optionally spawn \`TypeName: "research"\` subagents for deep parallel scans of large codebases or documentation sets. Do NOT use \`research\` for tasks requiring file edits or builds.
+6. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file). All non-trivial tasks MUST be delegated.
+7. **Planning-to-File**: Write detailed analysis, plans, or research details to a markdown file instead of outputting massive text blocks.
 
-The orchestrator ONLY delegates to the defined ninja agents (${agentNames}). Dynamic auto-creation of agents is prohibited.
+### Routing by Domain (for skill selection AND delegation)
 
-**Direct Tool Calls Policy**:
-- It is strictly prohibited to execute Direct Tool Calls in the orchestrator thread for project tasks. You MUST delegate to the corresponding specialized ninja agent.
-- You are ONLY allowed to execute Direct Tool Calls as a fallback if all ninja agents hit quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`) and delegation is blocked.
-- Do NOT spawn shadow agents under any circumstances.
-- **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call \`konoha.find_skill\` for codebase/file search, and do NOT call \`semble\` tools when locating/searching skills (use \`konoha.find_skill\` instead).
+Use the table below to select the right **skill reference** AND **subagent** to delegate to:
 
-| Embedded Skills | Agent TypeName |
-|-----------|----------|
-| \`deep-code-explorer\` | \`genin\` |
-| \`devsecops-engineer\`, \`deep-code-explorer\`, \`agent-browser\`, \`konoha\`, \`websearch-deep\`, \`jonin-skill\` | \`kage\` |
-| \`websearch-deep\` | \`chunin\` |
-| \`agent-browser\`, \`modern-full-stack\` | \`jonin\` |
-| \`devsecops-engineer\`, \`agent-browser\` | \`anbu\` |
-| \`documentation\` | \`tokubetsu-jonin\` |
-| Simple/trivial tasks | Delegate to the matching agent if skill is embedded. Otherwise, route to the closest matching agent (e.g. framework/maintenance to @kage). |
+| Domain / Description | Embedded Skills | Skill to Load |
+|---|---|---|
+${dynamicTableRows}
+| Simple/trivial tasks | Select the closest matching skill | Consult the team roster |
 
-For complex multi-domain tasks, invoke multiple agents in parallel.
+For complex multi-domain tasks, load multiple skill references and delegate each domain to the appropriate subagent.
 
 ## Tools & Guardrails
 
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
-- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns quota tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
+- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
@@ -405,7 +512,8 @@ For complex multi-domain tasks, invoke multiple agents in parallel.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
+- **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
+- **Forced MCP Usage & Delegation**: ABSOLUTE RULE — all work MUST go through \`konoha\` MCP (skills + bounded file ops) and \`semble\` MCP (codebase search). NEVER call generic \`view_file\`/\`Read\`/\`Grep\`/\`Glob\`/\`run_command\` (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) directly. NEVER use \`semble\` for skills; NEVER use \`konoha\` for codebase search. The main orchestrator MUST delegate all non-trivial tasks to konoha subagents (\`genin\`, \`chunin\`, \`jonin\`, \`anbu\`, \`kage\`, \`tokubetsu-jonin\`) via the Agent tool. The orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates. Trivial tasks (single bounded read/edit on a known file) may be executed directly.
 
 Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\`
 `;
@@ -414,37 +522,56 @@ Full team configuration, model registry, and operational conventions: \`~/.agent
 }
 
 function generateClaudeCodeMd(agents) {
-  const delegationRows = agents.map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`@${a.name}\` |`).join('\n');
+  const baseSkills = [...new Set(agents.flatMap(a => {
+    return (a.skills || []).map(s => s.split('/')[0]);
+  }))];
+  const skillDescs = getSkillDescriptions(baseSkills);
+  const dynamicTableRows = baseSkills.map(skill => {
+    const desc = skillDescs[skill] || 'Specialized skill';
+    const cleanDesc = desc.replace(/[\r\n|]/g, ' ').trim().slice(0, 100);
+    const agent = agents.find(a => (a.skills || []).some(s => s.startsWith(skill)));
+    const agentMention = agent ? `\`@${agent.name}\`` : 'Main agent';
+    return `| ${cleanDesc} | \`${skill}\` | ${agentMention} |`;
+  }).join('\n');
 
   const content = `# Claude Code — Global Agent Instructions
 
-You are the **Claude Code agent** equipped with Konoha MCP servers (\`konoha\`, \`semble\`) and specialized ninja agents (\`@genin\`, \`@kage\`, \`@chunin\`, \`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`).
+You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (\`konoha\`, \`semble\`).
 
-## Mandatory workflow
+## Orchestrator & Delegation Model (CRITICAL)
 
-1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP and has no knowledge of skills, whereas the \`konoha\` MCP handles all skill lookups.**
-3. **Find Code Context**: If project source code context is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly to locate exact project files. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do NOT call \`konoha.find_skill\` for codebase/file search, and do NOT call \`semble\` when the task only needs skill lookup.
-4. **Delegate to Konoha Ninja Agents**: When a user request matches a specific agent domain or embedded skill, delegate the task by invoking the appropriate agent (\`@genin\`, \`@kage\`, \`@chunin\`, \`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`). Pass the task goal, context, and required skill references. If no agent matches, route to the closest matching specialized agent (e.g., framework, architecture, and tool maintenance to @kage; backend, script automation, and database to @anbu; UI to @jonin). Direct Tool Calls in the main agent thread are strictly prohibited.
-5. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. \`scratch/plan.md\` or \`.cursor/plan.md\`) and refer to it, keeping the conversation log light and token-efficient.
+Claude Code supports custom agents via \`@\` mentions. Konoha agents (\`@genin\`, \`@kage\`, \`@chunin\`, \`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`) are **promoted as full agents** — not subagents. The main orchestrator MUST delegate all non-trivial tasks to the appropriate konoha agent.
+
+**CRITICAL RULES:**
+- **NEVER use built-in Claude Code agents** — only delegate to konoha agents listed above.
+- **NEVER call built-in tools directly** (\`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, \`WebSearch\`) — all file operations and search MUST go through \`konoha\` MCP and \`semble\` MCP tools exclusively.
+- The main agent is an **orchestrator only** — it coordinates, delegates, and reports back. It does NOT execute implementation tasks itself.
+
+### Delegation Protocol:
+1. **Read User Prompt**: Read the user request to understand scope and domain.
+2. **Find Skill**: Call \`konoha.find_skill\` or \`optimize_report\` to discover skill references. **Do NOT call \`semble\` for skills.**
+3. **Delegate**: Create a task directory (\`scratch/tasks/<task_id>/\`), write \`delegate.md\` with task details, constraints, and context, then invoke the appropriate konoha agent: \`@agent_name Please read scratch/tasks/<task_id>/delegate.md and execute the task. Write results to scratch/tasks/<task_id>/result.md.\`
+4. **Report**: Once the agent writes \`result.md\`, read it and report back to the user.
+5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
+6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
 
 ## Tools & Guardrails
 
-- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
-- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns quota tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
-- **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
+- **MCP-Only Tooling (ABSOLUTE RULE)**: ALL file reads, searches, and operations MUST use \`konoha\` MCP or \`semble\` MCP tools. NEVER call built-in \`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`WebSearch\` tools directly. NEVER use shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`).
+- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.). When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines). Avoid loading massive files into your context window.
+- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools for finding or locating skills. NEVER use \`semble\` search for skills.**
+- **Tool Boundaries**: Call **\`semble\` MCP** for codebase search. Call **\`konoha\` MCP** for skills and bounded file reads/grep. Never mix them.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf).
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
-- **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
-- **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
-- **Quota Handling**: On \`RESOURCE_EXHAUSTED\`/\`429\`, fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
+- **No Git Commands**: NEVER execute any \`git\` command. Use semble instead.
+- **Optimize Thought Tokens**: Keep thoughts concise in thinking processes. Avoid verbose reasoning.
 
-| Embedded Skills | Subagent TypeName |
-|-----------|----------|
-${delegationRows}
-| Simple/trivial tasks | Main agent runs directly using Direct Tool Calls. |
+| Domain / Description | Skill to Load | Agent to Delegate |
+|---|---|---|
+${dynamicTableRows}
+| Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 `;
 
   return content
@@ -466,9 +593,9 @@ ${delegationRows}
     .replace(/file_info/g, 'mcp__konoha__file_info')
     .replace(/token_efficient_grep/g, 'mcp__konoha__token_efficient_grep')
     .replace(/get_file_structure/g, 'mcp__konoha__get_file_structure')
-    .replace(/find_files_clean/g, 'mcp__konoha__find_files_clean');
+    .replace(/find_files_clean/g, 'mcp__konoha__find_files_clean')
+    .replace(/search_file/g, 'mcp__konoha__search_file');
 }
-
 
 
 function generateAgentsMd(agents) {
@@ -502,60 +629,22 @@ ${buildAgentReferenceList(agents)}
 
 ${buildImageDesignDelegateGuide()}
 
-### @orchestrator — Task Coordinator
-- **Purpose**: Decomposes complex tasks, discovers required skills, and delegates to specialized agents.
-- **Auto-Delegation**:
-  - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to specialized ninja agents (defined globally).
-  - Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited. The orchestrator must always route and delegate tasks to the specialized agents.
-- **Workflow**:
-  1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it using the \`view_file\` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-  2. **Find Skill First**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`). **Do NOT call \`semble\` tools when locating/searching skills. \`semble\` is strictly a code search MCP and has no knowledge of skills, whereas the \`konoha\` MCP handles all skill lookups.**
-  3. **Find Code Context**: If project source code context is needed, use the **\`semble\` MCP** (\`search\` or \`find_related\` tools) to locate exact project files before formulating a delegation. Always pass the \`repo\` parameter with the absolute path to the project directory (e.g. \`semble.search(query="...", repo="/path/to/project")\`). Do not call \`semble\` when the task only needs skills — use \`konoha\` for that.
-  4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
-     - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any agent.
-     - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to \`@kage\`; backend, script automation, and database to \`@anbu\`; frontend styling and UI implementation to \`@jonin\`; documentation to \`@tokubetsu-jonin\`).
-     - The orchestrator always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
-  5. **Prepare File-Based Delegation**: Write the structured delegation parameters to \`<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md\` (where \`<task_id>\` is a unique task subdirectory). You must include a sequential loop counter at the very top of \`delegate.md\` in a YAML metadata block:
-     \`\`\`markdown
-     ---
-     depth: <N>
-     ---
-     \`\`\`
-     Before writing or updating the new \`delegate.md\`, read the \`depth\` metadata from your current incoming \`delegate.md\` (if you are an agent executing a delegated task) or the target \`delegate.md\` (if it already exists):
-     - If a depth value \`N\` is found in either, write the new \`delegate.md\` with \`depth: N + 1\`.
-     - Otherwise, initialize it to \`depth: 1\`.
-     - **Circuit Breaker**: If \`depth > 7\`, you MUST immediately stop the execution loop, freeze the file state, halt the agent pool, write a circuit breaker warning to \`scratch/tasks/<task_id>/result.md\`, and prompt the user directly in the chat for human-in-the-loop validation.
-     - **Artifact Metadata**: When writing or updating any file or artifact (including \`delegate.md\`, \`result.md\`, etc.), you MUST set \`RequestFeedback: false\` and \`UserFacing: false\` in the \`ArtifactMetadata\` block to prevent user prompt overlays and allow silent background execution.
-     Categorize the main content clearly:
-     - **Goal**: Clear explanation of what needs to be accomplished.
-     - **Context**: Relevant files, code snippets, and background details discovered via \`semble\`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. \`anbu-skill/ci-cd-security\`)**.
-     - **Constraints**: Rule constraints and target files.
-  6. **Delegate**: Invoke the ninja agent using the agent TypeName (e.g., \`anbu\`, \`kage\`, etc.). Pass the absolute paths of \`delegate.md\` and \`result.md\` in the agent's prompt. The agent will read \`delegate.md\` from the path specified in your invocation prompt to run the task, and write its output to \`result.md\` at the path specified in your invocation prompt. **If \`delegate.md\` specifies exact reference names under Context, the agent MUST immediately load and read those specific reference documents using the MCP tool \`konoha.get_skill\` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the agent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-  7. **Await Results**: Once you are woken up by the system notifying you of agent completion or updates, read the output from \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md\` once complete to consume the output, and then delete the entire task directory \`<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/\` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
-  8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. \`scratch/tasks/<task_id>/plan.md\`) and refer to it, keeping the conversation log light and token-efficient.
-- **Constraints**: ONLY delegates to defined ninja agents: ${agentNames}. Dynamic auto-creation of agents is prohibited. It is prohibited to execute Direct Tool Calls in the orchestrator thread for project tasks. Only use Direct Tool Calls as a fallback if all agents hit quota limits (\`RESOURCE_EXHAUSTED\` / \`429\`) and delegation is blocked.
+${buildDefineSubagentGuide(agents)}
 
-| Embedded Skills | Agent TypeName |
-|---|---|
-${delegationRows}
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
-
-**FORBIDDEN for Konoha work:** \`TypeName: "self"\` or \`TypeName: "research"\` to impersonate jonin/anbu/genin. Never run \`run_command\` / \`write_to_file\` in the orchestrator thread for delegated work.
-
-${agentSections}
+### @orchestrator — Task Coordinator\n- **Purpose**: Orchestrates tasks by loading skill references and executing directly. Runs as TypeName: "self" — the primary Antigravity thread.\n- **Orchestration Model**:\n  - The Antigravity platform only accepts "self" and "research" as valid TypeName values. Custom Ninja TypeName values are rejected at invocation time.\n  - The orchestrator does NOT delegate — it loads skill references via konoha.find_skill + konoha.get_skill, then performs the work using its native tools.\n  - For parallel read-only research, optionally spawn TypeName: "research" subagents.\n- **Workflow**:\n  1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.\n  2. **Find Skill**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names.\n  3. **Load Skill**: Call \`konoha.get_skill()\` to fetch the full content of the discovered skill.\n  4. **Execute Directly**: Perform the task using native tools. Do NOT attempt to delegate to subagents.\n  5. **Planning-to-File**: Write detailed analysis or plans to a markdown file and refer to it, keeping the conversation log light.\n- **Constraints**: ONLY references skill definitions from the defined ninja agents: ${agentNames}. Dynamic auto-creation of agents is prohibited.\n- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.\n\n| Skill Name | Agent Definition |\n|---|---|\n${delegationRows}\n| Simple/trivial task | Main agent executes directly using native tools. |\n\n**FORBIDDEN for Konoha work**: Attempting to invoke custom TypeName values (genin, kage, etc.). These are rejected at invocation time by the Antigravity platform.\n\n${agentSections}
 
 ## Operational Conventions — All Agents
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\` at the start of every response.
-2. **Read File-Based Task**: Read the delegation parameters from the absolute path to \`delegate.md\` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. \`anbu-skill/ci-cd-security\`), you MUST immediately call the MCP tool \`konoha.get_skill\` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
+2. **Read File-Based Task**: Read the delegation parameters from the absolute path to \`delegate.md\` specified in your invocation prompt at the start of the execution step to fetch the task scope, context, and constraints. **If the Context lists specific skill reference names (e.g. \`devsecops-engineer/ci-cd-security\`), you MUST immediately call the MCP tool \`konoha.get_skill\` (not direct file reads or view_file of files under .agents/skills/) to load and read the contents of those references before beginning work.**
 3. **Konoha first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
 5. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. \`result.md.tmp\`) first, then rename/move it atomically to \`result.md\` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
 6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to \`plan.md\` in the task directory (e.g. \`scratch/tasks/<task_id>/plan.md\`) first. Refer to this plan in your final \`result.md\` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
 
 ### Conditional Tools (use only when needed)
-- **Semble for code search**: If the task requires searching project source code (not skills), call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns quota tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.** Prefer \`semble\` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
+- **Semble for code search**: If the task requires searching project source code (not skills), call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.** Prefer \`semble\` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
 - **Konoha for file reads**: If project file reading, structure inspection, info checks, or line greps are needed, call the **\`konoha\` MCP** tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) directly after locating targets with \`semble\`. Do NOT use raw \`cat\`, \`head\`, \`tail\`, \`grep\`, or built-in file tools unless \`konoha\` is unavailable.
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
 
@@ -574,12 +663,6 @@ ${agentSections}
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.
 - **Security**: Never expose secrets, use least privilege, redact credentials as \`[REDACTED]\`.
-
-### Quota & Rate Limits
-On \`RESOURCE_EXHAUSTED\` or HTTP \`429\`, automatically fallback to \`Gemini 3.1 Flash-Lite\`. On total exhaustion, halt and output:
-> "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
-
-Recovery: Wait for the quota window to reset, reduce concurrent requests, or upgrade subscription tier.
 
 ## Model Registry
 
@@ -710,7 +793,8 @@ function regenerateAndDeploy(silentOrOptions = false) {
       pythonCmd,
       serverPath,
       uvxCmd,
-      silent: true
+      silent: true,
+      agents
     });
   } catch (e) {
     // Fail silently if OpenCode configs are not writable
@@ -780,10 +864,10 @@ function createSubagent(name, options = {}) {
     purpose: options.purpose || "General assistant",
     skills: options.skills || [],
     delegateWhen: options.delegateWhen || `Need assistance with ${options.purpose || "general tasks"}`,
-    constraints: options.constraints || "Discover skills via `skills-db.find_skill`. If project source code search is needed, use `semble` MCP (`search`/`find_related`).",
-    workflow: options.workflow || "Discover skill references via `skills-db.find_skill`, search project code via `semble`, then execute task.",
+    constraints: options.constraints || "Discover skills via `konoha.find_skill`. If project source code search is needed, use `semble` MCP (`search`/`find_related`).",
+    workflow: options.workflow || "Discover skill references via `konoha.find_skill`, search project code via `semble`, then execute task.",
     description: options.description || options.purpose || `Custom subagent specialized in ${name}`,
-    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". If delegate.md specifies exact reference names, load them via the skills-db.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`,
+    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". If delegate.md specifies exact reference names, load them via the konoha.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`,
     delegationKeywords: options.delegationKeywords || name
   };
 

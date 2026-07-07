@@ -6,7 +6,7 @@
 > - For styling, setup, and global design: read `references/tailwind-design-system.md`
 
 > [!WARNING]
-> **Tool Boundaries**: Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `skills-db` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+> **Tool Boundaries**: Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
 
 
 ## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)

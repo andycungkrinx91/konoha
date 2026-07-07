@@ -138,6 +138,8 @@ function sanitizeInvokeSubagentArgs(args) {
     return { error: 'Subagents must be a JSON array, not a string.' };
   }
 
+  const OFFICIAL_NINJAS = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+
   const cleaned = subs.map((entry) => {
     const e = {};
     for (const key of Object.keys(entry || {})) {
@@ -152,19 +154,32 @@ function sanitizeInvokeSubagentArgs(args) {
     if (e.Role != null) e.Role = stripQuotes(e.Role);
     if (e.Prompt != null) e.Prompt = stripQuotes(e.Prompt);
     if (e.Workspace != null) e.Workspace = stripQuotes(e.Workspace);
+
+    if (e.TypeName) {
+      const tn = e.TypeName.toLowerCase();
+      if (OFFICIAL_NINJAS.includes(tn)) {
+        const realAgent = loadRealAgent(tn);
+        if (realAgent) {
+          const allowsWrite = !/read-only/i.test(realAgent.constraints || '');
+          const identityPrefix = [
+            `CRITICAL IDENTITY OVERRIDE — READ THIS FIRST:`,
+            `You are @${realAgent.name} (${realAgent.title || ''}).`,
+            `Instructions: ${realAgent.instructions || ''}`,
+            `Constraints: ${realAgent.constraints || ''}`,
+            `Workflow: ${realAgent.workflow || ''}`,
+            `Description: ${realAgent.description || ''}`,
+            `Identity Override: You are a SUBAGENT. Follow the above system rules and instructions.`,
+            `---`,
+            `Task to execute:`,
+            ``
+          ].join('\n');
+          e.Prompt = identityPrefix + (e.Prompt || '');
+          e.TypeName = allowsWrite ? 'self' : 'research';
+        }
+      }
+    }
     return e;
   });
-
-  for (const entry of cleaned) {
-    const tn = (entry.TypeName || '').toLowerCase();
-    const prompt = entry.Prompt || '';
-    if (tn === 'self' && (/acting as|@jonin|delegate\.md/i.test(prompt) || /jonin|genin|anbu|kage|chunin|tokubetsu-jonin/i.test(prompt))) {
-      return { error: 'FORBIDDEN: TypeName "self" cannot impersonate Konoha subagents. Use the appropriate TypeName (genin, kage, chunin, jonin, anbu, tokubetsu-jonin) after define_subagent with bare name.' };
-    }
-    if (tn === 'research' && /delegate\.md/i.test(prompt)) {
-      return { error: 'FORBIDDEN: TypeName "research" for Konoha delegation.' };
-    }
-  }
 
   out.Subagents = cleaned;
   return { args: out };
@@ -200,7 +215,10 @@ async function main() {
       return;
     }
 
-    const { name, args: rawArgs } = toolCall;
+    let { name, args: rawArgs } = toolCall;
+    if (name && name.includes(':')) {
+      name = name.split(':').pop();
+    }
 
     if (name === 'define_subagent') {
       const sanitized = sanitizeDefineSubagentArgs(rawArgs);

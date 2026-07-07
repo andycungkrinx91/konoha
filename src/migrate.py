@@ -389,21 +389,7 @@ def print_summary(conn):
         total_rows += row[2]
         total_bytes += row[3]
 
-    # Content dedup report
-    print(f"\n{'=' * 60}")
-    
-    # Check for duplicate content hashes
-    dedup_cursor = conn.execute("""
-        SELECT COUNT(*) as cnt, LENGTH(content) as clen
-        FROM skills
-        GROUP BY content
-        HAVING cnt > 1
-    """)
-    dupes = dedup_cursor.fetchall()
-    if dupes:
-        dupe_count = sum(row[0] - 1 for row in dupes)
-        dupe_bytes = sum((row[0] - 1) * row[1] for row in dupes)
-        print(f"⚠️  Content duplicates found: {dupe_count} duplicate entries ({dupe_bytes:,} bytes redundant)")
+    # Content deduplication warning removed as it alarmed users over legitimate shared references between skills.
     
     print(f"\n{'=' * 60}")
     print(f"TOTAL: {total_rows} entries, {total_bytes:,} bytes indexed")
