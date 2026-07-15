@@ -1174,18 +1174,13 @@ async function cmdInit(args) {
       const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
       files.forEach(entry => {
         const name = entry.name;
+        if (name === '.' || name === '..') return;
+        const srcPath = path.join(pkgSkillsDir, name);
+        const destPath = path.join(globalSkillsDir, name);
         if (entry.isDirectory()) {
-          if (name.endsWith('-skill')) {
-            const srcPath = path.join(pkgSkillsDir, name);
-            const destPath = path.join(globalSkillsDir, name);
-            copyRecursive(srcPath, destPath);
-          }
+          copyRecursive(srcPath, destPath);
         } else if (entry.isFile()) {
-          if (name.endsWith('-skill.md')) {
-            const srcPath = path.join(pkgSkillsDir, name);
-            const destPath = path.join(globalSkillsDir, name);
-            copyFile(srcPath, destPath);
-          }
+          copyFile(srcPath, destPath);
         }
       });
     } catch (err) {
@@ -1280,7 +1275,7 @@ async function cmdInit(args) {
   header('⚙️  Registering MCP Server');
   const spinner4 = startSpinner('Registering in ~/.gemini/config/mcp_config.json...');
   registerMcp(python, true, allowAutoApprove);
-  spinner4.success('skills-db registered in MCP config.');
+  spinner4.success('konoha registered in MCP config.');
 
   // Register Hooks config
   header('🔗 Registering Hooks');
@@ -1288,17 +1283,12 @@ async function cmdInit(args) {
   registerHooks(false, allowHooks);
   spinnerHook.success(allowHooks ? 'prompt_hook registered in hooks.json.' : 'prompt_hook removed/unregistered from hooks.json.');
 
-  // 7. Update GEMINI.md
-  header('📝 Updating GEMINI.md');
+  // 7. Update agents.yaml
+  header('👥 Updating agents.yaml');
   const spinner5 = startSpinner('Adding on-demand skills usage rules...');
-  updateGeminiMd(true);
-  spinner5.success('GEMINI.md updated.');
-
-  // 8. Update AGENTS.md
-  header('👥 Updating AGENTS.md');
-  const spinner6 = startSpinner('Re-deploying Naruto Ninja Ranks...');
-  updateAgentsMd(true);
-  spinner6.success('AGENTS.md updated.');
+  agentManager.loadAgents(); // Silently updates YAML/DB
+  agentManager.regenerateAndDeploy({ force: true, silent: true });
+  spinner5.success('agents.yaml updated.');
 
   // 10. Configure Cursor IDE/CLI
   const setupAgents = agentManager.loadAgents();
@@ -1381,8 +1371,7 @@ async function cmdInit(args) {
     `Migration:  ${C.dim}${MIGRATE_PATH}${C.reset}`,
     `Database:   ${C.dim}${DB_PATH}${C.reset}`,
     `MCP Config: ${C.dim}${MCP_CONFIG_PATH}${C.reset}`,
-    `GEMINI.md:  ${C.dim}${GEMINI_MD_PATH}${C.reset}`,
-    `AGENTS.md:  ${C.dim}${AGENTS_MD_PATH}${C.reset}`,
+    `Agents YAML: ${C.dim}${path.join(HOME, '.agents', 'agents.yaml')}${C.reset}`,
     `Cursor MCP: ${C.dim}${cursorManager.CURSOR_MCP_GLOBAL}${C.reset}`,
     `Cursor Agents: ${C.dim}${cursorManager.CURSOR_AGENTS_GLOBAL}${C.reset}`,
   ];
@@ -1563,7 +1552,14 @@ function registerMcp(python, silent = false, allowAutoApprove = true) {
       'get_skill',
       'optimize_report',
       'build_from_source',
-      'build_from_text'
+      'build_from_text',
+      'mcp_sannin',
+      'mcp_kage',
+      'mcp_jonin',
+      'mcp_anbu',
+      'mcp_chunin',
+      'mcp_tokubetsu_jonin',
+      'mcp_genin'
     ];
   }
 
@@ -1688,11 +1684,11 @@ function unregisterPermissions(silent = false) {
         'mcp(konoha-files/get_file_structure)',
         'mcp(konoha-files/find_files_clean)',
         'mcp(konoha-files/*)',
-        'mcp(skills-db/find_skill)',
-        'mcp(skills-db/list_skills)',
-        'mcp(skills-db/get_skill)',
-        'mcp(skills-db/optimize_report)',
-        'mcp(skills-db/*)',
+        'mcp(konoha/find_skill)',
+        'mcp(konoha/list_skills)',
+        'mcp(konoha/get_skill)',
+        'mcp(konoha/optimize_report)',
+        'mcp(konoha/*)',
         'mcp(konoha/read_file_head)',
         'mcp(konoha/read_file_range)',
         'mcp(konoha/file_info)',
@@ -1988,15 +1984,15 @@ function ensureAutoSetup() {
   registerMcp(python, true);
   registerHooks(true, true);
 
-  // 5. Ensure agents.json is initialized with defaults if missing
-  const agentsJsonPath = path.join(HOME, '.agents', 'agents.json');
-  if (!fileExists(agentsJsonPath)) {
+  // 5. Ensure agents.yaml is initialized with defaults if missing
+  const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
+  if (!fileExists(agentsYamlPath)) {
     try {
-      agentManager.loadAgents(); // Silently initializes USER_AGENTS_JSON_PATH if missing
+      agentManager.loadAgents(); // Silently initializes USER_AGENTS_YAML_PATH if missing
     } catch (e) {}
   }
 
-  // 6. Ensure GEMINI.md, AGENTS.md, subagents, and client integrations are fully deployed/updated
+  // 6. Ensure subagents and client integrations are fully deployed/updated
   const originalLog = console.log;
   console.log = () => {};
   let uvxCmd = 'uvx';
@@ -2325,8 +2321,8 @@ async function cmdTest() {
     { name: 'Find Skill (genin-skill)', req: '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"genin-skill","agent":"genin"}}}' },
     { name: 'Find Skill (security)', req: '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"find_skill","arguments":{"keyword":"security","agent":"kage"}}}' },
     { name: 'List Skills', req: '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_skills","arguments":{"agent":"chunin"}}}' },
-    { name: 'Get Skill (anbu-skill)', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"anbu-skill","agent":"anbu"}}}' },
-    { name: 'Get Skill (tokubetsu-jonin-skill)', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"tokubetsu-jonin-skill","agent":"tokubetsu-jonin"}}}' },
+    { name: 'Get Skill (jonin-skill)', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"jonin-skill","agent":"jonin"}}}' },
+    { name: 'Get Skill (konoha)', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"konoha","agent":"kage"}}}' },
     { name: 'Build from Source', req: buildFromSourceReq },
     { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"jonin"}}}' }
   ];
@@ -2460,6 +2456,31 @@ async function cmdTest() {
     }
   }
 
+  // Dynamically discover and run Python test suites (src/test_*.py)
+  log('');
+  header('🧪 Running Python Feature Tests (Full QA & Deep Debugging)');
+  try {
+    const srcDir = path.join(__dirname, '..', 'src');
+    if (fs.existsSync(srcDir)) {
+      const files = fs.readdirSync(srcDir);
+      const testFiles = files.filter(f => f.startsWith('test_') && f.endsWith('.py'));
+      for (const tf of testFiles) {
+        const fp = path.join(srcDir, tf);
+        info(`Running test suite: ${tf}...`);
+        const runTest = spawnSync(python, [fp], { stdio: 'inherit' });
+        if (runTest.status !== 0) {
+          error(`${tf}: FAILED`);
+          allPassed = false;
+        } else {
+          success(`${tf}: PASSED`);
+        }
+      }
+    }
+  } catch (e) {
+    error(`Failed scanning or running Python tests: ${e.message}`);
+    allPassed = false;
+  }
+
   log('');
   if (allPassed) {
     success('All tests passed! 🎉');
@@ -2559,6 +2580,28 @@ async function cmdStatus() {
     warn('MCP config not found');
   }
 
+  // Antigravity IDE/CLI integrations
+  sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
+  const antigravityStatus = antigravityManager.getAntigravityStatus();
+  drawIntegrationRow(
+    '~/.gemini/config/mcp_config.json',
+    antigravityStatus.mcpSkillsDb && antigravityStatus.mcpSemble,
+    antigravityStatus.mcpConfigExists ? 'konoha + semble' : 'not configured',
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'Antigravity MCP schemas',
+    antigravityStatus.schemasCount >= 7,
+    `${antigravityStatus.schemasCount} in ~/.gemini/antigravity-cli/mcp/konoha/`,
+    NINJA_THEME
+  );
+  drawIntegrationRow(
+    'Sanitize Hook config',
+    antigravityStatus.hasHooks,
+    antigravityStatus.hasHooks ? 'sanitize hooks active' : 'hooks missing',
+    NINJA_THEME
+  );
+
   // Cursor IDE/CLI integrations
   sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
   const cursorStatus = cursorManager.getCursorStatus();
@@ -2566,12 +2609,6 @@ async function cmdStatus() {
     '~/.cursor/mcp.json',
     cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble,
     cursorStatus.mcpGlobal ? 'konoha + semble' : 'not configured',
-    NINJA_THEME
-  );
-  drawIntegrationRow(
-    'Cursor subagents',
-    cursorStatus.subagentsGlobal >= 6,
-    `${cursorStatus.subagentsGlobal}/6 in ~/.cursor/agents/`,
     NINJA_THEME
   );
   drawIntegrationRow(
@@ -2595,7 +2632,7 @@ async function cmdStatus() {
   drawIntegrationRow(
     'Project .cursor/',
     cursorStatus.projectMcp,
-    `mcp:${cursorStatus.projectMcp ? 'yes' : 'no'} agents:${cursorStatus.projectAgents} skills:${cursorStatus.skillsProject} rule:${cursorStatus.projectRule ? 'yes' : 'no'}`,
+    `mcp:${cursorStatus.projectMcp ? 'yes' : 'no'} skills:${cursorStatus.skillsProject} rule:${cursorStatus.projectRule ? 'yes' : 'no'}`,
     NINJA_THEME
   );
 
@@ -2610,14 +2647,7 @@ async function cmdStatus() {
       claudeStatus.permissionsAllowed ? 'konoha + semble' : 'konoha + semble (permissions missing)',
       NINJA_THEME
     );
-    if (claudeStatus.agentsCount > 0) {
-      drawIntegrationRow(
-        'Claude subagents',
-        true,
-        `${claudeStatus.agentsCount}/6 in ~/.claude/agents/`,
-        NINJA_THEME
-      );
-    }
+
   } else {
     log(`\n  ${applyGradient('Claude Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (template: docs/templates/claude-code.mcp.json)', CHIDORI_THEME, 0.6)}`);
   }
@@ -3047,26 +3077,27 @@ async function cmdDoctor() {
     }
   }
 
-  // 9. AGENTS Definition
+  // 9. AGENTS Definition (agents.yaml)
+  const USER_AGENTS_YAML_PATH = path.join(HOME, '.agents', 'agents.yaml');
   let agentsHealthy = false;
-  if (fileExists(AGENTS_MD_PATH)) {
+  if (fileExists(USER_AGENTS_YAML_PATH)) {
     try {
-      const content = fs.readFileSync(AGENTS_MD_PATH, 'utf-8');
-      if (content.includes('@genin')) {
+      const content = fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf-8');
+      if (content.includes('name:') || content.includes('genin')) {
         agentsHealthy = true;
       }
     } catch {}
   }
   
   if (agentsHealthy) {
-    record('AGENTS Definition (AGENTS.md)', 'HEALTHY', 'Ninja ranks are active');
+    record('AGENTS Definition (agents.yaml)', 'HEALTHY', 'Ninja ranks are active');
   } else {
     try {
-      updateAgentsMd();
-      record('AGENTS Definition (AGENTS.md)', 'REPAIRED', 'AGENTS.md configurations restored');
+      agentManager.loadAgents();
+      record('AGENTS Definition (agents.yaml)', 'REPAIRED', 'agents.yaml configurations restored');
       repairsDone++;
     } catch (e) {
-      record('AGENTS Definition (AGENTS.md)', 'FAILED', `Error: ${e.message}`);
+      record('AGENTS Definition (agents.yaml)', 'FAILED', `Error: ${e.message}`);
       hasErrors = true;
     }
   }
@@ -3132,10 +3163,9 @@ async function cmdDoctor() {
   const cursorStatus = cursorManager.getCursorStatus();
   const cursorHealthy = cursorStatus.mcpSkillsDb &&
     cursorStatus.mcpSemble &&
-    cursorStatus.mcpKonoha &&
-    cursorStatus.subagentsGlobal >= 6;
+    cursorStatus.mcpKonoha;
   if (cursorHealthy) {
-    record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP, subagents, and hooks configured');
+    record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP and hooks configured');
   } else {
     try {
       const agents = agentManager.loadAgents();
@@ -3152,8 +3182,8 @@ async function cmdDoctor() {
         ruleContent: null
       });
       const repaired = cursorManager.getCursorStatus();
-      if (repaired.mcpKonoha && repaired.mcpSemble && repaired.subagentsGlobal >= 6) {
-        record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP, subagents, and session hook');
+      if (repaired.mcpKonoha && repaired.mcpSemble) {
+        record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP and session hook');
         repairsDone++;
       } else {
         record('Cursor IDE/CLI (~/.cursor/)', 'WARNING', 'Partial Cursor setup — run konoha init');
@@ -3472,14 +3502,19 @@ async function cmdAgentStatus() {
 
   agents.forEach(a => {
     const name = a.name.toLowerCase();
+    const bareName = name.replace(/^mcp_/, '').replace(/^mcp-/, '');
     registeredNames.add(name);
-    
-    const agentStats = stats[name] || { today: 0, last7days: 0, alltime: 0 };
+    registeredNames.add(bareName);
+
+    const agentStats = stats[name] || stats[bareName] || { today: 0, last7days: 0, alltime: 0 };
     displayAgents.push({
       name: `@${a.name}`,
       icon: a.icon || '👤',
       title: a.title,
       modelTier: a.modelTier,
+      cursorModel: a.cursorModel || 'inherit',
+      claudeModel: a.claudeModel || 'inherit',
+      opencodeModel: a.opencodeModel || 'inherit',
       today: agentStats.today,
       last7days: agentStats.last7days,
       alltime: agentStats.alltime,
@@ -3491,7 +3526,8 @@ async function cmdAgentStatus() {
   const directStats = { today: 0, last7days: 0, alltime: 0 };
   Object.keys(stats).forEach(name => {
     const lowerName = name.toLowerCase();
-    if (!registeredNames.has(lowerName)) {
+    const bareName = lowerName.replace(/^mcp_/, '').replace(/^mcp-/, '');
+    if (!registeredNames.has(lowerName) && !registeredNames.has(bareName)) {
       const agentStats = stats[name];
       directStats.today += agentStats.today;
       directStats.last7days += agentStats.last7days;
@@ -3504,6 +3540,9 @@ async function cmdAgentStatus() {
     icon: '🔌',
     title: 'Non-agent / direct MCP tools usage',
     modelTier: '-',
+    cursorModel: '-',
+    claudeModel: '-',
+    opencodeModel: '-',
     today: directStats.today,
     last7days: directStats.last7days,
     alltime: directStats.alltime,
@@ -3513,26 +3552,32 @@ async function cmdAgentStatus() {
   // Display Table
   sectionTitle('Call Frequency Summary:', NINJA_THEME);
 
-  const headers = ['Subagent', 'Model Tier', 'Today', '7 Days', 'All Time'];
-  const aligns = ['left', 'left', 'right', 'right', 'right'];
+  const headers = ['Subagent', 'AGY Model', 'Cursor', 'Claude', 'OpenCode', 'Today', '7 Days', 'All Time'];
+  const aligns = ['left', 'left', 'left', 'left', 'left', 'right', 'right', 'right'];
 
   const rows = displayAgents.map(da => [
     `${da.icon} ${da.name}`,
     da.modelTier || '-',
+    da.cursorModel === 'inherit' ? '-' : (da.cursorModel || '-'),
+    da.claudeModel === 'inherit' ? '-' : (da.claudeModel || '-'),
+    da.opencodeModel === 'inherit' ? '-' : (da.opencodeModel || '-'),
     da.today,
     da.last7days,
     da.alltime
   ]);
 
   const widths = computeTableWidths(headers, rows, {
-    minWidths: [18, 20, 6, 8, 10],
-    maxWidths: [28, 34, 8, 10, 12]
+    minWidths: [18, 15, 10, 10, 10, 6, 8, 10],
+    maxWidths: [22, 22, 16, 16, 16, 8, 10, 12]
   });
 
   drawTable(headers, widths, aligns, rows, [], NINJA_THEME, {
     columnFormatters: [
       (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
       (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
+      (cell) => applyGradient(cell, FIRE_THEME, 0.85),
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
+      (cell) => applyGradient(cell, LEAF_THEME, 0.85),
       (cell) => applyGradient(cell, LEAF_THEME, 0.9),
       (cell) => applyGradient(cell, LEAF_THEME, 0.9),
       (cell) => applyGradient(cell, FIRE_THEME, 0.9)
@@ -3588,20 +3633,22 @@ async function cmdSavings() {
         };
 
         const formatSavings = (tokens, pct, thoughtTokens) => {
-          const width = 18;
-          const filledCount = Math.min(width, Math.max(0, Math.round((pct / 100) * width)));
+          const width = 10;
+          const pctSafe = pct || 0;
+          const filledCount = Math.min(width, Math.max(0, Math.round((pctSafe / 100) * width)));
           const filled = '█'.repeat(filledCount);
           const empty = '░'.repeat(width - filledCount);
           
           let coloredFilled = '';
           if (filledCount > 0) {
-            const theme = pct >= 80 ? LEAF_THEME : (pct >= 50 ? FIRE_THEME : [[239,68,68],[239,68,68]]);
+            const theme = pctSafe >= 80 ? LEAF_THEME : (pctSafe >= 50 ? FIRE_THEME : [[239,68,68],[239,68,68]]);
             coloredFilled = applyGradient(filled, theme);
           }
           
           const thoughtVal = thoughtTokens || 0;
           const thoughtText = ` (thought: ${formatTokens(thoughtVal)})`;
-          return `[${coloredFilled}${C.dim}${empty}${C.reset}]  ~${C.bold}${formatTokens(tokens).padEnd(5)}${C.reset} tokens${C.yellow}${thoughtText}${C.reset}`;
+          const pctStr = `${Math.round(pctSafe)}%`.padStart(4);
+          return `[${coloredFilled}${C.dim}${empty}${C.reset}] ${pctStr} ~${C.bold}${formatTokens(tokens).padEnd(5)}${C.reset} tokens${C.yellow}${thoughtText}${C.reset}`;
         };
 
         // Table
@@ -3624,7 +3671,8 @@ async function cmdSavings() {
           { name: 'Antigravity IDE', key: 'antigravity', icon: '🌌' },
           { name: 'Antigravity CLI', key: 'agy', icon: '🚀' },
           { name: 'Cursor', key: 'cursor', icon: '🌊' },
-          { name: 'Claude Code', key: 'claudecode', icon: '🌀' }
+          { name: 'Claude Code', key: 'claudecode', icon: '🌀' },
+          { name: 'OpenCode', key: 'opencode', icon: '📟' }
         ];
 
         clients.forEach(client => {
@@ -4109,7 +4157,7 @@ async function cmdAgent(args) {
       try {
         const newAgent = agentManager.createSubagent(name, options);
         success(`Successfully created subagent: @${newAgent.name}`);
-        info('Updated configurations and deployed to ~/.gemini/GEMINI.md and ~/.agents/AGENTS.md');
+        info('Updated configurations and deployed to ~/.agents/agents.yaml');
       } catch (err) {
         error(`Failed to create subagent: ${err.message}`);
         process.exit(1);
@@ -4438,7 +4486,7 @@ async function cmdAgent(args) {
         process.exit(1);
       }
       try {
-        // 1. Try to delete from agents.json
+        // 1. Try to delete from agents.yaml
         let deletedFromJson = false;
         try {
           agentManager.deleteAgent(name);
@@ -5686,11 +5734,27 @@ print(json.dumps({
       const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
       if (run.status === 0) {
         const data = JSON.parse(run.stdout.trim());
+        
+        // Prune SearXNG logs and cache files
+        const searxngDir = path.join(HOME, '.konoha', 'searxng');
+        const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
+        let searxngSavedBytes = 0;
+        pruneFiles.forEach(f => {
+          const fp = path.join(searxngDir, f);
+          if (fs.existsSync(fp)) {
+            searxngSavedBytes += fs.statSync(fp).size;
+            try {
+              fs.unlinkSync(fp);
+            } catch {}
+          }
+        });
+
+        const totalSavedBytes = data.saved + searxngSavedBytes;
         const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);
         const sizeAfterMb = (data.size_after / (1024 * 1024)).toFixed(2);
-        const savedMb = (data.saved / (1024 * 1024)).toFixed(2);
+        const savedMb = (totalSavedBytes / (1024 * 1024)).toFixed(2);
 
-        success('Successfully pruned active session mappings and usage logs!');
+        success('Successfully pruned active session mappings, usage logs, and SearXNG logs/caches!');
         log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
         log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
         log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
@@ -5792,18 +5856,12 @@ with open(export_path, "w", encoding="utf-8") as f:
     f.write("This file contains the structured skills, agent identities, and active sessions database.\\n\\n")
     
     f.write("## 👤 Special Agent Village Roster\\n")
-    agents_path = os.path.expanduser("~/.agents/agents.json")
-    if os.path.exists(agents_path):
-        try:
-            with open(agents_path, "r", encoding="utf-8") as af:
-                agents_data = json.load(af)
-            for a in agents_data:
-                icon = a.get("icon", "👤")
-                f.write(f"- **{icon} {a.get('name')}** (Model: {a.get('modelTier')}): {a.get('description')}\\n")
-        except Exception:
-            f.write("Failed to load agents configuration.\\n")
-    else:
-        f.write("No ~/.agents/agents.json found.\\n")
+    try {
+        agents_data = conn.execute("SELECT name, icon, model_tier, description FROM agents").fetchall()
+        for name, icon, model_tier, description in agents_data:
+            f.write(f"- **{icon or '👤'} {name}** (Model: {model_tier}): {description}\\n")
+    except Exception:
+        f.write("Failed to load agents configuration from database.\\n")
     f.write("\\n")
     
     f.write("## 📚 Indexed Reference Skills\\n")

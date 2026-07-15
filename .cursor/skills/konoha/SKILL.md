@@ -11,8 +11,8 @@ This skill contains the structural guidelines, command specifications, and archi
 
 **ABSOLUTE RULE:** All work MUST go through the **konoha MCP** and **semble MCP** tools — never execute tasks solo, never bypass the agent delegation workflow.
 
-- **Always use `konoha` MCP** (`mcp__konoha__find_skill`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills`, `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`, `build_from_source`, `build_from_text`, `optimize_report`) for skills, skill discovery, bounded file operations, and agent delegation. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
-- **Always use `semble` MCP** (`mcp__semble__search`, `mcp__semble__find_related`) or `konoha.search_file` for codebase search. Never use `grep`, `rg`, `find`, `glob`, or built-in `Read`/`Grep`/`Glob` tools for code discovery — always delegate to a konoha subagent via the semble MCP.
+- **Always use `konoha` MCP** (`konoha.find_skill`, `konoha.get_skill`, `konoha.list_skills`, `konoha.read_file_head`, `konoha.read_file_range`, `konoha.file_info`, `konoha.token_efficient_grep`, `konoha.get_file_structure`, `konoha.find_files_clean`, `konoha.search_file`, `konoha.build_from_source`, `konoha.build_from_text`, `konoha.optimize_report`) for skills, skill discovery, bounded file operations, and agent delegation. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
+- **Always use `semble` MCP** (`semble.search`, `semble.find_related`) or `konoha.search_file` for codebase search. Never use `grep`, `rg`, `find`, `glob`, or built-in `Read`/`Grep`/`Glob` tools for code discovery — always delegate to a konoha subagent via the semble MCP.
 - **Never use `semble` for skills** — use `konoha.find_skill` / `konoha.get_skill` only.
 - **Never use `konoha` for codebase search** — use `semble.search` / `semble.find_related` (or `konoha.search_file`) only.
 
@@ -27,7 +27,14 @@ Any **non-trivial task MUST be delegated** to the appropriate konoha subagent:
 
 **The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** The only exception is simple/trivial tasks (single read/edit on a known file) which may be executed directly.
 
-## Recent Major Changes (post-v1.1.6)
+## Recent Major Changes (post-v1.15)
+
+### v1.1.6: Full MCP Orchestration & OpenCode Support
+
+- **OpenCode Support**: Fully supported along with Antigravity, Cursor, and Claude Code.
+- **MCP Delegation**: `mcp_sannin` orchestrates backend subagents using their full MCP tools directly instead of utilizing Antigravity's Hook-based TypeName overriding.
+- **Reporting**: The Konoha Savings dashboard includes `OpenCode` in the Provider Breakdown and visual percentage meters.
+- **Model Configuration**: Subagent models can now be specifically targeted per client using `konoha models embed` via `--cursor`, `--claude`, and `--opencode` flags.
 
 ### Removed: Quota Persistence
 
@@ -97,8 +104,8 @@ graph TB
     IDE -->|Loads MCP servers| MCPConfig
     Router -->|Reads agent definitions| DB
 
-    Router -->|Delegate task| Queue
-    Queue -->|Task parameters| Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage
+    Router -->|Delegate task| mcp_sannin
+    mcp_sannin -->|Task parameters| Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage
 
     Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|find_skill / get_skill / file operations| KonohaMCP
     Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|search / find_related| Semble
@@ -108,8 +115,8 @@ graph TB
     Semble -->|Semantic index| Codebase
     KonohaMCP -->|Streamed reads| Codebase
 
-    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|Write result.md| Queue
-    Queue -->|Read output| Router
+    Genin & Chunin & Jonin & Anbu & Tokubetsu & Kage -->|Write result.md| mcp_sannin
+    mcp_sannin -->|Read output| Router
     Router -->|Synthesized response| IDE
     IDE -->|Final answer| User
 
@@ -172,7 +179,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Command | Action |
 |---------|--------|
 | `node bin/cli.js init --force` | Re-installs server, forces re-migration of all active skills, registers MCP, and redeploys subagent profiles. |
-| `node bin/cli.js migrate [--force]` | Re-indexes all detected skill folders. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to prevent duplicates (while skipping project-level skills), and automatically reconfigures integrations for Antigravity, Claude Code, Cursor, and OpenCode. |
+| `node bin/cli.js migrate [--force]` | Re-indexes all detected skill folders. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicates occur (while skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
 | `node bin/cli.js version` | Displays the current local version (1.1.6) and checks for updates from GitHub. |
@@ -419,6 +426,10 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Persistent Upgrade Marker**: Uses a persistent marker file (`~/.agents/.upgraded_v1.1.1`) to decouple the agent format checks from the presence of default skills in `agents.json`, enabling users to freely add, change, or unembed official skills for each subagent.
 - **Depth Calculation Correction**: Resolves depth calculation resetting in nested task directories by reading from both incoming `delegate.md` and target `delegate.md` files to ensure accurate sequence tracing.
 
+### 27. Surgically Preserved Skills & Antigravity Lazy MCP Schemas (v1.2.0)
+- **Base Skills Preservation**: `getSkillsForAgentFromDb` preserves base skills (e.g. `devsecops-engineer`) even if they are not yet fully indexed in the SQLite FTS5 database to prevent silent deletions during setup/sync.
+- **Antigravity Lazy MCP Schemas**: Schema JSON definitions for all subagents are automatically generated and deployed to `~/.gemini/antigravity-cli/mcp/konoha/` to support running subagents as MCP tools in Google Antigravity.
+
 ## Konoha MCP Tools Reference
 
 Konoha relies on two model context protocol (MCP) servers to optimize token efficiency and codebase discoverability: `semble` and `konoha`.
@@ -452,6 +463,20 @@ Serves all skill knowledge retrieval, bounded file operations, and project scaff
   * *Arguments*: `pattern` (string, optional), `dir` (string, optional).
 * **`search_file`**: Semantic code/file search across the workspace using semble.
   * *Arguments*: `query` (string, required), `dir` (string, optional), `top_k` (integer, default 5).
+* **`mcp_sannin`**: Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.
+  * *Arguments*: `prompt` (string, optional), `task_dir` (string, optional).
+* **`mcp_kage`**: Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.
+  * *Arguments*: `task_dir` (string, optional).
+* **`mcp_jonin`**: UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.
+  * *Arguments*: `task_dir` (string, optional).
+* **`mcp_anbu`**: Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.
+  * *Arguments*: `task_dir` (string, optional).
+* **`mcp_chunin`**: Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.
+  * *Arguments*: `task_dir` (string, optional).
+* **`mcp_tokubetsu_jonin`**: Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.
+  * *Arguments*: `task_dir` (string, optional).
+* **`mcp_genin`**: Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.
+  * *Arguments*: `task_dir` (string, optional).
 
 ### 2. `semble` MCP Server
 Used for semantic code searches and locating codebase references in workspace source files.

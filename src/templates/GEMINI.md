@@ -1,6 +1,14 @@
 # Global Agent Instructions
 
-### Team roster (reference — full instructions in ~/.agents/agents.json)
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You are equipped with two MCP servers: **`konoha`** and **`semble`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (`view_file`, `grep_search`, `list_dir`, `run_command` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN** and will be blocked.
+>
+> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`)
+> - **Code search/discovery** → `semble` MCP (`search`, `find_related`)
+> - **Skill lookup** → `konoha` MCP (`find_skill`, `get_skill`, `list_skills`)
+> - **NEVER** call `view_file`, `grep_search`, `list_dir`, or shell `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always use the MCP equivalents above.
+
+### Team roster (reference — full instructions in ~/.agents/agents.yaml)
 
 1. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies. Does NOT modify files.
 2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
@@ -13,7 +21,7 @@
 
 When the user prompt mentions `source-image-design`, design images, or mockups:
 
-1. Orchestrator calls `skills-db.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
+1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
 2. **Constraints section** MUST include:
    - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
    - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
@@ -30,7 +38,7 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
 
-1. The orchestrator MUST call the MCP tool `skills-db.build_from_text`(name, description, framework) first before writing `delegate.md`.
+1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
 3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
 4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
@@ -48,6 +56,7 @@ When the user prompt involves modifying or working within an existing project:
 1. **NEVER touch existing logic**: Do not modify existing components, routes, styles, or code the user did not explicitly ask to change. Preserve all existing architecture.
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
+4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 
 ## Auto-Delegation
 
@@ -111,7 +120,7 @@ For complex multi-domain tasks, invoke multiple agents in parallel.
 - **Tool Boundaries**: Call **`semble` MCP** directly for codebase search. Call **`konoha` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills/reference documents. NEVER use `semble` search for skills.
 - **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: `[{Icon} {Name}] active. Calling konoha.find_skill('...')`
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
+- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.yaml` (created and managed exclusively by the user via the `konoha` CLI command).
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any `git` command. Use `rg` or semble instead.

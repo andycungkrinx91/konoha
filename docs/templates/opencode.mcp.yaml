@@ -1,0 +1,19 @@
+$schema: https://opencode.ai/config.yaml
+# Merge the mcp block into ~/.config/opencode/opencode.yaml. Konoha init does this automatically when the opencode CLI is installed.
+mcp:
+  konoha:
+    type: local
+    command:
+      - node
+      - "${HOME}/.konoha/file_tools_mcp.js"
+    enabled: true
+  semble:
+    type: local
+    command:
+      - uvx
+      - --from
+      - semble[mcp]@latest
+      - semble
+      - --content
+      - all
+    enabled: true

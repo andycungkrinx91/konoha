@@ -13,7 +13,8 @@ const os = require('os');
 const HOME = os.homedir();
 const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const REGISTRY_DIR = path.join(SKILLS_DB_DIR, '.subagent_registered');
-const USER_AGENTS_JSON = path.join(HOME, '.agents', 'agents.json');
+const USER_AGENTS_YAML = path.join(HOME, '.agents', 'agents.yaml');
+const { parseYaml } = require('./agent_manager');
 const GLOBAL_CLI_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
 const GLOBAL_IDE_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
 const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'config', 'agents');
@@ -78,8 +79,8 @@ function loadAgentsFromGlobalDir() {
 
 function loadAgents() {
   try {
-    if (fs.existsSync(USER_AGENTS_JSON)) {
-      const agents = JSON.parse(fs.readFileSync(USER_AGENTS_JSON, 'utf-8'));
+    if (fs.existsSync(USER_AGENTS_YAML)) {
+      const agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML, 'utf-8'));
       if (Array.isArray(agents) && agents.length > 0) return agents;
     }
   } catch {}

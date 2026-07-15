@@ -37,22 +37,30 @@ Konoha is an MCP middleware and skills management system with:
 <!-- KONOHA-START -->
 # Claude Code — Global Agent Instructions
 
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You MUST use `konoha` MCP and `semble` MCP for ALL file operations and code search. Using built-in tools (`Read`, `Grep`, `Glob`, `Bash` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN**.
+>
+> - **File reads/grep/structure** → `mcp__konoha__read_file_head`, `mcp__konoha__read_file_range`, `mcp__konoha__file_info`, `mcp__konoha__token_efficient_grep`, `mcp__konoha__get_file_structure`, `mcp__konoha__find_files_clean`, `mcp__konoha__search_file`
+> - **Code search/discovery** → `mcp__semble__search`, `mcp__semble__find_related`
+> - **Skill lookup** → `mcp__konoha__find_skill`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills`
+> - **NEVER** call `Read`, `Grep`, `Glob`, `SemanticSearch`, or `Bash` with `cat`/`head`/`tail`/`grep`/`rg`/`find` — always use the MCP equivalents above.
+
 You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (`konoha`, `semble`).
 
 ## Orchestrator & Delegation Model (CRITICAL)
 
-Claude Code supports custom agents via `@` mentions. Konoha agents (`@genin`, `@kage`, `@chunin`, `@jonin`, `@anbu`, `@tokubetsu-jonin`) are **promoted as full agents** — not subagents. The main orchestrator MUST delegate all non-trivial tasks to the appropriate konoha agent.
+You delegate specialized work by calling the corresponding subagent MCP tools served by the `konoha` MCP server: `mcp__konoha__mcp_kage`, `mcp__konoha__mcp_jonin`, `mcp__konoha__mcp_anbu`, `mcp__konoha__mcp_chunin`, `mcp__konoha__mcp_tokubetsu_jonin`, `mcp__konoha__mcp_genin`.
 
 **CRITICAL RULES:**
-- **NEVER use built-in Claude Code agents** — only delegate to konoha agents listed above.
+- **NEVER use built-in Claude Code agents** or custom agent `@` mentions — only delegate via the MCP tools listed above.
 - **NEVER call built-in tools directly** (`Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `SemanticSearch`, `WebSearch`) — all file operations and search MUST go through `konoha` MCP and `semble` MCP tools exclusively.
 - The main agent is an **orchestrator only** — it coordinates, delegates, and reports back. It does NOT execute implementation tasks itself.
 
 ### Delegation Protocol:
 1. **Read User Prompt**: Read the user request to understand scope and domain.
 2. **Find Skill**: Call `mcp__konoha__find_skill` or `optimize_report` to discover skill references. **Do NOT call `semble` for skills.**
-3. **Delegate**: Create a task directory (`scratch/tasks/<task_id>/`), write `delegate.md` with task details, constraints, and context, then invoke the appropriate konoha agent: `@agent_name Please read scratch/tasks/<task_id>/delegate.md and execute the task. Write results to scratch/tasks/<task_id>/result.md.`
-4. **Report**: Once the agent writes `result.md`, read it and report back to the user.
+3. **Delegate**: Create a task directory (`scratch/tasks/<task_id>/`), write `delegate.md` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. `mcp_anbu`) passing the `task_dir` pointing to `scratch/tasks/<task_id>/`.
+4. **Report**: Once the tool completes and writes `result.md`, read it and report back to the user.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
 
@@ -67,18 +75,17 @@ Claude Code supports custom agents via `@` mentions. Konoha agents (`@genin`, `@
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any `git` command. Use semble instead.
+- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 - **Optimize Thought Tokens**: Keep thoughts concise in thinking processes. Avoid verbose reasoning.
 
-| Domain / Description | Skill to Load | Agent to Delegate |
+| Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
-| deep codebase exploration, code review, architecture analysis, technical research, source evaluation | `deep-code-explorer` | `@genin` |
-| Browser automation CLI for AI agents. Use when the user needs to interact with websites, including n | `agent-browser` | `@kage` |
-| devsecops engineering for planning, building, securing, reviewing, automating production infrastruct | `devsecops-engineer` | `@kage` |
-| Standard Operating Procedures and router for premium UI development, design match comparison, compon | `jonin-skill` | `@kage` |
-| Guidelines and instructions for maintaining, extending, and debugging the Konoha SQLite FTS5 Skills- | `konoha` | `@kage` |
-| Deep research strategy with problem decomposition, multi-query generation (3-5 variations per sub-qu | `websearch-deep` | `@kage` |
-| modern full-stack product engineering for planning, building, ai sdk expert implementation, secure c | `modern-full-stack` | `@jonin` |
-| technical documentation, product requirement documents, mermaid diagrams, task generation, and techn | `documentation` | `@tokubetsu-jonin` |
+| Specialized skill | `genin-skill` | `mcp_genin` (MCP Tool) |
+| Specialized skill | `kage-skill` | `mcp_kage` (MCP Tool) |
+| Specialized skill | `chunin-skill` | `mcp_chunin` (MCP Tool) |
+| Standard Operating Procedures and router for premium UI development, design match comparison, compon | `jonin-skill` | `mcp_jonin` (MCP Tool) |
+| Specialized skill | `anbu-skill` | `mcp_anbu` (MCP Tool) |
+| Specialized skill | `tokubetsu-jonin-skill` | `mcp_tokubetsu-jonin` (MCP Tool) |
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-END -->

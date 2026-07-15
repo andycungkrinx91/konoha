@@ -198,17 +198,31 @@ console.log('\n[db_agents.py CLI]');
           + `upsert_agent(json.loads(os.environ['AGENT_JSON']))`
         ], { env: { ...process.env, AGENT_JSON: agentJson }, encoding: 'utf-8', timeout: 30000 });
 
+        if (result.status !== 0 || result.error) {
+          console.error('Python execution failed:');
+          console.error('Status:', result.status);
+          console.error('Error:', result.error);
+          console.error('Stderr:', result.stderr);
+          console.error('Stdout:', result.stdout);
+        }
+
         const output = execSync(`${pythonCmd} "${dbAgentsScript}" list`, {
           encoding: 'utf-8',
         });
+        console.log('--- DB List Output ---');
+        console.log(output);
+        console.log('----------------------');
         const agents = JSON.parse(output);
-        assert.ok(agents.some((a) => a.name.startsWith('cli-test-agent-')));
+        assert.ok(agents.some((a) => a.name.startsWith('mcp_cli-test-agent-') || a.name.startsWith('cli-test-agent-')));
 
         // Cleanup
-        const name = agents.find((a) => a.name.startsWith('cli-test-agent-')).name;
-        try {
-          execSync(`${pythonCmd} "${dbAgentsScript}" delete ${name}`, { encoding: 'utf-8' });
-        } catch { /* ignore cleanup */ }
+        const testAgent = agents.find((a) => a.name.startsWith('mcp_cli-test-agent-') || a.name.startsWith('cli-test-agent-'));
+        const name = testAgent ? testAgent.name : null;
+        if (name) {
+          try {
+            execSync(`${pythonCmd} "${dbAgentsScript}" delete ${name}`, { encoding: 'utf-8' });
+          } catch { /* ignore cleanup */ }
+        }
       } finally {
         try { fs.rmSync(cliTempDir, { recursive: true, force: true }); } catch { /* ignore */ }
       }
@@ -222,11 +236,12 @@ console.log('\n[db_agents.py CLI]');
 
 console.log('\n[Template Integrity]');
 {
+  const { parseYaml } = require('../src/agent_manager');
   const templatePath = path.join(
     __dirname,
-    '../src/templates/agents.json'
+    '../src/templates/agents.yaml'
   );
-  const template = JSON.parse(fs.readFileSync(templatePath, 'utf-8'));
+  const template = parseYaml(fs.readFileSync(templatePath, 'utf-8'));
 
   test('all 6 default agents present', function () {
     assert.strictEqual(template.length, 6);

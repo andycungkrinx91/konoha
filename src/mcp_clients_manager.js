@@ -1,7 +1,3 @@
-/**
- * Claude Code & OpenCode MCP auto-setup — global config only (no project files).
- * Only configures when the respective CLI is detected on the device.
- */
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -17,9 +13,9 @@ const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 
-const CLAUDE_JSON = path.join(HOME, '.claude.json');
-const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.json');
-const OPENCODE_GLOBAL = path.join(HOME, '.config', 'opencode', 'opencode.json');
+const CLAUDE_JSON = path.join(HOME, '.claude.yaml');
+const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.yaml');
+const OPENCODE_GLOBAL = path.join(HOME, '.config', 'opencode', 'opencode.yaml');
 
 const KONOHA_MCP_NAMES = ['konoha', 'semble'];
 
@@ -112,12 +108,13 @@ function buildOpenCodeMcpEntries(options = {}) {
 }
 
 function mergeJsonFile(filePath, mutator, silent = true) {
+  const { parseYaml, stringifyYaml } = require('./agent_manager');
   if (!fileExists(filePath)) {
     const config = {};
     const updated = mutator(config);
     if (updated) {
       ensureDir(path.dirname(filePath));
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n');
+      fs.writeFileSync(filePath, stringifyYaml(config) + '\n');
       if (!silent) {
         console.log(`✓ Created ${filePath}`);
       }
@@ -126,10 +123,10 @@ function mergeJsonFile(filePath, mutator, silent = true) {
   }
 
   try {
-    const config = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const config = parseYaml(fs.readFileSync(filePath, 'utf-8')) || {};
     const updated = mutator(config);
     if (updated) {
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n');
+      fs.writeFileSync(filePath, stringifyYaml(config) + '\n');
       if (!silent) {
         console.log(`✓ Updated ${filePath}`);
       }
@@ -137,7 +134,7 @@ function mergeJsonFile(filePath, mutator, silent = true) {
     return updated;
   } catch {
     if (!silent) {
-      console.warn(`Skipped ${filePath}: invalid JSON (not overwritten)`);
+      console.warn(`Skipped ${filePath}: invalid YAML (not overwritten)`);
     }
     return false;
   }
@@ -185,6 +182,7 @@ function backupFile(filePath, silent = true) {
 
 function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!fileExists(serverPath)) return false;
+  const { parseYaml, stringifyYaml } = require('./agent_manager');
   const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd });
 
   // Backup existing config once, then replace mcpServers with only Konoha servers
@@ -193,14 +191,14 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
   let existingConfig = {};
   if (fileExists(CLAUDE_JSON)) {
     try {
-      existingConfig = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
+      existingConfig = parseYaml(fs.readFileSync(CLAUDE_JSON, 'utf-8')) || {};
     } catch { /* ignore parse errors, start fresh */ }
   }
 
   // Replace mcpServers entirely with only Konoha servers
   existingConfig.mcpServers = servers;
   ensureDir(path.dirname(CLAUDE_JSON));
-  fs.writeFileSync(CLAUDE_JSON, JSON.stringify(existingConfig, null, 2) + '\n');
+  fs.writeFileSync(CLAUDE_JSON, stringifyYaml(existingConfig) + '\n');
   if (!silent) console.log(`  ✓ ${path.basename(CLAUDE_JSON)} replaced with Konoha-only MCP servers`);
   return true;
 }
@@ -232,6 +230,7 @@ function registerClaudeCodePermissions(silent = true) {
 
 function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!fileExists(serverPath)) return false;
+  const { parseYaml, stringifyYaml } = require('./agent_manager');
   const entries = buildOpenCodeMcpEntries({ pythonCmd, serverPath, uvxCmd });
 
   // Backup existing config once, then replace mcp block with only Konoha servers
@@ -240,17 +239,17 @@ function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true)
   let existingConfig = {};
   if (fileExists(OPENCODE_GLOBAL)) {
     try {
-      existingConfig = JSON.parse(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
+      existingConfig = parseYaml(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8')) || {};
     } catch { /* ignore parse errors, start fresh */ }
   }
 
   if (!existingConfig.$schema) {
-    existingConfig.$schema = 'https://opencode.ai/config.json';
+    existingConfig.$schema = 'https://opencode.ai/config.yaml';
   }
   // Replace mcp block entirely with only Konoha servers
   existingConfig.mcp = entries;
   ensureDir(path.dirname(OPENCODE_GLOBAL));
-  fs.writeFileSync(OPENCODE_GLOBAL, JSON.stringify(existingConfig, null, 2) + '\n');
+  fs.writeFileSync(OPENCODE_GLOBAL, stringifyYaml(existingConfig) + '\n');
   if (!silent) console.log(`  ✓ ${path.basename(OPENCODE_GLOBAL)} replaced with Konoha-only MCP servers`);
   return true;
 }
@@ -324,11 +323,8 @@ function generateClaudeCodeSubagent(agent) {
     `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
     `model: ${model}`,
     'allowed-tools:',
-    '  - Read',
     '  - Write',
     '  - Edit',
-    '  - Grep',
-    '  - Glob',
     '  - Bash',
     '  - TodoRead',
     '  - TodoWrite',
@@ -342,45 +338,7 @@ function generateClaudeCodeSubagent(agent) {
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
 }
 
-function deployClaudeCodeSubagents(agents, silent = true) {
-  const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-  ensureDir(claudeAgentsDir);
 
-  // Delete konoha.md subagent if it exists
-  const konohaPath = path.join(claudeAgentsDir, 'konoha.md');
-  if (fs.existsSync(konohaPath)) {
-    try {
-      fs.unlinkSync(konohaPath);
-    } catch (e) {
-      if (!silent) {
-        console.warn(`Warning deleting konoha agent: ${e.message}`);
-      }
-    }
-  }
-
-  // Deploy all 6 subagents from agents list
-  for (const agent of agents) {
-    const destPath = path.join(claudeAgentsDir, `${agent.name}.md`);
-    const content = generateClaudeCodeSubagent(agent);
-    let shouldWrite = true;
-    if (fileExists(destPath)) {
-      try {
-        shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
-      } catch {
-        shouldWrite = true;
-      }
-    }
-
-    if (shouldWrite) {
-      fs.writeFileSync(destPath, content);
-    }
-  }
-
-  if (!silent) {
-    console.log(`✓ Deployed Claude Code subagents to ${claudeAgentsDir}`);
-  }
-  return true;
-}
 
 function ensureClaudeCodeSetup(options = {}) {
   const {
@@ -411,9 +369,7 @@ function ensureClaudeCodeSetup(options = {}) {
     deployClaudeCodeRules(ruleContent, silent);
   }
 
-  if (agents && agents.length > 0) {
-    deployClaudeCodeSubagents(agents, silent);
-  }
+
 
   if (deployProject && projectRoot) {
     try {
@@ -463,11 +419,8 @@ function generateOpenCodeSubagent(agent) {
     `description: "${description.replace(/"/g, '\\\"').replace(/\n/g, ' ')}"`,
     `model: ${model}`,
     'allowed-tools:',
-    '  - Read',
     '  - Write',
     '  - Edit',
-    '  - Grep',
-    '  - Glob',
     '  - Bash',
     '  - TodoRead',
     '  - TodoWrite',
@@ -481,32 +434,7 @@ function generateOpenCodeSubagent(agent) {
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
 }
 
-function deployOpenCodeSubagents(agents, silent = true) {
-  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
-  ensureDir(opencodeAgentsDir);
 
-  for (const agent of agents) {
-    const destPath = path.join(opencodeAgentsDir, `${agent.name}.md`);
-    const content = generateOpenCodeSubagent(agent);
-    let shouldWrite = true;
-    if (fileExists(destPath)) {
-      try {
-        shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
-      } catch {
-        shouldWrite = true;
-      }
-    }
-
-    if (shouldWrite) {
-      fs.writeFileSync(destPath, content);
-    }
-  }
-
-  if (!silent) {
-    console.log(`✓ Deployed OpenCode subagents to ${opencodeAgentsDir}`);
-  }
-  return true;
-}
 
 function ensureOpenCodeSetup(options = {}) {
   const {
@@ -529,9 +457,7 @@ function ensureOpenCodeSetup(options = {}) {
 
   registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
 
-  if (agents && agents.length > 0) {
-    deployOpenCodeSubagents(agents, silent);
-  }
+
 
   return { ok: true };
 }
@@ -558,7 +484,8 @@ function getClaudeCodeStatus() {
 
   if (status.globalConfig) {
     try {
-      const config = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
+      const { parseYaml } = require('./agent_manager');
+      const config = parseYaml(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
       const health = readMcpHealth(config, 'mcpServers');
       status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
@@ -568,7 +495,8 @@ function getClaudeCodeStatus() {
 
   if (fileExists(CLAUDE_SETTINGS)) {
     try {
-      const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
+      const { parseYaml } = require('./agent_manager');
+      const settings = parseYaml(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
       const allowed = settings?.permissions?.allow || [];
       status.permissionsAllowed =
         allowed.includes('mcp__konoha__*') &&
@@ -599,7 +527,8 @@ function getOpenCodeStatus() {
 
   if (status.globalConfig) {
     try {
-      const config = JSON.parse(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
+      const { parseYaml } = require('./agent_manager');
+      const config = parseYaml(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
       const health = readMcpHealth(config, 'mcp');
       status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
@@ -880,8 +809,6 @@ module.exports = {
   removeClaudeCodeConfig,
   removeOpenCodeConfig,
   generateClaudeCodeSubagent,
-  deployClaudeCodeSubagents,
   resolveOpenCodeModel,
-  generateOpenCodeSubagent,
-  deployOpenCodeSubagents
+  generateOpenCodeSubagent
 };

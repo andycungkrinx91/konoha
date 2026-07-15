@@ -253,8 +253,6 @@ function pipeWithModelRewrite(forwardRes, res, baseModel, originalModel, onActiv
   // Reset gateway-level timeout on every data chunk
   function resetTimeout() {
     if (onActivity) onActivity();
-    // Extend the inactivity window for active streams
-    if (forwardReq) forwardReq.setTimeout(STREAM_TIMEOUT_MS);
   }
 
   forwardRes.on('data', (chunk) => {

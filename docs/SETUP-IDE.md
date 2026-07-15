@@ -70,44 +70,42 @@ Do NOT load SKILL.md files directly — always use find_skill.
 
 If Antigravity IDE User Rules must be set manually, copy the contents of `~/.gemini/GEMINI.md` after running `konoha migrate`.
 
-### Orchestration Model — Hook-Assisted Subagent Invocation
+### Orchestration Model — MCP-Based Subagent Invocation
 
-Konoha implements a pre-tool sanitization hook (`antigravity_tool_sanitize_hook.js`) that automatically translates custom ninja TypeNames (`genin`, `kage`, `chunin`, etc.) to platform-allowed values (`self` / `research`) and dynamically injects their system prompts. Therefore, custom TypeNames can be called normally and run with full role fidelity.
+Konoha implements a pure MCP-based subagent delegation model. The main agent no longer needs to use `invoke_subagent` or rely on pre-tool hooks to translate custom ninja TypeNames. Instead, all delegation goes through the `mcp_sannin` (Village Elder) MCP tool, which intelligently routes tasks to specialized backend MCP agents.
 
 Concretely, the orchestrator:
 
-1. Runs as `TypeName: "self"` — the orchestrator **is** the primary Antigravity thread.
-2. Acts as a coordinator, loading skill references via `konoha.find_skill` + `konoha.get_skill`.
-3. **Delegates** non-trivial tasks to specialized ninja subagents using `invoke_subagent` with the appropriate ninja TypeName. The pre-tool hook handles translation and instruction injection automatically.
-4. Optionally spawns `TypeName: "research"` subagents for parallel, read-only scans of large codebases or documentation.
-5. Writes intermediate notes, plans, or scratch artifacts to disk (`prompt.md`, scratch files) to keep the chat log light.
+1. Acts as a coordinator, analyzing the user's prompt in `prompt.md`.
+2. Discover skills via `konoha.find_skill` and loads them via `konoha.get_skill` if necessary.
+3. **Delegates** all tasks by calling the `mcp_sannin` MCP tool, passing the prompt and the workspace directory.
+4. `mcp_sannin` then creates a `delegate.md` and hands execution off to the appropriate backend MCP agent (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
+5. The chosen MCP agent reads `delegate.md`, executes the task, and writes the output to `result.md`.
+6. `mcp_sannin` returns the contents of `result.md` back to the orchestrator.
 
 #### Task lifecycle
 
 | Step | Actor | Action | Artifact |
 |------|-------|--------|----------|
 | 1 | `prompt_hook.js` | Capture user message | `prompt.md` |
-| 2 | Self/Orchestrator | Read & analyze request | reads `prompt.md` |
-| 3 | Self/Orchestrator | Discover skills (`konoha.find_skill` / `optimize_report`) | — |
-| 4 | Self/Orchestrator | Load full skill reference (`konoha.get_skill`) | — |
-| 5 | Self/Orchestrator | Delegate to Subagent (`invoke_subagent`) | — |
-| 6 | Subagent | Execute task via native tools | `Read` / `Edit` / `Write` / `Bash` / `WebFetch` |
-| 7 | Subagent | Return results to Orchestrator | — |
-| 8 | Self/Orchestrator | Synthesize & respond | final answer |
+| 2 | Orchestrator | Read & analyze request | reads `prompt.md` |
+| 3 | Orchestrator | Discover skills (`find_skill` / `optimize_report`) | — |
+| 4 | Orchestrator | Delegate task | calls `mcp_sannin` |
+| 5 | mcp_sannin | Write instructions & route | writes `delegate.md` |
+| 6 | Subagent (MCP) | Execute task internally | uses MCP file/bash tools |
+| 7 | Subagent (MCP) | Return results | writes `result.md` |
+| 8 | Orchestrator | Synthesize & respond | final answer |
 
-#### Skill → agent reference (used by orchestrator only)
+#### Available MCP Subagents
 
-| Skill | Reference agent |
-|-------|-----------------|
-| `deep-code-explorer` | `genin` |
-| `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
-| `websearch-deep` | `chunin` |
-| `agent-browser`, `modern-full-stack` | `jonin` |
-| `devsecops-engineer`, `agent-browser` | `anbu` |
-| `documentation` | `tokubetsu-jonin` |
-| Simple/trivial task | Main agent executes directly using native tools |
-
-**Hook-Assisted Invocation**: Custom ninja subagents are fully supported via `invoke_subagent` as the pre-tool hook transparently maps them to platform-compatible endpoints.
+| MCP Tool | Specialization |
+|----------|----------------|
+| `mcp_genin` | Read-only codebase exploration, tracing flows, mapping dependencies |
+| `mcp_kage` | Architecture decisions, security audits, complex refactoring |
+| `mcp_chunin` | Web research, documentation lookup, compliance, evidence synthesis |
+| `mcp_jonin` | UI design, frontend components, styling |
+| `mcp_anbu` | Backend logic, bug fixing, DevOps, infrastructure, CI/CD |
+| `mcp_tokubetsu_jonin` | Technical writing, README, API docs, runbooks, onboarding |
 
 Full orchestrator rules and subagent protocol: `~/.gemini/GEMINI.md` and `~/.agents/AGENTS.md`.
 
@@ -125,8 +123,8 @@ To maintain stability and enforce security, the Antigravity system implements th
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
-> * **Subagent Delegation Model**: Custom `TypeName` values (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are dynamically translated under the hood by Konoha's pre-tool hook to platform-allowed values (`self` / `research`) and injected with their complete instructions. Calling ninja agents directly via `invoke_subagent` is fully supported.
-> * **No Auto-Creation of Subagents**: The AI agent (Antigravity) is **NEVER** allowed to automatically define, create, or delete subagents. Spawning new/custom subagents or invoking `define_subagent` for unrecognized agent names is strictly prohibited — `define_subagent` may silently succeed but the resulting `TypeName` is rejected at invocation.
+> * **Subagent Delegation Model**: Custom `TypeName` values and `invoke_subagent` calls have been fully replaced by the MCP-only delegation model. All subagent delegation goes through the `mcp_sannin` tool, which routes to backend tools like `mcp_jonin`, `mcp_kage`, etc.
+> * **No Auto-Creation of Subagents**: The AI agent is **NEVER** allowed to automatically define, create, or delete subagents.
 > * **No Git Execution**: AI agents must **NEVER** execute any `git` command whatsoever. Use **semble** MCP for code search (`rg` only if semble MCP is unavailable).
 > * **Recursive Loop Circuit Breaker**: The orchestrator tracks delegation/iteration depth to prevent infinite loops via repeated skill-loading + re-execution cycles. If depth exceeds 7 continuously, the circuit breaker halts and prompts the user for validation.
 > * **Indirect Prompt Injection Shielding**: Incoming or retrieved skill text assets are treated as untrusted and automatically run through a defensive parsing layer to neutralize spoofed headers or instructions.

@@ -1,19 +1,17 @@
 ---
-description: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills
+description: Konoha multi-agent orchestration — delegate to ninja agents via MCP tools, use konoha MCP for skills
 alwaysApply: true
 ---
 
 # Konoha — Cursor Orchestrator
 
-You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents via the **Task** tool. Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always route and delegate to the specialized agents.
+You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. `konoha.mcp_kage`, `konoha.mcp_anbu`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
 
-## Ninja Agents (auto-loaded from `.cursor/agents/`)
+## Ninja Agents (MCP tools)
 
-Official team: `genin` (inherit), `kage` (inherit), `chunin` (inherit), `jonin` (inherit), `anbu` (inherit), `tokubetsu-jonin` (inherit)
+Official team tools: `mcp_genin` (inherit), `mcp_kage` (inherit), `mcp_chunin` (inherit), `mcp_jonin` (inherit), `mcp_anbu` (inherit), `mcp_tokubetsu-jonin` (inherit)
 
 Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`). Use `konoha` MCP for on-demand retrieval — never load `SKILL.md` files directly.
-
-Each agent has an embedded **Cursor model** in its frontmatter. When using Task, pass `subagent_type` matching the agent name (e.g. `anbu`, `genin`) and include `model` from the agent definition when supported.
 
 ## Mandatory workflow
 
@@ -22,19 +20,19 @@ Each agent has an embedded **Cursor model** in its frontmatter. When using Task,
 3. **File reads**: After semble locates targets, use `konoha` MCP for reads/grep/structure — **never Cursor `Read`/`Grep`/`Glob` or shell `cat`/`head`/`grep`.**
 4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the `skills` array of any agent.
-   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @kage, backend to @anbu, UI to @jonin).
-   - Delegate via Task tool to the matching agent. Pass skill reference names discovered in step 1.
+   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
+   - Delegate by calling the corresponding subagent MCP tool (e.g. `konoha.mcp_anbu`), passing `task_dir` pointing to a task directory containing `delegate.md` instructions.
 5. **Synthesize**: Present results to the user.
 
-| Embedded Skills | Agent TypeName |
+| Embedded Skills | Subagent MCP Tool |
 |---|---|
-| `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety` | `genin` |
-| `agent-browser`, `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`, `jonin-skill`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/tailwind-design-system`, `konoha`, `websearch-deep` | `kage` |
-| `websearch-deep` | `chunin` |
-| `agent-browser`, `modern-full-stack`, `modern-full-stack/3d-web-experience`, `modern-full-stack/ai-sdk`, `modern-full-stack/bug-reporting`, `modern-full-stack/character-hygiene`, `modern-full-stack/code-review-security`, `modern-full-stack/command-safety`, `modern-full-stack/fastapi-code-review`, `modern-full-stack/fastapi-expert`, `modern-full-stack/fastapi-templates`, `modern-full-stack/full-stack-workflows`, `modern-full-stack/golang-concurrency`, `modern-full-stack/golang-fundamentals`, `modern-full-stack/golang-performance`, `modern-full-stack/golang-security`, `modern-full-stack/golang-testing`, `modern-full-stack/guardrails`, `modern-full-stack/javascript-pro`, `modern-full-stack/langchain-fundamentals`, `modern-full-stack/langchain-rag`, `modern-full-stack/laravel-security`, `modern-full-stack/laravel-specialist`, `modern-full-stack/mcp-evaluation`, `modern-full-stack/mcp-python-server`, `modern-full-stack/mcp-server-development`, `modern-full-stack/mcp-typescript-server`, `modern-full-stack/mysql-best-practices`, `modern-full-stack/n8n-builtin-functions`, `modern-full-stack/n8n-code-javascript`, `modern-full-stack/n8n-common-patterns`, `modern-full-stack/n8n-data-access`, `modern-full-stack/n8n-error-patterns`, `modern-full-stack/nextjs-16-complete-guide`, `modern-full-stack/nextjs-code-expert`, `modern-full-stack/nextjs-creative-stack`, `modern-full-stack/nextjs-security`, `modern-full-stack/nextjs-ui-expert`, `modern-full-stack/pnpm`, `modern-full-stack/postgresql-code-review`, `modern-full-stack/prd`, `modern-full-stack/qdrant-clients-sdk`, `modern-full-stack/quality-checklist`, `modern-full-stack/router`, `modern-full-stack/secret-safety`, `modern-full-stack/skill-creator`, `modern-full-stack/sqlite-database-expert`, `modern-full-stack/svelte-code-expert`, `modern-full-stack/svelte-code-writer`, `modern-full-stack/svelte-components`, `modern-full-stack/svelte-ui-expert`, `modern-full-stack/tailwind-design-system`, `modern-full-stack/tailwind4-expert`, `modern-full-stack/token-safety`, `modern-full-stack/vite` | `jonin` |
-| `agent-browser`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety` | `anbu` |
-| `documentation`, `documentation/mermaid-architecture`, `documentation/mermaid-core`, `documentation/prd-creation`, `documentation/router`, `documentation/task-generation`, `documentation/technical-writing` | `tokubetsu-jonin` |
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
+| `genin-skill` | `mcp_genin` |
+| `kage-skill` | `mcp_kage` |
+| `chunin-skill` | `mcp_chunin` |
+| `jonin-skill`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/tailwind-design-system` | `mcp_jonin` |
+| `anbu-skill` | `mcp_anbu` |
+| `tokubetsu-jonin-skill` | `mcp_tokubetsu-jonin` |
+| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage). |
 
 ### Default Code Search — Semble MCP Only
 

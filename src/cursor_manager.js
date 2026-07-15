@@ -11,7 +11,7 @@ const deployUtils = require('./deploy_utils');
 
 const HOME = os.homedir();
 const CURSOR_DIR = path.join(HOME, '.cursor');
-const CURSOR_MCP_GLOBAL = path.join(CURSOR_DIR, 'mcp.json');
+const CURSOR_MCP_GLOBAL = path.join(CURSOR_DIR, 'mcp.yaml');
 const CURSOR_AGENTS_GLOBAL = path.join(CURSOR_DIR, 'agents');
 const CURSOR_SKILLS_GLOBAL = path.join(CURSOR_DIR, 'skills');
 const CURSOR_HOOKS_GLOBAL = path.join(CURSOR_DIR, 'hooks.json');
@@ -25,12 +25,12 @@ const SRC_DIR = __dirname;
 const PROJECT_CURSOR_DIR = '.cursor';
 
 const DEFAULT_CURSOR_MODELS = {
-  genin: 'inherit',
-  kage: 'inherit',
-  chunin: 'inherit',
-  jonin: 'inherit',
-  anbu: 'inherit',
-  'tokubetsu-jonin': 'inherit'
+  mcp_genin: 'inherit',
+  mcp_kage: 'inherit',
+  mcp_chunin: 'inherit',
+  mcp_jonin: 'inherit',
+  mcp_anbu: 'inherit',
+  'mcp_tokubetsu-jonin': 'inherit'
 };
 
 const CURSOR_FALLBACK_MODEL = 'inherit';
@@ -162,21 +162,27 @@ function generateCursorSubagent(agent) {
     .join('\n');
 
   return `---
-description: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills
+description: Konoha multi-agent orchestration — delegate to ninja agents via MCP tools, use konoha MCP for skills
 alwaysApply: true
 ---
 
 # Konoha — Cursor Orchestrator
 
-You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents via the **Task** tool. Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always route and delegate to the specialized agents.
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in Cursor tools (\`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`) or shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) is **STRICTLY FORBIDDEN**.
+>
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **NEVER** call Cursor \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
-## Ninja Agents (auto-loaded from \`.cursor/agents/\`)
+You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_kage\`, \`konoha.mcp_anbu\`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
 
-Official team: ${agentList}
+## Ninja Agents (MCP tools)
+
+Official team tools: ${agentList}
 
 Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/\`). Use \`konoha\` MCP for on-demand retrieval — never load \`SKILL.md\` files directly.
-
-Each agent has an embedded **Cursor model** in its frontmatter. When using Task, pass \`subagent_type\` matching the agent name (e.g. \`anbu\`, \`genin\`) and include \`model\` from the agent definition when supported.
 
 ## Mandatory workflow
 
@@ -185,14 +191,14 @@ Each agent has an embedded **Cursor model** in its frontmatter. When using Task,
 3. **File reads**: After semble locates targets, use \`konoha\` MCP for reads/grep/structure — **never Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`.**
 4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any agent.
-   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @kage, backend to @anbu, UI to @jonin).
-   - Delegate via Task tool to the matching agent. Pass skill reference names discovered in step 1.
+   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
+   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_anbu\`), passing \`task_dir\` pointing to a task directory containing \`delegate.md\` instructions.
 5. **Synthesize**: Present results to the user.
 
-| Embedded Skills | Agent TypeName |
+| Embedded Skills | Subagent MCP Tool |
 |---|---|
 ${delegationRows}
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
+| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage). |
 
 ${buildSembleSearchPolicy()}
 
@@ -210,6 +216,7 @@ ${buildFileToolsPolicy()}
 
 - Log at response start: \`[Konoha] orchestrator active. Calling konoha.find_skill(...)\`
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
+- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
@@ -243,6 +250,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     return false;
   }
 
+  const { parseYaml, stringifyYaml } = require('./agent_manager');
   ensureDir(CURSOR_DIR);
 
   // Backup existing config once before replacing
@@ -256,10 +264,10 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   let config = { mcpServers: {} };
   if (fileExists(CURSOR_MCP_GLOBAL)) {
     try {
-      config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
+      config = parseYaml(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       if (!config.mcpServers) config.mcpServers = {};
     } catch {
-      if (!silent) console.warn(`Invalid JSON in ${CURSOR_MCP_GLOBAL}, starting fresh.`);
+      if (!silent) console.warn(`Invalid YAML in ${CURSOR_MCP_GLOBAL}, starting fresh.`);
       config = { mcpServers: {} };
     }
   }
@@ -268,7 +276,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   const servers = buildMcpServers(pythonCmd, serverPath, uvxCmd || 'uvx');
   config.mcpServers = servers;
 
-  fs.writeFileSync(CURSOR_MCP_GLOBAL, JSON.stringify(config, null, 2) + '\n');
+  fs.writeFileSync(CURSOR_MCP_GLOBAL, stringifyYaml(config) + '\n');
   if (!silent) {
     console.log(`\u2713 Replaced ${CURSOR_MCP_GLOBAL} with Konoha-only MCP servers`);
   }
@@ -278,24 +286,25 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
+  const { parseYaml, stringifyYaml } = require('./agent_manager');
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
-  const mcpPath = path.join(cursorDir, 'mcp.json');
+  const mcpPath = path.join(cursorDir, 'mcp.yaml');
   ensureDir(cursorDir);
 
   let config = { mcpServers: {} };
   if (fileExists(mcpPath)) {
     try {
-      config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+      config = parseYaml(fs.readFileSync(mcpPath, 'utf-8'));
       if (!config.mcpServers) config.mcpServers = {};
     } catch {
       if (!silent) {
-        console.warn(`Skipped project MCP update: invalid JSON in ${mcpPath}`);
+        console.warn(`Skipped project MCP update: invalid YAML in ${mcpPath}`);
       }
       return false;
     }
   }
 
-  delete config.mcpServers['skills-db'];
+  delete config.mcpServers['konoha'];
   delete config.mcpServers['konoha-files'];
   delete config.mcpServers['konoha'];
 
@@ -328,7 +337,7 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   }
 
   if (updated || !fileExists(mcpPath)) {
-    fs.writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n');
+    fs.writeFileSync(mcpPath, stringifyYaml(config) + '\n');
     if (!silent) {
       console.log(`✓ Registered project MCP config: ${mcpPath}`);
     }
@@ -436,56 +445,12 @@ function registerCursorHooks(silent = true, allowHooks = true) {
   return true;
 }
 
-function deployCursorSubagents(agents, silent = true) {
-  if (!agents || agents.length === 0) return false;
-
-  ensureDir(CURSOR_AGENTS_GLOBAL);
-  let deployed = 0;
-
-  for (const agent of agents) {
-    const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-    if (!official.includes(agent.name)) continue;
-
-    const destPath = path.join(CURSOR_AGENTS_GLOBAL, `${agent.name}.md`);
-    const content = generateCursorSubagent(agent);
-    let shouldWrite = true;
-
-    if (fileExists(destPath)) {
-      try {
-        shouldWrite = fs.readFileSync(destPath, 'utf-8') !== content;
-      } catch {
-        shouldWrite = true;
-      }
-    }
-
-    if (shouldWrite) {
-      fs.writeFileSync(destPath, content);
-      deployed++;
-    }
-  }
-
-  if (!silent && deployed > 0) {
-    console.log(`✓ Deployed ${deployed} Cursor subagents to ${CURSOR_AGENTS_GLOBAL}`);
-  }
-  return deployed > 0;
-}
-
 function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = null) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
-  const agentsDir = path.join(cursorDir, 'agents');
   const rulesDir = path.join(cursorDir, 'rules');
-  ensureDir(agentsDir);
   ensureDir(rulesDir);
-
-  // Deploy subagents to project
-  for (const agent of agents) {
-    const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-    if (!official.includes(agent.name)) continue;
-    const destPath = path.join(agentsDir, `${agent.name}.md`);
-    fs.writeFileSync(destPath, generateCursorSubagent(agent));
-  }
 
   // Deploy orchestrator rule
   const rulePath = path.join(rulesDir, 'konoha.mdc');
@@ -552,7 +517,6 @@ function ensureCursorSetup(options = {}) {
   deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject, silent });
 
   if (agents.length > 0) {
-    deployCursorSubagents(agents, silent);
     if (deployProject) {
       const root = projectRoot || process.cwd();
       try {
@@ -571,7 +535,7 @@ function removeCursorConfig(silent = true) {
       const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       let updated = false;
       if (config.mcpServers) {
-        for (const name of ['skills-db', 'semble', 'konoha', 'konoha-files']) {
+        for (const name of ['konoha', 'semble', 'konoha', 'konoha-files']) {
           if (config.mcpServers[name]) {
             delete config.mcpServers[name];
             updated = true;
@@ -659,7 +623,8 @@ function getCursorStatus() {
 
   if (status.mcpGlobal) {
     try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
+      const { parseYaml } = require('./agent_manager');
+      const config = parseYaml(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       status.mcpSkillsDb = !!(config.mcpServers && config.mcpServers['konoha']);
       status.mcpSemble = !!(config.mcpServers && config.mcpServers['semble']);
       status.mcpKonoha = !!(config.mcpServers && config.mcpServers['konoha']);
@@ -682,7 +647,7 @@ function getCursorStatus() {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
       const allows = (config.permissions && config.permissions.allow) || [];
-      status.cliPermissions = allows.some(a => a.includes('konoha') && a.includes('semble'));
+      status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
     } catch {}
   }
 
@@ -695,7 +660,7 @@ function getCursorStatus() {
   }
 
   const cwd = process.cwd();
-  const projectMcp = path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.json');
+  const projectMcp = path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.yaml');
   const projectRule = path.join(cwd, PROJECT_CURSOR_DIR, 'rules', 'konoha.mdc');
   const projectAgents = path.join(cwd, PROJECT_CURSOR_DIR, 'agents');
   const projectSkills = path.join(cwd, PROJECT_CURSOR_DIR, 'skills');
@@ -733,7 +698,6 @@ module.exports = {
   registerCursorProjectMcp,
   registerCursorCliPermissions,
   registerCursorHooks,
-  deployCursorSubagents,
   deployProjectCursor,
   ensureCursorSetup,
   removeCursorConfig,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cursor sessionStart hook — silently ensures Konoha MCP + subagents are registered.
+ * Cursor sessionStart hook — silently ensures Konoha MCP is registered and skills are synchronized.
  * Self-contained (no package-relative requires) so it works from ~/.konoha/.
  * Exits 0 always (fail-open).
  */
@@ -12,25 +12,10 @@ const { spawnSync } = require('child_process');
 const HOME = os.homedir();
 const CURSOR_DIR = path.join(HOME, '.cursor');
 const CURSOR_MCP = path.join(CURSOR_DIR, 'mcp.json');
-const CURSOR_AGENTS = path.join(CURSOR_DIR, 'agents');
 const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
 const AGENTS_SKILLS = path.join(HOME, '.agents', 'skills');
-const AGENTS_JSON = path.join(HOME, '.agents', 'agents.json');
 const SERVER_PATH = path.join(HOME, '.konoha', 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(HOME, '.konoha', 'file_tools_mcp.js');
-
-const SEMBLE_POLICY_LINE =
-  '- **Code search default**: Use `semble` MCP (`search`, `find_related`) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor `Grep`/`Glob`/`SemanticSearch`. Always pass absolute `repo`. Skills: `konoha.find_skill` only — never semble for skills.';
-
-const DEFAULT_CURSOR_MODELS = {
-  genin: 'inherit',
-  kage: 'inherit',
-  chunin: 'inherit',
-  jonin: 'inherit',
-  anbu: 'inherit',
-  'tokubetsu-jonin': 'inherit'
-};
-
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -57,16 +42,6 @@ function getUvx() {
   } catch {}
   const local = path.join(HOME, '.local', 'bin', 'uvx');
   return fileExists(local) ? local : 'uvx';
-}
-
-function adaptInstructionsForCursor(instructions) {
-  if (!instructions) return '';
-  return instructions
-    .replace(/Always set RequestFeedback:\s*false\s+and\s+UserFacing:\s*false\s+in\s+ArtifactMetadata\s+when\s+writing\s+files\.?\s*/gi, '')
-    .replace(/view_file/g, 'Read')
-    .replace(/write_to_file|replace_file_content/g, 'Write/StrReplace')
-    .replace(/run_command/g, 'Shell')
-    .trim();
 }
 
 function buildKonohaFilesMcpEntry() {
@@ -112,10 +87,11 @@ function registerMcp(python) {
       args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
     }
   };
-  if (fileExists(FILE_TOOLS_MCP_PATH)) {
+  if (FILE_TOOLS_MCP_PATH && fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = buildKonohaFilesMcpEntry();
     if (entry) {
       servers['konoha'] = entry;
+      updated = true;
     }
   }
   for (const [name, entry] of Object.entries(servers)) {
@@ -132,37 +108,6 @@ function registerMcp(python) {
 
   if (updated || !fileExists(CURSOR_MCP)) {
     fs.writeFileSync(CURSOR_MCP, JSON.stringify(config, null, 2) + '\n');
-  }
-}
-
-function loadAgents() {
-  if (!fileExists(AGENTS_JSON)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(AGENTS_JSON, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-function deploySubagents(agents) {
-  ensureDir(CURSOR_AGENTS);
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-  for (const agent of agents) {
-    if (!official.includes(agent.name)) continue;
-    const configured = (agent.cursorModel || '').trim().toLowerCase();
-    const model = configured === 'auto' ? 'inherit' : (agent.cursorModel || DEFAULT_CURSOR_MODELS[agent.name] || 'inherit');
-    const readonly = agent.name === 'genin';
-    const desc = `${agent.description || agent.name}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-    const body = adaptInstructionsForCursor(agent.instructions || '');
-    const lines = [
-      '---',
-      `name: ${agent.name}`,
-      `description: ${desc.replace(/\n/g, ' ')}`,
-      `model: ${model}`,
-    ];
-    if (readonly) lines.push('readonly: true');
-    lines.push('---', '', body, '', SEMBLE_POLICY_LINE, '');
-    fs.writeFileSync(path.join(CURSOR_AGENTS, `${agent.name}.md`), lines.join('\n'));
   }
 }
 
@@ -232,7 +177,6 @@ async function main() {
     const python = checkPython();
     registerMcp(python);
     syncCursorSkills();
-    deploySubagents(loadAgents());
   } catch {
     // fail-open
   }

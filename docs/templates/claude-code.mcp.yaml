@@ -1,0 +1,16 @@
+# Merge the mcpServers block into ~/.claude.yaml (global user config). Konoha init does this automatically when the claude CLI is installed.
+mcpServers:
+  konoha:
+    type: stdio
+    command: node
+    args:
+      - "${HOME}/.konoha/file_tools_mcp.js"
+  semble:
+    type: stdio
+    command: uvx
+    args:
+      - --from
+      - semble[mcp]@latest
+      - semble
+      - --content
+      - all

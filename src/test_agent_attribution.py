@@ -113,7 +113,7 @@ def main():
         before = load_stats().get(agent, {}).get("today", 0)
         conv = setup_brain(BRAIN_CLI, prompt, planner, mtime_offset=7200 + idx * 120)
         try:
-            mcp_find_skill_no_agent(f"{keyword_base}-{agent}", conv_id=os.path.basename(conv))
+            mcp_find_skill_no_agent("jonin-skill", conv_id=os.path.basename(conv))
             logged = last_logged_agent()
             after = load_stats().get(agent, {}).get("today", 0)
             ok = logged == agent and after == before + 1
@@ -133,7 +133,7 @@ def main():
         mtime_offset=7200 + len(AGENTS) * 120,
     )
     try:
-        mcp_find_skill_no_agent(f"{keyword_base}-orchestrator", conv_id=os.path.basename(conv))
+        mcp_find_skill_no_agent("jonin-skill", conv_id=os.path.basename(conv))
         logged = last_logged_agent()
         after_direct = direct_today(load_stats())
         ok = logged == "orchestrator" and after_direct == before_direct + 1

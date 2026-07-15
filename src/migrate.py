@@ -44,6 +44,183 @@ CUSTOM_SKILLS = [
 ]
 
 
+def parse_yaml(yaml_content):
+    agents = []
+    current_agent = None
+    current_key = None
+    multiline_val = None
+    multiline_indent = None
+    list_key = None
+    list_val = []
+
+    lines = yaml_content.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        
+        if not stripped or stripped.startswith("#"):
+            if current_key and multiline_val is not None:
+                if not stripped:
+                    multiline_val.append("")
+                else:
+                    indent = len(line) - len(line.lstrip(' '))
+                    if indent >= multiline_indent:
+                        multiline_val.append(line[multiline_indent:])
+                    else:
+                        current_agent[current_key] = "\n".join(multiline_val)
+                        current_key = None
+                        multiline_val = None
+                        multiline_indent = None
+                        continue
+            i += 1
+            continue
+
+        indent = len(line) - len(line.lstrip(' '))
+
+        if current_key and multiline_val is not None:
+            if indent >= multiline_indent:
+                multiline_val.append(line[multiline_indent:])
+                i += 1
+                continue
+            else:
+                current_agent[current_key] = "\n".join(multiline_val)
+                current_key = None
+                multiline_val = None
+                multiline_indent = None
+                continue
+
+        if list_key and stripped.startswith("- "):
+            val = stripped[2:].strip()
+            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                val = val[1:-1]
+            list_val.append(val)
+            i += 1
+            continue
+        elif list_key:
+            current_agent[list_key] = list_val
+            list_key = None
+            list_val = []
+            continue
+
+        if stripped.startswith("-"):
+            if current_agent is not None:
+                agents.append(current_agent)
+            current_agent = {}
+            
+            rest = stripped[1:].strip()
+            if not rest:
+                i += 1
+                continue
+            else:
+                stripped = rest
+
+        if ":" in stripped:
+            parts = stripped.split(":", 1)
+            key = parts[0].strip()
+            val = parts[1].strip()
+
+            if val == "|":
+                current_key = key
+                multiline_val = []
+                next_line_idx = i + 1
+                while next_line_idx < len(lines) and not lines[next_line_idx].strip():
+                    next_line_idx += 1
+                if next_line_idx < len(lines):
+                    multiline_indent = len(lines[next_line_idx]) - len(lines[next_line_idx].lstrip(' '))
+                else:
+                    multiline_indent = indent + 4
+            elif not val:
+                list_key = key
+                list_val = []
+            else:
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                elif val.startswith("[") and val.endswith("]"):
+                    inner = val[1:-1].strip()
+                    if not inner:
+                        val = []
+                    else:
+                        val = [item.strip().strip('"').strip("'") for item in inner.split(",")]
+                elif val.lower() == "true":
+                    val = True
+                elif val.lower() == "false":
+                    val = False
+                elif val.lower() in ("null", "none"):
+                    val = None
+                elif val.isdigit():
+                    val = int(val)
+                current_agent[key] = val
+        
+        i += 1
+
+    if current_key and multiline_val is not None:
+        current_agent[current_key] = "\n".join(multiline_val)
+    if list_key:
+        current_agent[list_key] = list_val
+    if current_agent is not None:
+        agents.append(current_agent)
+
+    return agents
+
+
+def seed_agents(conn):
+    """Seed the agents table from src/templates/agents.yaml using custom YAML parser."""
+    import json
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "agents.yaml")
+    if not os.path.exists(template_path):
+        template_path = os.path.abspath(os.path.join(os.getcwd(), "src", "templates", "agents.yaml"))
+    if not os.path.exists(template_path):
+        template_path = os.path.expanduser("~/.agents/agents.yaml")
+
+    if not os.path.exists(template_path):
+        print(f"  ✗ Agent template not found: {template_path}")
+        return
+        
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        agents = parse_yaml(content)
+        
+        cursor = conn.cursor()
+        for a in agents:
+            name = a.get("name")
+            if not name:
+                continue
+            if not name.startswith("mcp_"):
+                name = f"mcp_{name}"
+            skills_str = json.dumps(a.get("skills", []))
+            cursor.execute("""
+                INSERT OR REPLACE INTO agents (
+                    name, icon, title, model_tier, purpose, skills, delegate_when,
+                    constraints_text, workflow, description, instructions, delegation_keywords,
+                    cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                name,
+                a.get("icon"),
+                a.get("title"),
+                a.get("modelTier") or a.get("model_tier"),
+                a.get("purpose"),
+                skills_str,
+                a.get("delegateWhen") or a.get("delegate_when"),
+                a.get("constraints") or a.get("constraints_text"),
+                a.get("workflow"),
+                a.get("description"),
+                a.get("instructions"),
+                a.get("delegationKeywords") or a.get("delegation_keywords"),
+                a.get("cursorModel") or a.get("cursor_model"),
+                a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
+                1 if a.get("enable_mcp_tools", True) else 0,
+                a.get("claudeModel") or a.get("claude_model"),
+                a.get("opencodeModel") or a.get("opencode_model")
+            ))
+        conn.commit()
+        print(f"  ✓ Seeded {len(agents)} agents from template.")
+    except Exception as e:
+        print(f"  ✗ Failed to seed agents: {str(e)}")
+
+
 def setup_db():
     """Create the database schema."""
     conn = sqlite3.connect(DB_PATH)
@@ -112,6 +289,35 @@ def setup_db():
             transcript_path TEXT,
             last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (client, workspace_root)
+        );
+
+        CREATE TABLE IF NOT EXISTS agents (
+            name TEXT PRIMARY KEY,
+            icon TEXT,
+            title TEXT,
+            model_tier TEXT,
+            purpose TEXT,
+            skills TEXT,
+            delegate_when TEXT,
+            constraints_text TEXT,
+            workflow TEXT,
+            description TEXT,
+            instructions TEXT,
+            delegation_keywords TEXT,
+            cursor_model TEXT,
+            cursor_fallback_model TEXT,
+            enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
+            claude_model TEXT,
+            opencode_model TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS bridges (
+            name TEXT PRIMARY KEY,
+            port INTEGER NOT NULL,
+            provider TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            target_url TEXT,
+            api_key TEXT
         );
     """)
     try:
@@ -481,6 +687,7 @@ def main():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     conn = setup_db()
+    seed_agents(conn)
 
     if args.clean:
         print("🧹 Purging existing skills from database...")

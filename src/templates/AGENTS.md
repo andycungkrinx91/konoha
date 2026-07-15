@@ -2,6 +2,14 @@
 
 > **Compatibility**: Antigravity IDE, CLI, and all Gemini agent surfaces. Place at `~/.agents/AGENTS.md`.
 
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You are equipped with two MCP servers: **`konoha`** and **`semble`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (`view_file`, `grep_search`, `list_dir`, `run_command` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN** and will be blocked.
+>
+> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`)
+> - **Code search/discovery** → `semble` MCP (`search`, `find_related`)
+> - **Skill lookup** → `konoha` MCP (`find_skill`, `get_skill`, `list_skills`)
+> - **NEVER** call `view_file`, `grep_search`, `list_dir`, or shell `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always use the MCP equivalents above.
+
 ## Team Roles & Delegation
 
 ### Team roster
@@ -52,51 +60,20 @@ When the user prompt involves modifying or working within an existing project:
 1. **NEVER touch existing logic**: Do not modify existing components, routes, styles, or code the user did not explicitly ask to change. Preserve all existing architecture.
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
+4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 
-### Antigravity subagent invocation — Hook-Assisted Translation (CRITICAL)
-
-The Antigravity platform itself has hard-coded restrictions and only accepts `self` (always) and `research` (read-only investigations) as valid TypeName values. Custom subagent TypeNames (genin, kage, chunin, jonin, anbu, tokubetsu-jonin, etc.) are natively rejected by the platform.
-
-To solve this, Konoha implements a pre-tool sanitization hook (`antigravity_tool_sanitize_hook.js`) that automatically intercepts, sanitizes, and translates subagent invocation arguments under the hood:
-- Subagents are invoked using their official bare names: `TypeName: "genin"`, `TypeName: "jonin"`, etc.
-- The hook translates read-only subagents (`genin`, `chunin`) to `TypeName: "research"`.
-- The hook translates writing subagents (`kage`, `jonin`, `anbu`, `tokubetsu-jonin`) to `TypeName: "self"`.
-- The hook automatically prepends the subagent's complete instructions, constraints, and identity overrides to the `Prompt` field so they run with full role fidelity.
-
-### Supported invocation pattern
-
-You can call `invoke_subagent` using the official ninja names as `TypeName` parameters (e.g., `genin`, `jonin`, etc.). Do NOT attempt to use `TypeName: "self"` to manually impersonate subagents, as that is deprecated. Let the hook handle the translation and instruction injection automatically.
-
-### Optional: spawn research for parallel read-only work
-
-```json
-{
-  "Subagents": [
-    {
-      "TypeName": "research",
-      "Prompt": "Investigate <X> in <repo>. Return findings only — do not modify files.",
-      "Workspace": "inherit"
-    }
-  ]
-}
-```
-
-Use research when you need a deep parallel scan of a large codebase or documentation set without blocking the main thread. Do not use it for tasks that require file edits, builds, or deployments.
-
-### @orchestrator — Task Coordinator
-- **Purpose**: Orchestrates tasks by loading skill references and executing directly. Runs as TypeName: "self" — the primary Antigravity thread.
+### @orchestrator — Task Coordinator & MCP Delegator
+- **Purpose**: Runs as the primary thread (TypeName: "self") to coordinate project execution. It delegates non-trivial implementation tasks exclusively to specialized subagents by calling their respective MCP tools served by the `konoha` MCP server.
 - **Orchestration Model**:
-  - The Antigravity platform only accepts "self" and "research" as valid TypeName values. Custom Ninja TypeName values are rejected at invocation time.
-  - The orchestrator does NOT delegate — it loads skill references via konoha.find_skill + konoha.get_skill, then performs the work using its native tools.
-  - For parallel read-only research, optionally spawn TypeName: "research" subagents.
+  - **NEVER use the `invoke_subagent` tool** or custom IDE subagent configurations.
+  - All delegation is performed strictly via MCP tool calls to the matching subagent (e.g. `mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
 - **Workflow**:
-  1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
+  1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
   2. **Find Skill**: Call `konoha.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names.
   3. **Load Skill**: Call `konoha.get_skill()` to fetch the full content of the discovered skill.
-  4. **Execute Directly**: Perform the task using native tools. Do NOT attempt to delegate to subagents.
-  5. **Planning-to-File**: Write detailed analysis or plans to a markdown file and refer to it, keeping the conversation log light.
-- **Constraints**: ONLY references skill definitions from the defined ninja agents: `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`. Dynamic auto-creation of agents is prohibited.
-- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.
+  4. **Delegate (MCP Tool Call)**: Initialize/create a task directory (e.g., `scratch/tasks/<task_id>/`), write `delegate.md` with instructions, constraints, and skill references, and call the corresponding subagent MCP tool passing the `task_dir` parameter.
+  5. **Read Result**: Once the MCP tool completes, read `result.md` and report back to the user.
+- **Constraints**: ONLY references skill definitions from the defined ninja agents. Direct execution is restricted to trivial tasks (e.g., reading a single file).
 
 | Skill Name | Agent Definition |
 |---|---|
@@ -177,7 +154,7 @@ Use research when you need a deep parallel scan of a large codebase or documenta
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.json` (created and managed exclusively by the user via the `konoha` CLI command).
+- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling `define_subagent` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from `~/.agents/agents.yaml` (created and managed exclusively by the user via the `konoha` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.

@@ -56,9 +56,8 @@ konoha doctor --yes
 
 **Writes**:
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
-- `~/.claude/agents/` → Six official ninja subagents (`genin.md`, `kage.md`, `chunin.md`, `jonin.md`, `anbu.md`, `tokubetsu-jonin.md`) configured with whitelisted tools (`allowed-tools` whitelist matching `mcp__semble__*`, `mcp__konoha__*`).
 
-**Verify**: `/agents` and `/mcp` in Claude Code session.
+**Verify**: `/mcp` in Claude Code session.
 
 **Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.json` to leverage Claude 3.5 Sonnet in Claude Code. View assignments with `konoha models list`.
 
@@ -70,9 +69,8 @@ konoha doctor --yes
 
 **Writes**:
 - `~/.config/opencode/opencode.json` → `mcp` (`type: local`).
-- `~/.config/opencode/agents/` → Six official ninja subagents (`genin.md`, `kage.md`, `chunin.md`, `jonin.md`, `anbu.md`, `tokubetsu-jonin.md`) configured with whitelisted tools.
 
-**Verify**: `opencode mcp list` and list the `~/.config/opencode/agents/` directory.
+**Verify**: `opencode mcp list`.
 
 **Model Default**: Configured with `opencodeModel` (defaults to `"inherit"`). View assignments with `konoha models list`.
 

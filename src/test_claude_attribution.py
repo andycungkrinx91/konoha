@@ -114,7 +114,7 @@ def main():
         before = load_stats().get(agent, {}).get("today", 0)
         conv_dir, transcript_path = setup_claude_session(text, mtime_offset=7200 + idx * 120)
         try:
-            mcp_find_skill_no_agent(f"{keyword_base}-{agent}")
+            mcp_find_skill_no_agent("jonin-skill")
             logged = last_logged_agent()
             after = load_stats().get(agent, {}).get("today", 0)
             ok = logged == agent and after == before + 1
@@ -132,7 +132,7 @@ def main():
         mtime_offset=7200 + len(AGENTS) * 120,
     )
     try:
-        mcp_find_skill_no_agent(f"{keyword_base}-orchestrator")
+        mcp_find_skill_no_agent("jonin-skill")
         logged = last_logged_agent()
         after_direct = direct_today(load_stats())
         ok = logged == "orchestrator" and after_direct == before_direct + 1
@@ -159,7 +159,7 @@ def main():
     now = time.time() + 7200 + (len(AGENTS) + 1) * 120
     os.utime(transcript_path, (now, now))
     try:
-        mcp_find_skill_no_agent(f"{keyword_base}-task-anbu")
+        mcp_find_skill_no_agent("jonin-skill")
         logged = last_logged_agent()
         after = load_stats().get("anbu", {}).get("today", 0)
         ok = logged == "anbu" and after == before + 1

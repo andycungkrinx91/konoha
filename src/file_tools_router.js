@@ -217,9 +217,10 @@ function runPythonSkillTool(toolName, args) {
   }
   let result;
   try {
+    const timeoutMs = toolName.startsWith('mcp_') ? 600000 : SCRIPT_TIMEOUT_MS; // 10 minutes for subagents
     result = spawnSync(getPythonCommand(), [serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
       encoding: 'utf-8',
-      timeout: SCRIPT_TIMEOUT_MS,
+      timeout: timeoutMs,
       maxBuffer: 16 * 1024 * 1024,
       shell: platform.IS_WIN
     });
@@ -249,7 +250,14 @@ const TOOL_HANDLERS = {
   get_skill: (args) => runPythonSkillTool('get_skill', args),
   optimize_report: (args) => runPythonSkillTool('optimize_report', args),
   build_from_source: (args) => runPythonSkillTool('build_from_source', args),
-  build_from_text: (args) => runPythonSkillTool('build_from_text', args)
+  build_from_text: (args) => runPythonSkillTool('build_from_text', args),
+  mcp_sannin: (args) => runPythonSkillTool('mcp_sannin', args),
+  mcp_kage: (args) => runPythonSkillTool('mcp_kage', args),
+  mcp_jonin: (args) => runPythonSkillTool('mcp_jonin', args),
+  mcp_anbu: (args) => runPythonSkillTool('mcp_anbu', args),
+  mcp_chunin: (args) => runPythonSkillTool('mcp_chunin', args),
+  mcp_tokubetsu_jonin: (args) => runPythonSkillTool('mcp_tokubetsu_jonin', args),
+  mcp_genin: (args) => runPythonSkillTool('mcp_genin', args)
 };
 
 function dispatchTool(name, args) {
@@ -432,6 +440,77 @@ function listToolSchemas() {
           framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
         },
         required: ['name', 'description', 'framework']
+      }
+    },
+    {
+      name: 'mcp_sannin',
+      description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'The task prompt. If not provided, reads from prompt.md in task_dir.' },
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_kage',
+      description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_jonin',
+      description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_anbu',
+      description: 'Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_chunin',
+      description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_tokubetsu_jonin',
+      description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
+      }
+    },
+    {
+      name: 'mcp_genin',
+      description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Task workspace directory.' }
+        }
       }
     }
   ];

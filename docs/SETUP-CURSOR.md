@@ -24,13 +24,11 @@ Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` bi
 | Path | Purpose |
 |------|---------|
 | `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then **replaced** with `konoha` + `semble` only |
-| `~/.cursor/agents/*.md` | Six official ninja subagents (`model: inherit`) |
 | `~/.cursor/skills/` | Agent skills mirrored from `~/.agents/skills/` (same layout as Antigravity) |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
 | `.cursor/mcp.json` (project) | Project-scoped MCP config |
 | `.cursor/rules/konoha.mdc` | Orchestrator delegation rules |
-| `.cursor/agents/*.md` (project) | Project-scoped subagent definitions |
 | `.cursor/skills/` (project) | Project-scoped skills (mirrored from `.agents/skills/` or `~/.agents/skills/`) |
 
 > [!NOTE]
@@ -49,16 +47,15 @@ Confirm the **Cursor IDE/CLI Integrations** section shows **ACTIVE** for MCP, su
 
 ## Step 3: Restart Cursor
 
-Close and reopen Cursor (or start a new agent session) so MCP servers and subagents reload.
+Close and reopen Cursor (or start a new agent session) so MCP servers reload.
 
 ## How Cursor Orchestration Works
 
 1. **Orchestrator** (main agent) reads `.cursor/rules/konoha.mdc`.
-2. **Skills first**: Call `konoha.find_skill` (pass `agent` when known).
+2. **Skills first**: Call `konoha.find_skill`.
 3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
-4. **Delegate** via the **Task** tool with `subagent_type` matching a ninja name (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`).
-5. Subagents are auto-loaded from `~/.cursor/agents/` and project `.cursor/agents/`.
-6. **Skills on disk**: Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.cursor/skills/` on `konoha init`). Agents still load skill **content** via `konoha` MCP — do not read `SKILL.md` files directly into context.
+4. **Delegate** via the **MCP tools** served by `konoha` (e.g., `mcp_jonin`, `mcp_anbu`, etc.) passing the `task_dir` parameter. Direct agent delegation structures are not used.
+5. **Skills on disk**: Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.cursor/skills/` on `konoha init`). Agents still load skill **content** via `konoha` MCP — do not read `SKILL.md` files directly into context.
 
 ### Default search / grep / find → semble
 
@@ -137,10 +134,9 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 ### Wrong agent in `konoha agent status`
 
-1. Ensure subagents log `[Icon Agent] active` at response start (see `~/.cursor/agents/*.md`).
-2. When delegating, use Task with correct `subagent_type`.
-3. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
-4. Run `python3 src/test_cursor_attribution.py` to validate attribution.
+1. Ensure the calling agent parameter is set properly when invoking MCP tools.
+2. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
+3. Run `python3 src/test_cursor_attribution.py` to validate attribution.
 
 ### Missing or stale `~/.cursor/skills/`
 

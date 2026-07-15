@@ -7,7 +7,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB?logo=python&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2014%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2021%20Tools-10b981)](README.md)
+[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![Token Savings](https://img.shields.io/badge/Token%20Savings-83--98%25-9ece6a)](README.md)
 
 > SQLite FTS5 Skills-DB for Antigravity, Cursor, Claude Code, and OpenCode — on-demand skill content via MCP, reducing token usage by **83-98%**.
@@ -234,7 +235,16 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 13 tools for skill retrieval, bounded file operations, and project scaffolding:
+The unified `konoha` server exposes 21 tools for skill retrieval, bounded file operations, project scaffolding, and subagent delegation workflows:
+
+#### `mcp_sannin(prompt?, task_dir?)`
+The Sannin routing workflow tool. Resolves the task prompt, dynamically chooses the most suitable subagent to run, sets up the task directory, and executes the chosen subagent inline.
+
+#### Subagent Delegation Tools (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, `mcp_genin`)
+Executes the specified subagent inline under a task directory (`task_dir`), loading its system instructions and skill references dynamically.
+
+#### `web_search(query, num_results?, search_depth?)`
+Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `mcp_chunin` for deep research.
 
 #### `find_skill(keyword, limit?)`
 Search skills by keyword using FTS5 full-text search.

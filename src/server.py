@@ -326,7 +326,7 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
         is_new_turn = (current_time - last_time) > 60
         LAST_CALL_TIMES[agent_key] = current_time
         
-        if tool_name == "get_skill" or not is_new_turn:
+        if tool_name == "get_skill" or str(tool_name).startswith("mcp_") or not is_new_turn:
             bytes_saved = 0
             tokens_saved = 0
             total_library_bytes = returned_bytes
@@ -682,20 +682,36 @@ def optimize_report(keyword=None, agent_name=None):
 
 
 def get_agent_skills(agent_name):
-    """Read agent's skills list from ~/.agents/agents.json. Returns None if agent not found."""
+    """Read agent's skills list. Returns None if agent not found."""
     if not agent_name:
         return None
     try:
-        agents_json_path = os.path.expanduser("~/.agents/agents.json")
-        if os.path.exists(agents_json_path):
-            with open(agents_json_path, 'r', encoding='utf-8') as f:
-                agents = json.load(f)
+        # Check SQLite DB agents table first
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT skills FROM agents WHERE name = ? OR name = ?", (agent_name, f"mcp_{agent_name}"))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            skills_str = row["skills"]
+            if skills_str:
+                return json.loads(skills_str)
+            return []
+        
+        # Fallback to agents.yaml
+        agents_yaml_path = os.path.expanduser("~/.agents/agents.yaml")
+        if os.path.exists(agents_yaml_path):
+            with open(agents_yaml_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                agents = parse_yaml(content)
                 for agent in agents:
-                    if isinstance(agent, dict) and agent.get("name") == agent_name:
+                    name = agent.get("name")
+                    if name in (agent_name, f"mcp_{agent_name}"):
                         skills = agent.get("skills")
                         return list(skills) if skills is not None else []
     except Exception as e:
-        sys.stderr.write(f"[mcp konoha] Error reading agents.json: {str(e)}\n")
+        sys.stderr.write(f"[mcp konoha] Error reading agent skills: {str(e)}\n")
         sys.stderr.flush()
     return None
 
@@ -1228,6 +1244,9 @@ def detect_active_agent():
                                     match = re.search(r"\[([^\]]+)\]\s+active", content)
                                     if match:
                                         agent_name = match.group(1).split()[-1].lower()
+                                        if agent_name.startswith("mcp_"):
+                                            agent_name = agent_name[4:]
+                                        agent_name = agent_name.replace("_", "-")
                                         if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
                                             detected = agent_name
                                             break
@@ -1311,6 +1330,9 @@ def detect_active_agent():
                                     match = re.search(r"\[([^\]]+)\]\s+active", content)
                                     if match:
                                         agent_name = match.group(1).split()[-1].lower()
+                                        if agent_name.startswith("mcp_"):
+                                            agent_name = agent_name[4:]
+                                        agent_name = agent_name.replace("_", "-")
                                         if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
                                             return agent_name
                         except Exception:
@@ -1322,6 +1344,815 @@ def detect_active_agent():
     except Exception:
         pass
     return None
+
+def get_active_session_id():
+    conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+    if conv_id:
+        return conv_id
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute("""
+            SELECT session_id FROM active_sessions
+            WHERE client = ? AND workspace_root = ?
+        """, (ACTIVE_CLIENT or "unknown", WORKSPACE_ROOT or "unknown")).fetchone()
+        conn.close()
+        if row and row[0]:
+            return row[0]
+    except Exception:
+        pass
+        
+    return ""
+
+def get_resolved_task_dir(task_dir=None):
+    workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
+    if not task_dir:
+        tasks_dir = os.path.join(workspace, "scratch", "tasks")
+        if os.path.exists(tasks_dir) and os.path.isdir(tasks_dir):
+            subdirs = [os.path.join(tasks_dir, d) for d in os.listdir(tasks_dir) if os.path.isdir(os.path.join(tasks_dir, d))]
+            if subdirs:
+                return max(subdirs, key=os.path.getmtime)
+        return os.path.join(workspace, "scratch", "tasks", "default")
+    if not os.path.isabs(task_dir):
+        task_dir = os.path.abspath(os.path.join(workspace, task_dir))
+    return task_dir
+
+def get_main_model():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("mcp_sannin",)).fetchone()
+        if row and row[0]:
+            conn.close()
+            return row[0]
+        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("mcp_kage",)).fetchone()
+        if row and row[0]:
+            conn.close()
+            return row[0]
+        conn.close()
+    except Exception:
+        pass
+    return "Gemini 3.1 Pro (High)"
+
+def apply_file_edits(content):
+    workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
+    pattern = r"(?i)FILE:\s*(.*?)\n<<<<<<<\s*original\n(.*?)\n=======\n(.*?)\n>>>>>>>"
+    matches = re.finditer(pattern, content, re.DOTALL)
+    for match in matches:
+        file_path = match.group(1).strip()
+        original = match.group(2)
+        replacement = match.group(3)
+        
+        if not os.path.isabs(file_path):
+            file_path = os.path.abspath(os.path.join(workspace, file_path))
+            
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        if not original.strip():
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(replacement)
+        else:
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    file_content = f.read()
+                if original in file_content:
+                    new_content = file_content.replace(original, replacement)
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+                else:
+                    original_lf = original.replace("\r\n", "\n")
+                    file_content_lf = file_content.replace("\r\n", "\n")
+                    if original_lf in file_content_lf:
+                        new_content = file_content_lf.replace(original_lf, replacement)
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(new_content)
+
+def parse_yaml(yaml_content):
+    agents = []
+    current_agent = None
+    current_key = None
+    multiline_val = None
+    multiline_indent = None
+    list_key = None
+    list_val = []
+
+    lines = yaml_content.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        
+        if not stripped or stripped.startswith("#"):
+            if current_key and multiline_val is not None:
+                if not stripped:
+                    multiline_val.append("")
+                else:
+                    indent = len(line) - len(line.lstrip(' '))
+                    if indent >= multiline_indent:
+                        multiline_val.append(line[multiline_indent:])
+                    else:
+                        current_agent[current_key] = "\n".join(multiline_val)
+                        current_key = None
+                        multiline_val = None
+                        multiline_indent = None
+                        continue
+            i += 1
+            continue
+
+        indent = len(line) - len(line.lstrip(' '))
+
+        if current_key and multiline_val is not None:
+            if indent >= multiline_indent:
+                multiline_val.append(line[multiline_indent:])
+                i += 1
+                continue
+            else:
+                current_agent[current_key] = "\n".join(multiline_val)
+                current_key = None
+                multiline_val = None
+                multiline_indent = None
+                continue
+
+        if list_key and stripped.startswith("- "):
+            val = stripped[2:].strip()
+            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                val = val[1:-1]
+            list_val.append(val)
+            i += 1
+            continue
+        elif list_key:
+            current_agent[list_key] = list_val
+            list_key = None
+            list_val = []
+            continue
+
+        if stripped.startswith("-"):
+            if current_agent is not None:
+                agents.append(current_agent)
+            current_agent = {}
+            
+            rest = stripped[1:].strip()
+            if not rest:
+                i += 1
+                continue
+            else:
+                stripped = rest
+
+        if ":" in stripped:
+            parts = stripped.split(":", 1)
+            key = parts[0].strip()
+            val = parts[1].strip()
+
+            if val == "|":
+                current_key = key
+                multiline_val = []
+                next_line_idx = i + 1
+                while next_line_idx < len(lines) and not lines[next_line_idx].strip():
+                    next_line_idx += 1
+                if next_line_idx < len(lines):
+                    multiline_indent = len(lines[next_line_idx]) - len(lines[next_line_idx].lstrip(' '))
+                else:
+                    multiline_indent = indent + 4
+            elif not val:
+                list_key = key
+                list_val = []
+            else:
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                elif val.startswith("[") and val.endswith("]"):
+                    inner = val[1:-1].strip()
+                    if not inner:
+                        val = []
+                    else:
+                        val = [item.strip().strip('"').strip("'") for item in inner.split(",")]
+                elif val.lower() == "true":
+                    val = True
+                elif val.lower() == "false":
+                    val = False
+                elif val.lower() in ("null", "none"):
+                    val = None
+                elif val.isdigit():
+                    val = int(val)
+                current_agent[key] = val
+        
+        i += 1
+
+    if current_key and multiline_val is not None:
+        current_agent[current_key] = "\n".join(multiline_val)
+    if list_key:
+        current_agent[list_key] = list_val
+    if current_agent is not None:
+        agents.append(current_agent)
+
+    return agents
+
+def run_mcp_sannin(prompt=None, task_dir=None):
+    import json
+    import os
+    import urllib.request
+    import urllib.error
+    
+    task_dir = get_resolved_task_dir(task_dir)
+    os.makedirs(task_dir, exist_ok=True)
+    
+    result_path = os.path.join(task_dir, "result.md")
+    if os.path.exists(result_path):
+        try:
+            with open(result_path, "r", encoding="utf-8") as f:
+                result = f.read().strip()
+            return json.dumps({"status": "success", "result": result})
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"Failed to read result.md: {str(e)}"})
+
+    if not prompt:
+        prompt_path = os.path.join(task_dir, "prompt.md")
+        if os.path.exists(prompt_path):
+            try:
+                with open(prompt_path, "r", encoding="utf-8") as f:
+                    prompt = f.read().strip()
+            except Exception as e:
+                return json.dumps({"status": "error", "message": f"Failed to read prompt.md: {str(e)}"})
+        else:
+            return json.dumps({"status": "error", "message": "No prompt provided and prompt.md not found in task directory."})
+            
+    instruction = (
+        f"Task directory prepared at: {task_dir}\n"
+        "Please act as the delegator. Evaluate the prompt and select the most appropriate subagent tool to execute this task.\n\n"
+        "Available subagent tools:\n"
+        "- mcp_kage: Architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.\n"
+        "- mcp_jonin: Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind, Magic UI, and 3D web.\n"
+        "- mcp_anbu: Backend development, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).\n"
+        "- mcp_chunin: Web research, documentation lookup, compliance, evidence synthesis with citations.\n"
+        "- mcp_tokubetsu_jonin: Writing technical documentation, PRDs, specs, runbooks, readme guides.\n"
+        "- mcp_genin: Read-only codebase exploration, tracing flows, mapping dependencies.\n\n"
+        "1. Write the chosen subagent name and task instructions into `delegate.md`.\n"
+        "2. Call the chosen tool (e.g., mcp_kage) and pass it the `task_dir` parameter.\n"
+        "3. Once the subagent tool instructs you to execute the task and you create `result.md`, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can read and return the result."
+    )
+    
+    res = json.dumps({
+        "status": "success",
+        "instructions": instruction,
+        "task_dir": task_dir
+    })
+    log_tool_call("mcp_sannin", f"task_dir={task_dir}", res, agent_name="sannin")
+    return res
+
+def run_web_search(query, num_results=5, search_depth="standard"):
+    """Enterprise-grade web search with multi-query decomposition and source ranking."""
+    import json
+    import os
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+    import time
+    import re
+    import sys
+
+    if not query or not query.strip():
+        return json.dumps({"status": "error", "message": "Query is required."})
+
+    # Setup directories and cache files
+    konoha_dir = os.path.expanduser("~/.konoha")
+    searxng_dir = os.path.join(konoha_dir, "searxng")
+    os.makedirs(searxng_dir, exist_ok=True)
+
+    INSTANCES_CACHE_PATH = os.path.join(searxng_dir, "instances_cache.json")
+    BEST_INSTANCE_PATH = os.path.join(searxng_dir, "best_instance.json")
+    SEARCH_LOG_PATH = os.path.join(searxng_dir, "search.log")
+
+    def log_search_activity(source, q, count):
+        try:
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            with open(SEARCH_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] SOURCE: {source} | QUERY: {q} | COUNT: {count}\n")
+        except Exception:
+            pass
+
+    def get_candidate_instances():
+        # Check cache (24h TTL)
+        if os.path.exists(INSTANCES_CACHE_PATH):
+            try:
+                mtime = os.path.getmtime(INSTANCES_CACHE_PATH)
+                if time.time() - mtime < 24 * 3600:
+                    with open(INSTANCES_CACHE_PATH, "r", encoding="utf-8") as f:
+                        return json.load(f)
+            except Exception:
+                pass
+
+        sys.stderr.write("[mcp konoha] Refreshing SearXNG public instances list...\n")
+        sys.stderr.flush()
+        try:
+            req = urllib.request.Request("https://searx.space/data/instances.json", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                instances = data.get("instances", {})
+                candidates = []
+                for name, val in instances.items():
+                    if not name.startswith("https://"):
+                        continue
+                    
+                    uptime = val.get("uptime", {}).get("uptimeDay", 0.0)
+                    if uptime <= 95.0:
+                        continue
+                    
+                    timing = val.get("timing", {})
+                    latency = 9999.0
+                    has_timing = False
+                    if "search" in timing and "all" in timing["search"]:
+                        latency = timing["search"]["all"].get("median", timing["search"]["all"].get("mean", 9999.0))
+                        has_timing = True
+                    elif "initial" in timing and "all" in timing["initial"]:
+                        latency = timing["initial"]["all"].get("value", 9999.0)
+                        has_timing = True
+                    
+                    if has_timing:
+                        candidates.append({
+                            "url": name,
+                            "uptime": uptime,
+                            "latency": latency
+                        })
+                
+                # Sort: uptime desc, latency asc
+                candidates.sort(key=lambda x: (-x["uptime"], x["latency"]))
+                
+                with open(INSTANCES_CACHE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(candidates, f)
+                return candidates
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Failed to fetch instances.json: {str(e)}\n")
+            sys.stderr.flush()
+            if os.path.exists(INSTANCES_CACHE_PATH):
+                try:
+                    with open(INSTANCES_CACHE_PATH, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            return []
+
+    def resolve_best_instance(candidates):
+        # Check best instance cache (1h TTL)
+        if os.path.exists(BEST_INSTANCE_PATH):
+            try:
+                mtime = os.path.getmtime(BEST_INSTANCE_PATH)
+                if time.time() - mtime < 3600:
+                    with open(BEST_INSTANCE_PATH, "r", encoding="utf-8") as f:
+                        cached = json.load(f)
+                        if cached.get("url"):
+                            return cached["url"]
+            except Exception:
+                pass
+
+        sys.stderr.write("[mcp konoha] Resolving best public SearXNG instance...\n")
+        sys.stderr.flush()
+        
+        test_candidates = candidates[:15]
+        if not test_candidates:
+            return None
+
+        best_url = None
+        for c in test_candidates[:5]:
+            url = c["url"]
+            test_url = f"{url}search?q=test&format=json"
+            try:
+                req = urllib.request.Request(test_url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                })
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    res_data = json.loads(resp.read().decode("utf-8"))
+                    if "results" in res_data:
+                        best_url = url
+                        break
+            except Exception:
+                continue
+
+        if best_url:
+            try:
+                with open(BEST_INSTANCE_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"url": best_url, "resolved_at": time.time()}, f)
+            except Exception:
+                pass
+            return best_url
+        
+        for c in test_candidates[5:15]:
+            url = c["url"]
+            test_url = f"{url}search?q=test&format=json"
+            try:
+                req = urllib.request.Request(test_url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                })
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    res_data = json.loads(resp.read().decode("utf-8"))
+                    if "results" in res_data:
+                        best_url = url
+                        break
+            except Exception:
+                continue
+
+        if best_url:
+            try:
+                with open(BEST_INSTANCE_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"url": best_url, "resolved_at": time.time()}, f)
+            except Exception:
+                pass
+            return best_url
+
+        return None
+
+    def query_searxng(instance_url, q, num):
+        search_url = f"{instance_url}search?q={urllib.parse.quote(q)}&format=json"
+        try:
+            req = urllib.request.Request(search_url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            })
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                results = []
+                for item in data.get("results", [])[:num]:
+                    title = item.get("title", "")
+                    link = item.get("url", "")
+                    content = item.get("content", item.get("snippet", ""))
+                    if link and title:
+                        results.append({
+                            "title": title,
+                            "url": link,
+                            "snippet": content,
+                            "source": f"SearXNG ({urllib.parse.urlparse(instance_url).netloc})"
+                        })
+                return results
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] SearXNG query to {instance_url} failed: {str(e)}\n")
+            sys.stderr.flush()
+            try:
+                if os.path.exists(BEST_INSTANCE_PATH):
+                    os.remove(BEST_INSTANCE_PATH)
+            except Exception:
+                pass
+            return None
+
+    def query_duckduckgo(q, num):
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            })
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                html = resp.read().decode("utf-8")
+                blocks = re.findall(r'<div class="result[^"]*"[^>]*>(.*?)</div>\s*</div>\s*</div>', html, re.DOTALL)
+                if not blocks:
+                    blocks = re.findall(r'<div class="[^"]*web-result[^"]*"[^>]*>(.*?)</div>\s*</div>', html, re.DOTALL)
+                
+                results = []
+                for b in blocks[:num]:
+                    title_m = re.search(r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', b, re.DOTALL)
+                    snippet_m = re.search(r'class="result__snippet"[^>]*>(.*?)</a>', b, re.DOTALL)
+                    if title_m:
+                        raw_url = title_m.group(1)
+                        title = re.sub(r'<[^>]+>', '', title_m.group(2)).strip()
+                        snippet = ""
+                        if snippet_m:
+                            snippet = re.sub(r'<[^>]+>', '', snippet_m.group(1)).strip()
+                        
+                        parsed = urllib.parse.urlparse(raw_url)
+                        qs = urllib.parse.parse_qs(parsed.query)
+                        url_val = qs.get("uddg", [raw_url])[0]
+                        results.append({
+                            "title": title,
+                            "url": url_val,
+                            "snippet": snippet,
+                            "source": "DuckDuckGo"
+                        })
+                return results
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] DuckDuckGo query failed: {str(e)}\n")
+            sys.stderr.flush()
+            return None
+
+    def query_startpage(q, num):
+        url = f"https://www.startpage.com/sp/search?query={urllib.parse.quote(q)}"
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            })
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                html = resp.read().decode("utf-8")
+                urls = re.findall(r'<a[^>]*class="[^"]*result-link[^"]*"[^>]*href="([^"]+)"', html)
+                titles = re.findall(r'<h2[^>]*class="[^"]*wgl-title[^"]*"[^>]*>(.*?)</h2>', html, re.DOTALL)
+                snippets = re.findall(r'<p[^>]*class="[^"]*description[^"]*"[^>]*>(.*?)</p>', html, re.DOTALL)
+                
+                results = []
+                for idx in range(min(len(urls), len(titles), len(snippets)))[:num]:
+                    url_val = urls[idx]
+                    title = re.sub(r'<[^>]+>', '', titles[idx]).strip()
+                    snippet = re.sub(r'<[^>]+>', '', snippets[idx]).strip()
+                    results.append({
+                        "title": title,
+                        "url": url_val,
+                        "snippet": snippet,
+                        "source": "Startpage"
+                    })
+                return results
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Startpage query failed: {str(e)}\n")
+            sys.stderr.flush()
+            return None
+
+    def query_wikipedia(q, num):
+        try:
+            search_terms = q.split()
+            for i in range(min(3, len(search_terms))):
+                term = " ".join(search_terms[:len(search_terms) - i])
+                if len(term.strip()) < 3:
+                    continue
+                encoded_term = urllib.parse.quote(term)
+                url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={encoded_term}&limit={num}&format=json"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    wiki_data = json.loads(resp.read().decode("utf-8"))
+                    if len(wiki_data) >= 4 and wiki_data[1]:
+                        titles = wiki_data[1]
+                        descriptions = wiki_data[2]
+                        urls = wiki_data[3]
+                        results = []
+                        for idx in range(len(titles)):
+                            results.append({
+                                "title": titles[idx],
+                                "url": urls[idx],
+                                "snippet": descriptions[idx] or f"Wikipedia page for {titles[idx]}.",
+                                "source": "Wikipedia"
+                            })
+                        return results
+            return []
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Wikipedia fallback query failed: {str(e)}\n")
+            sys.stderr.flush()
+            return []
+
+    # Support search_depth: "standard" or "deep"
+    queries = [query.strip()]
+    if search_depth == "deep":
+        base = query.strip()
+        queries = [
+            base,
+            f"{base} best practices 2024 2025 2026",
+            f"{base} comparison alternatives",
+        ]
+
+    all_results = []
+    seen_urls = set()
+
+    for q in queries:
+        current_results = []
+        
+        # Helper to query with smart query simplification
+        def simplify_and_search(search_func, base_q, max_results):
+            terms = base_q.split()
+            for i in range(min(3, len(terms))):
+                simp_q = " ".join(terms[:len(terms) - i])
+                if len(simp_q.strip()) < 3:
+                    continue
+                res = search_func(simp_q, max_results)
+                if res:
+                    return res, simp_q
+            return [], base_q
+
+        # 1. Primary: Public SearXNG
+        candidates = get_candidate_instances()
+        best_instance = resolve_best_instance(candidates)
+        if best_instance:
+            res, resolved_q = simplify_and_search(lambda query, limit: query_searxng(best_instance, query, limit), q, num_results)
+            if res:
+                current_results = res
+                log_search_activity(f"SearXNG ({urllib.parse.urlparse(best_instance).netloc})", resolved_q, len(res))
+
+        # 2. Secondary: DuckDuckGo HTML
+        if not current_results:
+            res, resolved_q = simplify_and_search(lambda query, limit: query_duckduckgo(query, limit), q, num_results)
+            if res:
+                current_results = res
+                log_search_activity("DuckDuckGo HTML", resolved_q, len(res))
+
+        # 3. Tertiary: Startpage Scraper
+        if not current_results:
+            res = query_startpage(q, num_results)
+            if res:
+                current_results = res
+                log_search_activity("Startpage", q, len(res))
+
+        # 4. Final Fallback: Wikipedia OpenSearch
+        if not current_results:
+            res = query_wikipedia(q, num_results)
+            if res:
+                current_results = res
+                log_search_activity("Wikipedia OpenSearch", q, len(res))
+
+        for r in current_results:
+            r_url = r["url"]
+            if r_url not in seen_urls:
+                seen_urls.add(r_url)
+                all_results.append(r)
+
+    if not all_results:
+        return json.dumps({
+            "status": "success",
+            "query": query,
+            "search_depth": search_depth,
+            "results_count": 0,
+            "results": [],
+            "note": "No results found across SearXNG, DuckDuckGo, Startpage, or Wikipedia fallbacks."
+        })
+
+    # Rank results: prioritize authoritative domains
+    authority_domains = [
+        "github.com", "stackoverflow.com", "docs.google.com", "developer.mozilla.org",
+        "learn.microsoft.com", "docs.python.org", "nodejs.org", "npmjs.com",
+        "vercel.com", "nextjs.org", "svelte.dev", "tailwindcss.com",
+        "kubernetes.io", "terraform.io", "aws.amazon.com", "cloud.google.com",
+    ]
+
+    def rank_score(r):
+        score = 0
+        src = r.get("source", "").lower()
+        url = r.get("url", "").lower()
+        for ad in authority_domains:
+            if ad in url or ad in src:
+                score += 10
+                break
+        if r.get("snippet"):
+            score += min(len(r["snippet"]) // 50, 5)
+        return score
+
+    all_results.sort(key=rank_score, reverse=True)
+
+    formatted = []
+    for i, r in enumerate(all_results[:num_results * len(queries)], 1):
+        formatted.append({
+            "citation_id": i,
+            "title": r["title"],
+            "url": r["url"],
+            "snippet": r["snippet"],
+            "source": r["source"],
+        })
+
+    result = json.dumps({
+        "status": "success",
+        "query": query,
+        "search_depth": search_depth,
+        "results_count": len(formatted),
+        "results": formatted,
+    })
+    log_tool_call("web_search", f"query={query}, depth={search_depth}", result[:500], agent_name="web_search")
+    return result
+
+
+def run_mcp_agent(agent_name, task_dir=None):
+    import json
+    import os
+    import urllib.request
+    import urllib.error
+    
+    task_dir = get_resolved_task_dir(task_dir)
+    delegate_path = os.path.join(task_dir, "delegate.md")
+    
+    if not os.path.exists(delegate_path):
+        return json.dumps({"status": "error", "message": f"delegate.md not found in task directory: {task_dir}"})
+        
+    try:
+        with open(delegate_path, "r", encoding="utf-8") as f:
+            delegate_content = f.read()
+    except Exception as e:
+        return json.dumps({"status": "error", "message": f"Failed to read delegate.md: {str(e)}"})
+        
+    instructions = delegate_content
+    if instructions.startswith("---"):
+        parts = instructions.split("---", 2)
+        if len(parts) >= 3:
+            instructions = parts[2].strip()
+            
+    db_agent_name = agent_name
+    if not db_agent_name.startswith("mcp_"):
+        db_agent_name = f"mcp_{db_agent_name}"
+    if db_agent_name.startswith("mcp_"):
+        suffix = db_agent_name[4:].replace("_", "-")
+        db_agent_name = f"mcp_{suffix}"
+    else:
+        db_agent_name = f"mcp_{db_agent_name.replace('_', '-')}"
+        
+    title = db_agent_name
+    purpose = ""
+    constraints = ""
+    persona_instructions = ""
+    model_tier = "Gemini 3.1 Pro (High)"
+    skills_list = []
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT name, title, purpose, skills, constraints_text, instructions, model_tier
+            FROM agents WHERE name = ?
+        """, (db_agent_name,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            title = row["title"] or title
+            purpose = row["purpose"] or purpose
+            constraints = row["constraints_text"] or constraints
+            persona_instructions = row["instructions"] or persona_instructions
+            model_tier = row["model_tier"] or model_tier
+            if row["skills"]:
+                skills_list = json.loads(row["skills"])
+    except Exception as e:
+        sys.stderr.write(f"[mcp konoha] Error reading agent row from DB: {str(e)}\n")
+        sys.stderr.flush()
+        
+    skills_content = []
+    if skills_list:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            for skill_name in skills_list:
+                row = conn.execute("SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'", (skill_name,)).fetchone()
+                if row and row[0]:
+                    skills_content.append(f"### Skill: {skill_name}\n\n{row[0]}")
+                rows = conn.execute("SELECT name, content FROM skills WHERE skill_name = ? AND type = 'reference'", (skill_name,)).fetchall()
+                for r in rows:
+                    skills_content.append(f"### Reference: {r[0]}\n\n{r[1]}")
+            conn.close()
+        except Exception as e:
+            sys.stderr.write(f"[mcp {agent_name}] Error loading skill definitions: {str(e)}\n")
+            sys.stderr.flush()
+
+    search_findings = ""
+    if "chunin" in db_agent_name:
+        try:
+            # Automatically run deep research query extracted from task instructions
+            query_to_run = ""
+            lines = [l.strip() for l in instructions.split('\n') if l.strip() and not l.strip().startswith('---')]
+            for line in lines:
+                clean_line = line.lstrip('#').lstrip('*').lstrip('-').strip()
+                if clean_line:
+                    query_to_run = clean_line
+                    break
+            if not query_to_run:
+                query_to_run = "latest technology updates"
+            
+            sys.stderr.write(f"[mcp chunin] Automatically running deep research web_search for: {query_to_run}\n")
+            sys.stderr.flush()
+            
+            search_res_json = run_web_search(query_to_run, num_results=5, search_depth="deep")
+            search_data = json.loads(search_res_json)
+            if search_data.get("status") == "success" and search_data.get("results"):
+                search_findings = "### Deep Research Web Search Findings\n\n"
+                for res in search_data["results"]:
+                    search_findings += f"**[{res['citation_id']}] {res['title']}**\n"
+                    search_findings += f"Source: {res['source']} | URL: {res['url']}\n"
+                    search_findings += f"Snippet: {res['snippet']}\n\n"
+        except Exception as e:
+            sys.stderr.write(f"[mcp chunin] Error during automatic web search: {str(e)}\n")
+            sys.stderr.flush()
+            
+    system_prompt = (
+        f"You are @{db_agent_name.replace('mcp_', '')} ({title}).\n"
+        f"Purpose: {purpose}\n\n"
+        f"Instructions:\n{persona_instructions}\n\n"
+        f"Constraints:\n{constraints}\n\n"
+    )
+    if search_findings:
+        system_prompt += search_findings + "\n"
+    if skills_content:
+        system_prompt += "Available Skills and Reference guides:\n" + "\n\n".join(skills_content) + "\n\n"
+        
+    system_prompt += (
+        "You can make file creations/edits directly by outputting conflict diff markers in your response.\n"
+        "To write a new file or edit an existing file, include this exact block in your response:\n"
+        "FILE: path/to/file\n"
+        "<<<<<<< original\n"
+        "[exact original code snippet to replace, leave empty for new files]\n"
+        "=======\n"
+        "[exact replacement code block]\n"
+        ">>>>>>>\n\n"
+        "Make sure to output the complete conflict diff block. You can output multiple diff blocks for multiple edits."
+    )
+    
+    instruction = (
+        f"{system_prompt}\n\n"
+        f"TASK INSTRUCTIONS (from delegate.md):\n{instructions}\n\n"
+        f"You must now act as {agent_name} and execute the task above. Use the available tools to explore the codebase or make file edits.\n"
+        f"When you have finished, you MUST write your final response and findings to the file: {os.path.join(task_dir, 'result.md')}\n"
+        f"After creating result.md, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can return the result to complete the workflow."
+    )
+    
+    res = json.dumps({
+        "status": "success",
+        "agent": agent_name,
+        "task_dir": task_dir,
+        "instructions": instruction
+    })
+    
+    log_tool_call(agent_name, f"task_dir={task_dir}", res, agent_name=agent_name)
+    return res
 
 
 def handle_request(req):
@@ -1537,6 +2368,126 @@ def handle_request(req):
                             },
                             "required": ["name", "description", "framework"]
                         }
+                    },
+                    {
+                        "name": "mcp_sannin",
+                        "description": "Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "prompt": {
+                                    "type": "string",
+                                    "description": "The task prompt. If not provided, reads from prompt.md in task_dir."
+                                },
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_kage",
+                        "description": "Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_jonin",
+                        "description": "UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_anbu",
+                        "description": "Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_chunin",
+                        "description": "Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_tokubetsu_jonin",
+                        "description": "Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "mcp_genin",
+                        "description": "Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "task_dir": {
+                                    "type": "string",
+                                    "description": "Task workspace directory."
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "web_search",
+                        "description": "Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and citations.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "The search query."
+                                },
+                                "num_results": {
+                                    "type": "integer",
+                                    "description": "Number of results to return (default: 5).",
+                                    "default": 5
+                                },
+                                "search_depth": {
+                                    "type": "string",
+                                    "description": "Search depth: 'standard' (single query) or 'deep' (multi-query decomposition).",
+                                    "enum": ["standard", "deep"],
+                                    "default": "standard"
+                                }
+                            },
+                            "required": ["query"]
+                        }
                     }
                 ]
             }
@@ -1550,7 +2501,12 @@ def handle_request(req):
         if not agent:
             agent = detect_active_agent()
 
-        if tool_name == "find_skill":
+        if tool_name == "web_search":
+            query = args.get("query")
+            num_results = args.get("num_results", 5)
+            search_depth = args.get("search_depth", "standard")
+            result_text = run_web_search(query, num_results=num_results, search_depth=search_depth)
+        elif tool_name == "find_skill":
             keyword = args.get("keyword", "")
             limit = min(args.get("limit", 3), 5)
             compact = args.get("compact", False)
@@ -1580,6 +2536,13 @@ def handle_request(req):
                 result_text = json.dumps({"error": "Missing required arguments: name, description, and framework are all required."})
             else:
                 result_text = build_from_text(name, description, framework, agent_name=agent)
+        elif tool_name == "mcp_sannin":
+            prompt = args.get("prompt")
+            task_dir = args.get("task_dir")
+            result_text = run_mcp_sannin(prompt=prompt, task_dir=task_dir)
+        elif tool_name in ("mcp_kage", "mcp_jonin", "mcp_anbu", "mcp_chunin", "mcp_tokubetsu_jonin", "mcp_genin"):
+            task_dir = args.get("task_dir")
+            result_text = run_mcp_agent(agent_name=tool_name, task_dir=task_dir)
         else:
             result_text = json.dumps({"error": f"Unknown tool: {tool_name}"})
 

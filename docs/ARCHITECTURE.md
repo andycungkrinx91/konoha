@@ -4,7 +4,7 @@
 
 ```mermaid
 ---
-title: Konoha System Architecture (v1.1.7)
+title: Konoha System Architecture (v1.1.6)
 ---
 flowchart TB
     %% ── Style Definitions ──────────────────────────────────────
@@ -31,7 +31,7 @@ flowchart TB
     %% ── Layer 1.5: Management & Configuration ─────────────────
     subgraph LM ["Layer 1.5 — Management & Configuration"]
         CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, bridge, skill, agent)"]
-        AgentConfig["📄 Subagent Config<br>(~/.agents/agents.json)"]
+        AgentConfig["📄 Subagent Config<br>(~/.agents/agents.yaml)"]
         MCPConfig["📄 MCP Config<br>(~/.gemini/config/mcp_config.json<br>~/.cursor/mcp.json<br>~/.claude.json<br>~/.config/opencode/opencode.json)"]
     end
 
@@ -45,7 +45,7 @@ flowchart TB
     %% ── Layer 3: MCP Middleware ────────────────────────────────
     subgraph L3 ["Layer 3 — MCP Middleware"]
         direction LR
-        KonohaMCP("⚡ konoha MCP<br>Skills FTS5 & File Operations (12 tools)")
+        KonohaMCP("⚡ konoha MCP<br>Skills FTS5 & File Operations (21 tools)")
         Semble("🔮 Semble MCP<br>Semantic Code Search")
     end
 
@@ -106,9 +106,9 @@ flowchart TB
 
 > **Legend** — 🔵 Presentation (host IDE) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Skill references &nbsp;|&nbsp; 🟢 konoha MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
 >
-> In version 1.1.7, Konoha implements SQLite database storage for both bridges and ninja agent skills (`~/.konoha/skills.db`), enabling dynamic skill resolution at rules compile-time and automated installation of the `konoha-bridge` extension into Antigravity IDE and VS Code.
+> In version 1.1.6, Konoha implements SQLite database storage for both bridges and ninja agent skills (`~/.konoha/skills.db`), enabling dynamic skill resolution at rules compile-time and automated installation of the `konoha-bridge` extension into Antigravity IDE and VS Code.
 >
-> **Orchestration model (Antigravity):** The orchestrator runs as the primary thread and coordinates tasks by delegating to specialized konoha subagents. While Antigravity natively only accepts `TypeName: "self"` and `TypeName: "research"`, the Konoha hook (`antigravity_tool_sanitize_hook.js`) automatically translates ninja names (e.g., `"jonin"` → `"self"`, `"genin"` → `"research"`) and injects the agent's full instructions into the Prompt. The orchestrator delegates by calling `invoke_subagent` using the ninja name, and the hook handles the rest.
+> **Orchestration model:** The orchestrator runs as the primary thread and coordinates tasks by delegating to specialized konoha subagents. All subagent delegation goes through the `mcp_sannin` (Village Elder) MCP tool, which intelligently routes tasks to backend MCP agents (e.g. `mcp_kage`, `mcp_jonin`). Custom IDE-native agents and hook-based translations are no longer used.
 
 ## Query Lifecycle
 
@@ -175,14 +175,25 @@ sequenceDiagram
     end
 
     %% --- Execution Phase ---
-    Note over Orchestrator: Step 3: Delegate (invoke_subagent)
-    Orchestrator->>Subagent: spawn TypeName: ninja (e.g., jonin, anbu)
-    activate Subagent
-    Note over Subagent: Hook translates ninja TypeName to self/research
-    Subagent->>Codebase: Read / Edit / Write / Bash / WebFetch
-    Codebase-->>Subagent: Tool results
-    Subagent-->>Orchestrator: Return final result
-    deactivate Subagent
+    Note over Orchestrator: Step 3: Delegate (mcp_sannin)
+    Orchestrator->>KonohaMCP: call mcp_sannin()
+    activate KonohaMCP
+    KonohaMCP->>Orchestrator: Return delegator instructions
+    deactivate KonohaMCP
+    
+    Orchestrator->>Orchestrator: Choose MCP Agent (e.g., mcp_kage)
+    Note over Orchestrator: Write delegate.md
+    Orchestrator->>KonohaMCP: call mcp_kage(task_dir)
+    activate KonohaMCP
+    KonohaMCP->>Orchestrator: Return subagent instructions
+    deactivate KonohaMCP
+    
+    Orchestrator->>Codebase: Execute task logic
+    Note over Orchestrator: Create result.md
+    Orchestrator->>KonohaMCP: call mcp_sannin(task_dir)
+    activate KonohaMCP
+    KonohaMCP->>Orchestrator: Return final result
+    deactivate KonohaMCP
 
     %% --- Response Phase ---
     Note over Orchestrator: Step 4: Synthesize & Return
@@ -191,8 +202,6 @@ sequenceDiagram
     IDE-->>User: Formatted final answer
     deactivate IDE
 ```
-
-> **Hook-Assisted Invocation**: While the Antigravity platform natively only permits `self` and `research` TypeNames, Konoha's pre-tool hook (`antigravity_tool_sanitize_hook.js`) automatically translates ninja TypeNames (`genin`, `chunin` to `research`, and others to `self`) and prepends their instructions at invocation time. Thus, custom subagents (`genin`, `jonin`, etc.) can be called normally and run with full role fidelity.
 
 ## Forced MCP Usage & Delegation Policy
 

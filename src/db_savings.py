@@ -80,12 +80,12 @@ def calculate_model_tokens(time_filter=None):
                             
                             is_pro = True
                             lower_content = content.lower()
-                            if "genin" in lower_content or "chunin" in lower_content or "tokubetsu" in lower_content:
+                            if "genin" in lower_content or "chunin" in lower_content or "tokubetsu" in lower_content or "jonin" in lower_content:
                                 is_pro = False
-                            elif "anbu" in lower_content or "kage" in lower_content or "jonin" in lower_content or "antigravity" in lower_content:
+                            elif "anbu" in lower_content or "kage" in lower_content or "antigravity" in lower_content:
                                 is_pro = True
                             else:
-                                if "genin" in path.lower() or "chunin" in path.lower() or "tokubetsu" in path.lower():
+                                if "genin" in path.lower() or "chunin" in path.lower() or "tokubetsu" in path.lower() or "jonin" in path.lower():
                                     is_pro = False
                                     
                             rate = pro_out_rate if is_pro else flash_out_rate
@@ -129,7 +129,7 @@ def query_input_savings_cost(conn, time_filter=None):
         tokens = row[1]
         
         is_pro = True
-        if "genin" in agent or "chunin" in agent or "tokubetsu" in agent:
+        if "genin" in agent or "chunin" in agent or "tokubetsu" in agent or "jonin" in agent:
             is_pro = False
             
         rate = pro_rate if is_pro else flash_rate
@@ -176,7 +176,8 @@ def query_stats(conn, time_filter=None):
         "antigravity": {"calls": 0, "bytes": 0, "tokens": 0},
         "agy": {"calls": 0, "bytes": 0, "tokens": 0},
         "cursor": {"calls": 0, "bytes": 0, "tokens": 0},
-        "claudecode": {"calls": 0, "bytes": 0, "tokens": 0}
+        "claudecode": {"calls": 0, "bytes": 0, "tokens": 0},
+        "opencode": {"calls": 0, "bytes": 0, "tokens": 0}
     }
     
     query_client = f"""

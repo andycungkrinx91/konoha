@@ -21,59 +21,257 @@ const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
 const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
 
 const SRC_DIR = __dirname;
-const USER_AGENTS_JSON_PATH = path.join(HOME, '.agents', 'agents.json');
-const DEFAULT_AGENTS_JSON_PATH = path.join(SRC_DIR, 'templates', 'agents.json');
+const USER_AGENTS_YAML_PATH = path.join(HOME, '.agents', 'agents.yaml');
+const DEFAULT_AGENTS_YAML_PATH = path.join(SRC_DIR, 'templates', 'agents.yaml');
 const GEMINI_TEMPLATE_PATH = path.join(SRC_DIR, 'templates', 'GEMINI.md');
 const AGENTS_TEMPLATE_PATH = path.join(SRC_DIR, 'templates', 'AGENTS.md');
 
-// Persistent fingerprint path — stores agents.json mtime+size after each successful deploy,
+// Persistent fingerprint path — stores agents.yaml mtime+size after each successful deploy,
 // so subsequent CLI invocations can detect no-op and skip the ~640ms regenerateAndDeploy work.
 const FINGERPRINT_PATH = path.join(HOME, '.konoha', '.deploy-fingerprint');
+
+function parseYaml(yamlStr) {
+  if (!yamlStr) return null;
+  const lines = yamlStr.split(/\r?\n/);
+  const root = {};
+  let isRootArray = false;
+  let rootArray = [];
+  const stack = [];
+  let current = root;
+  let inMultiLine = false;
+  let multiLineIndent = 0;
+  let multiLineValue = [];
+  let multiLineNode = null;
+  let multiLineKey = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (inMultiLine) {
+      const matchIndent = line.match(/^(\s*)/);
+      const indent = matchIndent ? matchIndent[1].length : 0;
+      if (line.trim() === '' || indent >= multiLineIndent) {
+        multiLineValue.push(line.slice(multiLineIndent));
+        continue;
+      } else {
+        multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
+        inMultiLine = false;
+      }
+    }
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const indent = line.match(/^(\s*)/)[0].length;
+    while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+      stack.pop();
+    }
+    if (stack.length > 0) {
+      current = stack[stack.length - 1].value;
+    } else {
+      current = isRootArray ? rootArray : root;
+    }
+    if (trimmed.startsWith('-')) {
+      if (stack.length === 0 && Object.keys(root).length === 0 && !isRootArray) {
+        isRootArray = true;
+        current = rootArray;
+      }
+      const rest = trimmed.slice(1).trim();
+      const colonIdx = rest.indexOf(':');
+      if (colonIdx !== -1) {
+        const key = rest.slice(0, colonIdx).trim();
+        let val = rest.slice(colonIdx + 1).trim();
+        const obj = {};
+        if (Array.isArray(current)) {
+          current.push(obj);
+        }
+        if (val.startsWith('"') && val.endsWith('"')) {
+          try { val = JSON.parse(val); } catch {}
+        } else if (val === 'true') {
+          val = true;
+        } else if (val === 'false') {
+          val = false;
+        } else if (val === 'null') {
+          val = null;
+        } else if (!isNaN(val) && val !== '') {
+          val = Number(val);
+        }
+        obj[key] = val;
+        stack.push({ indent: indent, value: obj });
+      } else {
+        let val = rest;
+        if (val.startsWith('"') && val.endsWith('"')) {
+          try { val = JSON.parse(val); } catch {}
+        } else if (val === 'true') {
+          val = true;
+        } else if (val === 'false') {
+          val = false;
+        } else if (val === 'null') {
+          val = null;
+        } else if (!isNaN(val) && val !== '') {
+          val = Number(val);
+        }
+        if (Array.isArray(current)) {
+          current.push(val);
+        }
+      }
+      continue;
+    }
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.slice(0, colonIdx).trim();
+      let val = line.slice(colonIdx + 1).trim();
+      if (val === '|') {
+        inMultiLine = true;
+        multiLineValue = [];
+        multiLineNode = current;
+        multiLineKey = key;
+        let nextIdx = i + 1;
+        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
+          nextIdx++;
+        }
+        if (nextIdx < lines.length) {
+          const nextMatch = lines[nextIdx].match(/^(\s*)/);
+          multiLineIndent = nextMatch ? nextMatch[1].length : 0;
+        } else {
+          multiLineIndent = indent + 2;
+        }
+        continue;
+      }
+      if (val === '[]') {
+        current[key] = [];
+        continue;
+      }
+      if (val === '{}') {
+        current[key] = {};
+        continue;
+      }
+      if (val === '') {
+        let nextIdx = i + 1;
+        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
+          nextIdx++;
+        }
+        let isNextArray = false;
+        if (nextIdx < lines.length && lines[nextIdx].trim().startsWith('-')) {
+          isNextArray = true;
+        }
+        const nextVal = isNextArray ? [] : {};
+        current[key] = nextVal;
+        stack.push({ indent: indent, value: nextVal });
+        continue;
+      }
+      if (val.startsWith('"') && val.endsWith('"')) {
+        try { val = JSON.parse(val); } catch {}
+      } else if (val === 'true') {
+        val = true;
+      } else if (val === 'false') {
+        val = false;
+      } else if (val === 'null') {
+        val = null;
+      } else if (!isNaN(val) && val !== '') {
+        val = Number(val);
+      }
+      current[key] = val;
+    }
+  }
+  if (inMultiLine && multiLineNode && multiLineKey) {
+    multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
+  }
+  return isRootArray ? rootArray : root;
+}
+
+function stringifyYaml(val, indent = 0) {
+  const spaces = ' '.repeat(indent);
+  if (val === null || val === undefined) {
+    return 'null';
+  }
+  if (typeof val === 'string') {
+    if (val.includes('\n')) {
+      const lines = val.split('\n').map(line => '  ' + spaces + line).join('\n');
+      return '|\n' + lines;
+    }
+    if (/[#:*?[\]{}|&%@!]/.test(val) || val.startsWith('-') || val.startsWith(' ') || val === 'true' || val === 'false' || val === 'null' || !isNaN(val)) {
+      return JSON.stringify(val);
+    }
+    return val;
+  }
+  if (typeof val === 'number' || typeof val === 'boolean') {
+    return String(val);
+  }
+  if (Array.isArray(val)) {
+    if (val.length === 0) return '[]';
+    const prefix = indent === 0 ? '' : '\n';
+    return prefix + val.map(item => `${spaces}- ${stringifyYaml(item, indent + 2).trim()}`).join('\n');
+  }
+  if (typeof val === 'object') {
+    const keys = Object.keys(val);
+    if (keys.length === 0) return '{}';
+    const prefix = indent === 0 ? '' : '\n';
+    const serializedKeys = keys.map((k) => {
+      const v = val[k];
+      const serialized = stringifyYaml(v, indent + 2);
+      if (serialized.startsWith('\n')) {
+        return `${spaces}${k}:${serialized}`;
+      } else {
+        return `${spaces}${k}: ${serialized}`;
+      }
+    }).join('\n');
+    return prefix + serializedKeys;
+  }
+  return '';
+}
 
 let isRegenerating = false;
 
 function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
-  if (!allDbSkills || allDbSkills.length === 0) return [];
+  if (!allDbSkills || allDbSkills.length === 0) return configuredSkills || [];
   const allowed = configuredSkills || [];
-  return allDbSkills.filter(s => {
+  const resolved = allDbSkills.filter(s => {
     const base = s.split('/')[0];
     if (allowed.includes(s) || allowed.includes(base)) return true;
     return false;
   });
+  const resolvedBases = new Set(resolved.map(s => s.split('/')[0]));
+  const unresolved = allowed.filter(s => {
+    const base = s.split('/')[0];
+    return !resolvedBases.has(base);
+  });
+  return [...unresolved, ...resolved];
 }
 
-// Load agents from SQLite or JSON
-function loadAgents() {
+// Load agents from SQLite or YAML
+function loadAgents(reloadDefaults = false) {
   let agents = [];
   let loadedFromDb = false;
   let loadedFromUser = false;
 
-  try {
-    const pythonCmd = platform.detectPythonOrDefault();
-    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-    const res = spawnSync(pythonCmd, [dbAgentsScript, 'list'], { encoding: 'utf8' });
-    if (res.status === 0) {
-      agents = JSON.parse(res.stdout.trim());
-      loadedFromDb = true;
-    }
-  } catch (e) {}
-
-  if (!loadedFromDb && fs.existsSync(USER_AGENTS_JSON_PATH)) {
+  if (!reloadDefaults) {
     try {
-      agents = JSON.parse(fs.readFileSync(USER_AGENTS_JSON_PATH, 'utf-8'));
-      loadedFromUser = true;
+      const pythonCmd = platform.detectPythonOrDefault();
+      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+      const res = spawnSync(pythonCmd, [dbAgentsScript, 'list'], { encoding: 'utf8' });
+      if (res.status === 0) {
+        agents = JSON.parse(res.stdout.trim());
+        loadedFromDb = true;
+      }
     } catch (e) {}
+
+    if (!loadedFromDb && fs.existsSync(USER_AGENTS_YAML_PATH)) {
+      try {
+        agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf-8'));
+        loadedFromUser = true;
+      } catch (e) {}
+    }
   }
 
   // Load defaults
   let defaults = [];
-  if (fs.existsSync(DEFAULT_AGENTS_JSON_PATH)) {
+  if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
     try {
-      defaults = JSON.parse(fs.readFileSync(DEFAULT_AGENTS_JSON_PATH, 'utf-8'));
+      defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
     } catch (e) {}
   }
 
-  if (agents.length === 0 && defaults.length > 0) {
+  if ((agents.length === 0 || reloadDefaults) && defaults.length > 0) {
     agents = defaults;
     try {
       const pythonCmd = platform.detectPythonOrDefault();
@@ -128,7 +326,7 @@ except Exception:
     // Upgrade existing agents if their instructions do not specify passing the agent parameter
     let upgraded = false;
 
-    // Check if the user's agents.json has already been upgraded to the new concept (v1.1.1+)
+    // Check if the user's agents.yaml has already been upgraded to the new concept (v1.1.1+)
     const UPGRADED_MARKER_PATH = path.join(HOME, '.agents', '.upgraded_v1.1.1');
     let isAlreadyUpgraded = fs.existsSync(UPGRADED_MARKER_PATH);
     if (!isAlreadyUpgraded) {
@@ -195,7 +393,7 @@ except Exception:
 
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (a.instructions) {
-          const needsAgentUpgrade = /\b(?:skills-db|konoha)\.find_skill/.test(a.instructions) && !a.instructions.includes('agent=');
+          const needsAgentUpgrade = /\b(?:konoha|konoha)\.find_skill/.test(a.instructions) && !a.instructions.includes('agent=');
           const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
@@ -287,27 +485,27 @@ except Exception:
     }
     return agents;
   } else {
-    // Initialize user agents.json
+    // Initialize user agents.yaml
     if (defaults.length > 0) {
-      const agentsDir = path.dirname(USER_AGENTS_JSON_PATH);
+      const agentsDir = path.dirname(USER_AGENTS_YAML_PATH);
       if (!fs.existsSync(agentsDir)) {
         fs.mkdirSync(agentsDir, { recursive: true });
       }
-      fs.writeFileSync(USER_AGENTS_JSON_PATH, JSON.stringify(defaults, null, 2) + '\n');
+      fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(defaults) + '\n');
       return defaults;
     }
   }
   return [];
 }
 
-// Save agents to SQLite (authoritative) then mirror to JSON cache
+// Save agents to SQLite (authoritative) then mirror to YAML cache
 function saveAgents(agents) {
-  // 1. Persist to JSON file first (external consumers read this)
-  const agentsDir = path.dirname(USER_AGENTS_JSON_PATH);
+  // 1. Persist to YAML file first (external consumers read this)
+  const agentsDir = path.dirname(USER_AGENTS_YAML_PATH);
   if (!fs.existsSync(agentsDir)) {
     fs.mkdirSync(agentsDir, { recursive: true });
   }
-  fs.writeFileSync(USER_AGENTS_JSON_PATH, JSON.stringify(agents, null, 2) + '\n');
+  fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(agents) + '\n');
 
   // 2. Write to SQLite as source of truth via import (single transaction)
   try {
@@ -326,35 +524,24 @@ function buildAgentReferenceList(agents) {
 
 function buildDefineSubagentGuide(agents) {
   const names = agents.map((a) => a.name).join(', ');
-  return `### Antigravity subagent invocation — Hook-Assisted Translation (CRITICAL)
+  return `### Konoha MCP Tool-Based Delegation (CRITICAL)
 
-The Antigravity platform itself has hard-coded restrictions and only accepts \`self\` (always) and \`research\` (read-only investigations) as valid TypeName values. Custom subagent TypeNames (${names}, etc.) are natively rejected by the platform.
+All subagents are migrated to MCP tools served by the \`konoha\` MCP server. Rather than using custom subagent configuration structures or files, delegation is performed directly by calling the corresponding MCP tool.
 
-To solve this, Konoha implements a pre-tool sanitization hook (\`antigravity_tool_sanitize_hook.js\`) that automatically intercepts, sanitizes, and translates subagent invocation arguments under the hood:
-- Subagents are invoked using their official bare names: \`TypeName: "genin"\`, \`TypeName: "jonin"\`, etc.
-- The hook translates read-only subagents (\`genin\`, \`chunin\`) to \`TypeName: "research"\`.
-- The hook translates writing subagents (\`kage\`, \`jonin\`, \`anbu\`, \`tokubetsu-jonin\`) to \`TypeName: "self"\`.
-- The hook automatically prepends the subagent's complete instructions, constraints, and identity overrides to the \`Prompt\` field so they run with full role fidelity.
+The official delegation tools are: ${agents.map(a => `\`${a.name}\``).join(', ')}.
 
-### Supported invocation pattern
+### Delegation Protocol
 
-You can call \`invoke_subagent\` using the official ninja names as \`TypeName\` parameters (e.g., \`genin\`, \`jonin\`, etc.). Do NOT attempt to use \`TypeName: "self"\` to manually impersonate subagents, as that is deprecated. Let the hook handle the translation and instruction injection automatically.
+To delegate a task:
+1. Initialize/create a task directory (e.g. \`scratch/tasks/<task_id>/\`).
+2. Write a \`delegate.md\` file inside the task directory containing:
+   - Specific instructions, context, and file paths to modify.
+   - The list of skill reference names to load.
+   - Standard constraints.
+3. Call the corresponding MCP tool (e.g. \`mcp_kage\`, \`mcp_jonin\`, etc.) using the tool calling API, passing the \`task_dir\` argument pointing to the created task directory.
+4. The tool executes the agent inline and returns the result. Read the response/result.md and continue your orchestration flow.
 
-### Optional: spawn research for parallel read-only work
-
-\`\`\`json
-{
-  "Subagents": [
-    {
-      "TypeName": "research",
-      "Prompt": "Investigate <X> in <repo>. Return findings only — do not modify files.",
-      "Workspace": "inherit"
-    }
-  ]
-}
-\`\`\`
-
-Use research when you need a deep parallel scan of a large codebase or documentation set without blocking the main thread. Do not use it for tasks that require file edits, builds, or deployments.`;
+This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.`;
 }
 
 function buildImageDesignDelegateGuide() {
@@ -396,7 +583,8 @@ When the user prompt involves modifying or working within an existing project:
 
 1. **NEVER touch existing logic**: Do not modify existing components, routes, styles, or code the user did not explicitly ask to change. Preserve all existing architecture.
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
-3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.`;
+3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
+4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.`;
 }
 
 function getSkillDescriptions(skillsList) {
@@ -460,7 +648,15 @@ function generateGeminiMd(agents) {
 
   const content = `# Global Agent Instructions
 
-### Team roster (reference — full instructions in ~/.agents/agents.json)
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
+>
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
+
+### Team roster (reference — full instructions in ~/.agents/agents.yaml)
 
 ${buildAgentReferenceList(agents)}
 
@@ -473,14 +669,14 @@ ${buildDefineSubagentGuide(agents)}
 > [!IMPORTANT]
 > **Orchestrator Role**: The main agent runs as the primary Antigravity thread and acts as the **orchestrator only**. It coordinates and delegates tasks to konoha subagents — it does NOT execute non-trivial implementation tasks itself.
 >
-> Antigravity only accepts \`"self"\` and \`"research"\` as valid TypeName values, but the Konoha hook (\`antigravity_tool_sanitize_hook.js\`) automatically translates ninja names (e.g., \`"jonin"\` → \`"self"\`, \`"genin"\` → \`"research"\`) and prepends full agent instructions to the Prompt. Use ninja names directly — the hook handles everything.
+> Delegation is performed directly by calling the corresponding subagent MCP tool (e.g. \`mcp_kage\`, \`mcp_jonin\`, \`mcp_anbu\`, \`mcp_chunin\`, \`mcp_tokubetsu_jonin\`, \`mcp_genin\`) served by the \`konoha\` MCP server. Do NOT attempt to use \`invoke_subagent\` or custom IDE subagent configurations.
 
 The orchestrator follows this workflow:
 1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
 2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt to discover specific skill reference names. **Do NOT call \`semble\` tools when locating skills.**
 3. **Load Skill Reference**: Call \`konoha.get_skill\` to fetch the full content of the discovered skill.
-4. **Delegate to Konoha Subagent**: Use \`invoke_subagent\` with the appropriate ninja TypeName (e.g., \`"jonin"\`, \`"anbu"\`, \`"genin"\`). The hook translates the TypeName and injects the agent's full instructions into the Prompt automatically. Write a detailed task description in the Prompt field including skill references, constraints, and files to modify.
-5. **Parallel Read-Only Research**: Optionally spawn \`TypeName: "research"\` subagents for deep parallel scans of large codebases or documentation sets. Do NOT use \`research\` for tasks requiring file edits or builds.
+4. **Delegate to Konoha Subagent (MCP Tool)**: Initialize/create a task directory (e.g. \`scratch/tasks/<task_id>/\`), write a \`delegate.md\` file inside the task directory containing specific instructions, constraints, and the list of skill references, then call the matching subagent MCP tool (e.g., \`mcp_jonin\`, \`mcp_anbu\`, \`mcp_genin\`) passing the \`task_dir\` argument pointing to the created task directory.
+5. **Wait & Receive Result**: The MCP tool runs the subagent inline. Once it finishes and writes \`result.md\`, retrieve the results and proceed.
 6. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file). All non-trivial tasks MUST be delegated.
 7. **Planning-to-File**: Write detailed analysis, plans, or research details to a markdown file instead of outputting massive text blocks.
 
@@ -503,7 +699,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.json\` (created and managed exclusively by the user via the \`konoha\` CLI command).
+- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`scratch/tasks/\` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
@@ -530,28 +726,36 @@ function generateClaudeCodeMd(agents) {
     const desc = skillDescs[skill] || 'Specialized skill';
     const cleanDesc = desc.replace(/[\r\n|]/g, ' ').trim().slice(0, 100);
     const agent = agents.find(a => (a.skills || []).some(s => s.startsWith(skill)));
-    const agentMention = agent ? `\`@${agent.name}\`` : 'Main agent';
-    return `| ${cleanDesc} | \`${skill}\` | ${agentMention} |`;
+    const agentTool = agent ? `\`${agent.name}\` (MCP Tool)` : 'Main agent';
+    return `| ${cleanDesc} | \`${skill}\` | ${agentTool} |`;
   }).join('\n');
 
   const content = `# Claude Code — Global Agent Instructions
+
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in tools (\`Read\`, \`Grep\`, \`Glob\`, \`Bash\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN**.
+>
+> - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`
+> - **Code search/discovery** → \`semble.search\`, \`semble.find_related\`
+> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.list_skills\`
+> - **NEVER** call \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`Bash\` with \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
 You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (\`konoha\`, \`semble\`).
 
 ## Orchestrator & Delegation Model (CRITICAL)
 
-Claude Code supports custom agents via \`@\` mentions. Konoha agents (\`@genin\`, \`@kage\`, \`@chunin\`, \`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`) are **promoted as full agents** — not subagents. The main orchestrator MUST delegate all non-trivial tasks to the appropriate konoha agent.
+You delegate specialized work by calling the corresponding subagent MCP tools served by the \`konoha\` MCP server: \`mcp__konoha__mcp_kage\`, \`mcp__konoha__mcp_jonin\`, \`mcp__konoha__mcp_anbu\`, \`mcp__konoha__mcp_chunin\`, \`mcp__konoha__mcp_tokubetsu_jonin\`, \`mcp__konoha__mcp_genin\`.
 
 **CRITICAL RULES:**
-- **NEVER use built-in Claude Code agents** — only delegate to konoha agents listed above.
+- **NEVER use built-in Claude Code agents** or custom agent \`@\` mentions — only delegate via the MCP tools listed above.
 - **NEVER call built-in tools directly** (\`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, \`WebSearch\`) — all file operations and search MUST go through \`konoha\` MCP and \`semble\` MCP tools exclusively.
 - The main agent is an **orchestrator only** — it coordinates, delegates, and reports back. It does NOT execute implementation tasks itself.
 
 ### Delegation Protocol:
 1. **Read User Prompt**: Read the user request to understand scope and domain.
 2. **Find Skill**: Call \`konoha.find_skill\` or \`optimize_report\` to discover skill references. **Do NOT call \`semble\` for skills.**
-3. **Delegate**: Create a task directory (\`scratch/tasks/<task_id>/\`), write \`delegate.md\` with task details, constraints, and context, then invoke the appropriate konoha agent: \`@agent_name Please read scratch/tasks/<task_id>/delegate.md and execute the task. Write results to scratch/tasks/<task_id>/result.md.\`
-4. **Report**: Once the agent writes \`result.md\`, read it and report back to the user.
+3. **Delegate**: Create a task directory (\`scratch/tasks/<task_id>/\`), write \`delegate.md\` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. \`mcp_anbu\`) passing the \`task_dir\` pointing to \`scratch/tasks/<task_id>/\`.
+4. **Report**: Once the tool completes and writes \`result.md\`, read it and report back to the user.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
 
@@ -566,9 +770,10 @@ Claude Code supports custom agents via \`@\` mentions. Konoha agents (\`@genin\`
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use semble instead.
+- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 - **Optimize Thought Tokens**: Keep thoughts concise in thinking processes. Avoid verbose reasoning.
 
-| Domain / Description | Skill to Load | Agent to Delegate |
+| Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
 ${dynamicTableRows}
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
@@ -580,12 +785,12 @@ ${dynamicTableRows}
     .replace(/replace_file_content/g, 'Edit')
     .replace(/run_command/g, 'Bash')
     // MCP tool mapping for Claude Code double underscore format
-    .replace(/(?:skills-db|konoha)\.find_skill/g, 'mcp__konoha__find_skill')
-    .replace(/(?:skills-db|konoha)\.get_skill/g, 'mcp__konoha__get_skill')
-    .replace(/(?:skills-db|konoha)\.list_skills/g, 'mcp__konoha__list_skills')
-    .replace(/(?:skills-db|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
-    .replace(/(?:skills-db|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
-    .replace(/(?:skills-db|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
+    .replace(/(?:konoha|konoha)\.find_skill/g, 'mcp__konoha__find_skill')
+    .replace(/(?:konoha|konoha)\.get_skill/g, 'mcp__konoha__get_skill')
+    .replace(/(?:konoha|konoha)\.list_skills/g, 'mcp__konoha__list_skills')
+    .replace(/(?:konoha|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
+    .replace(/(?:konoha|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
+    .replace(/(?:konoha|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
     .replace(/semble\.search/g, 'mcp__semble__search')
     .replace(/semble\.find_related/g, 'mcp__semble__find_related')
     .replace(/read_file_head/g, 'mcp__konoha__read_file_head')
@@ -621,6 +826,14 @@ function generateAgentsMd(agents) {
 
 > **Compatibility**: Antigravity IDE, CLI, and all Gemini agent surfaces. Place at \`~/.agents/AGENTS.md\`.
 
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
+>
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
+
 ## Team Roles & Delegation
 
 ### Team roster
@@ -631,7 +844,26 @@ ${buildImageDesignDelegateGuide()}
 
 ${buildDefineSubagentGuide(agents)}
 
-### @orchestrator — Task Coordinator\n- **Purpose**: Orchestrates tasks by loading skill references and executing directly. Runs as TypeName: "self" — the primary Antigravity thread.\n- **Orchestration Model**:\n  - The Antigravity platform only accepts "self" and "research" as valid TypeName values. Custom Ninja TypeName values are rejected at invocation time.\n  - The orchestrator does NOT delegate — it loads skill references via konoha.find_skill + konoha.get_skill, then performs the work using its native tools.\n  - For parallel read-only research, optionally spawn TypeName: "research" subagents.\n- **Workflow**:\n  1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.\n  2. **Find Skill**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names.\n  3. **Load Skill**: Call \`konoha.get_skill()\` to fetch the full content of the discovered skill.\n  4. **Execute Directly**: Perform the task using native tools. Do NOT attempt to delegate to subagents.\n  5. **Planning-to-File**: Write detailed analysis or plans to a markdown file and refer to it, keeping the conversation log light.\n- **Constraints**: ONLY references skill definitions from the defined ninja agents: ${agentNames}. Dynamic auto-creation of agents is prohibited.\n- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.\n\n| Skill Name | Agent Definition |\n|---|---|\n${delegationRows}\n| Simple/trivial task | Main agent executes directly using native tools. |\n\n**FORBIDDEN for Konoha work**: Attempting to invoke custom TypeName values (genin, kage, etc.). These are rejected at invocation time by the Antigravity platform.\n\n${agentSections}
+### @orchestrator — Task Coordinator
+- **Purpose**: Orchestrates and coordinates tasks by calling subagent MCP tools. Runs as TypeName: "self" — the primary Antigravity thread.
+- **Orchestration Model**:
+  - The orchestrator acts as a coordinator. For any non-trivial task, the orchestrator delegates by calling the corresponding subagent MCP tool (e.g. \`mcp_kage\`, \`mcp_jonin\`, etc.).
+  - To delegate: create a task directory, write a \`delegate.md\` file with task instructions, context, and skills, then call the subagent MCP tool passing the \`task_dir\` argument.
+- **Workflow**:
+  1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
+  2. **Find Skill**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the user prompt to discover specific skill reference names.
+  3. **Load Skill**: Call \`konoha.get_skill()\` to fetch the full content of the discovered skill.
+  4. **Delegate (MCP Tool)**: Create a task directory, write \`delegate.md\`, and call the matching subagent MCP tool passing \`task_dir\`.
+  5. **Report**: Read the subagent's execution results from the tool return or \`result.md\`, and present them to the user.
+- **Constraints**: ONLY references skill definitions from the defined ninja agents: ${agentNames}.
+- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.
+
+| Skill Name | Subagent MCP Tool |
+|---|---|
+${delegationRows}
+| Simple/trivial task | Main agent executes directly using native tools. |
+
+${agentSections}
 
 ## Operational Conventions — All Agents
 
@@ -658,7 +890,7 @@ ${buildDefineSubagentGuide(agents)}
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.json\` (created and managed exclusively by the user via the \`konoha\` CLI command).
+- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
 - **Validate**: Run tests, linting, dry-runs before claiming completion.
 - **Cite evidence**: File paths with line numbers for code, URLs for research.
@@ -706,15 +938,15 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const deployProject = typeof silentOrOptions === 'object' ? (silentOrOptions.deployProject || false) : false;
   const force = typeof silentOrOptions === 'object' ? (silentOrOptions.force || false) : false;
 
-  const agents = loadAgents();
+  const agents = loadAgents(force);
   if (agents.length === 0) return;
 
   // Skip regeneration when nothing has changed since last deploy.
-  // Fingerprint = agents.json mtime+size — robust to content edits, no full JSON parse.
+  // Fingerprint = agents.yaml mtime+size — robust to content edits, no full JSON parse.
   // Stored persistently because the CLI process exits between invocations.
   let fingerprint = null;
   try {
-    const st = fs.statSync(USER_AGENTS_JSON_PATH);
+    const st = fs.statSync(USER_AGENTS_YAML_PATH);
     fingerprint = `${st.mtimeMs}:${st.size}`;
   } catch {}
   if (!force && fingerprint && !deployProject) {
@@ -726,26 +958,15 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const geminiContent = generateGeminiMd(agents);
   const agentsContent = generateAgentsMd(agents);
 
-  // Write templates (optional cache in package, fail silently if read-only node_modules)
   try {
-    fs.writeFileSync(GEMINI_TEMPLATE_PATH, geminiContent);
-    fs.writeFileSync(AGENTS_TEMPLATE_PATH, agentsContent);
-  } catch (err) {
-    // Fail silently if package installation directory is read-only
-  }
+    fs.mkdirSync(path.dirname(GEMINI_MD_PATH), { recursive: true });
+    fs.writeFileSync(GEMINI_MD_PATH, geminiContent);
+  } catch (e) {}
 
-  // Deploy to user directories if they exist or create them
-  const geminiDir = path.dirname(GEMINI_MD_PATH);
-  if (!fs.existsSync(geminiDir)) {
-    fs.mkdirSync(geminiDir, { recursive: true });
-  }
-  fs.writeFileSync(GEMINI_MD_PATH, geminiContent);
-
-  const agentsDir = path.dirname(AGENTS_MD_PATH);
-  if (!fs.existsSync(agentsDir)) {
-    fs.mkdirSync(agentsDir, { recursive: true });
-  }
-  fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
+  try {
+    fs.mkdirSync(path.dirname(AGENTS_MD_PATH), { recursive: true });
+    fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
+  } catch (e) {}
 
   // Deploy Cursor IDE/CLI subagents, rules, and hooks
   try {
@@ -764,12 +985,29 @@ function regenerateAndDeploy(silentOrOptions = false) {
     // Fail silently if Cursor dirs are not writable
   }
 
-  // Deploy native Antigravity CLI agent.json files (fixes invoke_subagent / self fallback)
+  // Deploy native Antigravity CLI MCP schemas (fixes lazy tool discovery)
   try {
-    antigravityManager.ensureAntigravityAgents(agents, { silent: true, projectDir: path.join(__dirname, '..') });
+    antigravityManager.ensureAntigravityMcpSchemas(agents);
   } catch (e) {
     // Fail silently if Antigravity dirs are not writable
   }
+
+  // Clean up obsolete subagent configuration directories (delegation is strictly MCP-based now)
+  try {
+    const obsoleteDirs = [
+      path.join(__dirname, '..', '.agents', 'agents'),
+      path.join(__dirname, '..', '.cursor', 'agents'),
+      path.join(os.homedir(), '.gemini', 'config', 'agents'),
+      path.join(os.homedir(), '.gemini', 'antigravity-cli', 'agents'),
+      path.join(os.homedir(), '.gemini', 'antigravity-ide', 'agents'),
+      path.join(os.homedir(), '.cursor', 'agents')
+    ];
+    for (const d of obsoleteDirs) {
+      if (fs.existsSync(d)) {
+        fs.rmSync(d, { recursive: true, force: true });
+      }
+    }
+  } catch (e) {}
 
   // Deploy Claude Code MCP setup
   try {
@@ -800,7 +1038,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
     // Fail silently if OpenCode configs are not writable
   }
 
-  // Cache fingerprint so subsequent calls with unchanged agents.json skip the deploy.
+  // Cache fingerprint so subsequent calls with unchanged agents.yaml skip the deploy.
   if (fingerprint) {
     try {
       fs.mkdirSync(path.dirname(FINGERPRINT_PATH), { recursive: true });
@@ -812,18 +1050,16 @@ function regenerateAndDeploy(silentOrOptions = false) {
     const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
     const opencodeInstalled = mcpClientsManager.isOpenCodeInstalled();
     const lines = [
-      `  - ${GEMINI_MD_PATH}`,
-      `  - ${AGENTS_MD_PATH}`,
       `  - ${cursorManager.CURSOR_AGENTS_GLOBAL}`,
       `  - ${antigravityManager.ANTIGRAVITY_AGENTS_GLOBAL}`,
     ];
     if (claudeInstalled) {
       const claudeHome = require('os').homedir();
-      lines.push(`  - ${require('path').join(claudeHome, '.claude.json')} (Claude Code)`);
+      lines.push(`  - ${require('path').join(claudeHome, '.claude.yaml')} (Claude Code)`);
     }
     if (opencodeInstalled) {
       const ocHome = require('os').homedir();
-      lines.push(`  - ${require('path').join(ocHome, '.config', 'opencode', 'opencode.json')} (OpenCode)`);
+      lines.push(`  - ${require('path').join(ocHome, '.config', 'opencode', 'opencode.yaml')} (OpenCode)`);
     }
     console.log(`✓ Generated and deployed configs to:\n${lines.join('\n')}`);
   }
@@ -877,11 +1113,20 @@ function createSubagent(name, options = {}) {
   return newAgent;
 }
 
+function findAgent(agents, name) {
+  const searchName = name.toLowerCase().replace(/^(mcp_|_mcp_|mcp-)/, '');
+  return agents.find(a => {
+    const aName = a.name.toLowerCase();
+    const aBare = aName.replace(/^(mcp_|_mcp_|mcp-)/, '');
+    return aName === name.toLowerCase() || aBare === searchName;
+  });
+}
+
 // Embed a skill in a subagent
 function embedSkill(agentName, skillName) {
   const agents = loadAgents();
-  const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
-  
+  const agent = findAgent(agents, agentName);
+
   if (!agent) {
     throw new Error(`Subagent "${agentName}" not found.`);
   }
@@ -899,8 +1144,8 @@ function embedSkill(agentName, skillName) {
 // Unembed a skill from a subagent
 function unembedSkill(agentName, skillName) {
   const agents = loadAgents();
-  const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
-  
+  const agent = findAgent(agents, agentName);
+
   if (!agent) {
     throw new Error(`Subagent "${agentName}" not found.`);
   }
@@ -918,9 +1163,9 @@ function unembedSkill(agentName, skillName) {
 
 function getOfficialAgentNames() {
   let defaults = [];
-  if (fs.existsSync(DEFAULT_AGENTS_JSON_PATH)) {
+  if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
     try {
-      defaults = JSON.parse(fs.readFileSync(DEFAULT_AGENTS_JSON_PATH, 'utf-8'));
+      defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
     } catch (e) {}
   }
   return defaults.map((a) => a.name.toLowerCase());
@@ -929,8 +1174,15 @@ function getOfficialAgentNames() {
 // Delete a subagent entirely
 function deleteAgent(name) {
   const lowerName = name.toLowerCase();
+  const searchName = lowerName.replace(/^(mcp_|_mcp_|mcp-)/, '');
   const official = getOfficialAgentNames();
-  if (official.includes(lowerName)) {
+  
+  const isOfficial = official.some(oName => {
+    const oBare = oName.toLowerCase().replace(/^(mcp_|_mcp_|mcp-)/, '');
+    return oName.toLowerCase() === lowerName || oBare === searchName;
+  });
+
+  if (isOfficial) {
     throw new Error(
       `Subagent "${name}" is a protected default Konoha ninja and cannot be deleted.`
     );
@@ -938,7 +1190,11 @@ function deleteAgent(name) {
 
   const agents = loadAgents();
   const initialLength = agents.length;
-  const filtered = agents.filter(a => a.name !== lowerName);
+  const filtered = agents.filter(a => {
+    const aName = a.name.toLowerCase();
+    const aBare = aName.replace(/^(mcp_|_mcp_|mcp-)/, '');
+    return aName !== lowerName && aBare !== searchName;
+  });
 
   if (filtered.length === initialLength) {
     throw new Error(`Subagent "${name}" not found.`);
@@ -952,7 +1208,7 @@ function deleteAgent(name) {
 // Update subagent model tier
 function updateAgentModel(agentName, modelName, clientType = 'antigravity') {
   const agents = loadAgents();
-  const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
+  const agent = findAgent(agents, agentName);
 
   if (!agent) {
     throw new Error(`Subagent "${agentName}" not found.`);
@@ -985,5 +1241,7 @@ module.exports = {
   buildDefineSubagentGuide,
   generateGeminiMd,
   generateAgentsMd,
-  generateClaudeCodeMd
+  generateClaudeCodeMd,
+  parseYaml,
+  stringifyYaml
 };
