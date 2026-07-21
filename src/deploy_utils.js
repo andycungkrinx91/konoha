@@ -6,21 +6,17 @@ const path = require("path");
 const os = require("os");
 const platform = require("./platform_utils");
 
-const HOME = os.homedir();
-const SRC_DIR = __dirname;
-const SKILLS_DB_DIR = path.join(HOME, ".konoha");
-const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, "file_tools_mcp.js");
+const {
+  HOME,
+  SKILLS_DB_DIR, FILE_TOOLS_MCP_PATH, FILE_TOOLS_LAUNCHER_PATH,
+  FILE_TOOLS_NODE_PATH_FILE, FILE_TOOLS_PYTHON_CMD_FILE, FILE_TOOLS_PY_DIR,
+  SRC_DIR
+} = require("../bin/lib/paths");
+
 const FILE_TOOLS_LAUNCHER_JS = path.join(
   SKILLS_DB_DIR,
   "file_tools_launcher.js",
 );
-const FILE_TOOLS_LAUNCHER_PATH = path.join(
-  SKILLS_DB_DIR,
-  "file_tools_launcher.sh",
-);
-const FILE_TOOLS_NODE_PATH_FILE = path.join(SKILLS_DB_DIR, ".node_exec_path");
-const FILE_TOOLS_PYTHON_CMD_FILE = path.join(SKILLS_DB_DIR, ".python_cmd");
-const FILE_TOOLS_PY_DIR = path.join(SKILLS_DB_DIR, "file_tools");
 
 function fileExists(p) {
   try {
@@ -98,35 +94,10 @@ function listSkillEntries(skillsDir) {
 }
 
 function mirrorSkillsDirectory(srcDir, destDir) {
-  if (!fileExists(srcDir)) return 0;
-  ensureDir(destDir);
-  const srcEntries = listSkillEntries(srcDir);
-  const srcEntriesSet = new Set(srcEntries.map(e => e.toLowerCase()));
-
-  // Prune destDir of entries no longer in srcDir
-  const destEntries = listSkillEntries(destDir);
-  for (const entry of destEntries) {
-    if (!srcEntriesSet.has(entry.toLowerCase())) {
-      const destPath = path.join(destDir, entry);
-      try {
-        if (fs.statSync(destPath).isDirectory()) {
-          fs.rmSync(destPath, { recursive: true, force: true });
-        } else {
-          fs.unlinkSync(destPath);
-        }
-      } catch (e) {}
-    }
-  }
-
-  let mirrored = 0;
-  for (const name of srcEntries) {
-    const src = path.join(srcDir, name);
-    const dest = path.join(destDir, name);
-    const existed = fileExists(dest);
-    copyRecursiveIfDifferent(src, dest);
-    if (!existed || fileExists(dest)) mirrored++;
-  }
-  return mirrored;
+  // Konoha no longer creates filesystem skill mirrors.
+  // Skills are loaded from SQLite DB (skills.db) at runtime via the konoha MCP.
+  // This function is intentionally a no-op for backwards compatibility.
+  return 0;
 }
 
 function syncCursorSkillsFromAgents(options = {}) {

@@ -51,6 +51,9 @@ const SETTINGS_PATH = path.join(HOME, '.gemini', 'antigravity-cli', 'settings.js
 const SRC_DIR = path.join(__dirname, '..', 'src');
 const DOCS_DIR = path.join(__dirname, '..', 'docs');
 
+// Import centralized paths for all other modules to share
+const paths = require('./lib/paths');
+
 let currentCwd = HOME;
 try {
   currentCwd = process.cwd();
@@ -1091,7 +1094,7 @@ async function cmdInit(args) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1231,6 +1234,12 @@ async function cmdInit(args) {
   const sanitizeHookDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
   if (fileExists(sanitizeHookSrc)) {
     copyFile(sanitizeHookSrc, sanitizeHookDest);
+  }
+
+  const hookBaseSrc = path.join(SRC_DIR, 'hook-base.js');
+  const hookBaseDest = path.join(SKILLS_DB_DIR, 'hook-base.js');
+  if (fileExists(hookBaseSrc)) {
+    copyFile(hookBaseSrc, hookBaseDest);
   }
 
   const cursorBootstrapSrc = path.join(SRC_DIR, 'cursor_bootstrap.js');
@@ -1396,7 +1405,16 @@ function installUv(silent = false) {
   try {
     const stdioOpt = silent ? 'ignore' : 'inherit';
     if (process.platform === 'win32') {
-      execSync('powershell -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"', { stdio: stdioOpt });
+      try {
+        execSync('powershell -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"', { stdio: stdioOpt });
+      } catch (psErr) {
+        if (!silent) warn(`PowerShell uv installer failed: ${psErr.message}. Falling back to winget if available.`);
+        try {
+          execSync('winget install --id astral-sh.uv -e --source winget', { stdio: stdioOpt });
+        } catch (wingetErr) {
+          throw psErr;
+        }
+      }
     } else {
       execSync('curl -LsSf https://astral.sh/uv/install.sh | sh', { stdio: stdioOpt });
     }
@@ -1476,9 +1494,16 @@ function autoInstallKonohaBridgeExtension(silent = false) {
 
     const cloneRes = spawnSync('git', ['clone', 'https://github.com/andycungkrinx91/konoha-bridge', targetPathAntigravity], { stdio: 'ignore' });
     if (cloneRes.status === 0 && fileExists(targetPathAntigravity)) {
-      spawnSync('cp', ['-r', targetPathAntigravity, targetPathVscode], { stdio: 'ignore' });
+      try {
+        fs.cpSync(targetPathAntigravity, targetPathVscode, { recursive: true });
+      } catch (cpErr) {
+        if (!silent) warn(`Cloned to Antigravity but failed to copy to VS Code: ${cpErr.message}`);
+      }
       if (!silent) success('Successfully installed Konoha Bridge extension into Antigravity IDE!');
       return true;
+    } else if (!silent && cloneRes.status !== 0) {
+      warn(`git clone of konoha-bridge failed (exit ${cloneRes.status}). Cleaning partial clone.`);
+      try { fs.rmSync(targetPathAntigravity, { recursive: true, force: true }); } catch (e) {}
     }
   } catch (err) {
     if (!silent) warn(`Failed to auto-install konoha-bridge extension: ${err.message}`);
@@ -1602,7 +1627,8 @@ function registerPermissions(silent = false) {
     }
 
     if (!settings.permissions) settings.permissions = {};
-    if (!settings.permissions.allow) settings.permissions.allow = [];
+    const allowRaw = settings.permissions.allow;
+    settings.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
 
     const requiredGrants = [
       'command(node bin/cli.js)',
@@ -1669,7 +1695,8 @@ function unregisterPermissions(silent = false) {
       continue;
     }
 
-    if (settings.permissions && settings.permissions.allow) {
+    const allowArr = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
+    if (allowArr.length > 0) {
       const requiredGrants = [
         'command(node bin/cli.js)',
         'command(konoha)',
@@ -1704,12 +1731,13 @@ function unregisterPermissions(silent = false) {
         'mcp(konoha/*)'
       ];
 
-      const initialLength = settings.permissions.allow.length;
-      settings.permissions.allow = settings.permissions.allow.filter(
+      const initialLength = allowArr.length;
+      const filtered = allowArr.filter(
         (grant) => !requiredGrants.includes(grant)
       );
 
-      if (settings.permissions.allow.length !== initialLength) {
+      if (filtered.length !== initialLength) {
+        settings.permissions.allow = filtered;
         try {
           fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
           if (!silent) {
@@ -1941,7 +1969,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -2909,7 +2937,7 @@ async function cmdDoctor() {
   checkAndRepairFile('file_tools_launcher.js', path.join(SKILLS_DB_DIR, 'file_tools_launcher.js'), 'File Tools Launcher (file_tools_launcher.js)');
   checkAndRepairFile('platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)');
   checkAndRepairFile('file_tools_launcher.sh', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.sh)');
-  if (fileExists(FILE_TOOLS_LAUNCHER_PATH)) {
+  if (fileExists(FILE_TOOLS_LAUNCHER_PATH) && process.platform !== 'win32') {
     try {
       fs.chmodSync(FILE_TOOLS_LAUNCHER_PATH, 0o755);
     } catch {}
@@ -4790,10 +4818,11 @@ async function cmdModels(args) {
           }
 
           if (!searchStr.includes('|')) {
-            const foundModel = activeModelsList.find(m =>
-              m.name.toLowerCase() === searchStr.toLowerCase() ||
-              m.aliases.includes(searchStr.toLowerCase())
-            );
+            const foundModel = activeModelsList.find(m => {
+              const nameMatch = m.name && m.name.toLowerCase() === searchStr.toLowerCase();
+              const aliasesMatch = Array.isArray(m.aliases) && m.aliases.includes(searchStr.toLowerCase());
+              return nameMatch || aliasesMatch;
+            });
             if (!foundModel) throw new Error(`Unknown model: "${input}"`);
 
             const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
@@ -4807,10 +4836,11 @@ async function cmdModels(args) {
           const left = parts[0].trim();
           const right = parts[1].trim();
           
-          const foundPrimary = activeModelsList.find(m => 
-            m.name.toLowerCase() === left.toLowerCase() || 
-            m.aliases.includes(left.toLowerCase())
-          );
+          const foundPrimary = activeModelsList.find(m => {
+            const nameMatch = m.name && m.name.toLowerCase() === left.toLowerCase();
+            const aliasesMatch = Array.isArray(m.aliases) && m.aliases.includes(left.toLowerCase());
+            return nameMatch || aliasesMatch;
+          });
           if (!foundPrimary) throw new Error(`Unknown primary model: "${left}"`);
           
           let foundFallback = null;
@@ -5315,7 +5345,16 @@ async function cmdBridgeStart() {
     stdio: 'ignore',
     env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
   });
+  child.on('error', (err) => {
+    warn(`Background bridge process errored: ${err && err.message ? err.message : err}`);
+  });
   child.unref();
+
+  try {
+    fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
+  } catch (e) {
+    warn(`Could not write bridge.pid: ${e && e.message ? e.message : e}`);
+  }
 
   await new Promise((r) => setTimeout(r, 1000));
   const nowActive = await checkPortActive(19999);
@@ -5329,11 +5368,31 @@ async function cmdBridgeStart() {
 async function cmdBridgeStop() {
   const { execSync } = require('child_process');
   header('Stopping Bridge Proxy Gateway Service');
+  const pidFile = path.join(SKILLS_DB_DIR, 'bridge.pid');
+  let targeted = false;
   try {
-    if (process.platform === 'win32') {
-      execSync('taskkill /f /im node.exe', { stdio: 'ignore' });
-    } else {
-      execSync('pkill -f file_tools_mcp.js', { stdio: 'ignore' });
+    if (fileExists(pidFile)) {
+      const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+      if (Number.isFinite(pid) && pid > 0) {
+        try {
+          if (process.platform === 'win32') {
+            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+          } else {
+            process.kill(pid, 'SIGTERM');
+          }
+          targeted = true;
+        } catch (e) {
+          // Process already gone — fall through to the broad kill as a last resort.
+        }
+        try { fs.unlinkSync(pidFile); } catch (e) {}
+      }
+    }
+    if (!targeted) {
+      if (process.platform === 'win32') {
+        execSync('taskkill /f /im node.exe', { stdio: 'ignore' });
+      } else {
+        execSync('pkill -f file_tools_mcp.js', { stdio: 'ignore' });
+      }
     }
     success('Stopped background bridge proxy gateway services.');
   } catch (e) {

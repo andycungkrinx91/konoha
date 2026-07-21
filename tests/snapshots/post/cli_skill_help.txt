@@ -1,0 +1,25 @@
+📚 Konoha Skill Management Help 📚
+  ========================================================================
+  A "Skill" is a folder containing prompt instructions, examples, and rules
+  that you teach to your AI subagents. By giving agents skills, they become
+  experts in specific fields (like SvelteKit frontend, security DevOps, API design, etc.).
+  ========================================================================
+
+USAGE
+  konoha skill <subcommand> [args]
+
+SUBCOMMANDS
+  list                Show all custom skills currently installed in your village.
+  search <query>      Find new skills on the public registry (skills.sh) and install them.
+  add <url> <name>   Directly install a skill from a Git repository URL.
+  remove <name>      Uninstall a skill from your local environment.
+
+EXAMPLES FOR BEGINNERS
+  1. Find and install a Terraform skill from the registry:
+     konoha skill search terraform
+
+  2. Install a specific skill directly from GitHub:
+     konoha skill add https://github.com/example/my-skill my-custom-skill
+
+  3. View all skills currently installed:
+     konoha skill list

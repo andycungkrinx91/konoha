@@ -185,17 +185,18 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 └── GEMINI.md              ← Orchestrator + subagent instructions
 
 ~/.konoha/
-├── server.py          ← Python skill worker
-├── file_tools_mcp.js  ← konoha MCP server & Proxy Gateway runtime
-├── file_tools_launcher.js ← cross-platform MCP launcher
-├── file_tools_router.js
-├── platform_utils.js  ← cross-OS path/Python helpers
-├── .node_exec_path    ← recorded Node path (auto)
-├── .python_cmd        ← recorded Python command (auto)
-├── file_tools/        ← Python streaming helpers
-├── bridge/            ← Konoha Bridge Router runtime modules
-├── migrate.py         ← Migration script
-└── skills.db          ← SQLite FTS5 database (+ `bridges` table for bridge configs)
+├── file_tools_launcher.js ← cross-platform Node resolver (preferred launcher)
+├── file_tools_mcp.js      ← konoha MCP server (core skill+file ops)
+├── file_tools_launcher.sh ← Shell wrapper for Cursor CLI sandbox
+├── file_tools_router.js   ← In-process tool dispatch router
+├── platform_utils.js      ← cross-OS path/Python helpers
+├── .node_exec_path        ← recorded Node path (auto)
+├── .python_cmd            ← recorded Python command (auto)
+├── file_tools/            ← Python streaming helpers (grep, read, search)
+├── bridge/                ← Proxy Gateway bridge modules
+├── server.py              ← Legacy Python skill worker (kept for backward compat)
+├── migrate.py             ← Migration script
+└── skills.db              ← SQLite FTS5 database (+ `agents`, `bridges` tables)
 
 ~/.cursor/
 ├── mcp.json               ← konoha + semble MCP (Cursor)
@@ -468,13 +469,27 @@ Konoha implements a transient file-based Markdown communication protocol for Ant
 |------|-------|------|
 | 1 | `prompt_hook.js` | `prompt.md` (user request) |
 | 2 | Orchestrator | reads `prompt.md`, discovers skills/code |
-| 3 | Orchestrator | writes `scratch/tasks/<task_id>/delegate.md` |
+| 3 | Orchestrator | writes `delegate.md` under `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` (resolved by an internal orchestrator helper) — **never** inside the project workspace, so transient agent files cannot be accidentally committed |
 | 4 | Subagent | reads `delegate.md`, executes, writes `result.md` |
 | 5 | Orchestrator | reads `result.md`, reports to user, cleans up |
 
 * **Structured Context Isolation**: Subagents do not inherit the full parent chat — they read `delegate.md` (Goal, Context, Constraints) only.
 * **Substantial Savings**: Isolated subagent context yields up to **95%+ token savings** per invocation.
 * **Recursive Loop Circuit Breaker**: `depth` in `delegate.md` YAML frontmatter; circuit breaks at **depth > 7**.
+
+### Skill Resolution
+
+When a subagent runs, `run_mcp_agent` resolves skills in three layers:
+
+1. **Exact match** — `agents.skills` (per-agent YAML) is queried against `skills.skill_name` and `references.name`.
+2. **Fuzzy match** — if a skill name has no exact hit, Levenshtein distance ≤ 3 finds close names. Example: `devsecops-enginer` → `devsecops-engineer`.
+3. **Prompt-driven autoload** — when the agent's `skills` list is empty, the prompt is tokenized and matched against `skill_name` + the first 200 chars of each skill's content. The top 3 token-coverage matches are auto-loaded and embedded into the agent instructions.
+
+The mismatch is reported on stderr (`fuzzy-resolved skill 'x' -> 'y'`) so the orchestrator can spot recurring typos and update the YAML.
+
+### Workspace Hygiene
+
+Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/test_scratch_path.py`.
 
 ### Detailed Before vs After Comparison
 

@@ -12,6 +12,10 @@
   - `@anbu` → backend dev, bug fixing, DevOps, infrastructure
   - `@tokubetsu-jonin` → technical writing, documentation, READMEs
 - **Use token-efficient file tools**: `mcp__konoha__read_file_range`, `mcp__konoha__read_file_head`, `mcp__konoha__file_info` instead of loading entire files. Never read more than 100 lines at once.
+- **Skill resolution layers** (in `run_mcp_agent`):
+  1. **Exact match** — `agents.skills` list is queried against `skills.skill_name`.
+  2. **Fuzzy match** — if no exact hit, Levenshtein distance (≤3) is used to recover from typos like `devsecops-enginer` → `devsecops-engineer`.
+  3. **Prompt-driven autoload** — if the agent's `skills` list is empty, the prompt is tokenized and matched against `skills.skill_name` + first 200 chars of content; top 3 matches are auto-loaded.
 
 ## Project Architecture
 
@@ -59,7 +63,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 ### Delegation Protocol:
 1. **Read User Prompt**: Read the user request to understand scope and domain.
 2. **Find Skill**: Call `mcp__konoha__find_skill` or `optimize_report` to discover skill references. **Do NOT call `semble` for skills.**
-3. **Delegate**: Create a task directory (`scratch/tasks/<task_id>/`), write `delegate.md` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. `mcp_anbu`) passing the `task_dir` pointing to `scratch/tasks/<task_id>/`.
+3. **Delegate**: Resolve a task directory via `konoha.get_resolved_task_dir` (returns `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` — **never** inside the project workspace), create a fresh subdirectory there, write `delegate.md` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. `mcp_anbu`) passing that absolute `task_dir`.
 4. **Report**: Once the tool completes and writes `result.md`, read it and report back to the user.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
@@ -80,12 +84,13 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 | Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
-| Specialized skill | `genin-skill` | `mcp_genin` (MCP Tool) |
-| Specialized skill | `kage-skill` | `mcp_kage` (MCP Tool) |
-| Specialized skill | `chunin-skill` | `mcp_chunin` (MCP Tool) |
+| Standard Operating Procedures and router for MCP task triage, subagent selection, and orchestration. | `sannin-skill` | `mcp_sannin` (MCP Tool) |
+| Standard Operating Procedures for read-only codebase exploration, symbol search, dependency mapping, | `genin-skill` | `mcp_genin` (MCP Tool) |
+| Standard Operating Procedures for architecture decisions, security audits, deep code analysis, risk  | `kage-skill` | `mcp_kage` (MCP Tool) |
+| Standard Operating Procedures for web research, documentation lookup, evidence synthesis with citati | `chunin-skill` | `mcp_chunin` (MCP Tool) |
 | Standard Operating Procedures and router for premium UI development, design match comparison, compon | `jonin-skill` | `mcp_jonin` (MCP Tool) |
-| Specialized skill | `anbu-skill` | `mcp_anbu` (MCP Tool) |
-| Specialized skill | `tokubetsu-jonin-skill` | `mcp_tokubetsu-jonin` (MCP Tool) |
+| Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `mcp_anbu` (MCP Tool) |
+| Standard Operating Procedures for technical writing, README creation, API specifications, runbooks,  | `tokubetsu-jonin-skill` | `mcp_tokubetsu-jonin` (MCP Tool) |
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-END -->

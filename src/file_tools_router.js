@@ -6,9 +6,10 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const platform = require('./platform_utils');
+const { TOOL_WORKERS_DIR, FILE_TOOLS_PYTHON_CMD_FILE } = require('../bin/lib/paths');
 
-const TOOLS_DIR = path.join(__dirname, 'file_tools');
-const PYTHON_CMD_FILE = path.join(__dirname, '.python_cmd');
+const TOOLS_DIR = TOOL_WORKERS_DIR;
+const PYTHON_CMD_FILE = FILE_TOOLS_PYTHON_CMD_FILE;
 const SCRIPT_TIMEOUT_MS = 60000;
 
 let workspaceRoot = null;

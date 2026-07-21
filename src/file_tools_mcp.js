@@ -21,6 +21,8 @@ const readline = require("readline");
 const SERVER_NAME = "konoha";
 const SERVER_VERSION = "1.1.6";
 
+const { DB_BRIDGES_PY_PATH, DB_PATH } = require("../bin/lib/paths");
+
 let router;
 try {
   router = require("./file_tools_router");
@@ -138,9 +140,10 @@ function loadBridgesFromMcp() {
   const fs = require("fs");
   const os = require("os");
   const path = require("path");
-  const dbScript = fs.existsSync(path.join(__dirname, "db_bridges.py"))
-    ? path.join(__dirname, "db_bridges.py")
-    : path.join(os.homedir(), ".konoha", "db_bridges.py");
+  const localBridges = path.join(__dirname, "db_bridges.py");
+  const dbScript = fs.existsSync(localBridges)
+    ? localBridges
+    : DB_BRIDGES_PY_PATH;
   const python = process.env.PYTHON_CMD || "python3";
 
   try {
@@ -318,7 +321,7 @@ function main() {
   const fs = require("fs");
   const os = require("os");
   const path = require("path");
-  const dbPath = path.join(os.homedir(), ".konoha", "skills.db");
+  const dbPath = DB_PATH;
   let watcher = null;
   if (fs.existsSync(dbPath)) {
     try {

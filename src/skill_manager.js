@@ -17,6 +17,10 @@ function validateInputs(repoUrl, skillName) {
 }
 
 const HOME = os.homedir();
+const {
+  AGENTS_SKILLS, AGENTS, GEMINI, ANTIGRAVITY_CLI
+} = require('../bin/lib/paths');
+
 let currentCwd = HOME;
 try {
   currentCwd = process.cwd();
@@ -31,8 +35,8 @@ try {
 }
 
 const DEFAULT_SKILLS_DIRS = [
-  path.join(HOME, '.agents', 'skills'),
-  path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
+  path.join(AGENTS, 'skills'),
+  path.join(ANTIGRAVITY_CLI, 'skills'),
   path.join(currentCwd, '.agents', 'skills'),
 ];
 

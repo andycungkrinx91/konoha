@@ -249,7 +249,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.0.9`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: As of `v1.1.6`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:

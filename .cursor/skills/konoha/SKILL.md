@@ -418,7 +418,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Client Column Telemetry**: The `client` column is registered in the `tool_calls` table and populated during `log_tool_call()`.
 - **TUI Display**: `konoha savings` displays a dedicated "Provider Breakdown" table, showing Today, Last 7 Days, and All Time statistics (calls and tokens) partitioned specifically across `Antigravity IDE`, `Antigravity CLI (agy)`, `Cursor`, and `Claude Code`.
 
-### 26. Dynamic Skill Routing & Clean Configs (v1.1.9)
+### 26. Dynamic Skill Routing & Clean Configs (v1.1.6)
 - **Clean Configuration Files**: `~/.agents/agents.json` on disk is kept completely free of hardcoded `Before work: find_skill(...)` checks. This avoids checklist bloat and keeps the source-of-truth file concise.
 - **Dynamic Checklists & Generation**: Roster compilers in [src/cursor_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/cursor_manager.js) and [src/antigravity_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/antigravity_manager.js) dynamically strip any residual/legacy checklist instructions and inject the appropriate `Before work: find_skill` checklist at compilation/deployment time based *only* on the agent's current active `skills` array.
 - **SQLite-Driven Dynamic Skills**: Subagent configurations (`a.skills` arrays) and the global "Routing by Domain" table are dynamically resolved and built at rule compilation time by querying the SQLite database (`skills.db`) and matching them against the subagents' configured base skills from `agents.json`. This guarantees skill configurations and descriptions are never hardcoded in files, templates, or instructions, immediately reflecting any new skill additions or deletions.
@@ -426,7 +426,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Persistent Upgrade Marker**: Uses a persistent marker file (`~/.agents/.upgraded_v1.1.1`) to decouple the agent format checks from the presence of default skills in `agents.json`, enabling users to freely add, change, or unembed official skills for each subagent.
 - **Depth Calculation Correction**: Resolves depth calculation resetting in nested task directories by reading from both incoming `delegate.md` and target `delegate.md` files to ensure accurate sequence tracing.
 
-### 27. Surgically Preserved Skills & Antigravity Lazy MCP Schemas (v1.2.0)
+### 27. Surgically Preserved Skills & Antigravity Lazy MCP Schemas (v1.1.6)
 - **Base Skills Preservation**: `getSkillsForAgentFromDb` preserves base skills (e.g. `devsecops-engineer`) even if they are not yet fully indexed in the SQLite FTS5 database to prevent silent deletions during setup/sync.
 - **Antigravity Lazy MCP Schemas**: Schema JSON definitions for all subagents are automatically generated and deployed to `~/.gemini/antigravity-cli/mcp/konoha/` to support running subagents as MCP tools in Google Antigravity.
 

@@ -1,0 +1,41 @@
+---
+name: anbu-skill
+description: Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment, and security hardening.
+tags:
+  - anbu
+  - backend
+  - bug-fixing
+  - devops
+  - infrastructure
+---
+
+# Anbu: Backend Specialist, Bug Fixing, & DevOps
+
+This skill provides the **Standard Operating Procedures (SOP)** for the Anbu agent — backend logic, bug diagnosis, DevOps, and infrastructure.
+
+## Workflow Role
+
+In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: execute**. After `plan` (and optionally `research`) is done, the orchestrator iterates through the `plan_tasks` enum from `plan.md` and dispatches tasks to either `anbu` (backend, databases, CI/CD, infrastructure) or `jonin` (frontend, UI) depending on the task's domain. Anbu completes its tasks, writes `result_anbu.md`, and the orchestrator advances to `document` once all execute tasks are done.
+
+> [!CAUTION]  
+> **Minimal Safe Changes**: Diagnose root cause before fixing. Make minimal safe changes. Validate with dry-runs and tests.
+
+> [!NOTE]
+> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+
+## SOP 1: Bug Diagnosis & Fix
+1. Reproduce the issue and gather logs/error context.
+2. Diagnose root cause (not symptoms) before implementing fixes.
+3. Make minimal changes that address the root cause.
+4. Validate with dry-runs and tests before applying.
+5. Provide rollback procedures with every change.
+
+## SOP 2: Backend Development
+1. Gather requirements and design schema/API contracts first.
+2. Build incrementally with validation at each step.
+3. Document endpoints, models, and migrations.
+
+## SOP 3: DevOps & Infrastructure
+1. Use infrastructure-as-code principles (Terraform, K8s, Helm).
+2. Validate changes in staging before production.
+3. Monitor and alert on deployment health.

@@ -1,10 +1,13 @@
-# Merge the mcpServers block into ~/.claude.yaml (global user config). Konoha init does this automatically when the claude CLI is installed.
+# Merge the mcpServers block into ~/.claude.json (global user config).
+# Konoha init does this automatically when the claude CLI is installed.
+# v1.1.6 uses file_tools_launcher.js (the Node-path resolver wrapper) for
+# cross-platform stability when nvm paths differ between shell and IDE.
 mcpServers:
   konoha:
     type: stdio
     command: node
     args:
-      - "${HOME}/.konoha/file_tools_mcp.js"
+      - "${HOME}/.konoha/file_tools_launcher.js"
   semble:
     type: stdio
     command: uvx

@@ -1,0 +1,4 @@
+Served Models via Proxy Gateway
+════════════════════════════════════════════════════════════
+  ✗ Proxy Gateway is not running on port 19999.
+  ↯ Ensure the konoha-files MCP server is running to start the gateway and enabled bridges.

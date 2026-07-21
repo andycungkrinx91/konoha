@@ -1,0 +1,60 @@
+| |/ /  / _ \ | \| | / _ \ | || |   / \
+| ' /  | | | || .` || | | || __ |  / _ \
+|_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
+Konoha — SQLite FTS5 Skills-DB
+Token reduction: 83-98% via on-demand search
+Maintainer: Andy Setiyawan
+
+  🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃
+  ========================================================================
+  Konoha helps you manage a team of specialized AI subagents (Ninjas) for your
+  Antigravity IDE or CLI. It stores agent "skills" (instructions, rules, scripts)
+  in a local SQLite FTS5 database and exposes them via a searchable MCP server,
+  providing massive token savings (~80-95%) while keeping agents highly capable.
+  ========================================================================
+
+USAGE
+  konoha <command> [options]
+
+CORE COMMANDS
+  init          🚀 Setup MCP server, migrate local skills, and configure Antigravity.
+  migrate       🔄 Re-index/migrate your custom skills database (run after editing skills).
+  test          🧪 Perform verification tests on the MCP server.
+  status        🩺 Check installation health, database size, and loaded skills.
+  version       ✨ Display current version and check for updates from GitHub.
+  upgrade       🔄 Upgrade Konoha CLI to the latest version from GitHub.
+  savings       📊 View your total token savings (Today, 7 days, All time).
+  data          🧠 Manage SQLite active session history and prune database space.
+  doctor        🩺 Run environment diagnostics to detect/fix integration issues.
+  bridge        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+
+  uninstall     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
+
+SUBAGENT & SKILL MANAGEMENT COMMANDS
+  skill         📚 Manage skills (list installed, search the public registry, add/remove).
+  agent         👤 Configure your Ninja subagents (list, change models, toggle skills, delete, status).
+  models        🤖 Manage available LLM models and assign them to subagents.
+  help          ❓ Show this educational help menu.
+
+GLOBAL OPTIONS
+  --force        Force clean re-installation (used with init).
+  --skills-dir   Specify a custom directory to scan for skill folders (used with migrate).
+
+QUICK-START EXAMPLES FOR BEGINNERS
+  1. Setup everything for the first time:
+     npx github:andycungkrinx91/konoha init
+
+  2. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:
+     konoha skill search golang
+
+  3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):
+     konoha agent skill genin
+
+  4. Interactively change models for a subagent (e.g. set @kage to Claude Opus 4.6):
+     konoha agent models kage
+
+  5. View how many tokens (and how much context window) you have saved:
+     konoha savings
+
+  6. View database disk space and active session size:
+     konoha data view

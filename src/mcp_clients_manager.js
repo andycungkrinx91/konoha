@@ -8,14 +8,10 @@ const {
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 
-const HOME = os.homedir();
-const SKILLS_DB_DIR = path.join(HOME, '.konoha');
-const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
-const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
-
-const CLAUDE_JSON = path.join(HOME, '.claude.yaml');
-const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.yaml');
-const OPENCODE_GLOBAL = path.join(HOME, '.config', 'opencode', 'opencode.yaml');
+const {
+  SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
+  CLAUDE_JSON, CLAUDE_SETTINGS, OPENCODE_GLOBAL
+} = require('../bin/lib/paths');
 
 const KONOHA_MCP_NAMES = ['konoha', 'semble'];
 
@@ -213,7 +209,8 @@ function registerClaudeCodePermissions(silent = true) {
     CLAUDE_SETTINGS,
     (config) => {
       if (!config.permissions) config.permissions = {};
-      if (!config.permissions.allow) config.permissions.allow = [];
+      const allowRaw = config.permissions.allow;
+      config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
 
       let updated = false;
       for (const grant of grants) {
@@ -497,7 +494,8 @@ function getClaudeCodeStatus() {
     try {
       const { parseYaml } = require('./agent_manager');
       const settings = parseYaml(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
-      const allowed = settings?.permissions?.allow || [];
+      const allowRaw = settings?.permissions?.allow;
+      const allowed = Array.isArray(allowRaw) ? allowRaw : [];
       status.permissionsAllowed =
         allowed.includes('mcp__konoha__*') &&
         allowed.includes('mcp__semble__*');
@@ -687,12 +685,14 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
       mergeJsonFile(
         CLAUDE_SETTINGS,
         (config) => {
-          if (config.permissions && config.permissions.allow) {
-            const initialLength = config.permissions.allow.length;
-            config.permissions.allow = config.permissions.allow.filter(
+          const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+          if (allowArr.length > 0) {
+            const initialLength = allowArr.length;
+            const filtered = allowArr.filter(
               (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*'
             );
-            return config.permissions.allow.length !== initialLength;
+            config.permissions.allow = filtered;
+            return filtered.length !== initialLength;
           }
           return false;
         },

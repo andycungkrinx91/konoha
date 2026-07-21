@@ -1,0 +1,56 @@
+| |/ /  / _ \ | \| | / _ \ | || |   / \
+| ' /  | | | || .` || | | || __ |  / _ \
+|_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
+Konoha — SQLite FTS5 Skills-DB
+Token reduction: 83-98% via on-demand search
+Maintainer: Andy Setiyawan
+
+🩺 Konoha Doctor
+════════════════════════════════════════════════════════════
+Diagnosing environment requirements and auto-repairing missing components...
+
+  ϟ Running environment diagnostics...
+  ⚡ Diagnostic checks complete.
+    ┌────────────────────────────────────────────────────┬────────────┬───────────────────────────────────────────────┐
+    │ Requirement / Component                            │ Status     │ Diagnostic Details                            │
+    ├────────────────────────────────────────────────────┼────────────┼───────────────────────────────────────────────┤
+    │ Python 3 Environment                               │ ACTIVE     │ Python 3.10.12 (python3)                      │
+    │ Server File (server.py)                            │ HEALTHY    │ File is present and healthy                   │
+    │ Migration Script (migrate.py)                      │ HEALTHY    │ File is present and healthy                   │
+    │ Stats Helper Script                                │ HEALTHY    │ File is present and healthy                   │
+    │ Savings Helper Script                              │ HEALTHY    │ File is present and healthy                   │
+    │ Agent Stats Helper Script                          │ HEALTHY    │ File is present and healthy                   │
+    │ Prompt Hook Script (prompt_hook.js)                │ HEALTHY    │ File is present and healthy                   │
+    │ Subagent Hook Script (antigravity_subagent_hook... │ HEALTHY    │ File is present and healthy                   │
+    │ Antigravity Manager Script (antigravity_manager... │ HEALTHY    │ File is present and healthy                   │
+    │ Tool Sanitize Hook (antigravity_tool_sanitize_h... │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools MCP (file_tools_mcp.js)                 │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Router (file_tools_router.js)           │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Launcher (file_tools_launcher.js)       │ HEALTHY    │ File is present and healthy                   │
+    │ Platform Utils (platform_utils.js)                 │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Launcher (file_tools_launcher.sh)       │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (_common.py)                     │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (file_info.py)                   │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (find_files_clean.py)            │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (get_file_structure.py)          │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (read_file_head.py)              │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (read_file_range.py)             │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (search_file.py)                 │ HEALTHY    │ File is present and healthy                   │
+    │ File Tools Python (token_efficient_grep.py)        │ HEALTHY    │ File is present and healthy                   │
+    │ konoha MCP smoke test                              │ HEALTHY    │ 20 tools via launcher                         │
+    │ Database File (skills.db)                          │ HEALTHY    │ Database file is present                      │
+    │ MCP Config (mcp_config.json)                       │ HEALTHY    │ konoha and semble are active                  │
+    │ GEMINI Instructions (GEMINI.md)                    │ HEALTHY    │ Instructions are active                       │
+    │ AGENTS Definition (agents.yaml)                    │ HEALTHY    │ Ninja ranks are active                        │
+    │ Prompt Hook Config (hooks.json)                    │ HEALTHY    │ subagent + prompt + sanitize hooks registered │
+    │ Cursor IDE/CLI (~/.cursor/)                        │ HEALTHY    │ MCP and hooks configured                      │
+    │ Claude Code (~/.claude.json)                       │ HEALTHY    │ konoha and semble active & allowed            │
+    │ OpenCode (~/.config/opencode/)                     │ HEALTHY    │ konoha and semble active                      │
+    │ agent-browser CLI                                  │ ACTIVE     │ agent-browser 0.27.2                          │
+    └────────────────────────────────────────────────────┴────────────┴───────────────────────────────────────────────┘
+
+┌────────────── 🩺 Doctor Summary ──────────────┐
+│ ✓ All diagnostic checks passed successfully!  │
+│ Your Konoha environment is fully operational. │
+│ No repairs were required.                     │
+└───────────────────────────────────────────────┘

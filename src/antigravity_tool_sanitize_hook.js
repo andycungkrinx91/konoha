@@ -1,21 +1,16 @@
 #!/usr/bin/env node
 /**
  * Antigravity PreToolUse hook — Konoha MCP enforcement.
- * 
+ *
  * Denies:
  * 1. define_subagent / invoke_subagent (must use MCP tools instead)
  * 2. Native file/search tools (must use konoha/semble MCP instead)
+ * 3. Shell commands that bypass MCP file reads (cat/grep/find/...)
+ *
+ * Shared stdin/respond helpers live in ./hook-base, which is deployed
+ * alongside this script to ~/.konoha/.
  */
-const fs = require('fs');
-
-function readStdin() {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.on('data', (c) => { data += c; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', () => resolve(''));
-  });
-}
+const { readStdinJson, respond } = require('./hook-base');
 
 function extractToolCall(payload) {
   if (!payload) return null;
@@ -25,22 +20,10 @@ function extractToolCall(payload) {
   return { name: tc.name, args };
 }
 
-function respond(obj) {
-  process.stdout.write(JSON.stringify(obj) + '\n');
-}
-
 async function main() {
   try {
-    const stdinContent = await readStdin();
-    if (!stdinContent) {
-      respond({ decision: 'allow' });
-      return;
-    }
-
-    let payload;
-    try {
-      payload = JSON.parse(stdinContent);
-    } catch {
+    const payload = await readStdinJson();
+    if (!payload) {
       respond({ decision: 'allow' });
       return;
     }
@@ -76,11 +59,10 @@ async function main() {
     }
 
     // DENY 3: Block run_command calls that use shell file-reading/search commands
-    // These bypass MCP enforcement when agents call run_command('cat file.py') etc.
     if (name === 'run_command') {
       const cmdLine = rawArgs.CommandLine || rawArgs.command || rawArgs.commandLine || '';
       const cmdStr = typeof cmdLine === 'string' ? cmdLine.trim() : '';
-      const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, ''); // basename of command
+      const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, ''); // basename
       const FORBIDDEN_SHELL_CMDS = ['cat', 'head', 'tail', 'grep', 'rg', 'find', 'fd', 'ag', 'ack', 'less', 'more', 'bat', 'wc'];
       if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
         respond({

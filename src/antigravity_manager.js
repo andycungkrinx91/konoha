@@ -2,10 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const HOME = os.homedir();
-const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'config', 'agents');
-const ANTIGRAVITY_CLI_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
-const ANTIGRAVITY_IDE_GLOBAL = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
+const {
+  ANTIGRAVITY_AGENTS_GLOBAL,
+  ANTIGRAVITY_CLI_GLOBAL,
+  ANTIGRAVITY_IDE_GLOBAL
+} = require('../bin/lib/paths');
 
 const BASE_TOOLS = [
   'send_message',

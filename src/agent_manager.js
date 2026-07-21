@@ -6,225 +6,25 @@ const platform = require('./platform_utils');
 const cursorManager = require('./cursor_manager');
 const antigravityManager = require('./antigravity_manager');
 const mcpClientsManager = require('./mcp_clients_manager');
+const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
-  SEMBLE_SEARCH_CONSTRAINT,
-  buildSembleSearchPolicy,
-  buildSembleSearchPolicyCompact,
+  SKILLS_DB_DIR, SERVER_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH,
+  USER_AGENTS_YAML_PATH, DEFAULT_AGENTS_YAML_PATH, GEMINI_TEMPLATE_PATH,
+  AGENTS_TEMPLATE_PATH, FINGERPRINT_PATH, SRC_DIR, DEFAULT_SKILLS_DIRS,
+  HOME, CURSOR_MCP, AGENTS_SKILLS
+} = require('../bin/lib/paths');
+
+const {
   buildFileToolsPolicy,
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 
-const HOME = os.homedir();
-const SKILLS_DB_DIR = path.join(HOME, '.konoha');
-const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
-const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
-const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
-
-const SRC_DIR = __dirname;
-const USER_AGENTS_YAML_PATH = path.join(HOME, '.agents', 'agents.yaml');
-const DEFAULT_AGENTS_YAML_PATH = path.join(SRC_DIR, 'templates', 'agents.yaml');
-const GEMINI_TEMPLATE_PATH = path.join(SRC_DIR, 'templates', 'GEMINI.md');
-const AGENTS_TEMPLATE_PATH = path.join(SRC_DIR, 'templates', 'AGENTS.md');
-
-// Persistent fingerprint path — stores agents.yaml mtime+size after each successful deploy,
-// so subsequent CLI invocations can detect no-op and skip the ~640ms regenerateAndDeploy work.
-const FINGERPRINT_PATH = path.join(HOME, '.konoha', '.deploy-fingerprint');
-
-function parseYaml(yamlStr) {
-  if (!yamlStr) return null;
-  const lines = yamlStr.split(/\r?\n/);
-  const root = {};
-  let isRootArray = false;
-  let rootArray = [];
-  const stack = [];
-  let current = root;
-  let inMultiLine = false;
-  let multiLineIndent = 0;
-  let multiLineValue = [];
-  let multiLineNode = null;
-  let multiLineKey = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (inMultiLine) {
-      const matchIndent = line.match(/^(\s*)/);
-      const indent = matchIndent ? matchIndent[1].length : 0;
-      if (line.trim() === '' || indent >= multiLineIndent) {
-        multiLineValue.push(line.slice(multiLineIndent));
-        continue;
-      } else {
-        multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
-        inMultiLine = false;
-      }
-    }
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-    const indent = line.match(/^(\s*)/)[0].length;
-    while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
-      stack.pop();
-    }
-    if (stack.length > 0) {
-      current = stack[stack.length - 1].value;
-    } else {
-      current = isRootArray ? rootArray : root;
-    }
-    if (trimmed.startsWith('-')) {
-      if (stack.length === 0 && Object.keys(root).length === 0 && !isRootArray) {
-        isRootArray = true;
-        current = rootArray;
-      }
-      const rest = trimmed.slice(1).trim();
-      const colonIdx = rest.indexOf(':');
-      if (colonIdx !== -1) {
-        const key = rest.slice(0, colonIdx).trim();
-        let val = rest.slice(colonIdx + 1).trim();
-        const obj = {};
-        if (Array.isArray(current)) {
-          current.push(obj);
-        }
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch {}
-        } else if (val === 'true') {
-          val = true;
-        } else if (val === 'false') {
-          val = false;
-        } else if (val === 'null') {
-          val = null;
-        } else if (!isNaN(val) && val !== '') {
-          val = Number(val);
-        }
-        obj[key] = val;
-        stack.push({ indent: indent, value: obj });
-      } else {
-        let val = rest;
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch {}
-        } else if (val === 'true') {
-          val = true;
-        } else if (val === 'false') {
-          val = false;
-        } else if (val === 'null') {
-          val = null;
-        } else if (!isNaN(val) && val !== '') {
-          val = Number(val);
-        }
-        if (Array.isArray(current)) {
-          current.push(val);
-        }
-      }
-      continue;
-    }
-    const colonIdx = line.indexOf(':');
-    if (colonIdx !== -1) {
-      const key = line.slice(0, colonIdx).trim();
-      let val = line.slice(colonIdx + 1).trim();
-      if (val === '|') {
-        inMultiLine = true;
-        multiLineValue = [];
-        multiLineNode = current;
-        multiLineKey = key;
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        if (nextIdx < lines.length) {
-          const nextMatch = lines[nextIdx].match(/^(\s*)/);
-          multiLineIndent = nextMatch ? nextMatch[1].length : 0;
-        } else {
-          multiLineIndent = indent + 2;
-        }
-        continue;
-      }
-      if (val === '[]') {
-        current[key] = [];
-        continue;
-      }
-      if (val === '{}') {
-        current[key] = {};
-        continue;
-      }
-      if (val === '') {
-        let nextIdx = i + 1;
-        while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-          nextIdx++;
-        }
-        let isNextArray = false;
-        if (nextIdx < lines.length && lines[nextIdx].trim().startsWith('-')) {
-          isNextArray = true;
-        }
-        const nextVal = isNextArray ? [] : {};
-        current[key] = nextVal;
-        stack.push({ indent: indent, value: nextVal });
-        continue;
-      }
-      if (val.startsWith('"') && val.endsWith('"')) {
-        try { val = JSON.parse(val); } catch {}
-      } else if (val === 'true') {
-        val = true;
-      } else if (val === 'false') {
-        val = false;
-      } else if (val === 'null') {
-        val = null;
-      } else if (!isNaN(val) && val !== '') {
-        val = Number(val);
-      }
-      current[key] = val;
-    }
-  }
-  if (inMultiLine && multiLineNode && multiLineKey) {
-    multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
-  }
-  return isRootArray ? rootArray : root;
-}
-
-function stringifyYaml(val, indent = 0) {
-  const spaces = ' '.repeat(indent);
-  if (val === null || val === undefined) {
-    return 'null';
-  }
-  if (typeof val === 'string') {
-    if (val.includes('\n')) {
-      const lines = val.split('\n').map(line => '  ' + spaces + line).join('\n');
-      return '|\n' + lines;
-    }
-    if (/[#:*?[\]{}|&%@!]/.test(val) || val.startsWith('-') || val.startsWith(' ') || val === 'true' || val === 'false' || val === 'null' || !isNaN(val)) {
-      return JSON.stringify(val);
-    }
-    return val;
-  }
-  if (typeof val === 'number' || typeof val === 'boolean') {
-    return String(val);
-  }
-  if (Array.isArray(val)) {
-    if (val.length === 0) return '[]';
-    const prefix = indent === 0 ? '' : '\n';
-    return prefix + val.map(item => `${spaces}- ${stringifyYaml(item, indent + 2).trim()}`).join('\n');
-  }
-  if (typeof val === 'object') {
-    const keys = Object.keys(val);
-    if (keys.length === 0) return '{}';
-    const prefix = indent === 0 ? '' : '\n';
-    const serializedKeys = keys.map((k) => {
-      const v = val[k];
-      const serialized = stringifyYaml(v, indent + 2);
-      if (serialized.startsWith('\n')) {
-        return `${spaces}${k}:${serialized}`;
-      } else {
-        return `${spaces}${k}: ${serialized}`;
-      }
-    }).join('\n');
-    return prefix + serializedKeys;
-  }
-  return '';
-}
 
 let isRegenerating = false;
 
 function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
-  if (!allDbSkills || allDbSkills.length === 0) return configuredSkills || [];
-  const allowed = configuredSkills || [];
+  if (!allDbSkills || allDbSkills.length === 0) return Array.isArray(configuredSkills) ? configuredSkills : [];
+  const allowed = Array.isArray(configuredSkills) ? configuredSkills : [];
   const resolved = allDbSkills.filter(s => {
     const base = s.split('/')[0];
     if (allowed.includes(s) || allowed.includes(base)) return true;
@@ -306,9 +106,12 @@ except Exception:
     agents = agents.map(a => {
       const defAgent = defaults.find(d => d.name === a.name);
       // Determine base configured skills (if not present, fallback to default template skills)
-      let configuredSkills = a.skills || [];
+      let configuredSkills = Array.isArray(a.skills) ? a.skills : [];
       if (configuredSkills.length === 0 && defAgent) {
         configuredSkills = defAgent.skills || [];
+      }
+      if (!Array.isArray(configuredSkills)) {
+        configuredSkills = [];
       }
       
       if (allDbSkills.length === 0) {
@@ -533,10 +336,10 @@ The official delegation tools are: ${agents.map(a => `\`${a.name}\``).join(', ')
 ### Delegation Protocol
 
 To delegate a task:
-1. Initialize/create a task directory (e.g. \`scratch/tasks/<task_id>/\`).
+1. Resolve a task directory via the MCP tool \`konoha.get_resolved_task_dir\` (it returns \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace, so transient agent files can never be accidentally committed). Create a fresh subdirectory there (e.g. \`<task_dir>/<task_id>/\`).
 2. Write a \`delegate.md\` file inside the task directory containing:
    - Specific instructions, context, and file paths to modify.
-   - The list of skill reference names to load.
+   - The list of skill reference names to load (or omit to let prompt-driven autoload match skills from the prompt text).
    - Standard constraints.
 3. Call the corresponding MCP tool (e.g. \`mcp_kage\`, \`mcp_jonin\`, etc.) using the tool calling API, passing the \`task_dir\` argument pointing to the created task directory.
 4. The tool executes the agent inline and returns the result. Read the response/result.md and continue your orchestration flow.
@@ -675,7 +478,7 @@ The orchestrator follows this workflow:
 1. **Read User Prompt**: At the start of the session/turn, if a \`prompt.md\` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
 2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt to discover specific skill reference names. **Do NOT call \`semble\` tools when locating skills.**
 3. **Load Skill Reference**: Call \`konoha.get_skill\` to fetch the full content of the discovered skill.
-4. **Delegate to Konoha Subagent (MCP Tool)**: Initialize/create a task directory (e.g. \`scratch/tasks/<task_id>/\`), write a \`delegate.md\` file inside the task directory containing specific instructions, constraints, and the list of skill references, then call the matching subagent MCP tool (e.g., \`mcp_jonin\`, \`mcp_anbu\`, \`mcp_genin\`) passing the \`task_dir\` argument pointing to the created task directory.
+4. **Delegate to Konoha Subagent (MCP Tool)**: Resolve a task directory via \`konoha.get_resolved_task_dir\` (returns \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace, so transient agent files cannot be accidentally committed), create a fresh subdirectory there, write a \`delegate.md\` file inside it containing specific instructions, constraints, and the list of skill references (or omit to allow prompt-driven autoload), then call the matching subagent MCP tool (e.g., \`mcp_jonin\`, \`mcp_anbu\`, \`mcp_genin\`) passing the \`task_dir\` argument pointing to the created task directory.
 5. **Wait & Receive Result**: The MCP tool runs the subagent inline. Once it finishes and writes \`result.md\`, retrieve the results and proceed.
 6. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file). All non-trivial tasks MUST be delegated.
 7. **Planning-to-File**: Write detailed analysis, plans, or research details to a markdown file instead of outputting massive text blocks.
@@ -700,7 +503,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`scratch/tasks/\` which must be executed silently and automatically.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
@@ -754,7 +557,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 ### Delegation Protocol:
 1. **Read User Prompt**: Read the user request to understand scope and domain.
 2. **Find Skill**: Call \`konoha.find_skill\` or \`optimize_report\` to discover skill references. **Do NOT call \`semble\` for skills.**
-3. **Delegate**: Create a task directory (\`scratch/tasks/<task_id>/\`), write \`delegate.md\` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. \`mcp_anbu\`) passing the \`task_dir\` pointing to \`scratch/tasks/<task_id>/\`.
+3. **Delegate**: Resolve a task directory via \`konoha.get_resolved_task_dir\` (returns \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace), create a fresh subdirectory there, write \`delegate.md\` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. \`mcp_anbu\`) passing that absolute \`task_dir\`.
 4. **Report**: Once the tool completes and writes \`result.md\`, read it and report back to the user.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
@@ -873,7 +676,7 @@ ${agentSections}
 3. **Konoha first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
 5. **Write File-Based Output**: Upon finishing the task, write the complete, detailed output and code changes to a temporary file (e.g. \`result.md.tmp\`) first, then rename/move it atomically to \`result.md\` (at the path specified in your invocation prompt) instead of generating a massive chat response. When writing any files or artifacts using a file modification tool, you MUST set RequestFeedback: false and UserFacing: false in the ArtifactMetadata object to prevent user prompt overlays and allow silent background execution.
-6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to \`plan.md\` in the task directory (e.g. \`scratch/tasks/<task_id>/plan.md\`) first. Refer to this plan in your final \`result.md\` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
+6. **Planning-to-File (Thought-to-Markdown)**: For complex tasks requiring multi-step plans, security assessments, or architectural designs, write your detailed step-by-step plan, rationale, and options to \`plan.md\` in the task directory (e.g. \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/plan.md\`) first. Refer to this plan in your final \`result.md\` and keep the reasoning details out of the chat history and thought block to optimize token consumption.
 
 ### Conditional Tools (use only when needed)
 - **Semble for code search**: If the task requires searching project source code (not skills), call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.** Prefer \`semble\` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
@@ -882,7 +685,7 @@ ${agentSections}
 
 ### Safety Guardrails
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`scratch/tasks/\` which must be executed silently and automatically.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
@@ -1080,7 +883,7 @@ function createSubagent(name, options = {}) {
     throw new Error(`Subagent creation locked: "${name}" is not an official subagent. Auto-creation of custom subagents is strictly prohibited by system guardrails. To override this manually, you must pass the --manual flag.`);
   }
   
-  if (agents.some(a => a.name === lowerName)) {
+  if (agents.some(a => a.name === lowerName || a.name === displayName)) {
     throw new Error(`Subagent with name "${name}" already exists.`);
   }
 
@@ -1092,8 +895,11 @@ function createSubagent(name, options = {}) {
   ];
   const icon = options.icon || randomIcons[Math.floor(Math.random() * randomIcons.length)];
 
+  // Auto-prefix with mcp_ for consistency with DB storage
+  const displayName = lowerName.startsWith('mcp_') ? lowerName : `mcp_${lowerName}`;
+
   const newAgent = {
-    name: lowerName,
+    name: displayName,
     icon: icon,
     title: options.title || (name.charAt(0).toUpperCase() + name.slice(1) + " Ninja"),
     modelTier: options.modelTier || "Gemini 3.1 Flash-Lite",

@@ -1,0 +1,9 @@
+{"found": 3, "query": "", "results": [{"name": "DevSecOps Engineer", "type": "skill", "content": "Best practices for DevSecOps workflows, Docker, Kubernetes.", "truncated": false, "hash": "74a505eac1ec"}, {"name": "devsecops-engineer-test-typo", "type": "skill", "content": "Best practices for DevSecOps workflows, Docker, Kubernetes.", "truncated": false, "hash": "74a505eac1ec"}, {"name": "alpha-typo-test", "type": "skill", "content": "x", "truncated": false, "hash": "9dd4e461268c"}]}
+
+[STDERR]
+[mcp konoha] tool_call: find_skill(keyword='', limit=3, compact=False)
+  [Warning] FTS5 search failed for keyword '' (sanitized: ''): fts5: syntax error near "". Falling back to LIKE search.
+  → Found 3 matching skill/reference entries:
+    - DevSecOps Engineer (skill, None bytes)
+    - devsecops-engineer-test-typo (skill, None bytes)
+    - alpha-typo-test (skill, None bytes)

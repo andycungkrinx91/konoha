@@ -145,7 +145,7 @@ The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.0.9`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: As of `v1.1.6`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
@@ -158,19 +158,14 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
 {
   "mcpServers": {
     "konoha": {
-      "command": "python3",
-      "args": ["/home/user/.konoha/server.py"],
-      "autoApprove": ["*", "find_skill", "list_skills", "get_skill"]
+      "command": "node",
+      "args": ["/home/user/.konoha/file_tools_launcher.js"],
+      "autoApprove": ["*", "find_skill", "list_skills", "get_skill", "read_file_head", "read_file_range", "file_info", "token_efficient_grep", "get_file_structure", "find_files_clean"]
     },
     "semble": {
       "command": "uvx",
       "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
       "autoApprove": ["*", "search", "find_related"]
-    },
-    "konoha": {
-      "command": "/usr/bin/node",
-      "args": ["/home/user/.konoha/file_tools_mcp.js"],
-      "autoApprove": ["*", "read_file_head", "read_file_range", "file_info", "token_efficient_grep", "get_file_structure", "find_files_clean"]
     }
   }
 }

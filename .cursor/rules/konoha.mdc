@@ -5,6 +5,14 @@ alwaysApply: true
 
 # Konoha — Cursor Orchestrator
 
+> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
+> You MUST use `konoha` MCP and `semble` MCP for ALL file operations and code search. Using built-in Cursor tools (`Read`, `Grep`, `Glob`, `SemanticSearch`) or shell commands (`cat`, `head`, `grep`, `rg`, `find`) is **STRICTLY FORBIDDEN**.
+>
+> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`)
+> - **Code search/discovery** → `semble` MCP (`search`, `find_related`)
+> - **Skill lookup** → `konoha` MCP (`find_skill`, `get_skill`, `list_skills`)
+> - **NEVER** call Cursor `Read`, `Grep`, `Glob`, `SemanticSearch`, or shell `cat`/`head`/`tail`/`grep`/`rg`/`find` — always use the MCP equivalents above.
+
 You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. `konoha.mcp_kage`, `konoha.mcp_anbu`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
 
 ## Ninja Agents (MCP tools)
@@ -21,7 +29,7 @@ Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`).
 4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the `skills` array of any agent.
    - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
-   - Delegate by calling the corresponding subagent MCP tool (e.g. `konoha.mcp_anbu`), passing `task_dir` pointing to a task directory containing `delegate.md` instructions.
+   - Delegate by calling the corresponding subagent MCP tool (e.g. `konoha.mcp_anbu`), passing `task_dir` pointing to a task directory (resolved via `konoha.get_resolved_task_dir` → `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` — **never** inside the project workspace) containing `delegate.md` instructions.
 5. **Synthesize**: Present results to the user.
 
 | Embedded Skills | Subagent MCP Tool |
@@ -87,12 +95,13 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 
 - Log at response start: `[Konoha] orchestrator active. Calling konoha.find_skill(...)`
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
+- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - Read-only for `.env`, `terraform.tfvars`, `secrets.yaml` unless user approves
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `scratch/tasks/` which must be executed silently and automatically.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `~/.konoha/tmp/<client>/<session>/scratch/tasks/` which must be executed silently and automatically.
 - On rate limits, retry with `inherit`
 
 Full team config: `~/.agents/AGENTS.md`

@@ -34,9 +34,35 @@ if hasattr(sys.stdin, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+# ──────────────── Centralized paths (mirrors bin/lib/paths.js) ────────────────
+
+HOME = os.path.expanduser("~")
+KONOHA_DIR = os.path.join(HOME, ".konoha")
+AGENTS_DIR = os.path.join(HOME, ".agents")
+GEMINI_DIR = os.path.join(HOME, ".gemini")
+CURSOR_DIR = os.path.join(HOME, ".cursor")
+CLAUDE_DIR = os.path.join(HOME, ".claude")
+
+DB_PATH = os.path.join(KONOHA_DIR, "skills.db")
+SERVER_PY_PATH = os.path.join(KONOHA_DIR, "server.py")
+DB_BRIDGES_PY_PATH = os.path.join(KONOHA_DIR, "db_bridges.py")
+
+ANTIGRAVITY_CLI = os.path.join(GEMINI_DIR, "antigravity-cli")
+ANTIGRAVITY_IDE = os.path.join(GEMINI_DIR, "antigravity-ide")
+ANTIGRAVITY_CLI_BRAIN = os.path.join(ANTIGRAVITY_CLI, "brain")
+ANTIGRAVITY_IDE_BRAIN = os.path.join(ANTIGRAVITY_IDE, "brain")
+CURSOR_PROJECTS = os.path.join(CURSOR_DIR, "projects")
+CLAUDE_PROJECTS = os.path.join(CLAUDE_DIR, "projects")
+
+USER_AGENTS_YAML = os.path.join(AGENTS_DIR, "agents.yaml")
+
 WORKSPACE_ROOT = None
 ACTIVE_CLIENT = None
+
+
+def konoha_tmp(client: str, session_id: str) -> str:
+    """Scratch dir under ~/.konoha/tmp/<client>/<session_id>/."""
+    return os.path.join(KONOHA_DIR, "tmp", client, session_id)
 
 
 def sanitize_fts5_query(query):
@@ -195,15 +221,15 @@ def is_path_visible(file_path):
     if ".agents/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path or ".konoha/skills" in normalized_slash_path:
         return True
 
-    global_agents = os.path.normcase(os.path.realpath(os.path.expanduser("~/.agents")))
-    global_gemini = os.path.normcase(os.path.realpath(os.path.expanduser("~/.gemini")))
-    global_konoha = os.path.normcase(os.path.realpath(os.path.expanduser("~/.konoha")))
-    
+    global_agents = os.path.normcase(os.path.realpath(AGENTS_DIR))
+    global_gemini = os.path.normcase(os.path.realpath(GEMINI_DIR))
+    global_konoha = os.path.normcase(os.path.realpath(KONOHA_DIR))
+
     # Use captured WORKSPACE_ROOT if available, otherwise fallback to os.getcwd()
     workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
     current_workspace = os.path.normcase(os.path.realpath(workspace))
-    
-    home_dir = os.path.normcase(os.path.realpath(os.path.expanduser("~")))
+
+    home_dir = os.path.normcase(os.path.realpath(HOME))
     
     # Check if workspace is home or root (too generic, ignore to prevent exposing all files in home/root)
     is_generic_workspace = (
@@ -248,10 +274,10 @@ def detect_active_client():
         # Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
         conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
         if conv_id:
-            cli_dir = os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}")
+            cli_dir = os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id)
             if os.path.isdir(cli_dir):
                 return "agy"
-            ide_dir = os.path.expanduser(f"~/.gemini/antigravity-ide/brain/{conv_id}")
+            ide_dir = os.path.join(ANTIGRAVITY_IDE_BRAIN, conv_id)
             if os.path.isdir(ide_dir):
                 return "antigravity"
 
@@ -260,12 +286,12 @@ def detect_active_client():
 
         if conv_id:
             return "antigravity"
-        
+
         brain_dirs = [
-            os.path.expanduser("~/.gemini/antigravity-ide/brain"),
-            os.path.expanduser("~/.gemini/antigravity-cli/brain"),
-            os.path.expanduser("~/.cursor/projects"),
-            os.path.expanduser("~/.claude/projects"),
+            ANTIGRAVITY_IDE_BRAIN,
+            ANTIGRAVITY_CLI_BRAIN,
+            CURSOR_PROJECTS,
+            CLAUDE_PROJECTS,
         ]
         all_files = []
         for brain_dir in brain_dirs:
@@ -299,6 +325,41 @@ def detect_active_client():
     except Exception:
         pass
     return "antigravity"
+
+
+SUBAGENT_MCP_BLOCK = """## MCP Tools Available To You
+
+You are connected to the same MCP servers as the orchestrator. You MUST use them — built-in file/code tools (Read/Write/Edit/Grep/Glob/cat/head/grep/rg/find) are forbidden.
+
+| Tool | Purpose |
+|---|---|
+| `mcp__semble__search` | Project source code search (default for any codebase lookup) |
+| `mcp__semble__find_related` | Symbol / codepath discovery (default for tracing callsites) |
+| `mcp__konoha__find_skill` | Discover skill reference names from the user prompt |
+| `mcp__konoha__get_skill` | Load a skill's full content (after find_skill) |
+| `mcp__konoha__list_skills` | Browse all available skills |
+| `mcp__konoha__read_file_head` | Bounded file read (head, ≤100 lines) |
+| `mcp__konoha__read_file_range` | Bounded file read by StartLine/EndLine |
+| `mcp__konoha__token_efficient_grep` | Token-aware grep with line numbers |
+| `mcp__konoha__file_info` | Inspect a file's size / line count / metadata |
+| `mcp__konoha__get_file_structure` | Get a file's outline / symbols |
+| `mcp__konoha__find_files_clean` | Find files by glob / pattern |
+| `mcp__konoha__search_file` | Search inside a single file (offset-aware) |
+| `mcp__konoha__get_resolved_task_dir` | Resolve the absolute scratch dir for this task |
+| `mcp__konoha__mcp_sannin` | Return control to the orchestrator (write `result.md` first) |
+
+### Routing rules (do not violate)
+- **Codebase search** → `mcp__semble__search` / `mcp__semble__find_related`. Never use `find_skill` for codebase/file search.
+- **Skill lookup** → `mcp__konoha__find_skill` / `mcp__konoha__get_skill`. Never use `mcp__semble__search` for skills (it burns API tokens).
+- **Bounded file reads** → `mcp__konoha__read_file_head` / `mcp__konoha__read_file_range`. Never read entire files when a range is enough.
+- **No shell grep/rg/find/cat/head.** If the above tools are unreachable, surface the failure to `result.md` instead of falling back to shell.
+
+"""
+
+
+def build_subagent_mcp_block(client=None):
+    """Return the MCP-tools block injected into every mcp_<agent> subagent prompt."""
+    return SUBAGENT_MCP_BLOCK
 
 
 def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
@@ -700,7 +761,7 @@ def get_agent_skills(agent_name):
             return []
         
         # Fallback to agents.yaml
-        agents_yaml_path = os.path.expanduser("~/.agents/agents.yaml")
+        agents_yaml_path = USER_AGENTS_YAML
         if os.path.exists(agents_yaml_path):
             with open(agents_yaml_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -1073,38 +1134,38 @@ def detect_active_agent():
         brain_dirs = []
         if conv_id:
             brain_dirs = [
-                os.path.expanduser(f"~/.gemini/antigravity-ide/brain/{conv_id}"),
-                os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}"),
+                os.path.join(ANTIGRAVITY_IDE_BRAIN, conv_id),
+                os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id),
             ]
         elif WORKSPACE_ROOT:
             # Map WORKSPACE_ROOT to Cursor and Claude project slugs for session isolation
             normalized_path = os.path.normpath(WORKSPACE_ROOT).strip("/")
             slug = normalized_path.replace("/", "-")
-            
+
             # Cursor project directory: ~/.cursor/projects/home-user-path-to-workspace
-            cursor_dir = os.path.expanduser(f"~/.cursor/projects/{slug}")
+            cursor_dir = os.path.join(CURSOR_PROJECTS, slug)
             if os.path.isdir(cursor_dir):
                 brain_dirs.append(cursor_dir)
-                
+
             # Claude project directory: ~/.claude/projects/-home-user-path-to-workspace
-            claude_dir = os.path.expanduser(f"~/.claude/projects/-{slug}")
+            claude_dir = os.path.join(CLAUDE_PROJECTS, f"-{slug}")
             if os.path.isdir(claude_dir):
                 brain_dirs.append(claude_dir)
-                
+
             # Fallback to general scan if slug directories don't exist
             if not brain_dirs:
                 brain_dirs = [
-                    os.path.expanduser("~/.gemini/antigravity-ide/brain"),
-                    os.path.expanduser("~/.gemini/antigravity-cli/brain"),
-                    os.path.expanduser("~/.cursor/projects"),
-                    os.path.expanduser("~/.claude/projects"),
+                    ANTIGRAVITY_IDE_BRAIN,
+                    ANTIGRAVITY_CLI_BRAIN,
+                    CURSOR_PROJECTS,
+                    CLAUDE_PROJECTS,
                 ]
         else:
             brain_dirs = [
-                os.path.expanduser("~/.gemini/antigravity-ide/brain"),
-                os.path.expanduser("~/.gemini/antigravity-cli/brain"),
-                os.path.expanduser("~/.cursor/projects"),
-                os.path.expanduser("~/.claude/projects"),
+                ANTIGRAVITY_IDE_BRAIN,
+                ANTIGRAVITY_CLI_BRAIN,
+                CURSOR_PROJECTS,
+                CLAUDE_PROJECTS,
             ]
 
         all_files = []
@@ -1364,17 +1425,133 @@ def get_active_session_id():
         
     return ""
 
+def get_konoha_tmp_root():
+    """Return the canonical scratch root outside the user's workspace.
+
+    Layout: ~/.konoha/tmp/<client>/<session_id>/scratch/tasks
+    Falls back to /tmp/konoha-<pid>-<ts>/scratch/tasks if ~/.konoha is not writable.
+    Never returns a path inside the user's project directory, so accidental
+    `git add` of transient agent files is impossible.
+    """
+    client = ACTIVE_CLIENT or "unknown"
+    sess = ""
+    try:
+        sess = get_active_session_id()
+    except Exception:
+        sess = ""
+    if not sess:
+        sess = "default"
+
+    konoha_root = KONOHA_DIR
+    try:
+        target = os.path.join(konoha_root, "tmp", client, sess)
+        os.makedirs(target, exist_ok=True)
+        # Probe writability
+        probe = os.path.join(target, ".write_probe")
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+        return target
+    except Exception:
+        pass
+
+    fallback = os.path.join(tempfile.gettempdir(), f"konoha-{os.getpid()}-{int(os.environ.get('KONOHA_TS', '0') or 0) or 'x'}")
+    try:
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+    except Exception:
+        return tempfile.gettempdir()
+
+
+def _levenshtein(a, b):
+    """Compute Levenshtein edit distance between two strings."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cur[j] = min(
+                cur[j - 1] + 1,
+                prev[j] + 1,
+                prev[j - 1] + (0 if ca == cb else 1),
+            )
+        prev = cur
+    return prev[-1]
+
+
+def _autoload_skills_from_prompt(prompt, conn, max_matches=3):
+    """Scan prompt for keyword matches against the skills table.
+
+    Returns a list of skill_name strings whose name or content (truncated)
+    contains prompt tokens. Falls back to scanning all skill_name + first
+    200 chars of content per skill. Used when an agent has no explicit skills
+    list, so e.g. a prompt about "docker" auto-loads the docker skill.
+    """
+    if not prompt or not prompt.strip():
+        return []
+    prompt_lower = prompt.lower()
+    tokens = [t for t in prompt_lower.replace("\n", " ").split() if len(t) > 3]
+    if not tokens:
+        return []
+
+    rows = conn.execute(
+        "SELECT skill_name, content FROM skills WHERE type = 'skill'"
+    ).fetchall()
+    scored = []
+    for name, content in rows:
+        haystack = (name + " " + (content or "")[:200]).lower()
+        score = sum(1 for t in tokens if t in haystack)
+        if score > 0:
+            scored.append((score, name))
+    scored.sort(key=lambda x: -x[0])
+    return [name for _, name in scored[:max_matches]]
+
+
+def _fuzzy_resolve_skill(requested, conn, max_distance=3):
+    """Resolve a requested skill name to a real skill in the DB.
+
+    Tries exact match first, then falls back to Levenshtein-based fuzzy match
+    against the `skills` table (skill_name column). Returns the resolved
+    skill_name, or None if no candidate is close enough.
+    """
+    row = conn.execute(
+        "SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'",
+        (requested,),
+    ).fetchone()
+    if row:
+        return requested
+
+    candidates = conn.execute(
+        "SELECT DISTINCT skill_name FROM skills WHERE type = 'skill'"
+    ).fetchall()
+    best_name, best_dist = None, max_distance + 1
+    for (name,) in candidates:
+        d = _levenshtein(requested.lower(), name.lower())
+        if d < best_dist:
+            best_dist = d
+            best_name = name
+    return best_name
+
+
 def get_resolved_task_dir(task_dir=None):
-    workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
+    # Task dirs MUST live outside the workspace to avoid accidental commits.
+    # New layout: <konoha_tmp_root>/scratch/tasks[/<name>]
+    tmp_root = get_konoha_tmp_root()
+    tasks_dir = os.path.join(tmp_root, "scratch", "tasks")
     if not task_dir:
-        tasks_dir = os.path.join(workspace, "scratch", "tasks")
-        if os.path.exists(tasks_dir) and os.path.isdir(tasks_dir):
-            subdirs = [os.path.join(tasks_dir, d) for d in os.listdir(tasks_dir) if os.path.isdir(os.path.join(tasks_dir, d))]
+        if os.path.isdir(tasks_dir):
+            subdirs = [os.path.join(tasks_dir, d) for d in os.listdir(tasks_dir)
+                       if os.path.isdir(os.path.join(tasks_dir, d))]
             if subdirs:
                 return max(subdirs, key=os.path.getmtime)
-        return os.path.join(workspace, "scratch", "tasks", "default")
+        return os.path.join(tasks_dir, "default")
     if not os.path.isabs(task_dir):
-        task_dir = os.path.abspath(os.path.join(workspace, task_dir))
+        task_dir = os.path.abspath(os.path.join(tasks_dir, task_dir))
     return task_dir
 
 def get_main_model():
@@ -1550,16 +1727,18 @@ def run_mcp_sannin(prompt=None, task_dir=None):
     import os
     import urllib.request
     import urllib.error
-    
+
     task_dir = get_resolved_task_dir(task_dir)
     os.makedirs(task_dir, exist_ok=True)
-    
+
     result_path = os.path.join(task_dir, "result.md")
     if os.path.exists(result_path):
         try:
             with open(result_path, "r", encoding="utf-8") as f:
                 result = f.read().strip()
-            return json.dumps({"status": "success", "result": result})
+            res = json.dumps({"status": "completed", "phase": "result", "result": result, "task_dir": task_dir})
+            log_tool_call("mcp_sannin", f"task_dir={task_dir}", res, agent_name="sannin")
+            return res
         except Exception as e:
             return json.dumps({"status": "error", "message": f"Failed to read result.md: {str(e)}"})
 
@@ -1573,29 +1752,432 @@ def run_mcp_sannin(prompt=None, task_dir=None):
                 return json.dumps({"status": "error", "message": f"Failed to read prompt.md: {str(e)}"})
         else:
             return json.dumps({"status": "error", "message": "No prompt provided and prompt.md not found in task directory."})
-            
+
+    # Auto-route by keywords
+    selected_agent_suffix = _route_by_keywords_with_prompt(task_dir, prompt)
+    selected_agent = f"mcp_{selected_agent_suffix}"
+
+    agent_descriptions = {
+        "mcp_kage": "Architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.",
+        "mcp_jonin": "Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind, Magic UI, and 3D web.",
+        "mcp_anbu": "Backend development, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).",
+        "mcp_chunin": "Web research, documentation lookup, compliance, evidence synthesis with citations.",
+        "mcp_tokubetsu_jonin": "Writing technical documentation, PRDs, specs, runbooks, readme guides.",
+        "mcp_genin": "Read-only codebase exploration, tracing flows, mapping dependencies.",
+    }
+    description = agent_descriptions.get(selected_agent, "general-purpose delegation")
+
     instruction = (
-        f"Task directory prepared at: {task_dir}\n"
-        "Please act as the delegator. Evaluate the prompt and select the most appropriate subagent tool to execute this task.\n\n"
-        "Available subagent tools:\n"
-        "- mcp_kage: Architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.\n"
-        "- mcp_jonin: Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind, Magic UI, and 3D web.\n"
-        "- mcp_anbu: Backend development, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).\n"
-        "- mcp_chunin: Web research, documentation lookup, compliance, evidence synthesis with citations.\n"
-        "- mcp_tokubetsu_jonin: Writing technical documentation, PRDs, specs, runbooks, readme guides.\n"
-        "- mcp_genin: Read-only codebase exploration, tracing flows, mapping dependencies.\n\n"
-        "1. Write the chosen subagent name and task instructions into `delegate.md`.\n"
-        "2. Call the chosen tool (e.g., mcp_kage) and pass it the `task_dir` parameter.\n"
-        "3. Once the subagent tool instructs you to execute the task and you create `result.md`, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can read and return the result."
+        f"**Selected Agent**: `{selected_agent}`\n"
+        f"**Reason**: {description}\n\n"
+        f"Task directory: `{task_dir}`\n\n"
+        f"## Delegation Steps\n\n"
+        f"1. Write `delegate.md` in the task directory with the frontmatter (agent name, priority) and the task instructions.\n"
+        f"2. Call `{selected_agent}` with `task_dir={task_dir}` — it will read delegate.md and prepare the task for execution.\n"
+        f"3. The agent will execute the task and write `result.md` to the same task directory (Write `result.md`).\n"
+        f"4. After `result.md` exists, call `mcp_sannin` again with `task_dir={task_dir}` to receive the final result.\n\n"
+        f"## Original Prompt\n\n{prompt}"
     )
-    
+
     res = json.dumps({
-        "status": "success",
+        "status": "routed",
+        "selected_agent": selected_agent,
+        "phase": "delegation",
         "instructions": instruction,
-        "task_dir": task_dir
+        "task_dir": task_dir,
     })
     log_tool_call("mcp_sannin", f"task_dir={task_dir}", res, agent_name="sannin")
     return res
+
+
+def _load_workflow_status(task_dir):
+    status_path = os.path.join(task_dir, "status.json")
+    if os.path.exists(status_path):
+        try:
+            with open(status_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "phase": "route",
+        "assigned_agent": None,
+        "executed": {},
+        "pending_executors": [],
+        "completed_executors": [],
+        "history": [],
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+
+def _save_workflow_status(task_dir, status):
+    status_path = os.path.join(task_dir, "status.json")
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(status, f, indent=2)
+
+
+def _read_file_safe(path):
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+    except Exception:
+        pass
+    return None
+
+
+def _route_by_keywords_with_prompt(task_dir, prompt=""):
+    """Route to the best agent based on delegation_keywords from the DB.
+
+    Uses the explicit prompt when provided; otherwise falls back to prompt.md
+    in task_dir. Returns the agent suffix without the mcp_ prefix.
+    """
+    if not prompt:
+        prompt = _read_file_safe(os.path.join(task_dir, "prompt.md")) or ""
+    if not prompt:
+        return "kage"
+
+    prompt_lower = prompt.lower()
+    best_score = 0
+    best_agent = None
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        agents = conn.execute(
+            "SELECT name, delegation_keywords FROM agents "
+            "WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''"
+        ).fetchall()
+        conn.close()
+
+        for agent in agents:
+            kw_text = agent["delegation_keywords"].lower()
+            for kw in kw_text.split(","):
+                kw = kw.strip()
+                if kw and kw in prompt_lower:
+                    score = kw.count(" ") + 1
+                    if score > best_score:
+                        best_score = score
+                        best_agent = agent["name"].replace("mcp_", "")
+    except Exception:
+        pass
+
+    if not best_agent:
+        best_agent = "kage"
+
+    # Tiebreak / override: PRD and technical documentation writing should route
+    # to mcp_tokubetsu_jonin (writer), not mcp_chunin (researcher), even if
+    # both have a same-scoring "documentation" match.
+    write_signals = ("prd", "write a prd", "technical doc", "write the doc",
+                     "draft the doc", "write docs", "author", "write a spec")
+    if any(sig in prompt_lower for sig in write_signals):
+        best_agent = "tokubetsu_jonin"
+
+    return best_agent
+
+
+def _route_by_keywords(task_dir):
+    """Route to the best agent based on delegation_keywords from the DB."""
+    prompt = _read_file_safe(os.path.join(task_dir, "prompt.md"))
+    if not prompt:
+        prompt = ""
+
+    prompt_lower = prompt.lower()
+    best_score = 0
+    best_agent = None
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        agents = conn.execute("SELECT name, delegation_keywords FROM agents WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''").fetchall()
+        conn.close()
+
+        for agent in agents:
+            kw_text = agent["delegation_keywords"].lower()
+            for kw in kw_text.split(","):
+                kw = kw.strip()
+                if kw and kw in prompt_lower:
+                    score = kw.count(" ") + 1  # phrase scoring (spaces = multi-word matches)
+                    if score > best_score:
+                        best_score = score
+                        best_agent = agent["name"].replace("mcp_", "")
+    except Exception:
+        pass
+
+    # Default fallback
+    if not best_agent:
+        best_agent = "kage"
+
+    return best_agent
+
+
+def run_mcp_workflow(task_dir=None):
+    """Multi-agent workflow orchestrator.
+
+    Phases: route -> explore -> plan -> [research] -> execute -> document -> synthesize -> done
+
+    Each call processes one advancement and returns the next phase/agent to dispatch.
+    Status is persisted in status.json within task_dir.
+    """
+    task_dir = get_resolved_task_dir(task_dir)
+    os.makedirs(task_dir, exist_ok=True)
+
+    status = _load_workflow_status(task_dir)
+    phase = status.get("phase", "route")
+
+    # --- DONE: return completed ---
+    if phase == "done":
+        return json.dumps({"status": "completed", "phase": "done"})
+
+    # --- ROUTE: auto-route and advance to explore ---
+    if phase == "route":
+        prompt = _read_file_safe(os.path.join(task_dir, "prompt.md"))
+        if not prompt:
+            return json.dumps({
+                "status": "error",
+                "message": "No prompt.md found in task directory.",
+                "phase": "route",
+            })
+        agent = _route_by_keywords(task_dir)
+        status["phase"] = "explore"
+        status["assigned_agent"] = agent
+        status["history"].append({"phase": "route", "agent": agent})
+        _save_workflow_status(task_dir, status)
+        phase = "explore"
+
+    # --- Check if explore agent (genin) is done, advance to plan ---
+    if (status.get("assigned_agent") == "genin" and
+            os.path.exists(os.path.join(task_dir, "result.md"))):
+        status["phase"] = "plan"
+        status["history"].append({"phase": "explore", "agent": "genin"})
+        _save_workflow_status(task_dir, status)
+        phase = "plan"
+
+    # --- EXPLORE: dispatch genin (only if not already done) ---
+    if phase == "explore":
+        agent = "genin"
+        prompt = _read_file_safe(os.path.join(task_dir, "prompt.md")) or ""
+        delegate = (
+            f"agent: genin\n"
+            f"priority: medium\n"
+            f"Phase: Explore\n\n"
+            f"## TASK\n\n{prompt}\n\n"
+            f"Read-only exploration. Map the codebase and write your findings to findings.md.\n"
+            f"Then write your results to result.md."
+        )
+        with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
+            f.write(delegate)
+        status["assigned_agent"] = agent
+        _save_workflow_status(task_dir, status)
+        return json.dumps({"status": "ready", "phase": "explore", "agent": agent, "task_dir": task_dir})
+
+    # --- Check if plan agent (kage) is done, advance to execute/research ---
+    if (status.get("assigned_agent") == "kage" and
+            os.path.exists(os.path.join(task_dir, "result.md"))):
+        plan_content = _read_file_safe(os.path.join(task_dir, "plan.md")) or ""
+        if not plan_content:
+            plan_content = _read_file_safe(os.path.join(task_dir, "result.md")) or ""
+        status["history"].append({"phase": "plan", "agent": "kage"})
+        _save_workflow_status(task_dir, status)
+        if "needs_research:" in plan_content.lower():
+            status["phase"] = "research"
+            _save_workflow_status(task_dir, status)
+            phase = "research"
+        else:
+            import re
+            executors = []
+            for line in plan_content.split("\n"):
+                m2 = re.match(r'^- \[(\w+)\]: (.+)', line.strip())
+                if m2:
+                    executors.append({"agent": m2.group(1).replace("mcp_", ""), "task": m2.group(2)})
+            status["pending_executors"] = [e["agent"] for e in executors] if executors else ["genin"]
+            status["phase"] = "execute"
+            _save_workflow_status(task_dir, status)
+            phase = "execute"
+
+    # --- Check if research agent (chunin) is done, advance to plan ---
+    # This must be BEFORE dispatch kage because it changes phase to "plan"
+    if (status.get("assigned_agent") == "chunin" and
+            os.path.exists(os.path.join(task_dir, "result.md"))):
+        status["phase"] = "plan"
+        status["history"].append({"phase": "research", "agent": "chunin"})
+        _save_workflow_status(task_dir, status)
+        phase = "plan"
+
+    # --- PLAN: dispatch kage (only if not already done) ---
+    if phase == "plan":
+        agent = "kage"
+        findings = _read_file_safe(os.path.join(task_dir, "findings.md")) or "No findings available."
+        delegate = (
+            f"agent: kage\n"
+            f"priority: high\n"
+            f"Phase: Plan\n\n"
+            f"## TASK\n\n"
+            f"Analyze the codebase and produce a detailed implementation plan.\n\n"
+            f"## FINDINGS\n\n{findings}"
+        )
+        with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
+            f.write(delegate)
+        status["assigned_agent"] = agent
+        _save_workflow_status(task_dir, status)
+        return json.dumps({"status": "ready", "phase": "plan", "agent": agent, "task_dir": task_dir})
+
+    # --- RESEARCH: dispatch chunin (only if not already done) ---
+    if phase == "research":
+        agent = "chunin"
+        # Read research context from plan for the research_query
+        plan_context = _read_file_safe(os.path.join(task_dir, "plan.md")) or ""
+        findings = _read_file_safe(os.path.join(task_dir, "findings.md")) or ""
+
+        research_query = ""
+        for line in plan_context.split("\n"):
+            if line.startswith("research_query:") or line.startswith("research_query :"):
+                research_query = line.split(":", 1)[1].strip()
+                break
+
+        task_desc = f"Conduct web research based on the plan requirements."
+        if research_query:
+            task_desc = f"Conduct web research on: {research_query}"
+
+        delegate = (
+            f"agent: chunin\n"
+            f"priority: medium\n"
+            f"Phase: Research\n\n"
+            f"## TASK\n\n{task_desc}\n\n"
+            f"## CONTEXT\n\n{findings}"
+        )
+        with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
+            f.write(delegate)
+        status["assigned_agent"] = agent
+        _save_workflow_status(task_dir, status)
+        return json.dumps({"status": "ready", "phase": "research", "agent": agent, "task_dir": task_dir})
+
+    # --- EXECUTE: check if current execute agent is done, mark completed ---
+    if (status.get("phase") == "execute" and
+            status.get("assigned_agent") and
+            status.get("assigned_agent") not in ("genin", "kage", "chunin", "tokubetsu-jonin") and
+            os.path.exists(os.path.join(task_dir, "result.md"))):
+        agent_name = status["assigned_agent"]
+        if agent_name and agent_name not in status.get("completed_executors", []):
+            status.setdefault("completed_executors", []).append(agent_name)
+        _save_workflow_status(task_dir, status)
+
+    # --- EXECUTE: check if all executors already done, advance ---
+    if phase == "execute":
+        if status.get("pending_executors"):
+            remaining = [a for a in status["pending_executors"]
+                         if a not in status.get("completed_executors", [])]
+            if not remaining:
+                status["phase"] = "document"
+                _save_workflow_status(task_dir, status)
+                phase = "document"
+
+    # --- EXECUTE: dispatch next pending agent (only if not already done) ---
+    if phase == "execute":
+        if not status.get("pending_executors"):
+            status["phase"] = "document"
+            _save_workflow_status(task_dir, status)
+            phase = "document"
+        else:
+            # Find first not-yet-completed agent
+            next_agent = None
+            for a in status["pending_executors"]:
+                if a not in status.get("completed_executors", []):
+                    next_agent = a
+                    break
+
+            if next_agent:
+                plan_content = _read_file_safe(os.path.join(task_dir, "plan.md")) or ""
+                if not plan_content:
+                    plan_content = _read_file_safe(os.path.join(task_dir, "result.md")) or ""
+
+                delegate = (
+                    f"agent: {next_agent}\n"
+                    f"priority: high\n"
+                    f"Phase: Execute\n\n"
+                    f"## TASK\n\n{plan_content}\n\n"
+                    f"Execute your part of the implementation. Write results to result.md."
+                )
+                with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
+                    f.write(delegate)
+                status["assigned_agent"] = next_agent
+                _save_workflow_status(task_dir, status)
+                return json.dumps({"status": "ready", "phase": "execute", "agent": next_agent, "task_dir": task_dir})
+            else:
+                # All pending executors already completed
+                status["phase"] = "document"
+                _save_workflow_status(task_dir, status)
+                phase = "document"
+
+    # --- DOCUMENT: check if tokubetsu-jonin already done, advance ---
+    if (status.get("assigned_agent") == "tokubetsu-jonin" and
+            os.path.exists(os.path.join(task_dir, "result.md"))):
+        status["phase"] = "synthesize"
+        status["history"].append({"phase": "document", "agent": "tokubetsu-jonin"})
+        _save_workflow_status(task_dir, status)
+        phase = "synthesize"
+
+    # --- DOCUMENT: dispatch tokubetsu-jonin (only if not already done) ---
+    if phase == "document":
+        agent = "tokubetsu-jonin"
+        with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
+            f.write(f"agent: tokubetsu-jonin\npriority: medium\nPhase: Document\n\n## TASK\n\nWrite comprehensive documentation for the completed work.\n")
+        status["assigned_agent"] = agent
+        _save_workflow_status(task_dir, status)
+        return json.dumps({"status": "ready", "phase": "document", "agent": agent, "task_dir": task_dir})
+
+    # --- SYNTHESIZE: aggregate all outputs ---
+    if phase == "synthesize":
+        prompt = _read_file_safe(os.path.join(task_dir, "prompt.md")) or ""
+        findings = _read_file_safe(os.path.join(task_dir, "findings.md")) or ""
+        plan = _read_file_safe(os.path.join(task_dir, "plan.md")) or ""
+        research = _read_file_safe(os.path.join(task_dir, "research_results.json")) or ""
+        final_docs = _read_file_safe(os.path.join(task_dir, "final_docs.md")) or ""
+
+        report = f"# Final Report\n\n## Task\n{prompt}\n\n"
+        if findings:
+            report += f"## Exploration Findings\n{findings}\n\n"
+        if plan:
+            report += f"## Implementation Plan\n{plan}\n\n"
+        if research:
+            report += f"## Research\n{research}\n\n"
+        if final_docs:
+            report += f"## Documentation\n{final_docs}\n\n"
+
+        # Include executor results from status (fallback when result files aren't available)
+        executed = status.get("executed", {})
+        if executed:
+            report += "## Executor Results\n\n"
+            for agent_name, exec_info in executed.items():
+                task_desc = ""
+                result = ""
+                if isinstance(exec_info, dict):
+                    task_desc = exec_info.get("task", "")
+                    result = exec_info.get("result", "")
+                elif isinstance(exec_info, str):
+                    result = exec_info
+                if task_desc:
+                    report += f"- **{agent_name}**: {task_desc}\n\n"
+                report += f"Result: {result}\n\n"
+
+        result_path = os.path.join(task_dir, "final_report.md")
+        with open(result_path, "w", encoding="utf-8") as f:
+            f.write(report)
+
+        status["phase"] = "done"
+        status["history"].append({"phase": "synthesize", "agent": "sannin"})
+        _save_workflow_status(task_dir, status)
+        return json.dumps({
+            "status": "completed",
+            "phase": "done",
+            "final_report_path": result_path,
+        })
+
+    # --- FALLBACK: error ---
+    return json.dumps({
+        "status": "error",
+        "message": f"Unknown or stuck workflow phase: {phase}",
+        "phase": phase,
+    })
 
 def run_web_search(query, num_results=5, search_depth="standard"):
     """Enterprise-grade web search with multi-query decomposition and source ranking."""
@@ -1612,7 +2194,7 @@ def run_web_search(query, num_results=5, search_depth="standard"):
         return json.dumps({"status": "error", "message": "Query is required."})
 
     # Setup directories and cache files
-    konoha_dir = os.path.expanduser("~/.konoha")
+    konoha_dir = KONOHA_DIR
     searxng_dir = os.path.join(konoha_dir, "searxng")
     os.makedirs(searxng_dir, exist_ok=True)
 
@@ -2069,14 +2651,36 @@ def run_mcp_agent(agent_name, task_dir=None):
         sys.stderr.flush()
         
     skills_content = []
+    if not skills_list and instructions:
+        try:
+            _conn_autoload = sqlite3.connect(DB_PATH)
+            auto = _autoload_skills_from_prompt(instructions, _conn_autoload)
+            _conn_autoload.close()
+            if auto:
+                skills_list = auto
+                sys.stderr.write(
+                    f"[mcp {agent_name}] auto-loaded skills from prompt: {auto}\n"
+                )
+                sys.stderr.flush()
+        except Exception as e:
+            sys.stderr.write(f"[mcp {agent_name}] prompt-skill autoload failed: {e}\n")
+            sys.stderr.flush()
+
     if skills_list:
         try:
             conn = sqlite3.connect(DB_PATH)
             for skill_name in skills_list:
-                row = conn.execute("SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'", (skill_name,)).fetchone()
+                resolved = _fuzzy_resolve_skill(skill_name, conn)
+                effective_name = resolved or skill_name
+                if resolved and resolved != skill_name:
+                    sys.stderr.write(
+                        f"[mcp {agent_name}] fuzzy-resolved skill {skill_name!r} -> {resolved!r}\n"
+                    )
+                    sys.stderr.flush()
+                row = conn.execute("SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'", (effective_name,)).fetchone()
                 if row and row[0]:
-                    skills_content.append(f"### Skill: {skill_name}\n\n{row[0]}")
-                rows = conn.execute("SELECT name, content FROM skills WHERE skill_name = ? AND type = 'reference'", (skill_name,)).fetchall()
+                    skills_content.append(f"### Skill: {effective_name}\n\n{row[0]}")
+                rows = conn.execute("SELECT name, content FROM skills WHERE skill_name = ? AND type = 'reference'", (effective_name,)).fetchall()
                 for r in rows:
                     skills_content.append(f"### Reference: {r[0]}\n\n{r[1]}")
             conn.close()
@@ -2119,6 +2723,7 @@ def run_mcp_agent(agent_name, task_dir=None):
         f"Instructions:\n{persona_instructions}\n\n"
         f"Constraints:\n{constraints}\n\n"
     )
+    system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT)
     if search_findings:
         system_prompt += search_findings + "\n"
     if skills_content:
@@ -2138,14 +2743,17 @@ def run_mcp_agent(agent_name, task_dir=None):
     
     instruction = (
         f"{system_prompt}\n\n"
-        f"TASK INSTRUCTIONS (from delegate.md):\n{instructions}\n\n"
-        f"You must now act as {agent_name} and execute the task above. Use the available tools to explore the codebase or make file edits.\n"
-        f"When you have finished, you MUST write your final response and findings to the file: {os.path.join(task_dir, 'result.md')}\n"
-        f"After creating result.md, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can return the result to complete the workflow."
+        f"## TASK INSTRUCTIONS\n\n{instructions}\n\n"
+        f"You must now act as {agent_name} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n"
+        f"## Execution Protocol\n\n"
+        f"1. Execute the task as described in TASK INSTRUCTIONS above.\n"
+        f"2. When you have finished, you MUST write your final response and findings to: `{os.path.join(task_dir, 'result.md')}`.\n"
+        f"3. After creating `result.md`, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can return the result to complete the workflow."
     )
     
     res = json.dumps({
-        "status": "success",
+        "status": "ready",
+        "phase": "execution",
         "agent": agent_name,
         "task_dir": task_dir,
         "instructions": instruction
@@ -2178,7 +2786,7 @@ def handle_request(req):
             ACTIVE_CLIENT = "agy"
         elif "antigravity" in client_name or "ide" in client_name:
             conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
-            if conv_id and os.path.isdir(os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{conv_id}")):
+            if conv_id and os.path.isdir(os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id)):
                 ACTIVE_CLIENT = "agy"
             else:
                 ACTIVE_CLIENT = "antigravity"

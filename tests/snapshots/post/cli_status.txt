@@ -1,0 +1,78 @@
+| |/ /  / _ \ | \| | / _ \ | || |   / \
+| ' /  | | | || .` || | | || __ |  / _ \
+|_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
+Konoha — SQLite FTS5 Skills-DB
+Token reduction: 83-98% via on-demand search
+Maintainer: Andy Setiyawan
+
+📋 Skills-DB Status
+════════════════════════════════════════════════════════════
+
+  Environment & Files:
+    ┌─────────────────────┬──────────┬───────────┬──────────────────────────────────────┐
+    │ Resource / Path     │ Status   │      Size │ Location                             │
+    ├─────────────────────┼──────────┼───────────┼──────────────────────────────────────┤
+    │ Python 3            │ ACTIVE   │         - │ Python 3.10.12                       │
+    │ Server File         │ EXISTS   │  142.4 KB │ ~/.konoha/server.py                  │
+    │ Migration Script    │ EXISTS   │   27.6 KB │ ~/.konoha/migrate.py                 │
+    │ Database File       │ EXISTS   │ 5136.0 KB │ ~/.konoha/skills.db                  │
+    │ MCP Configuration   │ EXISTS   │    1.0 KB │ ~/.gemini/config/mcp_config.json     │
+    │ GEMINI Instructions │ EXISTS   │   15.2 KB │ ~/.gemini/GEMINI.md                  │
+    │ AGENTS Definition   │ EXISTS   │   25.1 KB │ ~/.agents/AGENTS.md                  │
+    └─────────────────────┴──────────┴───────────┴──────────────────────────────────────┘
+
+  MCP Integrations:
+    • konoha                         [ ACTIVE     ] │ cmd: $HOME/.nvm/versions/node/v24.13.1/bi...
+    • semble                         [ ACTIVE     ] │ cmd: uvx --from semble[mcp]@latest semble --content all
+
+  Antigravity IDE/CLI Integrations:
+    • ~/.gemini/config/mcp_config.json [ ACTIVE     ] │ konoha + semble
+    • Antigravity MCP schemas        [ ACTIVE     ] │ 20 in ~/.gemini/antigravity-cli/mcp/konoha/
+    • Sanitize Hook config           [ ACTIVE     ] │ sanitize hooks active
+
+  Cursor IDE/CLI Integrations:
+    • ~/.cursor/mcp.json             [ ACTIVE     ] │ konoha + semble
+    • Cursor skills                  [ ACTIVE     ] │ 14 in ~/.cursor/skills/ (mirrored from ~/.agents/skills/)
+    • CLI permissions                [ ACTIVE     ] │ MCP auto-allow configured
+    • sessionStart hook              [ ACTIVE     ] │ auto-bootstrap on session
+    • Project .cursor/               [ ACTIVE     ] │ mcp:yes skills:0 rule:yes
+
+  Claude Code Integrations:
+    • ~/.claude.json                 [ ACTIVE     ] │ konoha + semble
+
+  OpenCode Integrations:
+    • ~/.config/opencode/            [ ACTIVE     ] │ konoha + semble
+    • GEMINI.md instructions         [ ACTIVE     ] │ skills-db active
+
+  Subagents (Naruto Ninja Ranks):
+    ┌──────────────────────────┬──────────────────────────────────────────┬──────────────────────────┬──────────────────────────────┬──────────────────────────┬──────────────────────────────────────────────────┐
+    │ Rank / Name              │ Model (Antigravity)                      │ Model (Cursor)           │ Model (Claude)               │ Model (OpenCode)         │ Skills Configuration                             │
+    ├──────────────────────────┼──────────────────────────────────────────┼──────────────────────────┼──────────────────────────────┼──────────────────────────┼──────────────────────────────────────────────────┤
+    │ 🍶 Mcp_sannin            │ Claude Sonnet 4.6 (Thinking) | Fallba... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ sannin-skill                                     │
+    │ 🍃 Mcp_genin             │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ genin-skill                                      │
+    │ 🌀 Mcp_kage              │ Gemini 3.5 Flash (High) | Fallback wh... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ kage-skill                                       │
+    │ 📜 Mcp_chunin            │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ chunin-skill                                     │
+    │ 🛡️ Mcp_jonin              │ Gemini 3.5 Flash (High)                  │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ jonin-skill, jonin-skill/nextjs-code-expert, ... │
+    │ 👥 Mcp_anbu              │ Gemini 3.1 Pro (High)                    │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ anbu-skill                                       │
+    │ 🎯 Mcp_tokubetsu-jonin   │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ tokubetsu-jonin-skill                            │
+    │ 🐍 Mcp_cli-test-agent... │ test                                     │ inherit                  │ test-model                   │ inherit                  │ None                                             │
+    └──────────────────────────┴──────────────────────────────────────────┴──────────────────────────┴──────────────────────────────┴──────────────────────────┴──────────────────────────────────────────────────┘
+
+  Database Stats:
+  ⚡ SQLite FTS5 database is healthy:
+    ┌──────────────────┬──────────────┐
+    │ Metric           │ Value        │
+    ├──────────────────┼──────────────┤
+    │ Total Entries    │ 126          │
+    │ Unique Skills    │ 17           │
+    │ Reference Files  │ 109          │
+    │ Indexed size     │ 1213.8 KB    │
+    └──────────────────┴──────────────┘
+
+  Skills Directories:
+    ┌────────────────────────────────────────────────────┬────────────┐
+    │ Path                                               │ Count      │
+    ├────────────────────────────────────────────────────┼────────────┤
+    │ ~/.agents/skills                                   │ 14 skills  │
+    │ ~/experiment/portofolio/data/konoha/.agents/skills │ 8 skills   │
+    └────────────────────────────────────────────────────┴────────────┘

@@ -8,20 +8,12 @@ const {
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 const deployUtils = require('./deploy_utils');
+const {
+  CURSOR_DIR, CURSOR_MCP_GLOBAL, CURSOR_AGENTS_GLOBAL, CURSOR_SKILLS_GLOBAL,
+  CURSOR_HOOKS_GLOBAL, CURSOR_CLI_CONFIG, SKILLS_DB_DIR,
+  SERVER_PATH, FILE_TOOLS_MCP_PATH, CURSOR_BOOTSTRAP_PATH, SRC_DIR
+} = require('../bin/lib/paths');
 
-const HOME = os.homedir();
-const CURSOR_DIR = path.join(HOME, '.cursor');
-const CURSOR_MCP_GLOBAL = path.join(CURSOR_DIR, 'mcp.yaml');
-const CURSOR_AGENTS_GLOBAL = path.join(CURSOR_DIR, 'agents');
-const CURSOR_SKILLS_GLOBAL = path.join(CURSOR_DIR, 'skills');
-const CURSOR_HOOKS_GLOBAL = path.join(CURSOR_DIR, 'hooks.json');
-const CURSOR_CLI_CONFIG = path.join(CURSOR_DIR, 'cli-config.json');
-const SKILLS_DB_DIR = path.join(HOME, '.konoha');
-const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
-const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
-const CURSOR_BOOTSTRAP_PATH = path.join(SKILLS_DB_DIR, 'cursor_bootstrap.js');
-
-const SRC_DIR = __dirname;
 const PROJECT_CURSOR_DIR = '.cursor';
 
 const DEFAULT_CURSOR_MODELS = {
@@ -192,7 +184,7 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any agent.
    - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
-   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_anbu\`), passing \`task_dir\` pointing to a task directory containing \`delegate.md\` instructions.
+   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_anbu\`), passing \`task_dir\` pointing to a task directory (resolved via \`konoha.get_resolved_task_dir\` → \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace) containing \`delegate.md\` instructions.
 5. **Synthesize**: Present results to the user.
 
 | Embedded Skills | Subagent MCP Tool |
@@ -222,7 +214,7 @@ ${buildFileToolsPolicy()}
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - Read-only for \`.env\`, \`terraform.tfvars\`, \`secrets.yaml\` unless user approves
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`scratch/tasks/\` which must be executed silently and automatically.
+- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
 - On rate limits, retry with \`${CURSOR_FALLBACK_MODEL}\`
 
 Full team config: \`~/.agents/AGENTS.md\`
@@ -358,7 +350,8 @@ function registerCursorCliPermissions(silent = true) {
   }
 
   if (!config.permissions) config.permissions = {};
-  if (!config.permissions.allow) config.permissions.allow = [];
+  const allowRaw = config.permissions.allow;
+  config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
 
   const grants = [
     'Mcp(konoha)',
@@ -564,7 +557,8 @@ function removeCursorConfig(silent = true) {
   if (fileExists(CURSOR_CLI_CONFIG)) {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-      if (config.permissions && config.permissions.allow) {
+      const allowArr = config.permissions && Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+      if (allowArr.length > 0) {
         const grants = [
           'Mcp(semble)',
           'Mcp(semble, search)',
@@ -591,9 +585,10 @@ function removeCursorConfig(silent = true) {
           'Shell(node bin/cli.js)',
           'Shell(node */.konoha/cursor_bootstrap.js)'
         ];
-        const initialLength = config.permissions.allow.length;
-        config.permissions.allow = config.permissions.allow.filter(p => !grants.includes(p));
-        if (config.permissions.allow.length !== initialLength) {
+        const initialLength = allowArr.length;
+        const filtered = allowArr.filter(p => !grants.includes(p));
+        if (filtered.length !== initialLength) {
+          config.permissions.allow = filtered;
           fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
           if (!silent) console.log('✓ Removed Konoha permissions from ~/.cursor/cli-config.json');
         }
@@ -646,7 +641,7 @@ function getCursorStatus() {
   if (fileExists(CURSOR_CLI_CONFIG)) {
     try {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-      const allows = (config.permissions && config.permissions.allow) || [];
+      const allows = (config.permissions && Array.isArray(config.permissions.allow)) ? config.permissions.allow : [];
       status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
     } catch {}
   }
@@ -663,7 +658,7 @@ function getCursorStatus() {
   const projectMcp = path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.yaml');
   const projectRule = path.join(cwd, PROJECT_CURSOR_DIR, 'rules', 'konoha.mdc');
   const projectAgents = path.join(cwd, PROJECT_CURSOR_DIR, 'agents');
-  const projectSkills = path.join(cwd, PROJECT_CURSOR_DIR, 'skills');
+  const projectSkills = null; // No-op: filesystem mirroring is disabled
 
   status.projectMcp = fileExists(projectMcp);
   status.projectRule = fileExists(projectRule);
@@ -672,11 +667,8 @@ function getCursorStatus() {
       status.projectAgents = fs.readdirSync(projectAgents).filter(f => f.endsWith('.md')).length;
     } catch {}
   }
-  if (fileExists(projectSkills)) {
-    try {
-      status.skillsProject = deployUtils.listSkillEntries(projectSkills).length;
-    } catch {}
-  }
+  // No-op: filesystem mirroring is disabled. Skills are loaded from SQLite DB at runtime.
+  status.skillsProject = 0;
 
   return status;
 }

@@ -29,8 +29,8 @@ konoha doctor --yes
 
 | Client | Template | Target |
 |--------|----------|--------|
-| Claude Code | [templates/claude-code.mcp.json](templates/claude-code.mcp.json) | `~/.claude.json` → `mcpServers` |
-| OpenCode | [templates/opencode.mcp.json](templates/opencode.mcp.json) | `~/.config/opencode/opencode.json` → `mcp` |
+| Claude Code | [templates/claude-code.mcp.yaml](templates/claude-code.mcp.yaml) | `~/.claude.json` → `mcpServers` |
+| OpenCode | [templates/opencode.mcp.yaml](templates/opencode.mcp.yaml) | `~/.config/opencode/opencode.json` → `mcp` |
 
 ---
 
@@ -59,7 +59,7 @@ konoha doctor --yes
 
 **Verify**: `/mcp` in Claude Code session.
 
-**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.json` to leverage Claude 3.5 Sonnet in Claude Code. View assignments with `konoha models list`.
+**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.json` to leverage Claude Sonnet 4.6 in Claude Code. View assignments with `konoha models list`.
 
 ---
 

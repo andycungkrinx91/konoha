@@ -57,7 +57,20 @@ function uriToPath(uri) {
 }
 
 function detectPython() {
-  const cmds = IS_WIN ? ['py -3', 'py', 'python3', 'python'] : ['python3', 'python'];
+  // POSIX: prefer the safer spawnSync arg-array form; Windows keeps the existing
+  // execSync-with-shell behavior because `py -3` is a cmd.exe compound command.
+  if (!IS_WIN) {
+    for (const cmd of ['python3', 'python']) {
+      try {
+        const res = spawnSync(cmd, ['--version'], { encoding: 'utf-8', shell: false });
+        if (res.status === 0 && res.stdout && res.stdout.includes('Python 3')) {
+          return cmd;
+        }
+      } catch {}
+    }
+    return null;
+  }
+  const cmds = ['py -3', 'py', 'python3', 'python'];
   for (const cmd of cmds) {
     try {
       const version = execSync(`${cmd} --version 2>&1`, {

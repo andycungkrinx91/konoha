@@ -1,11 +1,14 @@
 $schema: https://opencode.ai/config.yaml
-# Merge the mcp block into ~/.config/opencode/opencode.yaml. Konoha init does this automatically when the opencode CLI is installed.
+# Merge the mcp block into ~/.config/opencode/opencode.yaml.
+# Konoha init does this automatically when the opencode CLI is installed.
+# v1.1.6 uses file_tools_launcher.js (the Node-path resolver wrapper) for
+# cross-platform stability when nvm paths differ between shell and IDE.
 mcp:
   konoha:
     type: local
     command:
       - node
-      - "${HOME}/.konoha/file_tools_mcp.js"
+      - "${HOME}/.konoha/file_tools_launcher.js"
     enabled: true
   semble:
     type: local
