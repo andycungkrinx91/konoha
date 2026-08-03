@@ -21,7 +21,12 @@ const readline = require("readline");
 const SERVER_NAME = "konoha";
 const SERVER_VERSION = "1.1.6";
 
-const { DB_BRIDGES_PY_PATH, DB_PATH } = require("../bin/lib/paths");
+// Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
+const devPaths = (() => {
+  try { return require("../bin/lib/paths"); } catch(_) { return null; }
+})();
+const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'skills.db');
+const DB_BRIDGES_PY_PATH = devPaths ? devPaths.DB_BRIDGES_PY_PATH : path.join(__dirname, 'db_bridges.py');
 
 let router;
 try {
@@ -39,6 +44,24 @@ if (installErrors.length) {
     `[mcp ${SERVER_NAME}] FATAL: incomplete install: ${installErrors.join("; ")}\n`,
   );
   process.exit(1);
+}
+
+const { spawn } = require("child_process");
+const PYTHON_CMD = process.env.PYTHON_CMD || "python3";
+const SAVINGS_LOGGER = path.join(__dirname, "tools_savings_logger.py");
+
+function logToolCallSavings(toolName, args, returnedBytes) {
+  // Fire-and-forget: spawn detached so the stdio event loop never stalls.
+  try {
+    const queryStr = JSON.stringify(args || {}).slice(0, 500);
+    spawn(
+      PYTHON_CMD,
+      [SAVINGS_LOGGER, toolName, queryStr, String(returnedBytes)],
+      { stdio: "ignore", detached: true },
+    ).unref();
+  } catch (_) {
+    /* router must never break because the logger hiccupped */
+  }
 }
 
 let initialized = false;
@@ -119,6 +142,8 @@ function handleRequest(req) {
     );
 
     const { text, isError } = router.dispatchTool(toolName, args);
+    const retBytes = Buffer.byteLength(text, "utf8");
+    logToolCallSavings(toolName, args, retBytes);
     return {
       jsonrpc: "2.0",
       id,
@@ -219,21 +244,15 @@ async function syncBridges() {
           show: () => {},
           dispose: () => {},
         };
-        process.stderr.write(
-          `[bridge:${b.name}] Bridge enabled; starting server on port ${b.port} (${b.provider})...\n`,
-        );
+        // Suppress verbose "starting" messages — just attempt the bind.
+        // Conflicts are expected in multi-launcher setups.
         try {
           await startServer(ctx);
           activeBridges.set(b.name, { bridgeConfig: b, ctx });
-          process.stderr.write(
-            `[bridge:${b.name}] Server successfully started and listening on port ${b.port}\n`,
-          );
         } catch (err) {
           if (err.message.includes('EADDRINUSE')) {
             activeBridges.set(b.name, { bridgeConfig: b, ctx });
-            process.stderr.write(
-              `[bridge:${b.name}] Port ${b.port} is already in use. Assuming external service is running and registering with gateway.\n`,
-            );
+            // Port conflict is expected when another daemon/IDE instance manages this bridge.
           } else {
             process.stderr.write(
               `[bridge:${b.name}] Failed to start bridge server: ${err.message}\n`,
@@ -271,15 +290,10 @@ async function syncBridges() {
 
             await startServer(ctx);
             activeBridges.set(b.name, { bridgeConfig: b, ctx });
-            process.stderr.write(
-              `[bridge:${b.name}] Server reloaded and listening on port ${b.port}\n`,
-            );
           } catch (err) {
             if (err.message.includes('EADDRINUSE')) {
               activeBridges.set(b.name, { bridgeConfig: b, ctx });
-              process.stderr.write(
-                `[bridge:${b.name}] Port ${b.port} is already in use. Assuming external service is running and registering with gateway.\n`,
-              );
+              // Downgraded: port conflict during reload is expected when another daemon owns it.
             } else {
               process.stderr.write(`[bridge:${b.name}] Error during reload: ${err.message}\n`);
               activeBridges.delete(b.name);

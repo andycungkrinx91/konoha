@@ -10,16 +10,21 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { parseYaml } = require('./agent_manager');
+const { parseYaml } = (() => {
+  try { return require('./agent_manager'); }
+  catch (_) {
+    try { return require('./yaml_utils'); }
+    catch (__) { return { parseYaml: null }; }
+  }
+})();
 const { readStdinJson, brainDirFromTranscript } = require('./hook-base');
 
 const HOME = os.homedir();
-const {
-  USER_AGENTS_YAML_PATH: USER_AGENTS_YAML,
-  GLOBAL_CLI_AGENTS_DIR,
-  GLOBAL_IDE_AGENTS_DIR,
-  GLOBAL_CONFIG_AGENTS_DIR
-} = require('../bin/lib/paths');
+// Self-contained: derive agent paths from HOME rather than importing bin/lib/paths.
+const USER_AGENTS_YAML = path.join(HOME, '.agents', 'agents.yaml');
+const GLOBAL_CLI_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
+const GLOBAL_IDE_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-ide', 'agents');
+const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp');
 
 /**
  * Official ninja roster — the ONLY agent directory names allowed inside a

@@ -12,6 +12,8 @@
   - `@anbu` → backend dev, bug fixing, DevOps, infrastructure
   - `@tokubetsu-jonin` → technical writing, documentation, READMEs
 - **Use token-efficient file tools**: `mcp__konoha__read_file_range`, `mcp__konoha__read_file_head`, `mcp__konoha__file_info` instead of loading entire files. Never read more than 100 lines at once.
+- **Use `pnpm` exclusively** for all JS/TS scaffolding, installs, and builds. Never use `npm` or standalone `npx` for package installation.
+- **Cross-Platform Compatibility**: Konoha works on Linux, macOS, and Windows (native and WSL). Use nvm for Node.js version management. See `docs/SETUP-CLI.md` and `docs/TROUBLESHOOTING.md` for cross-platform notes.
 - **Skill resolution layers** (in `run_mcp_agent`):
   1. **Exact match** — `agents.skills` list is queried against `skills.skill_name`.
   2. **Fuzzy match** — if no exact hit, Levenshtein distance (≤3) is used to recover from typos like `devsecops-enginer` → `devsecops-engineer`.
@@ -22,12 +24,26 @@
 Konoha is an MCP middleware and skills management system with:
 - **SQLite FTS5 skills database** at `~/.konoha/skills.db`
 - **Bridge Gateway** on port 19999 for multi-provider LLM routing (OpenAI API Key, Compatible, Antigravity)
+  - `POST /v1/chat/completions` — OpenAI-format requests (passthrough with model rewrite)
+  - `POST /v1/messages` — Anthropic-format requests → gateway converts to OpenAI for upstream bridge; response is converted back to Anthropic format
+  - `POST /v1beta/models/:model` — Gemini native format
+  - `POST /v1/messages/count_tokens` — Anthropic preflight mock (returns `{input_tokens: 0}`)
+    - This endpoint does NOT count tokens accurately. Claude CLI / Cherry Studio use it as a budget-warning preflight and accept 0. Real billing/monitoring uses `server.py`'s separate token counter path.
+  - `GET /v1/models` — aggregated model catalog across all bridges
 - **Subagent orchestration** via `.agents/` directory
 - **CLI** at `bin/cli.js` for all operations
 
 ## Key Files
 
 - `bin/cli.js` — Main CLI entry point
+
+## Temporary Files & Cleanup
+
+- **NEVER create temp files or folders inside this codebase** — all temporary files must go to `/tmp/` only
+- **ALWAYS clean up test artifacts** — remove all temporary files, directories, and caches after testing or debugging
+- **NEVER leave `.tmp_*` or `__pycache__` directories** in the project tree
+- **Use `/tmp/` for all scratch work** — e.g., `/tmp/konoha-test.db`, `/tmp/scratch-*`
+- **Test files created during tests must be cleaned up** in a `finally` block or equivalent
 - `src/bridge/server.js` — Gateway HTTP server entrypoint
 - `src/bridge/gateway.js` — Proxy gateway logic, model resolution, concurrent request guard
 - `src/bridge/handlers/openai.js` — OpenAI chat completions handler
@@ -84,7 +100,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 | Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
-| Standard Operating Procedures and router for MCP task triage, subagent selection, and orchestration. | `sannin-skill` | `mcp_sannin` (MCP Tool) |
+| Standard Operating Procedures and router for MCP task triage, subagent selection, and sequential orc | `sannin-skill` | `mcp_sannin` (MCP Tool) |
 | Standard Operating Procedures for read-only codebase exploration, symbol search, dependency mapping, | `genin-skill` | `mcp_genin` (MCP Tool) |
 | Standard Operating Procedures for architecture decisions, security audits, deep code analysis, risk  | `kage-skill` | `mcp_kage` (MCP Tool) |
 | Standard Operating Procedures for web research, documentation lookup, evidence synthesis with citati | `chunin-skill` | `mcp_chunin` (MCP Tool) |

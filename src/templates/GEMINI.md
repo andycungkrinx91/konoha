@@ -21,7 +21,7 @@
 
 When the user prompt mentions `source-image-design`, design images, or mockups:
 
-1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
+1. The main agent calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
 2. **Constraints section** MUST include:
    - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
    - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
@@ -38,7 +38,7 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
 
-1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
+1. The main agent MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
 3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
 4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
@@ -47,6 +47,9 @@ When the user prompt requests building or scaffolding a website or user interfac
    - Footer watermark: `Build by Konoha`
    - Custom premium error pages (4xx/5xx)
    - Auto-open browser with `--open` flag
+   - 10-Theme Switcher Popup: Floating bottom-right button with 10 Light Mode gradient themes
+   - Sticky Mobile Bottom Navigation Dock with active theme gradient indicators
+   - Full 6-Page Production Application Architecture (Home 3D Carousel, Catalog with 50 items + Live Search + Multi-filter slider, About, Contact, Location Finder, Auth System) implemented in ONE SHOT
    - .env safety and CVE-free dependencies
 
 ### Existing project rules — delegate.md rules (CRITICAL)
@@ -61,18 +64,33 @@ When the user prompt involves modifying or working within an existing project:
 ## Auto-Delegation
 
 > [!IMPORTANT]
-> **Orchestrator Role & Auto-Delegation**:
-> - The main agent (Antigravity orchestrator) acts as a coordinator, delegating tasks to ninja agents (defined globally).
-> - Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited. The orchestrator must always route and delegate tasks to the specialized ninja agents.
+> **Main Agent Role & Auto-Delegation**:
+> - The main agent (Antigravity main agent) acts as a coordinator, delegating tasks to ninja agents (defined globally).
+> - Direct Tool Calls in the main agent thread for executing file edits or running commands are strictly prohibited. The main agent must always route and delegate tasks to the specialized ninja agents.
 
-The orchestrator MUST follow this workflow:
+### Website Scaffolding Shortcut (Branch B — TAKES PRIORITY OVER STANDARD FLOW)
+
+**BEFORE entering the standard delegation flow below**, check if the user's prompt matches **website/UI creation intent** (action verbs like "build", "create", "scaffold", "generate", "make" combined with targets like "website", "web app", "landing page", "UI", "frontend", "site", "e-commerce", "storefront", "portfolio", "dashboard", "app"):
+
+1. **If mockup/design images are provided** → Call `konoha.build_from_source(name, source_dir, framework)` FIRST
+2. **If text description only** → Call `konoha.build_from_text(name, description, framework)` FIRST
+3. Write `delegate.md` with the returned directives/constraints
+4. Call `mcp_jonin` directly — **SKIP Chunin, Genin, and Kage** (they lose the premium template directives)
+5. After Jonin completes, delegate to `mcp_tokubetsu_jonin` for documentation
+6. Output final report to user
+
+> **⚠️ CRITICAL**: Premium design directives from `build_from_text`/`build_from_source` are LOST if routed through the standard Chunin → Genin → Kage pipeline. Always use this shortcut for website builds.
+
+### Standard Flow (Branch A — for non-website tasks)
+
+The main agent MUST follow this workflow for bug fixes, features, research, and code changes:
 1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
 2. **Find Skill First**: Call `konoha.find_skill` or `optimize_report` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the `konoha` MCP handles all skill lookups.**
 3. **Find Code Context**: If project source code context is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do NOT call `konoha.find_skill` for codebase/file search, and do NOT call `semble` when the task only needs skill lookup.
 4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the `skills` array of any ninja agent.
    - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to `@kage`; backend, script automation, and database to `@anbu`; frontend styling and UI implementation to `@jonin`; documentation to `@tokubetsu-jonin`).
-   - The orchestrator always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
+   - The main agent always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
 5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must embed a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
    ```markdown
    ---
@@ -92,10 +110,10 @@ The orchestrator MUST follow this workflow:
 7. **Await Results**: Read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` to finalize the step, report back, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
 8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
 
-The orchestrator ONLY delegates to the defined ninja agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Dynamic auto-creation of agents is prohibited.
+The main agent ONLY delegates to the defined ninja agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Dynamic auto-creation of agents is prohibited.
 
 **Direct Tool Calls Policy**:
-- It is strictly prohibited to execute Direct Tool Calls in the orchestrator thread for project tasks. You MUST delegate to the corresponding specialized ninja agent.
+- It is strictly prohibited to execute Direct Tool Calls in the main agent thread for project tasks. You MUST delegate to the corresponding specialized ninja agent.
 - You are ONLY allowed to execute Direct Tool Calls as a fallback if all ninja agents hit quota limits (`RESOURCE_EXHAUSTED` / `429`) and delegation is blocked.
 - Do NOT spawn shadow agents under any circumstances.
 - **Semble when needed**: When running direct tool calls, if project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before making file modifications or running commands. Do NOT call `konoha.find_skill` for codebase/file search, and do NOT call `semble` tools when locating/searching skills (use `konoha.find_skill` instead).
@@ -127,8 +145,12 @@ For complex multi-domain tasks, invoke multiple agents in parallel.
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent main agent task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: On `RESOURCE_EXHAUSTED`/`429`, fallback to `Gemini 3.1 Flash-Lite`. On total exhaustion, halt and output: "Your Antigravity account has reached its rate limit quota. Please wait for the quota window to reset, back off request frequency, or upgrade your subscribe/tier in the Google Cloud Console."
 
 Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md`
+
+## Custom Agent Rules for Konoha
+
+- **No `skilladd` Command**: Under no circumstances should `konoha skilladd` or `node bin/cli.js skilladd` be implemented, documented, or used. Only use `konoha skill add` to directly install a skill from a Git repository.

@@ -1,124 +1,52 @@
 ---
 name: jonin-skill
 description: Standard Operating Procedures and router for premium UI development, design match comparison, component architecture, and 3D web experiences.
-tags:
-  - jonin
-  - frontend
-  - ui
-  - tailwind
-  - svelte
-  - nextjs
-  - svelteui
 ---
 
-# Jonin: UI & Frontend Specialist (Router)
+# 🛡️ Jonin — Elite UI & Frontend Builder SOP
 
-This skill provides the **Standard Operating Procedures (SOP)** and routing logic for the Jonin (Frontend Builder) when tasked with creating web interfaces, styling components, or implementing animations.
-
-> [!CAUTION]  
-> **Visual Excellence is Mandatory**: You must never deliver a "basic" or "minimal viable" design. Every component must feel premium, using modern typography, harmonious colors, smooth gradients, and interactive micro-animations.
-
-> [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
-
-## Domain Routing
-
-Based on the user's request, load the specific reference file using `konoha.get_skill("jonin-skill/<reference-name>")` to understand the architecture and conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
-
-| If the request involves... | Load this reference |
-|---|---|
-| SvelteKit app code, pages, routes, load functions, form actions, state management, SvelteKit security | `jonin-skill/svelte-code-expert` |
-| SvelteKit components, UI architecture, `$derived`, `$effect`, snippets, SvelteUI | `jonin-skill/svelte-ui-expert` |
-| Next.js app code, router, security, hooks, state management, ESLint, Prettier config | `jonin-skill/nextjs-code-expert` |
-| Next.js UI, client components, Framer Motion, R3F, 3D scenes, animations | `jonin-skill/nextjs-ui-expert` |
-| 3D scenes, WebGL, R3F, Spline, TSParticles, heavy animations | `jonin-skill/nextjs-ui-expert` |
-| Styling, Tailwind v4 setup, glassmorphism, micro-animations, typography | `jonin-skill/tailwind-design-system` |
-
-## 🛠️ Technology Stack
-- **Default Stack**: SvelteKit + Tailwind v4 + pnpm
-- **Alternative Stack**: Next.js 16 + Tailwind v4 + pnpm (When React is explicitly requested)
-
-## 💎 MANDATORY VISUAL EFFECTS (ZERO EXCEPTION)
-> [!NOTE]
-> **Source Design Reference Exception**: If you are building based on design references (using the `build_from_source` tool), this default visual effects template MUST be skipped. You MUST build the storefront strictly based on the design files and mockups without adding these default visual effects (such as the 10-theme switcher, 3D carousels, 3D hovers, SweetAlert2 modal, or watermark) unless they are explicitly shown in the design files.
-
-For EVERY website you generate or build from text, you MUST implement these premium visual features:
-1. **The 10 Gradient Themes & Switcher**: Nebula (purple-blue), Aurora (emerald-cyan), Sunset (rose-amber), Ocean (blue-teal), Forest (green-emerald), Volcano (red-orange), Sakura (pink-rose), Cyberpunk (magenta-violet), Midnight (indigo-slate), and Gold (amber-yellow) defined via `@theme` in `app.css` / `globals.css`. A functional theme switcher saved to `localStorage` must be included. **Ensure you DO NOT use dark mode; all themes and layouts must be designed in Light Mode only (never use dark mode or dark backgrounds; backgrounds must remain clean, vibrant, and light).**
-2. **Homepage Hero Banner 3D Carousel**: The homepage banner/hero section MUST be an interactive 3D carousel slider featuring a minimum of 4 images, utilizing a GPU-accelerated 3D split-opening drapes effect (where slides split from the middle or slide away to reveal the next slide) and smooth control transitions. **Importantly, the homepage hero banner MUST be full-width and edge-to-edge of the viewport (without margins or layout constraints), highly responsive, and optimized for mobile/desktop.**
-3. **Standard Minimum 5 Interactive 3D Carousels**: Newly generated websites MUST feature at least **5 interactive 3D carousels** (e.g. hero slide deck, category showcases, featured items, customer lookbook, testimonials/reviews). These carousels must utilize GPU-accelerated 3D CSS transforms (using `perspective`, `rotateX`/`rotateY`, `translateZ`, and `scale`) with full transition handles and navigation control elements.
-4. **3D GPU Card Hover & Animated Glows in ALL Cards**: EVERY single card component (e.g. product cards, features, categories, testimonials) must feature a 3D perspective rotation on hover (using CSS card-3d styles) combined with a dynamic GPU-accelerated animated glow border or radial mouse-tracking gradient glow.
-5. **Custom 3D SweetAlert2 Dialogs**: All system alerts, success/error confirmations, warnings, and prompt dialogs MUST use `sweetalert2` configured with a 3D entrance transition (via `showClass` and custom CSS transforms) and confirm buttons styled with the active theme's gradient.
-6. **Custom Styled SVG/CSS Logo**: Newly generated websites MUST feature a custom, premium logo in both the header and footer consisting of a styled inline SVG icon combined with custom CSS gradient typography (or a fully custom visual SVG mark) dynamically displaying the project's name as specified in the user's prompt (instead of static default placeholders like VIBELAB). Never leave the logo empty/missing.
-7. **Footer Watermark**: The footer of all newly generated websites MUST feature the watermark text: `Build with Antigravity and Konoha agentic AI` in small, muted typography.
+> **Role**: Elite builder specializing in modern, high-converting, visually stunning web applications (SvelteKit, Next.js, Tailwind v4, Magic UI, 3D Web, Framer Motion).
 
 ---
 
-## SOP 1: New Component Building
-*When asked to build a new UI element (e.g., a dashboard card, a navigation bar).*
+## 🏭 Build Scenarios & Standard Protocols
 
-1. **Design System Adherence**: 
-   - Check `app.css` or `index.css` for existing CSS variables, theme colors, and custom Tailwind utilities.
-   - Use established design tokens instead of hardcoding random hex colors.
-2. **Structure & Layout**:
-   - Use Semantic HTML (`<nav>`, `<main>`, `<article>`, `<aside>`).
-   - Use CSS Grid for complex layouts, and Flexbox for linear alignment.
-3. **Premium Styling Checklist**:
-   - [ ] Are backgrounds using subtle gradients or glassmorphism (`backdrop-blur`) instead of flat colors?
-   - [ ] Is typography distinct? (Use font weights, tracking-tight for headings, leading-relaxed for body).
-   - [ ] Are there subtle borders/shadows? (e.g., `border border-white/10 shadow-xl shadow-black/50`).
-4. **Interactivity**:
-   - Add hover states with smooth transitions (`transition-all duration-300`).
-   - Add active/focus states for accessibility.
-   - Implement micro-animations for interactions (e.g., scaling up a button on hover `hover:scale-105`).
+### 📸 Scenario 1: Mockup / Image-Based Builds (`source-image-design`)
+When prompt references mockup images or design screenshots:
+1. View every mockup image first using `view_file` to analyze colors, layouts, spacing, and component hierarchy.
+2. Adhere 100% to source layout with light-mode visual match. Zero layout hallucination.
+3. Enhance with subtle 3D hover perspective tilt (`transform: perspective(1000px) rotateX(...) rotateY(...)`) and entrance animations without altering source layout.
+4. Add mandatory `Build by Konoha` watermark footer and custom 3D 4xx/5xx error pages.
 
-## SOP 2: Design Match Comparison & Responsive Design
-*When updating an existing page or finishing a new component.*
+---
 
-1. **Responsive Verification**:
-   - Ensure the component uses mobile-first Tailwind classes.
-   - Check behavior at `sm:`, `md:`, `lg:`, and `xl:` breakpoints.
-   - Never let text overflow its container on small screens (use `break-words` or `truncate`).
-2. **Browser Testing**:
-   - If UI visual changes are significant, use the `agent-browser` tool to render the page and verify the layout visually.
-3. **Contrast & Accessibility**:
-   - Ensure text contrast is readable in both Light and Dark modes.
+### 📝 Scenario 2: Text-Based Builds (`build_from_text`)
+When prompt requests building a website/app from text description (no mockup images provided):
+1. **Package Manager Mandate**: ALWAYS use `pnpm` (`pnpm dlx create-next-app@latest`, `pnpm create`, `pnpm install`, `pnpm run dev`). NEVER use `npm` or standalone `npx` without `pnpm`.
+2. **SPA Architecture**: Build a state-driven Single Page Application (`activePage` view routing instead of basic landing pages).
+3. **50 Production Items Dataset**: Populate catalog datasets with 50 realistic items complete with technical specs, formatted pricing, badges, and high-res imagery.
+4. **100% Reactive Multi-Criteria Filter & Search**: Reactive computed filters for keyword search, brand/category pills, fuel type selectors, max price sliders, and multi-option sorting.
+5. **Interactive Search Bar**: Sticky top header search bar with clear button & instant showroom navigation.
+6. **Floating Theme Switcher Widget**: 10 Light-Mode gradient themes in a fixed bottom-left chat-style popup (elevated at `bottom-20` on mobile viewports).
+7. **Mobile-Only Floating Glassmorphic Bottom Dock**: `md:hidden` bottom nav dock with active theme gradient tab highlighting.
+8. **Interactive 3D Hero Carousel**: GPU mouse-tracking tilt (`rotateX`/`rotateY`/`translateZ`), high-contrast dark spec badge backdrops, 3D split drapes transition, play/pause controls, and thumbnail preview strip.
+9. **Enriched Homepage Content**: Showroom stats banner, brand showcase grid, featured 3D card grid, VIP services highlights, Trade-In appraisal CTA banner.
+10. **DevSecOps Security & Performance**: Add CSP/nosniff/referrer security headers in `index.html`, font preconnecting, `loading="lazy"`/`decoding="async"` on images, and Vite `manualChunks` bundle splitting.
+11. **Zero Errors & Zero Warnings**: Guarantee 100% clean output on `pnpm run check` and `pnpm run build`.
 
-## SOP 3: Refactoring Legacy CSS to Tailwind v4
-*When tasked with modernizing old stylesheets.*
+---
 
-1. **Map the Values**: Identify exact pixel values and map them to standard Tailwind spacing/sizing utilities.
-2. **Extract Components**: If a pattern is repeated >3 times, extract it into a dedicated Svelte/React component rather than using massive `@apply` blocks.
-3. **Clean Up**: Remove the old CSS file and update the imports.
+## 🎨 Theme Matrix (10 Light-Mode Themes)
 
-## SOP 4: Zero-Error Guarantee & Design Match Comparison Verification Loop (SvelteKit & Next.js)
-*Mandatory verification rules when generating or modifying frontend code.*
-
-1. **Initial Setup (Lint & Formatter)**: Whenever you create or generate a new Svelte/SvelteKit or React/Next.js website, you MUST immediately:
-   - Configure ESLint flat config (`eslint.config.js` or `eslint.config.mjs`) and Prettier (`.prettierrc`).
-   - Add lint and format scripts to `package.json`:
-     - SvelteKit: `"lint": "prettier --check . && eslint ."` and `"format": "prettier --write ."`
-     - Next.js: `"lint": "prettier --check . && next lint"` and `"format": "prettier --write ."`
-   - Run `pnpm run format` to ensure files are formatted.
-2. **ESLint & Compiler Suppression (Zero Warning Policy)**:
-   - To guarantee zero lint warnings or errors, you MUST configure the project's lint rules to be relaxed:
-     - **Next.js (`eslint.config.mjs`)**: Disable rules `"no-unused-vars": "off"`, `"@typescript-eslint/no-unused-vars": "off"`, `"@typescript-eslint/no-explicit-any": "off"`, `"@next/next/no-img-element": "off"`, `"react/no-unescaped-entities": "off"`, and `"react-hooks/exhaustive-deps": "off"`.
-     - **Svelte Kit (`eslint.config.js`)**: Disable `"no-unused-vars": "off"`, `"@typescript-eslint/no-unused-vars": "off"`, and all `'svelte/a11y-*'` rules.
-     - **Svelte Kit (`svelte.config.js`)**: Add `onwarn: (warning, handler) => { if (warning.code.startsWith('a11y-')) return; handler(warning); }` to silence all accessibility warnings during compilation.
-3. **Verification & Autonomous Fixes Loop**: Post-generation, you MUST execute these commands yourself using your tools. NEVER command the user or print instructions telling the user to execute these steps manually:
-   - **pnpm install**: Run `pnpm install` (or `pnpm install --no-engine-strict` if standard install fails due to `ERR_PNPM_UNSUPPORTED_ENGINE`) to set up node_modules.
-     - **Dependency Version Auto-Fix**: If `pnpm install` or `pnpm run build` fails or reports mismatched/outdated dependencies (for example, showing dependency mismatches such as `- lucide-react 1.21.0` and `+ lucide-react 0.468.0 (1.21.0 is available)`), you MUST automatically update `package.json` to specify the latest available version (or the recommended version) for the conflicting packages, and then run `pnpm install` again to align and fix the dependencies.
-   - **ESLint & Svelte Check**: Run `pnpm run lint` and `pnpm run check` (svelte-check, if using SvelteKit) / `pnpm svelte-kit sync` (to generate TS config mappings first). If there are any linting or compilation warnings or errors, you MUST locate the offending files, read the exact error lines, and modify the code to fix them. Repeat this cycle until both commands output zero errors and zero warnings.
-   - **pnpm build**: Run `pnpm run build` to verify the production build. If any warnings (e.g. CSS compilation warnings, unused export warnings) or errors occur, trace the cause, edit the files, and re-run the build until it completes with 100% success, zero errors, and zero warnings.
-4. **Dev Server Verification**:
-   - Once linting and build checks are completely clean, start the development server by running `pnpm run dev` in the background as an asynchronous task.
-   - Use your browser or preview tool to verify the layout and components are visually correct and functioning as expected.
-
-## SOP 5: Source Design & Code Reference Conversion Workflow
-*Procedure for generating UI from design image or reference source code directories.*
-
-1. **Auto-Select Build Method**:
-   - If the workspace contains a source design directory (e.g., `source-design`, `source-image-design`), you MUST call the `build_from_source` tool specifying the name, source directory path, and framework. In this mode, you MUST build the storefront strictly based on the reference design files, skipping the default premium visual effects template unless they are present in the reference files.
-   - If no design reference directory is present, you MUST call the `build_from_text` tool, which automatically scaffolds the project and directs you to implement the default premium visual effects (theme switcher, 3D carousels, hovers, SweetAlert2, and watermark).
-2. **Direct Reference Code Analysis**: For source code reference files (`.html`, `.xml`, `.tsx`, `.jsx`, `.ts`, `.js`, `.css`), read the relevant files using `view_file` (limiting start/end lines to avoid large context). Reconstruct or migrate component structure and logic directly.
-3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via the `view_file` tool to extract the general layout structure (grid, headers, colors). Do not load multiple images or run repetitive vision reads.
-
+| Theme | Primary Hex | Accent Hex | Gradient |
+|---|---|---|---|
+| 🌌 Nebula | `#4f46e5` | `#06b6d4` | `linear-gradient(135deg, #4f46e5, #06b6d4)` |
+| 🌅 Aurora | `#059669` | `#10b981` | `linear-gradient(135deg, #059669, #10b981)` |
+| 🌇 Sunset | `#e11d48` | `#f59e0b` | `linear-gradient(135deg, #e11d48, #f59e0b)` |
+| 🌊 Ocean | `#0284c7` | `#3b82f6` | `linear-gradient(135deg, #0284c7, #3b82f6)` |
+| 🌲 Forest | `#15803d` | `#84cc16` | `linear-gradient(135deg, #15803d, #84cc16)` |
+| 🌋 Volcano | `#dc2626` | `#ea580c` | `linear-gradient(135deg, #dc2626, #ea580c)` |
+| 🌸 Sakura | `#db2777` | `#f472b6` | `linear-gradient(135deg, #db2777, #f472b6)` |
+| ⚡ Cyberpunk | `#7c3aed` | `#06b6d4` | `linear-gradient(135deg, #7c3aed, #06b6d4)` |
+| 🌃 Midnight | `#1e293b` | `#64748b` | `linear-gradient(135deg, #1e293b, #64748b)` |
+| 👑 Gold | `#d97706` | `#f59e0b` | `linear-gradient(135deg, #d97706, #f59e0b)` |

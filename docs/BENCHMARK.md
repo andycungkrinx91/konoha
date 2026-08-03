@@ -1,6 +1,6 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **konoha**, **semble**, and **konoha-files** usage.
+This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **konoha** and **semble** usage.
 
 > Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
@@ -48,9 +48,9 @@ Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at
 
 ---
 
-## 3. 📁 konoha-files (Token-Efficient File Tools) Savings
+## 3. ⚙️ konoha MCP (Token-Efficient File Tools) Savings
 
-The `konoha-files` MCP server (v1.1.6+) complements semble with hard-capped file operations:
+The `konoha` MCP server complements semble with hard-capped file operations:
 
 | Tool | Cap | Benefit |
 |------|-----|---------|
@@ -63,7 +63,7 @@ The `konoha-files` MCP server (v1.1.6+) complements semble with hard-capped file
 
 **Recommended workflow**: `semble.search` → locate target → `read_file_range` / `get_file_structure` for precise context.
 
-**Security (v1.1.6+)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
+**Security (v1.1.7+)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
 
 ---
 
@@ -77,20 +77,19 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 
 ---
 
-## 🧪 Release QA Gates (v1.1.6)
+## 🧪 Release QA Gates (v1.1.7)
 
 Before public release, verify:
 
 | Check | Command | Expected |
 |-------|---------|----------|
-| MCP integration | `konoha test` | 16/16 PASS |
-| Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 PASS |
-| Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 PASS |
+| MCP integration | `konoha test` | All tests pass |
+| Antigravity attribution | `python3 tests/test_agent_attribution.py` | 7/7 PASS |
+| Cursor attribution | `python3 tests/test_cursor_attribution.py` | 8/8 PASS |
 | Environment health | `konoha doctor --yes` | All checks passed |
-| Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → konoha, semble, konoha-files |
-| OpenCode MCP (if CLI installed) | `konoha status` | `~/.config/opencode/opencode.json` → all three servers |
+| Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → konoha, semble |
 | Cursor skills mirror | `konoha status` | `~/.cursor/skills/` synced from `~/.agents/skills/` |
-| Skills indexed | `konoha status` | 48+ entries (includes `konoha-maintenance`) |
+| Skills indexed | `konoha status` | 165+ entries (includes `konoha-maintenance`) |
 
 ---
 
@@ -122,6 +121,11 @@ Before public release, verify:
    * Agents call `find_skill("keyword")` when they need info. SQLite FTS5 runs a BM25 relevance ranking and returns a precise **~4 KB preview chunk**.
    * **Result**: Context payload is reduced from **~1.1 MB per session** to just **~4 KB - 12 KB per query** (representing an **83% to 98% reduction in token consumption**).
 
+2. **Cross-Platform Support**:
+   * Works on Linux, macOS, and Windows (native and WSL).
+   * Auto-detects Python (`python3` on Linux/macOS, `python` on Windows), Node.js paths, and config directories.
+   * nvm compatible — works with any Node.js version (v18+).
+
 2. **Unified, Automated Configuration**:
    * A single, lightweight CLI tool `konoha` installs the server, migrates the files, and registers it.
    * Installs to a standardized path:
@@ -129,7 +133,6 @@ Before public release, verify:
      * Executables & DB: `~/.konoha/`
      * Global Prompt Instructions: `~/.gemini/GEMINI.md`
    * Fully cross-platform: auto-detects paths and Python configurations on Windows, macOS, and Linux.
-   * **Multi-client**: Claude Code (`~/.claude.json`), OpenCode (`~/.config/opencode/opencode.json`), Cursor — see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
 3. **Instantaneous On-Demand Retrieval**:
    * Finding reference documentation is a single-step MCP tool call:
@@ -146,4 +149,4 @@ Before public release, verify:
 | **Token Savings** | 0% (Baseline) | **83% - 98% reduction** |
 | **Cost & Context Bloat** | High context footprint, high API bills | Minimal footprint, highly cost-effective |
 | **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `konoha init` + per-client MCP JSON |
-| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` |
+| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` (cross-platform) |

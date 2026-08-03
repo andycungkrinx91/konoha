@@ -38,3 +38,16 @@ If `needs_replan=True` from the chunin research cycle, kage re-evaluates the pla
 1. Map dependencies before proposing changes.
 2. Define incremental migration steps that keep the system functional.
 3. Validate each step with tests or dry-runs.
+
+## Domain Routing
+
+Based on the user's request, load the specific reference file using `konoha.get_skill("kage-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills) to understand the architecture, security, and analysis conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
+
+| If the request involves... | Load this reference |
+|---|---|
+| Deep code analysis, codebase exploration, code review | `deep-code-explorer` |
+| Security audits, devsecops, vulnerability remediation | `devsecops-engineer` |
+| Architecture decisions, system design patterns, codebase architecture | `kage-skill/improve-codebase-architecture` |
+| Risk assessment, feature impact analysis | `kage-skill/risk-assessment` |
+| Generating or updating Mermaid architecture diagrams | `kage-skill/mermaid-diagrams` |
+| Professional Draw.io architecture diagrams and XML generation | `kage-skill/drawio-skill` |

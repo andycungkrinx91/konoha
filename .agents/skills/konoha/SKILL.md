@@ -19,22 +19,33 @@ This skill contains the structural guidelines, command specifications, and archi
 Any **non-trivial task MUST be delegated** to the appropriate konoha subagent:
 
 - `@genin` — codebase search, tracing codepaths, read-only exploration
-- `@kage` — architecture decisions, security review, deep analysis, risk assessment
+- `@kage` — architecture decisions, security review, deep analysis, risk assessment, diagrams (`drawio`, `mermaid`)
 - `@chunin` — web research, documentation synthesis, citation-backed recommendations
-- `@jonin` — UI/frontend development (SvelteKit, Next.js, Tailwind)
-- `@anbu` — backend dev, bug fixing, DevOps, infrastructure
-- `@tokubetsu-jonin` — technical writing, documentation, API specs
+- `@jonin` — UI/frontend development (SvelteKit, Next.js, Tailwind), website & e-commerce builds (uses `pnpm` & `jonin-skill`)
+- `@anbu` — backend dev, bug fixing, DevOps, infrastructure, messaging/caching (`kafka`, `redis`, `nginx`), cyber defense, prompt engineering
+- `@tokubetsu-jonin` — technical writing, documentation, API specs, PDF reports (`pdf`), postmortems/RCA (`postmortem-writer`), technical articles (`technical-article-writer`)
 
-**The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** The only exception is simple/trivial tasks (single read/edit on a known file) which may be executed directly.
+**The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** When user prompts request building/scaffolding websites, e-commerce, web apps, or Next.js/Svelte UIs, the orchestrator MUST call `konoha.build_from_text` (or `build_from_source`), require `jonin-skill`, mandate `pnpm`, and delegate to `@mcp_jonin`. Upon resuming a conversation or in multi-turn interactions (across Antigravity CLI/IDE, Claude Code, or Cursor), the orchestrator MUST ALWAYS re-execute the `mcp_<agentname>` delegation workflow for every user prompt/turn. The only exception is simple/trivial tasks (single read/edit on a known file) which may be executed directly.
 
-## Recent Major Changes (v1.1.6)
+## Recent Major Changes (v1.1.7)
 
-### v1.1.6: Full MCP Orchestration & OpenCode Support
+### v1.1.7: Cross-Platform Install & Maintenance Fixes
+- **npm/Node.js version-agnostic installation**: Konoha now installs globally via `npm install -g konoha` and works across any Node.js version (v18+).
+- **nvm PATH fix**: Added documentation and troubleshooting for nvm PATH issues on Windows (nvm-windows), macOS, and Linux where `konoha` command not found after shell restart.
+- **Cross-platform platform_utils.js**: `detectPython()` now properly handles Windows (`py -3`, `python`), macOS (`python3`, `python`), and Linux (`python3`, `python`) with spawnSync arg-array form.
+- **Windows line-ending handling**: Added guidance for converting CRLF to LF on `db_bridges.py` if SyntaxError occurs.
+- **port 19999 collision**: Added Windows-specific fix using `netstat` and `taskkill` alongside `fuser`.
+- **Strict Package Manager Mandate**: Enforced `pnpm` exclusively for all JS/TS scaffolding, installs, and builds — no `npm` or standalone `npx`.
+- **SPA vs Landing Page Dynamic Architecture**: `build_from_text` templates now generate full SPA with internal client-side routing by default.
+- **Premium 3D Hero Carousel Directive**: All framework templates now require a full image wide carousel with interactive 3D.
+- **Aggressive Mobile Menu Deduplication (DS-7)**: Desktop header nav links hidden on mobile (`hidden md:flex`).
+- **Floating Theme Switcher Alignment (DS-6)**: 10-Theme Switcher mandated at bottom-left (`fixed bottom-4 left-4 z-50`).
 
-- **OpenCode Support**: Fully supported along with Antigravity, Cursor, and Claude Code.
+### v1.1.6: Full MCP Orchestration
+
 - **MCP Delegation**: `mcp_sannin` orchestrates backend subagents using their full MCP tools directly instead of utilizing Antigravity's Hook-based TypeName overriding.
-- **Reporting**: The Konoha Savings dashboard includes `OpenCode` in the Provider Breakdown and visual percentage meters.
-- **Model Configuration**: Subagent models can now be specifically targeted per client using `konoha models embed` via `--cursor`, `--claude`, and `--opencode` flags.
+- **Reporting**: The Konoha Savings dashboard displays Provider Breakdown with visual percentage meters.
+- **Model Configuration**: Subagent models can now be specifically targeted per client using `konoha models embed` via `--cursor` and `--claude` flags.
 
 ### Removed: Quota Persistence
 
@@ -60,13 +71,13 @@ graph TB
     %% Subgraphs for Layered Architecture
     subgraph Layer1 ["1. Presentation Layer"]
         User["👤 End User"]
-        IDE["💻 Host IDE / CLI<br>Antigravity · Cursor · Claude Code · OpenCode"]
+        IDE["💻 Host IDE / CLI<br>Antigravity · Cursor · Claude Code"]
     end
 
     subgraph Layer15 ["1.5 Management & Configuration Layer"]
         CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, skill, agent)"]
         AgentConfig["📄 Subagent Config (Source: SQLite agents table)"]
-        MCPConfig["📄 MCP Config<br>(~/.gemini/config/mcp_config.json<br>~/.cursor/mcp.json<br>~/.claude.json<br>~/.config/opencode/opencode.json)"]
+        MCPConfig["📄 MCP Config<br>(~/.gemini/config/mcp_config.json<br>~/.cursor/mcp.json<br>~/.claude.json)"]
     end
 
     subgraph Layer2 ["2. Cognitive Agent Layer"]
@@ -170,7 +181,6 @@ The SQLite database is stored at `~/.konoha/skills.db`. It consists of the follo
    - `cursor_fallback_model` (TEXT): Cursor fallback model.
    - `enable_mcp_tools` (INTEGER): Flag for MCP tools authorization (0 or 1).
    - `claude_model` (TEXT): Claude Code model override.
-   - `opencode_model` (TEXT): OpenCode model override.
 
 ## Core Commands
 
@@ -179,17 +189,17 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Command | Action |
 |---------|--------|
 | `node bin/cli.js init --force` | Re-installs server, forces re-migration of all active skills, registers MCP, and redeploys subagent profiles. |
-| `node bin/cli.js migrate [--force]` | Re-indexes all detected skill folders. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicates occur (while skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode. |
+| `node bin/cli.js migrate [--force]` | Re-indexes all detected skill folders. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicates occur (while skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, and Cursor. |
 | `node bin/cli.js test` | Runs internal JSON-RPC tests on the local MCP server. |
 | `node bin/cli.js status` | Checks existence of required files, validates MCP configurations, and prints database counts. |
-| `node bin/cli.js version` | Displays the current local version (1.1.6) and checks for updates from GitHub. |
+| `node bin/cli.js version` | Displays the current local version (1.1.7) and checks for updates from GitHub. |
 | `node bin/cli.js upgrade` | Upgrades the Konoha CLI to the latest version directly from GitHub. |
 | `node bin/cli.js doctor` | Diagnoses and auto-repairs Antigravity + Cursor integration health. |
-| `python3 src/test_agent_attribution.py` | One-by-one Antigravity MCP agent attribution verification. |
-| `python3 src/test_cursor_attribution.py` | One-by-one Cursor MCP agent attribution verification. |
-| `python3 src/test_database_migration.py` | Full database schema, FTS5 matches, and migration script verification. |
-| `python3 src/test_web_search.py` | zero-API-key fallback search chain and cache TTL test suite. |
-| `python3 src/test_bridge_gateway.py` | Bridge schema and model routing registration test suite. |
+| `python3 tests/test_agent_attribution.py` | One-by-one Antigravity MCP agent attribution verification. |
+| `python3 tests/test_cursor_attribution.py` | One-by-one Cursor MCP agent attribution verification. |
+| `python3 tests/test_database_migration.py` | Full database schema, FTS5 matches, and migration script verification. |
+| `python3 tests/test_web_search.py` | zero-API-key fallback search chain and cache TTL test suite. |
+| `python3 tests/test_bridge_gateway.py` | Bridge schema and model routing registration test suite. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
 | `node bin/cli.js bridge status` | Shows runtime status and details of all configured bridges. |
 | `node bin/cli.js bridge list` | Lists all configured bridges in a formatted table with provider info. |
@@ -204,7 +214,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `python3 src/db_agents.py upsert <json>` | Upserts a subagent specification dictionary (inserts or updates properties) in SQLite. |
 | `python3 src/db_agents.py delete <name>` | Removes the subagent configuration from the database. |
 | `python3 src/db_agents.py sync` | Overwrites configuration files and synchronizes active JSON cache from database content. |
-| `python3 src/db_agents.py import` | Deletes all records in SQLite and initializes them directly from ~/.agents/agents.json content. |
+| `python3 src/db_agents.py import` | Deletes all records in SQLite and initializes them directly from ~/.agents/agents.yaml content. |
 
 ## Development Guidelines
 
@@ -224,7 +234,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **ALWAYS** use parameterized spawns (`spawnSync`) and validate inputs (checking name regex `/^[a-zA-Z0-9_-]+$/` and URL schemes) to protect against command injection.
 
 ### 4. Persistent Storage
-- User configurations (e.g. subagent JSON settings) are stored in the SQLite database `agents` table and mirrored/cached to the user's home directory (`~/.agents/agents.json`) to keep sandboxed IPC hooks low-latency.
+- User configurations (e.g. subagent JSON settings) are stored in the SQLite database `agents` table and mirrored/cached to the user's home directory (`~/.agents/agents.yaml`) to keep sandboxed IPC hooks low-latency.
 - Template files inside `src/templates/` serve only as fallbacks. Package template updates should fail silently in read-only global node_modules environments.
 - **Agents SQLite Schema** (`~/.konoha/skills.db`, table `agents`):
   ```sql
@@ -245,7 +255,6 @@ Maintainers must use these CLI commands to build, inspect, and test the database
       cursor_fallback_model TEXT,
       enable_mcp_tools      INTEGER NOT NULL DEFAULT 1,
       claude_model          TEXT,
-      opencode_model        TEXT
   );
   ```
   `db_agents.py` manages this table.
@@ -263,7 +272,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
   `db_bridges.py` manages this table. Supported actions: `--list`, `--upsert <json>`, `--delete <name>`, `--enable <name>`, `--disable <name>`.
 
 ### 5. Subagent Model Fields (Host IDE)
-- Konoha stores optional model preferences in `agents.json` (`model`, `cursorModel`, `claudeModel`) and injects them into generated `GEMINI.md`, `AGENTS.md`, and `~/.cursor/agents/*.md`.
+- Konoha stores optional model preferences in `agents.yaml` (`model`, `cursorModel`, `claudeModel`) and injects them into generated `GEMINI.md`, `AGENTS.md`, and `~/.cursor/agents/*.md`.
 - **Konoha Bridge Router**: Konoha implements full multi-provider LLM routing via the Bridge Router (port `19999`). Bridges are registered manually by the user (the tables start empty on install).
   - Model prefix resolution (checked in order):
     1. **Bridge-prefix lookup**: `<bridge_name>-<model>` resolved against the named bridge first.
@@ -299,7 +308,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Bypassing Orchestrator Override**: Prioritize registered subagent ranks over orchestrator fallback. Rank sessions by **transcript mtime** (not Antigravity `prompt.md` touch) so orchestrator prompt hooks do not mask active subagents or Cursor sessions.
 - **Subagent Scan Order**: Check `tokubetsu-jonin` before `jonin` to avoid `\bjonin\b` matching inside `Tokubetsu-Jonin`.
 - **Deep Directory Search**: Scan up to `15` recently modified conversation directories.
-- **Protected Default Subagents**: `konoha agent delete` rejects removal of official ninja agents from `src/templates/agents.json`.
+- **Protected Default Subagents**: `konoha agent delete` rejects removal of official ninja agents from `src/templates/agents.yaml`.
 - **Orchestrator Rank & Logging**: The main agent (Antigravity orchestrator) coordinates using the village leader rank **Kage (🌀)**. Every orchestrator response starts with `[🌀 kage] active. Calling konoha.find_skill('...')` (replacing the legacy Genin log to match real anime hierarchy).
 - **Orchestrator Telemetry**: Telemetry explicitly checks for `[Konoha] orchestrator active` and `[Konoha] active` to prevent orchestrator tool calls from being misattributed to subagents or fallback direct calls.
 
@@ -310,7 +319,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Visual Mockup or Reference Source Context Detection**: When a task requests building or scaffolding a website or user interface, the agent must check if a source design or reference source code folder (e.g., `source-design`, `source-image-design`) exists.
 - **`build_from_source` Tool**: If design mockups or reference source code files are present, the agent must invoke `build_from_source`. This tool instructs the build processor to strictly match layout design mockups and reference source code files while disabling the default premium template visual effects (10-theme switcher, 3D interactive carousels, 3D GPU card hovers, 3D SweetAlert2 modal dialogs, and watermark) unless they are explicitly requested or shown in the source files.
 - **`build_from_text` Tool**: If no visual design mockup or reference source code directory exists, the agent must call `build_from_text` to scaffold the project using standard premium interactive features and templates.
-- **Dynamic Agent Skill Resolution**: The `build_from_source` and `build_from_text` tools must dynamically resolve calling agent skills from `agents.json` to configure the correct dynamic skillset list, falling back to the `"jonin"` agent's skills list, and finally falling back to standard hardcoded defaults (e.g., `["jonin-skill"]`) only if `agents.json` cannot be read.
+- **Dynamic Agent Skill Resolution**: The `build_from_source` and `build_from_text` tools must dynamically resolve calling agent skills from `agents.yaml` to configure the correct dynamic skillset list, falling back to the `"jonin"` agent's skills list, and finally falling back to standard hardcoded defaults (e.g., `["jonin-skill"]`) only if `agents.yaml` cannot be read.
 - **Light Mode and Split-Opening Drapes Carousel**: Visual template guidelines inside `build_from_text` prohibit dark mode/backgrounds (enforcing Light Mode only) and mandate full-width responsive homepage carousels styled with a GPU-accelerated 3D split-opening drapes slide transition effect.
 
 ### 11. Migration Optimization and Database Integrity
@@ -320,10 +329,10 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 ### 12. Subagent Model Property Allocation
 - **Antigravity Model Injection**: When generating `GEMINI.md` or `AGENTS.md` in `src/agent_manager.js`, inject `model: \`<modelTier>\`` into `define_subagent` so subagents use configured Gemini/Claude tiers.
-- **Cursor Model Injection**: `src/cursor_manager.js` deploys `~/.cursor/agents/*.md` with `model: inherit` (Cursor Auto) by default for Free-tier compatibility. Override via `cursorModel` in `agents.json` when explicit slugs are needed.
-- **Claude & OpenCode Model Configuration**: Support whitelisting client-specific configurations via `--claude`, `--cursor`, and `--opencode` flags in the `konoha models embed` subcommand, allowing granular control over subagent LLM assignments per client IDE/CLI.
+- **Cursor Model Injection**: `src/cursor_manager.js` deploys `~/.cursor/agents/*.md` with `model: inherit` (Cursor Auto) by default for Free-tier compatibility. Override via `cursorModel` in `agents.yaml` when explicit slugs are needed.
+- **Claude & Cursor Model Configuration**: Support whitelisting client-specific configurations via `--claude` and `--cursor` flags in the `konoha models embed` subcommand, allowing granular control over subagent LLM assignments per client IDE/CLI.
 - **Models Subcommand Status & Listing**: The `konoha models status` subcommand prints current subagent model mappings for all clients. The `konoha models list` subcommand additionally includes a comprehensive table of all available/active Antigravity and bridge models.
-- **Status OpenCode Mapping**: The `konoha status` command displays the active model settings for OpenCode alongside Cursor and Claude Code integrations in its subagents list table.
+- **Status Client Mapping**: The `konoha status` command displays the active model settings for Cursor and Claude Code integrations in its subagents list table.
 
 ### 13. Cursor IDE/CLI Integration
 - **Auto-Setup**: `ensureAutoSetup()` + `cursor_manager.ensureCursorSetup()` register MCP, subagents, hooks, CLI permissions, and mirror skills to `~/.cursor/skills/`.
@@ -351,13 +360,12 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Forbidden**: `@self`, `@research`, direct project edits in orchestrator conversation.
 - **Generator**: `buildOrchestratorWorkflow()` in `agent_manager.js` — shared by `GEMINI.md` and `AGENTS.md`.
 
-### 17. Multi-CLI MCP Clients (Claude Code, OpenCode, others)
+### 17. Multi-CLI MCP Clients (Claude Code, others)
 - **Install once**: `konoha init` deploys servers to `~/.konoha/` regardless of IDE.
-- **Auto-detect**: `src/mcp_clients_manager.js` configures Claude Code / OpenCode **only when** `claude` or `opencode` CLI is on PATH (or config dir exists).
+- **Auto-detect**: `src/mcp_clients_manager.js` configures Claude Code **only when** `claude` CLI is on PATH (or config dir exists).
 - **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) and deploys the 6 official ninja subagents to `~/.claude/agents/` with whitelisted allowed-tools matching `mcp_semble_*`, `mcp_konoha_*`.
 - **Claude Code Active Agent Detection**: Scans `~/.claude/projects/*/*.jsonl` session transcripts. Resolves session directories uniquely using `conv_dir = fpath` to isolate telemetry per session.
-- **OpenCode (auto)**: Merges into `~/.config/opencode/opencode.json` (`mcp`) only — no project `opencode.json`.
-- **Not installed**: Skip silently; manual fallback templates in `docs/templates/` (`claude-code.mcp.json`, `opencode.mcp.json`).
+- **Not installed**: Skip silently; manual fallback templates in `docs/templates/` (`claude-code.mcp.json`).
 - **Self-heal**: `ensureAutoSetup()` and `konoha doctor --yes` repair when CLI is present.
 - **Tool boundaries** (all clients): `semble` = code search; `konoha` = skills & bounded file reads.
 - **Documentation**: `docs/SETUP-MCP-CLIENTS.md`.
@@ -376,15 +384,14 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Gate | Command | Pass |
 |------|---------|------|
 | MCP tests | `konoha test` | 16/16 |
-| Antigravity attribution | `python3 src/test_agent_attribution.py` | 7/7 |
-| Cursor attribution | `python3 src/test_cursor_attribution.py` | 8/8 |
-| Claude attribution | `python3 src/test_claude_attribution.py` | 8/8 |
-| Database migration check | `python3 src/test_database_migration.py` | 3/3 |
-| Fallback web search check | `python3 src/test_web_search.py` | 3/3 |
-| Bridge routing check | `python3 src/test_bridge_gateway.py` | 2/2 |
+| Antigravity attribution | `python3 tests/test_agent_attribution.py` | 7/7 |
+| Cursor attribution | `python3 tests/test_cursor_attribution.py` | 8/8 |
+| Claude attribution | `python3 tests/test_claude_attribution.py` | 8/8 |
+| Database migration check | `python3 tests/test_database_migration.py` | 3/3 |
+| Fallback web search check | `python3 tests/test_web_search.py` | 3/3 |
+| Bridge routing check | `python3 tests/test_bridge_gateway.py` | 2/2 |
 | Self-heal | `konoha doctor --yes` | All healthy |
 | Claude Code MCP | `konoha status` | Row active when `claude` CLI present |
-| OpenCode MCP | `konoha status` | Row active when `opencode` CLI present |
 | Cursor skills mirror | `ls ~/.cursor/skills/` | Matches `~/.agents/skills/` layout |
 | Live benchmarks | `konoha savings` | konoha + semble metrics |
 | Deploy sync | `konoha migrate` | Copies `server.py`, file tools, hooks to `~/.konoha/` |
@@ -401,7 +408,14 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Helpers**: `stripAnsi`, `computeTableWidths`, `gradientStatusCell`, `sectionTitle`, `drawIntegrationRow` in `bin/cli.js`.
 - **Raw Mode Guard**: Invocations of `process.stdin.setRawMode` in CLI helpers (e.g. `askQuestion`) must check if it is a function first, avoiding TypeErrors when standard input is not a TTY (redirected stdin).
 
-### 23. Cross-Platform Support (v1.1.6 QA)
+### 24. Cross-Platform Install (v1.1.7)
+- **nvm PATH fix**: Documented fix for `konoha` command not found after shell restart on all platforms.
+- **Windows nvm-windows support**: `npm install -g konoha` after `nvm use <version>`.
+- **Node.js version-agnostic**: Works with any Node.js v18+ via global npm install.
+- **Python command recording**: Auto-detects and records `python` vs `python3` in `~/.konoha/.python_cmd`.
+- **Windows line-ending fix**: CRLF→LF conversion guidance for `db_bridges.py`.
+- **Windows port 19999 fix**: `netstat`/`taskkill` alongside `fuser`.
+- **Antigravity Windows**: WSL2 recommended; limited native support.
 - **`src/platform_utils.js`**: Shared `uriToPath`, `expandUser`, `detectPython`, `getUvCommand`, `normPath` for Windows/macOS/Linux.
 - **`file_tools_launcher.js`**: Cross-platform Node launcher; reads `.node_exec_path` when IDE PATH differs from nvm.
 - **Python detection**: Windows probes `py -3`, `py`, `python3`, `python`; recorded in `~/.konoha/.python_cmd`.
@@ -420,7 +434,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Automated Transient Task Cleanup**: Deleting temporary scratch task directories and transient execution states (under `scratch/tasks/`) must be automated and performed silently/immediately without asking the user for confirmation, distinguishing them from destructive operations on persistent user databases or files.
 - **Rule Synchronization**: Automatically deployed to `~/.gemini/GEMINI.md`, `~/.agents/AGENTS.md`, and project `.cursor/rules/konoha.mdc` on rule regeneration (`node -e "require('./src/agent_manager').regenerateAndDeploy()"`).
 - **Subagent Registration Instructions**: The dynamic rules generators in `src/agent_manager.js` append the output of `buildDefineSubagentGuide(agents)` after the design delegate guide. This explicitly documents the hook-assisted subagent invocation translation mechanism in Konoha, explaining that ninja subagents can now be invoked using their bare names (TypeName: genin, jonin, etc.) because the pre-tool hook dynamically rewrites them to platform-compatible self/research values.
-- **Client Orchestration Logic Flow Alignment**: Configured configuration deployment managers (`agent_manager.js`, `bin/cli.js`) to deploy customized, platform-native rule configurations for all MCP clients. Antigravity and OpenCode utilize the global subagent rules (`GEMINI.md` / `AGENTS.md`), Cursor deploys Composer-native Task orchestration rules (`konoha.mdc`), and Claude Code receives single-agent direct execution rules (`CLAUDE.md`). This eliminates platform incompatibilities and resolves bugs where Claude Code failed to execute embedded skills due to missing subagent tools.
+- **Client Orchestration Logic Flow Alignment**: Configured configuration deployment managers (`agent_manager.js`, `bin/cli.js`) to deploy customized, platform-native rule configurations for all MCP clients. Antigravity utilizes the global subagent rules (`GEMINI.md` / `AGENTS.md`), Cursor deploys Composer-native Task orchestration rules (`konoha.mdc`), and Claude Code receives single-agent direct execution rules (`CLAUDE.md`). This eliminates platform incompatibilities and resolves bugs where Claude Code failed to execute embedded skills due to missing subagent tools.
 
 ### 25. Provider-Specific Savings Attribution (v1.1.6 QA)
 - **Active Client Detection**: `detect_active_client()` in `src/server.py` dynamically resolves the calling client by checking the environment variable `ANTIGRAVITY_CONVERSATION_ID` (always maps to `antigravity`) or scanning transcript files in `~/.cursor/projects` and `~/.claude/projects` to find the most recently modified session.
@@ -428,11 +442,11 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **TUI Display**: `konoha savings` displays a dedicated "Provider Breakdown" table, showing Today, Last 7 Days, and All Time statistics (calls and tokens) partitioned specifically across `Antigravity IDE`, `Antigravity CLI (agy)`, `Cursor`, and `Claude Code`.
 
 ### 26. Dynamic Skill Routing & Clean Configs (v1.1.6)
-- **Clean Configuration Files**: `~/.agents/agents.json` on disk is kept completely free of hardcoded `Before work: find_skill(...)` checks. This avoids checklist bloat and keeps the source-of-truth file concise.
+- **Clean Configuration Files**: `~/.agents/agents.yaml` on disk is kept completely free of hardcoded `Before work: find_skill(...)` checks. This avoids checklist bloat and keeps the source-of-truth file concise.
 - **Dynamic Checklists & Generation**: Roster compilers in [src/cursor_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/cursor_manager.js) and [src/antigravity_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/antigravity_manager.js) dynamically strip any residual/legacy checklist instructions and inject the appropriate `Before work: find_skill` checklist at compilation/deployment time based *only* on the agent's current active `skills` array.
-- **SQLite-Driven Dynamic Skills**: Subagent configurations (`a.skills` arrays) and the global "Routing by Domain" table are dynamically resolved and built at rule compilation time by querying the SQLite database (`skills.db`) and matching them against the subagents' configured base skills from `agents.json`. This guarantees skill configurations and descriptions are never hardcoded in files, templates, or instructions, immediately reflecting any new skill additions or deletions.
+- **SQLite-Driven Dynamic Skills**: Subagent configurations (`a.skills` arrays) and the global "Routing by Domain" table are dynamically resolved and built at rule compilation time by querying the SQLite database (`skills.db`) and matching them against the subagents' configured base skills from `agents.yaml`. This guarantees skill configurations and descriptions are never hardcoded in files, templates, or instructions, immediately reflecting any new skill additions or deletions.
 - **Direct Tool Calls Fallback**: If a discovered skill is not embedded in any subagent configuration, the task coordinator routes the execution directly to the main orchestrator thread to execute the task using Direct Tool Calls rather than nesting subagents.
-- **Persistent Upgrade Marker**: Uses a persistent marker file (`~/.agents/.upgraded_v1.1.1`) to decouple the agent format checks from the presence of default skills in `agents.json`, enabling users to freely add, change, or unembed official skills for each subagent.
+- **Persistent Upgrade Marker**: Uses a persistent marker file (`~/.agents/.upgraded_v1.1.1`) to decouple the agent format checks from the presence of default skills in `agents.yaml`, enabling users to freely add, change, or unembed official skills for each subagent.
 - **Depth Calculation Correction**: Resolves depth calculation resetting in nested task directories by reading from both incoming `delegate.md` and target `delegate.md` files to ensure accurate sequence tracing.
 
 ### 27. Surgically Preserved Skills & Antigravity Lazy MCP Schemas (v1.1.6)
@@ -474,15 +488,15 @@ Serves all skill knowledge retrieval, bounded file operations, and project scaff
   * *Arguments*: `query` (string, required), `dir` (string, optional), `top_k` (integer, default 5).
 * **`mcp_sannin`**: Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.
   * *Arguments*: `prompt` (string, optional), `task_dir` (string, optional).
-* **`mcp_kage`**: Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.
+* **`mcp_kage`**: Village Leader & Architect subagent. Focuses on architecture decisions, security audits, critical problem solving, and diagrams (`drawio`, `mermaid`).
   * *Arguments*: `task_dir` (string, optional).
 * **`mcp_jonin`**: UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.
   * *Arguments*: `task_dir` (string, optional).
-* **`mcp_anbu`**: Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.
+* **`mcp_anbu`**: Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, infra, messaging/caching, cyber defense, and prompt engineering.
   * *Arguments*: `task_dir` (string, optional).
 * **`mcp_chunin`**: Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.
   * *Arguments*: `task_dir` (string, optional).
-* **`mcp_tokubetsu_jonin`**: Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.
+* **`mcp_tokubetsu_jonin`**: Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, PDF reports, postmortems, and documentation.
   * *Arguments*: `task_dir` (string, optional).
 * **`mcp_genin`**: Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.
   * *Arguments*: `task_dir` (string, optional).
@@ -494,3 +508,17 @@ Used for semantic code searches and locating codebase references in workspace so
   * *Arguments*: `query` (string, required), `repo` (string, required), `top_k` (integer, default 5), `max_snippet_lines` (integer, default 10).
 * **`find_related`**: Locate code similar to a known file path and line location.
   * *Arguments*: `file_path` (string, required), `line` (integer, required), `repo` (string, required), `top_k` (integer, default 5), `max_snippet_lines` (integer, default 10).
+
+
+## Important Maintenance Knowledge
+
+### Proxy Gateway Port Collision (19999)
+If the Konoha MCP server crashes with `signal: terminated` or `signal: killed` upon initialization in the IDE, it is almost always caused by an orphaned Node process keeping the Bridge Gateway port **19999** open (`EADDRINUSE`).
+**Fix:** Run `fuser -k 19999/tcp` to kill the orphaned process, then completely restart the Antigravity/Cursor IDE session to clear the client's failure cache.
+
+### Buffer Management
+When debugging `ENOBUFS` exceptions in Konoha MCP tools, ensure the `maxBuffer` in `file_tools_router.js` is set to `1024 * 1024 * 1024` (1GB) to accommodate massive subagent instruction payloads.
+
+### Tool Testing
+The `tests/test_mcp_e2e.js` script dynamically tests all 20+ exported tools in `file_tools_router.js`. It utilizes `os.homedir()` to ensure cross-machine compatibility for team environments.
+

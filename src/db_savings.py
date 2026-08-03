@@ -177,7 +177,6 @@ def query_stats(conn, time_filter=None):
         "agy": {"calls": 0, "bytes": 0, "tokens": 0},
         "cursor": {"calls": 0, "bytes": 0, "tokens": 0},
         "claudecode": {"calls": 0, "bytes": 0, "tokens": 0},
-        "opencode": {"calls": 0, "bytes": 0, "tokens": 0}
     }
     
     query_client = f"""

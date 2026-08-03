@@ -39,7 +39,7 @@ function resolveWorkspace(ctx, messages, payload, req) {
         .join('\n');
       const allText = sysMsgs + '\n' + usrMsgs;
 
-      // 1. Look for explicit directory mentions from OpenCode/Cursor system prompt
+      // 1. Look for explicit directory mentions from Cursor system prompt
       const explicitMatch = allText.match(
         /(?:working in.*?directory|current workspace|workspace directory).*?([a-zA-Z]:\\[^\s"'>]+)/i,
       );

@@ -22,8 +22,9 @@ import os
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
-import subprocess
 import tempfile
+from yaml_parser import parse_yaml, serialize_yaml, load_yaml_file, dump_yaml_file
+import glob
 # PIL is NOT imported at module level to avoid crashing MCP on systems without Pillow.
 # PIL is lazy-loaded inside build_from_source() for image analysis.
 
@@ -56,8 +57,8 @@ CLAUDE_PROJECTS = os.path.join(CLAUDE_DIR, "projects")
 
 USER_AGENTS_YAML = os.path.join(AGENTS_DIR, "agents.yaml")
 
-WORKSPACE_ROOT = None
-ACTIVE_CLIENT = None
+WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", os.environ.get("KONOHA_WORKSPACE", os.getcwd()))
+ACTIVE_CLIENT = os.environ.get("ACTIVE_CLIENT", os.environ.get("KONOHA_CLIENT", "antigravity"))
 
 
 def konoha_tmp(client: str, session_id: str) -> str:
@@ -73,6 +74,9 @@ def sanitize_fts5_query(query):
     """
     if not query:
         return ""
+
+    # Normalize unicode smart quotes to ASCII quote or single quote
+    query = query.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
     
     # Extract and protect valid NEAR expressions
     nears = []
@@ -94,7 +98,7 @@ def sanitize_fts5_query(query):
 
     # Replace all punctuation/operators (including colons, carets, hyphens, slashes, commas) 
     # except alphanumeric, spaces, underscores, wildcards, quotes, and parentheses.
-    query = re.sub(r'[^a-zA-Z0-9_\s*()"]', ' ', query)
+    query = re.sub(r'[^\w\s*()"]', ' ', query, flags=re.UNICODE)
     
     # Balance double quotes (strip all if odd count)
     if query.count('"') % 2 != 0:
@@ -155,9 +159,9 @@ def shield_prompt_injection(content):
         (r'(?i)#+\s*Subagent\s+Definitions', '# [NEUTRALIZED] Subagent Definitions'),
         (r'(?i)#+\s*Auto-Delegation', '# [NEUTRALIZED] Auto-Delegation'),
         (r'(?i)#+\s*Tools\s+&\s+Guardrails', '# [NEUTRALIZED] Tools & Guardrails'),
-        (r'(?i)#+\s*@(orchestrator|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)\b', '# [NEUTRALIZED] Subagent Spoof'),
+        (r'(?i)#+\s*@(self|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)\b', '# [NEUTRALIZED] Subagent Spoof'),
         (r'(?i)At\s+the\s+START\s+of\s+every\s+session,\s+define\s+the\s+following', '[NEUTRALIZED ACTION] Define subagents'),
-        (r'(?i)The\s+orchestrator\s+MUST\s+follow\s+this\s+workflow', '[NEUTRALIZED ACTION] Orchestrator workflow'),
+        (r'(?i)The\s+main agent\s+MUST\s+follow\s+this\s+workflow', '[NEUTRALIZED ACTION] Main agent workflow'),
         (r'(?i)Every\s+response\s+MUST\s+start\s+with\s+a\s+log\s+line', '[NEUTRALIZED RULE] Start response log'),
     ]
     
@@ -203,6 +207,174 @@ def get_db():
     return conn
 
 
+# ──────────────── Migration helpers (mirrors migrate.py logic) ────────────────
+
+def _extract_tags_from_frontmatter(content):
+    match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+    if not match:
+        return ""
+    frontmatter = match.group(1)
+    desc_match = re.search(r'description:\s*["\']?(.*?)["\']?\s*$', frontmatter, re.MULTILINE)
+    if not desc_match:
+        return ""
+    description = desc_match.group(1)
+    stop_words = {
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+        'has', 'have', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+        'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those',
+        'it', 'its', 'use', 'used', 'using', 'when', 'what', 'how', 'which',
+        'who', 'where', 'why', 'not', 'no', 'all', 'any', 'each', 'every',
+        'such', 'than', 'too', 'very', 'just', 'only', 'also', 'into',
+        'across', 'about', 'up', 'out', 'if', 'then', 'so', 'as',
+    }
+    words = re.findall(r'[a-zA-Z0-9_-]+', description.lower())
+    keywords = [w for w in words if w not in stop_words and len(w) > 2]
+    seen = set()
+    unique = []
+    for kw in keywords:
+        if kw not in seen:
+            seen.add(kw)
+            unique.append(kw)
+    return ",".join(unique[:30])
+
+
+def _optimize_content(content):
+    if not content:
+        return ""
+    content = re.sub(r'[ \t]+$', '', content, flags=re.MULTILINE)
+    content = re.sub(r'\n([ \t]*\n){2,}', '\n\n', content)
+    content = shield_prompt_injection(content)
+    return content.strip()
+
+
+def _setup_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.row_factory = sqlite3.Row
+    conn.commit()
+    return conn
+
+
+def _auto_detect_skills(skills_dir):
+    detected = []
+    if not os.path.isdir(skills_dir):
+        return detected
+    for entry in sorted(os.listdir(skills_dir)):
+        entry_path = os.path.join(skills_dir, entry)
+        if os.path.isdir(entry_path):
+            skill_md = os.path.join(entry_path, "SKILL.md")
+            if os.path.isfile(skill_md):
+                detected.append(entry)
+        elif os.path.isfile(entry_path) and entry.endswith("-skill.md"):
+            detected.append(entry)
+    return detected
+
+
+def _migrate_skill(conn, skill_name, skills_dir):
+    if skill_name.endswith(".md"):
+        skill_name_clean = os.path.splitext(skill_name)[0]
+        file_path = os.path.join(skills_dir, skill_name)
+        if not os.path.isfile(file_path):
+            return 0
+        conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name_clean,))
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_content = f.read()
+        tags = _extract_tags_from_frontmatter(raw_content)
+        content = _optimize_content(raw_content)
+        byte_size = len(content.encode("utf-8"))
+        line_count = content.count("\n") + 1
+        conn.execute("DELETE FROM skills WHERE name = ?", (skill_name_clean,))
+        conn.execute(
+            "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (skill_name_clean, skill_name_clean, "skill", tags, content, file_path, byte_size, line_count)
+        )
+        return 1
+
+    skill_dir = os.path.join(skills_dir, skill_name)
+    if not os.path.isdir(skill_dir):
+        return 0
+
+    conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name,))
+    count = 0
+
+    skill_md = os.path.join(skill_dir, "SKILL.md")
+    if os.path.isfile(skill_md):
+        with open(skill_md, "r", encoding="utf-8") as f:
+            raw_content = f.read()
+        tags = _extract_tags_from_frontmatter(raw_content)
+        content = _optimize_content(raw_content)
+        byte_size = len(content.encode("utf-8"))
+        line_count = content.count("\n") + 1
+        conn.execute("DELETE FROM skills WHERE name = ?", (skill_name,))
+        conn.execute(
+            "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (skill_name, skill_name, "skill", tags, content, skill_md, byte_size, line_count)
+        )
+        count += 1
+
+    refs_dir = os.path.join(skill_dir, "references")
+    if os.path.isdir(refs_dir):
+        for ref_path in sorted(glob.glob(os.path.join(refs_dir, "*.md"))):
+            ref_name_raw = os.path.splitext(os.path.basename(ref_path))[0]
+            ref_key = f"{skill_name}/{ref_name_raw}"
+            with open(ref_path, "r", encoding="utf-8") as f:
+                raw_content = f.read()
+            tags = ",".join([skill_name] + ref_name_raw.split("-"))
+            content = _optimize_content(raw_content)
+            byte_size = len(content.encode("utf-8"))
+            line_count = content.count("\n") + 1
+            conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
+            conn.execute(
+                "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (ref_key, skill_name, "reference", tags, content, ref_path, byte_size, line_count)
+            )
+            count += 1
+
+    return count
+
+
+def migrate_skills(force=False, skills=None, skills_dir=None):
+    """Re-index all skills in ~/.agents/skills into the SQLite FTS5 database.
+    Returns a summary of what was migrated."""
+    sys.stderr.write(f"[mcp konoha] tool_call: migrate_skills(force={force}, skills={skills})\n")
+    sys.stderr.flush()
+
+    if skills_dir is None:
+        skills_dir = os.path.expanduser("~/.agents/skills/")
+    if not os.path.isdir(skills_dir):
+        return json.dumps({"status": "error", "message": f"Skills directory not found: {skills_dir}"})
+
+    conn = _setup_db()
+
+    if skills is None or len(skills) == 0:
+        skills = _auto_detect_skills(skills_dir)
+
+    total = 0
+    migrated = []
+    for skill_name in skills:
+        count = _migrate_skill(conn, skill_name, skills_dir)
+        total += count
+        migrated.append(skill_name)
+
+    conn.commit()
+
+    cursor = conn.execute("SELECT COUNT(*) FROM skills")
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    return json.dumps({
+        "status": "ok",
+        "migrated": migrated,
+        "total_skills_migrated": total,
+        "total_entries_in_db": count,
+        "skills_dir": skills_dir
+    })
+
+
 def is_path_visible(file_path):
     """
     Check if a skill path is visible to the current session / workspace.
@@ -216,9 +388,9 @@ def is_path_visible(file_path):
     # Normalize paths (resolve symlinks, remove relative segments, lowercase drive letters on Windows)
     norm_fp = os.path.normcase(os.path.realpath(file_path))
     
-    # Check if the path contains custom/workspace skills directories (.agents/skills, .gemini/skills, or .konoha/skills)
+    # Check if the path contains custom/workspace skills directories (.agents/skills, .cursor/skills, .gemini/skills, .konoha/skills, skills/, docs/skills)
     normalized_slash_path = norm_fp.replace(os.sep, "/")
-    if ".agents/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path or ".konoha/skills" in normalized_slash_path:
+    if ".agents/skills" in normalized_slash_path or ".cursor/skills" in normalized_slash_path or ".gemini/skills" in normalized_slash_path or ".konoha/skills" in normalized_slash_path or "/skills/" in normalized_slash_path or "/docs/skills" in normalized_slash_path:
         return True
 
     global_agents = os.path.normcase(os.path.realpath(AGENTS_DIR))
@@ -281,7 +453,10 @@ def detect_active_client():
             if os.path.isdir(ide_dir):
                 return "antigravity"
 
-        if ACTIVE_CLIENT:
+        if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
+            return "claudecode"
+
+        if ACTIVE_CLIENT and ACTIVE_CLIENT != "antigravity":
             return ACTIVE_CLIENT
 
         if conv_id:
@@ -327,39 +502,18 @@ def detect_active_client():
     return "antigravity"
 
 
-SUBAGENT_MCP_BLOCK = """## MCP Tools Available To You
-
-You are connected to the same MCP servers as the orchestrator. You MUST use them — built-in file/code tools (Read/Write/Edit/Grep/Glob/cat/head/grep/rg/find) are forbidden.
-
-| Tool | Purpose |
-|---|---|
-| `mcp__semble__search` | Project source code search (default for any codebase lookup) |
-| `mcp__semble__find_related` | Symbol / codepath discovery (default for tracing callsites) |
-| `mcp__konoha__find_skill` | Discover skill reference names from the user prompt |
-| `mcp__konoha__get_skill` | Load a skill's full content (after find_skill) |
-| `mcp__konoha__list_skills` | Browse all available skills |
-| `mcp__konoha__read_file_head` | Bounded file read (head, ≤100 lines) |
-| `mcp__konoha__read_file_range` | Bounded file read by StartLine/EndLine |
-| `mcp__konoha__token_efficient_grep` | Token-aware grep with line numbers |
-| `mcp__konoha__file_info` | Inspect a file's size / line count / metadata |
-| `mcp__konoha__get_file_structure` | Get a file's outline / symbols |
-| `mcp__konoha__find_files_clean` | Find files by glob / pattern |
-| `mcp__konoha__search_file` | Search inside a single file (offset-aware) |
-| `mcp__konoha__get_resolved_task_dir` | Resolve the absolute scratch dir for this task |
-| `mcp__konoha__mcp_sannin` | Return control to the orchestrator (write `result.md` first) |
-
-### Routing rules (do not violate)
-- **Codebase search** → `mcp__semble__search` / `mcp__semble__find_related`. Never use `find_skill` for codebase/file search.
-- **Skill lookup** → `mcp__konoha__find_skill` / `mcp__konoha__get_skill`. Never use `mcp__semble__search` for skills (it burns API tokens).
-- **Bounded file reads** → `mcp__konoha__read_file_head` / `mcp__konoha__read_file_range`. Never read entire files when a range is enough.
-- **No shell grep/rg/find/cat/head.** If the above tools are unreachable, surface the failure to `result.md` instead of falling back to shell.
-
-"""
-
-
 def build_subagent_mcp_block(client=None):
-    """Return the MCP-tools block injected into every mcp_<agent> subagent prompt."""
-    return SUBAGENT_MCP_BLOCK
+    """Return the MCP-tools block injected into every mcp_<agent> subagent prompt from SQLite."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute("SELECT content FROM skills WHERE name = ?", ("konoha/mcp-tools-block",)).fetchone()
+        conn.close()
+        if row and row[0]:
+            return f"\n{row[0]}\n"
+    except Exception:
+        pass
+    return "\n## MCP Tools Available To You\n[Check konoha/mcp-tools-block for available tools]\n"
 
 
 def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
@@ -387,7 +541,7 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
         is_new_turn = (current_time - last_time) > 60
         LAST_CALL_TIMES[agent_key] = current_time
         
-        if tool_name == "get_skill" or str(tool_name).startswith("mcp_") or not is_new_turn:
+        if tool_name == "get_skill" or not is_new_turn:
             bytes_saved = 0
             tokens_saved = 0
             total_library_bytes = returned_bytes
@@ -777,12 +931,44 @@ def get_agent_skills(agent_name):
     return None
 
 
+def normalize_framework_name(framework):
+    if not framework:
+        return "SvelteKit"
+    fw_clean = str(framework).lower().replace(".", "").replace(" ", "").replace("-", "")
+    if fw_clean in ("next", "nextjs", "react"):
+        return "Next.js 16"
+    elif fw_clean in ("svelte", "sveltekit"):
+        return "SvelteKit"
+    elif fw_clean in ("nuxt", "nuxt3", "vue"):
+        return "Nuxt 3"
+    elif fw_clean in ("angular", "ng"):
+        return "Angular v19+ Signals"
+    return framework
+
+
+def _load_skill_content_for_build(skill_names, conn):
+    """Load actual skill content from SQLite for embedding in build output."""
+    blocks = []
+    for name in skill_names:
+        resolved = _fuzzy_resolve_skill(name, conn)
+        effective = resolved or name
+        try:
+            row = conn.execute("SELECT content FROM skills WHERE name = ?", (effective,)).fetchone()
+            if row and row[0]:
+                blocks.append({"skill_name": effective, "content": row[0]})
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Error loading skill {effective}: {e}\n")
+            pass
+    return blocks
+
+
+
 def build_from_source(name, source_dir, framework, agent_name=None):
     """
     Analyze design mockup layouts and reference source files in source_dir and set up project configuration.
     """
     global WORKSPACE_ROOT
-    display_framework = "Next.js" if framework == "nextjs" else "SvelteKit" if framework == "svelte" else framework
+    display_framework = normalize_framework_name(framework)
     resolved_source_dir = source_dir
     if not os.path.isabs(resolved_source_dir):
         workspace = WORKSPACE_ROOT if WORKSPACE_ROOT else os.getcwd()
@@ -830,7 +1016,17 @@ def build_from_source(name, source_dir, framework, agent_name=None):
         from PIL import Image as _Image
         _pil_available = True
     except ImportError:
-        pass
+        import subprocess
+        import sys
+        sys.stderr.write("[mcp konoha] Pillow not found. Auto-installing Pillow...\n")
+        sys.stderr.flush()
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "install", "Pillow"], check=True)
+            from PIL import Image as _Image
+            _pil_available = True
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Failed to auto-install Pillow: {e}\n")
+            sys.stderr.flush()
 
     def _analyze_image(fpath):
         meta = {}
@@ -840,6 +1036,7 @@ def build_from_source(name, source_dir, framework, agent_name=None):
             meta["size_bytes"] = 0
         
         if not _pil_available or not _Image:
+            meta["warning"] = "Pillow library not installed; image dimensions not analyzed. Please run: pip install Pillow"
             return meta
         
         lower = fpath.lower()
@@ -910,41 +1107,7 @@ def build_from_source(name, source_dir, framework, agent_name=None):
                 layout_hints.append(f"{m['filename']} ({m['width']}x{m['height']}, {orient})")
 
     directives = [
-        f"Build a clean {display_framework} website named '{name}' based on the source design directory '{source_dir}'.",
-        "DESIGN FIDELITY DIRECTIVES (MANDATORY — ZERO EXCEPTION):",
-        "  1. **100% EXACT MATCH WITH SOURCE DESIGN**: You MUST reproduce the source design with pixel-perfect accuracy. NO hallucination, NO invention, NO adding elements that don't exist in the source. Match layout, colors, spacing, typography, and component structure exactly as shown in the source files/mockups.",
-        "  2. **NO DARK MODE**: All layouts MUST be Light Mode only. NEVER use dark backgrounds, dark themes, or dark color schemes unless the source design explicitly uses them. If the source design is dark, replicate it exactly.",
-        "  3. **Premium 3D Effect Animations on ALL Page Components**: Enhance the source design with premium 3D animations on every component: 3D perspective tilt on hover for cards, GPU-accelerated entrance animations on scroll-into-view, parallax depth effects, floating animations on icons, staggered 3D cascade reveals for grids, and smooth spring-based micro-interactions. These animations must ENHANCE the source design without altering its layout or structure.",
-        "  4. **Footer Watermark**: The footer MUST include the watermark: `Build by Konoha` in small, elegant, muted typography.",
-        "  5. **Custom Error Pages (4xx & 5xx)**: Create unique, premium, and visually delightful error pages for 400, 403, 404, 500, 502, and 503 status codes with cute 3D animated illustrations, gradient accents, clear error messages, helpful navigation links, and smooth entrance animations.",
-        "DO NOT implement the default generic visual effects template (such as the 10-theme switcher, generic 3D carousels, or SweetAlert2 premium dialogs) UNLESS they are explicitly present in the source design files/mockups.",
-        "You MUST read and analyze every provided reference source file and design mockup image to guide your construction.",
-        "Use high-quality visually appealing placeholder images (e.g., from Unsplash or picsum.photos) for any required media assets not provided in the source directory.",
-        "PERFORMANCE DIRECTIVES:",
-        "  1. Lazy load all heavy components (3D, WebGL, carousels) with dynamic imports and `ssr: false`.",
-        "  2. Use `next/image` (Next.js) or optimized image components for all images.",
-        "  3. Split 3D bundles from main bundle. Minimize client-side JavaScript.",
-        "  4. Respect `prefers-reduced-motion` with graceful fallbacks.",
-        "SEO DIRECTIVES:",
-        "  1. Implement proper `<title>`, `<meta name='description'>`, Open Graph, and Twitter Card meta tags on every page.",
-        "  2. Use semantic HTML5 elements and proper heading hierarchy (single `<h1>` per page).",
-        "  3. Generate `sitemap.xml` and `robots.txt`. Add structured data (JSON-LD).",
-        "  4. Ensure all images have descriptive `alt` attributes. Use canonical URLs.",
-        "SECURITY DIRECTIVES:",
-        "  1. Implement CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy headers.",
-        "  2. Sanitize all user inputs. Use CSRF protection for forms and server actions.",
-        "  3. Never expose API keys, tokens, or secrets to the client/browser.",
-        "QUALITY GUARANTEE:",
-        "  1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately.",
-        "  2. DO NOT hardcode ANY sensitive or environment-specific values. Provide a `.env.example` file.",
-        "  3. Ensure ALL libraries are safe from known CVEs. Run `pnpm audit` and resolve vulnerabilities.",
-        "  4. The build result MUST have ZERO errors and ZERO warnings during both `pnpm lint` and `pnpm build`.",
-        f"  5. Ensure the final result is highly stable for production-grade {display_framework} deployments.",
-        f"Upon completion, you MUST start the dev server with auto-open: `pnpm run dev --open` (or equivalent for {display_framework}) so the result opens automatically in the browser for live preview.",
-        "EXISTING PROJECT GUARDRAILS:",
-        "  1. If working in an existing project, NEVER touch or modify existing logic, components, or code that the user did not explicitly ask to change.",
-        "  2. Only do exactly what the user requested. If you have improvement ideas, ASK the user first.",
-        "  3. NEVER hallucinate, fabricate, or silently update/change design elements without the user's explicit approval."
+        f"Build a clean {display_framework} website named '{name}' based on the source design directory '{source_dir}'."
     ]
 
     if detected_images:
@@ -990,11 +1153,81 @@ def build_from_source(name, source_dir, framework, agent_name=None):
         else:
             agent_skills = []
 
+    fw_lower_src = display_framework.lower()
+    if "next" in fw_lower_src or "react" in fw_lower_src:
+        framework_skills_src = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/nextjs-ui-expert",
+            "jonin-skill/nextjs-code-expert"
+        ]
+    elif "svelte" in fw_lower_src:
+        framework_skills_src = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/svelte-ui-expert",
+            "jonin-skill/svelte-code-expert"
+        ]
+    elif "nuxt" in fw_lower_src:
+        framework_skills_src = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/nuxt-ui-expert",
+            "jonin-skill/nuxt-code-expert"
+        ]
+    elif "angular" in fw_lower_src:
+        framework_skills_src = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/angular-ui-expert",
+            "jonin-skill/angular-code-expert"
+        ]
+    else:
+        framework_skills_src = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives"
+        ]
+
+    for fs in framework_skills_src:
+        if fs not in agent_skills:
+            agent_skills.append(fs)
+
     absolute_image_paths = []
     if detected_images:
         for m in detected_images:
             fpath = os.path.join(resolved_source_dir, m["filename"])
             absolute_image_paths.append(os.path.abspath(fpath))
+
+    directives.append("You MUST follow the package.json template, CSS variables, and routing rules from the embedded skill content below.")
+    directives.append("Use SvelteKit file-based routing (src/routes/) — NEVER hash-based SPA routing.")
+    directives.append("Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and svelte-check.")
+
+    # Load critical skill content
+    skill_blocks = []
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        fw_base = "svelte" if "svelte" in fw_lower_src else "nextjs" if "next" in fw_lower_src or "react" in fw_lower_src else "nuxt" if "nuxt" in fw_lower_src else "angular" if "angular" in fw_lower_src else None
+        critical_skills = [
+            f"jonin-skill/{fw_base}-code-expert" if fw_base else None,
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/design-token-manifest",
+        ]
+        critical_skills = [s for s in critical_skills if s]
+        skill_blocks = _load_skill_content_for_build(critical_skills, conn)
+        conn.close()
+    except Exception as e:
+        sys.stderr.write(f"[mcp konoha] Error loading skill content for build_from_source: {e}\n")
+        sys.stderr.flush()
 
     spec = {
         "status": "success",
@@ -1010,7 +1243,8 @@ def build_from_source(name, source_dir, framework, agent_name=None):
         "skill_load_sequence": agent_skills,
         "delegate_constraints": directives,
         "absolute_image_paths": absolute_image_paths,
-        "forbid_build_from_text": len(detected_images) > 0
+        "forbid_build_from_text": len(detected_images) > 0,
+        "embedded_skill_content": skill_blocks
     }
 
     res = json.dumps(spec, indent=2)
@@ -1023,7 +1257,7 @@ def build_from_text(name, description, framework, agent_name=None):
     Generate structure and instructions from description, automatically including
     the default premium templates and visual effects.
     """
-    display_framework = "Next.js" if framework == "nextjs" else "SvelteKit" if framework == "svelte" else framework
+    display_framework = normalize_framework_name(framework)
     
     # Read skills assigned to the active agent or default to the "jonin" agent's skill
     agent_skills = None
@@ -1052,57 +1286,94 @@ def build_from_text(name, description, framework, agent_name=None):
         else:
             agent_skills = []
 
-    build_directives = [
-            f"Build a premium, elegant {display_framework} website named '{name}' based on the description: '{description}'.",
-            "DESIGN DIRECTIVES (MANDATORY — ZERO EXCEPTION):",
-            "  1. **NO DARK MODE**: All layouts MUST be Light Mode only. NEVER use dark backgrounds, dark themes, or dark color schemes. Backgrounds must be clean, bright, and elegant (white, off-white, subtle warm grays, or light gradient washes).",
-            "  2. **Premium Gradient Color Theme**: Use a single, cohesive premium gradient color palette throughout the entire site. Define CSS custom properties for `--gradient-primary` (e.g. `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`), `--gradient-accent`, `--color-primary`, `--color-accent` in `globals.css` / `app.css`. All buttons, headings, icons, borders, and interactive elements must use these gradient variables. NO flat/generic colors (plain red, blue, green). Use curated HSL-based harmonious palettes.",
-            "  3. **10-Theme Switcher (Light Mode Only)**: Implement the custom 10-theme switcher component. It MUST NOT include dark mode options (since the site is strictly Light Mode), but instead provide 10 distinct, premium gradient color themes for the user to select from dynamically.",
-            "  4. **Premium 3D Effect Animations on ALL Page Components**: EVERY visible component must have premium 3D animations — not just carousels. This includes: 3D perspective tilt on hover for all cards/sections, GPU-accelerated entrance animations (using `perspective`, `rotateX`/`rotateY`, `translateZ`, `scale`) on scroll-into-view, 3D flip/rotate transitions for modals and dialogs, parallax depth effects on hero sections, floating/levitate animations on feature icons, staggered 3D cascade reveals for grid items, and smooth spring-based micro-interactions on all interactive elements. Use `will-change: transform` and `transform: translateZ(0)` for GPU acceleration.",
-            "  5. **Premium & Elegant Look**: The design must feel luxurious and state-of-the-art. Use modern premium typography (Google Fonts: Inter, Outfit, or Playfair Display for headings), generous whitespace, smooth glassmorphism (`backdrop-blur`), subtle shadows with depth layers, and polished border treatments. Every element must feel intentionally crafted.",
-            "  6. **Homepage Hero Banner 3D Carousel**: Full-width edge-to-edge hero section with interactive 3D carousel slider (minimum 4 images), GPU-accelerated 3D split-opening drapes effect, smooth autoplay with controls. Must be highly responsive for mobile/desktop.",
-            "  7. **3D GPU Card Hover & Animated Glows**: ALL card components must feature 3D perspective rotation on hover combined with radial mouse-tracking gradient glow borders.",
-            "  8. **Custom 3D SweetAlert2 Dialogs**: All system alerts/confirmations MUST use `sweetalert2` with 3D entrance transitions and gradient-styled confirm buttons.",
-            "  9. **Custom Styled SVG/CSS Logo**: Premium inline SVG icon + gradient typography logo in header and footer, dynamically displaying the project name.",
-            "  10. **Footer Watermark**: The footer MUST feature the watermark: `Build by Konoha` in small, elegant, muted typography.",
-            "  11. **Custom Error Pages (4xx & 5xx)**: Create unique, premium, and visually delightful error pages for 400, 403, 404, 500, 502, and 503 status codes. Each error page must feature: a cute/friendly 3D animated illustration or character (using CSS 3D transforms or Framer Motion), the gradient color theme, a clear error message with helpful navigation links, and smooth entrance animations. These pages should make users smile even when encountering errors.",
-            "  12. **Mobile Bottom Navigation**: Sticky bottom nav bar with Lucide icons for mobile, using gradient theme variables.",
-            "Use high-quality visually appealing placeholder images (e.g., from Unsplash or picsum.photos) for any required media assets.",
-            "PERFORMANCE DIRECTIVES:",
-            "  1. Lazy load all heavy components (3D, WebGL, carousels) with dynamic imports and `ssr: false`.",
-            "  2. Use `next/image` (Next.js) or optimized image components for all images with proper `width`, `height`, `loading='lazy'`, and `sizes` attributes.",
-            "  3. Split 3D bundles from main bundle using `optimizePackageImports` in framework config.",
-            "  4. Respect `prefers-reduced-motion` with graceful fallbacks.",
-            "  5. Minimize client-side JavaScript — default to Server Components (Next.js) or server-side rendering where possible.",
-            "  6. Use code splitting and tree shaking. No unused imports or dead code.",
-            "SEO DIRECTIVES:",
-            "  1. Implement proper `<title>` and `<meta name='description'>` on every page with unique, keyword-rich content.",
-            "  2. Use a single `<h1>` per page with proper heading hierarchy (h1 > h2 > h3).",
-            "  3. Use semantic HTML5 elements (`<nav>`, `<main>`, `<article>`, `<section>`, `<aside>`, `<footer>`).",
-            "  4. Add Open Graph (`og:title`, `og:description`, `og:image`) and Twitter Card meta tags.",
-            "  5. Generate `sitemap.xml` and `robots.txt`.",
-            "  6. Add structured data (JSON-LD) for the primary content type.",
-            "  7. Ensure all images have descriptive `alt` attributes.",
-            "  8. Use canonical URLs to prevent duplicate content.",
-            "SECURITY DIRECTIVES:",
-            "  1. Implement Content Security Policy (CSP) headers.",
-            "  2. Add X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy headers.",
-            "  3. Sanitize all user inputs. Never use `dangerouslySetInnerHTML` with user-provided content.",
-            "  4. Use CSRF protection for all form submissions and server actions.",
-            "  5. Never expose API keys, tokens, or secrets to the client/browser. All sensitive values MUST be server-side only.",
-            "  6. Validate and sanitize server-side. Use parameterized queries for any database operations.",
-            "QUALITY GUARANTEE:",
-            "  1. Ensure no deprecated libraries/modules during `pnpm install`; update them to the latest version immediately if any warnings appear.",
-            "  2. DO NOT hardcode ANY sensitive or environment-specific values. Extract ALL secrets, API keys, database URLs, and configuration values into `.env` files. Provide a `.env.example` file with placeholder values and comments documenting each variable.",
-            "  3. Ensure ALL libraries and dependencies are safe from known CVEs (Common Vulnerabilities and Exposures). Run `pnpm audit` and resolve any vulnerabilities.",
-            "  4. The build result MUST have ZERO errors and ZERO warnings during both `pnpm lint` and `pnpm build`. No exceptions.",
-            f"  5. Ensure the final result is highly stable, specifically tailored for production-grade {display_framework} deployments.",
-            f"Upon completion, you MUST start the dev server with auto-open: `pnpm run dev --open` (or equivalent for {display_framework}) so the result opens automatically in the browser for live preview.",
-            "EXISTING PROJECT GUARDRAILS:",
-            "  1. If working in an existing project, NEVER touch or modify existing logic, components, or code that the user did not explicitly ask to change.",
-            "  2. Only do exactly what the user requested. If you have improvement ideas, ASK the user first before implementing.",
-            "  3. NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, or functionality without the user's explicit knowledge and approval."
+    fw_lower = display_framework.lower()
+    if "next" in fw_lower or "react" in fw_lower:
+        framework_skills = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/nextjs-ui-expert",
+            "jonin-skill/nextjs-code-expert"
         ]
+    elif "svelte" in fw_lower:
+        framework_skills = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/svelte-ui-expert",
+            "jonin-skill/svelte-code-expert"
+        ]
+    elif "nuxt" in fw_lower:
+        framework_skills = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/nuxt-ui-expert",
+            "jonin-skill/nuxt-code-expert"
+        ]
+    elif "angular" in fw_lower:
+        framework_skills = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives",
+            "jonin-skill/angular-ui-expert",
+            "jonin-skill/angular-code-expert"
+        ]
+    else:
+        framework_skills = [
+            "jonin-skill/design-token-manifest",
+            "jonin-skill/tailwind-design-system",
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/source-fidelity-directives"
+        ]
+
+    for fs in framework_skills:
+        if fs not in agent_skills:
+            agent_skills.append(fs)
+
+    if "next" in fw_lower or "react" in fw_lower:
+        routing_directive = "Use Next.js App Router with the `app/` directory. NEVER use hash-based SPA routing."
+        install_directive = "Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and ESLint."
+    elif "svelte" in fw_lower:
+        routing_directive = "Use SvelteKit file-based routing (src/routes/) — NEVER hash-based SPA routing."
+        install_directive = "Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and svelte-check."
+    elif "nuxt" in fw_lower:
+        routing_directive = "Use Nuxt file-based routing (pages/ directory) — NEVER hash-based SPA routing."
+        install_directive = "Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and @nuxt/eslint."
+    elif "angular" in fw_lower:
+        routing_directive = "Use Angular Router with the standard `app.routes.ts` config — NEVER hash-based SPA routing."
+        install_directive = "Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and Angular CLI build tools."
+    else:
+        routing_directive = "Use framework-native file-based routing — NEVER hash-based SPA routing."
+        install_directive = "Install ALL packages from the template package.json including Tailwind V4 and SweetAlert2."
+
+    build_directives = [
+        f"Build a premium, elegant {display_framework} website named '{name}' based on the description: '{description}'.",
+        "You MUST follow the package.json template, CSS variables, and routing rules from the embedded skill content below.",
+        routing_directive,
+        install_directive
+    ]
+
+    # Load critical skill content
+    skill_blocks = []
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        fw_base = "svelte" if "svelte" in fw_lower else "nextjs" if "next" in fw_lower or "react" in fw_lower else "nuxt" if "nuxt" in fw_lower else "angular" if "angular" in fw_lower else None
+        critical_skills = [
+            f"jonin-skill/{fw_base}-code-expert" if fw_base else None,
+            "jonin-skill/build-directives-manifest",
+            "jonin-skill/design-token-manifest",
+        ]
+        critical_skills = [s for s in critical_skills if s]
+        skill_blocks = _load_skill_content_for_build(critical_skills, conn)
+        conn.close()
+    except Exception as e:
+        sys.stderr.write(f"[mcp konoha] Error loading skill content for build_from_text: {e}\n")
+        sys.stderr.flush()
 
     spec = {
         "status": "success",
@@ -1113,7 +1384,8 @@ def build_from_text(name, description, framework, agent_name=None):
         "directives": build_directives,
         "required_skills": agent_skills,
         "skill_load_sequence": agent_skills,
-        "delegate_constraints": build_directives
+        "delegate_constraints": build_directives,
+        "embedded_skill_content": skill_blocks
     }
     res = json.dumps(spec, indent=2)
     log_tool_call("build_from_text", f"name={name}, description={description}, framework={framework}", res, agent_name=agent_name)
@@ -1137,36 +1409,19 @@ def detect_active_agent():
                 os.path.join(ANTIGRAVITY_IDE_BRAIN, conv_id),
                 os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id),
             ]
-        elif WORKSPACE_ROOT:
-            # Map WORKSPACE_ROOT to Cursor and Claude project slugs for session isolation
+        slug = ""
+        if WORKSPACE_ROOT:
             normalized_path = os.path.normpath(WORKSPACE_ROOT).strip("/")
             slug = normalized_path.replace("/", "-")
 
-            # Cursor project directory: ~/.cursor/projects/home-user-path-to-workspace
-            cursor_dir = os.path.join(CURSOR_PROJECTS, slug)
-            if os.path.isdir(cursor_dir):
-                brain_dirs.append(cursor_dir)
-
-            # Claude project directory: ~/.claude/projects/-home-user-path-to-workspace
-            claude_dir = os.path.join(CLAUDE_PROJECTS, f"-{slug}")
-            if os.path.isdir(claude_dir):
-                brain_dirs.append(claude_dir)
-
-            # Fallback to general scan if slug directories don't exist
-            if not brain_dirs:
-                brain_dirs = [
-                    ANTIGRAVITY_IDE_BRAIN,
-                    ANTIGRAVITY_CLI_BRAIN,
-                    CURSOR_PROJECTS,
-                    CLAUDE_PROJECTS,
-                ]
-        else:
-            brain_dirs = [
-                ANTIGRAVITY_IDE_BRAIN,
-                ANTIGRAVITY_CLI_BRAIN,
-                CURSOR_PROJECTS,
-                CLAUDE_PROJECTS,
-            ]
+        if CURSOR_PROJECTS not in brain_dirs:
+            brain_dirs.append(CURSOR_PROJECTS)
+        if CLAUDE_PROJECTS not in brain_dirs:
+            brain_dirs.append(CLAUDE_PROJECTS)
+        if ANTIGRAVITY_IDE_BRAIN not in brain_dirs:
+            brain_dirs.append(ANTIGRAVITY_IDE_BRAIN)
+        if ANTIGRAVITY_CLI_BRAIN not in brain_dirs:
+            brain_dirs.append(ANTIGRAVITY_CLI_BRAIN)
 
         all_files = []
         for brain_dir in brain_dirs:
@@ -1216,7 +1471,7 @@ def detect_active_agent():
                     conv_dir = os.path.dirname(os.path.dirname(fpath))
                 elif "claude" in fpath:
                     # For Claude: ~/.claude/projects/<project>/<sessionId>.jsonl
-                    conv_dir = fpath
+                    conv_dir = os.path.dirname(fpath)
                 else:
                     conv_dir = os.path.dirname(os.path.dirname(os.path.dirname(fpath)))
 
@@ -1399,11 +1654,14 @@ def detect_active_agent():
                         except Exception:
                             pass
             except Exception:
-                pass
+                pass  # per-branch failures are non-fatal; continue searching
 
+        sys.stderr.write(f"[mcp konoha] detect_active_agent: no agent detected, returning {fallback_agent!r}\n")
+        sys.stderr.flush()
         return fallback_agent
-    except Exception:
-        pass
+    except Exception as e:
+        sys.stderr.write(f"[mcp konoha] detect_active_agent: fatal error: {e}\n")
+        sys.stderr.flush()
     return None
 
 def get_active_session_id():
@@ -1592,135 +1850,16 @@ def apply_file_edits(content):
                 with open(file_path, "r", encoding="utf-8") as f:
                     file_content = f.read()
                 if original in file_content:
-                    new_content = file_content.replace(original, replacement)
+                    new_content = file_content.replace(original, replacement, 1)
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(new_content)
                 else:
                     original_lf = original.replace("\r\n", "\n")
                     file_content_lf = file_content.replace("\r\n", "\n")
                     if original_lf in file_content_lf:
-                        new_content = file_content_lf.replace(original_lf, replacement)
+                        new_content = file_content_lf.replace(original_lf, replacement, 1)
                         with open(file_path, "w", encoding="utf-8") as f:
                             f.write(new_content)
-
-def parse_yaml(yaml_content):
-    agents = []
-    current_agent = None
-    current_key = None
-    multiline_val = None
-    multiline_indent = None
-    list_key = None
-    list_val = []
-
-    lines = yaml_content.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-        
-        if not stripped or stripped.startswith("#"):
-            if current_key and multiline_val is not None:
-                if not stripped:
-                    multiline_val.append("")
-                else:
-                    indent = len(line) - len(line.lstrip(' '))
-                    if indent >= multiline_indent:
-                        multiline_val.append(line[multiline_indent:])
-                    else:
-                        current_agent[current_key] = "\n".join(multiline_val)
-                        current_key = None
-                        multiline_val = None
-                        multiline_indent = None
-                        continue
-            i += 1
-            continue
-
-        indent = len(line) - len(line.lstrip(' '))
-
-        if current_key and multiline_val is not None:
-            if indent >= multiline_indent:
-                multiline_val.append(line[multiline_indent:])
-                i += 1
-                continue
-            else:
-                current_agent[current_key] = "\n".join(multiline_val)
-                current_key = None
-                multiline_val = None
-                multiline_indent = None
-                continue
-
-        if list_key and stripped.startswith("- "):
-            val = stripped[2:].strip()
-            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                val = val[1:-1]
-            list_val.append(val)
-            i += 1
-            continue
-        elif list_key:
-            current_agent[list_key] = list_val
-            list_key = None
-            list_val = []
-            continue
-
-        if stripped.startswith("-"):
-            if current_agent is not None:
-                agents.append(current_agent)
-            current_agent = {}
-            
-            rest = stripped[1:].strip()
-            if not rest:
-                i += 1
-                continue
-            else:
-                stripped = rest
-
-        if ":" in stripped:
-            parts = stripped.split(":", 1)
-            key = parts[0].strip()
-            val = parts[1].strip()
-
-            if val == "|":
-                current_key = key
-                multiline_val = []
-                next_line_idx = i + 1
-                while next_line_idx < len(lines) and not lines[next_line_idx].strip():
-                    next_line_idx += 1
-                if next_line_idx < len(lines):
-                    multiline_indent = len(lines[next_line_idx]) - len(lines[next_line_idx].lstrip(' '))
-                else:
-                    multiline_indent = indent + 4
-            elif not val:
-                list_key = key
-                list_val = []
-            else:
-                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                    val = val[1:-1]
-                elif val.startswith("[") and val.endswith("]"):
-                    inner = val[1:-1].strip()
-                    if not inner:
-                        val = []
-                    else:
-                        val = [item.strip().strip('"').strip("'") for item in inner.split(",")]
-                elif val.lower() == "true":
-                    val = True
-                elif val.lower() == "false":
-                    val = False
-                elif val.lower() in ("null", "none"):
-                    val = None
-                elif val.isdigit():
-                    val = int(val)
-                current_agent[key] = val
-        
-        i += 1
-
-    if current_key and multiline_val is not None:
-        current_agent[current_key] = "\n".join(multiline_val)
-    if list_key:
-        current_agent[list_key] = list_val
-    if current_agent is not None:
-        agents.append(current_agent)
-
-    return agents
 
 def run_mcp_sannin(prompt=None, task_dir=None):
     import json
@@ -1757,14 +1896,22 @@ def run_mcp_sannin(prompt=None, task_dir=None):
     selected_agent_suffix = _route_by_keywords_with_prompt(task_dir, prompt)
     selected_agent = f"mcp_{selected_agent_suffix}"
 
-    agent_descriptions = {
-        "mcp_kage": "Architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.",
-        "mcp_jonin": "Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind, Magic UI, and 3D web.",
-        "mcp_anbu": "Backend development, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).",
-        "mcp_chunin": "Web research, documentation lookup, compliance, evidence synthesis with citations.",
-        "mcp_tokubetsu_jonin": "Writing technical documentation, PRDs, specs, runbooks, readme guides.",
-        "mcp_genin": "Read-only codebase exploration, tracing flows, mapping dependencies.",
-    }
+    import sqlite3
+    agent_descriptions = {}
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, title, purpose FROM agents")
+        for row in cursor.fetchall():
+            name = row[0]
+            if not name.startswith("mcp_"):
+                name = f"mcp_{name}"
+            # Provide description from DB
+            desc = row[2] if row[2] else row[1]
+            agent_descriptions[name] = desc
+        conn.close()
+    except Exception:
+        pass
     description = agent_descriptions.get(selected_agent, "general-purpose delegation")
 
     instruction = (
@@ -1830,6 +1977,13 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
 
     Uses the explicit prompt when provided; otherwise falls back to prompt.md
     in task_dir. Returns the agent suffix without the mcp_ prefix.
+
+    Scoring:
+      - Each comma-separated keyword phrase contributes points based on how
+        many of its individual tokens appear in the prompt (after lowercasing).
+      - Full phrase match (the entire phrase appears verbatim) is weighted
+        extra so multi-word phrases still win ties against loose single-token
+        overlap from competitors.
     """
     if not prompt:
         prompt = _read_file_safe(os.path.join(task_dir, "prompt.md")) or ""
@@ -1851,13 +2005,34 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
 
         for agent in agents:
             kw_text = agent["delegation_keywords"].lower()
+            agent_score = 0
             for kw in kw_text.split(","):
                 kw = kw.strip()
-                if kw and kw in prompt_lower:
-                    score = kw.count(" ") + 1
-                    if score > best_score:
-                        best_score = score
-                        best_agent = agent["name"].replace("mcp_", "")
+                if not kw:
+                    continue
+                # Full phrase match: high-weight hit
+                if kw in prompt_lower:
+                    agent_score += (kw.count(" ") + 1) * 2
+                    continue
+                # Token-level match: each token of the phrase that appears in
+                # the prompt contributes a single point. This catches prompts
+                # that rephrase keywords (e.g. "trace the auth flow" for the
+                # keyword "trace flows").
+                tokens = [t for t in kw.split() if t]
+                if not tokens:
+                    continue
+                hits = sum(1 for t in tokens if t in prompt_lower)
+                if hits == tokens:
+                    # All tokens present but not contiguous — still strong signal
+                    agent_score += hits
+                elif hits > 0:
+                    # Partial match: small contribution, only if any other
+                    # competitor has zero hits we still want some signal.
+                    agent_score += hits * 0.5
+
+            if agent_score > best_score:
+                best_score = agent_score
+                best_agent = agent["name"].replace("mcp_", "")
     except Exception:
         pass
 
@@ -1876,38 +2051,12 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
 
 
 def _route_by_keywords(task_dir):
-    """Route to the best agent based on delegation_keywords from the DB."""
-    prompt = _read_file_safe(os.path.join(task_dir, "prompt.md"))
-    if not prompt:
-        prompt = ""
+    """Route to the best agent based on delegation_keywords from the DB.
 
-    prompt_lower = prompt.lower()
-    best_score = 0
-    best_agent = None
-
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        agents = conn.execute("SELECT name, delegation_keywords FROM agents WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''").fetchall()
-        conn.close()
-
-        for agent in agents:
-            kw_text = agent["delegation_keywords"].lower()
-            for kw in kw_text.split(","):
-                kw = kw.strip()
-                if kw and kw in prompt_lower:
-                    score = kw.count(" ") + 1  # phrase scoring (spaces = multi-word matches)
-                    if score > best_score:
-                        best_score = score
-                        best_agent = agent["name"].replace("mcp_", "")
-    except Exception:
-        pass
-
-    # Default fallback
-    if not best_agent:
-        best_agent = "kage"
-
-    return best_agent
+    Reads prompt.md from task_dir if no explicit prompt is given.
+    Delegates to _route_by_keywords_with_prompt.
+    """
+    return _route_by_keywords_with_prompt(task_dir, prompt="")
 
 
 def run_mcp_workflow(task_dir=None):
@@ -2293,7 +2442,7 @@ def run_web_search(query, num_results=5, search_depth="standard"):
 
         best_url = None
         for c in test_candidates[:5]:
-            url = c["url"]
+            url = c["url"].rstrip("/") + "/"
             test_url = f"{url}search?q=test&format=json"
             try:
                 req = urllib.request.Request(test_url, headers={
@@ -2341,7 +2490,8 @@ def run_web_search(query, num_results=5, search_depth="standard"):
         return None
 
     def query_searxng(instance_url, q, num):
-        search_url = f"{instance_url}search?q={urllib.parse.quote(q)}&format=json"
+        base = instance_url.rstrip("/") + "/"
+        search_url = f"{base}search?q={urllib.parse.quote(q)}&format=json"
         try:
             req = urllib.request.Request(search_url, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -2568,7 +2718,8 @@ def run_web_search(query, num_results=5, search_depth="standard"):
     all_results.sort(key=rank_score, reverse=True)
 
     formatted = []
-    for i, r in enumerate(all_results[:num_results * len(queries)], 1):
+    # Cap total results at num_results regardless of search_depth (deep aggregates more but limits display)
+    for i, r in enumerate(all_results[:num_results], 1):
         formatted.append({
             "citation_id": i,
             "title": r["title"],
@@ -2615,11 +2766,9 @@ def run_mcp_agent(agent_name, task_dir=None):
     db_agent_name = agent_name
     if not db_agent_name.startswith("mcp_"):
         db_agent_name = f"mcp_{db_agent_name}"
-    if db_agent_name.startswith("mcp_"):
-        suffix = db_agent_name[4:].replace("_", "-")
-        db_agent_name = f"mcp_{suffix}"
-    else:
-        db_agent_name = f"mcp_{db_agent_name.replace('_', '-')}"
+    # Normalize internal underscores to hyphens (e.g. mcp_tokubetsu_jonin -> mcp_tokubetsu-jonin)
+    suffix = db_agent_name[4:].replace("_", "-")
+    db_agent_name = f"mcp_{suffix}"
         
     title = db_agent_name
     purpose = ""
@@ -2669,6 +2818,7 @@ def run_mcp_agent(agent_name, task_dir=None):
     if skills_list:
         try:
             conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
             for skill_name in skills_list:
                 resolved = _fuzzy_resolve_skill(skill_name, conn)
                 effective_name = resolved or skill_name
@@ -2677,12 +2827,10 @@ def run_mcp_agent(agent_name, task_dir=None):
                         f"[mcp {agent_name}] fuzzy-resolved skill {skill_name!r} -> {resolved!r}\n"
                     )
                     sys.stderr.flush()
-                row = conn.execute("SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'", (effective_name,)).fetchone()
-                if row and row[0]:
-                    skills_content.append(f"### Skill: {effective_name}\n\n{row[0]}")
-                rows = conn.execute("SELECT name, content FROM skills WHERE skill_name = ? AND type = 'reference'", (effective_name,)).fetchall()
-                for r in rows:
-                    skills_content.append(f"### Reference: {r[0]}\n\n{r[1]}")
+                row = conn.execute("SELECT content, type FROM skills WHERE name = ?", (effective_name,)).fetchone()
+                if row and row["content"]:
+                    label = "Skill" if row["type"] == "skill" else "Reference"
+                    skills_content.append(f"### {label}: {effective_name}\n\n{row['content']}")
             conn.close()
         except Exception as e:
             sys.stderr.write(f"[mcp {agent_name}] Error loading skill definitions: {str(e)}\n")
@@ -3084,7 +3232,7 @@ def handle_request(req):
                                 },
                                 "num_results": {
                                     "type": "integer",
-                                    "description": "Number of results to return (default: 5).",
+                                    "description": "Number of results to return (1–50, default: 5).",
                                     "default": 5
                                 },
                                 "search_depth": {
@@ -3095,6 +3243,37 @@ def handle_request(req):
                                 }
                             },
                             "required": ["query"]
+                        }
+                    },
+                    {
+                        "name": "get_resolved_task_dir",
+                        "description": "Resolve the absolute scratch directory path for Konoha task execution. Returns the most recently modified task directory under ~/.konoha/tmp/<client>/<session>/scratch/tasks/, or creates a default one if none exist. Never returns paths inside the project workspace to prevent accidental commits.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    {
+                        "name": "migrate_skills",
+                        "description": "Re-index all skills from ~/.agents/skills/ (or a custom skills_dir) into the SQLite FTS5 database. Use this to add new skills to the search index or refresh stale indexes. Optionally pass a list of specific skill names to migrate only those. Returns a summary of what was migrated.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "force": {
+                                    "type": "boolean",
+                                    "description": "If true, purge existing skills from the database before migrating.",
+                                    "default": None
+                                },
+                                "skills": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Specific skill names to migrate (default: auto-detect all from skills_dir)"
+                                },
+                                "skills_dir": {
+                                    "type": "string",
+                                    "description": "Path to skills directory (default: ~/.agents/skills/)"
+                                }
+                            }
                         }
                     }
                 ]
@@ -3111,8 +3290,10 @@ def handle_request(req):
 
         if tool_name == "web_search":
             query = args.get("query")
-            num_results = args.get("num_results", 5)
+            num_results = min(max(int(args.get("num_results", 5)), 1), 50)
             search_depth = args.get("search_depth", "standard")
+            if search_depth not in ("standard", "deep"):
+                search_depth = "standard"
             result_text = run_web_search(query, num_results=num_results, search_depth=search_depth)
         elif tool_name == "find_skill":
             keyword = args.get("keyword", "")
@@ -3144,6 +3325,8 @@ def handle_request(req):
                 result_text = json.dumps({"error": "Missing required arguments: name, description, and framework are all required."})
             else:
                 result_text = build_from_text(name, description, framework, agent_name=agent)
+        elif tool_name == "get_resolved_task_dir":
+            result_text = json.dumps({"status": "ok", "task_dir": get_resolved_task_dir()})
         elif tool_name == "mcp_sannin":
             prompt = args.get("prompt")
             task_dir = args.get("task_dir")
@@ -3163,12 +3346,12 @@ def handle_request(req):
         }
 
     else:
-        # Unknown method — return empty result if it has an id
+        # Unknown method — per JSON-RPC 2.0 spec (section 2.2.3.13)
         if rid is not None:
             return {
                 "jsonrpc": "2.0",
                 "id": rid,
-                "result": {}
+                "error": {"code": -32601, "message": f"Method not found: {method}"}
             }
         return None
 

@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const platform = require("./platform_utils");
+const { fileExists, ensureDir, IS_WIN, detectPythonOrDefault } = require("./platform_utils");
 
 const {
   HOME,
@@ -17,20 +17,6 @@ const FILE_TOOLS_LAUNCHER_JS = path.join(
   SKILLS_DB_DIR,
   "file_tools_launcher.js",
 );
-
-function fileExists(p) {
-  try {
-    return fs.existsSync(p);
-  } catch {
-    return false;
-  }
-}
-
-function ensureDir(d) {
-  if (!fileExists(d)) {
-    fs.mkdirSync(d, { recursive: true });
-  }
-}
 
 function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
@@ -128,14 +114,14 @@ function writeNodeExecPathRecord() {
 }
 
 function writePythonCmdRecord(pythonCmd) {
-  const cmd = pythonCmd || platform.detectPythonOrDefault();
+  const cmd = pythonCmd || detectPythonOrDefault();
   try {
     fs.writeFileSync(FILE_TOOLS_PYTHON_CMD_FILE, `${cmd}\n`);
   } catch {}
 }
 
 /**
- * Build konoha-files MCP stdio entry (Linux, macOS, Windows).
+ * Build konoha MCP stdio entry (Linux, macOS, Windows).
  * @param {'cursor'|'global'|'execPath'} mode
  */
 function buildKonohaFilesMcpEntry(mode = "execPath") {
@@ -174,6 +160,7 @@ function installFileTools(silent = true, pythonCmd = null) {
     "file_tools_router.js",
     "file_tools_launcher.js",
     "platform_utils.js",
+    "yaml_parser.py",
     "db_bridges.py",
     "db_agents.py",
   ].forEach((f) => {
@@ -187,7 +174,7 @@ function installFileTools(silent = true, pythonCmd = null) {
   const launcherShSrc = path.join(SRC_DIR, "file_tools_launcher.sh");
   if (fileExists(launcherShSrc)) {
     copyIfDifferent(launcherShSrc, FILE_TOOLS_LAUNCHER_PATH);
-    if (!platform.IS_WIN) {
+    if (!IS_WIN) {
       try {
         fs.chmodSync(FILE_TOOLS_LAUNCHER_PATH, 0o755);
       } catch {}

@@ -4,14 +4,33 @@
 
 - Antigravity CLI (`agy`) installed
 - Python 3.8+ installed
-- Node.js 18+
+- Node.js 18+ (via nvm, Homebrew, or system package)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
+
+### Cross-Platform Notes
+
+| OS | Python Install | Node.js Install | Notes |
+|----|---------------|-----------------|-------|
+| **Linux (Ubuntu/Debian)** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
+| **Linux (Fedora)** | `sudo dnf install python3` | `curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
+| **macOS** | `brew install python` | `brew install node` or `nvm install node` | Use `python3` |
+| **Windows (WSL)** | Same as Linux | Same as Linux | Recommended: use WSL2 |
+| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Use `python` |
+
+> **nvm PATH Issue (Windows/macOS/Linux):** If `konoha` returns "command not found" after a fresh terminal, your shell hasn't loaded nvm. Run:
+> ```bash
+> source ~/.nvm/nvm.sh  # Linux/macOS
+> ```
+> Or for Windows PowerShell:
+> ```powershell
+> & "$env:NVM_DIR\nvm.ps1"
+> ```
+> Then verify with `which konoha` (Linux/macOS) or `where konoha` (Windows).
 
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
 > **Zero-Prompt Auto-Setup**:
-> Konoha now auto-configures every detected IDE/CLI client (Antigravity, Cursor, Claude Code, OpenCode) during `konoha init` or the automatic `ensureAutoSetup()` bootstrap triggered by any `konoha` command. The only prompt shown is a single consent question: "Initialize Konoha and modify ~/.gemini configurations?". All other clients are configured automatically based on what is detected on the system.
 >
 > If you still want to perform a manual clean initialization, run:
 
@@ -27,11 +46,16 @@ This installs the MCP server and migrates your skills. The CLI should output:
 ✓ Python 3 found: python3
 ✓ Found: ~/.agents/skills/ (5 skills)
 📦 Installing MCP Server
-✓ Installed: ~/.konoha/server.py
-✓ Installed: ~/.konoha/migrate.py
-📊 Migrating Skills to SQLite FTS5
-...
+✓ Installed: ~/.konoha/file_tools_mcp.js, file_tools_launcher.js, file_tools_router.js
+✓ Database: ~/.konoha/skills.db (created if missing)
+✓ Migration Complete: skills indexed, FTS5 ready
 ✅ Installation Complete!
+```
+
+### Cross-Platform: Windows PowerShell
+On Windows, the above commands work in PowerShell:
+```powershell
+npx github:andycungkrinx91/konoha init
 ```
 
 ## Step 2: Verify MCP Detection
@@ -42,7 +66,17 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `konoha`, `semble`, and `konoha` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
+You should see `konoha` and `semble` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains both entries (run `konoha doctor --yes` to repair).
+
+### Windows PowerShell Alternative
+```powershell
+agy inspect
+```
+
+Or use the node launcher directly:
+```powershell
+node "$env:USERPROFILE\.konoha\file_tools_launcher.js" <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
 
 ## Step 3: Verify Skills-DB Works
 
@@ -50,7 +84,7 @@ You should see `konoha`, `semble`, and `konoha` listed among the MCP servers. If
 konoha test
 ```
 
-Expected: **16 tests** pass (9 konoha + 7 konoha-files).
+Expected: all tests pass (MCP integration + `tests/test_*.py` standalone suites).
 
 ## Step 4: Test in a Session
 
@@ -78,8 +112,8 @@ agy reads MCP config from `~/.gemini/config/mcp_config.json`:
 {
   "mcpServers": {
     "konoha": {
-      "command": "python3",
-      "args": ["/home/youruser/.konoha/server.py"]
+      "command": "node",
+      "args": ["/home/youruser/.konoha/file_tools_launcher.js"]
     }
   }
 }
@@ -113,7 +147,6 @@ The migration script auto-detects and reads skills from standard directories. It
    ```bash
    konoha migrate
    ```
-   *Note: If you have unused or unembedded skills in your skills directory that you want to move to `.agents.backup/skills/{name-skill}-yyyymmdd` and prune from the index (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with `--force`. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:*
    ```bash
    konoha migrate --force
    ```
@@ -188,7 +221,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```bash
   konoha agent delete <agent-name>
   ```
-  Deletes a **custom** subagent from `agents.json` and prunes its `tool_calls` metrics. The six official ninja agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
+  Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
 
 ### Tracking Efficiency and Token Savings
 
@@ -215,7 +248,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.6`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `1.1.8`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -249,7 +282,7 @@ Konoha CLI maintains a registry of available Large Language Models (LLMs) that c
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.1.6`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: As of `v1.1.7`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:
@@ -272,4 +305,3 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues.
 
 For **Cursor IDE/CLI** setup, see [SETUP-CURSOR.md](SETUP-CURSOR.md).
 
-For **Claude Code, OpenCode, and other MCP clients**, see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).

@@ -9,6 +9,15 @@ db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/sk
 
 try:
     conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS skills (
+            skill_name TEXT PRIMARY KEY,
+            content TEXT,
+            type TEXT DEFAULT 'skill',
+            byte_size INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
     total = conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
     skills = conn.execute("SELECT COUNT(*) FROM skills WHERE type='skill'").fetchone()[0]
     refs = conn.execute("SELECT COUNT(*) FROM skills WHERE type='reference'").fetchone()[0]

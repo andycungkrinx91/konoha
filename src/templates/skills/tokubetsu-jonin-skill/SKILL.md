@@ -35,3 +35,15 @@ In the 8-phase Konoha workflow, Tokubetsu-Jonin handles **Phase 6: document**. A
 1. List prerequisites and dependencies.
 2. Provide step-by-step procedures with verification checkpoints.
 3. Include rollback and incident response notes.
+
+## Domain Routing
+
+Based on the user's request, load the specific reference file using `konoha.get_skill("tokubetsu-jonin-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
+
+| If the request involves... | Load this reference |
+|---|---|
+| Documentation writing, README creation, technical guides, code documentation | `tokubetsu-jonin-skill/documentation-writer` |
+| Complete documentation architecture, API references, runbooks, documentation best practices | `documentation` |
+| Postmortems, incident reports, root cause analysis (RCA), project retrospectives | `tokubetsu-jonin-skill/postmortem-writer` |
+| PDF generation, PDF reports, printable professional reports, document styling for export | `tokubetsu-jonin-skill/pdf` |
+| Content writer, technical articles, tutorials, engineering blogs, case studies, whitepapers | `tokubetsu-jonin-skill/technical-article-writer` |

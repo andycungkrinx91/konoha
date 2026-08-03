@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { readStdinJson, isConfirmedOrchestrator } = require('./hook-base');
+const { readStdinJson, isConfirmedSelf } = require('./hook-base');
 
 async function getLastUserInput(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -32,6 +32,7 @@ async function getLastUserInput(transcriptPath) {
     });
 
     fileStream.on('error', () => {
+      rl.close();
       resolve(null);
     });
   });
@@ -55,11 +56,11 @@ async function writePromptFile(lastInput, artifactDirectoryPath) {
   }
 }
 
-const ORCHESTRATOR_NUDGE = {
+const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A new user prompt has been written to prompt.md in your artifact directory. Please immediately read it using the view_file tool to retrieve the complete user request/prompt, and rely on this file instead of large chat history inputs to save tokens."
+        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the mcp_<agentname> workflow immediately."
     }
   ]
 };
@@ -75,11 +76,11 @@ async function main() {
     const lastInput = await getLastUserInput(transcriptPath);
     await writePromptFile(lastInput, artifactDirectoryPath);
 
-    // ONLY inject the orchestrator ephemeral for CONFIRMED orchestrator sessions.
-    // At invocation 0 the transcript is empty → isConfirmedOrchestrator returns
+    // ONLY inject the self ephemeral for CONFIRMED self sessions.
+    // At invocation 0 the transcript is empty → isConfirmedSelf returns
     // false → no injection. From invocation 1+ we have evidence.
-    if (lastInput && isConfirmedOrchestrator(transcriptPath)) {
-      console.log(JSON.stringify(ORCHESTRATOR_NUDGE));
+    if (lastInput && isConfirmedSelf(transcriptPath)) {
+      console.log(JSON.stringify(SELF_NUDGE));
     }
   } catch {
     process.exit(0);

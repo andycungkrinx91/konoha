@@ -194,7 +194,6 @@ def seed_agents(conn):
                 INSERT OR REPLACE INTO agents (
                     name, icon, title, model_tier, purpose, skills, delegate_when,
                     constraints_text, workflow, description, instructions, delegation_keywords,
-                    cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
@@ -213,7 +212,6 @@ def seed_agents(conn):
                 a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                 1 if a.get("enable_mcp_tools", True) else 0,
                 a.get("claudeModel") or a.get("claude_model"),
-                a.get("opencodeModel") or a.get("opencode_model")
             ))
         conn.commit()
         print(f"  ✓ Seeded {len(agents)} agents from template.")
@@ -308,7 +306,6 @@ def setup_db():
             cursor_fallback_model TEXT,
             enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
             claude_model TEXT,
-            opencode_model TEXT
         );
 
         CREATE TABLE IF NOT EXISTS bridges (

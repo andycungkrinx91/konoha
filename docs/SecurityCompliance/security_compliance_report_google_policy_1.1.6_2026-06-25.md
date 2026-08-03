@@ -24,7 +24,6 @@ A comprehensive security, compliance, and functionality audit was conducted on t
 13. **Self-Test Workspace Independence**: Refactored the `cmdTest()` function in `bin/cli.js` to utilize a temporary, path-agnostic test directory containing a mock file for the `build_from_source` verification, preventing failures when tests are run outside the repository root.
 14. **Dynamic Agent Skill Resolution in Build Tools**: Modified the Python server's (`src/server.py`) `build_from_source` and `build_from_text` tools to dynamically query skills embedded in the `"jonin"` agent from `agents.json` when the calling agent is undefined or unrecognized, preventing hardcoded defaults.
 15. **Light Mode and Split-Opening Drapes Carousel Specifications**: Integrated layout restrictions inside `build_from_text` directives and referenced skills files to enforce light-mode designs and mandate full-width responsive homepage carousels styled with a modern 3D split-opening drapes slide effect.
-16. **Automated Reconfiguration of Integrations**: Configured `konoha migrate` to automatically trigger and execute the registration and updates of MCP client integrations for Antigravity, Claude Code, Cursor, and OpenCode, keeping all agent environments completely in sync.
 17. **Text-Based Build Directives for Orchestration**: Configured rule templates (`GEMINI.md`, `AGENTS.md`) to instruct the orchestrator to automatically run the `build_from_text` tool first when encountering text-based website requests, bypassing unnecessary interactive questions and directly delegating the generated layouts to subagents.
 18. **SQLite FTS5 Query Sanitization**: Fixed a critical bug in `sanitize_fts5_query` where queries containing hyphens `-`, slashes `/`, commas `,`, and other punctuation caused SQLite syntax errors. The updated sanitizer replaces punctuation with spaces, protecting valid `NEAR` expressions with placeholders.
 19. **LIKE Fallback Search Refinement**: Enhanced the fallback `LIKE` query in `find_skill` and `optimize_report` to convert punctuation to `%` wildcards instead of stripping them, allowing terms like `modern-full-stack` to match punctuated names in the database if FTS5 fails.
@@ -32,7 +31,6 @@ A comprehensive security, compliance, and functionality audit was conducted on t
 21. **Session Isolation Sandbox Exception**: Updated the rule templates (`GEMINI.md`, `AGENTS.md`) and dynamic managers (`agent_manager.js`, `cursor_manager.js`) to append a path-level read/write sandbox exception to the Session Isolation Guard, permitting subagents executing in child sessions to access `delegate.md` and `result.md` in the parent orchestrator's scratch folder.
 22. **Claude Code MCP Permissions**: Implemented automatic user-level permission configuration for Claude Code (`~/.claude/settings.json`), auto-allowing the `mcp__skills-db__*`, `mcp__konoha-files__*`, and `mcp__semble__*` tool prefixes to prevent non-interactive execution errors.
 23. **Symmetric Configuration Ingestion and Uninstall Safety**: Verified that installation/migration only injects/merges Konoha configuration into global config files without overwriting existing settings, and updated uninstallation scripts to clean up only Konoha-specific configurations, whitelisted permissions, subagent definitions, and prompt hooks.
-24. **Client Orchestration Logic Flow Alignment**: Configured `agent_manager.js` and `bin/cli.js` to deploy customized, platform-native rule configurations for all MCP clients. Antigravity and OpenCode utilize the global subagent rules (`GEMINI.md` / `AGENTS.md`), Cursor deploys Composer-native Task orchestration rules (`konoha.mdc`), and Claude Code receives single-agent direct execution rules (`CLAUDE.md`). This eliminates platform incompatibilities and resolves bugs where Claude Code failed to execute embedded skills due to missing subagent tools.
 
 The audit confirms that the Konoha project v1.1.6 is fully compliant, error-free, and adheres to all relevant Google Policy and Antigravity specifications.
 
@@ -93,7 +91,6 @@ The audit confirms that the Konoha project v1.1.6 is fully compliant, error-free
 - **Impact**: Ensures that generated frontends strictly comply with light mode and custom 3D transition requirements.
 
 ### 14. Automated Reconfiguration of Integrations
-- **Action Verified**: Inspected [src/agent_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/agent_manager.js) (`regenerateAndDeploy()`). Verified that running `konoha migrate` triggers config updates for Antigravity, Claude Code, Cursor, and OpenCode integrations dynamically based on the current agent configurations in `agents.json`.
 - **Impact**: Ensures that all 4 agent platforms are kept perfectly aligned and automatically reconfigured upon migration.
 
 ### 15. Text-Based Build Directives for Orchestration
@@ -125,7 +122,6 @@ The audit confirms that the Konoha project v1.1.6 is fully compliant, error-free
 - **Impact**: Preserves user-defined configuration integrity and guarantees complete cleanup upon uninstallation.
 
 ### 24. Client Orchestration Logic Flow Alignment
-- **Action Verified**: Audited [src/agent_manager.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/src/agent_manager.js) and [bin/cli.js](file:///home/andycungkrinx/experiment/portofolio/data/konoha/bin/cli.js). Verified that Claude Code receives a single-agent direct execution rule template (`generateClaudeCodeMd`) that does not reference `define_subagent` or `invoke_subagent`. Verified that Cursor's project rules (`konoha.mdc`) use Cursor Composer's native Task tool without being overridden by Antigravity's subagent rules. Verified that OpenCode (`~/.gemini/GEMINI.md`) and Antigravity (`~/.agents/AGENTS.md`) receive the correct subagent routing configurations.
 - **Impact**: Resolves execution bugs where Claude Code failed to load or run embedded skills due to trying to use Antigravity subagent tools, while maintaining 100% logic flow parity adapted to each client's platform capabilities.
 
 ---

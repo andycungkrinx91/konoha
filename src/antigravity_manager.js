@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const {
-  ANTIGRAVITY_AGENTS_GLOBAL,
-  ANTIGRAVITY_CLI_GLOBAL,
-  ANTIGRAVITY_IDE_GLOBAL
-} = require('../bin/lib/paths');
+// Self-contained: derive paths from HOME rather than importing bin/lib/paths.
+const HOME = os.homedir();
+const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
+const ANTIGRAVITY_CLI_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli');
+const ANTIGRAVITY_IDE_GLOBAL = path.join(HOME, '.gemini', 'antigravity-ide');
 
 const BASE_TOOLS = [
   'send_message',
@@ -154,8 +154,8 @@ function buildDefineSubagentArgs(agent) {
   };
 }
 
-function removeAntigravityAgents(silent = true) {
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+function removeAntigravityAgents() {
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   const dirs = [
     ANTIGRAVITY_AGENTS_GLOBAL,
     ANTIGRAVITY_CLI_GLOBAL,
@@ -289,7 +289,7 @@ function getAntigravityStatus() {
   }
 
   let agentsCount = 0;
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   if (fs.existsSync(ANTIGRAVITY_AGENTS_GLOBAL)) {
     try {
       agentsCount = fs.readdirSync(ANTIGRAVITY_AGENTS_GLOBAL).filter(f => {

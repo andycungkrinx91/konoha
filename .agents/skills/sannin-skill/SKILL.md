@@ -1,6 +1,6 @@
 ---
 name: sannin-skill
-description: Standard Operating Procedures and router for MCP task triage, subagent selection, and orchestration.
+description: Standard Operating Procedures and router for MCP task triage, subagent selection, and sequential orchestration.
 tags:
   - sannin
   - router
@@ -9,39 +9,82 @@ tags:
   - orchestration
 ---
 
-# Sannin: MCP Router & Planner (Router)
+# Sannin: MCP Router & Orchestrator (Router)
 
-This skill provides the **Standard Operating Procedures (SOP)** and routing logic for the Sannin agent — the MCP router that evaluates task prompts and delegates to specialized subagents.
+This skill provides the **Standard Operating Procedures (SOP)** and routing logic for the Sannin agent — the primary orchestrator that coordinates a strict sequence of specialized subagents to fulfill a user request.
 
-## Workflow Role
+## The Orchestration Pipeline
 
-In the 8-phase Konoha workflow, Sannin serves a dual role:
+When Sannin receives a prompt, it MUST NOT execute the implementation itself. Instead, it MUST orchestrate the workflow by delegating to the appropriate subagents via their `mcp_<agentname>` tools. Sannin waits for each agent to report back via `result.md` before proceeding to the next step.
 
-- **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `mcp_sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
-- **Phase 7: synthesize**: After `document` completes, the orchestrator dispatches sannin to read all phase outputs (`result.md`, `plan.md`, `delegate.md` from each phase) and synthesize them into a cohesive `final_report.md`. Sannin returns this final report to the caller and the workflow advances to `done`.
+### Step 0: Classify Request Type (ALWAYS EXECUTE FIRST — BEFORE ANY BRANCH)
 
-> [!CAUTION]  
-> **Router Only**: You are strictly an MCP router. Do NOT execute implementation tasks, make code edits, or run commands. Evaluate the prompt, determine the correct subagent, write `delegate.md`, and trigger it.
+Before entering any pipeline branch, you MUST classify the user's request to determine the correct workflow:
 
-> [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+**Website Build Detection — triggers BRANCH B** if the prompt contains ANY combination of:
+- **Action verbs**: "build", "create", "scaffold", "generate", "make", "develop", "setup", "start", "bootstrap"
+- **Combined with targets**: "website", "web app", "web application", "landing page", "UI", "frontend", "site", "e-commerce", "storefront", "portfolio", "dashboard", "homepage", "page", "app"
+- **Or framework-specific**: "next.js project", "svelte app", "nuxt site", "angular app", "react app"
+- **Or design-related**: "source-image-design", "mockup", "design file", "figma"
 
-## Domain Routing
+**Classification rules (in priority order)**:
+1. If prompt contains **mockup/design images** → **BRANCH B** with `build_from_source`
+2. If prompt contains **website/UI build intent** (action verb + target from above) → **BRANCH B** with `build_from_text`
+3. If prompt involves **modifying an existing project** (add feature, fix bug, edit component) → **BRANCH A** (standard pipeline)
+4. **All other requests** (research, analysis, code review, debugging) → **BRANCH A** (standard pipeline)
 
-Load the specific reference file using `konoha.get_skill("sannin-skill/<reference-name>")` to understand the architecture and conventions.
+> **⚠️ CRITICAL**: If classified as BRANCH B, you MUST jump directly to the BRANCH B section below. Do NOT enter BRANCH A steps (Chunin, Genin, Kage). The premium template directives from `build_from_text`/`build_from_source` will be LOST if routed through the standard pipeline.
 
-| If the task involves... | Route to |
-|---|---|
-| Codebase exploration, tracing code paths | `@mcp_genin` |
-| Architecture decisions, security audits | `@mcp_Kage` |
-| Web research, documentation lookup | `@mcp_Chunin` |
-| UI/frontend development | `@mcp_Jonin` |
-| Backend, bug fixing, DevOps | `@mcp_Anbu` |
-| Technical writing, documentation | `@mcp_Tokubetsu-Jonin` |
+---
 
-## SOP 1: Task Evaluation
-1. Read the user's task prompt carefully.
-2. Determine the task domain and select the best-suited subagent from the routing table above.
-3. Write task instructions to `delegate.md` targeting the chosen subagent.
-4. Trigger the subagent execution (do not execute yourself).
-5. If multiple subagents are needed, sequence delegations through the subagent's output.
+**BRANCH A: STANDARD REQUESTS** (Bug fixes, new features, research, code exploration)
+You MUST follow this exact sequential workflow:
+
+### Step 1: Deep Research (Chunin)
+- **Action**: Delegate to `mcp_chunin`.
+- **Goal**: Perform deep web research and internet search regarding the user's prompt.
+- **Output**: Chunin suggests what is needed and reports back.
+
+### Step 2: Code Exploration (Genin)
+- **Action**: Delegate to `mcp_genin`.
+- **Goal**: Perform deep code exploration based on Chunin's knowledge.
+- **Output**: Genin searches files and reports back.
+
+### Step 3: Architecture & Planning (Kage)
+- **Action**: Delegate to `mcp_kage`.
+- **Goal**: Review suggestions and formulate architecture/design/todo plans. Kage MUST explicitly select the specific executor `mcp_<agentname>` (e.g., Jonin or Anbu).
+- **Output**: Kage reports back.
+
+### Step 4: Execution (Chosen Executor)
+- **Action**: Delegate to the specific `mcp_<agentname>` designated by Kage.
+- **Goal**: Execute the task based entirely on Kage's plan.
+- **Output**: The executor completes the implementation and reports back.
+
+### Step 5: Documentation & Refinement (Tokubetsu-Jonin)
+- **Action**: Delegate to `mcp_tokubetsu_jonin`.
+- **Goal**: Refine the report and create/review docs.
+- **Output**: Tokubetsu-Jonin reports back.
+
+### Step 6: Final Report (Sannin)
+- **Action**: Sannin synthesizes the entire pipeline.
+- **Goal**: Output the final report directly to the user.
+
+
+**BRANCH B: WEBSITE SCAFFOLDING REQUESTS** (Requests to "build a new website", "scaffold a UI", "create a landing page")
+You MUST completely BYPASS Chunin, Genin, and Kage to prevent losing premium UI templates in the pipeline:
+
+### Step 1: Generate Templates
+- **Action**: Call `konoha.build_from_text` (or `build_from_source`) to generate the premium templates and constraints.
+
+### Step 2: Execution (Jonin)
+- **Action**: Pass the `build_from_text` output DIRECTLY into the constraints of `delegate.md` and call `mcp_jonin`. Do NOT call Chunin, Genin, or Kage.
+- **Goal**: Build the premium UI following the generated specifications.
+
+### Step 3: Documentation
+- **Action**: Delegate to `mcp_tokubetsu_jonin` to document.
+
+### Step 4: Final Report
+- **Action**: Sannin outputs the final summary to the user.
+
+## Delegation Mechanics
+To delegate a task in any step, Sannin resolves a task directory via `konoha.get_resolved_task_dir`, creates a `delegate.md` file passing along the accumulated knowledge from previous steps, and invokes the `mcp_<agentname>` tool. Sannin then adopts the returned persona to execute the step, writes findings to `result.md`, and loops back until Step 6 is reached.

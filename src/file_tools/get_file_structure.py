@@ -80,6 +80,61 @@ def structure_generic(path):
 def main():
     args = load_args()
     file_path = resolve_path(args.get('path'), args.get('workspace'))
+
+    # Directory support: walk top-level files and extract signatures
+    if os.path.isdir(file_path):
+        all_entries = []
+        try:
+            entries = sorted(os.listdir(file_path))
+        except PermissionError:
+            emit_error(f'Permission denied: {file_path}')
+            return
+
+        dirs = []
+        files = []
+        for entry in entries:
+            full = os.path.join(file_path, entry)
+            # Skip hidden and common noise directories
+            if entry.startswith('.') or entry in {
+                'node_modules', '__pycache__', '.git', 'dist', 'build',
+                'venv', '.venv', '.next', '.nuxt', '.svelte-kit'
+            }:
+                continue
+            if os.path.isdir(full):
+                dirs.append(f'📁 {entry}/')
+            elif os.path.isfile(full):
+                ext = os.path.splitext(entry)[1].lower()
+                size = os.path.getsize(full)
+                size_str = f'{size}B' if size < 1024 else f'{size // 1024}KB'
+                files.append(f'📄 {entry}  ({size_str})')
+
+                # Extract signatures for supported source files
+                if ext == '.py':
+                    sigs = structure_python(full)
+                elif ext in {'.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'}:
+                    sigs = structure_js_ts(full)
+                elif ext in {'.go', '.rs', '.rb', '.java', '.kt', '.swift', '.c', '.cpp', '.h'}:
+                    sigs = structure_generic(full)
+                else:
+                    sigs = []
+
+                if sigs:
+                    for sig in sigs[:5]:
+                        files.append(f'    {sig}')
+
+        output_lines = dirs + files
+        if not output_lines:
+            output_lines = ['# Empty directory']
+
+        emit_json({
+            'path': file_path,
+            'type': 'directory',
+            'entry_count': len(dirs) + len(files),
+            'text': '\n'.join(output_lines)
+        })
+        return
+
+    # Single file mode (original behavior)
     if not os.path.isfile(file_path):
         emit_error(f'File not found: {file_path}')
 
@@ -107,3 +162,4 @@ if __name__ == '__main__':
         main()
     except Exception as exc:  # noqa: BLE001
         emit_error(str(exc))
+

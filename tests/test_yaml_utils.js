@@ -182,12 +182,12 @@ test('multiline string uses block scalar', () => {
 section('REGRESSION — real agents.yaml parses correctly');
 // ────────────────────────────────────────────────────────────────────
 
-test('templates/agents.yaml yields 6 agents with non-empty skills arrays', () => {
+test('templates/agents.yaml yields 7 agents with non-empty skills arrays', () => {
   const yaml = fs.readFileSync(
     path.join(__dirname, '..', 'src', 'templates', 'agents.yaml'), 'utf-8');
   const agents = parseYaml(yaml);
   assert.ok(Array.isArray(agents), 'root should be array of mappings');
-  assert.strictEqual(agents.length, 6, 'expected 6 default agents');
+  assert.strictEqual(agents.length, 7, 'expected 7 default agents');
   agents.forEach(a => {
     assert.ok(a.name, `agent missing name: ${JSON.stringify(a)}`);
     assert.ok(Array.isArray(a.skills),

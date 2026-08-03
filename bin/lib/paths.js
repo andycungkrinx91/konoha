@@ -121,9 +121,13 @@ const ANTIGRAVITY_IDE = path.join(GEMINI, 'antigravity-ide');
 
 /** Default skills search dirs (in order of precedence) */
 const DEFAULT_SKILLS_DIRS = [
+  path.join(process.cwd(), '.agents', 'skills'), // local project .agents/skills
+  path.join(process.cwd(), '.cursor', 'skills'), // local project .cursor/skills
+  path.join(process.cwd(), 'skills'),          // local project skills/
+  path.join(process.cwd(), '.skills'),         // local project .skills/
+  path.join(process.cwd(), 'docs', 'skills'),   // local project docs/skills
   AGENTS_SKILLS,                        // ~/.agents/skills
   path.join(ANTIGRAVITY_CLI, 'skills'), // ~/.gemini/antigravity-cli/skills
-  path.join(process.cwd(), '.agents', 'skills'), // local project
 ];
 
 /** Antigravity agent deployment targets */
@@ -181,35 +185,27 @@ const CURSOR_CLI_CONFIG = path.join(CURSOR_DIR, 'cli-config.json');
 const CURSOR_BOOTSTRAP_PATH = path.join(KONOHA, 'cursor_bootstrap.js');
 
 // ──────────────── VS Code / Claude Code ────────────────
+// Claude Code v2.1+ stores global MCP servers in ~/.claude.json (not settings.json).
+// We write to BOTH for backward compatibility (legacy ~/.claude.yaml).
 
-const CLAUDE_JSON = path.join(HOME, '.claude.yaml');
+const CLAUDE_JSON = path.join(HOME, '.claude.json');
 const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.yaml');
+const CLAUDE_JSON_LEGACY = path.join(HOME, '.claude.yaml');
 
 // ──────────────── OpenCode ────────────────
-
-const OPENCODE_CONFIG = path.join(HOME, '.config', 'opencode');
-const OPENCODE_GLOBAL = path.join(OPENCODE_CONFIG, 'opencode.yaml');
-const OPENCODE_AGENTS_DIR = path.join(OPENCODE_CONFIG, 'agents');
+const OPENCODE_DIR = path.join(HOME, '.opencode');
+const OPENCODE_CONFIG = path.join(OPENCODE_DIR, 'config.json');
 
 // ──────────────── Migration paths ────────────────
 
-const MIGRATE_PATH = path.join(KONOHA, 'migrate.py');
-const SKILLS_DIR_MIGRATE = path.join(HOME, '.agents', 'skills');
-
-// ──────────────── Bridge/sidecar paths ────────────────
-
-const DB_BRIDGES_PY_PATH = path.join(KONOHA, 'db_bridges.py');
-
 // ──────────────── Exports ────────────────
-
 module.exports = {
-  // Base
+  // Base roots
   HOME,
   LIB_DIR,
   BIN_DIR,
   PROJECT_ROOT,
-
-  // ~/.konoha
+  // Core Konoha
   KONOHA,
   SKILLS_DB_DIR,
   SERVER_PATH,
@@ -222,23 +218,23 @@ module.exports = {
   FILE_TOOLS_PYTHON_CMD_FILE,
   FILE_TOOLS_NODE_PATH_FILE,
   TMP_DIR,
-
-  // ~/.agents
+  FILE_TOOLS_ROUTER_PATH,
+  FILE_TOOLS_PY_DIR,
+  // Agent definitions
   AGENTS,
   AGENTS_SKILLS,
   USER_AGENTS_YAML_PATH,
   AGENTS_MD_PATH,
-
-  // Bundled templates
+  // Templates
   SRC_DIR,
   TEMPLATES_DIR,
   DEFAULT_AGENTS_YAML_PATH,
   GEMINI_TEMPLATE_PATH,
   AGENTS_TEMPLATE_PATH,
+  // Docs
   DOCS_DIR,
   DOCS_TEMPLATES_DIR,
-
-  // .gemini
+  // Antigravity / Gemini
   GEMINI,
   GEMINI_MD_PATH,
   ANTIGRAVITY_CLI,
@@ -256,7 +252,9 @@ module.exports = {
   GEMINI_CONFIG,
   MCP_CONFIG_PATH,
   HOOKS_PATH,
-
+  GLOBAL_CLI_AGENTS_DIR,
+  GLOBAL_IDE_AGENTS_DIR,
+  GLOBAL_CONFIG_AGENTS_DIR,
   // Cursor
   CURSOR_DIR,
   CURSOR_MCP,
@@ -267,32 +265,13 @@ module.exports = {
   CURSOR_HOOKS_GLOBAL,
   CURSOR_CLI_CONFIG,
   CURSOR_BOOTSTRAP_PATH,
-
-  // Claude
+  // Claude Code
   CLAUDE_JSON,
   CLAUDE_SETTINGS,
-
+  CLAUDE_JSON_LEGACY,
   // OpenCode
+  OPENCODE_DIR,
   OPENCODE_CONFIG,
-  OPENCODE_GLOBAL,
-  OPENCODE_AGENTS_DIR,
-
-  // Migration
-  MIGRATE_PATH,
-  SKILLS_DIR_MIGRATE,
-
-  // Bridge
-  DB_BRIDGES_PY_PATH,
-
-  // CLI extras
-  FILE_TOOLS_ROUTER_PATH,
-  FILE_TOOLS_PY_DIR,
-
-  // Legacy aliases (for antigravity_subagent_hook.js)
-  GLOBAL_CLI_AGENTS_DIR,
-  GLOBAL_IDE_AGENTS_DIR,
-  GLOBAL_CONFIG_AGENTS_DIR,
-
-  // file_tools_router.js
+  // Tool workers
   TOOL_WORKERS_DIR,
 };

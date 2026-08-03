@@ -5,6 +5,5 @@ Configured Bridges
     ├─────────────────┼────────┼───────────────────┼───────────────────┼────────────────┼────────────────────────────┤
     │ adacode         │ 11437  │ OpenAI            │ Enabled           │ Stopped        │ https://api.adacode.ai/v1  │
     │ antigravity     │ 11438  │ OpenAI            │ Enabled           │ Stopped        │ http://localhost:1313/v1   │
-    │ opencode-zen    │ 11439  │ OpenAI Compatible │ Enabled           │ Stopped        │ https://opencode.ai/zen/v1 │
     │ adacode-2       │ 11440  │ OpenAI Compatible │ Enabled           │ Stopped        │ https://api.adacode.ai/v1  │
     └─────────────────┴────────┴───────────────────┴───────────────────┴────────────────┴────────────────────────────┘

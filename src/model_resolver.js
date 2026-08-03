@@ -66,7 +66,6 @@ function resolveModelString(input, activeModelsList) {
 
 /**
  * Detect which IDE/client is installed by checking for known binaries.
- * @returns {string} One of 'cursor', 'claude', 'opencode', 'antigravity'
  */
 function detectClientType() {
   const cursorManager = require('./cursor_manager');
@@ -75,7 +74,6 @@ function detectClientType() {
   try {
     if (cursorManager.isCursorInstalled()) return 'cursor';
     if (mcpClientsManager.isClaudeCodeInstalled()) return 'claude';
-    if (mcpClientsManager.isOpenCodeInstalled()) return 'opencode';
   } catch {
     // fall through to default
   }

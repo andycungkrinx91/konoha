@@ -1,17 +1,25 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v1.1.6+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity. The same `konoha` + `semble` MCP stack and six ninja subagents work in both environments.
+Konoha **v1.1.7+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity. The same `konoha` + `semble` MCP stack and seven ninja subagents work in both environments.
 
 ## Prerequisites
 
 - **Cursor IDE** or **Cursor CLI** installed
 - **Python 3** ≥ 3.8
-- **Node.js** ≥ 18
+- **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
 - Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha mirrors these to `~/.cursor/skills/` for Cursor
+
+### Cross-Platform Notes
+
+| OS | Python Install | Node.js Install | Cursor Setup |
+|----|---------------|-----------------|--------------|
+| **Linux** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Standard install |
+| **macOS** | `brew install python` | `brew install node` | Standard install |
+| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) | Standard install |
+| **Windows (WSL)** | Same as Linux | Same as Linux | Run Cursor inside WSL for full integration |
 
 ## Step 1: Install Konoha (Auto-Setup)
 
-Running any `konoha` command triggers `ensureAutoSetup()`, which self-heals MCP and subagent configuration for all detected clients (Antigravity, Cursor, Claude Code, OpenCode) without prompting.
 
 For a full install:
 
@@ -98,14 +106,14 @@ Recent Cursor sessions are preferred over stale Antigravity brain folders so cou
 ### Verification scripts
 
 ```bash
-python3 src/test_cursor_attribution.py   # Cursor one-by-one attribution
-python3 src/test_agent_attribution.py    # Antigravity one-by-one attribution
-python3 src/test_claude_attribution.py   # Claude Code one-by-one attribution
+python3 tests/test_cursor_attribution.py   # Cursor one-by-one attribution
+python3 tests/test_agent_attribution.py    # Antigravity one-by-one attribution
+python3 tests/test_claude_attribution.py   # Claude Code one-by-one attribution
 ```
 
 ## Protected Default Subagents
 
-The six official ninja agents in `src/templates/agents.json` **cannot be deleted**:
+The seven official ninja agents in `src/templates/agents.yaml` **cannot be deleted**:
 
 ```bash
 konoha agent delete genin
@@ -136,7 +144,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 1. Ensure the calling agent parameter is set properly when invoking MCP tools.
 2. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
-3. Run `python3 src/test_cursor_attribution.py` to validate attribution.
+3. Run `python3 tests/test_cursor_attribution.py` to validate attribution.
 
 ### Missing or stale `~/.cursor/skills/`
 

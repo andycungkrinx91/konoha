@@ -18,8 +18,8 @@
 2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
 3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.
 4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
-5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
-6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
+5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm), cyber defense, and messaging/caching.
+6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, readme guides, PDF reports, postmortems, and articles.
 
 ### Image / mockup builds — delegate.md rules (CRITICAL)
 
@@ -51,6 +51,9 @@ When the user prompt requests building or scaffolding a website or user interfac
    - Footer watermark: `Build by Konoha`
    - Custom premium error pages (4xx/5xx)
    - Auto-open browser with `--open` flag
+   - 10-Theme Switcher Popup: Floating bottom-right button with 10 Light Mode gradient themes
+   - Sticky Mobile Bottom Navigation Dock with active theme gradient indicators
+   - Full 6-Page Production Application Architecture (Home 3D Carousel, Catalog with 50 items + Live Search + Multi-filter slider, About, Contact, Location Finder, Auth System) implemented in ONE SHOT
    - .env safety and CVE-free dependencies
 
 ### Existing project rules — delegate.md rules (CRITICAL)
@@ -62,12 +65,20 @@ When the user prompt involves modifying or working within an existing project:
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
 4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 
-### @orchestrator — Task Coordinator & MCP Delegator
+### @self — Task Coordinator & MCP Delegator
 - **Purpose**: Runs as the primary thread (TypeName: "self") to coordinate project execution. It delegates non-trivial implementation tasks exclusively to specialized subagents by calling their respective MCP tools served by the `konoha` MCP server.
-- **Orchestration Model**:
+- **Delegation Model**:
   - **NEVER use the `invoke_subagent` tool** or custom IDE subagent configurations.
   - All delegation is performed strictly via MCP tool calls to the matching subagent (e.g. `mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
-- **Workflow**:
+- **Website Scaffolding Shortcut (Branch B — TAKES PRIORITY)**:
+  **BEFORE entering the standard workflow below**, check if the user's prompt matches website/UI creation intent (build/create/scaffold + website/app/UI/frontend/site/e-commerce/dashboard):
+  1. If mockup/design images provided → Call `konoha.build_from_source(name, source_dir, framework)` FIRST
+  2. If text description only → Call `konoha.build_from_text(name, description, framework)` FIRST
+  3. Write `delegate.md` with the returned directives as constraints
+  4. Call `mcp_jonin` directly — **SKIP Chunin, Genin, Kage** (premium template directives are lost in the standard pipeline)
+  5. After Jonin completes, call `mcp_tokubetsu_jonin` for documentation
+  6. Output final report
+- **Standard Workflow (Branch A — for non-website tasks)**:
   1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
   2. **Find Skill**: Call `konoha.find_skill()` or `optimize_report()` using keywords from the user prompt to discover specific skill reference names.
   3. **Load Skill**: Call `konoha.get_skill()` to fetch the full content of the discovered skill.
@@ -97,7 +108,7 @@ When the user prompt involves modifying or working within an existing project:
 ### @kage — 🌀 Village Leader & Architect
 - **Purpose**: Expert-level analysis for critical decisions and high-level strategy
 - **Skills**: `agent-browser`, `deep-code-explorer`, `deep-code-explorer/architecture-analysis`, `deep-code-explorer/backend-review`, `deep-code-explorer/character-hygiene`, `deep-code-explorer/code-exploration`, `deep-code-explorer/code-review`, `deep-code-explorer/command-safety`, `deep-code-explorer/context-optimization`, `deep-code-explorer/frontend-review`, `deep-code-explorer/guardrails`, `deep-code-explorer/report-quality`, `deep-code-explorer/research-methodology`, `deep-code-explorer/router`, `deep-code-explorer/secret-safety`, `deep-code-explorer/source-evaluation`, `deep-code-explorer/token-safety`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`, `jonin-skill`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/tailwind-design-system`, `konoha`, `websearch-deep`
-- **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
+- **Delegate when**: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection, professional diagrams, drawio, mermaid
 - **Constraints**: Always assess risk, blast radius, and rollback plan. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.
 
@@ -113,19 +124,19 @@ When the user prompt involves modifying or working within an existing project:
 - **Skills**: `agent-browser`, `modern-full-stack`, `modern-full-stack/3d-web-experience`, `modern-full-stack/ai-sdk`, `modern-full-stack/bug-reporting`, `modern-full-stack/character-hygiene`, `modern-full-stack/code-review-security`, `modern-full-stack/command-safety`, `modern-full-stack/fastapi-code-review`, `modern-full-stack/fastapi-expert`, `modern-full-stack/fastapi-templates`, `modern-full-stack/full-stack-workflows`, `modern-full-stack/golang-concurrency`, `modern-full-stack/golang-fundamentals`, `modern-full-stack/golang-performance`, `modern-full-stack/golang-security`, `modern-full-stack/golang-testing`, `modern-full-stack/guardrails`, `modern-full-stack/javascript-pro`, `modern-full-stack/langchain-fundamentals`, `modern-full-stack/langchain-rag`, `modern-full-stack/laravel-security`, `modern-full-stack/laravel-specialist`, `modern-full-stack/mcp-evaluation`, `modern-full-stack/mcp-python-server`, `modern-full-stack/mcp-server-development`, `modern-full-stack/mcp-typescript-server`, `modern-full-stack/mysql-best-practices`, `modern-full-stack/n8n-builtin-functions`, `modern-full-stack/n8n-code-javascript`, `modern-full-stack/n8n-common-patterns`, `modern-full-stack/n8n-data-access`, `modern-full-stack/n8n-error-patterns`, `modern-full-stack/nextjs-16-complete-guide`, `modern-full-stack/nextjs-code-expert`, `modern-full-stack/nextjs-creative-stack`, `modern-full-stack/nextjs-security`, `modern-full-stack/nextjs-ui-expert`, `modern-full-stack/pnpm`, `modern-full-stack/postgresql-code-review`, `modern-full-stack/prd`, `modern-full-stack/qdrant-clients-sdk`, `modern-full-stack/quality-checklist`, `modern-full-stack/router`, `modern-full-stack/secret-safety`, `modern-full-stack/skill-creator`, `modern-full-stack/sqlite-database-expert`, `modern-full-stack/svelte-code-expert`, `modern-full-stack/svelte-code-writer`, `modern-full-stack/svelte-components`, `modern-full-stack/svelte-ui-expert`, `modern-full-stack/tailwind-design-system`, `modern-full-stack/tailwind4-expert`, `modern-full-stack/token-safety`, `modern-full-stack/vite`
 - **Delegate when**: UI design, component building, styling, layouts, animations, frontend development
 - **Constraints**: Visual excellence required — no basic/minimal designs. Use `agent-browser` for layout QA. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
-- **Workflow**: SvelteKit + Tailwind v4 (default) | Next.js 16 (when React requested) | pnpm + Vite.
+- **Workflow**: 4 Frameworks Supported (SvelteKit default | Next.js 16 | Nuxt 3 | Angular v19+) | pnpm + Tailwind v4.
 
 ### @anbu — 👥 Backend Specialist, Bug Fixing, & DevOps
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems
-- **Skills**: `agent-browser`, `devsecops-engineer`, `devsecops-engineer/character-hygiene`, `devsecops-engineer/ci-cd-security`, `devsecops-engineer/cloud-security-review`, `devsecops-engineer/code-review-security`, `devsecops-engineer/command-safety`, `devsecops-engineer/devsecops-expert`, `devsecops-engineer/guardrails`, `devsecops-engineer/helm-chart-scaffolding`, `devsecops-engineer/infrastructure-workflows`, `devsecops-engineer/mongodb`, `devsecops-engineer/mysql-best-practices`, `devsecops-engineer/playwright-cli`, `devsecops-engineer/playwright-testing`, `devsecops-engineer/postgresql-optimization`, `devsecops-engineer/python-expert`, `devsecops-engineer/qdrant-performance-optimization`, `devsecops-engineer/quality-checklist`, `devsecops-engineer/router`, `devsecops-engineer/secret-safety`, `devsecops-engineer/senior-qa-engineer`, `devsecops-engineer/senior-security`, `devsecops-engineer/shannon-ai-pentester`, `devsecops-engineer/shell-scripting`, `devsecops-engineer/skill-authoring`, `devsecops-engineer/skill-creator`, `devsecops-engineer/sqlite-database-expert`, `devsecops-engineer/terraform-aws-modules`, `devsecops-engineer/terraform-azure`, `devsecops-engineer/terraform-gcp`, `devsecops-engineer/token-safety`
-- **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD
+- **Skills**: `anbu-skill`, `anbu-skill/anthropic-cybersecurity-skills`, `anbu-skill/devops-engineer`, `anbu-skill/distributed-systems`, `anbu-skill/laravel-specialist`, `anbu-skill/magento-module-developer`, `anbu-skill/prometheus-grafana`, `anbu-skill/prompt-engineer`, `anbu-skill/wordpress-pro`
+- **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD, cybersecurity defense, distributed messaging/caching, prompt engineering
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
 
 ### @tokubetsu-jonin — 🎯 Technical Writing & Scribe
-- **Purpose**: Specialized in writing and maintaining technical documentation, specs, and READMEs
-- **Skills**: `documentation`, `documentation/mermaid-architecture`, `documentation/mermaid-core`, `documentation/prd-creation`, `documentation/router`, `documentation/task-generation`, `documentation/technical-writing`
-- **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, or documentation updates
+- **Purpose**: Specialized in writing and maintaining technical documentation, specs, READMEs, PDF reports, postmortems, and technical articles
+- **Skills**: `tokubetsu-jonin-skill`, `tokubetsu-jonin-skill/documentation-writer`, `tokubetsu-jonin-skill/pdf`, `tokubetsu-jonin-skill/postmortem-writer`, `tokubetsu-jonin-skill/technical-article-writer`, `documentation`
+- **Delegate when**: Technical writing, README creation, API specs, runbooks, onboarding guides, documentation updates, PDF reports, incident postmortems, RCA, technical blog articles, whitepapers
 - **Constraints**: Follow reader-first principles, include code examples, and link references. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
 - **Workflow**: Search skills/references with `konoha` → construct clear documentation → show code examples/commands → link references.
 
@@ -185,3 +196,7 @@ Load **semble** when project source code search is needed — do NOT load it for
 | **semble** | `uvx --from semble[mcp] semble` | Project source code search needed |
 | **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
 | cloudrun | `npx -y @google-cloud/cloud-run-mcp` | GCP deployments |
+
+## Custom Agent Rules for Konoha
+
+- **No `skilladd` Command**: Under no circumstances should `konoha skilladd` or `node bin/cli.js skilladd` be implemented, documented, or used. Only use `konoha skill add` to directly install a skill from a Git repository.

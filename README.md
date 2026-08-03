@@ -11,13 +11,12 @@
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![Token Savings](https://img.shields.io/badge/Token%20Savings-83--98%25-9ece6a)](README.md)
 
-> SQLite FTS5 Skills-DB for Antigravity, Cursor, Claude Code, and OpenCode — on-demand skill content via MCP, reducing token usage by **83-98%**.
 
 ---
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.6](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-06-27.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.7](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-07-28.md)
 
 | | |
 |:---:|:---:|
@@ -32,14 +31,12 @@
 * [Antigravity IDE Setup Guide](docs/SETUP-IDE.md)
 * [Antigravity CLI Setup Guide](docs/SETUP-CLI.md)
 * [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md)
-* [Claude Code, OpenCode & MCP Clients](docs/SETUP-MCP-CLIENTS.md)
 * [Adding Skills from skills.sh](docs/ADDING-SKILLS.md)
 * [Token Savings Benchmarks](docs/BENCHMARK.md)
 * [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 
 ## ⚠️ The Problem
 
-When using agent skills with Antigravity IDE/CLI, Cursor IDE/CLI, Claude Code, or OpenCode, the entire directory of `SKILL.md` files, reference documents, and auxiliary scripts is loaded directly into the starting conversation window. For a typical workspace configuration containing 5 custom skills:
 
 | Component | Size | Context Overhead |
 |:---|:---:|:---|
@@ -74,11 +71,13 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 - **Skill lookup** (`konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`.
 - **Codebase search** (`semble.search`, `semble.find_related`) — always via `semble` MCP, never `grep`/`rg`/`find`.
 - **Bounded file reads** — `konoha.read_file_head` / `read_file_range` / `file_info` / `token_efficient_grep`, never generic `Read` / `Grep` / `Glob` / shell `cat`/`head`/`tail`.
+- **Project Knowledge Discovery** — inspect project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and project skills (`.agents/skills`, `.cursor/skills`, `skills/`) before executing code.
+- **Package Manager Mandate** — ALWAYS use `pnpm` (never standalone `npx` or `npm`) for all JS/TS scaffolding, installs, and builds.
 - **Subagent routing** — match the task domain to a ninja agent:
   - `@genin` — codebase exploration, codepath tracing
   - `@kage` — architecture, security, deep analysis
   - `@chunin` — web research, documentation synthesis
-  - `@jonin` — UI/frontend (SvelteKit, Next.js, Tailwind)
+  - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4
   - `@anbu` — backend, bug fixing, DevOps
   - `@tokubetsu-jonin` — technical writing, docs, READMEs
 
@@ -86,11 +85,70 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 
 ---
 
+## 🏗️ Multi-Agent Architecture: MCP Tools Orchestrator
+
+Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption via MCP Tools), specifically engineered to deliver maximum performance, complete cross-IDE portability, and **83–98% token savings**.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          MCP TOOLS ORCHESTRATOR MODEL                           │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   👤 User Prompt / Resume Action                                                │
+│        │                                                                        │
+│        ▼                                                                        │
+│   🌀 Main Orchestrator Thread (Sannin)                                          │
+│        │                                                                        │
+│        ├─ Step 1: Read prompt spec via `konoha` MCP (`read_file_head`/`range`)  │
+│        ├─ Step 2: Discover target skills & codebase via `konoha` & `semble` MCP │
+│        ├─ Step 3: Write delegation spec (`delegate.md`) in transient task dir   │
+│        ├─ Step 4: Invoke Subagent MCP Tool (e.g., `konoha.mcp_anbu`)            │
+│        │             │                                                          │
+│        │             └─► MCP Tool returns persona & instructions JSON           │
+│        │                                                                        │
+│        ├─ Step 5: Adopt Persona ──► Execute task & write `result.md`            │
+│        └─ Step 6: Call `mcp_sannin` tool to close task loop & synthesize        │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Architectural Comparison
+
+| Dimension | 1. Agent-to-Agent (Process Spawning) | 2. MCP-to-MCP (Server-to-Server RPC) | 3. MCP Tools Orchestrator (Konoha Model) |
+|:---|:---|:---|:---|
+| **Execution Model** | Spawns separate LLM child processes (`invoke_subagent`). | One MCP Server calls another downstream MCP Server via backend RPC. | Subagents run as **MCP Tools** (`mcp_anbu`, `mcp_kage`); Orchestrator adopts persona dynamically. |
+| **Token Efficiency** | ❌ **Poor**: High token bloat from duplicating system prompts & context (3x–10x token cost). | ⚠️ **Moderate**: Depends on RPC serialization payload size. | ✅ **Extreme (83–98% Savings)**: In-flight execution using bounded MCP context. |
+| **Startup Latency** | ❌ **High**: 3–10 seconds of cold-start delay per child process launch. | ⚠️ **Moderate**: Network/IPC serialization hops between cascading servers. | ✅ **Near-Zero Latency**: Instant inline tool invocations and persona handoffs. |
+| **Task Auditability** | ⚠️ Complex transcript aggregation across detached process trees. | ❌ Hidden backend execution; opaque to the client UI/user. | ✅ **Fully Transparent**: Human-readable task contracts (`delegate.md` & `result.md`). |
+
+### Why Konoha Uses the MCP Tools Orchestrator Model
+
+1. 🚀 **Zero Process Cold-Start**: Subagents execute in-flight as standard MCP tools without waiting for multi-second process initialization.
+3. 🛡️ **Seamless Conversation Resumption**: Re-evaluates state and enforces subagent delegation workflow on every resume or multi-turn request.
+
+---
+
 ## 🚀 Quick Start
+
+### Automatic Dependency & Environment Provisioning
+
+When installing Konoha globally, all required Node.js libraries, Python helper dependencies, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
+
+```bash
+npm install -g konoha
+konoha init
+```
+
+Konoha handles all setup steps automatically:
+- 📦 **Node.js dependencies**: Installed via `package.json` (`@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `ora`, `chalk`).
+- 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/skills.db`.
+- 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
+- ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
 
 > [!IMPORTANT]
 > **Zero-Prompt Auto-Setup**:
-> Running `konoha init` (or any `konoha` command, which auto-triggers `ensureAutoSetup()`) configures every detected IDE/CLI client in one shot. Konoha asks a single consent prompt ("Initialize Konoha and modify ~/.gemini configurations?"), then auto-configures all detected MCP clients (Antigravity, Cursor, Claude Code, OpenCode) without further prompting. Clients not detected on the system are skipped silently. Pass `--yes` or set `CI=true` to suppress all prompts.
+>
+> **Cross-Platform**: Works on Linux, macOS, and Windows (native and WSL). Supports nvm on all platforms.
 
 Get Konoha up and running in under 2 minutes:
 
@@ -106,14 +164,13 @@ konoha status
 ```
 
 > [!NOTE]
-> For step-by-step IDE integration, see the [Antigravity IDE Setup Guide](docs/SETUP-IDE.md), [Antigravity CLI Setup Guide](docs/SETUP-CLI.md), [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md), or [Claude Code, OpenCode & MCP Clients](docs/SETUP-MCP-CLIENTS.md).
 
 ## 📋 Requirements
 
-- **Node.js** ≥ 18
+- **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
 - **Python 3** ≥ 3.8 (for MCP server, uses standard library only — no external pip packages required)
-- **Antigravity IDE** or **Antigravity CLI** (agy), **Cursor IDE / Cursor CLI**, and/or **Claude Code** / **OpenCode** (optional — auto-configured when CLI is detected)
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Cursor users also get `~/.cursor/skills/` mirrored automatically
+- **Cross-platform**: Linux, macOS, Windows (native and WSL)
 
 ## 🛠️ CLI Commands
 
@@ -128,7 +185,6 @@ Once installed, the following CLI commands are available:
 | Command | Description |
 |:---|:---|
 | `konoha init` | Full install: server + migration + MCP config + GEMINI.md |
-| `konoha migrate [--force]` | Re-index skills. If `--force` is used, prunes unused/unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` first to ensure no duplicate entries occur (skipping project-level skills), and automatically reconfigures integrations for Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode. |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version and check for updates from GitHub |
@@ -144,6 +200,24 @@ Once installed, the following CLI commands are available:
 | `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
+
+## 🛰️ Cross-Platform Install
+
+Konoha works seamlessly on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
+
+```bash
+npm install -g konoha
+konoha init
+```
+
+If `konoha` is not found after install:
+- **nvm on Linux/macOS**: `source ~/.nvm/nvm.sh` then `nvm use stable`
+- **nvm-windows**: `nvm use <version>` then `npm install -g konoha`
+- **Windows without nvm**: Reinstall Node.js from [nodejs.org](https://nodejs.org/) and ensure PATH is set
+
+Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md](docs/SETUP-IDE.md), [SETUP-CURSOR.md](docs/SETUP-CURSOR.md), [SETUP-MCP-CLIENTS.md](docs/SETUP-MCP-CLIENTS.md).
+
+---
 
 ## 🛰️ Konoha Bridge Router
 
@@ -165,7 +239,7 @@ Configure bridges with `konoha bridge create` (interactive wizard). You can add 
 | `gpt-api` | User-defined | `openai` | Direct proxy to OpenAI-compatible endpoints (e.g. `https://api.openai.com/v1`). |
 | `my-ollama` | User-defined | `openai-compatible` | Proxy to local LLM instances (e.g. Ollama, vLLM). |
 
-> **Note:** `openai-oauth` (device code flow) support was removed in v1.1.6+. Use `openai` (API key) or `openai-compatible` bridges instead.
+> **Note:** `openai-oauth` (device code flow) support was removed in v1.1.7+. Use `openai` (API key) or `openai-compatible` bridges instead.
 
 Model routing examples:
 
@@ -206,8 +280,6 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 └── cli-config.json        ← Cursor CLI MCP permissions
 
 ~/.claude.json             ← konoha + semble (Claude Code, global only)
-~/.config/opencode/
-└── opencode.json          ← konoha + semble (OpenCode, global only)
 ```
 
 ---
@@ -220,7 +292,6 @@ Run `konoha migrate` whenever you add, edit, or remove skills:
 konoha migrate
 ```
 
-To clean up and archive unused or unembedded skills to `.agents.backup/skills/{name-skill}-yyyymmdd` (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with the `--force` flag. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:
 
 ```bash
 konoha migrate --force
@@ -306,7 +377,7 @@ Find files semantically related to a given file — useful for understanding dep
 
 ## 🥷 Official Agent Team (Naruto Ninja Ranks)
 
-The installer updates your configuration to define a cohesive, specialized team of **6 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities, preferred model tier, fallback settings, and tool access:
+The installer updates your configuration to define a cohesive, specialized team of **7 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities, preferred model tier, fallback settings, and tool access:
 
 ### 1. 🍃 Genin (Junior Scout)
 * **Operational Role**: Codebase Reconnaissance & Scout
@@ -338,31 +409,34 @@ The installer updates your configuration to define a cohesive, specialized team 
 * **Skills-DB Keyword**: `sveltekit tailwind nextjs components` (fetches design standards).
 
 ### 4. 👥 Anbu (Special Black Ops)
-* **Operational Role**: Backend Specialist, Bug Resolution, & DevOps Engineer
+* **Operational Role**: Backend Specialist, Bug Resolution, DevOps, & Cybersecurity Defense Engineer
 * **Primary Model**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.1 Flash-Lite`
 * **Key Responsibilities**:
-  - Designs backend systems, database schemas, and robust API endpoints.
-  - Diagnoses complex runtime bugs, memory leaks, and environment failures.
+  - Designs backend systems, database schemas, APIs (Node.js, Express, GraphQL, Laravel, WordPress, Magento, PHP, Ruby, C++).
+  - Architectures distributed messaging and caching layers (Kafka, RabbitMQ, Redis, Nginx, HAProxy, Varnish).
+  - Implements defensive cybersecurity forensics, threat hunting, and OWASP remediation (`anthropic-cybersecurity-skills`).
   - Provisions infrastructure (Terraform, Kubernetes, Helm) and manages secure CI/CD pipelines.
-  - Validates changes with dry-runs and establishes structured rollback procedures.
-* **Skills-DB Keyword**: `terraform aws kubernetes helm ci-cd` (loads deployment recipes).
+  - Formulates AI prompt engineering strategies (`prompt-engineer`) and creates/maintains agent skills (`skill-creator`).
+* **Skills-DB Keyword**: `terraform aws kubernetes helm ci-cd security kafka redis prompt` (loads backend and defense recipes).
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
-* **Operational Role**: Technical Writing, Documentation, & API Specification
+* **Operational Role**: Technical Writing, Documentation, PDF Reporting, & Postmortems
 * **Primary Model**: `Gemini 3.1 Flash-Lite`
 * **Key Responsibilities**:
-  - Authors and maintains README files, API documentations, runbooks, and onboarding guides.
-  - Emphasizes reader-first principles, clean code blocks, and visual diagrams.
-* **Skills-DB Keyword**: `documentation README API runbook` (retrieves writing standards).
+  - Authors and maintains README files, API specifications, runbooks, and onboarding guides (`documentation-writer`).
+  - Produces printable professional PDF reports and styled documentation exports (`pdf`).
+  - Drafts incident postmortems, root cause analyses (RCA), and project retrospectives (`postmortem-writer`).
+  - Writes technical blog articles, whitepapers, engineering tutorials, and content (`technical-article-writer`).
+* **Skills-DB Keyword**: `documentation README API runbook postmortem pdf report article` (retrieves writing standards).
 
 ### 6. 🌀 Kage (Village Leader)
 * **Operational Role**: Senior Architect, Strategist, & Deep Problem Solver
 * **Primary Model**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.1 Flash-Lite`
 * **Key Responsibilities**:
-  - Guides high-level architecture decisions, security audits, and risk assessments.
-  - Constructs trade-off matrices and designs disaster recovery/rollback strategies.
+  - Guides high-level architecture decisions, security audits, and risk assessments (`risk-assessment`, `improve-codebase-architecture`).
+  - Constructs professional architecture diagrams and visualizations (`drawio-skill`, `mermaid-diagrams`).
   - Orchestrates the entire subagent team for complex, multi-domain tasks.
-* **Skills-DB Keyword**: `code review architecture devsecops` (loads advanced architectural frameworks).
+* **Skills-DB Keyword**: `code review architecture devsecops drawio mermaid risk` (loads advanced architectural frameworks).
 
 ---
 
@@ -376,7 +450,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Proactive Execution (No commanding back)**: Subagents must never instruct the user to manually create/edit files or run terminal commands that the agent is equipped to perform itself.
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep; `rg` only if semble MCP is unavailable.
-> * **Locked Subagent Delegation**: Subagent delegation is locked to the 6 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
+> * **Locked Subagent Delegation**: Subagent delegation is locked to the 7 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `sannin`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
 > * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the system will fallback to `Gemini 3.1 Flash-Lite` and use direct tool calls instead of spawning additional subagents.

@@ -10,7 +10,7 @@ const {
 
 const {
   SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
-  CLAUDE_JSON, CLAUDE_SETTINGS, OPENCODE_GLOBAL
+  CLAUDE_JSON, CLAUDE_SETTINGS, HOME,
 } = require('../bin/lib/paths');
 
 const KONOHA_MCP_NAMES = ['konoha', 'semble'];
@@ -57,12 +57,6 @@ function isClaudeCodeInstalled() {
   );
 }
 
-function isOpenCodeInstalled() {
-  return (
-    isCommandAvailable('opencode') ||
-    fileExists(path.join(HOME, '.config', 'opencode'))
-  );
-}
 
 function buildStdioMcpServers(options = {}) {
   const {
@@ -90,18 +84,6 @@ function buildStdioMcpServers(options = {}) {
   return servers;
 }
 
-function buildOpenCodeMcpEntries(options = {}) {
-  const servers = buildStdioMcpServers(options);
-  const mcp = {};
-  for (const [name, entry] of Object.entries(servers)) {
-    mcp[name] = {
-      type: 'local',
-      command: [entry.command, ...(entry.args || [])],
-      enabled: true
-    };
-  }
-  return mcp;
-}
 
 function mergeJsonFile(filePath, mutator, silent = true) {
   const { parseYaml, stringifyYaml } = require('./agent_manager');
@@ -153,20 +135,6 @@ function mergeMcpServersBlock(existing, servers) {
   return updated;
 }
 
-function mergeOpenCodeMcpBlock(existing, entries) {
-  if (!existing) existing = {};
-  let updated = false;
-  for (const [name, entry] of Object.entries(entries)) {
-    const prev = existing[name];
-    const prevCmd = JSON.stringify(prev?.command || []);
-    const nextCmd = JSON.stringify(entry.command || []);
-    if (!prev || prev.type !== entry.type || prevCmd !== nextCmd || prev.enabled !== entry.enabled) {
-      existing[name] = entry;
-      updated = true;
-    }
-  }
-  return updated;
-}
 
 function backupFile(filePath, silent = true) {
   const backPath = filePath + '.back';
@@ -225,31 +193,6 @@ function registerClaudeCodePermissions(silent = true) {
   );
 }
 
-function registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
-  if (!fileExists(serverPath)) return false;
-  const { parseYaml, stringifyYaml } = require('./agent_manager');
-  const entries = buildOpenCodeMcpEntries({ pythonCmd, serverPath, uvxCmd });
-
-  // Backup existing config once, then replace mcp block with only Konoha servers
-  backupFile(OPENCODE_GLOBAL, silent);
-
-  let existingConfig = {};
-  if (fileExists(OPENCODE_GLOBAL)) {
-    try {
-      existingConfig = parseYaml(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8')) || {};
-    } catch { /* ignore parse errors, start fresh */ }
-  }
-
-  if (!existingConfig.$schema) {
-    existingConfig.$schema = 'https://opencode.ai/config.yaml';
-  }
-  // Replace mcp block entirely with only Konoha servers
-  existingConfig.mcp = entries;
-  ensureDir(path.dirname(OPENCODE_GLOBAL));
-  fs.writeFileSync(OPENCODE_GLOBAL, stringifyYaml(existingConfig) + '\n');
-  if (!silent) console.log(`  ✓ ${path.basename(OPENCODE_GLOBAL)} replaced with Konoha-only MCP servers`);
-  return true;
-}
 
 function resolveClaudeModel(agent) {
   const val = (agent.claudeModel || '').toLowerCase();
@@ -377,87 +320,10 @@ function ensureClaudeCodeSetup(options = {}) {
   return { ok: true };
 }
 
-function resolveOpenCodeModel(agent) {
-  return agent.opencodeModel || 'inherit';
-}
-
-function generateOpenCodeSubagent(agent) {
-  const model = resolveOpenCodeModel(agent);
-  const description = `${agent.description || ''} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-
-  let instructions = agent.instructions || '';
-  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
-  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
-  instructions = instructions.trim();
-  if (instructions && !instructions.endsWith('.')) {
-    instructions += '.';
-  }
-
-  if (agent.skills && agent.skills.length > 0) {
-    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
-    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
-    const logMatch = instructions.match(logPattern);
-    if (logMatch) {
-      const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
-    } else {
-      instructions = `Before work: ${findSkillCalls} ` + instructions;
-    }
-  }
-
-  const body = adaptInstructionsForClaudeCode(instructions);
-  const sembleLine = buildSembleSearchPolicyCompact();
-  const fileToolsLine = buildFileToolsPolicyCompact();
-
-  const frontmatter = [
-    '---',
-    `name: ${agent.name}`,
-    `description: "${description.replace(/"/g, '\\\"').replace(/\n/g, ' ')}"`,
-    `model: ${model}`,
-    'allowed-tools:',
-    '  - Write',
-    '  - Edit',
-    '  - Bash',
-    '  - TodoRead',
-    '  - TodoWrite',
-    '  - WebSearch',
-    '  - mcp__semble__*',
-    '  - mcp__konoha__*',
-    '---',
-    ''
-  ];
-
-  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
-}
 
 
 
-function ensureOpenCodeSetup(options = {}) {
-  const {
-    pythonCmd = 'python3',
-    serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
-    silent = true,
-    agents = []
-  } = options;
 
-  if (!isOpenCodeInstalled()) {
-    return { ok: false, reason: 'opencode CLI not detected' };
-  }
-
-  deployUtils.installFileTools(silent);
-
-  if (!fileExists(serverPath)) {
-    return { ok: false, reason: 'konoha server not installed' };
-  }
-
-  registerOpenCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
-
-
-
-  return { ok: true };
-}
 
 function readMcpHealth(config, key = 'mcpServers') {
   const block = config[key] || config.mcp || {};
@@ -513,37 +379,6 @@ function getClaudeCodeStatus() {
   return status;
 }
 
-function getOpenCodeStatus() {
-  const status = {
-    installed: isOpenCodeInstalled(),
-    globalConfig: fileExists(OPENCODE_GLOBAL),
-    mcpKonoha: false,
-    mcpSemble: false,
-    mcpSkillsDb: false,
-    agentsCount: 0
-  };
-
-  if (status.globalConfig) {
-    try {
-      const { parseYaml } = require('./agent_manager');
-      const config = parseYaml(fs.readFileSync(OPENCODE_GLOBAL, 'utf-8'));
-      const health = readMcpHealth(config, 'mcp');
-      status.mcpKonoha = health.konoha;
-      status.mcpSemble = health.semble;
-      status.mcpSkillsDb = health.skillsDb;
-    } catch {}
-  }
-
-  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-  for (const name of official) {
-    if (fileExists(path.join(opencodeAgentsDir, `${name}.md`))) {
-      status.agentsCount++;
-    }
-  }
-
-  return status;
-}
 
 function removeKonohaFromMcpBlock(block) {
   if (!block) return false;
@@ -763,52 +598,20 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
   }
 }
 
-function removeOpenCodeConfig(silent = true) {
-  if (fileExists(OPENCODE_GLOBAL)) {
-    try {
-      mergeJsonFile(
-        OPENCODE_GLOBAL,
-        (config) => removeKonohaFromMcpBlock(config.mcp),
-        silent
-      );
-    } catch {}
-  }
-
-  // Remove OpenCode subagents
-  const opencodeAgentsDir = path.join(HOME, '.config', 'opencode', 'agents');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
-  for (const name of official) {
-    const p = path.join(opencodeAgentsDir, `${name}.md`);
-    if (fileExists(p)) {
-      try {
-        fs.unlinkSync(p);
-      } catch {}
-    }
-  }
-}
 
 module.exports = {
   CLAUDE_JSON,
   CLAUDE_SETTINGS,
-  OPENCODE_GLOBAL,
   KONOHA_MCP_NAMES,
   isClaudeCodeInstalled,
-  isOpenCodeInstalled,
   buildStdioMcpServers,
-  buildOpenCodeMcpEntries,
   registerClaudeCodeGlobalMcp,
   registerClaudeCodePermissions,
   deployClaudeCodeRules,
   deployProjectClaudeMd,
   removeProjectClaudeMd,
-  registerOpenCodeGlobalMcp,
   ensureClaudeCodeSetup,
-  ensureOpenCodeSetup,
   getClaudeCodeStatus,
-  getOpenCodeStatus,
   removeClaudeCodeConfig,
-  removeOpenCodeConfig,
   generateClaudeCodeSubagent,
-  resolveOpenCodeModel,
-  generateOpenCodeSubagent
 };

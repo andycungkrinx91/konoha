@@ -6,11 +6,30 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const platform = require('./platform_utils');
-const { TOOL_WORKERS_DIR, FILE_TOOLS_PYTHON_CMD_FILE } = require('../bin/lib/paths');
+
+// Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
+const devPaths = (() => {
+  try { return require('../bin/lib/paths'); } catch(_) { return null; }
+})();
+const TOOL_WORKERS_DIR = devPaths
+  ? devPaths.TOOL_WORKERS_DIR
+  : path.join(__dirname, 'file_tools');
+const FILE_TOOLS_PYTHON_CMD_FILE = devPaths
+  ? devPaths.FILE_TOOLS_PYTHON_CMD_FILE
+  : path.join(__dirname, '.python_cmd');
 
 const TOOLS_DIR = TOOL_WORKERS_DIR;
 const PYTHON_CMD_FILE = FILE_TOOLS_PYTHON_CMD_FILE;
 const SCRIPT_TIMEOUT_MS = 60000;
+
+// Allow paths under the Konoha install directory (~/\.konoha/).
+// This ensures the MCP server can work on workspace-internal paths
+// even when the IDE workspace is something else (e.g. a brain/session dir).
+const HOME = os.homedir();
+const KONOHA_DIR = path.join(HOME, '.konoha');
+let konoHaReal = null;
+try { konoHaReal = fs.realpathSync(KONOHA_DIR); } catch { konoHaReal = path.resolve(KONOHA_DIR); }
+const KONOHA_DIR_NORM = platform.normPath(konoHaReal);
 
 let workspaceRoot = null;
 
@@ -40,10 +59,14 @@ function uriToPath(uri) {
 }
 
 function resolveInputPath(rawPath) {
-  if (!rawPath || typeof rawPath !== 'string') {
+  let p = rawPath;
+  if (p && typeof p === 'object') {
+    p = p.path || p.file_path || p.filepath || p.dir_path || p.dir;
+  }
+  if (!p || typeof p !== 'string') {
     throw new Error('path is required');
   }
-  const expanded = platform.expandUser(rawPath);
+  const expanded = platform.expandUser(p);
   const base = getWorkspaceRoot();
   const resolved = path.isAbsolute(expanded)
     ? path.resolve(expanded)
@@ -54,11 +77,43 @@ function resolveInputPath(rawPath) {
   } catch {
     real = resolved;
   }
-  assertWithinWorkspace(real);
+  assertWithinAllowed(real);
   return real;
 }
 
-function assertWithinWorkspace(resolvedPath) {
+/**
+ * Allow a path if it's inside the workspace root, inside ~/.konoha/,
+ * or inside any IDE agent scratch directory (~/.gemini/, ~/.claude/,
+ * ~/.cursor/, etc).
+ */
+function assertWithinAllowed(resolvedPath) {
+  const pathNorm = platform.normPath(resolvedPath);
+
+  // 1. Konoha install directory — always allowed
+  if (pathNorm === KONOHA_DIR_NORM || pathNorm.startsWith(KONOHA_DIR_NORM + path.sep) || pathNorm.startsWith(KONOHA_DIR_NORM + '/')) {
+    return;
+  }
+
+  // 2. Inside home-scoped agent scratch dirs — IDE internal caches
+  //    These paths are used by tools like read_file_head to inspect
+  //    output files written by agent sub-sessions (e.g. Gemini brain/,
+  //    Claude sessions, Cursor .md files).
+  const HOME = os.homedir();
+  const SCRATCH_PREFIXES = [
+    path.join(HOME, '.gemini'),
+    path.join(HOME, '.claude'),
+    path.join(HOME, '.cursor'),
+    path.join(HOME, '.vscode'),
+    path.join(HOME, '.openai'),
+    path.join(HOME, '.windsurf'),
+  ].map(d => platform.normPath(d));
+  for (const p of SCRATCH_PREFIXES) {
+    if (pathNorm === p || pathNorm.startsWith(p + path.sep) || pathNorm.startsWith(p + '/')) {
+      return;
+    }
+  }
+
+  // 3. Inside workspace root — if set
   const workspace = getWorkspaceRoot();
   if (!workspace) return;
   let wsReal;
@@ -68,11 +123,13 @@ function assertWithinWorkspace(resolvedPath) {
     wsReal = path.resolve(workspace);
   }
   const wsNorm = platform.normPath(wsReal);
-  const pathNorm = platform.normPath(resolvedPath);
   const rel = path.relative(wsNorm, pathNorm);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Path outside workspace: ${resolvedPath}`);
+  if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+    return;
   }
+
+  // 4. Not allowed
+  throw new Error(`Path outside workspace: ${resolvedPath}`);
 }
 
 function runPythonScript(scriptName, args) {
@@ -91,8 +148,7 @@ function runPythonScript(scriptName, args) {
     result = spawnSync(getPythonCommand(), [scriptPath, JSON.stringify(payload)], {
       encoding: 'utf-8',
       timeout: SCRIPT_TIMEOUT_MS,
-      maxBuffer: 16 * 1024 * 1024,
-      shell: platform.IS_WIN
+      maxBuffer: 1024 * 1024 * 1024
     });
   } catch (err) {
     return { error: err.message || String(err) };
@@ -133,7 +189,10 @@ function formatToolResult(data) {
   return { text: JSON.stringify(data), isError: false };
 }
 
-function readFileRange({ path: filePath, start_line, end_line }) {
+function readFileRange(args = {}) {
+  const filePath = args.path || args.file_path || args.filepath;
+  const start_line = args.start_line;
+  const end_line = args.end_line;
   if (start_line === undefined || end_line === undefined) {
     return { error: 'start_line and end_line are required' };
   }
@@ -145,7 +204,9 @@ function readFileRange({ path: filePath, start_line, end_line }) {
   });
 }
 
-function readFileHead({ path: filePath, max_lines }) {
+function readFileHead(args = {}) {
+  const filePath = args.path || args.file_path || args.filepath;
+  const max_lines = args.max_lines;
   const resolved = resolveInputPath(filePath);
   const payload = { path: resolved };
   if (max_lines !== undefined) {
@@ -154,61 +215,80 @@ function readFileHead({ path: filePath, max_lines }) {
   return runPythonScript('read_file_head.py', payload);
 }
 
-function fileInfo({ path: filePath }) {
+function fileInfo(args = {}) {
+  const filePath = args.path || args.file_path || args.filepath;
   const resolved = resolveInputPath(filePath);
   return runPythonScript('file_info.py', { path: resolved });
 }
 
-function tokenEfficientGrep({ pattern, dir, glob, file_glob, ignore_case, max_matches }) {
+function tokenEfficientGrep(args = {}) {
+  const { pattern, glob, file_glob, ignore_case, max_matches } = args;
   if (!pattern) {
     return { error: 'pattern is required' };
   }
-  const resolvedDir = resolveInputPath(dir || '.');
-  const payload = { pattern, dir: resolvedDir };
-  if (glob || file_glob) payload.glob = glob || file_glob;
+  const dirPath = args.dir || args.path || args.file_path || '.';
+  const resolvedDir = resolveInputPath(dirPath);
+  
+  let finalDir = resolvedDir;
+  let finalGlob = glob || file_glob;
+  try {
+    const stat = fs.statSync(resolvedDir);
+    if (stat.isFile()) {
+      finalDir = path.dirname(resolvedDir);
+      // Only search this specific file
+      finalGlob = path.basename(resolvedDir);
+    }
+  } catch (e) {
+    // Ignore error, let Python script handle if missing
+  }
+
+  const payload = { pattern, dir: finalDir };
+  if (finalGlob) payload.glob = finalGlob;
   if (ignore_case !== undefined) payload.ignore_case = Boolean(ignore_case);
   if (max_matches !== undefined) payload.max_matches = Number(max_matches);
   return runPythonScript('token_efficient_grep.py', payload);
 }
 
-function getFileStructure({ path: filePath }) {
+function getFileStructure(args = {}) {
+  const filePath = args.path || args.file_path || args.filepath || args.dir_path || args.dir;
   const resolved = resolveInputPath(filePath);
   return runPythonScript('get_file_structure.py', { path: resolved });
 }
 
-function findFilesClean({ pattern, dir }) {
-  const resolvedDir = resolveInputPath(dir || '.');
+function findFilesClean(args = {}) {
+  const { pattern } = args;
+  const dirPath = args.dir || args.path || args.file_path || '.';
+  const resolvedDir = resolveInputPath(dirPath);
   return runPythonScript('find_files_clean.py', {
     pattern: pattern || '*',
     dir: resolvedDir
   });
 }
 
-function searchFile({ query, dir, top_k }) {
-  const resolvedDir = resolveInputPath(dir || '.');
+function searchFile(args = {}) {
+  const { query, top_k } = args;
+  if (!query) return { error: 'query is required' };
+  
+  const dirPath = args.dir || args.path || args.file_path || '.';
+  const resolvedDir = resolveInputPath(dirPath);
+  
+  let finalDir = resolvedDir;
   try {
-    const k = top_k || 5;
-    const args = ['--from', 'semble[mcp]@latest', 'semble', 'search', query, resolvedDir, '-k', String(k), '--content', 'all'];
-    
-    const result = spawnSync('uvx', args, {
-      encoding: 'utf-8',
-      timeout: 60000,
-      maxBuffer: 16 * 1024 * 1024,
-      shell: platform.IS_WIN
-    });
-    
-    if (result.error) {
-      return { error: `Failed to execute uvx semble: ${result.error.message}` };
+    const stat = fs.statSync(resolvedDir);
+    if (stat.isFile()) {
+      finalDir = path.dirname(resolvedDir);
     }
-    
-    if (result.status !== 0) {
-      return { error: `Semble search failed: ${result.stderr}` };
-    }
-    
-    return { text: result.stdout };
-  } catch (err) {
-    return { error: err.message };
+  } catch (e) {
+    // Ignore error, let Python script handle if missing
   }
+
+  const payload = { 
+    query, 
+    dir: finalDir,
+    top_k: top_k || 5
+  };
+  
+  return runPythonScript('search_file.py', payload);
 }
 
 function runPythonSkillTool(toolName, args) {
@@ -222,8 +302,7 @@ function runPythonSkillTool(toolName, args) {
     result = spawnSync(getPythonCommand(), [serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
       encoding: 'utf-8',
       timeout: timeoutMs,
-      maxBuffer: 16 * 1024 * 1024,
-      shell: platform.IS_WIN
+      maxBuffer: 1024 * 1024 * 1024
     });
   } catch (err) {
     return { error: err.message || String(err) };
@@ -258,7 +337,8 @@ const TOOL_HANDLERS = {
   mcp_anbu: (args) => runPythonSkillTool('mcp_anbu', args),
   mcp_chunin: (args) => runPythonSkillTool('mcp_chunin', args),
   mcp_tokubetsu_jonin: (args) => runPythonSkillTool('mcp_tokubetsu_jonin', args),
-  mcp_genin: (args) => runPythonSkillTool('mcp_genin', args)
+  mcp_genin: (args) => runPythonSkillTool('mcp_genin', args),
+  get_resolved_task_dir: (args) => runPythonSkillTool('get_resolved_task_dir', args)
 };
 
 function dispatchTool(name, args) {
@@ -338,9 +418,10 @@ function listToolSchemas() {
       inputSchema: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'Absolute or workspace-relative file path' }
-        },
-        required: ['path']
+          path: { type: 'string', description: 'Absolute or workspace-relative file/dir path' },
+          dir: { type: 'string', description: 'Alias for path' },
+          dir_path: { type: 'string', description: 'Alias for path' }
+        }
       }
     },
     {
@@ -367,6 +448,16 @@ function listToolSchemas() {
           top_k: { type: 'integer', description: 'Number of results to return (optional, default 5)' }
         },
         required: ['query']
+      }
+    },
+    {
+      name: 'get_resolved_task_dir',
+      description: 'Resolve a transient task directory outside the workspace to avoid accidental git commits. Pass an optional task_dir name, or leave empty for default.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          task_dir: { type: 'string', description: 'Optional explicit task directory name/ID' }
+        }
       }
     },
     {
@@ -543,6 +634,7 @@ function validateInstall() {
 }
 
 module.exports = {
+  resolveInputPath,
   setWorkspaceRoot,
   getWorkspaceRoot,
   uriToPath,

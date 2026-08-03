@@ -4,7 +4,41 @@ This guide provides solutions to common issues encountered during the installati
 
 ---
 
-## 🔍 Common Issues
+## 🔍 Cross-Platform Install Issues
+
+### ❌ `konoha` Command Not Found (nvm PATH Issue)
+
+If `konoha` works in one shell but not another, your nvm PATH isn't being loaded. This is common on:
+- **macOS**: Fresh terminal with nvm not in profile
+- **Linux**: SSH sessions without interactive shell
+- **Windows**: PowerShell without nvm-windows loaded
+
+**Fix:**
+```bash
+# Linux/macOS
+source ~/.nvm/nvm.sh
+which konoha
+
+# Windows PowerShell
+& "$env:NVM_DIR\nvm.ps1"
+where konoha
+```
+
+**Permanent fix for macOS/Linux:** Ensure this is in `~/.bashrc` or `~/.zshrc`:
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use stable
+```
+
+**Windows (nvm-windows):** Add to PowerShell profile:
+```powershell
+# Edit ~/.powershell/Microsoft.PowerShell_profile.ps1
+nvm list
+nvm use stable
+```
+
+---
 
 ### ❌ "Python 3 is required but not found"
 
@@ -20,6 +54,8 @@ To verify your Python installation:
 python3 --version  # Linux/macOS
 python --version   # Windows
 ```
+
+> **Windows Note:** If you see `Python was not found` even after installing Python, the issue is typically that the Python install directory isn't on PATH. Re-run the Python installer and check "Add Python to PATH", or manually add `C:\Users\<you>\AppData\Local\Programs\Python\Python3X\` and `C:\Users\<you>\AppData\Local\Programs\Python\Python3X\Scripts\` to your system PATH.
 
 ---
 
@@ -38,7 +74,11 @@ npx github:andycungkrinx91/konoha init
 
 1. Check that the configuration file exists:
    ```bash
+   # Linux/macOS
    cat ~/.gemini/config/mcp_config.json
+
+   # Windows (PowerShell)
+   cat $env:USERPROFILE\.gemini\config\mcp_config.json
    ```
 
 2. Verify the `konoha` entry matches:
@@ -46,8 +86,20 @@ npx github:andycungkrinx91/konoha init
    {
      "mcpServers": {
        "konoha": {
-         "command": "python3",
-         "args": ["/home/youruser/.konoha/server.py"]
+         "command": "node",
+         "args": ["/home/youruser/.konoha/file_tools_launcher.js"]
+       }
+     }
+   }
+   ```
+
+   On Windows:
+   ```json
+   {
+     "mcpServers": {
+       "konoha": {
+         "command": "node",
+         "args": ["C:/Users/youruser/.konoha/file_tools_launcher.js"]
        }
      }
    }
@@ -65,7 +117,7 @@ npx github:andycungkrinx91/konoha init
    cat ~/.cursor/mcp.json
    ```
 
-2. Verify `konoha`, `semble`, and `konoha` entries are present (installed by `konoha init` or `konoha doctor --yes`).
+2. Verify `konoha` and `semble` entries are present (installed by `konoha init` or `konoha doctor --yes`).
 
 3. Run the bootstrap hook manually (must exit 0):
    ```bash
@@ -75,19 +127,42 @@ npx github:andycungkrinx91/konoha init
 
 4. **Restart Cursor** — open a new agent session after MCP config changes.
 
-5. Run `konoha doctor --yes` to auto-repair Cursor MCP, subagents, hooks, and CLI permissions.
-
-See [SETUP-CURSOR.md](SETUP-CURSOR.md) for full Cursor setup.
+5. Run `konoha doctor --yes` to auto-repair Cursor MCP, subagents, hooks, and CLI permissions80. See [SETUP-CURSOR.md](SETUP-CURSOR.md) for full Cursor setup.
 
 ---
 
-### 🔌 MCP Server Not Detected in Claude Code or OpenCode
+### 💥 MCP Crashes with "signal: terminated" or "signal: killed" (Port 19999 Collision)
 
-1. Confirm the CLI is installed: `claude --version` or `opencode --version`.
+If you see `signal: terminated` or `signal: killed` when Antigravity/Cursor tries to load the `konoha` MCP server, it is likely due to a **Proxy Gateway Port Collision**.
+
+The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an orphaned Node process from a previous crashed session is still running and occupying port 19999, the new MCP server will instantly crash with `EADDRINUSE 127.0.0.1:19999`. The IDE MCP client catches this immediate exit and throws `signal: terminated`, placing the server in a permanent failed state for that session.
+
+**How to fix:**
+1. Kill any process holding port 19999:
+
+   **Linux/macOS:**
+   ```bash
+   fuser -k 19999/tcp
+   # OR
+   lsof -i :19999
+   kill -9 $(lsof -t -i :19999)
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   Get-NetTCPConnection -LocalPort 19999 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+   # OR
+   netstat -ano | findstr :19999
+   taskkill /PID <pid> /F
+   ```
+
+2. **Restart your IDE / CLI Session completely** to clear the cached failed state of the MCP client.
+
+---
+
+
 2. If **not installed**, Konoha skips auto-setup by design — use templates in `docs/templates/` after you install the CLI, or run `konoha init` once the CLI is available.
 3. If **installed**, run `konoha doctor --yes` or `konoha init --force` to merge Konoha MCP entries.
-4. Verify with `konoha status` (Claude Code / OpenCode integration rows).
-5. Restart the CLI session (`/mcp` in Claude Code, `opencode mcp list` in OpenCode).
 
 Full walkthrough: [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).
 
@@ -111,7 +186,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 1. Verify files are installed:
    ```bash
-   ls ~/.konoha/file_tools_mcp.js ~/.konoha/file_tools_launcher.sh ~/.konoha/file_tools/
+   ls ~/.konoha/file_tools_mcp.js ~/.konoha/file_tools_launcher.js ~/.konoha/file_tools_router.js
    ```
 
 2. Repair and refresh Cursor MCP config:
@@ -121,7 +196,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 3. **Cursor global** `~/.cursor/mcp.json` should use the cross-platform JS launcher:
    ```bash
-   grep -A5 konoha-files ~/.cursor/mcp.json
+   grep -A5 konoha ~/.cursor/mcp.json
    ```
    Expected: `"command": "node"` with `file_tools_launcher.js`.
 
@@ -133,11 +208,11 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **6 tools**.
+   Expected: JSON listing **20 tools** (or more).
 
 5. **Restart Cursor** after repair.
 
-6. Run `konoha test` — expects **16 tests** (9 konoha + 7 konoha-files).
+6. Run `konoha test` — expects all MCP integration tests to pass, plus `tests/test_*.py` standalone suites.
 
 **Common errors:**
 - `Refused: requested span is N lines (max 500)` — narrow `read_file_range` window.
@@ -155,12 +230,12 @@ Agent attribution when the `agent` MCP parameter is omitted is resolved by `dete
 
 **Fixes:**
 1. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
-2. Ensure subagents log `[Icon Agent] active` at response start.
+2. Ensure subagents log `[<Icon> <AgentName>] active` at response start (e.g. `[🍃 Genin] active`, `[🌀 Kage] active`).
 3. Run verification:
    ```bash
-   python3 src/test_agent_attribution.py
-   python3 src/test_cursor_attribution.py
-   python3 src/test_claude_attribution.py
+   python3 tests/test_agent_attribution.py
+   python3 tests/test_cursor_attribution.py
+   python3 tests/test_claude_attribution.py
    ```
 
 Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Calls** — this is expected.
@@ -198,10 +273,10 @@ The agent's instructions must be updated. Check the following:
 
 ### 🚫 "Permission denied" Errors
 
-On Linux/macOS, ensure the server script and assets are readable:
+On Linux/macOS, ensure the files are readable:
 ```bash
-chmod 644 ~/.konoha/server.py
-chmod 644 ~/.konoha/migrate.py
+chmod 644 ~/.konoha/file_tools_mcp.js ~/.konoha/file_tools_launcher.js ~/.konoha/file_tools_router.js
+chmod 644 ~/.konoha/db_bridges.py
 chmod 644 ~/.konoha/skills.db
 ```
 
@@ -226,17 +301,24 @@ Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents
 * **Paths**: Windows uses backslashes. The installer handles this automatically, but if you're manually editing `mcp_config.json`, use forward slashes or double backslashes:
   ```json
   {
-    "command": "python",
-    "args": ["C:/Users/youruser/.konoha/server.py"]
+    "command": "node",
+    "args": ["C:/Users/youruser/.konoha/file_tools_launcher.js"]
   }
   ```
 
-* **Python command**: Windows may use `python` instead of `python3`. The installer auto-detects this.
-* **Line endings**: If you get `SyntaxError` when running the server, convert the CRLF line endings to LF:
+* **Python command**: Konoha ships a Node launcher (`file_tools_launcher.js`) but still embeds a Python bridge (`db_bridges.py`) for database operations. The installer auto-detects `python` vs `python3` on Windows.
+* **Line endings**: If you get `SyntaxError` when running the Python bridge, convert the CRLF line endings to LF:
   ```powershell
   # PowerShell
-  (Get-Content ~/.konoha/server.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.konoha/server.py -NoNewline
+  (Get-Content ~/.konoha/db_bridges.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.konoha/db_bridges.py -NoNewline
   ```
+* **nvm-windows**: Konoha works seamlessly with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
+  ```powershell
+  nvm use <version>
+  npm install -g konoha
+  ```
+* **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
+* **Cursor on Windows**: Works natively on Windows; ensure `node` and `python` (not `python3`) are on PATH.
 
 ---
 
@@ -252,14 +334,9 @@ konoha migrate
 
 ### 🧪 Checking the MCP Server Manually
 
-**konoha (Python):**
+**konoha MCP (Node):**
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 ~/.konoha/server.py
-```
-
-**konoha-files (Node):**
-```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.konoha/file_tools_mcp.js
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.konoha/file_tools_launcher.js
 ```
 
 *Expected output:* A JSON response containing `protocolVersion` and `serverInfo` (initialize) or a `tools` array (tools/list).
@@ -275,10 +352,17 @@ The system and agent configurations will automatically fallback to `Gemini 3.1 F
 ### Port Already in Use
 
 ```bash
-# Check if something is already on port 19999
+# Linux/macOS - Check if something is already on port 19999
 lsof -i :19999
 # Kill the process if needed
 kill -9 $(lsof -t -i :19999)
+```
+
+```powershell
+# Windows (PowerShell) - Check if something is already on port 19999
+Get-NetTCPConnection -LocalPort 19999 -ErrorAction SilentlyContinue
+# Kill the process if needed
+Get-NetTCPConnection -LocalPort 19999 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
 ### Gateway Won't Start
@@ -319,6 +403,22 @@ kill -9 $(lsof -t -i :19999)
 - Ensure your client sends a properly formatted JSON body
 - Messages should be an array of objects with `role` and `content`
 - If you see `"[object Object]"` in the request, your serialization is incorrect — this is a client error
+
+---
+
+### Anthropic `/v1/messages` requests fail with 400/500 on OpenAI bridges
+
+The gateway **converts Anthropic-format requests to OpenAI** before proxying to upstream bridges (since most bridges speak OpenAI). The conversion handles:
+
+- `system` parameter → leading `{role:"system"}` message
+- Content blocks (`text`, `image`, `tool_use`, `tool_result`) → OpenAI multipart content or `tool_calls`/`role:"tool"` messages
+- `tools` (Anthropic `input_schema`) → OpenAI function-calling schema
+- Streaming responses are coalesced and re-emitted as Anthropic `message_start` / `content_block_*` / `message_delta` / `message_stop` events
+
+If requests still fail after the gateway conversion:
+1. Confirm the upstream bridge is reachable: `curl http://127.0.0.1:<bridge-port>/v1/chat/completions`
+2. Verify the bridge returns valid OpenAI-format: send a hand-rolled `{"model":"...","messages":[{"role":"user","content":"hi"}]}` to that bridge
+3. The gateway's `count_tokens` endpoint returns `{input_tokens: 0}` as a mock. This is intentional; clients like Claude CLI only use it as a budget preflight and accept 0.
 
 ---
 

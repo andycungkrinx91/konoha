@@ -40,23 +40,22 @@ Maintainer: Andy Setiyawan
   Claude Code Integrations:
     • ~/.claude.json                 [ ACTIVE     ] │ konoha + semble
 
-  OpenCode Integrations:
-    • ~/.config/opencode/            [ ACTIVE     ] │ konoha + semble
+  Client Integrations:
     • GEMINI.md instructions         [ ACTIVE     ] │ skills-db active
 
   Subagents (Naruto Ninja Ranks):
     ┌──────────────────────────┬──────────────────────────────────────────┬──────────────────────────┬──────────────────────────────┬──────────────────────────┬──────────────────────────────────────────────────┐
-    │ Rank / Name              │ Model (Antigravity)                      │ Model (Cursor)           │ Model (Claude)               │ Model (OpenCode)         │ Skills Configuration                             │
-    ├──────────────────────────┼──────────────────────────────────────────┼──────────────────────────┼──────────────────────────────┼──────────────────────────┼──────────────────────────────────────────────────┤
-    │ 🍶 Mcp_sannin            │ Claude Sonnet 4.6 (Thinking) | Fallba... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ sannin-skill                                     │
-    │ 🍃 Mcp_genin             │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ genin-skill                                      │
-    │ 🌀 Mcp_kage              │ Gemini 3.5 Flash (High) | Fallback wh... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ kage-skill                                       │
-    │ 📜 Mcp_chunin            │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ chunin-skill                                     │
-    │ 🛡️ Mcp_jonin              │ Gemini 3.5 Flash (High)                  │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ jonin-skill, jonin-skill/nextjs-code-expert, ... │
-    │ 👥 Mcp_anbu              │ Gemini 3.1 Pro (High)                    │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ anbu-skill                                       │
-    │ 🎯 Mcp_tokubetsu-jonin   │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ antigravity-gemini-3.... │ tokubetsu-jonin-skill                            │
-    │ 🐍 Mcp_cli-test-agent... │ test                                     │ inherit                  │ test-model                   │ inherit                  │ None                                             │
-    └──────────────────────────┴──────────────────────────────────────────┴──────────────────────────┴──────────────────────────────┴──────────────────────────┴──────────────────────────────────────────────────┘
+    │ Rank / Name              │ Model (Antigravity)                      │ Model (Cursor)           │ Model (Claude)               │ Skills Configuration                             │
+    ├──────────────────────────┼──────────────────────────────────────────┼──────────────────────────┼──────────────────────────────┼──────────────────────────────────────────────────┤
+    │ 🍶 Mcp_sannin            │ Claude Sonnet 4.6 (Thinking) | Fallba... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ sannin-skill                                     │
+    │ 🍃 Mcp_genin             │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ genin-skill                                      │
+    │ 🌀 Mcp_kage              │ Gemini 3.5 Flash (High) | Fallback wh... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ kage-skill                                       │
+    │ 📜 Mcp_chunin            │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ chunin-skill                                     │
+    │ 🛡️ Mcp_jonin              │ Gemini 3.5 Flash (High)                  │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ jonin-skill, jonin-skill/nextjs-code-expert, ... │
+    │ 👥 Mcp_anbu              │ Gemini 3.1 Pro (High)                    │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ anbu-skill                                       │
+    │ 🎯 Mcp_tokubetsu-jonin   │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ tokubetsu-jonin-skill                            │
+    │ 🐍 Mcp_cli-test-agent... │ test                                     │ inherit                  │ test-model                   │ None                                             │
+    └──────────────────────────┴──────────────────────────────────────────┴──────────────────────────┴──────────────────────────────┴──────────────────────────────────────────────────┘
 
   Database Stats:
   ⚡ SQLite FTS5 database is healthy:

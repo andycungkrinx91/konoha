@@ -10,10 +10,14 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const HOME = os.homedir();
-const {
-  CURSOR_DIR, CURSOR_MCP, CURSOR_SKILLS, AGENTS_SKILLS,
-  SERVER_PATH, FILE_TOOLS_MCP_PATH
-} = require('../bin/lib/paths');
+// Self-contained: derive paths from HOME rather than importing bin/lib/paths.
+const KONOHA_DIR = path.join(HOME, '.konoha');
+const CURSOR_DIR = path.join(HOME, '.cursor');
+const CURSOR_MCP = path.join(CURSOR_DIR, 'mcp.json');
+const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
+const AGENTS_SKILLS = path.join(HOME, '.agents', 'skills');
+const SERVER_PATH = path.join(KONOHA_DIR, 'server.py');
+const FILE_TOOLS_MCP_PATH = path.join(KONOHA_DIR, 'file_tools_mcp.js');
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -69,8 +73,8 @@ function registerMcp(python) {
   }
   let updated = false;
   // Clean legacy servers if present
-  if (config.mcpServers['skills-db']) {
-    delete config.mcpServers['skills-db'];
+  if (config.mcpServers['konoha']) {
+    delete config.mcpServers['konoha'];
     updated = true;
   }
   if (config.mcpServers['konoha-files']) {

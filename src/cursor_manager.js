@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const {
   buildSembleSearchPolicy,
   buildSembleSearchPolicyCompact,
@@ -8,6 +7,7 @@ const {
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 const deployUtils = require('./deploy_utils');
+const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
   CURSOR_DIR, CURSOR_MCP_GLOBAL, CURSOR_AGENTS_GLOBAL, CURSOR_SKILLS_GLOBAL,
   CURSOR_HOOKS_GLOBAL, CURSOR_CLI_CONFIG, SKILLS_DB_DIR,
@@ -16,66 +16,9 @@ const {
 
 const PROJECT_CURSOR_DIR = '.cursor';
 
-const DEFAULT_CURSOR_MODELS = {
-  mcp_genin: 'inherit',
-  mcp_kage: 'inherit',
-  mcp_chunin: 'inherit',
-  mcp_jonin: 'inherit',
-  mcp_anbu: 'inherit',
-  'mcp_tokubetsu-jonin': 'inherit'
-};
-
 const CURSOR_FALLBACK_MODEL = 'inherit';
 
-const CURSOR_MODEL_ALIASES = {
-  'Gemini 3.1 Flash-Lite': 'composer-2.5-fast',
-  'Gemini 2.5 Flash': 'composer-2.5-fast',
-  'Gemini 2.5 Flash-Lite': 'composer-2.5-fast',
-  'Gemini 3.5 Flash (Low)': 'gpt-5.5-medium',
-  'Gemini 3.5 Flash (Medium)': 'claude-4.6-sonnet-medium-thinking',
-  'Gemini 3.5 Flash (High)': 'claude-4.6-sonnet-medium-thinking',
-  'Gemini 3.1 Pro (Low)': 'claude-opus-4-8-thinking-high',
-  'Gemini 3.1 Pro (High)': 'claude-opus-4-8-thinking-high',
-  'Claude Sonnet 4.6 (Thinking)': 'claude-4.6-sonnet-medium-thinking',
-  'Claude Opus 4.6 (Thinking)': 'claude-opus-4-8-thinking-high',
-  'GPT-OSS 120B (Medium)': 'gpt-5.3-codex'
-};
-
-function fileExists(p) {
-  try {
-    return fs.existsSync(p);
-  } catch {
-    return false;
-  }
-}
-
-function ensureDir(d) {
-  if (!fileExists(d)) {
-    fs.mkdirSync(d, { recursive: true });
-  }
-}
-
-function isCommandAvailable(cmd) {
-  try {
-    const { spawnSync } = require('child_process');
-    const probe = process.platform === 'win32' ? 'where' : 'which';
-    const found = spawnSync(probe, [cmd], { encoding: 'utf-8', timeout: 5000 });
-    if (found.status === 0 && (found.stdout || '').trim()) {
-      return true;
-    }
-  } catch {}
-  try {
-    const { spawnSync } = require('child_process');
-    const version = spawnSync(cmd, ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000,
-      shell: process.platform === 'win32'
-    });
-    return version.status === 0;
-  } catch {
-    return false;
-  }
-}
+const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
 
 function isCursorInstalled() {
   // Only detect via binary presence — ~/.cursor/ may linger after uninstall.
@@ -83,17 +26,7 @@ function isCursorInstalled() {
 }
 
 function resolveCursorModel(agent) {
-  // Cursor Free users cannot reliably pick premium models; use session Auto.
-  if (agent.cursorModel && agent.cursorModel.trim()) {
-    const configured = agent.cursorModel.trim().toLowerCase();
-    if (configured === 'auto' || configured === 'inherit') {
-      return 'inherit';
-    }
-    return agent.cursorModel;
-  }
-  if (agent.name && DEFAULT_CURSOR_MODELS[agent.name]) {
-    return DEFAULT_CURSOR_MODELS[agent.name];
-  }
+  // Always use IDE default — no model tier mapping
   return CURSOR_FALLBACK_MODEL;
 }
 
@@ -158,7 +91,7 @@ description: Konoha multi-agent orchestration — delegate to ninja agents via M
 alwaysApply: true
 ---
 
-# Konoha — Cursor Orchestrator
+# Konoha — Cursor Main Agent
 
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in Cursor tools (\`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`) or shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) is **STRICTLY FORBIDDEN**.
@@ -178,6 +111,19 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 
 ## Mandatory workflow
 
+### Step 0: Classify Request — ALWAYS FIRST (Branch A vs Branch B)
+**BEFORE entering the standard workflow**, classify the user's request:
+- **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B**
+- **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`build_from_source\`
+- **Everything else** → **BRANCH A** (standard workflow below)
+
+### BRANCH B: Website Scaffolding (SKIP standard pipeline)
+1. Call \`konoha.build_from_text(name, description, framework)\` or \`konoha.build_from_source(name, source_dir, framework)\` FIRST.
+2. Write \`delegate.md\` with returned directives as constraints and call \`konoha.mcp_jonin\` directly — DO NOT call Chunin, Genin, or Kage.
+3. After Jonin completes, call \`konoha.mcp_tokubetsu_jonin\` for documentation.
+4. Output final report.
+
+### BRANCH A: Standard Workflow (for non-website tasks)
 1. **Skills first**: Call \`konoha\` MCP \`find_skill\` with keywords from the user prompt (pass \`agent\` when available) to find the related skill reference. Never load SKILL.md files directly.
 2. **Code context**: If source code search is needed, call \`semble\` MCP (\`search\` / \`find_related\`). Never use semble for skill lookup. **Do NOT use Cursor \`Grep\`, \`Glob\`, or \`SemanticSearch\` — semble is the default search tool.**
 3. **File reads**: After semble locates targets, use \`konoha\` MCP for reads/grep/structure — **never Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`.**
@@ -186,6 +132,10 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
    - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
    - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_anbu\`), passing \`task_dir\` pointing to a task directory (resolved via \`konoha.get_resolved_task_dir\` → \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace) containing \`delegate.md\` instructions.
 5. **Synthesize**: Present results to the user.
+6. **Resuming & Multi-Turn Conversations (CRITICAL)**: Upon resuming a conversation or handling any follow-up turn in Cursor, you MUST ALWAYS re-evaluate the user prompt, write \`delegate.md\`, and execute the \`mcp_<agentname>\` delegation workflow again for all non-trivial tasks. NEVER skip \`mcp_<agentname>\` delegation when resuming a conversation.
+7. **Package Manager Mandate**: ALWAYS use \`pnpm\` (e.g., \`pnpm dlx create-next-app@latest\`, \`pnpm create\`, \`pnpm install\`, \`pnpm run dev\`) for all project scaffolding, dependencies, and dev server execution. NEVER use \`npm\` or standalone \`npx\` without pnpm.
+8. **Project Knowledge Mandate**: ALWAYS inspect project-local knowledge files (project \`README.md\`, \`docs/\`, \`CONTRIBUTING.md\`, \`.cursorrules\`, \`.clauderules\`, and project-local skills in \`.agents/skills\`, \`.cursor/skills\`, \`skills/\`) using \`konoha\` MCP before designing architecture or executing code.
+9. **Operational Scenarios**: Follow Scenario 1 (\`build_from_source\` — 100% exact mockup match), Scenario 2 (\`build_from_text\` — new site with \`pnpm\` & premium templates), and Scenario 3 (\`existing_project\` — preserve existing logic, architecture, and design system without silent or unrequested changes).
 
 | Embedded Skills | Subagent MCP Tool |
 |---|---|
@@ -207,6 +157,7 @@ ${buildFileToolsPolicy()}
 ## Guardrails
 
 - Log at response start: \`[Konoha] orchestrator active. Calling konoha.find_skill(...)\`
+- **Zero Warning/Error Policy**: You MUST ensure the codebase passes \`pnpm lint\` and \`pnpm build\` with ZERO warnings and ZERO errors. You MUST NOT use deprecated libraries. If you see warnings during installation or execution (e.g. deprecated packages), you MUST fix them before claiming the task is complete.
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
@@ -242,7 +193,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     return false;
   }
 
-  const { parseYaml, stringifyYaml } = require('./agent_manager');
+  const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
   ensureDir(CURSOR_DIR);
 
   // Backup existing config once before replacing
@@ -278,7 +229,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
-  const { parseYaml, stringifyYaml } = require('./agent_manager');
+  const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
   const mcpPath = path.join(cursorDir, 'mcp.yaml');
   ensureDir(cursorDir);
@@ -296,8 +247,6 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
     }
   }
 
-  delete config.mcpServers['konoha'];
-  delete config.mcpServers['konoha-files'];
   delete config.mcpServers['konoha'];
 
   const servers = buildMcpServers(
@@ -528,7 +477,7 @@ function removeCursorConfig(silent = true) {
       const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       let updated = false;
       if (config.mcpServers) {
-        for (const name of ['konoha', 'semble', 'konoha', 'konoha-files']) {
+        for (const name of ['konoha', 'semble']) {
           if (config.mcpServers[name]) {
             delete config.mcpServers[name];
             updated = true;
@@ -543,7 +492,7 @@ function removeCursorConfig(silent = true) {
   }
 
   // Remove global subagents
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   for (const name of official) {
     const p = path.join(CURSOR_AGENTS_GLOBAL, `${name}.md`);
     if (fileExists(p)) {
@@ -618,7 +567,7 @@ function getCursorStatus() {
 
   if (status.mcpGlobal) {
     try {
-      const { parseYaml } = require('./agent_manager');
+      const { parseYaml } = require('../bin/lib/yaml_utils');
       const config = parseYaml(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       status.mcpSkillsDb = !!(config.mcpServers && config.mcpServers['konoha']);
       status.mcpSemble = !!(config.mcpServers && config.mcpServers['semble']);
@@ -680,8 +629,6 @@ module.exports = {
   CURSOR_HOOKS_GLOBAL,
   CURSOR_CLI_CONFIG,
   CURSOR_FALLBACK_MODEL,
-  DEFAULT_CURSOR_MODELS,
-  CURSOR_MODEL_ALIASES,
   isCursorInstalled,
   resolveCursorModel,
   generateCursorSubagent,

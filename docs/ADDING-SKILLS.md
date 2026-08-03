@@ -52,8 +52,12 @@ konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 > [!NOTE]
 > * **If run inside a Git repository/project workspace**: The skill will be installed locally in `./.agents/skills/prd-creator`.
 > * **If run outside a repository**: The skill will be installed globally in `~/.agents/skills/prd-creator`.
-> 
+>
 > `konoha` supports both locations out of the box and automatically triggers database migration upon adding.
+>
+> **Cross-platform paths:**
+> - `~/.agents/skills/` = `C:\Users\<you>\.agents\skills\` on Windows
+> - `.agents/skills/` = same relative path on all platforms
 
 ### Step 3: Run the Migration (Optional)
 If the database does not automatically sync or if you manually copied skill files, run the migration command:
@@ -63,7 +67,6 @@ Run the migration command to scan your skills directories and index the new cont
 konoha migrate
 ```
 
-If you want to prune and backup unused skills that are no longer associated with any active agents in `agents.json` to `.agents.backup/skills/{name-skill}-yyyymmdd` (specifically to ensure no duplicate content occurs, while skipping project-level skills), run with the `--force` flag. This duplicate-free migration logic fully supports and automatically updates Antigravity IDE/CLI, Claude Code, Cursor, and OpenCode:
 
 ```bash
 konoha migrate --force

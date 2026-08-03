@@ -4,14 +4,22 @@
 
 - Antigravity IDE installed and running
 - Python 3.8+ installed
-- Node.js 18+
+- Node.js 18+ (via nvm, Homebrew, or system package)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
+
+### Cross-Platform Notes
+
+| OS | Python Install | Node.js Install | Notes |
+|----|---------------|-----------------|-------|
+| **Linux (Ubuntu/Debian)** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
+| **macOS** | `brew install python` | `brew install node` or `nvm install node` | Use `python3` |
+| **Windows (WSL)** | Same as Linux | Same as Linux | Recommended: use WSL2 |
+| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Use `python` |
 
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
 > **Zero-Prompt Auto-Setup**:
-> Konoha now auto-configures every detected IDE/CLI client (Antigravity, Cursor, Claude Code, OpenCode) during `konoha init` or the automatic `ensureAutoSetup()` bootstrap triggered by any `konoha` command. The only prompt shown is a single consent question: "Initialize Konoha and modify ~/.gemini configurations?". All other clients are configured automatically based on what is detected on the system.
 >
 > If you prefer a manual setup or want to perform a clean initialization, run:
 
@@ -83,18 +91,20 @@ Concretely, the orchestrator:
 5. The chosen MCP agent reads `delegate.md`, executes the task, and writes the output to `result.md`.
 6. `mcp_sannin` returns the contents of `result.md` back to the orchestrator.
 
-#### Task lifecycle
+#### Task lifecycle & Conversation Resumption
 
 | Step | Actor | Action | Artifact |
 |------|-------|--------|----------|
-| 1 | `prompt_hook.js` | Capture user message | `prompt.md` |
-| 2 | Orchestrator | Read & analyze request | reads `prompt.md` |
-| 3 | Orchestrator | Discover skills (`find_skill` / `optimize_report`) | — |
-| 4 | Orchestrator | Delegate task | calls `mcp_sannin` |
-| 5 | mcp_sannin | Write instructions & route | writes `delegate.md` |
+| 1 | `prompt_hook.js` | Capture user message or resume action | `prompt.md` |
+| 2 | Orchestrator | Read & analyze request (using konoha MCP `read_file_head`/`read_file_range`) | reads `prompt.md` |
+| 3 | Orchestrator | Discover project knowledge (README, docs/, .cursorrules, project skills) & global skills (`find_skill`) | — |
+| 4 | Orchestrator | Delegate task | calls `mcp_<agentname>` |
+| 5 | Subagent (MCP) | Write instructions & route | writes `delegate.md` |
 | 6 | Subagent (MCP) | Execute task internally | uses MCP file/bash tools |
 | 7 | Subagent (MCP) | Return results | writes `result.md` |
 | 8 | Orchestrator | Synthesize & respond | final answer |
+
+> [!IMPORTANT]
 
 #### Available MCP Subagents
 
@@ -103,7 +113,7 @@ Concretely, the orchestrator:
 | `mcp_genin` | Read-only codebase exploration, tracing flows, mapping dependencies |
 | `mcp_kage` | Architecture decisions, security audits, complex refactoring |
 | `mcp_chunin` | Web research, documentation lookup, compliance, evidence synthesis |
-| `mcp_jonin` | UI design, frontend components, styling |
+| `mcp_jonin` | UI design, frontend components across 4 frameworks (Next.js 16, SvelteKit, Nuxt 3, Angular v19+) using `pnpm` |
 | `mcp_anbu` | Backend logic, bug fixing, DevOps, infrastructure, CI/CD |
 | `mcp_tokubetsu_jonin` | Technical writing, README, API docs, runbooks, onboarding |
 
@@ -118,7 +128,7 @@ To maintain stability and enforce security, the Antigravity system implements th
 >
 > * **konoha MCP**: Use `find_skill(keyword)` to search for relevant skill content on-demand. Use `get_skill(name)` for full content when previews are truncated. Use `list_skills()` to see all available skills. **NEVER load SKILL.md files directly from disk** — always use the `konoha` MCP tools.
 > * **Semble Semantic Search (default)**: Konoha replaces grep/glob/find with **semble** (`search`, `find_related`) for semantic codebase discovery. Do not use built-in grep/glob tools or shell `grep`/`rg`/`find` — use semble first (`rg` only if semble MCP is unavailable).
-> * **konoha-files (token-efficient reads)**: After semble locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha-files** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
+> * **konoha MCP (token-efficient reads)**: After semble locates targets, use `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean` from the **konoha** MCP server instead of loading entire files or using built-in Read/Grep/Glob.
 > * **Agent-Browser CLI**: Use `agent-browser` (or `npx agent-browser`) to interact with live web pages, submit forms, take screenshots, inspect elements, and run visual end-to-end verifications.
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
@@ -145,7 +155,7 @@ The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.1.6`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: As of `v1.1.7`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
@@ -184,4 +194,3 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues.
 
 For **Cursor IDE/CLI** setup, see [SETUP-CURSOR.md](SETUP-CURSOR.md).
 
-For **Claude Code, OpenCode, and other MCP clients**, see [SETUP-MCP-CLIENTS.md](SETUP-MCP-CLIENTS.md).

@@ -76,10 +76,25 @@ function verboseLog(ctx, msg, fullContent = null) {
 // Status Bar
 // ─────────────────────────────────────────────
 
+// Konoha gradient brand colors for status bar
+const BRAND_COLORS = {
+  orange: { r: 249, g: 115, b: 22 },
+  green:  { r: 34,  g: 197, b: 94 },
+  red:    { r: 239, g: 68,  b: 68 },
+};
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
 function updateStatusBar(ctx, running, port) {
   if (!ctx.statusBarItem) return;
+  const color = running
+    ? rgbToHex(BRAND_COLORS.green.r, BRAND_COLORS.green.g, BRAND_COLORS.green.b)
+    : rgbToHex(BRAND_COLORS.red.r,    BRAND_COLORS.red.g,    BRAND_COLORS.red.b);
   ctx.statusBarItem.text = running ? `$(radio-tower) AG Bridge :${port}` : '$(warning) AG Bridge OFF';
   ctx.statusBarItem.backgroundColor = running ? undefined : new vscode.ThemeColor('statusBarItem.warningBackground');
+  ctx.statusBarItem.foregroundColor = running ? color : undefined;
   ctx.statusBarItem.show();
 }
 

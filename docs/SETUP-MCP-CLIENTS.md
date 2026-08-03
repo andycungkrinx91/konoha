@@ -1,4 +1,3 @@
-# MCP Client Setup — Claude Code, OpenCode & Other Agentic CLIs
 
 Konoha registers **konoha** and **semble** globally for all supported clients. On first install, the existing config file is **backed up** to `<file>.back`, then **replaced** with only Konoha MCP servers:
 
@@ -7,9 +6,13 @@ Konoha registers **konoha** and **semble** globally for all supported clients. O
 | **Antigravity** | Always | `mcp_config.json.back` | `konoha` + `semble` only |
 | **Cursor** | Yes (auto if detected) | `mcp.json.back` | `konoha` + `semble` only |
 | **Claude Code** | When `claude` CLI detected | `.claude.json.back` | `konoha` + `semble` only |
-| **OpenCode** | When `opencode` CLI detected | `opencode.json.back` | `konoha` + `semble` only |
 
-Claude Code and OpenCode use **global config only** — Konoha does not write project `.mcp.json` or `opencode.json`.
+> [!IMPORTANT]
+> **Cross-Platform Config Paths:**
+> - `~/.gemini/` = Linux, macOS, Windows WSL
+> - `~/.cursor/` = All platforms (Windows: `%USERPROFILE%\.cursor\`)
+> - `~/.claude.json` = All platforms
+
 
 ```bash
 npx github:andycungkrinx91/konoha init
@@ -17,7 +20,6 @@ npx github:andycungkrinx91/konoha init
 
 ---
 
-## If Claude Code or OpenCode is NOT installed
 
 Konoha skips their config. After installing the CLI:
 
@@ -30,7 +32,6 @@ konoha doctor --yes
 | Client | Template | Target |
 |--------|----------|--------|
 | Claude Code | [templates/claude-code.mcp.yaml](templates/claude-code.mcp.yaml) | `~/.claude.json` → `mcpServers` |
-| OpenCode | [templates/opencode.mcp.yaml](templates/opencode.mcp.yaml) | `~/.config/opencode/opencode.json` → `mcp` |
 
 ---
 
@@ -59,20 +60,15 @@ konoha doctor --yes
 
 **Verify**: `/mcp` in Claude Code session.
 
-**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.json` to leverage Claude Sonnet 4.6 in Claude Code. View assignments with `konoha models list`.
+**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.yaml` to leverage Claude Sonnet 4.6 in Claude Code. View assignments with `konoha models list`.
 
 ---
 
-## OpenCode (global)
 
-**Detection**: `opencode` in PATH, or `~/.config/opencode/`.
 
 **Writes**:
-- `~/.config/opencode/opencode.json` → `mcp` (`type: local`).
 
-**Verify**: `opencode mcp list`.
 
-**Model Default**: Configured with `opencodeModel` (defaults to `"inherit"`). View assignments with `konoha models list`.
 
 ---
 

@@ -14,11 +14,10 @@ SUBCOMMANDS
                                                       Options:
                                                         --cursor    Configure for Cursor IDE/CLI
                                                         --claude    Configure for Claude Code
-                                                        --opencode  Configure for OpenCode
   reset                                          Clear local usage logs in sqlite db to restore model quotas.
 
 MODEL EXPRESSIONS
-  You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor/OpenCode):
+  You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor):
   - Single model: "Gemini 3.1 Flash-Lite"
   - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
 

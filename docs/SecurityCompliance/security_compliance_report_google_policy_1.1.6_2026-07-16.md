@@ -28,7 +28,6 @@ This report verifies that the Konoha orchestration model, telemetry, and documen
 ## 4. Test Results
 - **agent_manager.test.js:** 19/19 passed
 - **Python test suites:** All 10 test files pass (web_search, bridge_gateway, migrations, clawback, savings, delegation, workflow_loop)
-- **Integration tests:** Antigravity, Claude Code, Cursor, and OpenCode configs validated
 
 ## 5. Conclusion
 The environment passes all diagnostics (`node bin/cli.js doctor --yes`) and the `mcp_sannin` delegation architecture remains fully stable. Documentation is in sync with the current codebase.

@@ -12,7 +12,6 @@ graph TD
     classDef db      fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
     classDef proto   fill:#4c1d95,stroke:#a78bfa,stroke-width:1px,color:#ede9fe;
 
-    Client["Client\n(Claude Code, Cursor, OpenCode, SDKs)"]:::client
     Gateway["Proxy Gateway\nPort 19999"]:::gateway
     SQLite[("SQLite\n~/.konoha/skills.db\nbridges table")]:::db
     Sidecar["Sidecar Discovery\nUDP broadcast (port 19899)"]:::proto
@@ -41,7 +40,7 @@ graph TD
 | **OpenAI Compatible** | `compatible` | `<bridge_name>-<model>` | Ollama, vLLM, LM Studio, etc. |
 | **Antigravity Sidecar** | `antigravity` | `<bridge_name>-<model>` | Local `agy` CLI / Antigravity IDE (requires live session) |
 
-> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v1.1.6+.
+> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v1.1.7+.
 
 ## API Endpoints
 

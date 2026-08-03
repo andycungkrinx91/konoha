@@ -59,18 +59,18 @@ function respondNoop() {
 }
 
 /**
- * Determine if this session is CONFIRMED to be the main orchestrator.
+ * Determine if this session is CONFIRMED to be the main self (primary thread).
  *
  * Returns true ONLY when we have positive evidence from the transcript
  * that this is NOT a subagent session.
  *
  * Key design: defaults to false (safe) when uncertain.
- * This prevents the ephemeral orchestrator message from being injected into
+ * This prevents the ephemeral self message from being injected into
  * subagent sessions where the transcript is empty at invocation 0.
  *
  * Used by prompt_hook.js and antigravity_subagent_hook.js.
  */
-function isConfirmedOrchestrator(transcriptPath) {
+function isConfirmedSelf(transcriptPath) {
   if (!transcriptPath) return false;
   if (transcriptPath.includes('/subagents/')) return false;
 
@@ -79,7 +79,8 @@ function isConfirmedOrchestrator(transcriptPath) {
     const targetPath = fs.existsSync(fullPath) ? fullPath : transcriptPath;
     if (!fs.existsSync(targetPath)) return false; // No file → can't confirm
 
-    const raw = fs.readFileSync(targetPath, 'utf-8').trim();
+    const limit = 50 * 200; // approximate bytes for 50 lines
+    const raw = fs.readFileSync(targetPath, 'utf-8').trim().slice(0, limit);
     if (!raw) return false; // Empty transcript (invocation 0) → can't confirm
 
     const lines = raw.split('\n').filter(Boolean);
@@ -131,6 +132,7 @@ module.exports = {
   readStdinJson,
   respond,
   respondNoop,
-  isConfirmedOrchestrator,
+  isConfirmedSelf,
+  isConfirmedOrchestrator: isConfirmedSelf,
   brainDirFromTranscript,
 };

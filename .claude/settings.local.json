@@ -22,7 +22,11 @@
       "Read(//tmp/**)",
       "Bash(python3 /home/andycungkrinx/experiment/portofolio/data/konoha/src/db_agents.py list)",
       "Bash(python3 -m json.tool)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(claude mcp *)",
+      "Bash(timeout 5 node /home/andycungkrinx/.konoha/file_tools_launcher.js)",
+      "Bash(rtk ls *)",
+      "Bash(rtk grep *)"
     ]
   }
 }

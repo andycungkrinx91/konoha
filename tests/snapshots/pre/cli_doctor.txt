@@ -45,7 +45,6 @@ Diagnosing environment requirements and auto-repairing missing components...
     │ Prompt Hook Config (hooks.json)                    │ HEALTHY    │ subagent + prompt + sanitize hooks registered │
     │ Cursor IDE/CLI (~/.cursor/)                        │ HEALTHY    │ MCP and hooks configured                      │
     │ Claude Code (~/.claude.json)                       │ HEALTHY    │ konoha and semble active & allowed            │
-    │ OpenCode (~/.config/opencode/)                     │ HEALTHY    │ konoha and semble active                      │
     │ agent-browser CLI                                  │ ACTIVE     │ agent-browser 0.27.2                          │
     └────────────────────────────────────────────────────┴────────────┴───────────────────────────────────────────────┘
 

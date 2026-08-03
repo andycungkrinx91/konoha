@@ -146,9 +146,16 @@ function isCommandAvailable(cmd) {
   }
 }
 
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
 module.exports = {
   IS_WIN,
   fileExists,
+  ensureDir,
   normPath,
   expandUser,
   uriToPath,

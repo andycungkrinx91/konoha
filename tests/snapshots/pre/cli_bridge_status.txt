@@ -6,7 +6,6 @@ Bridge Status Report
     │ Proxy Gateway      │ 19999  │ Gateway Router    │ STOPPED      │ http://localhost:19999/v1  │
     │ adacode            │ 11437  │ openai            │ STOPPED      │ https://api.adacode.ai/v1  │
     │ antigravity        │ 11438  │ openai            │ STOPPED      │ http://localhost:1313/v1   │
-    │ opencode-zen       │ 11439  │ openai-compatible │ STOPPED      │ https://opencode.ai/zen/v1 │
     │ adacode-2          │ 11440  │ openai-compatible │ STOPPED      │ https://api.adacode.ai/v1  │
     └────────────────────┴────────┴───────────────────┴──────────────┴────────────────────────────┘
 

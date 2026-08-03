@@ -161,8 +161,13 @@ async function startGateway(activeBridges, port = 19999) {
       return;
     }
 
-    // Route 3b: POST /v1/messages/count_tokens (Anthropic preflight)
+    // Route 3b: POST /v1/messages/count_tokens (Anthropic preflight mock)
+    // This is consumed by Claude CLI & Cherry Studio before every request.
+    // We return a plausible mock (0 tokens) so they don't abort.
+    // Does NOT reflect actual token counts — billing uses server.py's real count_tokens.
     if (req.method === 'POST' && url.pathname === '/v1/messages/count_tokens') {
+      // Consume the request body to avoid hanging sockets
+      readBody(req).catch(() => {});
       sendJson(res, 200, { input_tokens: 0 });
       return;
     }
@@ -233,7 +238,7 @@ function pipeWithModelRewrite(forwardRes, res, baseModel, originalModel, onActiv
       if (onActivity) onActivity();
     });
     forwardRes.on('end', () => res.end());
-    forwardRes.on('error', (err) => {
+    forwardRes.on('error', () => {
       if (!res.headersSent) {
         sendJson(res, 502, { error: { message: 'Upstream bridge stream error', type: 'gateway_error' } });
       }
@@ -270,10 +275,8 @@ function pipeWithModelRewrite(forwardRes, res, baseModel, originalModel, onActiv
       // SSE data line: data: {"model": "foo"}
       rewritten = rewritten.replace(modelRegexSSE, `$1"${originalModel}"`);
 
-      // If no model field was found, fall back to simple string replace
-      if (rewritten === line) {
-        rewritten = line.replaceAll(baseModel, originalModel);
-      }
+      // No naive replaceAll fallback — pass through unchanged if no model field found
+      // to avoid corrupting tool args, content fields, or other model-like strings
 
       res.write(rewritten + '\n');
     }
@@ -305,6 +308,199 @@ function pipeWithModelRewrite(forwardRes, res, baseModel, originalModel, onActiv
     }
     res.end();
   });
+}
+
+// ─────────────────────────────────────────────
+// Anthropic ↔ OpenAI format conversion helpers
+// ─────────────────────────────────────────────
+
+/**
+ * Convert Anthropic-format messages (with system param) to OpenAI format.
+ * Anthropic content blocks: text, image, tool_use, tool_result.
+ * Returns an array of OpenAI-format messages.
+ */
+function anthropicMessagesToOpenAi(system, messages) {
+  const result = [];
+
+  if (system) {
+    result.push({ role: 'system', content: typeof system === 'string' ? system : extractAnthropicSystemText(system) });
+  }
+
+  for (const msg of messages) {
+    const role = msg.role; // 'user' | 'assistant'
+    const content = msg.content;
+
+    if (typeof content === 'string') {
+      result.push({ role, content });
+      continue;
+    }
+
+    if (!Array.isArray(content)) {
+      result.push({ role, content: '' });
+      continue;
+    }
+
+    // Process content blocks
+    const textParts = [];
+    const toolCalls = [];
+    const toolResults = [];
+
+    for (const block of content) {
+      if (block.type === 'text') {
+        textParts.push({ type: 'text', text: block.text || '' });
+      } else if (block.type === 'image' && block.source) {
+        textParts.push({
+          type: 'image_url',
+          image_url: { url: `data:${block.source.media_type || 'image/png'};base64,${block.source.data}` },
+        });
+      } else if (block.type === 'tool_use') {
+        toolCalls.push({
+          id: block.id || `call_unknown`,
+          type: 'function',
+          function: {
+            name: block.name,
+            arguments: typeof block.input === 'string' ? block.input : JSON.stringify(block.input || {}),
+          },
+        });
+      } else if (block.type === 'tool_result') {
+        const resultContent = Array.isArray(block.content)
+          ? block.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n')
+          : block.content || '';
+        toolResults.push({
+          role: 'tool',
+          tool_call_id: block.tool_use_id || '',
+          content: resultContent,
+        });
+      }
+    }
+
+    if (toolResults.length > 0) {
+      if (textParts.length > 0) {
+        result.push({ role: 'user', content: textParts });
+      }
+      result.push(...toolResults);
+    } else if (toolCalls.length > 0) {
+      const m = { role: 'assistant', content: textParts };
+      m.tool_calls = toolCalls;
+      result.push(m);
+    } else {
+      result.push({ role, content: textParts });
+    }
+  }
+
+  return result;
+}
+
+function extractAnthropicSystemText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) return content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+  return '';
+}
+
+/**
+ * Convert Anthropic tool definitions to OpenAI tool format.
+ */
+function anthropicToolsToOpenAi(tools) {
+  if (!tools || tools.length === 0) return null;
+  return tools.map((t) => ({
+    type: 'function',
+    function: {
+      name: t.name,
+      description: t.description || '',
+      parameters: t.input_schema || { type: 'object', properties: {} },
+    },
+  }));
+}
+
+/**
+ * Convert OpenAI response format back to Anthropic format (streaming or non-streaming).
+ */
+function openAIResponseToAnthropic(openAiResp, model, msgId, isStream, res) {
+  if (isStream) {
+    const choices = openAiResp.choices || [];
+    if (choices.length === 0) {
+      res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null } })}\n\n`);
+      res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop', delta: { stop_reason: 'stop' }, usage: { output_tokens: 0 }})}\n\n`);
+      res.end();
+      return;
+    }
+
+    const choice = choices[0];
+    const msg = choice.message || {};
+    const toolCalls = msg.tool_calls || [];
+    const textContent = (msg.content || '').toString();
+
+    // message_start
+    res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null } })}\n\n`);
+
+    // text content blocks
+    if (textContent) {
+      res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
+      res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: textContent } })}\n\n`);
+      res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
+    }
+
+    // tool call blocks
+    for (let i = 0; i < toolCalls.length; i++) {
+      const tc = toolCalls[i];
+      const idx = i + (textContent ? 1 : 0);
+      res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: idx, content_block: { type: 'tool_use', id: tc.id, name: tc.function.name, input: {} } })}\n\n`);
+      res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: idx, delta: { type: 'input_json_delta', partial_json: tc.function.arguments || '{}' } })}\n\n`);
+      res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: idx })}\n\n`);
+    }
+
+    const stopReason = choice.finish_reason || 'stop';
+    res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason === 'tool_calls' ? 'tool_use' : 'end_turn', stop_sequence: null }, usage: { output_tokens: 0 }})}\n\n`);
+    res.write('event: message_stop\ndata: {}\n\n');
+    res.end();
+    return;
+  }
+
+  // Non-streaming: build Anthropic message
+  const choices = openAiResp.choices || [];
+  const choice = choices[0] || {};
+  const msg = choice.message || {};
+  const toolCalls = msg.tool_calls || [];
+  const textContent = (msg.content || '').toString();
+
+  const contentBlocks = [];
+  for (const tc of toolCalls) {
+    let input;
+    try { input = JSON.parse(tc.function.arguments || '{}'); } catch { input = {}; }
+    contentBlocks.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+  }
+  if (textContent) {
+    contentBlocks.push({ type: 'text', text: textContent });
+  }
+
+  sendJson(res, 200, {
+    id: `msg_${msgId}`,
+    type: 'message',
+    role: 'assistant',
+    model: model || 'unknown',
+    content: contentBlocks,
+    stop_reason: toolCalls.length > 0 ? 'tool_use' : 'end_turn',
+    stop_sequence: null,
+    usage: { input_tokens: 0, output_tokens: 0 },
+  });
+}
+
+/**
+ * Shared header sanitizer — strips auth keys and hop-by-hop headers
+ * before forwarding requests to upstream bridges.
+ */
+function sanitizeForwardHeaders(reqHeaders) {
+  const headers = {};
+  for (const [name, value] of Object.entries(reqHeaders)) {
+    const lower = name.toLowerCase();
+    if (lower.match(/^(authorization|x-api-key|x-forwarded[-_]for|x-forwarded[-_]proto|x-request-id|x-client-|x-konoha-gateway|cookie|proxy-authorization|x-auth-token)/)) {
+      continue;
+    }
+    headers[name] = Array.isArray(value) ? value.join(', ') : value;
+  }
+  delete headers['accept-encoding'];
+  delete headers['Accept-Encoding'];
+  return headers;
 }
 
 async function handleGetModels(activeBridges, req, res) {
@@ -442,26 +638,14 @@ async function handleChatCompletions(activeBridges, req, res) {
     body.model = targetModel;
     const rewrittenBody = JSON.stringify(body);
 
-    // Sanitize headers: strip auth keys and hop-by-hop headers before
-    // forwarding to the bridge. Prevents leaking Claude Code / Cursor API tokens.
-    const headers = {};
-    for (const [name, value] of Object.entries(req.headers)) {
-      const lower = name.toLowerCase();
-      if (lower.match(/^(authorization|x-api-key|x-forwarded[-_]for|x-forwarded[-_]proto|x-request-id|x-client-|x-konoha-gateway)/)) {
-        continue;
-      }
-      headers[name] = Array.isArray(value) ? value.join(', ') : value;
-    }
-    delete headers['accept-encoding'];
-    delete headers['Accept-Encoding'];
+    const headers = sanitizeForwardHeaders(req.headers);
+    headers.host = `127.0.0.1:${active.bridgeConfig.port}`;
+    headers['content-length'] = Buffer.byteLength(rewrittenBody);
 
     // Inject API key if configured
     if (active.bridgeConfig.apiKey) {
       headers['authorization'] = `Bearer ${active.bridgeConfig.apiKey}`;
     }
-
-    headers.host = `127.0.0.1:${active.bridgeConfig.port}`;
-    headers['content-length'] = Buffer.byteLength(rewrittenBody);
 
     const forwardReq = http.request({
       hostname: '127.0.0.1',
@@ -558,35 +742,142 @@ async function handleAnthropicMessages(activeBridges, req, res) {
 
     const { active, bridgeName, targetModel } = resolved;
 
-    body.model = targetModel;
-    const rewrittenBody = JSON.stringify(body);
+    // Convert Anthropic-format request → OpenAI format for upstream bridge.
+    // The gateway forwards OpenAI-format to bridges; we rebuild on the response side.
+    const isStream = body.stream === true;
+    const openAiPayload = {
+      model: targetModel,
+      messages: anthropicMessagesToOpenAi(body.system, body.messages || []),
+      stream: isStream,
+      temperature: body.temperature,
+      max_tokens: body.max_tokens,
+      top_p: body.top_p,
+      stop: body.stop_sequences,
+    };
+    const tools = anthropicToolsToOpenAi(body.tools);
+    if (tools) openAiPayload.tools = tools;
 
-    // Sanitize headers: strip auth keys and hop-by-hop headers before
-    // forwarding to the bridge. Prevents leaking Claude Code / Cursor API
-    // tokens into the bridge's target server.
-    const headers = {};
-    for (const [name, value] of Object.entries(req.headers)) {
-      const lower = name.toLowerCase();
-      if (lower.match(/^(authorization|x-api-key|x-forwarded[-_]for|x-forwarded[-_]proto|x-request-id|x-client-|x-konoha-gateway)/)) {
-        continue;
-      }
-      headers[name] = Array.isArray(value) ? value.join(', ') : value;
+    // Strip undefined keys for cleanliness
+    for (const k of Object.keys(openAiPayload)) {
+      if (openAiPayload[k] === undefined || openAiPayload[k] === null) delete openAiPayload[k];
     }
-    delete headers['accept-encoding'];
-    delete headers['Accept-Encoding'];
+    const rewrittenBody = JSON.stringify(openAiPayload);
+
+    const headers = sanitizeForwardHeaders(req.headers);
     headers.host = `127.0.0.1:${active.bridgeConfig.port}`;
     headers['content-length'] = Buffer.byteLength(rewrittenBody);
+    if (active.bridgeConfig.apiKey) {
+      headers['authorization'] = `Bearer ${active.bridgeConfig.apiKey}`;
+    }
+
+    // Build the upstream request, then translate the OpenAI response back to Anthropic.
+    if (isStream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    }
 
     const forwardReq = http.request({
       hostname: '127.0.0.1',
       port: active.bridgeConfig.port,
-      path: req.url,
+      // Bridges speak OpenAI — always forward to /v1/chat/completions regardless of original path
+      path: '/v1/chat/completions',
       method: 'POST',
       headers,
       agent: httpAgent,
       timeout: STREAM_TIMEOUT_MS,
     }, (forwardRes) => {
-      pipeWithModelRewrite(forwardRes, res, targetModel, model, resetStreamTimeout);
+      // If upstream returned an error, propagate as Anthropic-format error
+      if (forwardRes.statusCode >= 400) {
+        let raw = '';
+        forwardRes.on('data', (c) => { raw += c.toString('utf8'); });
+        forwardRes.on('end', () => {
+          if (res.headersSent) return;
+          if (isStream) res.writeHead(forwardRes.statusCode, { 'Content-Type': 'text/event-stream' });
+          try {
+            const parsed = JSON.parse(raw);
+            const errType = forwardRes.statusCode === 429 ? 'rate_limit_error' : 'api_error';
+            if (isStream) {
+              const errBody = { type: 'error', error: { type: errType, message: parsed.error?.message || `Bridge returned ${forwardRes.statusCode}` } };
+              res.write(`event: error\ndata: ${JSON.stringify(errBody)}\n\n`);
+              res.end();
+            } else {
+              sendJson(res, forwardRes.statusCode, { type: 'error', error: { type: errType, message: parsed.error?.message || `Bridge returned ${forwardRes.statusCode}` } });
+            }
+          } catch {
+            sendJson(res, forwardRes.statusCode, { type: 'error', error: { type: 'api_error', message: raw.slice(0, 500) } });
+          }
+        });
+        return;
+      }
+
+      // Success path — translate OpenAI stream/non-stream response to Anthropic
+      if (isStream) {
+        let buffer = '';
+        const msgId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        forwardRes.on('data', (chunk) => {
+          resetStreamTimeout();
+          buffer += chunk.toString('utf8');
+        });
+        forwardRes.on('end', () => {
+          // Anthropic clients see SSE; coalesce all chunks into one chat completion.
+          // Build a synthetic OpenAI response from whatever buffered chunks arrived.
+          const lines = buffer.split('\n').filter((l) => l.startsWith('data:'));
+          let content = '';
+          const toolCalls = [];
+          for (const ln of lines) {
+            const json = ln.replace(/^data:\s*/, '').trim();
+            if (!json || json === '[DONE]') continue;
+            try {
+              const chunk = JSON.parse(json);
+              const delta = chunk.choices?.[0]?.delta;
+              if (!delta) continue;
+              if (delta.content) content += delta.content;
+              if (delta.tool_calls) {
+                for (const tcd of delta.tool_calls) {
+                  const idx = tcd.index !== undefined ? tcd.index : toolCalls.length;
+                  if (!toolCalls[idx]) toolCalls[idx] = { id: '', type: 'function', function: { name: '', arguments: '' } };
+                  if (tcd.id) toolCalls[idx].id = tcd.id;
+                  if (tcd.function?.name) toolCalls[idx].function.name += tcd.function.name;
+                  if (tcd.function?.arguments) toolCalls[idx].function.arguments += tcd.function.arguments;
+                }
+              }
+            } catch { /* ignore malformed SSE chunks */ }
+          }
+          const openAiResp = {
+            choices: [{
+              index: 0,
+              message: { role: 'assistant', content, tool_calls: toolCalls },
+              finish_reason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+            }],
+          };
+          openAIResponseToAnthropic(openAiResp, targetModel, msgId, true, res);
+        });
+        forwardRes.on('error', (err) => {
+          if (!res.headersSent) {
+            sendJson(res, 502, { type: 'error', error: { type: 'api_error', message: `Upstream stream error: ${err.message}` } });
+          }
+        });
+      } else {
+        let raw = '';
+        forwardRes.on('data', (c) => { raw += c.toString('utf8'); });
+        forwardRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(raw);
+            const msgId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            openAIResponseToAnthropic(parsed, targetModel, msgId, false, res);
+          } catch (err) {
+            if (!res.headersSent) {
+              sendJson(res, 502, { type: 'error', error: { type: 'api_error', message: `Malformed bridge response: ${err.message}` } });
+            }
+          }
+        });
+        forwardRes.on('error', (err) => {
+          if (!res.headersSent) {
+            sendJson(res, 502, { type: 'error', error: { type: 'api_error', message: `Upstream error: ${err.message}` } });
+          }
+        });
+      }
     });
 
     forwardReq.on('error', (err) => {

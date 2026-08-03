@@ -10,7 +10,7 @@ const { sendJson, log } = require('../utils');
 async function handleModels(ctx, req, res) {
   const bridgeConfig = ctx.bridgeConfig || {};
   log(ctx, `DEBUG handleModels: bridgeConfig = ${JSON.stringify(bridgeConfig)}`);
-  if (bridgeConfig.provider === 'openai') {
+  if (bridgeConfig.provider === 'openai' || bridgeConfig.provider === 'openai-compatible') {
     const targetUrl = bridgeConfig.targetUrl || '';
     if (!targetUrl) {
       return sendJson(res, 200, { object: 'list', data: [] });

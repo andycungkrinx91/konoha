@@ -10,6 +10,7 @@ db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/sk
 # Check for prune command
 if len(sys.argv) > 3 and sys.argv[2] == "--prune":
     agent_to_prune = sys.argv[3]
+    conn = None
     try:
         if not os.path.exists(db_path):
             print(json.dumps({"error": f"Database not found at {db_path}"}))
@@ -20,9 +21,15 @@ if len(sys.argv) > 3 and sys.argv[2] == "--prune":
         conn.commit()
         deleted_count = cursor.rowcount
         conn.close()
+        conn = None
         print(json.dumps({"success": True, "deleted_count": deleted_count}))
         sys.exit(0)
     except Exception as e:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
         print(json.dumps({"error": str(e)}))
         sys.exit(1)
 

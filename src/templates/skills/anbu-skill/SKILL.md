@@ -39,3 +39,26 @@ In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: e
 1. Use infrastructure-as-code principles (Terraform, K8s, Helm).
 2. Validate changes in staging before production.
 3. Monitor and alert on deployment health.
+
+## SOP 4: Package Management & Zero-Vulnerabilities
+1. **NO NPM/YARN**: When installing dependencies, **NEVER use `npm` or `yarn` under any circumstances.** ALWAYS use `pnpm`.
+2. **Zero CVE Guarantee**: After every package installation or environment setup, you MUST run `pnpm audit` and `pnpm audit fix`. 
+3. **Completion Gate**: You MUST NOT finish any task if there are high/critical vulnerabilities remaining. You must resolve all CVEs.
+
+## Domain Routing
+
+Based on the user's request, load the specific reference file using `konoha.get_skill("anbu-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
+
+| If the request involves... | Load this reference |
+|---|---|
+| DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
+| Grafana, Prometheus, monitoring, metrics, observability dashboards | `anbu-skill/prometheus-grafana` |
+| Anthropic Cybersecurity Skills, security log analysis, threat hunting, defensive forensics, analytical hardening | `anbu-skill/anthropic-cybersecurity-skills` |
+| Security auditing, DevSecOps, OWASP, penetration test remediation, defensive hardening | `devsecops-engineer` |
+| RabbitMQ, Kafka, Redis, Nginx, HAProxy, Varnish, reverse proxies, caching, load balancing, distributed systems | `anbu-skill/distributed-systems` |
+| AI prompt engineering, system prompt design, LLM optimization, prompt testing | `anbu-skill/prompt-engineer` |
+| Skills creator, creating or modifying AI agent skills, SKILL.md specification | `skill-creator` |
+| PHP, Ruby, C++, Node.js, Express.js, GraphQL, BytePlus, modern backend APIs and full-stack systems | `modern-full-stack` |
+| Laravel backend, API development, architecture, testing | `anbu-skill/laravel-specialist` |
+| WordPress backend, CMS development, custom themes/plugins | `anbu-skill/wordpress-pro` |
+| Magento module development, backend architecture, e-commerce API | `anbu-skill/magento-module-developer` |

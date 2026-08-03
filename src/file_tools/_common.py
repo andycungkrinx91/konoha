@@ -58,23 +58,68 @@ def resolve_path(raw_path, base_dir=None):
         real = os.path.realpath(expanded)
     except OSError:
         real = expanded
-    workspace = base_dir or os.getcwd()
-    assert_within_workspace(real, workspace)
+    assert_within_allowed(real, base_dir)
     return real
 
 
-def assert_within_workspace(resolved_path, workspace):
+_KONOHA_HOME = None
+def _get_konoha_home():
+    global _KONOHA_HOME
+    if _KONOHA_HOME is None:
+        _KONOHA_HOME = os.path.realpath(os.path.expanduser('~/.konoha'))
+    return _KONOHA_HOME
+
+
+def _norm(p):
+    """Normalize a path; on Windows also lowercase for case-insensitive compare."""
+    n = os.path.normpath(p)
+    if os.name == 'nt':
+        n = os.path.normcase(n)
+    return n
+
+
+def assert_within_allowed(resolved_path, base_dir=None):
+    """Allow paths inside the workspace OR inside ~/.konoha/.
+
+    The ~/.konoha/ allowance ensures the MCP server can read its own
+    files (scripts, configs, skill data) even when the IDE workspace
+    is something unrelated (e.g. a brain session directory).
+    """
+    norm_path = _norm(resolved_path)
+
+    # 1. Konoha install directory — always allowed
+    norm_konoha = _norm(_get_konoha_home())
+    sep = os.sep
+    if norm_path == norm_konoha or norm_path.startswith(norm_konoha + sep):
+        return
+
+    # 1.5. Inside home-scoped agent scratch dirs (IDE internal caches)
+    home_dir = os.path.expanduser('~')
+    scratch_prefixes = [
+        os.path.join(home_dir, '.gemini'),
+        os.path.join(home_dir, '.claude'),
+        os.path.join(home_dir, '.cursor'),
+        os.path.join(home_dir, '.vscode'),
+        os.path.join(home_dir, '.openai'),
+        os.path.join(home_dir, '.windsurf'),
+    ]
+    for p in scratch_prefixes:
+        p_norm = _norm(p)
+        if norm_path == p_norm or norm_path.startswith(p_norm + sep):
+            return
+
+    # 2. Inside workspace root — if provided
+    workspace = base_dir or os.getcwd()
     if not workspace:
         return
     try:
         ws_real = os.path.realpath(os.path.abspath(workspace))
     except OSError:
         ws_real = os.path.abspath(workspace)
-    if os.name == 'nt':
-        ws_real = os.path.normcase(ws_real)
-        resolved_path = os.path.normcase(resolved_path)
+    ws_real = os.path.normpath(ws_real) if os.name != 'nt' else os.path.normcase(os.path.normpath(ws_real))
+    common = None
     try:
-        common = os.path.commonpath([ws_real, resolved_path])
+        common = os.path.commonpath([ws_real, norm_path])
     except ValueError:
         emit_error(f'Path outside workspace: {resolved_path}')
     if common != ws_real:

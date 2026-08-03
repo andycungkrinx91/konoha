@@ -193,8 +193,7 @@ def get_db_connection():
             cursor_model TEXT,
             cursor_fallback_model TEXT,
             enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
-            claude_model TEXT,
-            opencode_model TEXT
+            claude_model TEXT
         );
     """)
     conn.commit()
@@ -225,7 +224,6 @@ def auto_migrate_yaml_to_db(conn):
                             INSERT OR REPLACE INTO agents (
                                 name, icon, title, model_tier, purpose, skills, delegate_when,
                                 constraints_text, workflow, description, instructions, delegation_keywords,
-                                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             name,
@@ -244,7 +242,6 @@ def auto_migrate_yaml_to_db(conn):
                             a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                             1 if a.get("enable_mcp_tools", True) else 0,
                             a.get("claudeModel") or a.get("claude_model"),
-                            a.get("opencodeModel") or a.get("opencode_model")
                         ))
                     conn.commit()
         except Exception as e:
@@ -257,7 +254,7 @@ def sync_db_to_yaml(conn):
     cursor.execute("""
         SELECT name, icon, title, model_tier, purpose, skills, delegate_when,
                constraints_text, workflow, description, instructions, delegation_keywords,
-               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
+               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
         FROM agents
     """)
     rows = cursor.fetchall()
@@ -289,7 +286,6 @@ def sync_db_to_yaml(conn):
             "cursorFallbackModel": r["cursor_fallback_model"],
             "enable_mcp_tools": bool(r["enable_mcp_tools"]),
             "claudeModel": r["claude_model"],
-            "opencodeModel": r["opencode_model"]
         })
 
     os.makedirs(os.path.dirname(AGENTS_YAML_PATH), exist_ok=True)
@@ -303,7 +299,7 @@ def list_agents():
     cursor.execute("""
         SELECT name, icon, title, model_tier, purpose, skills, delegate_when,
                constraints_text, workflow, description, instructions, delegation_keywords,
-               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
+               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
         FROM agents
     """)
     rows = cursor.fetchall()
@@ -335,7 +331,6 @@ def list_agents():
             "cursorFallbackModel": r["cursor_fallback_model"],
             "enable_mcp_tools": bool(r["enable_mcp_tools"]),
             "claudeModel": r["claude_model"],
-            "opencodeModel": r["opencode_model"]
         })
     conn.close()
     return result
@@ -358,7 +353,6 @@ def upsert_agent(agent_dict):
         INSERT OR REPLACE INTO agents (
             name, icon, title, model_tier, purpose, skills, delegate_when,
             constraints_text, workflow, description, instructions, delegation_keywords,
-            cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         name,
@@ -377,7 +371,6 @@ def upsert_agent(agent_dict):
         agent_dict.get("cursorFallbackModel") or agent_dict.get("cursor_fallback_model"),
         1 if agent_dict.get("enable_mcp_tools", True) else 0,
         agent_dict.get("claudeModel") or agent_dict.get("claude_model"),
-        agent_dict.get("opencodeModel") or agent_dict.get("opencode_model")
     ))
     conn.commit()
     sync_db_to_yaml(conn)
@@ -421,7 +414,6 @@ def import_yaml_to_db():
                 INSERT OR REPLACE INTO agents (
                     name, icon, title, model_tier, purpose, skills, delegate_when,
                     constraints_text, workflow, description, instructions, delegation_keywords,
-                    cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
@@ -440,7 +432,6 @@ def import_yaml_to_db():
                 a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                 1 if a.get("enable_mcp_tools", True) else 0,
                 a.get("claudeModel") or a.get("claude_model"),
-                a.get("opencodeModel") or a.get("opencode_model")
             ))
         conn.commit()
     conn.close()
@@ -460,7 +451,6 @@ def bulk_import_agents(agents_list):
             INSERT OR REPLACE INTO agents (
                 name, icon, title, model_tier, purpose, skills, delegate_when,
                 constraints_text, workflow, description, instructions, delegation_keywords,
-                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model, opencode_model
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             name,
@@ -479,7 +469,6 @@ def bulk_import_agents(agents_list):
             a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
             1 if a.get("enable_mcp_tools", True) else 0,
             a.get("claudeModel") or a.get("claude_model"),
-            a.get("opencodeModel") or a.get("opencode_model")
         ))
     conn.commit()
     sync_db_to_yaml(conn)

@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawn, spawnSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const readline = require('readline');
 const https = require('https');
 
@@ -27,6 +27,7 @@ const agentManager = require('../src/agent_manager');
 const skillManager = require('../src/skill_manager');
 const cursorManager = require('../src/cursor_manager');
 const mcpClientsManager = require('../src/mcp_clients_manager');
+const opencodeManager = require('../src/opencode_manager');
 const deployUtils = require('../src/deploy_utils');
 const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
@@ -49,10 +50,6 @@ const FILE_TOOLS_PY_DIR = path.join(SKILLS_DB_DIR, 'file_tools');
 const SETTINGS_PATH = path.join(HOME, '.gemini', 'antigravity-cli', 'settings.json');
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
-const DOCS_DIR = path.join(__dirname, '..', 'docs');
-
-// Import centralized paths for all other modules to share
-const paths = require('./lib/paths');
 
 let currentCwd = HOME;
 try {
@@ -139,12 +136,6 @@ const CHIDORI_THEME = [
   [255, 255, 255],   // Flash White
   [0, 200, 255],     // Deep Electric
 ];
-
-const LIGHTNING_CHARS = ['Z', '⌁', '⚡', '↯', 'ϟ', '═'];
-const CHIDORI_SPINNER_FRAMES = ['⚡', '϶', '⌁', '↯', '✹', '✷', '⚡', 'ϟ'];
-
-// Forced true: all animations disabled for fast, deterministic CLI output.
-const NO_ANIMATION = true;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -359,7 +350,7 @@ function startAgentTui(agents) {
           return maxLen;
         });
         
-        const rowColors = agents.map((a, idx) => {
+        const rowColors = agents.map((_, idx) => {
           if (idx === selectedIndex) {
             return [C.bold + C.yellow, C.bold + C.cyan, C.bold + C.white, C.bold + C.green, C.bold + C.magenta];
           }
@@ -591,7 +582,7 @@ function rgb(r, g, b) {
 function applyGradient(line, colors, brightness = 1.0) {
   let result = '';
   const len = line.length;
-  if (len === 0) return '';
+  if (len === 0) return result;
   
   for (let i = 0; i < len; i++) {
     const char = line[i];
@@ -635,14 +626,15 @@ function applyGradient(line, colors, brightness = 1.0) {
 }
 
 function applyGradientToBorders(line, theme) {
-  let result = '';
   const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
   const len = cleanLine.length;
-  
+  if (len === 0) return '';
+
+  let result = '';
   let cleanIdx = 0;
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    
+
     if (char === '\x1b') {
       const endIdx = line.indexOf('m', i);
       if (endIdx !== -1) {
@@ -651,7 +643,7 @@ function applyGradientToBorders(line, theme) {
         continue;
       }
     }
-    
+
     const isBorder = '┌┬┐├┼┤└┴┘─│═'.includes(char);
     if (isBorder) {
       const position = cleanIdx / (len - 1 || 1);
@@ -660,14 +652,24 @@ function applyGradientToBorders(line, theme) {
       const startColor = theme[segmentIndex];
       const endColor = theme[segmentIndex + 1];
       const segmentPos = (position - (segmentIndex / segmentCount)) * segmentCount;
-      
+
       const r = startColor[0] + (endColor[0] - startColor[0]) * segmentPos;
       const g = startColor[1] + (endColor[1] - startColor[1]) * segmentPos;
       const b = startColor[2] + (endColor[2] - startColor[2]) * segmentPos;
-      
+
       result += rgb(r, g, b) + char + C.reset;
     } else {
-      result += char;
+      // Colorize non-border chars (spaces etc.) with the border color at this position
+      const position = cleanIdx / (len - 1 || 1);
+      const segmentCount = theme.length - 1;
+      const segmentIndex = Math.min(Math.floor(position * segmentCount), segmentCount - 1);
+      const startColor = theme[segmentIndex];
+      const endColor = theme[segmentIndex + 1];
+      const segmentPos = (position - (segmentIndex / segmentCount)) * segmentCount;
+      const r = startColor[0] + (endColor[0] - startColor[0]) * segmentPos;
+      const g = startColor[1] + (endColor[1] - startColor[1]) * segmentPos;
+      const b = startColor[2] + (endColor[2] - startColor[2]) * segmentPos;
+      result += rgb(r, g, b) + char + C.reset;
     }
     cleanIdx++;
   }
@@ -711,172 +713,23 @@ function header(msg) {
 }
 
 function divider() {
-  const sepLen = 60;
-  const sepLine = '═'.repeat(sepLen);
-  
-  log(applyGradient(sepLine, CHIDORI_THEME));
+  log(applyGradient('═'.repeat(60), CHIDORI_THEME));
 }
 
 function startSpinner(text) {
-  const isInteractive = process.stdout.isTTY && !process.env.CI;
-  const frames = CHIDORI_SPINNER_FRAMES;
-  const chidoriColors = [
-    '\x1b[38;2;100;180;255m',  // Electric Blue
-    '\x1b[38;2;0;255;255m',    // Cyan
-    '\x1b[38;2;180;220;255m',  // Ice White-Blue
-    '\x1b[38;2;255;255;255m',  // Flash White
-    '\x1b[38;2;0;200;255m',    // Deep Electric
-  ];
-  let frameIdx = 0;
-  let interval = null;
-  
-  if (isInteractive && !NO_ANIMATION) {
-    // Generate a crackle trail of 3 random lightning chars
-    const crackle = () => {
-      let trail = '';
-      for (let i = 0; i < 3; i++) {
-        const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
-        const col = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
-        trail += col + ch;
-      }
-      return trail + C.reset;
-    };
-
-    process.stdout.write(`  ${chidoriColors[0]}${frames[0]}${C.reset}  ${text} ${crackle()}`);
-    interval = setInterval(() => {
-      frameIdx = (frameIdx + 1) % frames.length;
-      const colorIdx = frameIdx % chidoriColors.length;
-      // Flash white every 8th frame for Chidori discharge effect
-      const isFlash = frameIdx % 8 === 0;
-      const color = isFlash ? '\x1b[97m' : chidoriColors[colorIdx];
-      const displayText = isFlash ? `\x1b[97m${text}` : text;
-      process.stdout.write(`\r  ${color}${frames[frameIdx]}${C.reset}  ${displayText}${C.reset} ${crackle()}   `);
-    }, 80);
-  } else {
-    log(`  ${C.cyan}ϟ${C.reset} ${text}`);
-  }
-  
+  log(`  ${C.cyan}ϟ${C.reset} ${text}`);
   return {
-    stop() {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-        process.stdout.write('\r\x1b[K');
-      }
-    },
-    start(newText) {
-      if (newText) text = newText;
-      if (isInteractive && !NO_ANIMATION && !interval) {
-        interval = setInterval(() => {
-          frameIdx = (frameIdx + 1) % frames.length;
-          const colorIdx = frameIdx % chidoriColors.length;
-          const isFlash = frameIdx % 8 === 0;
-          const color = isFlash ? '\x1b[97m' : chidoriColors[colorIdx];
-          const displayText = isFlash ? `\x1b[97m${text}` : text;
-          const crackle = () => {
-            let trail = '';
-            for (let i = 0; i < 3; i++) {
-              const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
-              const col = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
-              trail += col + ch;
-            }
-            return trail + C.reset;
-          };
-          process.stdout.write(`\r  ${color}${frames[frameIdx]}${C.reset}  ${displayText}${C.reset} ${crackle()}   `);
-        }, 80);
-      }
-    },
-    update(newText) {
-      text = newText;
-      if (!isInteractive || NO_ANIMATION) {
-        log(`  ${C.cyan}ϟ${C.reset} ${text}`);
-      }
-    },
-    success(successText) {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-        process.stdout.write(`\r\x1b[K  \x1b[38;2;0;255;255m⚡\x1b[0m  ${successText || text}\n`);
-      } else {
-        log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${successText || text}`);
-      }
-    },
-    warn(warnText) {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-        process.stdout.write(`\r\x1b[K  \x1b[38;2;255;200;0m↯\x1b[0m  ${warnText || text}\n`);
-      } else {
-        log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${warnText || text}`);
-      }
-    },
-    error(errText) {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-        process.stdout.write(`\r\x1b[K  \x1b[31m✗\x1b[0m  ${errText || text}\n`);
-      } else {
-        log(`  ${C.red}✗${C.reset} ${errText || text}`);
-      }
-    }
+    stop() {},
+    start(newText) { if (newText) log(`  ${C.cyan}ϟ${C.reset} ${newText}`); },
+    update(newText) { if (newText) log(`  ${C.cyan}ϟ${C.reset} ${newText}`); },
+    success(successText) { log(`  ${C.bold}${C.green}✓${C.reset} ${successText || text}`); },
+    warn(warnText) { log(`  ${C.bold}${C.yellow}⚠${C.reset} ${warnText || text}`); },
+    error(errText) { log(`  ${C.bold}${C.red}✗${C.reset} ${errText || text}`); },
   };
 }
 
 
-async function chidoriTransition(commandName) {
-  const isInteractive = process.stdout.isTTY && !process.env.CI;
-  if (!isInteractive || NO_ANIMATION) return;
-  
-  const width = 60;
-  const chidoriColors = [
-    [100, 180, 255],
-    [0, 255, 255],
-    [180, 220, 255],
-    [255, 255, 255],
-    [0, 200, 255],
-  ];
-  
-  process.stdout.write('\x1b[?25l');
-  
-  const frames = 3;
-  for (let f = 0; f < frames; f++) {
-    let line1 = '';
-    
-    // Density increases per frame for building energy effect
-    const density = 0.3 + (f / frames) * 0.5;
-    
-    for (let x = 0; x < width; x++) {
-      if (Math.random() < density) {
-        const ch = LIGHTNING_CHARS[Math.floor(Math.random() * LIGHTNING_CHARS.length)];
-        const ci = chidoriColors[Math.floor(Math.random() * chidoriColors.length)];
-        line1 += `\x1b[38;2;${ci[0]};${ci[1]};${ci[2]}m${ch}`;
-      } else {
-        line1 += '\x1b[38;2;100;180;255m═';
-      }
-    }
-    
-    // On last frame, flash everything white like Chidori impact
-    if (f === frames - 1) {
-      line1 = '\x1b[97m' + '⚡'.repeat(width);
-    }
-    
-    process.stdout.write(`\x1b[2K${line1}\x1b[0m\n`);
-    
-    await new Promise(r => setTimeout(r, 15));
-    
-    // Move cursor back up 1 line for next frame overlay
-    if (f < frames - 1) {
-      process.stdout.write('\x1b[1A');
-    }
-  }
-  
-  // Clear the lightning lines
-  process.stdout.write('\x1b[1A\x1b[2K');
-  process.stdout.write('\x1b[?25h');
-}
-
-function drawLogo(animated = false) {
-  const isInteractive = process.stdout.isTTY && !process.env.CI;
+function drawLogo() {
   
   const textLines = [
     "| |/ /  / _ \\ | \\| | / _ \\ | || |   / \\  ",
@@ -887,38 +740,11 @@ function drawLogo(animated = false) {
     `${C.dim}Maintainer: Andy Setiyawan${C.reset}`,
   ];
   
-  if (animated && isInteractive && !NO_ANIMATION) {
-    process.stdout.write('\x1b[?25l'); // Hide cursor
-    
-    // Print empty lines first
-    for (let i = 0; i < textLines.length; i++) {
-      log('');
-    }
-    
-    const frames = 12;
-    for (let f = 1; f <= frames; f++) {
-      const brightness = f / frames;
-      process.stdout.write(`\x1b[${textLines.length}A`); // Move cursor up
-      
-      for (let i = 0; i < textLines.length; i++) {
-        const coloredText = i < 3
-          ? applyGradient(textLines[i], FIRE_THEME, brightness)
-          : textLines[i];
-        log(coloredText);
-      }
-      
-      // Synchronous delay
-      const start = Date.now();
-      while (Date.now() - start < 35) {}
-    }
-    process.stdout.write('\x1b[?25h'); // Show cursor
-  } else {
-    for (let i = 0; i < textLines.length; i++) {
-      const coloredText = i < 3
-        ? applyGradient(textLines[i], FIRE_THEME)
-        : textLines[i];
-      log(coloredText);
-    }
+  for (let i = 0; i < textLines.length; i++) {
+    const coloredText = i < 3
+      ? applyGradient(textLines[i], FIRE_THEME)
+      : textLines[i];
+    log(coloredText);
   }
   log('');
 }
@@ -1002,11 +828,23 @@ function detectCustomSkills(skillsDir) {
   }
 }
 
+// ─── Transition Helper ────────────────────────────────────────────────────────
+
+async function chidoriTransition(command) {
+  // Quick gradient flash for command transitions
+  const lines = [
+    applyGradient(`Konoha > ${command} mode`, CHIDORI_THEME),
+  ];
+  lines.forEach(l => log(l));
+  // Brief pause for visual effect
+  await new Promise(r => setTimeout(r, 150));
+  log('');
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 async function cmdInit(args) {
-  await chidoriTransition('init');
-  drawLogo(true); // Animate fade-in of the logo!
+  drawLogo();
   
   header('🚀 Konoha Installer');
   log(`${C.dim}SQLite FTS5 Skills-DB for Antigravity IDE/CLI${C.reset}`);
@@ -1037,10 +875,8 @@ async function cmdInit(args) {
   const allowHooks = true;
   const cursorInstalled = cursorManager.isCursorInstalled();
   const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
-  const opencodeInstalled = mcpClientsManager.isOpenCodeInstalled();
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
-  const allowOpenCode = opencodeInstalled;
   // 1. Ensure the directories exist
   const dirs = [
     path.join(HOME, '.gemini'),
@@ -1129,14 +965,6 @@ async function cmdInit(args) {
           agents: agentsForSetup,
           projectRoot: currentCwd,
           deployProject: true
-        });
-      }
-      if (allowOpenCode) {
-        mcpClientsManager.ensureOpenCodeSetup({
-          pythonCmd: python,
-          serverPath: SERVER_PATH,
-          uvxCmd: getUvxCommand(),
-          silent: true
         });
       }
       success('Integrations refreshed.');
@@ -1340,22 +1168,6 @@ async function cmdInit(args) {
     info('Claude Code not detected — skip auto-setup (see docs/templates/claude-code.mcp.json if you install later).');
   }
 
-  // 10c. Configure OpenCode (when CLI detected)
-  if (allowOpenCode) {
-    header('📟 Configuring OpenCode');
-    const spinnerOpenCode = startSpinner('Registering OpenCode MCP servers...');
-    const uvxCmd = getUvxCommand();
-    mcpClientsManager.ensureOpenCodeSetup({
-      pythonCmd: python,
-      serverPath: SERVER_PATH,
-      uvxCmd,
-      silent: true
-    });
-    spinnerOpenCode.success('OpenCode MCP configured.');
-  } else if (!opencodeInstalled) {
-    info('OpenCode not detected — skip auto-setup (see docs/templates/opencode.mcp.json if you install later).');
-  }
-
   // 11. Summary
   header('✅ Installation Complete!');
 
@@ -1371,9 +1183,6 @@ async function cmdInit(args) {
     claudeInstalled
       ? `${ok} Claude Code   ${C.dim}~/.claude.json${C.reset}`
       : `${skip} Claude Code   ${C.dim}(not installed)${C.reset}`,
-    opencodeInstalled
-      ? `${ok} OpenCode      ${C.dim}~/.config/opencode/opencode.json${C.reset}`
-      : `${skip} OpenCode      ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
@@ -1388,7 +1197,7 @@ async function cmdInit(args) {
   log('');
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${opencodeInstalled ? ', OpenCode' : ''}) to load MCP servers`);
+  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}) to load MCP servers`);
   log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:   ${C.cyan}konoha status${C.reset}`);
   log('');
@@ -1511,9 +1320,7 @@ function autoInstallKonohaBridgeExtension(silent = false) {
   return false;
 }
 
-function registerMcp(python, silent = false, allowAutoApprove = true) {
-  const pythonCmd = python || checkPython() || 'python3';
-  
+function registerMcp(_python, silent = false, allowAutoApprove = true) {
   ensureDir(path.dirname(MCP_CONFIG_PATH));
 
   // Backup existing config once before replacing
@@ -2016,7 +1823,7 @@ function ensureAutoSetup() {
   const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
   if (!fileExists(agentsYamlPath)) {
     try {
-      agentManager.loadAgents(); // Silently initializes USER_AGENTS_YAML_PATH if missing
+      agentManager.loadAgents(false, true); // Silently initializes USER_AGENTS_YAML_PATH if missing
     } catch (e) {}
   }
 
@@ -2044,10 +1851,10 @@ function ensureAutoSetup() {
     console.log = originalLog;
   }
 
-  // 6b. Auto-configure detected MCP clients (Cursor / Claude Code / OpenCode)
+  // 6b. Auto-configure detected MCP clients (Cursor / Claude Code)
   // Detection-based skip; no prompts. Mirrors the cmdInit zero-prompt flow.
   const autoSetupAgents = (() => {
-    try { return agentManager.loadAgents(); } catch { return []; }
+    try { return agentManager.loadAgents(false, true); } catch { return []; }
   })();
   if (cursorManager.isCursorInstalled()) {
     try {
@@ -2076,18 +1883,20 @@ function ensureAutoSetup() {
         silent: true,
         agents: autoSetupAgents,
         projectRoot: currentCwd,
-        deployProject: true
+        injectRtk: true,
+        deployProject: false
       });
     } catch (e) {
       // ignore — silent self-heal
     }
   }
-  if (mcpClientsManager.isOpenCodeInstalled()) {
+  if (opencodeManager.isOpenCodeInstalled()) {
     try {
-      mcpClientsManager.ensureOpenCodeSetup({
+      opencodeManager.ensureOpenCodeSetup({
         pythonCmd: python,
         serverPath: SERVER_PATH,
         uvxCmd,
+        injectRtk: true,
         silent: true
       });
     } catch (e) {
@@ -2126,9 +1935,6 @@ function updateGeminiMd(silent = false) {
   agentManager.regenerateAndDeploy(silent);
 }
 
-function updateAgentsMd(silent = false) {
-  agentManager.regenerateAndDeploy(silent);
-}
 
 function moveUnusedSkills(skillsDirs, agents) {
   const activeSkills = new Set();
@@ -2203,7 +2009,6 @@ function moveUnusedSkills(skillsDirs, agents) {
 }
 
 async function cmdMigrate(args) {
-  await chidoriTransition('migrate');
   header('📊 Re-running Skills Migration');
 
   const python = checkPython();
@@ -2300,7 +2105,6 @@ async function cmdMigrate(args) {
 }
 
 async function cmdTest() {
-  await chidoriTransition('test');
   header('🧪 Testing Skills-DB MCP Server');
 
   const python = checkPython();
@@ -2519,7 +2323,6 @@ async function cmdTest() {
 }
 
 async function cmdStatus() {
-  await chidoriTransition('status');
   drawLogo(false); // Static logo
   
   header('📋 Skills-DB Status');
@@ -2681,17 +2484,18 @@ async function cmdStatus() {
   }
 
   // OpenCode integration (auto-configured when `opencode` CLI is installed)
-  const openCodeStatus = mcpClientsManager.getOpenCodeStatus();
+  const openCodeStatus = opencodeManager.getOpenCodeStatus();
   if (openCodeStatus.installed) {
     sectionTitle('OpenCode Integrations:', NINJA_THEME);
+    const openCodeOk = openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble;
     drawIntegrationRow(
-      '~/.config/opencode/',
-      openCodeStatus.mcpSkillsDb && openCodeStatus.mcpSemble,
-      openCodeStatus.globalConfig ? 'konoha + semble' : 'not configured',
+      '~/.opencode/config.json',
+      openCodeOk,
+      openCodeStatus.rtkInjected ? 'konoha + semble + RTK hooks' : 'konoha + semble',
       NINJA_THEME
     );
   } else {
-    log(`\n  ${applyGradient('OpenCode:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (template: docs/templates/opencode.mcp.json)', CHIDORI_THEME, 0.6)}`);
+    log(`\n  ${applyGradient('OpenCode:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (see https://opencode.ai)', CHIDORI_THEME, 0.6)}`);
   }
 
   // Check instructions patterns
@@ -2710,7 +2514,7 @@ async function cmdStatus() {
 
   // Subagents list
   sectionTitle('Subagents (Naruto Ninja Ranks):', NINJA_THEME);
-  const agents = agentManager.loadAgents();
+  const agents = agentManager.loadAgents(true); // Force reload, silent
   const iconMap = {
     'genin': '🍃',
     'chunin': '📜',
@@ -2722,41 +2526,29 @@ async function cmdStatus() {
 
   const subHeaders = [
     'Rank / Name',
-    'Model (Antigravity)',
-    'Model (Cursor)',
-    'Model (Claude)',
-    'Model (OpenCode)',
     'Skills Configuration'
   ];
-  const subAligns = ['left', 'left', 'left', 'left', 'left', 'left'];
+  const subAligns = ['left', 'left'];
   const subRows = [];
   const subRowColors = [];
 
   agents.forEach(a => {
     const icon = a.icon || iconMap[a.name] || '👤';
     const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-    const agyModel = a.modelTier || '-';
-    const cursorModel = a.cursorModel || cursorManager.resolveCursorModel(a);
-    const claudeModel = a.claudeModel || 'Claude Sonnet 4.6 (Thinking)';
-    const opencodeModel = a.opencodeModel || 'inherit';
     const activeSkills = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
 
-    subRows.push([displayName, agyModel, cursorModel, claudeModel, opencodeModel, activeSkills]);
-    subRowColors.push(['', '', '', '', '', '']);
+    subRows.push([displayName, activeSkills]);
+    subRowColors.push(['', '']);
   });
 
   const subWidths = computeTableWidths(subHeaders, subRows, {
-    minWidths: [18, 24, 16, 28, 16, 24],
-    maxWidths: [24, 40, 24, 40, 24, 48]
+    minWidths: [18, 24],
+    maxWidths: [24, 48]
   });
   drawTable(subHeaders, subWidths, subAligns, subRows, subRowColors, NINJA_THEME, {
     columnFormatters: [
       (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
-      (cell) => applyGradient(cell, FIRE_THEME, 0.85),
-      (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-      (cell) => applyGradient(cell, LEAF_THEME, 0.85),
-      (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
-      (cell) => applyGradient(cell, NINJA_THEME, 0.8)
+      (cell) => applyGradient(cell, CHIDORI_THEME, 0.85)
     ]
   });
 
@@ -2824,8 +2616,7 @@ async function cmdStatus() {
 }
 
 async function cmdDoctor() {
-  await chidoriTransition('doctor');
-  drawLogo(false); // Static logo
+  drawLogo();
   header('🩺 Konoha Doctor');
   log(`${applyGradient('Diagnosing environment requirements and auto-repairing missing components...', CHIDORI_THEME, 0.75)}\n`);
 
@@ -3257,37 +3048,6 @@ async function cmdDoctor() {
     }
   }
 
-  // 9e. OpenCode Configuration (only when CLI installed)
-  if (mcpClientsManager.isOpenCodeInstalled()) {
-    const openCodeStatus = mcpClientsManager.getOpenCodeStatus();
-    const openCodeHealthy =
-      openCodeStatus.mcpSemble &&
-      openCodeStatus.mcpKonoha;
-    if (openCodeHealthy) {
-      record('OpenCode (~/.config/opencode/)', 'HEALTHY', 'konoha and semble active');
-    } else {
-      try {
-        const python = checkPython() || 'python3';
-        mcpClientsManager.ensureOpenCodeSetup({
-          pythonCmd: python,
-          serverPath: SERVER_PATH,
-          uvxCmd: getUvxCommand(),
-          silent: true
-        });
-        const repaired = mcpClientsManager.getOpenCodeStatus();
-        if (repaired.mcpSemble && repaired.mcpKonoha) {
-          record('OpenCode (~/.config/opencode/)', 'REPAIRED', 'Registered Konoha MCP servers');
-          repairsDone++;
-        } else {
-          record('OpenCode (~/.config/opencode/)', 'WARNING', 'Partial OpenCode setup — run konoha init');
-        }
-      } catch (e) {
-        record('OpenCode (~/.config/opencode/)', 'FAILED', `Error: ${e.message}`);
-        hasErrors = true;
-      }
-    }
-  }
-
   // 10. agent-browser CLI check
   let agentBrowserInstalled = false;
   let agentBrowserVersion = '';
@@ -3361,7 +3121,6 @@ async function cmdDoctor() {
 }
 
 async function cmdUninstall() {
-  await chidoriTransition('uninstall');
   header('🗑️  Uninstalling Skills-DB');
 
   // Remove server files (preserving the skills.db database and its metrics)
@@ -3468,10 +3227,9 @@ async function cmdUninstall() {
 
   try {
     mcpClientsManager.removeClaudeCodeConfig(true);
-    mcpClientsManager.removeOpenCodeConfig(true);
-    success('Removed Konoha entries from Claude Code / OpenCode global MCP configs (when present)');
+    success('Removed Konoha entries from Claude Code global MCP config (when present)');
   } catch {
-    warn('Could not fully clean Claude Code / OpenCode configuration');
+    warn('Could not fully clean Claude Code configuration');
   }
 
   // Remove Antigravity-specific configurations
@@ -3486,8 +3244,7 @@ async function cmdUninstall() {
 }
 
 async function cmdAgentStatus() {
-  await chidoriTransition('agent-status');
-  drawLogo(false); // Static logo
+  drawLogo();
   header('🥷 Agent Call Statistics');
   
   // 1. Get python command
@@ -3542,7 +3299,6 @@ async function cmdAgentStatus() {
       modelTier: a.modelTier,
       cursorModel: a.cursorModel || 'inherit',
       claudeModel: a.claudeModel || 'inherit',
-      opencodeModel: a.opencodeModel || 'inherit',
       today: agentStats.today,
       last7days: agentStats.last7days,
       alltime: agentStats.alltime,
@@ -3570,7 +3326,6 @@ async function cmdAgentStatus() {
     modelTier: '-',
     cursorModel: '-',
     claudeModel: '-',
-    opencodeModel: '-',
     today: directStats.today,
     last7days: directStats.last7days,
     alltime: directStats.alltime,
@@ -3580,7 +3335,7 @@ async function cmdAgentStatus() {
   // Display Table
   sectionTitle('Call Frequency Summary:', NINJA_THEME);
 
-  const headers = ['Subagent', 'AGY Model', 'Cursor', 'Claude', 'OpenCode', 'Today', '7 Days', 'All Time'];
+  const headers = ['Subagent', 'AGY Model', 'Cursor', 'Claude', 'Today', '7 Days', 'All Time'];
   const aligns = ['left', 'left', 'left', 'left', 'left', 'right', 'right', 'right'];
 
   const rows = displayAgents.map(da => [
@@ -3588,7 +3343,6 @@ async function cmdAgentStatus() {
     da.modelTier || '-',
     da.cursorModel === 'inherit' ? '-' : (da.cursorModel || '-'),
     da.claudeModel === 'inherit' ? '-' : (da.claudeModel || '-'),
-    da.opencodeModel === 'inherit' ? '-' : (da.opencodeModel || '-'),
     da.today,
     da.last7days,
     da.alltime
@@ -3615,8 +3369,7 @@ async function cmdAgentStatus() {
 }
 
 async function cmdSavings() {
-  await chidoriTransition('savings');
-  drawLogo(false); // Static logo
+  drawLogo();
   
   header('📊 Token Savings Report');
 
@@ -3699,8 +3452,7 @@ async function cmdSavings() {
           { name: 'Antigravity IDE', key: 'antigravity', icon: '🌌' },
           { name: 'Antigravity CLI', key: 'agy', icon: '🚀' },
           { name: 'Cursor', key: 'cursor', icon: '🌊' },
-          { name: 'Claude Code', key: 'claudecode', icon: '🌀' },
-          { name: 'OpenCode', key: 'opencode', icon: '📟' }
+          { name: 'Claude Code', key: 'claudecode', icon: '🌀' }
         ];
 
         clients.forEach(client => {
@@ -4218,7 +3970,7 @@ async function cmdAgent(args) {
       let step = agentPassedOnCli ? 'SELECT_PRIMARY' : 'SELECT_AGENT';
       let selectedAgent = agentPassedOnCli ? agents.find(a => a.name === agentName) : null;
       let primaryModel = null;
-      let configureFallback = false;
+      let configureFallback;
       let fallbackModel = null;
       let resolvedModelString = null;
 
@@ -4596,51 +4348,56 @@ const AVAILABLE_MODELS = [
 
 async function getActiveModels() {
   const models = [...AVAILABLE_MODELS];
-  const active = await checkPortActive(19999);
-  if (!active) return models;
+  const bridges = loadBridges();
+  const existing = new Set(models.map(m => m.name.toLowerCase()));
 
-  return new Promise((resolve) => {
-    const http = require('http');
-    const req = http.get('http://127.0.0.1:19999/v1/models', (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json && Array.isArray(json.data)) {
-            const existing = new Set(models.map(m => m.name.toLowerCase()));
-            for (const m of json.data) {
-              const id = m.id;
-              if (!existing.has(id.toLowerCase())) {
-                let tag = 'Bridge';
-                if (id.includes('claude')) tag = 'Reasoning';
-                else if (id.includes('gpt')) tag = 'Standard';
-                else if (id.includes('gemini')) {
-                  if (id.includes('flash')) tag = 'Fast';
-                  else tag = 'Standard';
-                }
-                models.push({
-                  name: id,
-                  tag,
-                  aliases: [id.toLowerCase()]
-                });
-              }
-            }
-          }
-          resolve(models);
-        } catch {
-          resolve(models);
-        }
+  // Query each bridge's backend target for models, add prefixed versions
+  const bridgeList = bridges.filter(b => b.enabled && b.targetUrl);
+  const bridgeTargets = bridgeList.map(async bridge => {
+    const targetPath = bridge.targetUrl.endsWith('/v1') ? bridge.targetUrl + '/models' : bridge.targetUrl;
+    const parsed = new URL(targetPath);
+    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+    const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
+    const headers = {};
+    if (bridge.apiKey) {
+      headers['Authorization'] = `Bearer ${bridge.apiKey}`;
+    }
+    return new Promise((resolveInner) => {
+      const req = mod.get(url, { headers }, (res) => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => {
+          try { resolveInner(JSON.parse(d)); } catch { resolveInner(null); }
+        });
       });
-    });
-    req.on('error', () => {
-      resolve(models);
-    });
-    req.setTimeout(5000, () => {
-      req.destroy();
-      resolve(models);
+      req.on('error', () => resolveInner(null));
+      req.setTimeout(8000, () => { req.destroy(); resolveInner(null); });
     });
   });
+  const targets = await Promise.all(bridgeTargets);
+
+  for (let i = 0; i < targets.length; i++) {
+    const bridge = bridgeList[i];
+    const targetJson = targets[i];
+    if (!targetJson || !Array.isArray(targetJson.data)) continue;
+    for (const m of targetJson.data) {
+      const id = m.id;
+      const prefixedId = `${bridge.name}-${id}`;
+      if (!existing.has(prefixedId.toLowerCase())) {
+        let tag = 'Bridge';
+        if (id.includes('claude')) tag = 'Reasoning';
+        else if (id.includes('gpt')) tag = 'Standard';
+        else if (id.includes('gemini')) {
+          if (id.includes('flash')) tag = 'Fast';
+          else tag = 'Standard';
+        }
+        models.push({ name: prefixedId, tag, aliases: [prefixedId.toLowerCase()] });
+        existing.add(prefixedId.toLowerCase());
+      }
+    }
+  }
+
+  return models;
 }
 
 function cmdModelsHelp() {
@@ -4661,11 +4418,10 @@ ${C.bold}SUBCOMMANDS${C.reset}
                                                       Options:
                                                         --cursor    Configure for Cursor IDE/CLI
                                                         --claude    Configure for Claude Code
-                                                        --opencode  Configure for OpenCode
   ${C.cyan}reset${C.reset}                                          Clear local usage logs in sqlite db to restore model quotas.
 
 ${C.bold}MODEL EXPRESSIONS${C.reset}
-  You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor/OpenCode):
+  You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor):
   - Single model: "Gemini 3.1 Flash-Lite"
   - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
 
@@ -4712,32 +4468,6 @@ async function cmdModels(args) {
     case 'status': {
       const agents = agentManager.loadAgents();
 
-      header('Subagent Model Configurations');
-      const agentModelRows = agents.map(a => {
-        const icon = a.icon || '👤';
-        const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-        return [
-          displayName,
-          a.modelTier || '-',
-          a.cursorModel || 'inherit',
-          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)',
-          a.opencodeModel || 'inherit'
-        ];
-      });
-      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model', 'OpenCode Model'];
-      const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
-        minWidths: [18, 24, 16, 28, 16],
-        maxWidths: [24, 40, 24, 40, 24]
-      });
-      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
-        columnFormatters: [
-          (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
-          (cell) => applyGradient(cell, LEAF_THEME, 0.85),
-          (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-          (cell) => applyGradient(cell, FIRE_THEME, 0.85),
-          (cell) => applyGradient(cell, CHIDORI_THEME, 0.85)
-        ]
-      });
       log('');
       break;
     }
@@ -4755,32 +4485,6 @@ async function cmdModels(args) {
         ]
       });
 
-      header('Subagent Model Configurations');
-      const agentModelRows = agents.map(a => {
-        const icon = a.icon || '👤';
-        const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-        return [
-          displayName,
-          a.modelTier || '-',
-          a.cursorModel || 'inherit',
-          a.claudeModel || 'Claude Sonnet 4.6 (Thinking)',
-          a.opencodeModel || 'inherit'
-        ];
-      });
-      const agentModelHeaders = ['Subagent', 'Antigravity Model', 'Cursor Model', 'Claude Model', 'OpenCode Model'];
-      const agentModelWidths = computeTableWidths(agentModelHeaders, agentModelRows, {
-        minWidths: [18, 24, 16, 28, 16],
-        maxWidths: [24, 40, 24, 40, 24]
-      });
-      drawTable(agentModelHeaders, agentModelWidths, ['left', 'left', 'left', 'left', 'left'], agentModelRows, [], NINJA_THEME, {
-        columnFormatters: [
-          (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
-          (cell) => applyGradient(cell, LEAF_THEME, 0.85),
-          (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-          (cell) => applyGradient(cell, FIRE_THEME, 0.85),
-          (cell) => applyGradient(cell, CHIDORI_THEME, 0.85)
-        ]
-      });
       log('');
       break;
     }
@@ -4788,7 +4492,6 @@ async function cmdModels(args) {
       let clientType = 'antigravity';
       const claudeIdx = subArgs.indexOf('--claude');
       const cursorIdx = subArgs.indexOf('--cursor');
-      const opencodeIdx = subArgs.indexOf('--opencode');
 
       if (claudeIdx >= 0) {
         clientType = 'claude';
@@ -4796,15 +4499,12 @@ async function cmdModels(args) {
       } else if (cursorIdx >= 0) {
         clientType = 'cursor';
         subArgs.splice(cursorIdx, 1);
-      } else if (opencodeIdx >= 0) {
-        clientType = 'opencode';
-        subArgs.splice(opencodeIdx, 1);
       }
 
       const agentName = subArgs[0];
       const modelInput = subArgs.slice(1).join(' ');
       if (!agentName || !modelInput) {
-        error('Usage: konoha models embed <agent-name> <model-name> [--cursor|--claude|--opencode]');
+        error('Usage: konoha models embed <agent-name> <model-name> [--cursor|--claude]');
         process.exit(1);
       }
 
@@ -4978,7 +4678,6 @@ async function getLatestVersion() {
 }
 
 async function cmdVersion(args) {
-  await chidoriTransition('version');
   const pkgPath = path.join(__dirname, '..', 'package.json');
   let currentVersion = '1.0.5';
   try {
@@ -5010,7 +4709,6 @@ async function cmdVersion(args) {
 }
 
 async function cmdUpgrade(args) {
-  await chidoriTransition('upgrade');
   header('🔄 Upgrading Konoha');
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
@@ -5177,14 +4875,6 @@ async function cmdData(args) {
   }
 }
 
-function getBridgesConfigPath() {
-  const dir = path.join(os.homedir(), '.konoha');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
-  return path.join(dir, 'bridges.json');
-}
-
 function loadBridges() {
   const python = checkPython() || 'python3';
   const dbScript = fileExists(path.join(SRC_DIR, 'db_bridges.py'))
@@ -5217,13 +4907,6 @@ function saveBridgeSqlite(action, data) {
   } catch (e) {}
 }
 
-function saveBridges(bridges) {
-  if (Array.isArray(bridges)) {
-    for (const b of bridges) {
-      saveBridgeSqlite('upsert', b);
-    }
-  }
-}
 
 function checkPortActive(port) {
   const net = require('net');
@@ -5265,6 +4948,7 @@ Usage:
   konoha bridge models                   List all served models by all active bridges
   konoha bridge start                    Start the bridge gateway service in background (standalone daemon)
   konoha bridge stop                     Stop background bridge gateway service
+  konoha bridge restart                  Stop and restart the bridge gateway service
   konoha bridge create [name]            Create a bridge - interactive: choose API Key
   konoha bridge delete <bridge name>     Delete a bridge configuration
   konoha bridge enable <bridge name>     Enable a bridge configuration
@@ -5306,6 +4990,9 @@ async function cmdBridge(args) {
       break;
     case 'stop':
       await cmdBridgeStop();
+      break;
+    case 'restart':
+      await cmdBridgeRestart();
       break;
     case 'delete':
       await cmdBridgeDelete(subArgs[0]);
@@ -5400,6 +5087,14 @@ async function cmdBridgeStop() {
   }
 }
 
+async function cmdBridgeRestart() {
+  header('Restarting Bridge Proxy Gateway Service');
+  success('Stopping existing bridge service...');
+  await cmdBridgeStop();
+  success('Starting bridge service...');
+  await cmdBridgeStart();
+}
+
 async function cmdBridgeList() {
   const bridges = loadBridges();
   header('Configured Bridges');
@@ -5441,73 +5136,81 @@ async function cmdBridgeList() {
 }
 
 async function cmdBridgeModels() {
-  const http = require('http');
   header('Served Models via Proxy Gateway');
 
-  const gatewayActive = await checkPortActive(19999);
-  if (!gatewayActive) {
-    error('Proxy Gateway is not running on port 19999.');
-    warn('Ensure the konoha-files MCP server is running to start the gateway and enabled bridges.');
+  const bridges = loadBridges();
+  const bridgeList = bridges.filter(b => b.enabled && b.targetUrl);
+
+  if (bridgeList.length === 0) {
+    log('  No enabled bridges found.');
     return;
   }
 
-  try {
-    const modelsData = await new Promise((resolve, reject) => {
-      const req = http.get('http://127.0.0.1:19999/v1/models', (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
+  const bridgeTargets = bridgeList.map(async bridge => {
+    const targetPath = bridge.targetUrl.endsWith('/v1') ? bridge.targetUrl + '/models' : bridge.targetUrl;
+    const parsed = new URL(targetPath);
+    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+    const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
+    const headers = {};
+    if (bridge.apiKey) {
+      headers['Authorization'] = `Bearer ${bridge.apiKey}`;
+    }
+    return new Promise((resolve) => {
+      const req = mod.get(url, { headers }, (res) => {
+        let d = '';
+        res.on('data', c => d += c);
         res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error('Failed to parse models response JSON.'));
-          }
+          try { resolve(JSON.parse(d)); } catch { resolve(null); }
         });
       });
-      req.on('error', (err) => {
-        reject(err);
-      });
-      req.setTimeout(6000, () => {
-        req.destroy();
-        reject(new Error('Request timed out.'));
-      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(8000, () => { req.destroy(); resolve(null); });
     });
+  });
+  const targets = await Promise.all(bridgeTargets);
 
-    if (!modelsData || !Array.isArray(modelsData.data) || modelsData.data.length === 0) {
-      log('  No models are currently served by any active bridges.');
-      return;
+  const models = [];
+  for (let i = 0; i < targets.length; i++) {
+    const bridge = bridgeList[i];
+    if (!targets[i] || !Array.isArray(targets[i].data)) continue;
+    for (const m of targets[i].data) {
+      const prefixedId = `${bridge.name}-${m.id}`;
+      models.push({ id: prefixedId, owned_by: m.owned_by || bridge.name });
     }
-
-    const rows = [];
-    for (const m of modelsData.data) {
-      const idx = m.id.indexOf('-');
-      let bridge = '-';
-      let baseModel = m.id;
-      if (idx !== -1) {
-        bridge = m.id.substring(0, idx);
-        baseModel = m.id.substring(idx + 1);
-      }
-      rows.push([
-        bridge,
-        baseModel,
-        m.id,
-        m.owned_by || '-'
-      ]);
-    }
-
-    const headers = ['Bridge', 'Base Model Name', 'Full Alias Model ID', 'Owned By'];
-    const widths = computeTableWidths(headers, rows, { minWidths: [12, 25, 45, 12] });
-    drawTable(headers, widths, ['left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
-      columnFormatters: [
-        (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
-        (cell) => cell,
-        (cell) => `${C.bold}${cell}${C.reset}`,
-        (cell) => cell
-      ]
-    });
-  } catch (err) {
-    error(`Failed to query served models: ${err.message}`);
   }
+
+  if (models.length === 0) {
+    log('  No models are currently served by any active bridges.');
+    return;
+  }
+
+  const rows = [];
+  for (const m of models) {
+    const idx = m.id.indexOf('-');
+    let bridge = '-';
+    let baseModel = m.id;
+    if (idx !== -1) {
+      bridge = m.id.substring(0, idx);
+      baseModel = m.id.substring(idx + 1);
+    }
+    rows.push([
+      bridge,
+      baseModel,
+      m.id,
+      m.owned_by || '-'
+    ]);
+  }
+
+  const headers = ['Bridge', 'Base Model Name', 'Full Alias Model ID', 'Owned By'];
+  const widths = computeTableWidths(headers, rows, { minWidths: [12, 25, 45, 12] });
+  drawTable(headers, widths, ['left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
+    columnFormatters: [
+      (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
+      (cell) => cell,
+      (cell) => `${C.bold}${cell}${C.reset}`,
+      (cell) => cell
+    ]
+  });
 }
 
 async function cmdBridgeStatus() {
@@ -5980,7 +5683,7 @@ async function main() {
   }
 
   // Silent auto-setup on every command (except help/uninstall)
-  const skipAutoSetup = ['uninstall', 'help', '--help', '-h'].includes(command);
+  const skipAutoSetup = ['uninstall', 'help', '--help', '-h', '--version', '-v'].includes(command);
   if (!skipAutoSetup) {
     try {
       ensureAutoSetup();
@@ -6014,6 +5717,8 @@ async function main() {
         await cmdUninstall();
         break;
       case 'version':
+      case '--version':
+      case '-v':
         await cmdVersion(args);
         break;
       case 'upgrade':

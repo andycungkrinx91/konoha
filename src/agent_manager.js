@@ -39,7 +39,7 @@ function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
 }
 
 // Load agents from SQLite or YAML
-function loadAgents(reloadDefaults = false) {
+function loadAgents(reloadDefaults = false, silent = false) {
   let agents = [];
   let loadedFromDb = false;
   let loadedFromUser = false;
@@ -241,23 +241,6 @@ except Exception:
           changed = true;
         }
 
-        // v1.1.6: Sync Cursor, Claude, and OpenCode model slugs for IDE/CLI subagents if they are not defined
-        if (a.cursorModel === undefined && defAgent.cursorModel) {
-          a.cursorModel = defAgent.cursorModel;
-          changed = true;
-        }
-        if (a.cursorFallbackModel === undefined && defAgent.cursorFallbackModel) {
-          a.cursorFallbackModel = defAgent.cursorFallbackModel;
-          changed = true;
-        }
-        if (a.claudeModel === undefined && defAgent.claudeModel) {
-          a.claudeModel = defAgent.claudeModel;
-          changed = true;
-        }
-        if (a.opencodeModel === undefined) {
-          a.opencodeModel = defAgent.opencodeModel || 'inherit';
-          changed = true;
-        }
       }
 
       // Sync instructions with skills moved to deployment generators
@@ -279,7 +262,7 @@ except Exception:
       if (!isRegenerating) {
         isRegenerating = true;
         try {
-          regenerateAndDeploy();
+          regenerateAndDeploy({ silent });
         } catch (e) {
         } finally {
           isRegenerating = false;
@@ -828,19 +811,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
     // Fail silently if Claude configs are not writable
   }
 
-  // Deploy OpenCode MCP setup
-  try {
-    mcpClientsManager.ensureOpenCodeSetup({
-      pythonCmd,
-      serverPath,
-      uvxCmd,
-      silent: true,
-      agents
-    });
-  } catch (e) {
-    // Fail silently if OpenCode configs are not writable
-  }
-
   // Cache fingerprint so subsequent calls with unchanged agents.yaml skip the deploy.
   if (fingerprint) {
     try {
@@ -851,7 +821,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
 
   if (!silent) {
     const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
-    const opencodeInstalled = mcpClientsManager.isOpenCodeInstalled();
     const lines = [
       `  - ${cursorManager.CURSOR_AGENTS_GLOBAL}`,
       `  - ${antigravityManager.ANTIGRAVITY_AGENTS_GLOBAL}`,
@@ -859,10 +828,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
     if (claudeInstalled) {
       const claudeHome = require('os').homedir();
       lines.push(`  - ${require('path').join(claudeHome, '.claude.yaml')} (Claude Code)`);
-    }
-    if (opencodeInstalled) {
-      const ocHome = require('os').homedir();
-      lines.push(`  - ${require('path').join(ocHome, '.config', 'opencode', 'opencode.yaml')} (OpenCode)`);
     }
     console.log(`✓ Generated and deployed configs to:\n${lines.join('\n')}`);
   }
@@ -1023,7 +988,6 @@ function updateAgentModel(agentName, modelName, clientType = 'antigravity') {
   let field = 'modelTier';
   if (clientType === 'cursor') field = 'cursorModel';
   else if (clientType === 'claude') field = 'claudeModel';
-  else if (clientType === 'opencode') field = 'opencodeModel';
 
   if (agent[field] === modelName) {
     return false; // Already set

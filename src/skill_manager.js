@@ -35,9 +35,13 @@ try {
 }
 
 const DEFAULT_SKILLS_DIRS = [
+  path.join(currentCwd, '.agents', 'skills'),
+  path.join(currentCwd, '.cursor', 'skills'),
+  path.join(currentCwd, 'skills'),
+  path.join(currentCwd, '.skills'),
+  path.join(currentCwd, 'docs', 'skills'),
   path.join(AGENTS, 'skills'),
   path.join(ANTIGRAVITY_CLI, 'skills'),
-  path.join(currentCwd, '.agents', 'skills'),
 ];
 
 // Helper to check if file exists
