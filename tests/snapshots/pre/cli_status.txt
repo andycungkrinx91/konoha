@@ -46,7 +46,7 @@ Maintainer: Andy Setiyawan
   Subagents (Naruto Ninja Ranks):
     ┌──────────────────────────┬──────────────────────────────────────────┬──────────────────────────┬──────────────────────────────┬──────────────────────────┬──────────────────────────────────────────────────┐
     │ Rank / Name              │ Model (Antigravity)                      │ Model (Cursor)           │ Model (Claude)               │ Skills Configuration                             │
-    ├──────────────────────────┼──────────────────────────────────────────┼──────────────────────────┼──────────────────────────────┼──────────────────────────────────────────────────┤
+    ├──────────────────────────┼──────────────────────────────────────────┼──────────────────────────┼──────────────────────────────┼──────────────────────────┼──────────────────────────────────────────────────┤
     │ 🍶 Mcp_sannin            │ Claude Sonnet 4.6 (Thinking) | Fallba... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ sannin-skill                                     │
     │ 🍃 Mcp_genin             │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ genin-skill                                      │
     │ 🌀 Mcp_kage              │ Gemini 3.5 Flash (High) | Fallback wh... │ Claude Sonnet 4.6 (Th... │ Claude Sonnet 4.6 (Thinking) │ kage-skill                                       │
@@ -55,7 +55,7 @@ Maintainer: Andy Setiyawan
     │ 👥 Mcp_anbu              │ Gemini 3.1 Pro (High)                    │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ anbu-skill                                       │
     │ 🎯 Mcp_tokubetsu-jonin   │ Gemini 3.5 Flash (Low)                   │ inherit                  │ Claude Sonnet 4.6 (Thinking) │ tokubetsu-jonin-skill                            │
     │ 🐍 Mcp_cli-test-agent... │ test                                     │ inherit                  │ test-model                   │ None                                             │
-    └──────────────────────────┴──────────────────────────────────────────┴──────────────────────────┴──────────────────────────────┴──────────────────────────────────────────────────┘
+    └──────────────────────────┴──────────────────────────────────────────┴──────────────────────────┴──────────────────────────────┴──────────────────────────┴──────────────────────────────────────────────────┘
 
   Database Stats:
   ⚡ SQLite FTS5 database is healthy:

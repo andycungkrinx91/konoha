@@ -17,7 +17,7 @@ DB_PATH = os.path.expanduser("~/.konoha/skills.db")
 class TestSubagentMCPBlock(unittest.TestCase):
     """Test that the MCP tools block is correctly injected into subagent prompts."""
 
-    SUBAGENTS = ["mcp_genin", "mcp_chunin", "mcp_kage", "mcp_jonin", "mcp_anbu", "mcp_tokubetsu-jonin"]
+    SUBAGENTS = ["genin", "chunin", "kage", "jonin", "anbu", "tokubetsu-jonin"]
 
     def setUp(self):
         self.task_dir = tempfile.mkdtemp()
@@ -31,7 +31,7 @@ class TestSubagentMCPBlock(unittest.TestCase):
 
     def test_block_appears_before_task_instructions(self):
         """The MCP block must appear before the TASK INSTRUCTIONS section."""
-        text = self._invoke("mcp_kage")
+        text = self._invoke("kage")
         block_idx = text.find("MCP Tools Available To You")
         task_idx = text.find("## TASK INSTRUCTIONS")
         self.assertGreater(block_idx, -1, "block missing")
@@ -65,9 +65,9 @@ class TestSubagentMCPBlock(unittest.TestCase):
 
     def test_routing_rules_present(self):
         """The MCP block should mention routing rules for subagents."""
-        text = self._invoke("mcp_kage")
+        text = self._invoke("kage")
         # Check that the block mentions key routing tools
-        self.assertIn("mcp__konoha__mcp_sannin", text)
+        self.assertIn("mcp__konoha__sannin", text)
         self.assertIn("mcp__konoha__find_skill", text)
 
 

@@ -29,32 +29,84 @@ function ensureDir(d) {
   }
 }
 
+const __cmdAvailCache = new Map();
+const __fileExistCache = new Map();
+
+function fileExistsCached(p) {
+  if (__fileExistCache.has(p)) return __fileExistCache.get(p);
+  let v;
+  try { v = fs.existsSync(p); } catch { v = false; }
+  __fileExistCache.set(p, v);
+  return v;
+}
+
 function isCommandAvailable(cmd) {
+  if (__cmdAvailCache.has(cmd)) return __cmdAvailCache.get(cmd);
+  let result = false;
   try {
     const probe = process.platform === 'win32' ? 'where' : 'which';
     const found = spawnSync(probe, [cmd], { encoding: 'utf-8', timeout: 5000 });
     if (found.status === 0 && (found.stdout || '').trim()) {
-      return true;
+      result = true;
     }
   } catch {}
-  try {
-    const version = spawnSync(cmd, ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000,
-      shell: process.platform === 'win32'
-    });
-    return version.status === 0;
-  } catch {
-    return false;
+  if (!result) {
+    try {
+      const version = spawnSync(cmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        shell: process.platform === 'win32'
+      });
+      result = version.status === 0;
+    } catch {
+      result = false;
+    }
   }
+  __cmdAvailCache.set(cmd, result);
+  return result;
 }
 
 function isClaudeCodeInstalled() {
   return (
     isCommandAvailable('claude') ||
-    fileExists(path.join(HOME, '.claude')) ||
-    fileExists(CLAUDE_JSON)
+    fileExistsCached(path.join(HOME, '.claude')) ||
+    fileExistsCached(CLAUDE_JSON)
   );
+}
+
+function isRtkInstalled() {
+  if (__cmdAvailCache.has('rtk')) return __cmdAvailCache.get('rtk');
+  let result = false;
+  try {
+    const res = spawnSync('rtk', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000
+    });
+    result = res.status === 0;
+  } catch {
+    result = false;
+  }
+  __cmdAvailCache.set('rtk', result);
+  return result;
+}
+
+function deployClaudeCodeRtkRule(silent = true) {
+  if (!isRtkInstalled()) {
+    return { ok: false, reason: 'rtk-not-installed' };
+  }
+  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
+  if (!fileExists(src)) {
+    return { ok: false, reason: 'rtk-rule-template-missing' };
+  }
+  const dest = path.join(HOME, '.claude', 'rules', 'rtk.md');
+  try {
+    ensureDir(path.dirname(dest));
+    fs.copyFileSync(src, dest);
+    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'copy-failed', error: e.message };
+  }
 }
 
 
@@ -216,15 +268,37 @@ function adaptInstructionsForClaudeCode(instructions) {
     .replace(/(?:skills-db|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
     .replace(/(?:skills-db|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
     .replace(/(?:skills-db|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
+    .replace(/(?:skills-db|konoha)\.get_resolved_task_dir/g, 'mcp__konoha__get_resolved_task_dir')
+    .replace(/(?:skills-db|konoha)\.migrate_skills/g, 'mcp__konoha__migrate_skills')
+    .replace(/(?:skills-db|konoha)\.web_search/g, 'mcp__konoha__web_search')
+    .replace(/(?:skills-db|konoha)\.sannin/g, 'mcp__konoha__sannin')
+    .replace(/(?:skills-db|konoha)\.kage/g, 'mcp__konoha__kage')
+    .replace(/(?:skills-db|konoha)\.jonin/g, 'mcp__konoha__jonin')
+    .replace(/(?:skills-db|konoha)\.anbu/g, 'mcp__konoha__anbu')
+    .replace(/(?:skills-db|konoha)\.chunin/g, 'mcp__konoha__chunin')
+    .replace(/(?:skills-db|konoha)\.tokubetsu_jonin/g, 'mcp__konoha__tokubetsu_jonin')
+    .replace(/(?:skills-db|konoha)\.genin/g, 'mcp__konoha__genin')
     .replace(/semble\.search/g, 'mcp__semble__search')
     .replace(/semble\.find_related/g, 'mcp__semble__find_related')
-    .replace(/read_file_head/g, 'mcp__konoha__read_file_head')
-    .replace(/read_file_range/g, 'mcp__konoha__read_file_range')
-    .replace(/file_info/g, 'mcp__konoha__file_info')
-    .replace(/token_efficient_grep/g, 'mcp__konoha__token_efficient_grep')
-    .replace(/get_file_structure/g, 'mcp__konoha__get_file_structure')
-    .replace(/find_files_clean/g, 'mcp__konoha__find_files_clean')
-    .replace(/search_file/g, 'mcp__konoha__search_file')
+    // Bare tool names → mcp__konoha__ prefix. Negative lookbehind avoids double-prefixing.
+    .replace(/(?<!mcp__konoha__)\boptimize_report\b/g, 'mcp__konoha__optimize_report')
+    .replace(/(?<!mcp__konoha__)\bmcp_kage\b/g, 'mcp__konoha__mcp_kage')
+    .replace(/(?<!mcp__konoha__)\bmcp_jonin\b/g, 'mcp__konoha__mcp_jonin')
+    .replace(/(?<!mcp__konoha__)\bmcp_anbu\b/g, 'mcp__konoha__mcp_anbu')
+    .replace(/(?<!mcp__konoha__)\bmcp_chunin\b/g, 'mcp__konoha__mcp_chunin')
+    .replace(/(?<!mcp__konoha__)\bmcp_genin\b/g, 'mcp__konoha__mcp_genin')
+    .replace(/(?<!mcp__konoha__)\bmcp_tokubetsu_jonin\b/g, 'mcp__konoha__mcp_tokubetsu_jonin')
+    .replace(/(?<!mcp__konoha__)\bmcp_sannin\b/g, 'mcp__konoha__mcp_sannin')
+    .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
+    .replace(/(?<!mcp__konoha__)\bget_skill\b/g, 'mcp__konoha__get_skill')
+    .replace(/(?<!mcp__konoha__)\blist_skills\b/g, 'mcp__konoha__list_skills')
+    .replace(/(?<!mcp__konoha__)\bread_file_head\b/g, 'mcp__konoha__read_file_head')
+    .replace(/(?<!mcp__konoha__)\bread_file_range\b/g, 'mcp__konoha__read_file_range')
+    .replace(/(?<!mcp__konoha__)\bfile_info\b/g, 'mcp__konoha__file_info')
+    .replace(/(?<!mcp__konoha__)\btoken_efficient_grep\b/g, 'mcp__konoha__token_efficient_grep')
+    .replace(/(?<!mcp__konoha__)\bget_file_structure\b/g, 'mcp__konoha__get_file_structure')
+    .replace(/(?<!mcp__konoha__)\bfind_files_clean\b/g, 'mcp__konoha__find_files_clean')
+    .replace(/(?<!mcp__konoha__)\bsearch_file\b/g, 'mcp__konoha__search_file')
     .trim();
 }
 
@@ -304,6 +378,7 @@ function ensureClaudeCodeSetup(options = {}) {
 
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
   registerClaudeCodePermissions(silent);
+  deployClaudeCodeRtkRule(silent);
 
   if (ruleContent) {
     deployClaudeCodeRules(ruleContent, silent);
@@ -342,7 +417,9 @@ function getClaudeCodeStatus() {
     mcpSemble: false,
     mcpSkillsDb: false,
     permissionsAllowed: false,
-    agentsCount: 0
+    agentsCount: 0,
+    rtkInstalled: isRtkInstalled(),
+    rtkRuleDeployed: fileExists(path.join(HOME, '.claude', 'rules', 'rtk.md'))
   };
 
   if (status.globalConfig) {
@@ -369,7 +446,7 @@ function getClaudeCodeStatus() {
   }
 
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   for (const name of official) {
     if (fileExists(path.join(claudeAgentsDir, `${name}.md`))) {
       status.agentsCount++;
@@ -564,7 +641,7 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
   // Remove Claude Code subagents
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
   const backupDir = path.join(HOME, '.claude', 'agents_backup');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   for (const name of official) {
     const p = path.join(claudeAgentsDir, `${name}.md`);
     if (fileExists(p)) {
@@ -604,10 +681,12 @@ module.exports = {
   CLAUDE_SETTINGS,
   KONOHA_MCP_NAMES,
   isClaudeCodeInstalled,
+  isRtkInstalled,
   buildStdioMcpServers,
   registerClaudeCodeGlobalMcp,
   registerClaudeCodePermissions,
   deployClaudeCodeRules,
+  deployClaudeCodeRtkRule,
   deployProjectClaudeMd,
   removeProjectClaudeMd,
   ensureClaudeCodeSetup,

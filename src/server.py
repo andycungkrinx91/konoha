@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-konoha MCP Server (v1.1.6 — Token-Optimized)
+konoha MCP Server (v2.0.0 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -443,6 +443,10 @@ def detect_active_client():
     try:
         global ACTIVE_CLIENT
         
+        # Explicit ACTIVE_CLIENT override wins over detection heuristics
+        if ACTIVE_CLIENT:
+            return ACTIVE_CLIENT
+
         # Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
         conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
         if conv_id:
@@ -453,11 +457,11 @@ def detect_active_client():
             if os.path.isdir(ide_dir):
                 return "antigravity"
 
+        if os.environ.get("OPENCODE_CLIENT") == "1" or os.environ.get("OPENCODE_SESSION") == "1":
+            return "opencode"
+
         if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
             return "claudecode"
-
-        if ACTIVE_CLIENT and ACTIVE_CLIENT != "antigravity":
-            return ACTIVE_CLIENT
 
         if conv_id:
             return "antigravity"
@@ -905,7 +909,7 @@ def get_agent_skills(agent_name):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT skills FROM agents WHERE name = ? OR name = ?", (agent_name, f"mcp_{agent_name}"))
+        cursor.execute("SELECT skills FROM agents WHERE name = ?", (agent_name,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -922,7 +926,7 @@ def get_agent_skills(agent_name):
                 agents = parse_yaml(content)
                 for agent in agents:
                     name = agent.get("name")
-                    if name in (agent_name, f"mcp_{agent_name}"):
+                    if name == agent_name:
                         skills = agent.get("skills")
                         return list(skills) if skills is not None else []
     except Exception as e:
@@ -1560,8 +1564,7 @@ def detect_active_agent():
                                     match = re.search(r"\[([^\]]+)\]\s+active", content)
                                     if match:
                                         agent_name = match.group(1).split()[-1].lower()
-                                        if agent_name.startswith("mcp_"):
-                                            agent_name = agent_name[4:]
+                                        # Agent names are now bare (no mcp_ prefix)
                                         agent_name = agent_name.replace("_", "-")
                                         if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
                                             detected = agent_name
@@ -1646,8 +1649,7 @@ def detect_active_agent():
                                     match = re.search(r"\[([^\]]+)\]\s+active", content)
                                     if match:
                                         agent_name = match.group(1).split()[-1].lower()
-                                        if agent_name.startswith("mcp_"):
-                                            agent_name = agent_name[4:]
+                                        # Agent names are now bare (no mcp_ prefix)
                                         agent_name = agent_name.replace("_", "-")
                                         if agent_name in ["anbu", "genin", "chunin", "jonin", "kage", "tokubetsu-jonin"]:
                                             return agent_name
@@ -1815,11 +1817,11 @@ def get_resolved_task_dir(task_dir=None):
 def get_main_model():
     try:
         conn = sqlite3.connect(DB_PATH)
-        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("mcp_sannin",)).fetchone()
+        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("sannin",)).fetchone()
         if row and row[0]:
             conn.close()
             return row[0]
-        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("mcp_kage",)).fetchone()
+        row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("kage",)).fetchone()
         if row and row[0]:
             conn.close()
             return row[0]
@@ -1876,7 +1878,7 @@ def run_mcp_sannin(prompt=None, task_dir=None):
             with open(result_path, "r", encoding="utf-8") as f:
                 result = f.read().strip()
             res = json.dumps({"status": "completed", "phase": "result", "result": result, "task_dir": task_dir})
-            log_tool_call("mcp_sannin", f"task_dir={task_dir}", res, agent_name="sannin")
+            log_tool_call("sannin", f"task_dir={task_dir}", res, agent_name="sannin")
             return res
         except Exception as e:
             return json.dumps({"status": "error", "message": f"Failed to read result.md: {str(e)}"})
@@ -1894,7 +1896,11 @@ def run_mcp_sannin(prompt=None, task_dir=None):
 
     # Auto-route by keywords
     selected_agent_suffix = _route_by_keywords_with_prompt(task_dir, prompt)
-    selected_agent = f"mcp_{selected_agent_suffix}"
+    # Strip mcp_ prefix from DB agent name to produce bare tool name.
+    if selected_agent_suffix.startswith("mcp_"):
+        selected_agent = selected_agent_suffix[4:]
+    else:
+        selected_agent = selected_agent_suffix
 
     import sqlite3
     agent_descriptions = {}
@@ -1904,11 +1910,11 @@ def run_mcp_sannin(prompt=None, task_dir=None):
         cursor.execute("SELECT name, title, purpose FROM agents")
         for row in cursor.fetchall():
             name = row[0]
-            if not name.startswith("mcp_"):
-                name = f"mcp_{name}"
-            # Provide description from DB
+            # Provide description from DB; key by both prefixed and bare form.
             desc = row[2] if row[2] else row[1]
             agent_descriptions[name] = desc
+            if name.startswith("mcp_"):
+                agent_descriptions[name[4:]] = desc
         conn.close()
     except Exception:
         pass
@@ -1922,7 +1928,7 @@ def run_mcp_sannin(prompt=None, task_dir=None):
         f"1. Write `delegate.md` in the task directory with the frontmatter (agent name, priority) and the task instructions.\n"
         f"2. Call `{selected_agent}` with `task_dir={task_dir}` — it will read delegate.md and prepare the task for execution.\n"
         f"3. The agent will execute the task and write `result.md` to the same task directory (Write `result.md`).\n"
-        f"4. After `result.md` exists, call `mcp_sannin` again with `task_dir={task_dir}` to receive the final result.\n\n"
+        f"4. After `result.md` exists, call `sannin` again with `task_dir={task_dir}` to receive the final result.\n\n"
         f"## Original Prompt\n\n{prompt}"
     )
 
@@ -1933,7 +1939,7 @@ def run_mcp_sannin(prompt=None, task_dir=None):
         "instructions": instruction,
         "task_dir": task_dir,
     })
-    log_tool_call("mcp_sannin", f"task_dir={task_dir}", res, agent_name="sannin")
+    log_tool_call("sannin", f"task_dir={task_dir}", res, agent_name="sannin")
     return res
 
 
@@ -2032,7 +2038,7 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
 
             if agent_score > best_score:
                 best_score = agent_score
-                best_agent = agent["name"].replace("mcp_", "")
+                best_agent = agent["name"]
     except Exception:
         pass
 
@@ -2040,7 +2046,7 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
         best_agent = "kage"
 
     # Tiebreak / override: PRD and technical documentation writing should route
-    # to mcp_tokubetsu_jonin (writer), not mcp_chunin (researcher), even if
+    # to tokubetsu_jonin (writer), not chunin (researcher), even if
     # both have a same-scoring "documentation" match.
     write_signals = ("prd", "write a prd", "technical doc", "write the doc",
                      "draft the doc", "write docs", "author", "write a spec")
@@ -2137,7 +2143,7 @@ def run_mcp_workflow(task_dir=None):
             for line in plan_content.split("\n"):
                 m2 = re.match(r'^- \[(\w+)\]: (.+)', line.strip())
                 if m2:
-                    executors.append({"agent": m2.group(1).replace("mcp_", ""), "task": m2.group(2)})
+                    executors.append({"agent": m2.group(1), "task": m2.group(2)})
             status["pending_executors"] = [e["agent"] for e in executors] if executors else ["genin"]
             status["phase"] = "execute"
             _save_workflow_status(task_dir, status)
@@ -2764,12 +2770,11 @@ def run_mcp_agent(agent_name, task_dir=None):
             instructions = parts[2].strip()
             
     db_agent_name = agent_name
-    if not db_agent_name.startswith("mcp_"):
-        db_agent_name = f"mcp_{db_agent_name}"
-    # Normalize internal underscores to hyphens (e.g. mcp_tokubetsu_jonin -> mcp_tokubetsu-jonin)
-    suffix = db_agent_name[4:].replace("_", "-")
-    db_agent_name = f"mcp_{suffix}"
-        
+    # Normalize internal underscores to hyphens (e.g. tokubetsu_jonin -> tokubetsu-jonin)
+    suffix = db_agent_name.replace("_", "-")
+    db_agent_name = suffix
+
+    # Try both prefixed and bare DB names (DB may have mcp_ prefix or bare name)
     title = db_agent_name
     purpose = ""
     constraints = ""
@@ -2781,11 +2786,19 @@ def run_mcp_agent(agent_name, task_dir=None):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        # Try bare name first (new convention); fall back to mcp_ prefixed name (legacy).
         cursor.execute("""
             SELECT name, title, purpose, skills, constraints_text, instructions, model_tier
             FROM agents WHERE name = ?
         """, (db_agent_name,))
         row = cursor.fetchone()
+        if not row:
+            prefixed = f"mcp_{db_agent_name}"
+            cursor.execute("""
+                SELECT name, title, purpose, skills, constraints_text, instructions, model_tier
+                FROM agents WHERE name = ?
+            """, (prefixed,))
+            row = cursor.fetchone()
         conn.close()
         if row:
             title = row["title"] or title
@@ -2866,7 +2879,7 @@ def run_mcp_agent(agent_name, task_dir=None):
             sys.stderr.flush()
             
     system_prompt = (
-        f"You are @{db_agent_name.replace('mcp_', '')} ({title}).\n"
+        f"You are @{db_agent_name} ({title}).\n"
         f"Purpose: {purpose}\n\n"
         f"Instructions:\n{persona_instructions}\n\n"
         f"Constraints:\n{constraints}\n\n"
@@ -2896,7 +2909,7 @@ def run_mcp_agent(agent_name, task_dir=None):
         f"## Execution Protocol\n\n"
         f"1. Execute the task as described in TASK INSTRUCTIONS above.\n"
         f"2. When you have finished, you MUST write your final response and findings to: `{os.path.join(task_dir, 'result.md')}`.\n"
-        f"3. After creating `result.md`, you MUST call the `mcp_sannin` tool again passing `task_dir` so it can return the result to complete the workflow."
+        f"3. After creating `result.md`, you MUST call the `mcp__konoha__sannin` tool passing `task_dir` so it can return the result to complete the workflow."
     )
     
     res = json.dumps({
@@ -2930,6 +2943,8 @@ def handle_request(req):
             ACTIVE_CLIENT = "cursor"
         elif "claude" in client_name:
             ACTIVE_CLIENT = "claudecode"
+        elif "opencode" in client_name:
+            ACTIVE_CLIENT = "opencode"
         elif "antigravity-cli" in client_name or "agy" in client_name:
             ACTIVE_CLIENT = "agy"
         elif "antigravity" in client_name or "ide" in client_name:
@@ -2976,7 +2991,7 @@ def handle_request(req):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "konoha", "version": "1.1.6"}
+                "serverInfo": {"name": "konoha", "version": "2.0.0"}
             }
         }
 
@@ -3126,7 +3141,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_sannin",
+                        "name": "sannin",
                         "description": "Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.",
                         "inputSchema": {
                             "type": "object",
@@ -3143,7 +3158,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_kage",
+                        "name": "kage",
                         "description": "Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.",
                         "inputSchema": {
                             "type": "object",
@@ -3156,7 +3171,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_jonin",
+                        "name": "jonin",
                         "description": "UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.",
                         "inputSchema": {
                             "type": "object",
@@ -3169,7 +3184,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_anbu",
+                        "name": "anbu",
                         "description": "Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.",
                         "inputSchema": {
                             "type": "object",
@@ -3182,7 +3197,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_chunin",
+                        "name": "chunin",
                         "description": "Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.",
                         "inputSchema": {
                             "type": "object",
@@ -3195,7 +3210,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_tokubetsu_jonin",
+                        "name": "tokubetsu_jonin",
                         "description": "Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.",
                         "inputSchema": {
                             "type": "object",
@@ -3208,7 +3223,7 @@ def handle_request(req):
                         }
                     },
                     {
-                        "name": "mcp_genin",
+                        "name": "genin",
                         "description": "Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.",
                         "inputSchema": {
                             "type": "object",
@@ -3327,11 +3342,11 @@ def handle_request(req):
                 result_text = build_from_text(name, description, framework, agent_name=agent)
         elif tool_name == "get_resolved_task_dir":
             result_text = json.dumps({"status": "ok", "task_dir": get_resolved_task_dir()})
-        elif tool_name == "mcp_sannin":
+        elif tool_name == "sannin":
             prompt = args.get("prompt")
             task_dir = args.get("task_dir")
             result_text = run_mcp_sannin(prompt=prompt, task_dir=task_dir)
-        elif tool_name in ("mcp_kage", "mcp_jonin", "mcp_anbu", "mcp_chunin", "mcp_tokubetsu_jonin", "mcp_genin"):
+        elif tool_name in ("kage", "jonin", "anbu", "chunin", "tokubetsu_jonin", "genin"):
             task_dir = args.get("task_dir")
             result_text = run_mcp_agent(agent_name=tool_name, task_dir=task_dir)
         else:
