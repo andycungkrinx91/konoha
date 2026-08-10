@@ -224,7 +224,8 @@ def auto_migrate_yaml_to_db(conn):
                             INSERT OR REPLACE INTO agents (
                                 name, icon, title, model_tier, purpose, skills, delegate_when,
                                 constraints_text, workflow, description, instructions, delegation_keywords,
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             name,
                             a.get("icon"),
@@ -353,7 +354,8 @@ def upsert_agent(agent_dict):
         INSERT OR REPLACE INTO agents (
             name, icon, title, model_tier, purpose, skills, delegate_when,
             constraints_text, workflow, description, instructions, delegation_keywords,
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         name,
         agent_dict.get("icon"),
@@ -414,7 +416,8 @@ def import_yaml_to_db():
                 INSERT OR REPLACE INTO agents (
                     name, icon, title, model_tier, purpose, skills, delegate_when,
                     constraints_text, workflow, description, instructions, delegation_keywords,
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
                 a.get("icon"),
@@ -451,7 +454,8 @@ def bulk_import_agents(agents_list):
             INSERT OR REPLACE INTO agents (
                 name, icon, title, model_tier, purpose, skills, delegate_when,
                 constraints_text, workflow, description, instructions, delegation_keywords,
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             name,
             a.get("icon"),
@@ -483,6 +487,18 @@ def main():
     cmd = sys.argv[1]
     if cmd == "--list" or cmd == "list":
         print(json.dumps(list_agents()))
+    elif cmd == "--list-compact" or cmd == "list-compact":
+        agents = list_agents()
+        for a in agents:
+            for k in ("instructions", "constraints", "workflow", "description", "constraints_text"):
+                if a.get(k):
+                    a[k] = ""
+            for k in ("cursorModel", "cursorFallbackModel", "claudeModel", "enable_mcp_tools", "delegationKeywords", "delegateWhen", "title", "purpose", "icon"):
+                if a.get(k) is None:
+                    continue
+                if k in ("cursorModel", "cursorFallbackModel", "claudeModel") and a.get(k) in (None, "inherit"):
+                    continue
+        print(json.dumps(agents, separators=(",", ":")))
     elif cmd == "--bulk-import":
         if len(sys.argv) < 3:
             sys.exit(1)

@@ -305,7 +305,7 @@ def setup_db():
             cursor_model TEXT,
             cursor_fallback_model TEXT,
             enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
-            claude_model TEXT,
+            claude_model TEXT
         );
 
         CREATE TABLE IF NOT EXISTS bridges (
@@ -588,9 +588,11 @@ def print_summary(conn):
             print(f"\n📦 {current_skill}")
 
         label = "SKILL.md" if row[1] == "skill" else f"references"
-        print(f"   {label}: {row[2]} file(s), {row[3]:,} bytes")
-        total_rows += row[2]
-        total_bytes += row[3]
+        cnt = row[2] or 0
+        bs = row[3] or 0
+        print(f"   {label}: {cnt} file(s), {bs:,} bytes")
+        total_rows += cnt
+        total_bytes += bs
 
     # Content deduplication warning removed as it alarmed users over legitimate shared references between skills.
     

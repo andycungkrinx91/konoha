@@ -323,9 +323,9 @@ function startAgentTui(agents) {
         header('🥷 Subagents Interactive Explorer');
         log(`  ${C.dim}Use ↑/↓ keys to navigate, Press Enter to view details, ESC to exit${C.reset}\n`);
         
-        const headers = [' ', 'Subagent', 'Title', 'Model Tier', 'Active Skills'];
-        const aligns = ['left', 'left', 'left', 'left', 'left'];
-        
+        const headers = [' ', 'Subagent', 'Title', 'Active Skills'];
+        const aligns = ['left', 'left', 'left', 'left'];
+
         const rows = agents.map((a, idx) => {
           const skillsList = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
           const indicator = idx === selectedIndex ? '➔' : ' ';
@@ -333,7 +333,6 @@ function startAgentTui(agents) {
             indicator,
             `${a.icon || '👤'} @${a.name}`,
             a.title || 'Ninja',
-            a.modelTier || '-',
             skillsList
           ];
         });
@@ -352,9 +351,9 @@ function startAgentTui(agents) {
         
         const rowColors = agents.map((_, idx) => {
           if (idx === selectedIndex) {
-            return [C.bold + C.yellow, C.bold + C.cyan, C.bold + C.white, C.bold + C.green, C.bold + C.magenta];
+            return [C.bold + C.yellow, C.bold + C.cyan, C.bold + C.white, C.bold + C.magenta];
           }
-          return [C.dim, C.cyan, C.reset, C.green, C.dim];
+          return [C.dim, C.cyan, C.reset, C.bold + C.magenta];
         });
         
         drawTable(headers, widths, aligns, rows, rowColors, NINJA_THEME);
@@ -403,7 +402,6 @@ function startAgentTui(agents) {
         printDetailLine('Icon', agent.icon || '👤', C.yellow);
         printDetailLine('Name', `@${agent.name}`, C.cyan);
         printDetailLine('Title', agent.title || 'Ninja', C.white);
-        printDetailLine('Model Tier', agent.modelTier || '-', C.green);
         printDetailLine('Purpose', agent.purpose || 'General assistant', C.reset);
         printDetailLine('Skills', agent.skills && agent.skills.length > 0 ? agent.skills.join(', ') : 'None', C.magenta);
         printDetailLine('Keywords', agent.delegationKeywords || agent.name, C.yellow);
@@ -1127,6 +1125,17 @@ async function cmdInit(args) {
   agentManager.regenerateAndDeploy({ force: true, silent: true });
   spinner5.success('agents.yaml updated.');
 
+  // 8. Deploy RTK rules for Antigravity (if RTK is installed)
+  const rtkSpinner = startSpinner('Deploying RTK rules (Rust Token Killer)...');
+  const rtkResult = antigravityManager.deployAntigravityRtkRule(true);
+  if (rtkResult.ok) {
+    rtkSpinner.success(`RTK rules deployed to ${rtkResult.deployed} Antigravity location(s).`);
+  } else if (rtkResult.reason === 'rtk-not-installed') {
+    rtkSpinner.warn('RTK not installed on this system — skipping RTK rule deployment. Install: cargo install rtk');
+  } else {
+    rtkSpinner.warn(`RTK rule deployment skipped: ${rtkResult.reason}`);
+  }
+
   // 10. Configure Cursor IDE/CLI
   const setupAgents = agentManager.loadAgents();
   if (allowCursor) {
@@ -1285,34 +1294,73 @@ function getUvxCommand() {
 }
 
 function autoInstallKonohaBridgeExtension(silent = false) {
-  const antigravityExtDir = path.join(HOME, '.antigravity', 'extensions');
+  // Source: https://github.com/andycungkrinx91/konoha-bridge/tree/master
+  // Bundle path matches marketplace id andycungkrinx91.konoha-bridge@1.2.0
+  const KONOHA_BRIDGE_VERSION = '1.2.0';
+  const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
+  const KONOHA_BRIDGE_BRANCH = 'master';
+  const targetDirName = `andycungkrinx91.konoha-bridge-${KONOHA_BRIDGE_VERSION}-universal`;
+
+  // Antigravity IDE installs extensions into ~/.antigravity-ide/extensions
+  // (legacy location was ~/.antigravity/extensions — still mirrored for back-compat)
+  const antigravityExtDir = path.join(HOME, '.antigravity-ide', 'extensions');
+  const antigravityLegacyExtDir = path.join(HOME, '.antigravity', 'extensions');
   const vscodeExtDir = path.join(HOME, '.vscode', 'extensions');
-  const targetDirName = 'andycungkrinx91.konoha-bridge-1.0.0';
-  const targetPathAntigravity = path.join(antigravityExtDir, targetDirName);
+  const targetPath = path.join(antigravityExtDir, targetDirName);
+  const targetPathLegacy = path.join(antigravityLegacyExtDir, targetDirName);
   const targetPathVscode = path.join(vscodeExtDir, targetDirName);
 
-  if (fileExists(targetPathAntigravity) && fileExists(path.join(targetPathAntigravity, 'package.json'))) {
-    if (!silent) log(`  ⚡ Konoha Bridge extension already installed in Antigravity IDE.`);
+  // Skip only when the current version is already in place at every install path
+  const installedPaths = [targetPath, targetPathLegacy, targetPathVscode];
+  if (installedPaths.every(p => fileExists(p) && fileExists(path.join(p, 'package.json')))) {
+    if (!silent) log(`  ⚡ Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension already installed.`);
     return true;
   }
 
-  if (!silent) info('Installing Konoha Bridge extension into Antigravity IDE...');
+  if (!silent) info(`Installing Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension for Antigravity IDE...`);
   try {
     ensureDir(antigravityExtDir);
+    ensureDir(antigravityLegacyExtDir);
     ensureDir(vscodeExtDir);
 
-    const cloneRes = spawnSync('git', ['clone', 'https://github.com/andycungkrinx91/konoha-bridge', targetPathAntigravity], { stdio: 'ignore' });
-    if (cloneRes.status === 0 && fileExists(targetPathAntigravity)) {
+    // Clean any old versions so the new version can take over without conflicts
+    try {
+      const antigravityVersions = fs.readdirSync(antigravityExtDir).filter(n => n.startsWith('andycungkrinx91.konoha-bridge-'));
+      antigravityVersions.forEach(n => {
+        if (n !== targetDirName) {
+          try { fs.rmSync(path.join(antigravityExtDir, n), { recursive: true, force: true }); } catch {}
+        }
+      });
+      const legacyVersions = fs.readdirSync(antigravityLegacyExtDir).filter(n => n.startsWith('andycungkrinx91.konoha-bridge-'));
+      legacyVersions.forEach(n => {
+        try { fs.rmSync(path.join(antigravityLegacyExtDir, n), { recursive: true, force: true }); } catch {}
+      });
+    } catch {}
+
+    // Use a temp dir to avoid leaving partial clones if the clone fails
+    const tmpClone = path.join(KONOHA, 'tmp', `bridge-clone-${Date.now()}`);
+    ensureDir(path.dirname(tmpClone));
+    const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_BRANCH, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], { stdio: 'ignore' });
+    if (cloneRes.status === 0 && fileExists(tmpClone)) {
       try {
-        fs.cpSync(targetPathAntigravity, targetPathVscode, { recursive: true });
+        // Materialize the exact version-pinned directory name expected by Antigravity
+        try { fs.rmSync(targetPath, { recursive: true, force: true }); } catch {}
+        fs.cpSync(tmpClone, targetPath, { recursive: true });
+        // Mirror into legacy + VS Code for back-compat
+        try { fs.rmSync(targetPathLegacy, { recursive: true, force: true }); } catch {}
+        fs.cpSync(tmpClone, targetPathLegacy, { recursive: true });
+        try { fs.rmSync(targetPathVscode, { recursive: true, force: true }); } catch {}
+        fs.cpSync(tmpClone, targetPathVscode, { recursive: true });
       } catch (cpErr) {
-        if (!silent) warn(`Cloned to Antigravity but failed to copy to VS Code: ${cpErr.message}`);
+        if (!silent) warn(`Cloned konoha-bridge but failed to copy into extension dirs: ${cpErr.message}`);
+      } finally {
+        try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch {}
       }
-      if (!silent) success('Successfully installed Konoha Bridge extension into Antigravity IDE!');
+      if (!silent) success(`Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension installed for Antigravity IDE (from ${KONOHA_BRIDGE_BRANCH}).`);
       return true;
     } else if (!silent && cloneRes.status !== 0) {
-      warn(`git clone of konoha-bridge failed (exit ${cloneRes.status}). Cleaning partial clone.`);
-      try { fs.rmSync(targetPathAntigravity, { recursive: true, force: true }); } catch (e) {}
+      warn(`git clone of ${KONOHA_BRIDGE_REPO} failed (exit ${cloneRes.status}).`);
+      try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch (e) {}
     }
   } catch (err) {
     if (!silent) warn(`Failed to auto-install konoha-bridge extension: ${err.message}`);
@@ -1385,13 +1433,13 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
       'optimize_report',
       'build_from_source',
       'build_from_text',
-      'mcp_sannin',
-      'mcp_kage',
-      'mcp_jonin',
-      'mcp_anbu',
-      'mcp_chunin',
-      'mcp_tokubetsu_jonin',
-      'mcp_genin'
+      'sannin',
+      'kage',
+      'jonin',
+      'anbu',
+      'chunin',
+      'tokubetsu_jonin',
+      'genin'
     ];
   }
 
@@ -1700,6 +1748,69 @@ function copyRecursiveIfDifferent(src, dest) {
   }
 }
 
+// Fast mtime+size fingerprint for a directory tree. Returns "mtime:count:size".
+// If two trees have the same fingerprint, they are guaranteed identical.
+function _treeFingerprint(root) {
+  let maxMtime = 0;
+  let count = 0;
+  let totalSize = 0;
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      const p = path.join(dir, entry.name);
+      try {
+        const st = fs.statSync(p);
+        if (st.isDirectory()) { stack.push(p); }
+        else { count++; totalSize += st.size; if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs; }
+      } catch {}
+    }
+  }
+  return `${maxMtime.toFixed(0)}:${count}:${totalSize}`;
+}
+
+// Copy srcRoot → destRoot only when files have actually changed.
+// Uses a fingerprint marker so the first walk is cached forever unless
+// the source tree changes (mtime or size of any file).
+function copySkillsDirFast(srcRoot, destRoot) {
+  if (!fileExists(srcRoot)) return;
+  ensureDir(destRoot);
+  const srcFp = _treeFingerprint(srcRoot);
+  const fpMarker = destRoot + '.fingerprint';
+  let destFp = null;
+  try { destFp = fs.readFileSync(fpMarker, 'utf-8').trim(); } catch {}
+  if (srcFp === destFp) return;
+
+  const walk = (dir) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const s = path.join(dir, entry.name);
+      const d = path.join(destRoot, path.relative(srcRoot, s));
+      if (entry.isDirectory()) {
+        ensureDir(d);
+        walk(s);
+      } else if (entry.isFile()) {
+        try {
+          const ss = fs.statSync(s);
+          let needsCopy = true;
+          try {
+            const ds = fs.statSync(d);
+            needsCopy = ss.mtimeMs > ds.mtimeMs || ss.size !== ds.size;
+          } catch {}
+          if (needsCopy) {
+            fs.copyFileSync(s, d);
+            try { fs.utimesSync(d, ss.atime, ss.mtime); } catch {}
+          }
+        } catch {}
+      }
+    }
+  };
+  walk(srcRoot);
+  try { fs.writeFileSync(fpMarker, srcFp); } catch {}
+}
+
 function smokeTestKonohaFilesMcp(useLauncher = false) {
   if (!fileExists(FILE_TOOLS_MCP_PATH)) {
     return { ok: false, error: 'file_tools_mcp.js missing' };
@@ -1789,28 +1900,7 @@ function ensureAutoSetup() {
   // Also copy basic subagent skills to global directory if missing or outdated
   const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
-  if (fileExists(pkgSkillsDir)) {
-    ensureDir(globalSkillsDir);
-    try {
-      const files = fs.readdirSync(pkgSkillsDir, { withFileTypes: true });
-      files.forEach(entry => {
-        const name = entry.name;
-        if (entry.isDirectory()) {
-          if (name.endsWith('-skill')) {
-            const srcPath = path.join(pkgSkillsDir, name);
-            const destPath = path.join(globalSkillsDir, name);
-            copyRecursiveIfDifferent(srcPath, destPath);
-          }
-        } else if (entry.isFile()) {
-          if (name.endsWith('-skill.md')) {
-            const srcPath = path.join(pkgSkillsDir, name);
-            const destPath = path.join(globalSkillsDir, name);
-            copyRecursiveIfDifferent(srcPath, destPath);
-          }
-        }
-      });
-    } catch (err) {}
-  }
+  copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
 
   // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
   autoInstallKonohaBridgeExtension(true);
@@ -1828,27 +1918,37 @@ function ensureAutoSetup() {
   }
 
   // 6. Ensure subagents and client integrations are fully deployed/updated
-  const originalLog = console.log;
-  console.log = () => {};
-  let uvxCmd = 'uvx';
-  try {
-    uvxCmd = getUvxCommand();
-  } catch (e) {
-    // ignore
+  // Only regenerate if GEMINI.md or AGENTS.md is missing (like v1.1.5)
+  if (!fileExists(GEMINI_MD_PATH) || !fileExists(AGENTS_MD_PATH)) {
+    const originalLog = console.log;
+    console.log = () => {};
+    let uvxCmd = 'uvx';
+    try {
+      uvxCmd = getUvxCommand();
+    } catch (e) {
+      // ignore
+    }
+    try {
+      agentManager.regenerateAndDeploy({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        projectRoot: currentCwd,
+        deployProject: false,
+        silent: true
+      });
+    } catch (e) {
+      // ignore
+    } finally {
+      console.log = originalLog;
+    }
   }
+
+  // 6a. Deploy RTK rules for Antigravity
   try {
-    agentManager.regenerateAndDeploy({
-      pythonCmd: python,
-      serverPath: SERVER_PATH,
-      uvxCmd,
-      projectRoot: currentCwd,
-      deployProject: false,
-      silent: true
-    });
+    antigravityManager.deployAntigravityRtkRule(true);
   } catch (e) {
-    // ignore
-  } finally {
-    console.log = originalLog;
+    // ignore — silent self-heal
   }
 
   // 6b. Auto-configure detected MCP clients (Cursor / Claude Code)
@@ -1896,7 +1996,6 @@ function ensureAutoSetup() {
         pythonCmd: python,
         serverPath: SERVER_PATH,
         uvxCmd,
-        injectRtk: true,
         silent: true
       });
     } catch (e) {
@@ -2432,6 +2531,14 @@ async function cmdStatus() {
     antigravityStatus.hasHooks ? 'sanitize hooks active' : 'hooks missing',
     NINJA_THEME
   );
+  drawIntegrationRow(
+    'RTK (Token Killer)',
+    antigravityStatus.rtkInstalled,
+    antigravityStatus.rtkInstalled
+      ? 'rtk binary available — rules deployed to antigravity-cli/ide'
+      : 'RTK not installed (install: cargo install rtk)',
+    NINJA_THEME
+  );
 
   // Cursor IDE/CLI integrations
   sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
@@ -2466,6 +2573,14 @@ async function cmdStatus() {
     `mcp:${cursorStatus.projectMcp ? 'yes' : 'no'} skills:${cursorStatus.skillsProject} rule:${cursorStatus.projectRule ? 'yes' : 'no'}`,
     NINJA_THEME
   );
+  drawIntegrationRow(
+    'RTK (Token Killer)',
+    cursorStatus.rtkInstalled && cursorStatus.rtkRuleDeployed,
+    cursorStatus.rtkInstalled
+      ? (cursorStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.cursor/rules/' : 'rtk rule not deployed')
+      : 'RTK not installed (install: cargo install rtk)',
+    NINJA_THEME
+  );
 
   // Claude Code integration (auto-configured when `claude` CLI is installed)
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
@@ -2476,6 +2591,14 @@ async function cmdStatus() {
       '~/.claude.json',
       claudeOk,
       claudeStatus.permissionsAllowed ? 'konoha + semble' : 'konoha + semble (permissions missing)',
+      NINJA_THEME
+    );
+    drawIntegrationRow(
+      'RTK (Token Killer)',
+      claudeStatus.rtkInstalled && claudeStatus.rtkRuleDeployed,
+      claudeStatus.rtkInstalled
+        ? (claudeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.claude/rules/' : 'rtk rule not deployed')
+        : 'RTK not installed (install: cargo install rtk)',
       NINJA_THEME
     );
 
@@ -2491,7 +2614,7 @@ async function cmdStatus() {
     drawIntegrationRow(
       '~/.opencode/config.json',
       openCodeOk,
-      openCodeStatus.rtkInjected ? 'konoha + semble + RTK hooks' : 'konoha + semble',
+      'konoha + semble',
       NINJA_THEME
     );
   } else {
@@ -3263,8 +3386,8 @@ async function cmdAgentStatus() {
     process.exit(1);
   }
 
-  // Load registered subagents
-  const agents = agentManager.loadAgents();
+  // Load registered subagents (silent: true so we don't trigger regenerateAndDeploy and reprint the deploy banner)
+  const agents = agentManager.loadAgents(false, true);
 
   let stats = {};
   if (fileExists(DB_PATH)) {
@@ -3296,9 +3419,9 @@ async function cmdAgentStatus() {
       name: `@${a.name}`,
       icon: a.icon || '👤',
       title: a.title,
-      modelTier: a.modelTier,
-      cursorModel: a.cursorModel || 'inherit',
-      claudeModel: a.claudeModel || 'inherit',
+      modelTier: '-',
+      cursorModel: '-',
+      claudeModel: '-',
       today: agentStats.today,
       last7days: agentStats.last7days,
       alltime: agentStats.alltime,
@@ -3335,32 +3458,25 @@ async function cmdAgentStatus() {
   // Display Table
   sectionTitle('Call Frequency Summary:', NINJA_THEME);
 
-  const headers = ['Subagent', 'AGY Model', 'Cursor', 'Claude', 'Today', '7 Days', 'All Time'];
-  const aligns = ['left', 'left', 'left', 'left', 'left', 'right', 'right', 'right'];
+  const headers = ['Subagent', 'Today', '7 Days', 'All Time'];
+  const aligns = ['left', 'right', 'right', 'right'];
 
   const rows = displayAgents.map(da => [
     `${da.icon} ${da.name}`,
-    da.modelTier || '-',
-    da.cursorModel === 'inherit' ? '-' : (da.cursorModel || '-'),
-    da.claudeModel === 'inherit' ? '-' : (da.claudeModel || '-'),
     da.today,
     da.last7days,
     da.alltime
   ]);
 
   const widths = computeTableWidths(headers, rows, {
-    minWidths: [18, 15, 10, 10, 10, 6, 8, 10],
-    maxWidths: [22, 22, 16, 16, 16, 8, 10, 12]
+    minWidths: [18, 6, 8, 10],
+    maxWidths: [22, 8, 10, 12]
   });
 
   drawTable(headers, widths, aligns, rows, [], NINJA_THEME, {
     columnFormatters: [
       (cell) => applyGradient(cell.trimEnd(), NINJA_THEME, 0.92) + cell.slice(cell.trimEnd().length),
-      (cell) => applyGradient(cell, RASENGAN_THEME, 0.85),
-      (cell) => applyGradient(cell, FIRE_THEME, 0.85),
       (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
-      (cell) => applyGradient(cell, LEAF_THEME, 0.85),
-      (cell) => applyGradient(cell, LEAF_THEME, 0.9),
       (cell) => applyGradient(cell, LEAF_THEME, 0.9),
       (cell) => applyGradient(cell, FIRE_THEME, 0.9)
     ]
@@ -3452,7 +3568,8 @@ async function cmdSavings() {
           { name: 'Antigravity IDE', key: 'antigravity', icon: '🌌' },
           { name: 'Antigravity CLI', key: 'agy', icon: '🚀' },
           { name: 'Cursor', key: 'cursor', icon: '🌊' },
-          { name: 'Claude Code', key: 'claudecode', icon: '🌀' }
+          { name: 'Claude Code', key: 'claudecode', icon: '🌀' },
+          { name: 'OpenCode', key: 'opencode', icon: '📦' }
         ];
 
         clients.forEach(client => {
@@ -3824,10 +3941,9 @@ ${C.bold}USAGE${C.reset}
   konoha agent <subcommand> [args]
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}list${C.reset}                        List all active agents, their assigned models, and active skills.
+  ${C.cyan}list${C.reset}                        List all active agents and their skills.
   ${C.cyan}create <agent-name> [options]${C.reset} Create a custom subagent manually.
                               Options: --title, --purpose, --instructions, --keywords.
-  ${C.cyan}models [agent-name]${C.reset}         Interactively change the primary/fallback model for an agent.
   ${C.cyan}skill [agent-name]${C.reset}          Interactively toggle (embed or remove) a skill for an agent.
   ${C.cyan}delete <agent-name>${C.reset}         Permanently delete/prune an agent and prune its historical statistics.
   ${C.cyan}status${C.reset}                      View detailed call statistics (today, 7 days, all time) for subagents.
@@ -3836,16 +3952,13 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. View all configured agents in your village:${C.reset}
      konoha agent list
 
-  ${C.dim}2. Interactively configure LLM models for @kage:${C.reset}
-     konoha agent models kage
-
-  ${C.dim}3. Interactively teach @genin a new skill (toggle from list):${C.reset}
+  ${C.dim}2. Interactively teach @genin a new skill (toggle from list):${C.reset}
      konoha agent skill genin
 
-  ${C.dim}4. View subagent call frequency statistics:${C.reset}
+  ${C.dim}3. View subagent call frequency statistics:${C.reset}
      konoha agent status
 
-  ${C.dim}5. Permanently delete/prune an agent and clean up its database stats:${C.reset}
+  ${C.dim}4. Permanently delete/prune an agent and clean up its database stats:${C.reset}
      konoha agent delete name
 
   ${C.dim}6. Create a custom subagent manually:${C.reset}
@@ -3864,7 +3977,7 @@ async function cmdAgent(args) {
 
   switch (subcommand) {
     case 'list': {
-      const agents = agentManager.loadAgents();
+      const agents = agentManager.loadAgents(false, true);
       if (agents.length === 0) {
         warn('No subagents found.');
         break;
@@ -3872,15 +3985,14 @@ async function cmdAgent(args) {
 
       if (!process.stdin.isTTY) {
         header('Subagents List');
-        const headers = ['Subagent', 'Title', 'Model Tier', 'Active Skills'];
-        const aligns = ['left', 'left', 'left', 'left'];
+        const headers = ['Subagent', 'Title', 'Active Skills'];
+        const aligns = ['left', 'left', 'left'];
 
         const rows = agents.map(a => {
           const skillsList = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
           return [
             `${a.icon || '👤'} @${a.name}`,
             a.title || 'Ninja',
-            a.modelTier || '-',
             skillsList
           ];
         });
@@ -3944,165 +4056,6 @@ async function cmdAgent(args) {
       }
       break;
     }
-    case 'models': {
-      if (!process.stdin || !process.stdin.isTTY) {
-        error('Cannot configure agent models in non-interactive mode.');
-        process.exit(1);
-      }
-      let agentName = subArgs[0];
-      const agents = agentManager.loadAgents();
-      if (agents.length === 0) {
-        warn('No subagents found.');
-        process.exit(1);
-      }
-
-      // If agentName is provided on command line, we don't allow going back to subagent selection.
-      const agentPassedOnCli = !!agentName;
-      if (agentPassedOnCli) {
-        const found = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
-        if (!found) {
-          error(`Subagent "@${agentName}" not found.`);
-          process.exit(1);
-        }
-        agentName = found.name;
-      }
-
-      let step = agentPassedOnCli ? 'SELECT_PRIMARY' : 'SELECT_AGENT';
-      let selectedAgent = agentPassedOnCli ? agents.find(a => a.name === agentName) : null;
-      let primaryModel = null;
-      let configureFallback;
-      let fallbackModel = null;
-      let resolvedModelString = null;
-
-      const activeModelsList = await getActiveModels();
-
-      while (true) {
-        if (step === 'SELECT_AGENT') {
-          header('Choose Subagent');
-          agents.forEach((a, idx) => {
-            const numStr = `${idx + 1}`.padStart(2);
-            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}@${a.name}${C.reset} ── ${a.title || 'Subagent'}`);
-            log(`       ${C.dim}Model:  ${C.reset}${C.green}${a.modelTier || 'Default'}${C.reset}`);
-            const skillsStr = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
-            log(`       ${C.dim}Skills: ${C.reset}${C.magenta}${skillsStr}${C.reset}\n`);
-          });
-          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back / Exit${C.reset}`);
-          
-          const ans = await askQuestion(`\nSelect subagent (1-${agents.length}): `);
-          if (isCancel(ans)) {
-            info('Exiting model configuration.');
-            break; // Exit the command/loop
-          }
-          
-          const num = parseInt(ans, 10);
-          if (isNaN(num) || num < 1 || num > agents.length) {
-            error('Invalid subagent selection.');
-            continue; // repeat
-          }
-          selectedAgent = agents[num - 1];
-          agentName = selectedAgent.name;
-          step = 'SELECT_PRIMARY';
-        }
-        
-        else if (step === 'SELECT_PRIMARY') {
-          header(`Configure Models for @${agentName}`);
-          log('Select primary model:');
-          activeModelsList.forEach((m, idx) => {
-            const numStr = `${idx + 1}`.padStart(2);
-            const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
-            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
-          });
-          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
-
-          const primaryAns = await askQuestion(`\nSelect primary model (1-${activeModelsList.length}): `);
-          if (isCancel(primaryAns)) {
-            if (agentPassedOnCli) {
-              info('Exiting model configuration.');
-              break;
-            } else {
-              step = 'SELECT_AGENT';
-              continue;
-            }
-          }
-
-          const primaryNum = parseInt(primaryAns, 10);
-          if (isNaN(primaryNum) || primaryNum < 1 || primaryNum > activeModelsList.length) {
-            error('Invalid primary model selection.');
-            continue;
-          }
-          primaryModel = activeModelsList[primaryNum - 1];
-          step = 'ASK_FALLBACK';
-        }
-        
-        else if (step === 'ASK_FALLBACK') {
-          const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
-          const fallbackAns = await askQuestion('\nWould you like to configure a fallback model? (y/n) [y] (or "0" to go back): ');
-          if (isCancel(fallbackAns)) {
-            step = 'SELECT_PRIMARY';
-            continue;
-          }
-
-          if (fallbackAns.toLowerCase() === 'y' || fallbackAns.toLowerCase() === 'yes' || fallbackAns.trim() === '') {
-            configureFallback = true;
-            step = 'SELECT_FALLBACK';
-          } else if (fallbackAns.toLowerCase() === 'n' || fallbackAns.toLowerCase() === 'no') {
-            configureFallback = false;
-            resolvedModelString = primaryModel.name;
-            step = 'SAVE';
-          } else {
-            error('Invalid input. Please enter y, n, or 0.');
-          }
-        }
-        
-        else if (step === 'SELECT_FALLBACK') {
-          const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
-          header('Select Fallback Model');
-          log('Select fallback model to use when the primary model fails:');
-          activeModelsList.forEach((m, idx) => {
-            const numStr = `${idx + 1}`.padStart(2);
-            const tagStr = m.tag ? ` ${C.dim}[${m.tag}]${C.reset}` : '';
-            log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}${m.name}${C.reset}${tagStr}`);
-          });
-          log(`  ${C.yellow}[ 0]${C.reset} ${C.bold}⬅ Go Back${C.reset}`);
-
-          const defaultIndex = activeModelsList.findIndex(m => m.name === defaultFallbackModelName) + 1;
-          const fallbackNumAns = await askQuestion(`\nSelect fallback model (1-${activeModelsList.length}) [${defaultIndex}]: `);
-          if (isCancel(fallbackNumAns)) {
-            step = 'ASK_FALLBACK';
-            continue;
-          }
-
-          let fallbackNum = parseInt(fallbackNumAns, 10);
-          if (fallbackNumAns.trim() === '') {
-            fallbackNum = defaultIndex;
-          }
-          if (isNaN(fallbackNum) || fallbackNum < 1 || fallbackNum > activeModelsList.length) {
-            error('Invalid fallback model selection.');
-            continue;
-          }
-          fallbackModel = activeModelsList[fallbackNum - 1];
-          resolvedModelString = `${primaryModel.name} | Fallback when fail ${fallbackModel.name}`;
-          step = 'SAVE';
-        }
-        
-        else if (step === 'SAVE') {
-          try {
-            const updated = agentManager.updateAgentModel(agentName, resolvedModelString);
-            if (updated) {
-              success(`Successfully updated model configuration for @${agentName} to:`);
-              log(`  ${C.green}${resolvedModelString}${C.reset}`);
-              info('Re-deployed team configurations.');
-            } else {
-              warn(`Model configuration for @${agentName} is already: ${resolvedModelString}`);
-            }
-          } catch (err) {
-            error(`Failed to update agent model: ${err.message}`);
-          }
-          break; // Done!
-        }
-      }
-      break;
-    }
     case 'skill': {
       if (!process.stdin || !process.stdin.isTTY) {
         error('Cannot configure agent skills in non-interactive mode.');
@@ -4133,7 +4086,6 @@ async function cmdAgent(args) {
           agents.forEach((a, idx) => {
             const numStr = `${idx + 1}`.padStart(2);
             log(`  ${C.cyan}[${numStr}]${C.reset} ${C.bold}@${a.name}${C.reset} ── ${a.title || 'Subagent'}`);
-            log(`       ${C.dim}Model:  ${C.reset}${C.green}${a.modelTier || 'Default'}${C.reset}`);
             const skillsStr = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
             log(`       ${C.dim}Skills: ${C.reset}${C.magenta}${skillsStr}${C.reset}\n`);
           });
@@ -4327,23 +4279,19 @@ async function cmdAgent(args) {
     }
     default:
       error(`Unknown agent subcommand: ${subcommand}`);
-      log(`Available subcommands: list, create, models, skill, delete, status`);
+      log(`Available subcommands: list, create, skill, delete, status`);
       process.exit(1);
   }
 }
 
 const AVAILABLE_MODELS = [
-  { name: 'Gemini 3.1 Flash-Lite', tag: 'Fast', aliases: ['gemini-3.1-flash-lite', 'flash-lite-3.1', '3.1-flash-lite'] },
-  { name: 'Gemini 2.5 Flash', tag: 'Fast', aliases: ['gemini-2.5-flash', 'flash-2.5', '2.5-flash'] },
-  { name: 'Gemini 2.5 Flash-Lite', tag: 'Fast', aliases: ['gemini-2.5-flash-lite', 'flash-lite-2.5', '2.5-flash-lite'] },
+  { name: 'Gemini 3.5 Flash (Low)', tag: 'Fast', aliases: ['flash-low', 'gemini-3.5-flash-low', 'low'] },
   { name: 'Gemini 3.5 Flash (Medium)', tag: 'Fast', aliases: ['flash-medium', 'gemini-3.5-flash-medium', 'medium'] },
   { name: 'Gemini 3.5 Flash (High)', tag: 'Fast', aliases: ['flash-high', 'gemini-3.5-flash-high', 'high'] },
-  { name: 'Gemini 3.5 Flash (Low)', tag: 'Fast', aliases: ['flash-low', 'gemini-3.5-flash-low', 'low'] },
   { name: 'Gemini 3.1 Pro (Low)', tag: 'Standard', aliases: ['pro-low', 'gemini-3.1-pro-low'] },
   { name: 'Gemini 3.1 Pro (High)', tag: 'Standard', aliases: ['pro-high', 'gemini-3.1-pro-high'] },
   { name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Reasoning', aliases: ['sonnet', 'sonnet-4.6', 'claude-sonnet-4.6', 'sonnet-thinking'] },
   { name: 'Claude Opus 4.6 (Thinking)', tag: 'Advanced', aliases: ['opus', 'opus-4.6', 'claude-opus-4.6', 'opus-thinking'] },
-  { name: 'GPT-OSS 120B (Medium)', tag: 'Standard', aliases: ['gpt', 'gpt-oss', 'gpt-oss-120b', 'gpt-120b'] }
 ];
 
 async function getActiveModels() {
@@ -4414,28 +4362,18 @@ ${C.bold}USAGE${C.reset}
 
 ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}list${C.reset}                                           List all available Antigravity model tiers and current agent mapping.
-  ${C.cyan}embed <agent-name> <model-expression> [options]${C.reset}    Set the model for an agent (supports fallback expressions).
-                                                      Options:
-                                                        --cursor    Configure for Cursor IDE/CLI
-                                                        --claude    Configure for Claude Code
   ${C.cyan}reset${C.reset}                                          Clear local usage logs in sqlite db to restore model quotas.
 
 ${C.bold}MODEL EXPRESSIONS${C.reset}
   You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor):
-  - Single model: "Gemini 3.1 Flash-Lite"
-  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
+  - Single model: "Claude Sonnet 4.6 (Thinking)"
+  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.5 Flash (Low)"
 
 ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. List all models and their current assignments:${C.reset}
      konoha models list
 
-  ${C.dim}2. Manually set @chunin's model with a fallback:${C.reset}
-     konoha models embed chunin "Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
-
-  ${C.dim}3. Set Cursor model for @chunin:${C.reset}
-     konoha models embed chunin "Gemini 3.5 Flash (Low)" --cursor
-
-  ${C.dim}4. Reset local usage logs and model quotas:${C.reset}
+  ${C.dim}2. Reset local usage logs and model quotas:${C.reset}
      konoha models reset
 `);
 }
@@ -4466,13 +4404,13 @@ async function cmdModels(args) {
 
   switch (subcommand) {
     case 'status': {
-      const agents = agentManager.loadAgents();
+      const agents = agentManager.loadAgents(false, true);
 
       log('');
       break;
     }
     case 'list': {
-      const agents = agentManager.loadAgents();
+      const agents = agentManager.loadAgents(false, true);
 
       header('Available Antigravity Models');
       const modelRows = activeModelsList.map(m => [m.name, m.tag || '-']);
@@ -4486,102 +4424,6 @@ async function cmdModels(args) {
       });
 
       log('');
-      break;
-    }
-    case 'embed': {
-      let clientType = 'antigravity';
-      const claudeIdx = subArgs.indexOf('--claude');
-      const cursorIdx = subArgs.indexOf('--cursor');
-
-      if (claudeIdx >= 0) {
-        clientType = 'claude';
-        subArgs.splice(claudeIdx, 1);
-      } else if (cursorIdx >= 0) {
-        clientType = 'cursor';
-        subArgs.splice(cursorIdx, 1);
-      }
-
-      const agentName = subArgs[0];
-      const modelInput = subArgs.slice(1).join(' ');
-      if (!agentName || !modelInput) {
-        error('Usage: konoha models embed <agent-name> <model-name> [--cursor|--claude]');
-        process.exit(1);
-      }
-
-      let resolvedModelString = '';
-      try {
-        const resolveModelString = (input) => {
-          const searchStr = input.trim();
-
-          if (searchStr.toLowerCase() === 'inherit') {
-            return 'inherit';
-          }
-
-          if (!searchStr.includes('|')) {
-            const foundModel = activeModelsList.find(m => {
-              const nameMatch = m.name && m.name.toLowerCase() === searchStr.toLowerCase();
-              const aliasesMatch = Array.isArray(m.aliases) && m.aliases.includes(searchStr.toLowerCase());
-              return nameMatch || aliasesMatch;
-            });
-            if (!foundModel) throw new Error(`Unknown model: "${input}"`);
-
-            const defaultFallbackModelName = 'Gemini 3.1 Flash-Lite';
-            if (foundModel.name !== defaultFallbackModelName) {
-              return `${foundModel.name} | Fallback when fail ${defaultFallbackModelName}`;
-            }
-            return foundModel.name;
-          }
-          
-          const parts = searchStr.split('|');
-          const left = parts[0].trim();
-          const right = parts[1].trim();
-          
-          const foundPrimary = activeModelsList.find(m => {
-            const nameMatch = m.name && m.name.toLowerCase() === left.toLowerCase();
-            const aliasesMatch = Array.isArray(m.aliases) && m.aliases.includes(left.toLowerCase());
-            return nameMatch || aliasesMatch;
-          });
-          if (!foundPrimary) throw new Error(`Unknown primary model: "${left}"`);
-          
-          let foundFallback = null;
-          const sortedModels = [...activeModelsList].sort((a, b) => b.name.length - a.name.length);
-          for (const m of sortedModels) {
-            if (right.toLowerCase().includes(m.name.toLowerCase())) {
-              foundFallback = m;
-              break;
-            }
-            for (const alias of m.aliases) {
-              if (right.toLowerCase().includes(alias.toLowerCase())) {
-                foundFallback = m;
-                break;
-              }
-            }
-            if (foundFallback) break;
-          }
-          
-          if (!foundFallback) throw new Error(`Could not identify fallback model in: "${right}"`);
-          
-          return `${foundPrimary.name} | Fallback when fail ${foundFallback.name}`;
-        };
-
-        resolvedModelString = resolveModelString(modelInput);
-      } catch (err) {
-        error(err.message + '. Run "konoha models list" to see available options.');
-        process.exit(1);
-      }
-
-      try {
-        const updated = agentManager.updateAgentModel(agentName, resolvedModelString, clientType);
-        if (updated) {
-          success(`Successfully embedded model "${resolvedModelString}" into @${agentName} for ${clientType}`);
-          info('Re-deployed team configurations.');
-        } else {
-          warn(`Model "${resolvedModelString}" is already embedded in @${agentName} for ${clientType}`);
-        }
-      } catch (err) {
-        error(`Failed to embed model: ${err.message}`);
-        process.exit(1);
-      }
       break;
     }
     case 'reset': {
@@ -4805,9 +4647,6 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
 
   ${C.dim}3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):${C.reset}
      konoha agent skill genin
-
-  ${C.dim}4. Interactively change models for a subagent (e.g. set @kage to Claude Opus 4.6):${C.reset}
-     konoha agent models kage
 
   ${C.dim}5. View how many tokens (and how much context window) you have saved:${C.reset}
      konoha savings
