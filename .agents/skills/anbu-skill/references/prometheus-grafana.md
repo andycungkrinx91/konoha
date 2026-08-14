@@ -440,6 +440,6 @@ app.get('/metrics', async (req, res) => {
 
 ## Related Skills
 
-- [alerting-oncall](../alerting-oncall/) - Alert management
-- [loki-logging](../loki-logging/) - Log aggregation
-- [kubernetes-ops](../../orchestration/kubernetes-ops/) - K8s monitoring
+- Alert management: use the alerting guidance in this reference.
+- Log aggregation: use the Loki sections in this reference.
+- Kubernetes monitoring: use the Kubernetes sections in this reference.

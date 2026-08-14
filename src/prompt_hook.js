@@ -60,7 +60,7 @@ const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the mcp_<agentname> workflow immediately."
+        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the <agentname> workflow immediately."
     }
   ]
 };

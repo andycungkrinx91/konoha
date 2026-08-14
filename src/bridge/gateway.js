@@ -114,6 +114,38 @@ async function startGateway(activeBridges, port = 19999) {
     await stopGateway();
   }
 
+  // Try to bind the requested port; if EADDRINUSE, fall back to sequential ports
+  const MAX_RETRIES = 10;
+  let boundPort = null;
+
+  for (let offset = 0; offset <= MAX_RETRIES; offset++) {
+    const tryPort = port + offset;
+    const isFree = await new Promise((resolve) => {
+      const testServer = http.createServer(() => {});
+      testServer.once('error', (err) => {
+        resolve(err.code !== 'EADDRINUSE' ? null : false);
+      });
+      testServer.listen(tryPort, '127.0.0.1', () => {
+        testServer.close(() => resolve(true));
+      });
+    });
+    if (isFree === true) {
+      boundPort = tryPort;
+      break;
+    } else if (isFree === null) {
+      // Non-EADDRINUSE error; bail with port offset=MAX_RETRIES handler below
+      break;
+    }
+  }
+
+  if (!boundPort) {
+    const errMsg = `listen EADDRINUSE: Exhausted ${MAX_RETRIES} sequential ports starting at ${port}`;
+    process.stderr.write(`[gateway] ${errMsg}\n`);
+    throw new Error(errMsg);
+  }
+
+  port = boundPort;
+
   gatewayServer = http.createServer((req, res) => {
     // CORS: allow only requests from local IDE clients (no wildcard).
     // Echo back the request's Origin only if it's a known local client (null,

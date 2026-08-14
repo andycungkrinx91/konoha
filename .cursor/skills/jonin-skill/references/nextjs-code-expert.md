@@ -49,7 +49,7 @@ export default async function ShopPage() {
 ```bash
 pnpm run lint                      # Run ESLint + Prettier checks
 pnpm run format                    # Auto-fix formatting
-npx next lint                      # Run Next.js built-in lint checks
+pnpm exec eslint .                 # Run ESLint checks
 pnpm run build                     # Verify compilation and production build
 ```
 
@@ -214,7 +214,7 @@ All generated Next.js code must conform to the following baseline visual standar
 - **Image-to-Code Generation**: Agents can and should generate user interfaces from design images/mockups (such as png, jpg, webp, svg) present in the workspace. The agent must search the directory for design assets, analyze them, and translate the visual mockups into Next.js components.
 
   ### Next.js-Specific Image-to-Code Design Match Comparison Workflow:
-  1. **Select Build Method**: If a design mockup folder is present, call the `build_with_image_design` tool. Otherwise, call `build_from_text` to utilize the default premium visual effects template.
+  1. **Select Build Method**: If a design mockup or source folder is present, call `build_with_image_design` or its equivalent `build_from_source` tool. Both use source-fidelity rules and do not apply the default text-build template. Otherwise, call `build_from_text` to use the default premium visual effects template.
   2. **Direct SVG/HTML Translation**: If a mockup is `.svg` or `.html`, inspect the source directly and translate it into React/JSX code to achieve 100% layout fidelity without vision token overhead.
   3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first via `view_file` to identify the general structure.
   4. **Start Development Server**: Launch the Next.js development server with `pnpm run dev`.

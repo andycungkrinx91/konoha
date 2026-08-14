@@ -1,6 +1,6 @@
 ✨ Konoha Version
 ════════════════════════════════════════════════════════════
-  Current Version:  1.1.6
+  Current Version:  2.0.0
 
-  ϟ Checking for latest release from GitHub...
-  ⚡ You are already running the latest version of Konoha (1.1.6).
+  › Checking for latest release from GitHub...
+  ✓ You are already running the latest version of Konoha (2.0.0).

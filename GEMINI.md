@@ -3,20 +3,20 @@
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You are equipped with two MCP servers: **`konoha`** and **`semble`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (`view_file`, `grep_search`, `list_dir`, `run_command` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN** and will be blocked.
 >
-> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`)
+> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`)
 > - **Code search/discovery** → `semble` MCP (`search`, `find_related`)
 > - **Skill lookup** → `konoha` MCP (`find_skill`, `get_skill`, `list_skills`)
 > - **NEVER** call `view_file`, `grep_search`, `list_dir`, or shell `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always use the MCP equivalents above.
 
 ### Team roster (reference — full instructions in ~/.agents/agents.yaml)
 
-1. **🍶 mcp_sannin** — Sannin router agent. Resolves the task prompt, chooses the best subagent
-2. **🍃 mcp_genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies.
-3. **🌀 mcp_kage** — Village Leader for architecture decisions, deep code analysis, risk
-4. **📜 mcp_chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed
-5. **🛡️ mcp_jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind
-6. **👥 mcp_anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment
-7. **🎯 mcp_tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs,
+1. **🍶 sannin** — Sannin router agent. Resolves the task prompt, chooses the best subagent
+2. **🍃 genin** — Scout for read-only code exploration, tracing codepaths, mapping dependencies.
+3. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk
+4. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed
+5. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind
+6. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment
+7. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs,
 
 ### Image / mockup builds — delegate.md rules (CRITICAL)
 
@@ -41,7 +41,7 @@ When the user prompt requests building or scaffolding a website or user interfac
 
 1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
-3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints, require loading `jonin-skill`, and delegate the build to the `jonin` agent (`mcp_jonin`).
+3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints, require loading `jonin-skill`, and delegate the build to the `jonin` agent (`jonin`).
 4. **Package Manager Mandate**: ALWAYS use `pnpm` (e.g., `pnpm dlx create-next-app@latest`, `pnpm create`, `pnpm install`, `pnpm run dev`). NEVER use `npm`, standalone `npx` without pnpm, or `yarn`.
 5. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
    - ALWAYS use `pnpm` for project scaffolding, dependencies, and dev server
@@ -71,7 +71,7 @@ When the user prompt involves modifying or working within an existing project (a
 
 All subagents are migrated to MCP tools served by the `konoha` MCP server. Rather than using custom subagent configuration structures or files, delegation is performed directly by calling the corresponding MCP tool.
 
-The official delegation tools are: `mcp_sannin`, `mcp_genin`, `mcp_kage`, `mcp_chunin`, `mcp_jonin`, `mcp_anbu`, `mcp_tokubetsu-jonin`.
+The official delegation tools are: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`.
 
 ### Delegation Protocol
 
@@ -81,8 +81,8 @@ To delegate a task:
    - Specific instructions, context, and file paths to modify.
    - The list of skill reference names to load (or omit to let prompt-driven autoload match skills from the prompt text).
    - Standard constraints.
-3. Call the corresponding MCP tool (e.g. `mcp_kage`, `mcp_jonin`, etc.) using the tool calling API, passing the `task_dir` argument pointing to the created task directory.
-4. The tool returns a JSON object containing the subagent's persona and task instructions. **YOU (the Orchestrator)** must adopt this persona, execute the task yourself, write your findings to `result.md` in the task directory, and then call `mcp_sannin` to finish.
+3. Call the corresponding MCP tool (e.g. `kage`, `jonin`, etc.) using the tool calling API, passing the `task_dir` argument pointing to the created task directory.
+4. The tool returns a JSON object containing the subagent's persona and task instructions. **YOU (the Orchestrator)** must adopt this persona, execute the task yourself, write your findings to `result.md` in the task directory, and then call `sannin` to finish.
 
 This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.
 
@@ -91,7 +91,7 @@ This guarantees consistent cross-client execution without relying on custom suba
 > [!IMPORTANT]
 > **Orchestrator Role**: The main agent runs as the primary Antigravity thread and acts as the **Sannin orchestrator**. It coordinates a strict sequential pipeline of specialized konoha subagents. It does NOT execute non-trivial implementation tasks itself.
 >
-> Delegation is performed directly by calling the corresponding subagent MCP tool (e.g. `mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, `mcp_genin`) served by the `konoha` MCP server.
+> Delegation is performed directly by calling the corresponding subagent MCP tool (e.g. `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) served by the `konoha` MCP server.
 
 ### Step 0: Classify Request — ALWAYS FIRST (Branch A vs Branch B)
 
@@ -104,19 +104,19 @@ This guarantees consistent cross-client execution without relying on custom suba
 
 If classified as Branch B, follow this workflow and DO NOT enter Branch A:
 1. **Generate Templates**: Call `konoha.build_from_text(name, description, framework)` for text builds, or `konoha.build_from_source(name, source_dir, framework)` for mockup builds.
-2. **Execution (Jonin)**: Pass the `build_from_text`/`build_from_source` output DIRECTLY into the constraints of `delegate.md` and call `mcp_jonin`. Do NOT call Chunin, Genin, or Kage — premium template directives are LOST in the standard pipeline.
-3. **Documentation (Tokubetsu-Jonin)**: Delegate to `mcp_tokubetsu_jonin` to document.
+2. **Execution (Jonin)**: Pass the `build_from_text`/`build_from_source` output DIRECTLY into the constraints of `delegate.md` and call `jonin`. Do NOT call Chunin, Genin, or Kage — premium template directives are LOST in the standard pipeline.
+3. **Documentation (Tokubetsu-Jonin)**: Delegate to `tokubetsu_jonin` to document.
 4. **Final Output**: Output the final report to the user.
 
 ### BRANCH A: Standard Requests (Full Sequential Pipeline)
 
 The Sannin orchestrator MUST follow this exact sequential workflow for standard (non-website-build) requests:
 1. **Read User Prompt**: At the start of the session/turn, read `prompt.md` to retrieve the complete user request.
-2. **Deep Research (Chunin)**: Delegate to `mcp_chunin` for deep research and internet search regarding the user prompt. Chunin must fully suggest what is needed and report back to Sannin.
-3. **Code Exploration (Genin)**: Delegate to `mcp_genin` for deep code exploration based on Chunin's knowledge. If the workdir has code, find the proper files to update. If empty, suggest what files are needed. Genin reports back to Sannin.
-4. **Architecture & Planning (Kage)**: Delegate to `mcp_kage` to review Chunin and Genin's suggestions. Kage must produce an architecture plan, design plan, todo plan, and explicitly select the proper skills, tools, and the executor `mcp_<agentname>` from konoha. Kage reports back to Sannin.
-5. **Execution (Chosen mcp_<agentname>)**: Delegate to the specific `mcp_<agentname>` chosen by Kage (e.g., `mcp_jonin` or `mcp_anbu`) and pass all skills/knowledge from Kage's report. The executor agent executes the implementation and reports back to Sannin.
-6. **Documentation & Refinement (Tokubetsu-Jonin)**: Delegate to `mcp_tokubetsu_jonin` to refine the detailed report, create new docs if needed, and review all docs in the workdir. Tokubetsu-Jonin reports back to Sannin.
+2. **Deep Research (Chunin)**: Delegate to `chunin` for deep research and internet search regarding the user prompt. Chunin must fully suggest what is needed and report back to Sannin.
+3. **Code Exploration (Genin)**: Delegate to `genin` for deep code exploration based on Chunin's knowledge. If the workdir has code, find the proper files to update. If empty, suggest what files are needed. Genin reports back to Sannin.
+4. **Architecture & Planning (Kage)**: Delegate to `kage` to review Chunin and Genin's suggestions. Kage must produce an architecture plan, design plan, todo plan, and explicitly select the proper skills, tools, and the executor `mcp_<agentname>` from konoha. Kage reports back to Sannin.
+5. **Execution (Chosen mcp_<agentname>)**: Delegate to the specific `mcp_<agentname>` chosen by Kage (e.g., `jonin` or `anbu`) and pass all skills/knowledge from Kage's report. The executor agent executes the implementation and reports back to Sannin.
+6. **Documentation & Refinement (Tokubetsu-Jonin)**: Delegate to `tokubetsu_jonin` to refine the detailed report, create new docs if needed, and review all docs in the workdir. Tokubetsu-Jonin reports back to Sannin.
 7. **Final Output**: Sannin outputs the final report to the user summarizing the result, what was finished, and asks the user if anything else is needed.
 
 ### Routing by Domain (for skill selection AND delegation)
@@ -139,7 +139,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 ## Tools & Guardrails
 
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **`konoha` MCP** (`read_file_head`, `read_file_range`, etc.) instead of the built-in `view_file` or `Read` tool. When reading files, ALWAYS specify a precise `StartLine` and `EndLine` range (no more than 50-100 lines) containing the target code discovered via `semble` search. Avoid loading massive files into your context window.
-- **Konoha MCP**: Use `find_skill(keyword)` for skill search, `get_skill(name)` for full content, `list_skills()` to browse, and bounded file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Konoha MCP**: Use `find_skill(keyword)` for skill search, `get_skill(name)` for full content, `list_skills()` to browse, and bounded file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly. **Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns API tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.**
 - **Tool Boundaries**: Call **`semble` MCP** directly for codebase search. Call **`konoha` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills/reference documents. NEVER use `semble` search for skills.
 - **Agent-Browser CLI**: Use `agent-browser` for web page interaction, screenshots, and design match comparison.
@@ -153,6 +153,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Codebase Hygiene & Cleanup**: When working on fixes or testing features manually, ensure that all temporary files, debugging scripts (e.g., `patch_test.py`, `savings_out.txt`, `test_clients_e2e.py`, `fix_json.js`, etc.), or manual mock files created during the testing process are ALWAYS DELETED before concluding the task. The project codebase must remain clean and strictly contain only production logic and official test suites.
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
 - **Project Knowledge & Local Rule Mandate**: ALWAYS inspect project-local knowledge files in the target workspace BEFORE writing code or designing solution architecture. Use `konoha` MCP tools (`read_file_head`/`read_file_range` or `find_files_clean`) to read project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and project-local skills (`.agents/skills`, `.cursor/skills`, `skills/`, `.skills/`, `docs/skills/`). Strictly enforce all project-specific rules and guidelines found in the workspace.

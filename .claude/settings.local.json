@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "mcp__konoha-files__read_file_range",
-      "Read(//home/andycungkrinx/.konoha/**)",
+      "Read(/$HOME/.konoha/**)",
       "mcp__konoha-files__token_efficient_grep",
       "mcp__semble__search",
       "Bash(netstat -ltnp)",
@@ -11,7 +11,7 @@
       "Bash(kill -TERM 39906)",
       "Bash(curl -s -X POST http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d '{\"model\":\"antigravity-gemini-3.5-flash-low\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":5}')",
       "Bash(curl -sv -X POST http://localhost:11434/v1/chat/completions -H \"Content-Type: application/json\" -d '{\"model\":\"antigravity-gemini-3.5-flash-low\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":5}')",
-      "Read(//home/andycungkrinx/.claude/**)",
+      "Read(/$HOME/.claude/**)",
       "Bash(konoha status *)",
       "Bash(python3 -c 'import sys,json; d=json.load\\(sys.stdin\\); *)",
       "Bash(konoha agent *)",
@@ -20,13 +20,16 @@
       "Bash(sed -i \"/__perf\\('/d\" bin/cli.js)",
       "Bash(NO_ANIMATION=1 node --require ./prof_inject.js bin/cli.js agent status)",
       "Read(//tmp/**)",
-      "Bash(python3 /home/andycungkrinx/experiment/portofolio/data/konoha/src/db_agents.py list)",
+      "Bash(python3 $HOME/experiment/portofolio/data/konoha/src/db_agents.py list)",
       "Bash(python3 -m json.tool)",
       "Bash(python3 *)",
       "Bash(claude mcp *)",
-      "Bash(timeout 5 node /home/andycungkrinx/.konoha/file_tools_launcher.js)",
+      "Bash(timeout 5 node $HOME/.konoha/file_tools_launcher.js)",
       "Bash(rtk ls *)",
-      "Bash(rtk grep *)"
+      "Bash(rtk grep *)",
+      "Bash(rtk git *)",
+      "Bash(rtk read *)",
+      "Bash(konoha stats *)"
     ]
   }
 }

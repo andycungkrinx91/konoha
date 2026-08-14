@@ -27,6 +27,10 @@
 > ```
 > Then verify with `which konoha` (Linux/macOS) or `where konoha` (Windows).
 
+### RTK (Rust Token Killer) — Token-Optimized Shell
+
+If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to `~/.gemini/antigravity-cli/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
+
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
@@ -35,7 +39,7 @@
 > If you still want to perform a manual clean initialization, run:
 
 ```bash
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 This installs the MCP server and migrates your skills. The CLI should output:
@@ -55,7 +59,7 @@ This installs the MCP server and migrates your skills. The CLI should output:
 ### Cross-Platform: Windows PowerShell
 On Windows, the above commands work in PowerShell:
 ```powershell
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 ## Step 2: Verify MCP Detection
@@ -207,10 +211,7 @@ The subagent configurations are stored in a structured format, enabling you to i
     --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
   ```
 
-- **Configure Subagent Models Interactively**:
-  ```bash
-  konoha agent models [agent-name]
-  ```
+- **Configure Subagent Models Interactively**: Removed in v2.0.0 — all subagents now use `Claude Sonnet 4.6 (Thinking)` automatically.
 
 - **Toggle/Embed Skills for a Subagent Interactively**:
   ```bash
@@ -248,7 +249,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `1.1.8`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `2.0.0`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -264,25 +265,19 @@ To keep Konoha updated with the latest optimizations and features, you can check
 Konoha CLI maintains a registry of available Large Language Models (LLMs) that can be assigned to your subagents.
 
 * **Available Models Registry**:
-  - `Gemini 3.1 Flash-Lite`
-  - `Gemini 2.5 Flash`
-  - `Gemini 2.5 Flash-Lite`
-  - `Gemini 3.5 Flash (Low / Medium / High)`
-  - `Gemini 3.1 Pro (Low / High)`
-  - `Claude Sonnet 4.6 (Thinking)`
+  - `Claude Sonnet 4.6 (Thinking)` (default for all Konoha subagents since v2.0.0)
   - `Claude Opus 4.6 (Thinking)`
-  - `GPT-OSS 120B (Medium)`
-  - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `19999`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched, listed in `konoha models list`, and available for selection.
+  - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `19999`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched and made available through the gateway.
 
 * **Fallback Configuration**:
-  Subagents default to using `Gemini 3.1 Flash-Lite` as their automatic fallback model in the event of primary model failures, rate limits, or API errors.
+  Subagents all use `Claude Sonnet 4.6 (Thinking)` in v2.0.0 — there is no separate fallback tier. On rate-limit or API error, the orchestrator falls back to direct tool calls instead of spawning additional subagents.
 
 ## Auto-Approved Permissions & Commands Whitelisting
 
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.1.7`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: As of `v2.0.0`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:

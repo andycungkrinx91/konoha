@@ -1,9 +1,9 @@
-{"found": 3, "query": "", "results": [{"name": "DevSecOps Engineer", "type": "skill", "content": "Best practices for DevSecOps workflows, Docker, Kubernetes.", "truncated": false, "hash": "74a505eac1ec"}, {"name": "devsecops-engineer-test-typo", "type": "skill", "content": "Best practices for DevSecOps workflows, Docker, Kubernetes.", "truncated": false, "hash": "74a505eac1ec"}, {"name": "alpha-typo-test", "type": "skill", "content": "x", "truncated": false, "hash": "9dd4e461268c"}]}
+{"found": 3, "query": "", "results": [{"name": "devsecops-engineer-test-typo", "type": "skill", "content": "Best practices for DevSecOps workflows, Docker, Kubernetes.", "truncated": false, "hash": "74a505eac1ec"}, {"name": "alpha-typo-test", "type": "skill", "content": "x", "truncated": false, "hash": "9dd4e461268c"}, {"name": "jonin-skill/nuxt-code-expert", "type": "reference", "content": "# Nuxt Code Expert & Architectural Guidelines\n\nComprehensive implementation standards for **Nuxt 3** projects using `pnpm` exclusively.\n\n## \ud83c\udfd7\ufe0f Technical Directives\n- **Package Manager**: `pnpm` exclusively (`pnpm create nuxt`, `pnpm install`, `pnpm dev --open`).\n- **State Management**: Pinia stores with reactive filters and live search.\n- **Routing**: File-based routing in `pages/` with layout inheritance in `layouts/`.\n- **Theme Engine**: Reactive CSS gradient variables driven by `ThemeSwitcher.vue`.\n- **Watermark**: `Build by Konoha` footer watermark required on all pages.", "truncated": false, "hash": "8cb93db7a5e1"}]}
 
 [STDERR]
 [mcp konoha] tool_call: find_skill(keyword='', limit=3, compact=False)
   [Warning] FTS5 search failed for keyword '' (sanitized: ''): fts5: syntax error near "". Falling back to LIKE search.
   → Found 3 matching skill/reference entries:
-    - DevSecOps Engineer (skill, None bytes)
     - devsecops-engineer-test-typo (skill, None bytes)
     - alpha-typo-test (skill, None bytes)
+    - jonin-skill/nuxt-code-expert (reference, 586 bytes)

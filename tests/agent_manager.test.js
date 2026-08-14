@@ -41,11 +41,8 @@ function resolveModel(config) {
 
 console.log('\n[Model Resolution]');
 {
-  // test('cursorModel takes priority') - skipped
 
-  // test('falls back to cursorFallbackModel') - skipped
 
-  // test('throws when neither cursorModel nor cursorFallbackModel is set') - skipped (cursor_manager doesn't throw)
 }
 
 // ---------------------------------------------------------------------------
@@ -170,8 +167,6 @@ console.log('\n[db_agents.py CLI]');
           description: 'Test',
           instructions: 'Test',
           delegationKeywords: 'test',
-          cursorModel: 'inherit',
-          cursorFallbackModel: 'inherit',
           enable_mcp_tools: true,
         };
         const agentJson = JSON.stringify(agentData);
@@ -249,7 +244,6 @@ console.log('\n[Template Integrity]');
     }
   });
 
-  // test('required fields present on every agent') - skipped (cursorModel is optional)
 }
 
 // ---------------------------------------------------------------------------
@@ -271,9 +265,6 @@ console.log('\n[Exports]');
   test('exports deleteAgent', function () {
     assert.strictEqual(typeof am.deleteAgent, 'function');
   });
-  test('exports updateAgentModel', function () {
-    assert.strictEqual(typeof am.updateAgentModel, 'function');
-  });
   test('exports regenerateAndDeploy', function () {
     assert.strictEqual(typeof am.regenerateAndDeploy, 'function');
   });
@@ -282,6 +273,196 @@ console.log('\n[Exports]');
   });
   test('exports unembedSkill', function () {
     assert.strictEqual(typeof am.unembedSkill, 'function');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Suite: MCP tool name mapping (issue: bare names not prefixed)
+// ---------------------------------------------------------------------------
+
+console.log('\n[MCP Tool Name Mapping]');
+{
+  const am = require('../src/agent_manager');
+
+  test('generateClaudeCodeMd converts bare kage to mcp__konoha__kage', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture decisions',
+      instructions: 'Call `kage` to delegate',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__kage'), 'should have mcp__konoha__kage');
+    assert.ok(!/(?<!mcp__konoha__)kage\b/.test(result), 'should not have bare kage');
+  });
+
+  test('generateClaudeCodeMd converts bare optimize_report to mcp__konoha__optimize_report', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Optimization',
+      instructions: 'Use optimize_report to check skills',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__optimize_report'), 'should have mcp__konoha__optimize_report');
+    assert.ok(!/(?<!mcp__konoha__)optimize_report\b/.test(result), 'should not have bare optimize_report');
+  });
+
+  test('generateClaudeCodeMd converts bare find_skill to mcp__konoha__find_skill', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Call find_skill("architecture") to find skills',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
+    assert.ok(!/(?<!mcp__konoha__)find_skill\b/.test(result), 'should not have bare find_skill');
+  });
+
+  test('generateClaudeCodeMd does not double-prefix already correct names', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Call mcp__konoha__find_skill to find skills',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
+    assert.ok(!result.includes('mcp__konoha__mcp__konoha__find_skill'), 'should NOT double-prefix');
+  });
+
+  test('generateClaudeCodeMd converts all subagent tool names', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Call kage, jonin, anbu, chunin, genin, tokubetsu_jonin',
+      type: 'self'
+    }]);
+    const agents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin'];
+    for (const agent of agents) {
+      const prefixed = `mcp__konoha__${agent}`;
+      assert.ok(result.includes(prefixed), `should have ${prefixed}`);
+      assert.ok(!(new RegExp(`(?<!mcp__konoha__)mcp_${agent}\\b`)).test(result), `should not have bare mcp_${agent}`);
+    }
+  });
+
+  test('generateClaudeCodeMd converts bare read_file_head to mcp__konoha__read_file_head', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Use read_file_head to read files',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__read_file_head'), 'should have mcp__konoha__read_file_head');
+    assert.ok(!/(?<!mcp__konoha__)read_file_head\b/.test(result), 'should not have bare read_file_head');
+  });
+
+  test('generateClaudeCodeMd converts bare get_skill and list_skills', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Use get_skill and list_skills',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__get_skill'), 'should have mcp__konoha__get_skill');
+    assert.ok(result.includes('mcp__konoha__list_skills'), 'should have mcp__konoha__list_skills');
+    assert.ok(!/(?<!mcp__konoha__)get_skill\b/.test(result), 'should not have bare get_skill');
+    assert.ok(!/(?<!mcp__konoha__)list_skills\b/.test(result), 'should not have bare list_skills');
+  });
+
+  // ----- Semble MCP tool mapping -----
+
+  test('generateClaudeCodeMd converts semble.search to mcp__semble__search', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Code search',
+      instructions: 'Call semble.search to find code',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+  });
+
+  test('generateClaudeCodeMd converts semble.find_related to mcp__semble__find_related', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Code search',
+      instructions: 'Call semble.find_related to explore callers',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
+  });
+
+  test('generateClaudeCodeMd does not double-prefix already correct semble names', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Code search',
+      instructions: 'Call mcp__semble__search and mcp__semble__find_related',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
+    assert.ok(!result.includes('mcp__mcp__semble__'), 'should NOT double-prefix');
+    assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
+  });
+
+  test('generateClaudeCodeMd converts both semble and konoha tools in same instructions', () => {
+    const result = am.generateClaudeCodeMd([{
+      name: 'Kage',
+      purpose: 'Architecture',
+      instructions: 'Use find_skill for skills, semble.search for code',
+      type: 'self'
+    }]);
+    assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
+    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+  });
+
+  test('generateClaudeCodeSubagent (mcp_clients_manager) converts semble.search', () => {
+    const mcp = require('../src/mcp_clients_manager');
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
+      description: 'Architecture agent',
+      purpose: 'Architecture',
+      instructions: 'Use semble.search to find code definitions',
+      type: 'self'
+    });
+    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+    assert.ok(!result.includes('`semble.search`'), 'should not have bare semble.search in backticks');
+  });
+
+  test('generateClaudeCodeSubagent (mcp_clients_manager) converts semble.find_related', () => {
+    const mcp = require('../src/mcp_clients_manager');
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
+      description: 'Architecture agent',
+      purpose: 'Architecture',
+      instructions: 'Use semble.find_related to find callers',
+      type: 'self'
+    });
+    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
+  });
+
+  test('generateClaudeCodeSubagent does not double-prefix semble tools', () => {
+    const mcp = require('../src/mcp_clients_manager');
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
+      description: 'Architecture agent',
+      purpose: 'Architecture',
+      instructions: 'Call mcp__semble__search and mcp__semble__find_related',
+      type: 'self'
+    });
+    assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
+    assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
+    assert.ok(!result.includes('mcp__mcp__semble__'), 'should NOT double-prefix');
+    assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
+  });
+
+  test('generateClaudeCodeSubagent includes sembe allowed-tools line', () => {
+    const mcp = require('../src/mcp_clients_manager');
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
+      description: 'Architecture agent',
+      purpose: 'Architecture',
+      instructions: 'Test',
+      type: 'self'
+    });
+    assert.ok(result.includes('mcp__semble__*'), 'should include mcp__semble__* in allowed-tools');
   });
 }
 

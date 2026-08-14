@@ -11,13 +11,17 @@ from datetime import datetime, timedelta
 db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/skills.db")
 
 def parse_iso_datetime(dt_str):
-    """Parse ISO datetime string, handling potential 'Z' suffix or offsets."""
+    """Parse ISO datetime as a timezone-aware local-time value."""
     if not dt_str:
         return None
-    dt_str = dt_str.replace("Z", "+00:00")
+    dt_str = dt_str.strip().replace("Z", "+00:00")
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
         try:
             dt = datetime.strptime(dt_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.astimezone()
+            else:
+                dt = dt.astimezone()
             return dt
         except ValueError:
             continue
@@ -60,11 +64,13 @@ def calculate_model_tokens(time_filter=None):
                         record = json.loads(line)
                         if record.get("source") == "MODEL" and record.get("type") == "PLANNER_RESPONSE":
                             created_at_str = record.get("created_at")
-                            if cutoff_dt and created_at_str:
-                                dt = parse_iso_datetime(created_at_str)
-                                if dt and dt < cutoff_dt:
+                            if cutoff_dt:
+                                if not created_at_str:
                                     continue
-                                    
+                                dt = parse_iso_datetime(created_at_str)
+                                if dt is None or dt < cutoff_dt:
+                                    continue
+
                             content = record.get("content") or ""
                             thinking = record.get("thinking") or ""
                             
@@ -177,6 +183,8 @@ def query_stats(conn, time_filter=None):
         "agy": {"calls": 0, "bytes": 0, "tokens": 0},
         "cursor": {"calls": 0, "bytes": 0, "tokens": 0},
         "claudecode": {"calls": 0, "bytes": 0, "tokens": 0},
+        "opencode": {"calls": 0, "bytes": 0, "tokens": 0},
+        "commandcode": {"calls": 0, "bytes": 0, "tokens": 0},
     }
     
     query_client = f"""
@@ -194,12 +202,11 @@ def query_stats(conn, time_filter=None):
         for r_c in rows_client:
             c_name = r_c[0].lower()
             if c_name not in by_client:
-                c_name = "antigravity"
-            by_client[c_name] = {
-                "calls": r_c[1],
-                "bytes": r_c[2],
-                "tokens": r_c[3]
-            }
+                c_name = "unknown"
+            by_client.setdefault(c_name, {"calls": 0, "bytes": 0, "tokens": 0})
+            by_client[c_name]["calls"] += r_c[1]
+            by_client[c_name]["bytes"] += r_c[2]
+            by_client[c_name]["tokens"] += r_c[3]
     except Exception:
         pass
         

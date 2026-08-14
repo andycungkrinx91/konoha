@@ -265,32 +265,6 @@ function findFilesClean(args = {}) {
   });
 }
 
-function searchFile(args = {}) {
-  const { query, top_k } = args;
-  if (!query) return { error: 'query is required' };
-  
-  const dirPath = args.dir || args.path || args.file_path || '.';
-  const resolvedDir = resolveInputPath(dirPath);
-  
-  let finalDir = resolvedDir;
-  try {
-    const stat = fs.statSync(resolvedDir);
-    if (stat.isFile()) {
-      finalDir = path.dirname(resolvedDir);
-    }
-  } catch (e) {
-    // Ignore error, let Python script handle if missing
-  }
-
-  const payload = { 
-    query, 
-    dir: finalDir,
-    top_k: top_k || 5
-  };
-  
-  return runPythonScript('search_file.py', payload);
-}
-
 function runPythonSkillTool(toolName, args) {
   const serverPyPath = path.join(__dirname, 'server.py');
   if (!fs.existsSync(serverPyPath)) {
@@ -324,20 +298,20 @@ const TOOL_HANDLERS = {
   token_efficient_grep: tokenEfficientGrep,
   get_file_structure: getFileStructure,
   find_files_clean: findFilesClean,
-  search_file: searchFile,
   find_skill: (args) => runPythonSkillTool('find_skill', args),
   list_skills: (args) => runPythonSkillTool('list_skills', args),
   get_skill: (args) => runPythonSkillTool('get_skill', args),
   optimize_report: (args) => runPythonSkillTool('optimize_report', args),
+  build_with_image_design: (args) => runPythonSkillTool('build_with_image_design', args),
   build_from_source: (args) => runPythonSkillTool('build_from_source', args),
   build_from_text: (args) => runPythonSkillTool('build_from_text', args),
-  mcp_sannin: (args) => runPythonSkillTool('mcp_sannin', args),
-  mcp_kage: (args) => runPythonSkillTool('mcp_kage', args),
-  mcp_jonin: (args) => runPythonSkillTool('mcp_jonin', args),
-  mcp_anbu: (args) => runPythonSkillTool('mcp_anbu', args),
-  mcp_chunin: (args) => runPythonSkillTool('mcp_chunin', args),
-  mcp_tokubetsu_jonin: (args) => runPythonSkillTool('mcp_tokubetsu_jonin', args),
-  mcp_genin: (args) => runPythonSkillTool('mcp_genin', args),
+  sannin: (args) => runPythonSkillTool('sannin', args),
+  kage: (args) => runPythonSkillTool('kage', args),
+  jonin: (args) => runPythonSkillTool('jonin', args),
+  anbu: (args) => runPythonSkillTool('anbu', args),
+  chunin: (args) => runPythonSkillTool('chunin', args),
+  tokubetsu_jonin: (args) => runPythonSkillTool('tokubetsu_jonin', args),
+  genin: (args) => runPythonSkillTool('genin', args),
   get_resolved_task_dir: (args) => runPythonSkillTool('get_resolved_task_dir', args)
 };
 
@@ -437,20 +411,6 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'search_file',
-      description:
-        'Semantic search/find file content or code within the workspace using semble.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'Semantic search query or natural language description of what you are looking for' },
-          dir: { type: 'string', description: 'Directory to search within (optional, defaults to workspace root)' },
-          top_k: { type: 'integer', description: 'Number of results to return (optional, default 5)' }
-        },
-        required: ['query']
-      }
-    },
-    {
       name: 'get_resolved_task_dir',
       description: 'Resolve a transient task directory outside the workspace to avoid accidental git commits. Pass an optional task_dir name, or leave empty for default.',
       inputSchema: {
@@ -509,6 +469,19 @@ function listToolSchemas() {
       }
     },
     {
+      name: 'build_with_image_design',
+      description: 'Legacy alias for build_from_source. Builds UI components/apps with 100% exact layout/color match to input mockup images.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Project or component name' },
+          source_dir: { type: 'string', description: 'Directory containing source design mockup images' },
+          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
+        },
+        required: ['name', 'source_dir', 'framework']
+      }
+    },
+    {
       name: 'build_from_source',
       description: 'Build UI components/apps with 100% exact layout/color match to input mockup images.',
       inputSchema: {
@@ -535,7 +508,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_sannin',
+      name: 'sannin',
       description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.',
       inputSchema: {
         type: 'object',
@@ -546,7 +519,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_kage',
+      name: 'kage',
       description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.',
       inputSchema: {
         type: 'object',
@@ -556,7 +529,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_jonin',
+      name: 'jonin',
       description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.',
       inputSchema: {
         type: 'object',
@@ -566,7 +539,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_anbu',
+      name: 'anbu',
       description: 'Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.',
       inputSchema: {
         type: 'object',
@@ -576,7 +549,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_chunin',
+      name: 'chunin',
       description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.',
       inputSchema: {
         type: 'object',
@@ -586,7 +559,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_tokubetsu_jonin',
+      name: 'tokubetsu_jonin',
       description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.',
       inputSchema: {
         type: 'object',
@@ -596,7 +569,7 @@ function listToolSchemas() {
       }
     },
     {
-      name: 'mcp_genin',
+      name: 'genin',
       description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.',
       inputSchema: {
         type: 'object',
@@ -623,7 +596,6 @@ function validateInstall() {
     'token_efficient_grep.py',
     'get_file_structure.py',
     'find_files_clean.py',
-    'search_file.py',
     '_common.py'
   ]) {
     if (!fs.existsSync(path.join(TOOLS_DIR, script))) {

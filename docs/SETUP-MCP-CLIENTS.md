@@ -1,11 +1,27 @@
 
-Konoha registers **konoha** and **semble** globally for all supported clients. On first install, the existing config file is **backed up** to `<file>.back`, then **replaced** with only Konoha MCP servers:
+Konoha registers **konoha** and **semble** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. Existing configs are preserved or backed up according to each client manager.
 
-| Client | Auto-setup with `konoha init` | Config backed up to | Replaced with |
-|--------|------------------------------|---------------------|---------------|
-| **Antigravity** | Always | `mcp_config.json.back` | `konoha` + `semble` only |
-| **Cursor** | Yes (auto if detected) | `mcp.json.back` | `konoha` + `semble` only |
-| **Claude Code** | When `claude` CLI detected | `.claude.json.back` | `konoha` + `semble` only |
+| Client | Auto-setup with `konoha init` | Runtime config |
+|--------|------------------------------|----------------|
+| **Antigravity CLI/IDE** | Always | `~/.gemini/config/mcp_config.json` |
+| **Cursor** | When detected | `~/.cursor/mcp.yaml` and project `.cursor/mcp.yaml` |
+| **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
+| **OpenCode** | When detected | `~/.opencode/config.json` → `mcp` |
+| **Command Code** | When detected as `cmd` or `commandcode` | `~/.commandcode/mcp.json` → `mcpServers` |
+
+### RTK (Rust Token Killer) Auto-Deployment
+
+When the `rtk` binary is available on PATH, Konoha also deploys RTK rule files to each client:
+
+| Client | RTK Rule Location |
+|--------|-------------------|
+| **Antigravity** | `~/.gemini/antigravity-cli/rules/rtk.md` + `~/.gemini/antigravity-ide/rules/rtk.md` |
+| **Cursor** | `~/.cursor/rules/rtk.mdc` |
+| **Claude Code** | `~/.claude/rules/rtk.md` |
+| **OpenCode** | `~/.opencode/rules/rtk.md` |
+| **Command Code** | `~/.commandcode/rules/rtk.md` |
+
+These rules instruct the agent to prefix all shell commands with `rtk` to minimize token consumption. If `rtk` is not installed, Konoha skips this step gracefully. Check status with `konoha status`.
 
 > [!IMPORTANT]
 > **Cross-Platform Config Paths:**
@@ -15,7 +31,7 @@ Konoha registers **konoha** and **semble** globally for all supported clients. O
 
 
 ```bash
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 ---
@@ -55,20 +71,38 @@ konoha doctor --yes
 
 **Detection**: `claude` in PATH, or `~/.claude/`, or `~/.claude.json`.
 
-**Writes**:
+**Writes:**
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
+- `~/.claude/CLAUDE.md` → Global orchestrator instructions.
+- `~/.claude/agents/` → Seven ninja subagents (model: inherit for Cursor Free).
+- `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
 
-**Verify**: `/mcp` in Claude Code session.
+**Verify:** `/mcp` in Claude Code session — should show `konoha` and `semble`.
 
-**Model Default**: All default Konoha subagents configure `"claudeModel": "Claude Sonnet 4.6 (Thinking)"` inside `~/.agents/agents.yaml` to leverage Claude Sonnet 4.6 in Claude Code. View assignments with `konoha models list`.
+**Model Default:** All Konoha subagents use `Claude Sonnet 4.6 (Thinking)` automatically. No manual configuration required.
 
 ---
 
+## Command Code (global)
 
+**Detection**: `cmd` or `commandcode` in PATH, or `~/.commandcode/`, or `~/.commandcode/mcp.json`.
 
-**Writes**:
+**Writes:**
+- `~/.commandcode/mcp.json` → `mcpServers` (all projects on this machine).
 
+**Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha` and `semble`.
 
+---
+
+## OpenCode IDE (global)
+
+**Detection**: `opencode` binary in PATH, or `~/.opencode/`, or `~/.opencode/config.json`.
+
+**Writes:**
+- `~/.opencode/config.json` → `mcp` (all projects on this machine).
+- `~/.opencode/rules/rtk.md` when RTK is installed.
+
+**Verify:** Open OpenCode IDE and check MCP configurations — should show `konoha` and `semble`.
 
 ---
 

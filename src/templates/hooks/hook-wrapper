@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Konoha PreToolUse hook wrapper for Claude Code
+
+INPUT="$(cat)"
+
+# If empty, pass through as decision:allow
+if [ -z "$INPUT" ] || [ "$INPUT" = "{}" ]; then
+  echo '{"decision":"allow"}'
+  exit 0
+fi
+
+# Convert Claude Code format to RTK format
+CONVERTED=""
+CONVERTED=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    tool_name = d.get('tool', '')
+    args = d.get('arguments', {})
+    print(json.dumps({'action': 'use_tool', 'tool_name': tool_name, 'tool_input': args}))
+except:
+    print('{}')
+" 2>/dev/null) || CONVERTED=""
+
+if [ -z "$CONVERTED" ] || [ "$CONVERTED" = "{}" ]; then
+  echo '{"decision":"allow"}'
+  exit 0
+fi
+
+# Run rtk hook claude
+RTK_OUTPUT=""
+RTK_OUTPUT=$(echo "$CONVERTED" | rtk hook claude 2>/dev/null) || RTK_OUTPUT=""
+
+if [ -z "$RTK_OUTPUT" ]; then
+  echo '{"decision":"allow"}'
+  exit 0
+fi
+
+# Convert rtk output to Claude Code format
+echo "$RTK_OUTPUT" | python3 -c "
+import sys, json
+try:
+    rtk = json.loads(sys.stdin.read())
+    if 'hookSpecificOutput' in rtk:
+        updated = rtk['hookSpecificOutput'].get('updatedInput', {})
+        if updated:
+            print(json.dumps({'decision': 'modify', 'arguments': updated}))
+        else:
+            print(json.dumps({'decision': 'allow'}))
+    else:
+        print(json.dumps({'decision': 'allow'}))
+except:
+    print(json.dumps({'decision': 'allow'}))
+" 2>/dev/null || echo '{"decision":"allow"}'

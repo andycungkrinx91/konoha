@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(pnpm:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

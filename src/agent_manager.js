@@ -54,6 +54,15 @@ function _getPythonCmd() {
   return __cachedPython;
 }
 
+function normalizeLegacySkillName(skill) {
+  if (typeof skill !== 'string') return skill;
+  if (skill === 'deep-code-explorer') return 'genin-skill';
+  if (skill.startsWith('deep-code-explorer/')) {
+    return `genin-skill/${skill.slice('deep-code-explorer/'.length)}`;
+  }
+  return skill;
+}
+
 function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
   if (!allDbSkills || allDbSkills.length === 0) return Array.isArray(configuredSkills) ? configuredSkills : [];
   const allowed = Array.isArray(configuredSkills) ? configuredSkills : [];
@@ -142,7 +151,7 @@ except Exception:
     agents = agents.map(a => {
       const defAgent = defaults.find(d => d.name === a.name);
       // Determine base configured skills (if not present, fallback to default template skills)
-      let configuredSkills = Array.isArray(a.skills) ? a.skills : [];
+      let configuredSkills = Array.isArray(a.skills) ? a.skills.map(normalizeLegacySkillName) : [];
       if (configuredSkills.length === 0 && defAgent) {
         configuredSkills = defAgent.skills || [];
       }
@@ -186,7 +195,7 @@ except Exception:
       if (defAgent) {
         // v1.1.1: Upgrade to new routing concept where each agent has their own default skill
         if (a.skills && !isAlreadyUpgraded) {
-          const legacyBundledSkills = ['deep-code-explorer', 'devsecops-engineer', 'websearch-deep', 'documentation'];
+          const legacyBundledSkills = ['devsecops-engineer', 'websearch-deep', 'documentation'];
           let changedSkills = false;
           
           // Ensure agent has their own default skill (e.g., anbu-skill)
@@ -249,8 +258,8 @@ except Exception:
           a.description = defAgent.description;
           changed = true;
         }
-        if (a.modelTier && a.modelTier !== defAgent.modelTier) {
-          a.modelTier = defAgent.modelTier;
+        if (a.icon !== defAgent.icon) {
+          a.icon = defAgent.icon;
           changed = true;
         }
         if (a.constraints && !a.constraints.includes('semble') && defAgent.constraints && defAgent.constraints.includes('semble')) {
@@ -465,7 +474,7 @@ function generateGeminiMd(agents) {
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
 >
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
 > - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
@@ -508,7 +517,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 ## Tools & Guardrails
 
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
@@ -523,6 +532,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
+- **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute the \`mcp_<agentname>\` delegation workflow via the \`konoha\` MCP. ALWAYS use the \`semble\` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
 - **Forced MCP Usage & Delegation**: ABSOLUTE RULE — all work MUST go through \`konoha\` MCP (skills + bounded file ops) and \`semble\` MCP (codebase search). NEVER call generic \`view_file\`/\`Read\`/\`Grep\`/\`Glob\`/\`run_command\` (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) directly. NEVER use \`semble\` for skills; NEVER use \`konoha\` for codebase search. The main orchestrator MUST delegate all non-trivial tasks to konoha subagents (\`genin\`, \`chunin\`, \`jonin\`, \`anbu\`, \`kage\`, \`tokubetsu-jonin\`) via the Agent tool. The orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates. Trivial tasks (single bounded read/edit on a known file) may be executed directly.
 
 Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\`
@@ -549,7 +559,7 @@ function generateClaudeCodeMd(agents) {
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in tools (\`Read\`, \`Grep\`, \`Glob\`, \`Bash\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN**.
 >
-> - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`
+> - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`
 > - **Code search/discovery** → \`semble.search\`, \`semble.find_related\`
 > - **Skill lookup** → \`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.list_skills\`
 > - **NEVER** call \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`Bash\` with \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
@@ -558,7 +568,7 @@ You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped
 
 ## Orchestrator & Delegation Model (CRITICAL)
 
-You delegate specialized work by calling the corresponding subagent MCP tools served by the \`konoha\` MCP server: \`mcp__konoha__mcp_kage\`, \`mcp__konoha__mcp_jonin\`, \`mcp__konoha__mcp_anbu\`, \`mcp__konoha__mcp_chunin\`, \`mcp__konoha__mcp_tokubetsu_jonin\`, \`mcp__konoha__mcp_genin\`.
+You delegate specialized work by calling the corresponding subagent MCP tools served by the \`konoha\` MCP server: \`mcp__konoha__kage\`, \`mcp__konoha__jonin\`, \`mcp__konoha__anbu\`, \`mcp__konoha__chunin\`, \`mcp__konoha__tokubetsu_jonin\`, \`mcp__konoha__genin\`.
 
 **CRITICAL RULES:**
 - **NEVER use built-in Claude Code agents** or custom agent \`@\` mentions — only delegate via the MCP tools listed above.
@@ -577,7 +587,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 - **MCP-Only Tooling (ABSOLUTE RULE)**: ALL file reads, searches, and operations MUST use \`konoha\` MCP or \`semble\` MCP tools. NEVER call built-in \`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`WebSearch\` tools directly. NEVER use shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`).
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.). When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines). Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
+- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools for finding or locating skills. NEVER use \`semble\` search for skills.**
 - **Tool Boundaries**: Call **\`semble\` MCP** for codebase search. Call **\`konoha\` MCP** for skills and bounded file reads/grep. Never mix them.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
@@ -621,13 +631,13 @@ ${dynamicTableRows}
     // Bare tool names → mcp__konoha__ prefix. Word-boundary + negative lookbehind so we don't
     // double-prefix text that already contains `mcp__konoha__`.
     .replace(/(?<!mcp__konoha__)\boptimize_report\b/g, 'mcp__konoha__optimize_report')
-    .replace(/(?<!mcp__konoha__)\bkage\b/g, 'mcp__konoha__kage')
-    .replace(/(?<!mcp__konoha__)\bjonin\b/g, 'mcp__konoha__jonin')
-    .replace(/(?<!mcp__konoha__)\banbu\b/g, 'mcp__konoha__anbu')
-    .replace(/(?<!mcp__konoha__)\bchunin\b/g, 'mcp__konoha__chunin')
-    .replace(/(?<!mcp__konoha__)\bgenin\b/g, 'mcp__konoha__genin')
-    .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?<!mcp__konoha__)\bmcp_sannin\b/g, 'mcp__konoha__mcp_sannin')
+    .replace(/(?<!mcp__konoha__)\bkage\b(?!-)/g, 'mcp__konoha__kage')
+    .replace(/(?<!mcp__konoha__)\bjonin\b(?!-)/g, 'mcp__konoha__jonin')
+    .replace(/(?<!mcp__konoha__)\banbu\b(?!-)/g, 'mcp__konoha__anbu')
+    .replace(/(?<!mcp__konoha__)\bchunin\b(?!-)/g, 'mcp__konoha__chunin')
+    .replace(/(?<!mcp__konoha__)\bgenin\b(?!-)/g, 'mcp__konoha__genin')
+    .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b(?!-)/g, 'mcp__konoha__tokubetsu_jonin')
+    .replace(/(?<!mcp__konoha__)\bmcp_sannin\b(?!-)/g, 'mcp__konoha__mcp_sannin')
     .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
     .replace(/(?<!mcp__konoha__)\bget_skill\b/g, 'mcp__konoha__get_skill')
     .replace(/(?<!mcp__konoha__)\blist_skills\b/g, 'mcp__konoha__list_skills')
@@ -637,7 +647,6 @@ ${dynamicTableRows}
     .replace(/(?<!mcp__konoha__)\btoken_efficient_grep\b/g, 'mcp__konoha__token_efficient_grep')
     .replace(/(?<!mcp__konoha__)\bget_file_structure\b/g, 'mcp__konoha__get_file_structure')
     .replace(/(?<!mcp__konoha__)\bfind_files_clean\b/g, 'mcp__konoha__find_files_clean')
-    .replace(/(?<!mcp__konoha__)\bsearch_file\b/g, 'mcp__konoha__search_file');
 }
 
 
@@ -667,7 +676,7 @@ function generateAgentsMd(agents) {
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
 >
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
 > - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
@@ -915,14 +924,13 @@ function createSubagent(name, options = {}) {
     name: displayName,
     icon: icon,
     title: options.title || (name.charAt(0).toUpperCase() + name.slice(1) + " Ninja"),
-    modelTier: "Claude Sonnet 4.6 (Thinking)",
     purpose: options.purpose || "General assistant",
     skills: options.skills || [],
     delegateWhen: options.delegateWhen || `Need assistance with ${options.purpose || "general tasks"}`,
     constraints: options.constraints || "Discover skills via `konoha.find_skill`. If project source code search is needed, use `semble` MCP (`search`/`find_related`).",
     workflow: options.workflow || "Discover skill references via `konoha.find_skill`, search project code via `semble`, then execute task.",
     description: options.description || options.purpose || `Custom subagent specialized in ${name}`,
-    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". If delegate.md specifies exact reference names, load them via the konoha.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md.`,
+    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". If delegate.md specifies exact reference names, load them via the konoha.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md. ALWAYS use semble for codebase search and ensure the RTK (Rust Token Killer) principles are followed.`,
     delegationKeywords: options.delegationKeywords || name
   };
 

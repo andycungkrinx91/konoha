@@ -1,1 +1,0 @@
-Build an empty svelte site.

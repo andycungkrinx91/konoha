@@ -1,9 +1,3 @@
 Configured Bridges
 ════════════════════════════════════════════════════════════
-    ┌─────────────────┬────────┬───────────────────┬───────────────────┬────────────────┬────────────────────────────┐
-    │ Name            │ Port   │ Provider          │ Configured Status │ Runtime Status │ Target URL                 │
-    ├─────────────────┼────────┼───────────────────┼───────────────────┼────────────────┼────────────────────────────┤
-    │ adacode         │ 11437  │ OpenAI            │ Enabled           │ Stopped        │ https://api.adacode.ai/v1  │
-    │ antigravity     │ 11438  │ OpenAI            │ Enabled           │ Stopped        │ http://localhost:1313/v1   │
-    │ adacode-2       │ 11440  │ OpenAI Compatible │ Enabled           │ Stopped        │ https://api.adacode.ai/v1  │
-    └─────────────────┴────────┴───────────────────┴───────────────────┴────────────────┴────────────────────────────┘
+  No bridges configured.

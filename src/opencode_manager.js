@@ -1,16 +1,15 @@
 /**
  * src/opencode_manager.js — OpenCode IDE integration module.
  *
- * Handles auto-injection of Konoha MCP servers, hooks, and RTK configuration
- * into OpenCode's settings.json.
+ * Handles auto-injection of Konoha MCP servers into OpenCode's settings.json.
  *
  * OpenCode config location: ~/.opencode/config.json
  * Config format: JSON with "mcp" key for MCP servers
  *
- * RTK (Real-Time Kit) auto-installation:
- * - Detects if RTK is installed via `rtk --version`
- * - Auto-injects RTK hooks into OpenCode config
- * - Skips if RTK is not available
+ * NOTE: OpenCode is NOT a supported RTK hook provider. `rtk hook opencode`
+ * returns "is not a valid RTK subcommand". RTK only supports: claude, cursor,
+ * gemini, copilot, droid. OpenCode users rely on rule-based filtering via
+ * the RTK rule file instead.
  */
 
 const fs = require('fs');
@@ -141,63 +140,23 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   return { ok: true };
 }
 
-// ─── RTK Hook Injection ───────────────────────────────────────────────────────
-
-function injectRtkHooks(silent = true) {
+function deployOpenCodeRtkRule(silent = true) {
   if (!isRtkInstalled()) {
-    if (!silent) {
-      console.log('  ⚠ RTK not installed, skipping hook injection');
-    }
     return { ok: false, reason: 'rtk-not-installed' };
   }
-
-  const config = readOpenCodeConfig();
-
-  // Ensure hooks namespace exists
-  if (!config.hooks) {
-    config.hooks = {};
+  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
+  if (!fileExists(src)) {
+    return { ok: false, reason: 'rtk-rule-template-missing' };
   }
-
-  // Add PreToolUse hook for RTK (similar to Claude Code pattern)
-  if (!config.hooks.preToolUse) {
-    config.hooks.preToolUse = [];
+  const dest = path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'rtk.md');
+  try {
+    ensureDir(path.dirname(dest));
+    fs.copyFileSync(src, dest);
+    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'copy-failed', error: e.message };
   }
-
-  // Check if RTK hook already exists
-  const rtkHookExists = config.hooks.preToolUse.some(hook =>
-    hook.command && hook.command.includes('rtk hook')
-  );
-
-  if (!rtkHookExists) {
-    config.hooks.preToolUse.push({
-      type: 'command',
-      command: 'rtk hook opencode'
-    });
-  }
-
-  // Add PostToolUse hook for RTK
-  if (!config.hooks.postToolUse) {
-    config.hooks.postToolUse = [];
-  }
-
-  const rtkPostHookExists = config.hooks.postToolUse.some(hook =>
-    hook.command && hook.command.includes('rtk hook')
-  );
-
-  if (!rtkPostHookExists) {
-    config.hooks.postToolUse.push({
-      type: 'command',
-      command: 'rtk hook opencode --post'
-    });
-  }
-
-  writeOpenCodeConfig(config);
-
-  if (!silent) {
-    console.log('  ✓ RTK hooks injected into OpenCode config');
-  }
-
-  return { ok: true };
 }
 
 // ─── Status Checking ──────────────────────────────────────────────────────────
@@ -208,7 +167,7 @@ function getOpenCodeStatus() {
     configExists: fileExists(OPENCODE_CONFIG),
     mcpKonoha: false,
     mcpSemble: false,
-    rtkInjected: false
+    rtkRuleDeployed: fileExists(path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'rtk.md'))
   };
 
   if (status.configExists) {
@@ -216,8 +175,6 @@ function getOpenCodeStatus() {
       const config = readOpenCodeConfig();
       status.mcpKonoha = !!(config.mcp && config.mcp['konoha']);
       status.mcpSemble = !!(config.mcp && config.mcp['semble']);
-      status.rtkInjected = !!(config.hooks && config.hooks.preToolUse &&
-        config.hooks.preToolUse.some(h => h.command && h.command.includes('rtk hook')));
     } catch {}
   }
 
@@ -240,19 +197,7 @@ function removeOpenCodeConfig(silent = true) {
       delete config.mcp['semble'];
     }
 
-    // Remove RTK hooks
-    if (config.hooks) {
-      if (config.hooks.preToolUse) {
-        config.hooks.preToolUse = config.hooks.preToolUse.filter(h =>
-          !h.command || !h.command.includes('rtk hook')
-        );
-      }
-      if (config.hooks.postToolUse) {
-        config.hooks.postToolUse = config.hooks.postToolUse.filter(h =>
-          !h.command || !h.command.includes('rtk hook')
-        );
-      }
-    }
+    // OpenCode has no RTK hook integration — nothing to remove there
 
     writeOpenCodeConfig(config);
 
@@ -269,7 +214,6 @@ function ensureOpenCodeSetup(options = {}) {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    injectRtk = true,
     silent = true
   } = options;
 
@@ -292,10 +236,8 @@ function ensureOpenCodeSetup(options = {}) {
   // Register MCP servers
   registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent);
 
-  // Inject RTK hooks if requested and available
-  if (injectRtk) {
-    injectRtkHooks(silent);
-  }
+  // Deploy RTK Rule
+  deployOpenCodeRtkRule(silent);
 
   return { ok: true };
 }
@@ -305,7 +247,7 @@ module.exports = {
   isRtkInstalled,
   getOpenCodeStatus,
   registerOpenCodeMcp,
-  injectRtkHooks,
   ensureOpenCodeSetup,
-  removeOpenCodeConfig
+  removeOpenCodeConfig,
+  deployOpenCodeRtkRule
 };

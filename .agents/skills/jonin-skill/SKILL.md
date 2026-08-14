@@ -30,11 +30,22 @@ When prompt requests building a website/app from text description (no mockup ima
 6. **Floating Theme Switcher Widget**: 10 Light-Mode gradient themes in a fixed bottom-left chat-style popup (elevated at `bottom-20` on mobile viewports).
 7. **Mobile-Only Floating Glassmorphic Bottom Dock**: `md:hidden` bottom nav dock with active theme gradient tab highlighting.
 8. **Interactive 3D Hero Carousel**: GPU mouse-tracking tilt (`rotateX`/`rotateY`/`translateZ`), high-contrast dark spec badge backdrops, 3D split drapes transition, play/pause controls, and thumbnail preview strip.
-9. **Enriched Homepage Content**: Showroom stats banner, brand showcase grid, featured 3D card grid, VIP services highlights, Trade-In appraisal CTA banner.
+9. **Enriched Beranda Content**: Showroom stats banner, brand showcase grid, featured 3D card grid, VIP services highlights, Trade-In appraisal CTA banner.
 10. **DevSecOps Security & Performance**: Add CSP/nosniff/referrer security headers in `index.html`, font preconnecting, `loading="lazy"`/`decoding="async"` on images, and Vite `manualChunks` bundle splitting.
 11. **Zero Errors & Zero Warnings**: Guarantee 100% clean output on `pnpm run check` and `pnpm run build`.
 
 ---
+
+## 🎞️ Cross-Framework 3D and Quality Contract
+
+All official framework references must implement the same visual behavior using framework-native APIs:
+
+- Use the shared `design-token-manifest.md` values: 1200px perspective, maximum 12deg tilt, 300ms standard transitions, 500ms entrances, and 600ms hero content entrances.
+- Use transform/opacity-only motion, requestAnimationFrame for pointer/parallax updates, and teardown for timers, observers, listeners, and animation frames.
+- Implement the same ten light-mode themes, semantic CSS variables, glass surface, theme persistence key, and mobile dock across Angular, Next.js, Nuxt, and SvelteKit.
+- Provide accessible keyboard/focus states and reduced-motion fallbacks; 3D effects must never be required to operate the interface.
+- Every generated project must expose `pnpm run lint` and `pnpm run build`; SvelteKit must also expose `pnpm run check`. Completion requires zero errors and zero warnings.
+- `build_from_text` applies the default premium theme and 3D system. `build_from_source` preserves source fidelity and adds only non-structural, reduced-motion-safe enhancements.
 
 ## 🎨 Theme Matrix (10 Light-Mode Themes)
 

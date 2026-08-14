@@ -53,8 +53,8 @@ class TestFTS5Sanitization(unittest.TestCase):
 
     def test_unicode_query(self):
         """Test unicode query handling."""
-        result = self.server_module.sanitize_fts5_query("こんにちは世界")
-        self.assertEqual(result, "こんにちは世界")
+        result = self.server_module.sanitize_fts5_query("Héllö Wörld")
+        self.assertEqual(result, "Héllö Wörld")
 
     def test_very_long_query(self):
         """Test very long query doesn't crash."""

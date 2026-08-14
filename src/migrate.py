@@ -192,14 +192,13 @@ def seed_agents(conn):
             skills_str = json.dumps(a.get("skills", []))
             cursor.execute("""
                 INSERT OR REPLACE INTO agents (
-                    name, icon, title, model_tier, purpose, skills, delegate_when,
-                    constraints_text, workflow, description, instructions, delegation_keywords,
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    name, icon, title, purpose, skills, delegate_when,
+                    constraints_text, workflow, description, instructions, delegation_keywords, enable_mcp_tools
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
                 a.get("icon"),
                 a.get("title"),
-                a.get("modelTier") or a.get("model_tier"),
                 a.get("purpose"),
                 skills_str,
                 a.get("delegateWhen") or a.get("delegate_when"),
@@ -208,10 +207,7 @@ def seed_agents(conn):
                 a.get("description"),
                 a.get("instructions"),
                 a.get("delegationKeywords") or a.get("delegation_keywords"),
-                a.get("cursorModel") or a.get("cursor_model"),
-                a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                 1 if a.get("enable_mcp_tools", True) else 0,
-                a.get("claudeModel") or a.get("claude_model"),
             ))
         conn.commit()
         print(f"  ✓ Seeded {len(agents)} agents from template.")
@@ -293,7 +289,6 @@ def setup_db():
             name TEXT PRIMARY KEY,
             icon TEXT,
             title TEXT,
-            model_tier TEXT,
             purpose TEXT,
             skills TEXT,
             delegate_when TEXT,
@@ -302,10 +297,7 @@ def setup_db():
             description TEXT,
             instructions TEXT,
             delegation_keywords TEXT,
-            cursor_model TEXT,
-            cursor_fallback_model TEXT,
-            enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
-            claude_model TEXT
+            enable_mcp_tools INTEGER NOT NULL DEFAULT 1
         );
 
         CREATE TABLE IF NOT EXISTS bridges (
@@ -563,6 +555,41 @@ def migrate_skill(conn, skill_name):
     return count
 
 
+def normalize_legacy_skill_names(conn):
+    """Rewrite legacy skill rows to the canonical genin-skill namespace."""
+    rows = conn.execute(
+        "SELECT name, skill_name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
+    ).fetchall()
+    migrated = 0
+    removed = 0
+    for name, skill_name in rows:
+        new_name = name.replace("deep-code-explorer", "genin-skill", 1)
+        new_skill_name = "genin-skill" if skill_name == "deep-code-explorer" else skill_name
+        existing = conn.execute("SELECT 1 FROM skills WHERE name = ?", (new_name,)).fetchone()
+        if existing:
+            conn.execute("DELETE FROM skills WHERE name = ?", (name,))
+            removed += 1
+        else:
+            conn.execute(
+                "UPDATE skills SET name = ?, skill_name = ? WHERE name = ?",
+                (new_name, new_skill_name, name),
+            )
+            migrated += 1
+    return migrated, removed
+
+
+def verify_required_skills(conn, required_skills):
+    required = sorted({skill for skill in required_skills if skill})
+    missing = [
+        skill for skill in required
+        if not conn.execute("SELECT 1 FROM skills WHERE name = ?", (skill,)).fetchone()
+    ]
+    legacy_rows = conn.execute(
+        "SELECT name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
+    ).fetchall()
+    return missing, [row[0] for row in legacy_rows]
+
+
 def print_summary(conn):
     """Print migration summary."""
     cursor = conn.execute("""
@@ -634,6 +661,8 @@ def main():
                         help="Path to SQLite database (default: ~/.konoha/skills.db)")
     parser.add_argument("--clean", action="store_true",
                         help="Purge all existing skills from the database before migration")
+    parser.add_argument("--require-skill", action="append", default=[],
+                        help="Require a canonical skill row after migration")
     args = parser.parse_args()
 
     # Apply overrides
@@ -699,7 +728,19 @@ def main():
         count = migrate_skill(conn, skill_name)
         total += count
 
+    migrated_legacy, removed_legacy = normalize_legacy_skill_names(conn)
     conn.commit()
+    if migrated_legacy or removed_legacy:
+        print(f"  Canonicalized legacy skill rows: {migrated_legacy} migrated, {removed_legacy} duplicates removed.")
+
+    missing_required, remaining_legacy = verify_required_skills(conn, args.require_skill)
+    if missing_required or remaining_legacy:
+        if missing_required:
+            print(f"  ✗ Required canonical skills missing: {', '.join(missing_required)}")
+        if remaining_legacy:
+            print(f"  ✗ Legacy skill rows remain: {', '.join(remaining_legacy)}")
+        conn.close()
+        raise SystemExit(1)
 
     # Clean up deleted skills (skills in db that no longer exist on disk)
     cursor = conn.execute("SELECT DISTINCT skill_name FROM skills")

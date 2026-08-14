@@ -139,8 +139,6 @@ def serialize_yaml(data):
     for item in data:
         name = item.get("name", "")
         # Ensure we always keep the mcp_ prefix
-        if name and not name.startswith("mcp_"):
-            name = f"mcp_{name}"
         lines.append(f"- name: {name}")
         for k, v in item.items():
             if k == "name":
@@ -190,10 +188,8 @@ def get_db_connection():
             description TEXT,
             instructions TEXT,
             delegation_keywords TEXT,
-            cursor_model TEXT,
             cursor_fallback_model TEXT,
-            enable_mcp_tools INTEGER NOT NULL DEFAULT 1,
-            claude_model TEXT
+            enable_mcp_tools INTEGER NOT NULL DEFAULT 1
         );
     """)
     conn.commit()
@@ -217,20 +213,17 @@ def auto_migrate_yaml_to_db(conn):
                         name = a.get("name")
                         if not name:
                             continue
-                        if not name.startswith("mcp_"):
-                            name = f"mcp_{name}"
                         skills_str = json.dumps(a.get("skills", []))
                         cursor.execute("""
                             INSERT OR REPLACE INTO agents (
-                                name, icon, title, model_tier, purpose, skills, delegate_when,
+                                name, icon, title, purpose, skills, delegate_when,
                                 constraints_text, workflow, description, instructions, delegation_keywords,
-                                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                enable_mcp_tools
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             name,
                             a.get("icon"),
                             a.get("title"),
-                            a.get("modelTier") or a.get("model_tier"),
                             a.get("purpose"),
                             skills_str,
                             a.get("delegateWhen") or a.get("delegate_when"),
@@ -239,10 +232,7 @@ def auto_migrate_yaml_to_db(conn):
                             a.get("description"),
                             a.get("instructions"),
                             a.get("delegationKeywords") or a.get("delegation_keywords"),
-                            a.get("cursorModel") or a.get("cursor_model"),
-                            a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                             1 if a.get("enable_mcp_tools", True) else 0,
-                            a.get("claudeModel") or a.get("claude_model"),
                         ))
                     conn.commit()
         except Exception as e:
@@ -253,9 +243,9 @@ def sync_db_to_yaml(conn):
     """Write sqlite agents data back to agents.yaml to keep external clients / hooks synchronized."""
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT name, icon, title, model_tier, purpose, skills, delegate_when,
+        SELECT name, icon, title, purpose, skills, delegate_when,
                constraints_text, workflow, description, instructions, delegation_keywords,
-               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+               enable_mcp_tools
         FROM agents
     """)
     rows = cursor.fetchall()
@@ -267,14 +257,11 @@ def sync_db_to_yaml(conn):
             skills = []
 
         name = r["name"]
-        if name and not name.startswith("mcp_"):
-            name = f"mcp_{name}"
 
         agents_list.append({
             "name": name,
             "icon": r["icon"],
             "title": r["title"],
-            "modelTier": r["model_tier"],
             "purpose": r["purpose"],
             "skills": skills,
             "delegateWhen": r["delegate_when"],
@@ -283,10 +270,7 @@ def sync_db_to_yaml(conn):
             "description": r["description"],
             "instructions": r["instructions"],
             "delegationKeywords": r["delegation_keywords"],
-            "cursorModel": r["cursor_model"],
-            "cursorFallbackModel": r["cursor_fallback_model"],
             "enable_mcp_tools": bool(r["enable_mcp_tools"]),
-            "claudeModel": r["claude_model"],
         })
 
     os.makedirs(os.path.dirname(AGENTS_YAML_PATH), exist_ok=True)
@@ -298,9 +282,9 @@ def list_agents():
     auto_migrate_yaml_to_db(conn)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT name, icon, title, model_tier, purpose, skills, delegate_when,
+        SELECT name, icon, title, purpose, skills, delegate_when,
                constraints_text, workflow, description, instructions, delegation_keywords,
-               cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
+               enable_mcp_tools
         FROM agents
     """)
     rows = cursor.fetchall()
@@ -312,14 +296,11 @@ def list_agents():
             skills = []
         
         name = r["name"]
-        if name and not name.startswith("mcp_"):
-            name = f"mcp_{name}"
 
         result.append({
             "name": name,
             "icon": r["icon"],
             "title": r["title"],
-            "modelTier": r["model_tier"],
             "purpose": r["purpose"],
             "skills": skills,
             "delegateWhen": r["delegate_when"],
@@ -328,10 +309,7 @@ def list_agents():
             "description": r["description"],
             "instructions": r["instructions"],
             "delegationKeywords": r["delegation_keywords"],
-            "cursorModel": r["cursor_model"],
-            "cursorFallbackModel": r["cursor_fallback_model"],
             "enable_mcp_tools": bool(r["enable_mcp_tools"]),
-            "claudeModel": r["claude_model"],
         })
     conn.close()
     return result
@@ -346,21 +324,18 @@ def upsert_agent(agent_dict):
         conn.close()
         raise ValueError("Agent name is required")
 
-    if not name.startswith("mcp_"):
-        name = f"mcp_{name}"
 
     skills_str = json.dumps(agent_dict.get("skills", []))
     cursor.execute("""
         INSERT OR REPLACE INTO agents (
-            name, icon, title, model_tier, purpose, skills, delegate_when,
+            name, icon, title, purpose, skills, delegate_when,
             constraints_text, workflow, description, instructions, delegation_keywords,
-            cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            enable_mcp_tools
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         name,
         agent_dict.get("icon"),
         agent_dict.get("title"),
-        agent_dict.get("modelTier") or agent_dict.get("model_tier"),
         agent_dict.get("purpose"),
         skills_str,
         agent_dict.get("delegateWhen") or agent_dict.get("delegate_when"),
@@ -369,10 +344,7 @@ def upsert_agent(agent_dict):
         agent_dict.get("description"),
         agent_dict.get("instructions"),
         agent_dict.get("delegationKeywords") or agent_dict.get("delegation_keywords"),
-        agent_dict.get("cursorModel") or agent_dict.get("cursor_model"),
-        agent_dict.get("cursorFallbackModel") or agent_dict.get("cursor_fallback_model"),
         1 if agent_dict.get("enable_mcp_tools", True) else 0,
-        agent_dict.get("claudeModel") or agent_dict.get("claude_model"),
     ))
     conn.commit()
     sync_db_to_yaml(conn)
@@ -382,8 +354,6 @@ def delete_agent(name):
     conn = get_db_connection()
     auto_migrate_yaml_to_db(conn)
     cursor = conn.cursor()
-    if name and not name.startswith("mcp_"):
-        name = f"mcp_{name}"
     cursor.execute("DELETE FROM agents WHERE name = ?", (name,))
     conn.commit()
     sync_db_to_yaml(conn)
@@ -409,20 +379,16 @@ def import_yaml_to_db():
             name = a.get("name")
             if not name:
                 continue
-            if not name.startswith("mcp_"):
-                name = f"mcp_{name}"
             skills_str = json.dumps(a.get("skills", []))
             cursor.execute("""
                 INSERT OR REPLACE INTO agents (
-                    name, icon, title, model_tier, purpose, skills, delegate_when,
+                    name, icon, title, purpose, skills, delegate_when,
                     constraints_text, workflow, description, instructions, delegation_keywords,
-                    cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
                 a.get("icon"),
                 a.get("title"),
-                a.get("modelTier") or a.get("model_tier"),
                 a.get("purpose"),
                 skills_str,
                 a.get("delegateWhen") or a.get("delegate_when"),
@@ -431,10 +397,7 @@ def import_yaml_to_db():
                 a.get("description"),
                 a.get("instructions"),
                 a.get("delegationKeywords") or a.get("delegation_keywords"),
-                a.get("cursorModel") or a.get("cursor_model"),
-                a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
                 1 if a.get("enable_mcp_tools", True) else 0,
-                a.get("claudeModel") or a.get("claude_model"),
             ))
         conn.commit()
     conn.close()
@@ -447,20 +410,16 @@ def bulk_import_agents(agents_list):
         name = a.get("name")
         if not name:
             continue
-        if not name.startswith("mcp_"):
-            name = f"mcp_{name}"
         skills_str = json.dumps(a.get("skills", []))
         cursor.execute("""
             INSERT OR REPLACE INTO agents (
-                name, icon, title, model_tier, purpose, skills, delegate_when,
+                name, icon, title, purpose, skills, delegate_when,
                 constraints_text, workflow, description, instructions, delegation_keywords,
-                cursor_model, cursor_fallback_model, enable_mcp_tools, claude_model
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             name,
             a.get("icon"),
             a.get("title"),
-            a.get("modelTier") or a.get("model_tier"),
             a.get("purpose"),
             skills_str,
             a.get("delegateWhen") or a.get("delegate_when"),
@@ -469,10 +428,7 @@ def bulk_import_agents(agents_list):
             a.get("description"),
             a.get("instructions"),
             a.get("delegationKeywords") or a.get("delegation_keywords"),
-            a.get("cursorModel") or a.get("cursor_model"),
-            a.get("cursorFallbackModel") or a.get("cursor_fallback_model"),
             1 if a.get("enable_mcp_tools", True) else 0,
-            a.get("claudeModel") or a.get("claude_model"),
         ))
     conn.commit()
     sync_db_to_yaml(conn)
@@ -493,10 +449,8 @@ def main():
             for k in ("instructions", "constraints", "workflow", "description", "constraints_text"):
                 if a.get(k):
                     a[k] = ""
-            for k in ("cursorModel", "cursorFallbackModel", "claudeModel", "enable_mcp_tools", "delegationKeywords", "delegateWhen", "title", "purpose", "icon"):
                 if a.get(k) is None:
                     continue
-                if k in ("cursorModel", "cursorFallbackModel", "claudeModel") and a.get(k) in (None, "inherit"):
                     continue
         print(json.dumps(agents, separators=(",", ":")))
     elif cmd == "--bulk-import":

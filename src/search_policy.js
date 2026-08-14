@@ -4,7 +4,7 @@ const SEMBLE_SEARCH_CONSTRAINT =
   'NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).';
 
 const FILE_TOOLS_CONSTRAINT =
-  'NEVER use built-in Read/Grep/Glob or shell cat/head/tail/less for project files — use konoha MCP (read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean, search_file) after semble locates targets.';
+  'NEVER use built-in Read/Grep/Glob or shell cat/head/tail/less for project files — use konoha MCP (read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean) after Semble locates targets.';
 
 function buildSembleSearchPolicy() {
   return `### Default Code Search — Semble MCP Only
@@ -21,7 +21,7 @@ Konoha installs **semble** as the default search, find, and grep replacement on 
 **Mandatory rules:**
 - All project code discovery MUST use \`semble.search\` or \`semble.find_related\` first.
 - Always pass \`repo\` with the absolute path to the project root.
-- Do NOT use \`konoha\` for codebase/file search — konoha is for skills, bounded file reads, and semble-backed semantic search (\`search_file\`) only.
+- Do NOT use \`konoha\` for codebase/file search — konoha is for skills and bounded file reads only.
 - Do NOT use \`semble\` for skill lookup — use \`konoha.find_skill\` / \`get_skill\`.
 - **Fallback only:** If semble MCP is unavailable after retry, you may use \`rg\` once and note the fallback. Never default to grep/glob.
 
@@ -44,8 +44,8 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 |------------|-----|
 | Cursor \`Read\` tool, Antigravity \`view_file\`, shell \`cat\`/\`head\`/\`tail\`/\`less\` | \`konoha.read_file_head\` (preview) or \`read_file_range\` (targeted window) |
 | Loading an entire large file into context | \`file_info\` (size + line count) → \`get_file_structure\` (signatures) → \`read_file_range\` (≤500 lines) |
-| Cursor \`Grep\` / shell \`grep\`/\`rg\` for line matches | \`semble.search\` first, then \`token_efficient_grep\` (capped matches) |
-| Cursor \`Glob\` / shell \`find\` for filenames | \`find_files_clean\` or \`search_file\` or \`semble.search\` with filename keywords |
+| Cursor \`Grep\` / shell \`grep\`/\`rg\` for line matches | \`semble.search\` / \`semble.find_related\` |
+| Cursor \`Glob\` / shell \`find\` for filenames | \`semble.search\` / \`semble.find_related\` with filename keywords |
 
 **Mandatory rules:**
 - After \`semble\` locates a file, use **konoha MCP** for all reads and line-level grep — never built-in Read/Grep/Glob.
@@ -56,7 +56,7 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 }
 
 function buildFileToolsPolicyCompact() {
-  return `- **File I/O default**: Use \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`). Do NOT use Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`. Workflow: semble → konoha.`;
+  return `- **File I/O default**: Use \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). Use \`semble\` MCP (\`search\`, \`find_related\`) for all code discovery. Do NOT use Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`. Workflow: semble → konoha.`
 }
 
 module.exports = {

@@ -14,10 +14,9 @@ USAGE
   konoha agent <subcommand> [args]
 
 SUBCOMMANDS
-  list                        List all active agents, their assigned models, and active skills.
+  list                        List all active agents and their skills.
   create <agent-name> [options] Create a custom subagent manually.
                               Options: --title, --purpose, --instructions, --keywords.
-  models [agent-name]         Interactively change the primary/fallback model for an agent.
   skill [agent-name]          Interactively toggle (embed or remove) a skill for an agent.
   delete <agent-name>         Permanently delete/prune an agent and prune its historical statistics.
   status                      View detailed call statistics (today, 7 days, all time) for subagents.
@@ -26,16 +25,13 @@ EXAMPLES FOR BEGINNERS
   1. View all configured agents in your village:
      konoha agent list
 
-  2. Interactively configure LLM models for @kage:
-     konoha agent models kage
-
-  3. Interactively teach @genin a new skill (toggle from list):
+  2. Interactively teach @genin a new skill (toggle from list):
      konoha agent skill genin
 
-  4. View subagent call frequency statistics:
+  3. View subagent call frequency statistics:
      konoha agent status
 
-  5. Permanently delete/prune an agent and clean up its database stats:
+  4. Permanently delete/prune an agent and clean up its database stats:
      konoha agent delete name
 
   6. Create a custom subagent manually:

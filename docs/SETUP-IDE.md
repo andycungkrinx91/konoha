@@ -16,6 +16,10 @@
 | **Windows (WSL)** | Same as Linux | Same as Linux | Recommended: use WSL2 |
 | **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Use `python` |
 
+### RTK (Rust Token Killer) — Token-Optimized Shell
+
+If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to both `~/.gemini/antigravity-cli/rules/rtk.md` and `~/.gemini/antigravity-ide/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
+
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
@@ -24,7 +28,7 @@
 > If you prefer a manual setup or want to perform a clean initialization, run:
 
 ```bash
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 This manual script or the auto-setup routine will:
@@ -155,7 +159,7 @@ The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v1.1.7`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: As of `v2.0.0`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:

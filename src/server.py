@@ -58,7 +58,17 @@ CLAUDE_PROJECTS = os.path.join(CLAUDE_DIR, "projects")
 USER_AGENTS_YAML = os.path.join(AGENTS_DIR, "agents.yaml")
 
 WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", os.environ.get("KONOHA_WORKSPACE", os.getcwd()))
-ACTIVE_CLIENT = os.environ.get("ACTIVE_CLIENT", os.environ.get("KONOHA_CLIENT", "antigravity"))
+ACTIVE_CLIENT = os.environ.get("ACTIVE_CLIENT", os.environ.get("KONOHA_CLIENT", None))
+
+
+def normalize_legacy_skill_name(skill):
+    if not isinstance(skill, str):
+        return skill
+    if skill == "deep-code-explorer":
+        return "genin-skill"
+    if skill.startswith("deep-code-explorer/"):
+        return "genin-skill/" + skill[len("deep-code-explorer/"):]
+    return skill
 
 
 def konoha_tmp(client: str, session_id: str) -> str:
@@ -337,6 +347,23 @@ def _migrate_skill(conn, skill_name, skills_dir):
     return count
 
 
+def _normalize_legacy_skill_names(conn):
+    rows = conn.execute(
+        "SELECT name, skill_name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'"
+    ).fetchall()
+    for name, skill_name in rows:
+        new_name = normalize_legacy_skill_name(name)
+        new_skill_name = normalize_legacy_skill_name(skill_name)
+        existing = conn.execute("SELECT 1 FROM skills WHERE name = ?", (new_name,)).fetchone()
+        if existing:
+            conn.execute("DELETE FROM skills WHERE name = ?", (name,))
+        else:
+            conn.execute(
+                "UPDATE skills SET name = ?, skill_name = ? WHERE name = ?",
+                (new_name, new_skill_name, name),
+            )
+
+
 def migrate_skills(force=False, skills=None, skills_dir=None):
     """Re-index all skills in ~/.agents/skills into the SQLite FTS5 database.
     Returns a summary of what was migrated."""
@@ -345,6 +372,8 @@ def migrate_skills(force=False, skills=None, skills_dir=None):
 
     if skills_dir is None:
         skills_dir = os.path.expanduser("~/.agents/skills/")
+    if skills:
+        skills = [normalize_legacy_skill_name(skill) for skill in skills]
     if not os.path.isdir(skills_dir):
         return json.dumps({"status": "error", "message": f"Skills directory not found: {skills_dir}"})
 
@@ -360,6 +389,7 @@ def migrate_skills(force=False, skills=None, skills_dir=None):
         total += count
         migrated.append(skill_name)
 
+    _normalize_legacy_skill_names(conn)
     conn.commit()
 
     cursor = conn.execute("SELECT COUNT(*) FROM skills")
@@ -447,21 +477,26 @@ def detect_active_client():
         if ACTIVE_CLIENT:
             return ACTIVE_CLIENT
 
+        if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
+            return "claudecode"
+
+        if os.environ.get("OPENCODE_CLIENT") == "1" or os.environ.get("OPENCODE_SESSION") == "1":
+            return "opencode"
+
+        if os.environ.get("COMMANDCODE_CLIENT") == "1" or os.environ.get("COMMANDCODE_SESSION") == "1":
+            return "commandcode"
+
         # Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
         conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
         if conv_id:
+            if os.environ.get("ANTIGRAVITY_LS_VERSION", "").startswith("cli"):
+                return "agy"
             cli_dir = os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id)
             if os.path.isdir(cli_dir):
                 return "agy"
             ide_dir = os.path.join(ANTIGRAVITY_IDE_BRAIN, conv_id)
             if os.path.isdir(ide_dir):
                 return "antigravity"
-
-        if os.environ.get("OPENCODE_CLIENT") == "1" or os.environ.get("OPENCODE_SESSION") == "1":
-            return "opencode"
-
-        if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
-            return "claudecode"
 
         if conv_id:
             return "antigravity"
@@ -610,6 +645,7 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
     """
     sys.stderr.write(f"[mcp konoha] tool_call: find_skill(keyword='{keyword}', limit={limit}, compact={compact})\n")
     sys.stderr.flush()
+    keyword = normalize_legacy_skill_name(keyword)
     conn = get_db()
 
     preview_limit = COMPACT_PREVIEW_LIMIT if compact else PREVIEW_LIMIT
@@ -748,6 +784,7 @@ def get_skill(name, agent_name=None):
     """Get the full content of a specific skill or reference by exact name."""
     sys.stderr.write(f"[mcp konoha] tool_call: get_skill(name='{name}')\n")
     sys.stderr.flush()
+    name = normalize_legacy_skill_name(name)
     conn = get_db()
     row = conn.execute("""
         SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
@@ -1212,9 +1249,22 @@ def build_from_source(name, source_dir, framework, agent_name=None):
             fpath = os.path.join(resolved_source_dir, m["filename"])
             absolute_image_paths.append(os.path.abspath(fpath))
 
-    directives.append("You MUST follow the package.json template, CSS variables, and routing rules from the embedded skill content below.")
-    directives.append("Use SvelteKit file-based routing (src/routes/) — NEVER hash-based SPA routing.")
-    directives.append("Install ALL packages from the template package.json including Tailwind V4, SweetAlert2, and svelte-check.")
+    directives.append("You MUST follow the package.json template, CSS variables, design-token manifest, and routing rules from the embedded skill content below.")
+    if "next" in fw_lower_src or "react" in fw_lower_src:
+        directives.append("Use Next.js App Router under app/ — NEVER hash-based SPA routing.")
+        directives.append("Install the template dependencies including Tailwind CSS, ESLint, and the framework's production build tools.")
+    elif "svelte" in fw_lower_src:
+        directives.append("Use SvelteKit file-based routing under src/routes/ — NEVER hash-based SPA routing.")
+        directives.append("Install the template dependencies including Tailwind CSS, ESLint, Prettier, and svelte-check.")
+    elif "nuxt" in fw_lower_src:
+        directives.append("Use Nuxt file-based routing under pages/ and layouts/ — NEVER hash-based SPA routing.")
+        directives.append("Install the template dependencies including Tailwind CSS, ESLint, and Nuxt build tools.")
+    elif "angular" in fw_lower_src:
+        directives.append("Use standalone Angular Router with app.routes.ts — NEVER hash-based SPA routing.")
+        directives.append("Install the template dependencies including Tailwind CSS, ESLint, and Angular build tools.")
+    else:
+        directives.append("Use framework-native routing — NEVER hash-based SPA routing.")
+    directives.append("Provide pnpm run lint and pnpm run build scripts; SvelteKit must also provide pnpm run check. All validation must finish with zero errors and zero warnings.")
 
     # Load critical skill content
     skill_blocks = []
@@ -1693,7 +1743,11 @@ def get_konoha_tmp_root():
     Never returns a path inside the user's project directory, so accidental
     `git add` of transient agent files is impossible.
     """
-    client = ACTIVE_CLIENT or "unknown"
+    client = ACTIVE_CLIENT
+    if not client:
+        client = detect_active_client()
+    if not client:
+        client = "unknown"
     sess = ""
     try:
         sess = get_active_session_id()
@@ -1779,6 +1833,7 @@ def _fuzzy_resolve_skill(requested, conn, max_distance=3):
     against the `skills` table (skill_name column). Returns the resolved
     skill_name, or None if no candidate is close enough.
     """
+    requested = normalize_legacy_skill_name(requested)
     row = conn.execute(
         "SELECT content FROM skills WHERE skill_name = ? AND type = 'skill'",
         (requested,),
@@ -1863,7 +1918,7 @@ def apply_file_edits(content):
                         with open(file_path, "w", encoding="utf-8") as f:
                             f.write(new_content)
 
-def run_mcp_sannin(prompt=None, task_dir=None):
+def run_sannin(prompt=None, task_dir=None):
     import json
     import os
     import urllib.request
@@ -2945,12 +3000,19 @@ def handle_request(req):
             ACTIVE_CLIENT = "claudecode"
         elif "opencode" in client_name:
             ACTIVE_CLIENT = "opencode"
+        elif "commandcode" in client_name:
+            ACTIVE_CLIENT = "commandcode"
         elif "antigravity-cli" in client_name or "agy" in client_name:
             ACTIVE_CLIENT = "agy"
         elif "antigravity" in client_name or "ide" in client_name:
             conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
-            if conv_id and os.path.isdir(os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id)):
-                ACTIVE_CLIENT = "agy"
+            if conv_id:
+                if os.environ.get("ANTIGRAVITY_LS_VERSION", "").startswith("cli"):
+                    ACTIVE_CLIENT = "agy"
+                elif os.path.isdir(os.path.join(ANTIGRAVITY_CLI_BRAIN, conv_id)):
+                    ACTIVE_CLIENT = "agy"
+                else:
+                    ACTIVE_CLIENT = "antigravity"
             else:
                 ACTIVE_CLIENT = "antigravity"
         else:
@@ -3086,6 +3148,20 @@ def handle_request(req):
                                 }
                             },
                             "required": []
+                        }
+                    },
+                    {
+                        "name": "build_with_image_design",
+                        "description": "Compatibility alias for image/mockup-driven builds. Analyzes a source directory and preserves source fidelity without applying the default text-build theme template.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Name of the project to build."},
+                                "source_dir": {"type": "string", "description": "Relative or absolute path to the image/design source directory."},
+                                "framework": {"type": "string", "description": "The target framework (e.g. 'nextjs' or 'svelte')."},
+                                "agent": {"type": "string", "description": "Name of the calling agent."}
+                            },
+                            "required": ["name", "source_dir", "framework"]
                         }
                     },
                     {
@@ -3324,7 +3400,7 @@ def handle_request(req):
         elif tool_name == "optimize_report":
             keyword = args.get("keyword")
             result_text = optimize_report(keyword=keyword, agent_name=agent)
-        elif tool_name == "build_from_source":
+        elif tool_name in ("build_with_image_design", "build_from_source"):
             name = args.get("name")
             source_dir = args.get("source_dir")
             framework = args.get("framework")
@@ -3345,7 +3421,7 @@ def handle_request(req):
         elif tool_name == "sannin":
             prompt = args.get("prompt")
             task_dir = args.get("task_dir")
-            result_text = run_mcp_sannin(prompt=prompt, task_dir=task_dir)
+            result_text = run_sannin(prompt=prompt, task_dir=task_dir)
         elif tool_name in ("kage", "jonin", "anbu", "chunin", "tokubetsu_jonin", "genin"):
             task_dir = args.get("task_dir")
             result_text = run_mcp_agent(agent_name=tool_name, task_dir=task_dir)

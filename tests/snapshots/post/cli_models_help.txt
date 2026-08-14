@@ -1,4 +1,6 @@
-🤖 Antigravity Models Management Help 🤖
+› Konoha models
+
+  🤖 Antigravity Models Management Help 🤖
   ========================================================================
   This command lets you view and configure which large language models (LLMs) are used
   by your subagents. Using smaller, faster models for simple tasks and large models
@@ -10,26 +12,16 @@ USAGE
 
 SUBCOMMANDS
   list                                           List all available Antigravity model tiers and current agent mapping.
-  embed <agent-name> <model-expression> [options]    Set the model for an agent (supports fallback expressions).
-                                                      Options:
-                                                        --cursor    Configure for Cursor IDE/CLI
-                                                        --claude    Configure for Claude Code
   reset                                          Clear local usage logs in sqlite db to restore model quotas.
 
 MODEL EXPRESSIONS
   You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor):
-  - Single model: "Gemini 3.1 Flash-Lite"
-  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
+  - Single model: "Claude Sonnet 4.6 (Thinking)"
+  - With fallback: "Claude Opus 4.6 (Thinking) | Fallback when fail Gemini 3.5 Flash (Low)"
 
 EXAMPLES FOR BEGINNERS
   1. List all models and their current assignments:
      konoha models list
 
-  2. Manually set @chunin's model with a fallback:
-     konoha models embed chunin "Claude Sonnet 4.6 (Thinking) | Fallback when fail Gemini 3.1 Flash-Lite"
-
-  3. Set Cursor model for @chunin:
-     konoha models embed chunin "Gemini 3.5 Flash (Low)" --cursor
-
-  4. Reset local usage logs and model quotas:
+  2. Reset local usage logs and model quotas:
      konoha models reset

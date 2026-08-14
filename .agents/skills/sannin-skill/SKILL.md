@@ -41,27 +41,27 @@ Before entering any pipeline branch, you MUST classify the user's request to det
 You MUST follow this exact sequential workflow:
 
 ### Step 1: Deep Research (Chunin)
-- **Action**: Delegate to `mcp_chunin`.
+- **Action**: Delegate to `chunin`.
 - **Goal**: Perform deep web research and internet search regarding the user's prompt.
 - **Output**: Chunin suggests what is needed and reports back.
 
 ### Step 2: Code Exploration (Genin)
-- **Action**: Delegate to `mcp_genin`.
+- **Action**: Delegate to `genin`.
 - **Goal**: Perform deep code exploration based on Chunin's knowledge.
 - **Output**: Genin searches files and reports back.
 
 ### Step 3: Architecture & Planning (Kage)
-- **Action**: Delegate to `mcp_kage`.
-- **Goal**: Review suggestions and formulate architecture/design/todo plans. Kage MUST explicitly select the specific executor `mcp_<agentname>` (e.g., Jonin or Anbu).
+- **Action**: Delegate to `kage`.
+- **Goal**: Review suggestions and formulate architecture/design/todo plans. Kage MUST explicitly select the specific executor (`@<agentname>` e.g., Jonin or Anbu).
 - **Output**: Kage reports back.
 
 ### Step 4: Execution (Chosen Executor)
-- **Action**: Delegate to the specific `mcp_<agentname>` designated by Kage.
+- **Action**: Delegate to the specific `@<agentname>` designated by Kage.
 - **Goal**: Execute the task based entirely on Kage's plan.
 - **Output**: The executor completes the implementation and reports back.
 
 ### Step 5: Documentation & Refinement (Tokubetsu-Jonin)
-- **Action**: Delegate to `mcp_tokubetsu_jonin`.
+- **Action**: Delegate to `tokubetsu_jonin`.
 - **Goal**: Refine the report and create/review docs.
 - **Output**: Tokubetsu-Jonin reports back.
 
@@ -77,14 +77,14 @@ You MUST completely BYPASS Chunin, Genin, and Kage to prevent losing premium UI 
 - **Action**: Call `konoha.build_from_text` (or `build_from_source`) to generate the premium templates and constraints.
 
 ### Step 2: Execution (Jonin)
-- **Action**: Pass the `build_from_text` output DIRECTLY into the constraints of `delegate.md` and call `mcp_jonin`. Do NOT call Chunin, Genin, or Kage.
+- **Action**: Pass the `build_from_text` output DIRECTLY into the constraints of `delegate.md` and call `jonin`. Do NOT call Chunin, Genin, or Kage.
 - **Goal**: Build the premium UI following the generated specifications.
 
 ### Step 3: Documentation
-- **Action**: Delegate to `mcp_tokubetsu_jonin` to document.
+- **Action**: Delegate to `tokubetsu_jonin` to document.
 
 ### Step 4: Final Report
 - **Action**: Sannin outputs the final summary to the user.
 
 ## Delegation Mechanics
-To delegate a task in any step, Sannin resolves a task directory via `konoha.get_resolved_task_dir`, creates a `delegate.md` file passing along the accumulated knowledge from previous steps, and invokes the `mcp_<agentname>` tool. Sannin then adopts the returned persona to execute the step, writes findings to `result.md`, and loops back until Step 6 is reached.
+To delegate a task in any step, Sannin resolves a task directory via `konoha.get_resolved_task_dir`, creates a `delegate.md` file passing along the accumulated knowledge from previous steps, and invokes the `@<agentname>` tool. Sannin then adopts the returned persona to execute the step, writes findings to `result.md`, and loops back until Step 6 is reached.

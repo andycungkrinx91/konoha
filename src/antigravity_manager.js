@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('child_process');
 
 // Self-contained: derive paths from HOME rather than importing bin/lib/paths.
 const HOME = os.homedir();
@@ -49,13 +50,15 @@ function processAgentInstructions(agent) {
 
   if (agent.skills && agent.skills.length > 0) {
     const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
     const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
     const logMatch = instructions.match(logPattern);
     if (logMatch) {
       const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
     } else {
-      instructions = `Before work: ${findSkillCalls} ` + instructions;
+      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
     }
   }
   return instructions;
@@ -73,7 +76,6 @@ function buildAgentJson(agent) {
     description: agent.description,
     config: {
       customAgent: {
-        model: agent.modelTier,
         systemPromptSections: [
           {
             title: 'Agent System Instructions',
@@ -147,7 +149,6 @@ function buildDefineSubagentArgs(agent) {
     name: agent.name,
     description: agent.description,
     system_prompt: processedInstructions,
-    model: agent.modelTier,
     enable_mcp_tools: true,
     enable_write_tools: agentAllowsWriteTools(agent),
     enable_subagent_tools: false,
@@ -174,6 +175,38 @@ function removeAntigravityAgents() {
   }
 }
 
+function deployAntigravityRtkRule(silent = true) {
+  if (!isRtkInstalled()) {
+    return { ok: false, reason: 'rtk-not-installed' };
+  }
+  const src = path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
+  if (!fs.existsSync(src)) {
+    return { ok: false, reason: 'rtk-rule-template-missing' };
+  }
+
+  const targets = [
+    path.join(HOME, '.gemini', 'antigravity-cli', 'rules', 'rtk.md'),
+    path.join(HOME, '.gemini', 'antigravity-ide', 'rules', 'rtk.md')
+  ];
+
+  let deployed = 0;
+  for (const dest of targets) {
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+      deployed++;
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (!silent && deployed > 0) {
+    console.log(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)`);
+  }
+
+  return { ok: deployed > 0, deployed };
+}
+
 function ensureAntigravityMcpSchemas(agents) {
   const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
   if (!fs.existsSync(schemaDir)) {
@@ -182,7 +215,7 @@ function ensureAntigravityMcpSchemas(agents) {
 
   const subagentsInfo = [
     {
-      name: 'mcp_sannin',
+      name: 'sannin',
       description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.',
       parameters: {
         type: 'object',
@@ -193,7 +226,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_kage',
+      name: 'kage',
       description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.',
       parameters: {
         type: 'object',
@@ -203,7 +236,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_jonin',
+      name: 'jonin',
       description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.',
       parameters: {
         type: 'object',
@@ -213,7 +246,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_anbu',
+      name: 'anbu',
       description: 'Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.',
       parameters: {
         type: 'object',
@@ -223,7 +256,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_chunin',
+      name: 'chunin',
       description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.',
       parameters: {
         type: 'object',
@@ -233,7 +266,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_tokubetsu_jonin',
+      name: 'tokubetsu_jonin',
       description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.',
       parameters: {
         type: 'object',
@@ -243,7 +276,7 @@ function ensureAntigravityMcpSchemas(agents) {
       }
     },
     {
-      name: 'mcp_genin',
+      name: 'genin',
       description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.',
       parameters: {
         type: 'object',
@@ -257,6 +290,44 @@ function ensureAntigravityMcpSchemas(agents) {
   for (const info of subagentsInfo) {
     const filePath = path.join(schemaDir, `${info.name}.json`);
     fs.writeFileSync(filePath, JSON.stringify(info, null, 2) + '\n', 'utf8');
+  }
+}
+
+function isRtkInstalled() {
+  try {
+    const res = spawnSync('rtk', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000
+    });
+    return res.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function ensureRtkInstalled(silent = true) {
+  if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
+
+  const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
+  try {
+    const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    if (available.status !== 0) {
+      return { ok: false, reason: 'cargo-not-installed' };
+    }
+    const result = spawnSync(cargo, ['install', 'rtk', '--locked'], {
+      encoding: 'utf-8',
+      timeout: 600000,
+      stdio: silent ? 'ignore' : 'inherit'
+    });
+    if (result.status === 0) {
+      const cargoBin = path.join(HOME, '.cargo', 'bin');
+      const localBin = path.join(HOME, '.local', 'bin');
+      process.env.PATH = [cargoBin, localBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
+      if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+    }
+    return { ok: false, reason: 'rtk-install-failed' };
+  } catch (error) {
+    return { ok: false, reason: 'rtk-install-failed', error: error.message };
   }
 }
 
@@ -313,7 +384,8 @@ function getAntigravityStatus() {
     mcpSemble,
     hasHooks,
     agentsCount,
-    schemasCount
+    schemasCount,
+    rtkInstalled: isRtkInstalled()
   };
 }
 
@@ -323,6 +395,9 @@ module.exports = {
   buildDefineSubagentArgs,
   ensureAntigravityAgents,
   ensureAntigravityMcpSchemas,
+  isRtkInstalled,
+  ensureRtkInstalled,
+  deployAntigravityRtkRule,
   getAntigravityStatus,
   removeAntigravityAgents,
 };

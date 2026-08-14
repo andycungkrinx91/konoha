@@ -24,7 +24,7 @@ mitre_attack:
 
 ## Overview
 
-Hayabusa (隼, Japanese for "peregrine falcon") is a Sigma-based threat-hunting and fast-forensics timeline generator for Windows event logs, developed by Yamato Security in Rust. It parses `.evtx` files (offline or via live analysis of a local host), applies a large built-in library of Sigma detection rules plus Hayabusa-specific rules, and produces a single, readable, chronological timeline of high-signal events with severity levels, MITRE ATT&CK tactics, and rule references. This collapses thousands of raw event-log records into a prioritized incident timeline that an analyst can review quickly.
+Hayabusa is a Sigma-based threat-hunting and fast-forensics timeline generator for Windows event logs, developed by Yamato Security in Rust. It parses `.evtx` files (offline or via live analysis of a local host), applies a large built-in library of Sigma detection rules plus Hayabusa-specific rules, and produces a single, readable, chronological timeline of high-signal events with severity levels, MITRE ATT&CK tactics, and rule references. This collapses thousands of raw event-log records into a prioritized incident timeline that an analyst can review quickly.
 
 Hayabusa is purpose-built for DFIR triage. Instead of loading EVTX into a SIEM, an investigator runs a single binary against a directory of collected logs and gets a CSV or JSON timeline plus metrics (events per computer, per Event ID, per channel). Because detections are Sigma-based, coverage tracks the open detection-engineering community, and rules can be updated on demand with `update-rules`. The tool's output integrates with downstream analysis: CSV opens in Timeline Explorer, JSONL feeds into `jq`, and `timesketch-*` profiles export directly into Timesketch.
 

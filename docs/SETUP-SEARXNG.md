@@ -8,16 +8,46 @@ This guide covers the architecture, setup, configuration, and troubleshooting fo
 
 To eliminate the need for API keys, subscription limits, and manual credential management, Konoha uses a fallback-based search chain that dynamically queries multiple public endpoints:
 
+> **Canonical editable diagram:** [05 Search Fallback Chain](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md).
+
 ```mermaid
-graph TD
-    Query([Search Query]) --> S1{1. Public SearXNG}
-    S1 -->|Success| Return[Format Citations]
-    S1 -->|429/Empty/Fail| S2{2. DuckDuckGo HTML}
-    S2 -->|Success| Return
-    S2 -->|Captcha/Empty/Fail| S3{3. Startpage HTML}
-    S3 -->|Success| Return
-    S3 -->|Empty/Fail| S4[4. Wikipedia OpenSearch]
-    S4 --> Return
+---
+title: Zero-API-Key Search Fallback Chain
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#d1fae5'
+    primaryTextColor: '#065f46'
+    primaryBorderColor: '#059669'
+    lineColor: '#64748b'
+    secondaryColor: '#ccfbf1'
+    tertiaryColor: '#fef3c7'
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  flowchart:
+    nodeSpacing: 80
+    rankSpacing: 100
+    padding: 32
+    wrappingWidth: 320
+---
+flowchart TD
+    Query([Search Query]) --> Searx{1. Public<br/>SearXNG}
+    Searx -->|Success| Return[Format citations]
+    Searx -->|429 / empty / fail| DDG{2. DuckDuckGo<br/>HTML}
+    DDG -->|Success| Return
+    DDG -->|Captcha / empty / fail| Startpage{3. Startpage<br/>HTML}
+    Startpage -->|Success| Return
+    Startpage -->|Empty / fail| Wikipedia[4. Wikipedia<br/>OpenSearch]
+    Wikipedia --> Return
+
+    classDef input fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef primary fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
+    classDef fallback fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+    classDef final fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    class Query input
+    class Searx primary
+    class DDG,Startpage fallback
+    class Wikipedia,Return final
 ```
 
 ---

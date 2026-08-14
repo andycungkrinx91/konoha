@@ -195,8 +195,9 @@ function installFileTools(silent = true, pythonCmd = null) {
     copyRecursiveIfDifferent(srcBridgeDir, destBridgeDir);
 
     try {
-      const { execSync } = require("child_process");
+      const { execFileSync } = require("child_process");
       const pkgPath = path.join(SKILLS_DB_DIR, "package.json");
+      const nodeModulesPath = path.join(SKILLS_DB_DIR, "node_modules");
       if (!fileExists(pkgPath)) {
         fs.writeFileSync(
           pkgPath,
@@ -204,6 +205,7 @@ function installFileTools(silent = true, pythonCmd = null) {
             {
               name: "konoha-runtime",
               version: "1.0.0",
+              private: true,
               dependencies: {
                 "@bufbuild/protobuf": "^2.11.0",
               },
@@ -213,14 +215,17 @@ function installFileTools(silent = true, pythonCmd = null) {
           ) + "\n",
         );
       }
-      execSync("npm install --no-audit --no-fund", {
-        cwd: SKILLS_DB_DIR,
-        stdio: "ignore",
-      });
+      if (!fileExists(nodeModulesPath)) {
+        const manager = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+        execFileSync(manager, ["install", "--prod", "--no-frozen-lockfile"], {
+          cwd: SKILLS_DB_DIR,
+          stdio: "ignore",
+        });
+      }
     } catch (err) {
       if (!silent) {
         console.warn(
-          `[warning] Failed to install npm dependencies in ~/.konoha: ${err.message}`,
+          `[warning] Failed to install Konoha runtime dependencies with pnpm in ~/.konoha: ${err.message}`,
         );
       }
     }

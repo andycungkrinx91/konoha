@@ -17,7 +17,7 @@ POST = ROOT / "snapshots" / (sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] ==
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 RGB = re.compile(r"\x1b\[(?:38;2|48;2);[\d;]+m")
-HOME = os.environ.get("HOME", "/home/andycungkrinx")
+HOME = os.environ.get("HOME", os.path.expanduser("~"))
 HOME_RE = re.compile(re.escape(HOME))
 PID_RE = re.compile(r"\bpid[=:]\s*\d+", re.IGNORECASE)
 TS_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b")

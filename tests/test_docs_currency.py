@@ -82,9 +82,9 @@ def check_md_file(filename, checks):
 def check_arch_tools_list(content, filename):
     """ARCHITECTURE.md should mention all major tool categories."""
     expected_tools = ["find_skill", "list_skills", "get_skill", "optimize_report",
-                      "build_from_source", "build_from_text", "web_search",
-                      "mcp_sannin", "mcp_kage", "mcp_jonin", "mcp_anbu",
-                      "mcp_chunin", "mcp_tokubetsu_jonin", "mcp_genin"]
+                      "build_with_image_design", "build_from_source", "build_from_text", "web_search",
+                      "sannin", "kage", "jonin", "anbu",
+                      "chunin", "tokubetsu_jonin", "genin"]
     missing = [t for t in expected_tools if t not in content]
     if missing:
         return {"type": "MISSING_TOOLS", "detail": f"Missing from {filename}: {missing}"}
@@ -147,6 +147,9 @@ def main():
         sys.exit(1)
 
     actual_file_tools = parse_tool_names_from_router(router_path)
+    if "search_file" in actual_file_tools:
+        print("ERROR: search_file must be provided by Semble MCP, not Konoha file-tools", file=sys.stderr)
+        sys.exit(1)
 
     print(f"=== Konoha Documentation Currency Test ===")
     print(f"Konoha tools from server.py: {actual_tools}")

@@ -64,7 +64,7 @@ class TestDelegationChain(unittest.TestCase):
     def test_sannin_no_prompt_returns_error(self):
         td = tempfile.mkdtemp()
         try:
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
             self.assertTrue(err or resp.get("status") == "error")
         finally:
             shutil.rmtree(td, ignore_errors=True)
@@ -74,8 +74,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Build a responsive SvelteKit dashboard page with Tailwind CSS")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_jonin")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "jonin")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -84,8 +84,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Debug the API endpoint middleware error handling")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_anbu")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "anbu")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -94,8 +94,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Research the latest web search best practices for evidence synthesis")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_chunin")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "chunin")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -104,8 +104,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Security audit and architecture risk assessment of the auth system")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_kage")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "kage")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -114,8 +114,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("do something complicated with no keywords")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_kage")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "kage")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -124,8 +124,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Write a PRD and technical documentation for the new feature")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_tokubetsu_jonin")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "tokubetsu_jonin")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -134,8 +134,8 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("explore the codebase trace the auth flow find call graph")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
-            self.assertEqual(resp.get("selected_agent"), "mcp_genin")
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
+            self.assertEqual(resp.get("selected_agent"), "genin")
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
@@ -146,7 +146,7 @@ class TestDelegationChain(unittest.TestCase):
     def test_agent_requires_delegate_md(self):
         td = tempfile.mkdtemp()
         try:
-            resp, err = self._unwrap(self._call("mcp_kage", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("kage", {"task_dir": td}))
             self.assertTrue(err or resp.get("status") == "error")
         finally:
             shutil.rmtree(td, ignore_errors=True)
@@ -156,7 +156,7 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "delegate.md"), "w") as f:
                 f.write("---\ntitle: Test\n---\nAnalyze database migration.")
-            resp, err = self._unwrap(self._call("mcp_kage", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("kage", {"task_dir": td}))
             self.assertFalse(err)
             self.assertEqual(resp.get("status"), "ready")
             self.assertIn("kage", resp.get("agent", ""))
@@ -175,7 +175,7 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "delegate.md"), "w") as f:
                 f.write("Implement database migration.")
-            resp, err = self._unwrap(self._call("mcp_anbu", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("anbu", {"task_dir": td}))
             self.assertFalse(err)
             self.assertEqual(resp.get("status"), "ready")
             instructions = resp.get("instructions", "")
@@ -193,7 +193,7 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "delegate.md"), "w") as f:
                 f.write("Fix the login endpoint bug.")
-            resp, err = self._unwrap(self._call("mcp_anbu", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("anbu", {"task_dir": td}))
             instructions = resp.get("instructions", "")
             self.assertGreater(len(instructions), 500,
                                f"Instructions too short: {len(instructions)}")
@@ -206,7 +206,7 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "delegate.md"), "w") as f:
                 f.write("Explore the auth flow codebase.")
-            resp, err = self._unwrap(self._call("mcp_genin", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("genin", {"task_dir": td}))
             self.assertFalse(err)
             instructions = resp.get("instructions", "")
             # Genin has skill references from the DB
@@ -224,7 +224,7 @@ class TestDelegationChain(unittest.TestCase):
         try:
             with open(os.path.join(td, "result.md"), "w") as f:
                 f.write("# Done\n\nFixed the bug.")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
             self.assertFalse(err)
             self.assertEqual(resp.get("status"), "completed")
             self.assertEqual(resp.get("phase"), "result")
@@ -269,14 +269,14 @@ class TestDelegationChain(unittest.TestCase):
             # Step 1: Sannin routes
             with open(os.path.join(td, "prompt.md"), "w") as f:
                 f.write("Fix the database migration schema error in production deployment.")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
             self.assertFalse(err)
-            self.assertEqual(resp.get("selected_agent"), "mcp_anbu")
+            self.assertEqual(resp.get("selected_agent"), "anbu")
 
             # Step 2: Anbu enriches from DB
             with open(os.path.join(td, "delegate.md"), "w") as f:
                 f.write("Fix the database migration by adding rollback support.")
-            resp, err = self._unwrap(self._call("mcp_anbu", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("anbu", {"task_dir": td}))
             self.assertFalse(err)
             self.assertEqual(resp.get("status"), "ready")
             self.assertGreater(len(resp.get("instructions", "")), 500)
@@ -285,7 +285,7 @@ class TestDelegationChain(unittest.TestCase):
             # Step 3: Sannin returns result
             with open(os.path.join(td, "result.md"), "w") as f:
                 f.write("# Migration Fix Applied\n\nAdded rollback support.")
-            resp, err = self._unwrap(self._call("mcp_sannin", {"task_dir": td}))
+            resp, err = self._unwrap(self._call("sannin", {"task_dir": td}))
             self.assertFalse(err)
             self.assertEqual(resp.get("status"), "completed")
             self.assertIn("Migration Fix", resp.get("result", ""))

@@ -19,7 +19,7 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 const readline = require("readline");
 
 const SERVER_NAME = "konoha";
-const SERVER_VERSION = "1.1.6";
+const SERVER_VERSION = "2.0.0";
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
@@ -50,13 +50,107 @@ const { spawn } = require("child_process");
 const PYTHON_CMD = process.env.PYTHON_CMD || "python3";
 const SAVINGS_LOGGER = path.join(__dirname, "tools_savings_logger.py");
 
+let activeClient = null;
+
+/**
+ * Detect active MCP client from environment variables (same logic as server.py detect_active_client).
+ * Used as fallback when clientInfo is not available (e.g. standalone gateway mode).
+ */
+function detect_active_client_from_env() {
+  try {
+    const os = require("os");
+    const HOME = os.homedir();
+    const ANTIGRAVITY_CLI_BRAIN = path.join(HOME, ".gemini", "antigravity-cli", "brain");
+    const ANTIGRAVITY_IDE_BRAIN = path.join(HOME, ".gemini", "antigravity-ide", "brain");
+    const CURSOR_PROJECTS = path.join(HOME, ".cursor", "projects");
+    const CLAUDE_PROJECTS = path.join(HOME, ".claude", "projects");
+
+    // Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
+    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+    if (convId) {
+      const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
+      const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
+      if (require("fs").existsSync(cliDir)) return "agy";
+      if (require("fs").existsSync(ideDir)) return "antigravity";
+    }
+
+    if (process.env.OPENCODE_CLIENT === "1" || process.env.OPENCODE_SESSION === "1") {
+      return "opencode";
+    }
+
+    if (process.env.COMMANDCODE_CLIENT === "1" || process.env.COMMANDCODE_SESSION === "1") {
+      return "commandcode";
+    }
+
+    if (process.env.CLAUDE_CODE_CHILD_SESSION === "1") {
+      return "claudecode";
+    }
+
+    if (convId) return "antigravity";
+
+    // Fallback to file detection (same as server.py)
+    const { execSync } = require("child_process");
+    const files = [];
+    [
+      ANTIGRAVITY_IDE_BRAIN,
+      ANTIGRAVITY_CLI_BRAIN,
+      CURSOR_PROJECTS,
+      CLAUDE_PROJECTS,
+    ].forEach((brainDir) => {
+      if (!require("fs").existsSync(brainDir)) return;
+      const isCursor = brainDir.includes("cursor");
+      const isClaude = brainDir.includes("claude");
+      try {
+        if (isCursor) {
+          const out = execSync(
+            `find "${brainDir}" -name "*.jsonl" -path "*/agent-transcripts/*" 2>/dev/null | head -5`,
+            { encoding: "utf8" },
+          );
+          out.split("\n").filter(Boolean).forEach((f) => files.push(f));
+        } else if (isClaude) {
+          const out = execSync(
+            `find "${brainDir}" -name "*.jsonl" 2>/dev/null | head -5`,
+            { encoding: "utf8" },
+          );
+          out.split("\n").filter(Boolean).forEach((f) => files.push(f));
+        } else {
+          const out1 = execSync(
+            `find "${brainDir}" -name "prompt.md" 2>/dev/null | head -5`,
+            { encoding: "utf8" },
+          );
+          const out2 = execSync(
+            `find "${brainDir}" -path "*/.system_generated/logs/transcript.jsonl" 2>/dev/null | head -5`,
+            { encoding: "utf8" },
+          );
+          out1.split("\n").filter(Boolean).forEach((f) => files.push(f));
+          out2.split("\n").filter(Boolean).forEach((f) => files.push(f));
+        }
+      } catch (_) {}
+    });
+
+    if (!files.length) return "antigravity";
+    // Sort by mtime descending
+    files.sort((a, b) => {
+      const mtA = require("fs").statSync(a).mtimeMs;
+      const mtB = require("fs").statSync(b).mtimeMs;
+      return mtB - mtA;
+    });
+    const mostRecent = files[0];
+    if (mostRecent.includes("cursor")) return "cursor";
+    if (mostRecent.includes("claude")) return "claudecode";
+    if (mostRecent.includes("antigravity-cli")) return "agy";
+    return "antigravity";
+  } catch (_) {}
+  return "antigravity";
+}
+
 function logToolCallSavings(toolName, args, returnedBytes) {
   // Fire-and-forget: spawn detached so the stdio event loop never stalls.
   try {
     const queryStr = JSON.stringify(args || {}).slice(0, 500);
     spawn(
       PYTHON_CMD,
-      [SAVINGS_LOGGER, toolName, queryStr, String(returnedBytes)],
+      [SAVINGS_LOGGER, toolName, queryStr, String(returnedBytes), (activeClient || detect_active_client_from_env() || '')],
       { stdio: "ignore", detached: true },
     ).unref();
   } catch (_) {
@@ -82,6 +176,27 @@ function handleRequest(req) {
     const params = req.params || {};
     if (params.protocolVersion) {
       negotiatedProtocol = params.protocolVersion;
+    }
+
+    // Detect active client from clientInfo (mirrors server.py logic)
+    const client_info = params.clientInfo || {};
+    const client_name = (client_info.name || "").toLowerCase();
+    if (client_name.indexOf("cursor") !== -1) {
+      activeClient = "cursor";
+    } else if (client_name.indexOf("claude") !== -1) {
+      activeClient = "claudecode";
+    } else if (client_name.indexOf("opencode") !== -1) {
+      activeClient = "opencode";
+    } else if (client_name.indexOf("commandcode") !== -1) {
+      activeClient = "commandcode";
+    } else if (client_name.indexOf("antigravity-cli") !== -1 || client_name.indexOf("agy") !== -1) {
+      activeClient = "agy";
+    } else if (client_name.indexOf("antigravity") !== -1 || client_name.indexOf("ide") !== -1) {
+      activeClient = "antigravity";
+    }
+    // If clientInfo was empty/unknown, fall back to env-based detection
+    if (!activeClient) {
+      activeClient = detect_active_client_from_env();
     }
 
     let root = null;

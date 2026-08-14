@@ -98,18 +98,18 @@ test('root array of mappings (the agents.yaml root shape)', () => {
 test('root array of mappings containing nested arrays of scalars', () => {
   // This is THE shape agents.yaml has
   const y = [
-    '- name: mcp_genin',
+    '- name: genin',
     '  skills:',
     '    - genin-skill',
-    '- name: mcp_kage',
+    '- name: kage',
     '  skills:',
     '    - kage-skill',
     '    - delegate-skill',
     ''
   ].join('\n');
   assert.deepStrictEqual(parseYaml(y), [
-    { name: 'mcp_genin', skills: ['genin-skill'] },
-    { name: 'mcp_kage', skills: ['kage-skill', 'delegate-skill'] }
+    { name: 'genin', skills: ['genin-skill'] },
+    { name: 'kage', skills: ['kage-skill', 'delegate-skill'] }
   ]);
 });
 

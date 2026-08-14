@@ -33,7 +33,7 @@ const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', '
  * `test-*` debug agents) is purged by `cleanStaleSessionAgents` so it cannot
  * shadow the real roster and break `Agent(name: ...)` invocations.
  */
-const OFFICIAL_NINJAS = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+const OFFICIAL_NINJAS = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
 
 /**
  * Remove any directory under `base` whose name is NOT in the official ninja
@@ -99,7 +99,6 @@ function deploySessionAgents(agents, brainDir) {
         description: agent.description,
         instructions: agent.instructions,
         constraints: agent.constraints || '',
-        modelTier: agent.modelTier,
         skills: agent.skills || [],
       });
       fs.writeFileSync(path.join(destDir, 'agent.json'), JSON.stringify(payload, null, 2) + '\n', 'utf-8');

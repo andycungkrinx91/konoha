@@ -20,7 +20,7 @@ const out = process.argv[3] || 'pre';
 
 const ANSI = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const RGB = /\x1b\[(?:38;2|48;2);[\d;]+m/g;
-const HOME_RE = new RegExp(process.env.HOME || '/home/andycungkrinx', 'g');
+const HOME_RE = new RegExp(process.env.HOME || require('os').homedir(), 'g');
 const PID_RE = /\bpid[=:]\s*\d+/gi;
 const TS_RE = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g;
 const DURATION_RE = /\b\d+(?:\.\d+)?\s*(?:ms|s|sec|seconds)\b/gi;

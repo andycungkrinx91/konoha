@@ -8,31 +8,47 @@ This guide walks you through the step-by-step process of finding, installing, an
 
 The following diagram shows how skills from the registry are installed, indexed by `konoha`, and utilized by your agent team:
 
+> **Canonical editable diagram:** [06 Skill Registry Installation](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md).
+
 ```mermaid
 ---
-title: Skill Registry Installation & On-Demand Retrieval Flow
+title: Skill Registry Installation and On-Demand Retrieval
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#dbeafe'
+    primaryTextColor: '#1e3a8a'
+    primaryBorderColor: '#2563eb'
+    lineColor: '#64748b'
+    secondaryColor: '#e0e7ff'
+    tertiaryColor: '#d1fae5'
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  flowchart:
+    nodeSpacing: 90
+    rankSpacing: 110
+    padding: 32
+    wrappingWidth: 360
 ---
-sequenceDiagram
-    autonumber
-    actor Developer as 👤 Developer
-    participant Registry as 🌐 skills.sh (Registry)
-    participant Workspace as 💻 Workspace / Home Dir
-    participant DB as ⚙️ konoha (SQLite)
-    participant Agent as 🥷 Antigravity Agent
+flowchart LR
+    Developer([Developer]) --> Registry[skills.sh<br/>Git repository]
+    Registry --> Files[Workspace or Home<br/>.agents/skills/&lt;name&gt;]
+    Templates[src/templates/skills] --> Files
+    Files --> Migrate[konoha migrate<br/>--clean]
+    Migrate --> DB[(SQLite skills.db<br/>skills + skills_fts)]
+    Client[Any Supported<br/>Client] --> Find[find_skill(keyword)]
+    Find --> DB
+    DB --> Get[get_skill<br/>(canonical name)]
+    Get --> Client
 
-    Developer->>Registry: Browse & copy skill package (e.g. prd-creator)
-    Developer->>Workspace: Run "konoha skill add <repo-url> <name>"
-    Workspace->>Registry: Fetch skill contents
-    Registry-->>Workspace: Download & unpack skill to .agents/skills/
-    Workspace->>DB: Auto-trigger migration, shield prompt & FTS5 re-index
-    DB-->>Workspace: Database update complete
-    
-    Developer->>Agent: Prompt: "Generate a PRD for the user auth system"
-    Agent->>DB: MCP Call: find_skill('prd creator template')
-    Note over DB: Sanitize keyword & query SQLite FTS5
-    Note over DB: Shield prompt injection in retrieved content
-    DB-->>Agent: Return optimized relevant chunk (~4 KB)
-    Agent-->>Developer: Response using precise skill guidelines
+    classDef actor fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef source fill:#e0e7ff,stroke:#6366f1,color:#312e81
+    classDef process fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef runtime fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
+    class Developer,Client actor
+    class Registry,Files,Templates source
+    class Migrate process
+    class DB,Find,Get runtime
 ```
 
 ---

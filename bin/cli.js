@@ -3,7 +3,7 @@
 /**
  * konoha CLI
  * 
- * SQLite FTS5 Skills-DB installer for Antigravity IDE/CLI and Cursor IDE/CLI.
+ * MCP Tools Orchestrator installer for Antigravity IDE/CLI and Cursor IDE/CLI.
  * Migrates agent skills into a searchable MCP server to reduce token usage.
  *
  * Usage:
@@ -715,14 +715,14 @@ function divider() {
 }
 
 function startSpinner(text) {
-  log(`  ${C.cyan}ϟ${C.reset} ${text}`);
+  log(`  ${C.dim}›${C.reset} ${text}`);
   return {
     stop() {},
-    start(newText) { if (newText) log(`  ${C.cyan}ϟ${C.reset} ${newText}`); },
-    update(newText) { if (newText) log(`  ${C.cyan}ϟ${C.reset} ${newText}`); },
-    success(successText) { log(`  ${C.bold}${C.green}✓${C.reset} ${successText || text}`); },
-    warn(warnText) { log(`  ${C.bold}${C.yellow}⚠${C.reset} ${warnText || text}`); },
-    error(errText) { log(`  ${C.bold}${C.red}✗${C.reset} ${errText || text}`); },
+    start(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
+    update(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
+    success(successText) { log(`  ${C.green}✓${C.reset} ${successText || text}`); },
+    warn(warnText) { log(`  ${C.yellow}⚠${C.reset} ${warnText || text}`); },
+    error(errText) { log(`  ${C.red}✗${C.reset} ${errText || text}`); },
   };
 }
 
@@ -733,7 +733,7 @@ function drawLogo() {
     "| |/ /  / _ \\ | \\| | / _ \\ | || |   / \\  ",
     "| ' /  | | | || .` || | | || __ |  / _ \\ ",
     "|_|\\_\\  \\___/ |_|\\_| \\___/ |_||_| /_/ \\_\\",
-    `${C.bold}Konoha${C.reset} — SQLite FTS5 Skills-DB`,
+    `${C.bold}Konoha${C.reset} — MCP Tools Orchestrator`,
     `${C.dim}Token reduction: 83-98% via on-demand search${C.reset}`,
     `${C.dim}Maintainer: Andy Setiyawan${C.reset}`,
   ];
@@ -790,6 +790,22 @@ function checkPython() {
   return require('../src/platform_utils').detectPython();
 }
 
+function hasCompleteDatabaseSchema(python) {
+  if (!python || !fileExists(DB_PATH)) return false;
+  const script = [
+    'import sqlite3, sys',
+    'conn = sqlite3.connect(sys.argv[1])',
+    'required = {"skills", "skills_fts", "tool_calls", "active_sessions", "agents", "bridges"}',
+    'actual = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type=\\\'table\\\'")}',
+    'raise SystemExit(0 if required.issubset(actual) else 1)'
+  ].join('; ');
+  try {
+    return spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
 function detectSkillsDirs() {
   const found = [];
   for (const dir of DEFAULT_SKILLS_DIRS) {
@@ -826,17 +842,46 @@ function detectCustomSkills(skillsDir) {
   }
 }
 
+function hasCanonicalGeninSkill(skillsDir) {
+  return fileExists(path.join(skillsDir, 'genin-skill', 'SKILL.md'));
+}
+
+function verifySkillDatabaseContract(python, requiredSkill = 'genin-skill') {
+  if (!python || !fileExists(DB_PATH)) {
+    return { ok: false, reason: 'skills database is unavailable' };
+  }
+  const script = [
+    'import json, sqlite3, sys',
+    'conn = sqlite3.connect(sys.argv[1])',
+    'required = sys.argv[2]',
+    'has_required = bool(conn.execute("SELECT 1 FROM skills WHERE name = ?", (required,)).fetchone())',
+    'legacy = [row[0] for row in conn.execute("SELECT name FROM skills WHERE name LIKE \'deep-code-explorer%\' OR skill_name = \'deep-code-explorer\'")]',
+    'print(json.dumps({"has_required": has_required, "legacy": legacy}))'
+  ].join('; ');
+  try {
+    const result = spawnSync(python, ['-c', script, DB_PATH, requiredSkill], {
+      encoding: 'utf-8', timeout: 5000
+    });
+    if (result.status !== 0) {
+      return { ok: false, reason: (result.stderr || '').trim() || 'skill database query failed' };
+    }
+    const report = JSON.parse((result.stdout || '').trim());
+    if (!report.has_required) {
+      return { ok: false, reason: `required skill ${requiredSkill} is not indexed` };
+    }
+    if (report.legacy.length > 0) {
+      return { ok: false, reason: `legacy skill rows remain: ${report.legacy.join(', ')}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
 // ─── Transition Helper ────────────────────────────────────────────────────────
 
 async function chidoriTransition(command) {
-  // Quick gradient flash for command transitions
-  const lines = [
-    applyGradient(`Konoha > ${command} mode`, CHIDORI_THEME),
-  ];
-  lines.forEach(l => log(l));
-  // Brief pause for visual effect
-  await new Promise(r => setTimeout(r, 150));
-  log('');
+  log(`  ${C.dim}› Konoha ${command}${C.reset}`);
 }
 
 // ─── Commands ────────────────────────────────────────────────────────────────
@@ -845,7 +890,7 @@ async function cmdInit(args) {
   drawLogo();
   
   header('🚀 Konoha Installer');
-  log(`${C.dim}SQLite FTS5 Skills-DB for Antigravity IDE/CLI${C.reset}`);
+  log(`${C.dim}MCP Tools Orchestrator for Antigravity IDE/CLI${C.reset}`);
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
   let confirm;
@@ -855,7 +900,7 @@ async function cmdInit(args) {
       const prompts = await import('@inquirer/prompts');
       confirm = prompts.confirm;
     } catch (e) {
-      error('Could not load @inquirer/prompts. Please run "npm install".');
+      error('Could not load @inquirer/prompts. Please run "pnpm install".');
       process.exit(1);
     }
   }
@@ -873,6 +918,8 @@ async function cmdInit(args) {
   const allowHooks = true;
   const cursorInstalled = cursorManager.isCursorInstalled();
   const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
+  const openCodeInstalled = opencodeManager.isOpenCodeInstalled();
+  const commandCodeInstalled = mcpClientsManager.isCommandCodeInstalled();
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
   // 1. Ensure the directories exist
@@ -917,8 +964,8 @@ async function cmdInit(args) {
   }
 
   // 3. Check for existing installation
-  if (fileExists(SERVER_PATH) && fileExists(DB_PATH)) {
-    warn('Skills-DB already installed.');
+  if (fileExists(SERVER_PATH) && hasCompleteDatabaseSchema(python)) {
+    warn('Konoha MCP already installed.');
     info(`Database: ${DB_PATH}`);
     info(`Server:   ${SERVER_PATH}`);
     log('');
@@ -965,6 +1012,22 @@ async function cmdInit(args) {
           deployProject: true
         });
       }
+      if (openCodeInstalled) {
+        opencodeManager.ensureOpenCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
+      if (commandCodeInstalled) {
+        mcpClientsManager.ensureCommandCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
       success('Integrations refreshed.');
       return;
     }
@@ -972,6 +1035,11 @@ async function cmdInit(args) {
   }
 
   // 3. Detect skills directories
+  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
+    error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
+    process.exit(1);
+  }
   const spinner2 = startSpinner('Detecting skills directories...');
   const skillsDirs = detectSkillsDirs();
 
@@ -995,7 +1063,6 @@ async function cmdInit(args) {
   ensureDir(SKILLS_DB_DIR);
 
   // Copy basic subagent skills to global directory
-  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
   if (fileExists(pkgSkillsDir)) {
     ensureDir(globalSkillsDir);
@@ -1079,31 +1146,32 @@ async function cmdInit(args) {
   // Install Konoha Bridge extension for Antigravity IDE
   autoInstallKonohaBridgeExtension(true);
 
-  // 5. Run migration (seed default rank skills only)
-  if (fileExists(pkgSkillsDir)) {
-    header('📊 Seeding Default Subagent Skills to SQLite FTS5');
-    const skills = detectCustomSkills(pkgSkillsDir);
-    if (skills.length > 0) {
-      const spinnerMigrate = startSpinner(`Seeding default skills from: ${pkgSkillsDir}...`);
-      try {
-        const run = spawnSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
-        });
-        if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
-        spinnerMigrate.success('Default subagent skills seeded successfully.');
-      } catch (e) {
-        // Fallback: run without args (uses defaults in script)
-        try {
-          const runFallback = spawnSync(python, [MIGRATE_PATH], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
-          });
-          if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration fallback failed');
-          spinnerMigrate.success('Default subagent skills seeded successfully (fallback mode).');
-        } catch (e2) {
-          spinnerMigrate.error(`Failed to seed default skills: ${e2.message}`);
-        }
-      }
-    }
+  // 5. Run migration and always initialize the complete SQLite schema.
+  header('📊 Seeding Default Subagent Skills to SQLite FTS5');
+  const skills = fileExists(pkgSkillsDir) ? detectCustomSkills(pkgSkillsDir) : [];
+  const spinnerMigrate = startSpinner(skills.length > 0 ? `Seeding default skills from: ${pkgSkillsDir}...` : 'Initializing empty skills database schema...');
+  const migrationArgs = skills.length > 0
+    ? ['--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill']
+    : ['--clean', '--require-skill', 'genin-skill'];
+  const run = spawnSync(python, [MIGRATE_PATH, ...migrationArgs], {
+    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+  });
+  if (run.status !== 0) {
+    spinnerMigrate.error(`Failed to initialize skills database: ${run.stderr || run.stdout || 'Migration failed'}`);
+    process.exit(1);
+  }
+  const skillContract = verifySkillDatabaseContract(python);
+  if (!skillContract.ok) {
+    spinnerMigrate.error(`Skill database contract failed: ${skillContract.reason}`);
+    process.exit(1);
+  }
+  spinnerMigrate.success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
+  try {
+    const schemaCheck = spawnSync(python, ['-c', `import sqlite3; c=sqlite3.connect(${JSON.stringify(DB_PATH)}); names={r[0] for r in c.execute("select name from sqlite_master where type='table'")}; missing={'skills','skills_fts','tool_calls','active_sessions','agents','bridges'}-names; raise SystemExit(1 if missing else 0)`], { encoding: 'utf-8', timeout: 5000 });
+    if (schemaCheck.status !== 0) throw new Error('required SQLite schema is incomplete');
+  } catch (schemaError) {
+    error(`SQLite schema verification failed: ${schemaError.message}`);
+    process.exit(1);
   }
 
   // 6. Register MCP config
@@ -1125,8 +1193,9 @@ async function cmdInit(args) {
   agentManager.regenerateAndDeploy({ force: true, silent: true });
   spinner5.success('agents.yaml updated.');
 
-  // 8. Deploy RTK rules for Antigravity (if RTK is installed)
-  const rtkSpinner = startSpinner('Deploying RTK rules (Rust Token Killer)...');
+  // 8. Install and deploy RTK rules when the toolchain is available
+  const rtkSpinner = startSpinner('Checking RTK (Rust Token Killer)...');
+  const rtkInstall = antigravityManager.ensureRtkInstalled(false);
   const rtkResult = antigravityManager.deployAntigravityRtkRule(true);
   if (rtkResult.ok) {
     rtkSpinner.success(`RTK rules deployed to ${rtkResult.deployed} Antigravity location(s).`);
@@ -1142,7 +1211,7 @@ async function cmdInit(args) {
     header('🖱️  Configuring Cursor IDE/CLI');
     const spinner7 = startSpinner('Registering Cursor MCP, subagents, and hooks...');
     const uvxCmd = getUvxCommand();
-    cursorManager.ensureCursorSetup({
+    const cursorSetup = cursorManager.ensureCursorSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
       uvxCmd,
@@ -1154,7 +1223,8 @@ async function cmdInit(args) {
       ruleContent: null
     });
     cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
-    spinner7.success('Cursor IDE/CLI configured.');
+    if (cursorSetup.ok) spinner7.success('Cursor IDE/CLI configured.');
+    else spinner7.warn(`Cursor setup skipped: ${cursorSetup.reason || 'unknown error'}`);
   }
 
   // 10b. Configure Claude Code (when CLI detected)
@@ -1162,7 +1232,7 @@ async function cmdInit(args) {
     header('🤖 Configuring Claude Code');
     const spinnerClaude = startSpinner('Registering Claude Code MCP servers...');
     const uvxCmd = getUvxCommand();
-    mcpClientsManager.ensureClaudeCodeSetup({
+    const claudeSetup = mcpClientsManager.ensureClaudeCodeSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
       uvxCmd,
@@ -1172,9 +1242,36 @@ async function cmdInit(args) {
       projectRoot: currentCwd,
       deployProject: true
     });
-    spinnerClaude.success('Claude Code MCP configured.');
+    if (claudeSetup.ok) spinnerClaude.success('Claude Code MCP configured.');
+    else spinnerClaude.warn(`Claude Code setup skipped: ${claudeSetup.reason || 'unknown error'}`);
   } else if (!claudeInstalled) {
     info('Claude Code not detected — skip auto-setup (see docs/templates/claude-code.mcp.json if you install later).');
+  }
+
+  if (openCodeInstalled) {
+    header('🟢 Configuring OpenCode');
+    const spinnerOpenCode = startSpinner('Registering OpenCode MCP servers and RTK rules...');
+    const openCodeSetup = opencodeManager.ensureOpenCodeSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd: getUvxCommand(),
+      silent: true
+    });
+    if (openCodeSetup.ok) spinnerOpenCode.success('OpenCode MCP and RTK configured.');
+    else spinnerOpenCode.warn(`OpenCode setup skipped: ${openCodeSetup.reason || 'unknown error'}`);
+  }
+
+  if (commandCodeInstalled) {
+    header('⚡ Configuring Command Code');
+    const spinnerCommandCode = startSpinner('Registering Command Code MCP servers and RTK rules...');
+    const commandCodeSetup = mcpClientsManager.ensureCommandCodeSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd: getUvxCommand(),
+      silent: true
+    });
+    if (commandCodeSetup.ok) spinnerCommandCode.success('Command Code MCP and RTK configured.');
+    else spinnerCommandCode.warn(`Command Code setup skipped: ${commandCodeSetup.reason || 'unknown error'}`);
   }
 
   // 11. Summary
@@ -1187,11 +1284,17 @@ async function cmdInit(args) {
     `Auto-configured clients:`,
     `${ok} Antigravity   ${C.dim}~/.gemini/config/mcp_config.json + hooks${C.reset}`,
     allowCursor
-      ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.json + subagents${C.reset}`
+      ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.yaml + subagents${C.reset}`
       : `${skip} Cursor        ${C.dim}(not installed)${C.reset}`,
     claudeInstalled
-      ? `${ok} Claude Code   ${C.dim}~/.claude.json${C.reset}`
+      ? `${ok} Claude Code   ${C.dim}~/.claude.json + RTK${C.reset}`
       : `${skip} Claude Code   ${C.dim}(not installed)${C.reset}`,
+    openCodeInstalled
+      ? `${ok} OpenCode     ${C.dim}~/.opencode/config.json + RTK${C.reset}`
+      : `${skip} OpenCode     ${C.dim}(not installed)${C.reset}`,
+    commandCodeInstalled
+      ? `${ok} Command Code ${C.dim}~/.commandcode/mcp.json + RTK${C.reset}`
+      : `${skip} Command Code ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
@@ -1206,7 +1309,7 @@ async function cmdInit(args) {
   log('');
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}) to load MCP servers`);
+  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}) to load MCP servers`);
   log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:   ${C.cyan}konoha status${C.reset}`);
   log('');
@@ -2002,19 +2105,34 @@ function ensureAutoSetup() {
       // ignore — silent self-heal
     }
   }
+  if (mcpClientsManager.isCommandCodeInstalled()) {
+    try {
+      mcpClientsManager.ensureCommandCodeSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        silent: true
+      });
+    } catch (e) {
+      // ignore — silent self-heal
+    }
+  }
 
   // 7. Silently trigger migration if database file (skills.db) is missing
   if (!fileExists(DB_PATH)) {
+    if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
+      throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
+    }
     if (fileExists(pkgSkillsDir)) {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {
         try {
-          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills], {
+          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
           });
         } catch (e) {
           try {
-            spawnSync(python, [MIGRATE_PATH], {
+            spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill'], {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
             });
           } catch (e2) {}
@@ -2022,7 +2140,7 @@ function ensureAutoSetup() {
       }
     } else {
       try {
-        spawnSync(python, [MIGRATE_PATH], {
+        spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
         });
       } catch (e) {}
@@ -2204,7 +2322,7 @@ async function cmdMigrate(args) {
 }
 
 async function cmdTest() {
-  header('🧪 Testing Skills-DB MCP Server');
+  header('🧪 Testing Konoha MCP Server');
 
   const python = checkPython();
   if (!python) {
@@ -2424,7 +2542,7 @@ async function cmdTest() {
 async function cmdStatus() {
   drawLogo(false); // Static logo
   
-  header('📋 Skills-DB Status');
+  header('📋 Konoha MCP Status');
 
   // Check Python
   const python = checkPython();
@@ -2491,60 +2609,75 @@ async function cmdStatus() {
 
   // Check MCP configs
   sectionTitle('MCP Integrations:', RASENGAN_THEME);
-  if (fileExists(MCP_CONFIG_PATH)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
 
-      const printMcpRow = (name) => {
-        const hasServer = config.mcpServers && config.mcpServers[name];
-        const cmdStr = hasServer ? `cmd: ${config.mcpServers[name].command} ${config.mcpServers[name].args.join(' ')}` : '-';
-        drawIntegrationRow(name, hasServer, cmdStr, RASENGAN_THEME);
-      };
+  const agyStatus = antigravityManager.getAntigravityStatus();
+  const cursorStatus = cursorManager.getCursorStatus();
+  const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
+  const cmdStatus = mcpClientsManager.getCommandCodeStatus();
+  openCodeStatus = opencodeManager.getOpenCodeStatus();
 
-      printMcpRow('konoha');
-      printMcpRow('semble');
-    } catch {
-      error('MCP config parse failed');
+  log(`  ${C.bold}${applyGradient('1. 🔌 MCP Clients Configuration', RASENGAN_THEME)}${C.reset}`);
+  log(`  Auto-setup bridges Konoha directly into IDE and CLI configuration files.\n`);
+
+    const printClientStatus = (name, configPath, isHealthy, mcpConfigExists, isInstalled = true) => {
+    if (!isInstalled) {
+      log(`  ${C.dim}•${C.reset} ${C.bold}${name}${C.reset} ${C.dim}(SKIPPED — client not installed)${C.reset}`);
+      log(`     Config Path: ${C.dim}Not applicable${C.reset}`);
+      log('');
+      return;
     }
-  } else {
-    warn('MCP config not found');
-  }
+    const mark = isHealthy ? `${C.green}✔${C.reset}` : `${C.red}✖${C.reset}`;
+    log(`  ${mark} ${C.bold}${name}${C.reset}`);
+    log(`     Config Path: ${mcpConfigExists ? C.dim + configPath + C.reset : C.yellow + 'Not found/Not configured' + C.reset}`);
+    if (mcpConfigExists) {
+      log(`     Status:      ${isHealthy ? C.green + 'Healthy (Konoha MCP Registered)' + C.reset : C.red + 'Missing Konoha MCP' + C.reset}`);
+      if (isHealthy) {
+        log(`     Command:     ${C.dim}cmd: node /home/andycungkrinx/.konoha/file_tools_launcher.js${C.reset}`);
+      }
+    }
+    log('');
+  };
+
+  printClientStatus('Antigravity IDE / CLI', '~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb && agyStatus.mcpSemble, agyStatus.mcpConfigExists);
+  printClientStatus('Cursor IDE', '~/.cursor/mcp.yaml', cursorStatus.mcpKonoha && cursorStatus.mcpSemble, cursorStatus.mcpGlobal, cursorManager.isCursorInstalled());
+  printClientStatus('Claude Code CLI', '~/.claude.json', claudeStatus.mcpKonoha && claudeStatus.mcpSemble, claudeStatus.globalConfig, claudeStatus.installed);
+  printClientStatus('OpenCode IDE', '~/.opencode/config.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
+  printClientStatus('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha && cmdStatus.mcpSemble, cmdStatus.globalConfig, cmdStatus.installed);
 
   // Antigravity IDE/CLI integrations
   sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
-  const antigravityStatus = antigravityManager.getAntigravityStatus();
   drawIntegrationRow(
     '~/.gemini/config/mcp_config.json',
-    antigravityStatus.mcpSkillsDb && antigravityStatus.mcpSemble,
-    antigravityStatus.mcpConfigExists ? 'konoha + semble' : 'not configured',
+    agyStatus.mcpSkillsDb && agyStatus.mcpSemble,
+    agyStatus.mcpConfigExists ? 'konoha + semble' : 'not configured',
     NINJA_THEME
   );
   drawIntegrationRow(
     'Antigravity MCP schemas',
-    antigravityStatus.schemasCount >= 7,
-    `${antigravityStatus.schemasCount} in ~/.gemini/antigravity-cli/mcp/konoha/`,
+    agyStatus.schemasCount >= 7,
+    `${agyStatus.schemasCount} in ~/.gemini/antigravity-cli/mcp/konoha/`,
     NINJA_THEME
   );
   drawIntegrationRow(
     'Sanitize Hook config',
-    antigravityStatus.hasHooks,
-    antigravityStatus.hasHooks ? 'sanitize hooks active' : 'hooks missing',
+    agyStatus.hasHooks,
+    agyStatus.hasHooks ? 'sanitize hooks active' : 'hooks missing',
     NINJA_THEME
   );
   drawIntegrationRow(
     'RTK (Token Killer)',
-    antigravityStatus.rtkInstalled,
-    antigravityStatus.rtkInstalled
+    agyStatus.rtkInstalled,
+    agyStatus.rtkInstalled
       ? 'rtk binary available — rules deployed to antigravity-cli/ide'
       : 'RTK not installed (install: cargo install rtk)',
     NINJA_THEME
   );
 
   // Cursor IDE/CLI integrations
+  if (cursorManager.isCursorInstalled()) {
   sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
-  const cursorStatus = cursorManager.getCursorStatus();
   drawIntegrationRow(
-    '~/.cursor/mcp.json',
+    '~/.cursor/mcp.yaml',
     cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble,
     cursorStatus.mcpGlobal ? 'konoha + semble' : 'not configured',
     NINJA_THEME
@@ -2581,9 +2714,11 @@ async function cmdStatus() {
       : 'RTK not installed (install: cargo install rtk)',
     NINJA_THEME
   );
+  } else {
+    log(`\n  ${applyGradient('Cursor:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed — skipped', CHIDORI_THEME, 0.6)}`);
+  }
 
   // Claude Code integration (auto-configured when `claude` CLI is installed)
-  const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
   if (claudeStatus.installed) {
     sectionTitle('Claude Code Integrations:', NINJA_THEME);
     const claudeOk = claudeStatus.mcpSkillsDb && claudeStatus.mcpSemble && claudeStatus.permissionsAllowed;
@@ -2607,7 +2742,7 @@ async function cmdStatus() {
   }
 
   // OpenCode integration (auto-configured when `opencode` CLI is installed)
-  const openCodeStatus = opencodeManager.getOpenCodeStatus();
+  openCodeStatus = opencodeManager.getOpenCodeStatus();
   if (openCodeStatus.installed) {
     sectionTitle('OpenCode Integrations:', NINJA_THEME);
     const openCodeOk = openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble;
@@ -2617,8 +2752,35 @@ async function cmdStatus() {
       'konoha + semble',
       NINJA_THEME
     );
+    drawIntegrationRow(
+      'RTK (Token Killer)',
+      openCodeStatus.rtkRuleDeployed,
+      openCodeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.opencode/rules/' : 'rtk rule not deployed',
+      NINJA_THEME
+    );
   } else {
     log(`\n  ${applyGradient('OpenCode:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed (see https://opencode.ai)', CHIDORI_THEME, 0.6)}`);
+  }
+
+  // Command Code integration
+  const cmdCodeStatus = mcpClientsManager.getCommandCodeStatus();
+  if (cmdCodeStatus.installed) {
+    sectionTitle('Command Code Integrations:', NINJA_THEME);
+    const cmdCodeOk = cmdCodeStatus.mcpKonoha && cmdCodeStatus.mcpSemble;
+    drawIntegrationRow(
+      '~/.commandcode/mcp.json',
+      cmdCodeOk,
+      'konoha + semble',
+      NINJA_THEME
+    );
+    drawIntegrationRow(
+      'RTK (Token Killer)',
+      cmdCodeStatus.rtkRuleDeployed,
+      cmdCodeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.commandcode/rules/' : 'rtk rule not deployed',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('Command Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
   }
 
   // Check instructions patterns
@@ -3101,12 +3263,13 @@ async function cmdDoctor() {
     }
   }
 
-  // 9c. Cursor IDE/CLI Configuration
-  const cursorStatus = cursorManager.getCursorStatus();
-  const cursorHealthy = cursorStatus.mcpSkillsDb &&
-    cursorStatus.mcpSemble &&
-    cursorStatus.mcpKonoha;
-  if (cursorHealthy) {
+  // 9c. Cursor IDE/CLI Configuration (only when Cursor is installed)
+  if (cursorManager.isCursorInstalled()) {
+    const cursorStatus = cursorManager.getCursorStatus();
+    const cursorHealthy = cursorStatus.mcpSkillsDb &&
+      cursorStatus.mcpSemble &&
+      cursorStatus.mcpKonoha;
+    if (cursorHealthy) {
     record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP and hooks configured');
   } else {
     try {
@@ -3134,6 +3297,7 @@ async function cmdDoctor() {
       record('Cursor IDE/CLI (~/.cursor/)', 'FAILED', `Error: ${e.message}`);
       hasErrors = true;
     }
+  }
   }
 
   // 9d. Claude Code Configuration (only when CLI installed)
@@ -3166,6 +3330,72 @@ async function cmdDoctor() {
         }
       } catch (e) {
         record('Claude Code (~/.claude.json)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
+    }
+  }
+
+  // 9e. OpenCode Configuration
+  if (opencodeManager.isOpenCodeInstalled()) {
+    const openCodeStatus = opencodeManager.getOpenCodeStatus();
+    const openCodeHealthy =
+      openCodeStatus.mcpKonoha &&
+      openCodeStatus.mcpSemble;
+    if (openCodeHealthy) {
+      record('OpenCode (~/.opencode/config.json)', 'HEALTHY', 'konoha and semble active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        const agents = agentManager.loadAgents();
+        opencodeManager.ensureOpenCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          agents,
+          projectRoot: currentCwd,
+          deployProject: false,
+          silent: true,
+          allowHooks: true,
+          ruleContent: null
+        });
+        const repaired = opencodeManager.getOpenCodeStatus();
+        if (repaired.mcpKonoha && repaired.mcpSemble) {
+          record('OpenCode (~/.opencode/config.json)', 'REPAIRED', 'Registered MCP and session hook');
+          repairsDone++;
+        } else {
+          record('OpenCode (~/.opencode/config.json)', 'WARNING', 'Partial OpenCode setup — run konoha init');
+        }
+      } catch (e) {
+        record('OpenCode (~/.opencode/config.json)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
+    }
+  }
+
+  // 9f. Command Code Configuration
+  if (mcpClientsManager.isCommandCodeInstalled()) {
+    const cmdStatus = mcpClientsManager.getCommandCodeStatus();
+    const cmdHealthy = cmdStatus.mcpKonoha && cmdStatus.mcpSemble;
+    if (cmdHealthy) {
+      record('Command Code (~/.commandcode/mcp.json)', 'HEALTHY', 'konoha and semble active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        mcpClientsManager.ensureCommandCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+        const repaired = mcpClientsManager.getCommandCodeStatus();
+        if (repaired.mcpKonoha && repaired.mcpSemble) {
+          record('Command Code (~/.commandcode/mcp.json)', 'REPAIRED', 'Registered Konoha MCP servers');
+          repairsDone++;
+        } else {
+          record('Command Code (~/.commandcode/mcp.json)', 'WARNING', 'Partial Command Code setup — run konoha init');
+        }
+      } catch (e) {
+        record('Command Code (~/.commandcode/mcp.json)', 'FAILED', `Error: ${e.message}`);
         hasErrors = true;
       }
     }
@@ -3244,7 +3474,7 @@ async function cmdDoctor() {
 }
 
 async function cmdUninstall() {
-  header('🗑️  Uninstalling Skills-DB');
+  header('🗑️  Uninstalling Konoha MCP');
 
   // Remove server files (preserving the skills.db database and its metrics)
   if (fileExists(SKILLS_DB_DIR)) {
@@ -3337,7 +3567,7 @@ async function cmdUninstall() {
   }
 
   log('');
-  success('Skills-DB uninstalled.');
+  success('Konoha MCP uninstalled.');
   info('Your custom skills in ~/.agents/skills/ are untouched.');
 
   // Remove Cursor-specific Konoha configuration
@@ -3419,9 +3649,6 @@ async function cmdAgentStatus() {
       name: `@${a.name}`,
       icon: a.icon || '👤',
       title: a.title,
-      modelTier: '-',
-      cursorModel: '-',
-      claudeModel: '-',
       today: agentStats.today,
       last7days: agentStats.last7days,
       alltime: agentStats.alltime,
@@ -3444,11 +3671,8 @@ async function cmdAgentStatus() {
 
   displayAgents.push({
     name: 'Direct Tool Calls',
-    icon: '🔌',
+    icon: '⚡',
     title: 'Non-agent / direct MCP tools usage',
-    modelTier: '-',
-    cursorModel: '-',
-    claudeModel: '-',
     today: directStats.today,
     last7days: directStats.last7days,
     alltime: directStats.alltime,
@@ -3502,7 +3726,7 @@ async function cmdSavings() {
 
   if (scriptToUse && fileExists(DB_PATH)) {
     try {
-      log(`\n  ${C.bold}${applyGradient('1. ⚡ Skills-DB (konoha) Savings', LEAF_THEME)}${C.reset}`);
+      log(`\n  ${C.bold}${applyGradient('1. ⚡ Konoha MCP Savings', LEAF_THEME)}${C.reset}`);
 
       const run = spawnSync(python, [scriptToUse, DB_PATH], {
         encoding: 'utf-8',
@@ -3543,9 +3767,9 @@ async function cmdSavings() {
           }
           
           const thoughtVal = thoughtTokens || 0;
-          const thoughtText = ` (thought: ${formatTokens(thoughtVal)})`;
+          const thoughtText = ` (thought: ${formatTokensComb(thoughtVal)})`;
           const pctStr = `${Math.round(pctSafe)}%`.padStart(4);
-          return `[${coloredFilled}${C.dim}${empty}${C.reset}] ${pctStr} ~${C.bold}${formatTokens(tokens).padEnd(5)}${C.reset} tokens${C.yellow}${thoughtText}${C.reset}`;
+          return `[${coloredFilled}${C.dim}${empty}${C.reset}] ${pctStr} ~${C.bold}${formatTokensComb(tokens).padEnd(5)}${C.reset} tokens${C.yellow}${thoughtText}${C.reset}`;
         };
 
         // Table
@@ -3565,11 +3789,12 @@ async function cmdSavings() {
         log('    ' + applyGradientToBorders('├──────────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤', LEAF_THEME));
 
         const clients = [
-          { name: 'Antigravity IDE', key: 'antigravity', icon: '🌌' },
-          { name: 'Antigravity CLI', key: 'agy', icon: '🚀' },
-          { name: 'Cursor', key: 'cursor', icon: '🌊' },
-          { name: 'Claude Code', key: 'claudecode', icon: '🌀' },
-          { name: 'OpenCode', key: 'opencode', icon: '📦' }
+          { name: 'Antigravity IDE', key: 'antigravity', icon: '✦' },
+          { name: 'Antigravity CLI', key: 'agy', icon: '▶' },
+          { name: 'Cursor', key: 'cursor', icon: '♦' },
+          { name: 'Claude Code', key: 'claudecode', icon: '◎' },
+          { name: 'OpenCode', key: 'opencode', icon: '▫' },
+          { name: 'CommandCode', key: 'commandcode', icon: '⚡' }
         ];
 
         clients.forEach(client => {
@@ -3581,7 +3806,7 @@ async function cmdSavings() {
           
           const formatCellText = (cStats) => {
             if (!cStats || cStats.calls === 0) return '0 (0 Token)';
-            return `${cStats.calls} (${formatTokens(cStats.tokens)} Token)`;
+            return `${cStats.calls} (${formatTokensComb(cStats.tokens)} Token)`;
           };
 
           const todayText = formatCellText(todayStats);
@@ -3647,10 +3872,10 @@ async function cmdSavings() {
         global.skillsDbAllTimePct = stats.alltime.pct;
       }
     } catch (e) {
-      log(`     ${C.yellow}⚠${C.reset} Could not read Skills-DB savings: ${e.message}`);
+      log(`     ${C.yellow}⚠${C.reset} Could not read Konoha MCP savings: ${e.message}`);
     }
   } else {
-    log(`     ${C.yellow}⚠${C.reset} Skills-DB database not found. Run "konoha init" first.\n`);
+    log(`     ${C.yellow}⚠${C.reset} Konoha MCP database not found. Run "konoha init" first.\n`);
   }
 
   // 2. Query Semble Savings
@@ -3800,7 +4025,7 @@ async function cmdSavings() {
     return `${(b / 1024).toFixed(1)} KB`;
   };
 
-  const formatTokensComb = (t) => {
+  function formatTokensComb(t) {
     if (t >= 1000000) return `${(t / 1000000).toFixed(2)}M`;
     if (t >= 1000) return `${(t / 1000).toFixed(1)}k`;
     return String(t);
@@ -4559,7 +4784,7 @@ async function cmdUpgrade(args) {
     const prompts = await import('@inquirer/prompts');
     confirm = prompts.confirm;
   } catch (e) {
-    error('Could not load @inquirer/prompts. Please run "npm install".');
+    error('Could not load @inquirer/prompts. Please run "pnpm install".');
     process.exit(1);
   }
 
@@ -4569,8 +4794,8 @@ async function cmdUpgrade(args) {
     return;
   }
 
-  const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const cmdArgs = ['-y', 'github:andycungkrinx91/konoha', 'init', '--force'];
+  const cmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  const cmdArgs = ['dlx', 'github:andycungkrinx91/konoha', 'init', '--force'];
 
   log(`  Executing: ${C.cyan}${cmd} ${cmdArgs.join(' ')}${C.reset}\n`);
 
@@ -4640,7 +4865,7 @@ ${C.bold}GLOBAL OPTIONS${C.reset}
 
 ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. Setup everything for the first time:${C.reset}
-     npx github:andycungkrinx91/konoha init
+     pnpm dlx github:andycungkrinx91/konoha init
 
   ${C.dim}2. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:${C.reset}
      konoha skill search golang
@@ -4734,16 +4959,30 @@ function saveBridgeSqlite(action, data) {
     ? path.join(SRC_DIR, 'db_bridges.py')
     : path.join(SKILLS_DB_DIR, 'db_bridges.py');
   try {
+    let args;
     if (action === 'upsert') {
-      spawnSync(python, [dbScript, '--upsert', JSON.stringify(data)], { encoding: 'utf-8' });
+      args = ['--upsert', JSON.stringify(data)];
     } else if (action === 'delete') {
-      spawnSync(python, [dbScript, '--delete', data], { encoding: 'utf-8' });
+      args = ['--delete', data];
     } else if (action === 'enable') {
-      spawnSync(python, [dbScript, '--enable', data], { encoding: 'utf-8' });
+      args = ['--enable', data];
     } else if (action === 'disable') {
-      spawnSync(python, [dbScript, '--disable', data], { encoding: 'utf-8' });
+      args = ['--disable', data];
+    } else {
+      return false;
     }
-  } catch (e) {}
+    const result = spawnSync(python, [dbScript, ...args], { encoding: 'utf-8', timeout: 10000 });
+    if (result.error || result.status !== 0) {
+      return false;
+    }
+    try {
+      return JSON.parse((result.stdout || '').trim()).ok === true;
+    } catch {
+      return false;
+    }
+  } catch (e) {
+    return false;
+  }
 }
 
 
@@ -5119,7 +5358,10 @@ async function cmdBridgeDelete(name) {
   }
 
   const deleted = bridges.splice(index, 1)[0];
-  saveBridgeSqlite('delete', deleted.name);
+  if (!saveBridgeSqlite('delete', deleted.name)) {
+    error(`Failed to delete bridge "${deleted.name}".`);
+    process.exit(1);
+  }
   success(`Deleted bridge "${deleted.name}".`);
 }
 
@@ -5142,7 +5384,10 @@ async function cmdBridgeEnable(name) {
     return;
   }
 
-  saveBridgeSqlite('enable', name);
+  if (!saveBridgeSqlite('enable', name)) {
+    error(`Failed to enable bridge "${name}".`);
+    process.exit(1);
+  }
   success(`Enabled bridge "${name}". The runtime has been started automatically.`);
 }
 
@@ -5165,7 +5410,10 @@ async function cmdBridgeDisable(name) {
     return;
   }
 
-  saveBridgeSqlite('disable', name);
+  if (!saveBridgeSqlite('disable', name)) {
+    error(`Failed to disable bridge "${name}".`);
+    process.exit(1);
+  }
   success(`Disabled bridge "${name}". The runtime has been stopped automatically.`);
 }
 
@@ -5220,7 +5468,10 @@ async function cmdBridgeCreate(name) {
     enabled: true
   };
 
-  saveBridgeSqlite('upsert', newBridge);
+  if (!saveBridgeSqlite('upsert', newBridge)) {
+    error(`Failed to create bridge "${bridgeName}".`);
+    process.exit(1);
+  }
   log('');
   success(`Bridge "${bridgeName}" created!`);
   log(`  Provider : OpenAI Compatible\n`);
@@ -5457,7 +5708,7 @@ with open(export_path, "w", encoding="utf-8") as f:
     f.write("This file contains the structured skills, agent identities, and active sessions database.\\n\\n")
     
     f.write("## 👤 Special Agent Village Roster\\n")
-    try {
+    try:
         agents_data = conn.execute("SELECT name, icon, model_tier, description FROM agents").fetchall()
         for name, icon, model_tier, description in agents_data:
             f.write(f"- **{icon or '👤'} {name}** (Model: {model_tier}): {description}\\n")
@@ -5517,7 +5768,7 @@ print("success")
 const [,, command, ...args] = process.argv;
 
 async function main() {
-  if (command === undefined || command === 'init') {
+  if (command === undefined) {
     await runSplashScreen();
   }
 

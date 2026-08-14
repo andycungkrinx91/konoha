@@ -3,7 +3,7 @@
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You are equipped with two MCP servers: **`konoha`** and **`semble`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (`view_file`, `grep_search`, `list_dir`, `run_command` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN** and will be blocked.
 >
-> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `search_file`)
+> - **File reads/grep/structure** → `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`)
 > - **Code search/discovery** → `semble` MCP (`search`, `find_related`)
 > - **Skill lookup** → `konoha` MCP (`find_skill`, `get_skill`, `list_skills`)
 > - **NEVER** call `view_file`, `grep_search`, `list_dir`, or shell `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always use the MCP equivalents above.
@@ -75,8 +75,8 @@ When the user prompt involves modifying or working within an existing project:
 1. **If mockup/design images are provided** → Call `konoha.build_from_source(name, source_dir, framework)` FIRST
 2. **If text description only** → Call `konoha.build_from_text(name, description, framework)` FIRST
 3. Write `delegate.md` with the returned directives/constraints
-4. Call `mcp_jonin` directly — **SKIP Chunin, Genin, and Kage** (they lose the premium template directives)
-5. After Jonin completes, delegate to `mcp_tokubetsu_jonin` for documentation
+4. Call `jonin` directly — **SKIP Chunin, Genin, and Kage** (they lose the premium template directives)
+5. After Jonin completes, delegate to `tokubetsu_jonin` for documentation
 6. Output final report to user
 
 > **⚠️ CRITICAL**: Premium design directives from `build_from_text`/`build_from_source` are LOST if routed through the standard Chunin → Genin → Kage pipeline. Always use this shortcut for website builds.
@@ -120,8 +120,8 @@ The main agent ONLY delegates to the defined ninja agents (`genin`, `kage`, `chu
 
 | Embedded Skills | Agent TypeName |
 |-----------|----------|
-| `deep-code-explorer` | `genin` |
-| `devsecops-engineer`, `deep-code-explorer`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
+| `genin-skill` | `genin` |
+| `devsecops-engineer`, `genin-skill`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
 | `websearch-deep` | `chunin` |
 | `agent-browser`, `modern-full-stack` | `jonin` |
 | `devsecops-engineer`, `agent-browser` | `anbu` |

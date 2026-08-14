@@ -1,13 +1,9 @@
 Bridge Status Report
 ════════════════════════════════════════════════════════════
-    ┌────────────────────┬────────┬───────────────────┬──────────────┬────────────────────────────┐
-    │ Bridge Service     │ Port   │ Provider          │ Status       │ Target URL                 │
-    ├────────────────────┼────────┼───────────────────┼──────────────┼────────────────────────────┤
-    │ Proxy Gateway      │ 19999  │ Gateway Router    │ STOPPED      │ http://localhost:19999/v1  │
-    │ adacode            │ 11437  │ openai            │ STOPPED      │ https://api.adacode.ai/v1  │
-    │ antigravity        │ 11438  │ openai            │ STOPPED      │ http://localhost:1313/v1   │
-    │ adacode-2          │ 11440  │ openai-compatible │ STOPPED      │ https://api.adacode.ai/v1  │
-    └────────────────────┴────────┴───────────────────┴──────────────┴────────────────────────────┘
+    ┌────────────────────┬────────┬────────────────┬──────────────┬───────────────────────────┐
+    │ Bridge Service     │ Port   │ Provider       │ Status       │ Target URL                │
+    ├────────────────────┼────────┼────────────────┼──────────────┼───────────────────────────┤
+    │ Proxy Gateway      │ 19999  │ Gateway Router │ RUNNING      │ http://localhost:19999/v1 │
+    └────────────────────┴────────┴────────────────┴──────────────┴───────────────────────────┘
 
-  ↯ No active bridges running. Bridges are hosted in-process by konoha MCP.
-  Tip: Start an active MCP IDE session or run konoha bridge start to run in background.
+  ⚡ 1 bridge service(s) active and listening.

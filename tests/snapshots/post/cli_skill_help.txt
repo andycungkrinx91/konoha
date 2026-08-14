@@ -1,4 +1,6 @@
-📚 Konoha Skill Management Help 📚
+› Konoha skill
+
+  📚 Konoha Skill Management Help 📚
   ========================================================================
   A "Skill" is a folder containing prompt instructions, examples, and rules
   that you teach to your AI subagents. By giving agents skills, they become

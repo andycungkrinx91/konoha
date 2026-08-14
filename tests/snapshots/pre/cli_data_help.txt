@@ -1,3 +1,5 @@
+› Konoha data
+
 konoha data — Manage SQLite active session history and database size
 
 USAGE

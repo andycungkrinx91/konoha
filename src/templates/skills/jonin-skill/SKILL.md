@@ -36,6 +36,17 @@ When prompt requests building a website/app from text description (no mockup ima
 
 ---
 
+## 🎞️ Cross-Framework 3D and Quality Contract
+
+All official framework references must implement the same visual behavior using framework-native APIs:
+
+- Use the shared `design-token-manifest.md` values: 1200px perspective, maximum 12deg tilt, 300ms standard transitions, 500ms entrances, and 600ms hero content entrances.
+- Use transform/opacity-only motion, requestAnimationFrame for pointer/parallax updates, and teardown for timers, observers, listeners, and animation frames.
+- Implement the same ten light-mode themes, semantic CSS variables, glass surface, theme persistence key, and mobile dock across Angular, Next.js, Nuxt, and SvelteKit.
+- Provide accessible keyboard/focus states and reduced-motion fallbacks; 3D effects must never be required to operate the interface.
+- Every generated project must expose `pnpm run lint` and `pnpm run build`; SvelteKit must also expose `pnpm run check`. Completion requires zero errors and zero warnings.
+- `build_from_text` applies the default premium theme and 3D system. `build_from_source` preserves source fidelity and adds only non-structural, reduced-motion-safe enhancements.
+
 ## 🎨 Theme Matrix (10 Light-Mode Themes)
 
 | Theme | Primary Hex | Accent Hex | Gradient |

@@ -1,35 +1,53 @@
 # Konoha Bridge Gateway
 
+> **v2.0.0 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
+
 The **Konoha Bridge Gateway** provides a unified local API server (port 19999) to route, multiplex, and stream LLM requests across multiple OpenAI-compatible providers from a single entry point.
 
 ## Architecture
 
+> **Canonical editable diagram:** [04 LLM Bridge Gateway](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md). The page distinguishes request-time bridge selection from retries inside sidecar protocol paths; there is no gateway-level 429 round-robin failover.
+
 ```mermaid
-graph TD
-    classDef client  fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef gateway fill:#1e293b,stroke:#475569,stroke-width:2px,color:#e2e8f0;
-    classDef bridge  fill:#1e3a8a,stroke:#3b82f6,stroke-width:1px,color:#f8fafc;
-    classDef db      fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
-    classDef proto   fill:#4c1d95,stroke:#a78bfa,stroke-width:1px,color:#ede9fe;
+---
+title: Konoha LLM Bridge Gateway
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#ffe6cc'
+    primaryTextColor: '#78350f'
+    primaryBorderColor: '#d97706'
+    lineColor: '#64748b'
+    secondaryColor: '#dbeafe'
+    tertiaryColor: '#ede9fe'
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  flowchart:
+    nodeSpacing: 90
+    rankSpacing: 110
+    padding: 32
+    wrappingWidth: 360
+---
+flowchart LR
+    Client([MCP / API Client]) --> Gateway[Konoha Bridge Router<br/>HTTP API :19999]
+    Gateway -->|Read model mapping| Bridges[(SQLite bridges table<br/>model cache)]
+    Bridges -->|Prefix / exact / first active| Gateway
+    Gateway -->|One request| OpenAI[OpenAI API-Key<br/>Bridge]
+    Gateway -->|One request| Compatible[OpenAI-Compatible<br/>Bridge]
+    Gateway -->|Sidecar route| Antigravity[Antigravity<br/>Sidecar]
+    OpenAI --> OpenAIAPI[OpenAI API]
+    Compatible --> Local[Local LLM<br/>Endpoint]
+    Antigravity --> Cascade[Sidecar protocol cascade<br/>proto -> raw -> gRPC]
+    Gateway -->|Discovery :19899| Discovery[UDP Discovery<br/>:19899]
 
-    Gateway["Proxy Gateway\nPort 19999"]:::gateway
-    SQLite[("SQLite\n~/.konoha/skills.db\nbridges table")]:::db
-    Sidecar["Sidecar Discovery\nUDP broadcast (port 19899)"]:::proto
-    Cascade["Cascade Failover\nproto → raw → gRPC"]:::proto
-    BridgeA["API-Key Bridge\n<name>-<model>"]:::bridge
-    BridgeB["Compatible Bridge\nOllama / vLLM / LM Studio"]:::bridge
-    OpenAI["OpenAI API\napi.openai.com"]:::bridge
-    LocalLLM["Local LLM\n(port 11437, etc.)"]:::bridge
-
-    Client -->|HTTP/REST| Gateway
-    Gateway -->|Read config| SQLite
-    Gateway -->|POST| BridgeA
-    Gateway -->|POST| BridgeB
-    BridgeA --> OpenAI
-    BridgeB --> LocalLLM
-    Gateway -->|Discover| Sidecar
-    Sidecar --> Cascade
-    Cascade -->|Fallback chain| BridgeA
+    classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef gateway fill:#ffe6cc,stroke:#d97706,color:#78350f,stroke-width:2px
+    classDef bridge fill:#e0e7ff,stroke:#6366f1,color:#312e81
+    classDef storage fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px
+    class Client client
+    class Gateway gateway
+    class OpenAI,Compatible,Antigravity,OpenAIAPI,Local,Cascade,Discovery bridge
+    class Bridges storage
 ```
 
 ## Supported Providers
@@ -40,7 +58,7 @@ graph TD
 | **OpenAI Compatible** | `compatible` | `<bridge_name>-<model>` | Ollama, vLLM, LM Studio, etc. |
 | **Antigravity Sidecar** | `antigravity` | `<bridge_name>-<model>` | Local `agy` CLI / Antigravity IDE (requires live session) |
 
-> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v1.1.7+.
+> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v2.0.0.
 
 ## API Endpoints
 
@@ -53,6 +71,7 @@ graph TD
 | `POST` | `/v1/messages.beta` | None | Anthropic Messages beta format |
 | `POST` | `/v1/gemini/*` | None | Google Gemini API format |
 | `GET` | `/v1/bridge-list` | None | List all configured bridges |
+| `POST` | `/v1/messages/count_tokens` | None | Anthropic preflight mock (returns `{"input_tokens": 0}`) — used by Claude CLI / Cherry Studio as a budget-warning preflight |
 
 ## Model Naming Rules
 
@@ -228,3 +247,56 @@ python3 src/db_bridges.py --disable my-bridge
 | `src/bridge/models.js` | Model mapping utilities |
 | `src/bridge/utils.js` | Shared utilities (logging, streaming helpers, readBody) |
 | `src/db_bridges.py` | SQLite bridge CRUD |
+
+---
+
+## Konoha Bridge Extension — Auto-Install
+
+The Antigravity-side `konoha-bridge` extension is a customized fork of the open-source `ag-local-bridge` project. It runs **inside Antigravity's process** and provides:
+
+- WebSocket-based sidecar communication for the bridge router (port `19999`).
+- Automatic bridge discovery when the Antigravity IDE/CLI is open (`requiresSidecar: true`).
+
+### Source & Installation
+
+| Property | Value |
+|---|---|
+| **Repository** | `https://github.com/andycungkrinx91/konoha-bridge/tree/master` |
+| **Current version** | `1.2.0` (bumped when upstream releases change) |
+| **Default branch** | `master` |
+| **Install locations** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-1.2.0-universal/` (primary), mirrored to legacy `~/.antigravity/extensions/` and `~/.vscode/extensions/` for back-compat |
+
+### Auto-Install Flow
+
+```
+konoha init   → autoInstallKonohaBridgeExtension(true)   ← one-time on fresh install
+konoha <cmd>  → ensureAutoSetup() → autoInstallKonohaBridgeExtension(true)  ← every CLI run
+```
+
+**What happens on each call:**
+
+1. Detects whether the extension is **already installed at the correct version** across all three target paths.
+2. If present → logs a skipped message and returns `true` immediately (zero-op).
+3. If absent or **version mismatch** → clones from `github:andycungkrinx91/konoha-bridge@master --depth=1` into a **temp directory** first.
+4. After a successful clone, copies into all three extension directories and **removes stale old-version directories** to avoid conflicts.
+5. Cleans up the temp directory regardless of success or failure.
+6. On any failure (git error, copy error, permission error) → logs a warning but **does not block** the CLI — the bridge simply won't be available until the user retries or runs `konoha doctor --yes`.
+
+### Manual Reinstall
+
+```bash
+# Remove stale extension directories then re-run init
+rm -rf ~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-*
+rm -rf ~/.antigravity/extensions/andycungkrinx91.konoha-bridge-*
+konoha doctor --yes
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `konoha-bridge` extension not loading in Antigravity IDE | Check `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-1.2.0-universal/package.json` exists. If missing, run `konoha doctor --yes` |
+| Extension fails to connect to bridge router on port 19999 | Start the gateway: `konoha bridge start` or run `konoha bridge create` to register an Antigravity sidecar bridge |
+| Stale extension version after `konoha upgrade` | Run the manual reinstall above, then `konoha doctor --yes` |
+
+**Note:** The extension install is **fire-and-forget** — a failure does not block any other CLI operation (MCP registration, file-tools deploy, agent setup, etc.). Check the warning output for details.

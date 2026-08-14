@@ -94,7 +94,7 @@ function isConfirmedSelf(transcriptPath) {
 
         if (row.type === 'USER_INPUT') {
           if (/acting as the\s*`?@/i.test(content)) return false;
-          if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin)\b/i.test(content)) return false;
+          if (/You are the\s+(genin|kage|chunin|jonin|anbu|tokubetsu-jonin|sannin)\b/i.test(content)) return false;
           // Check for EITHER delegate.md OR result.md (invoke prompt may only mention one)
           if (content.includes('delegate.md') || content.includes('result.md')) return false;
           if (/(?:Please\s+)?read\s+(?:your task|the delegation)/i.test(content)) return false;

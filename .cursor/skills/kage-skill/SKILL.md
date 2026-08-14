@@ -45,7 +45,7 @@ Based on the user's request, load the specific reference file using `konoha.get_
 
 | If the request involves... | Load this reference |
 |---|---|
-| Deep code analysis, codebase exploration, code review | `deep-code-explorer` |
+| Deep code analysis, codebase exploration, code review | `genin-skill` |
 | Security audits, devsecops, vulnerability remediation | `devsecops-engineer` |
 | Architecture decisions, system design patterns, codebase architecture | `kage-skill/improve-codebase-architecture` |
 | Risk assessment, feature impact analysis | `kage-skill/risk-assessment` |

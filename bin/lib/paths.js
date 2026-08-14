@@ -189,8 +189,12 @@ const CURSOR_BOOTSTRAP_PATH = path.join(KONOHA, 'cursor_bootstrap.js');
 // We write to BOTH for backward compatibility (legacy ~/.claude.yaml).
 
 const CLAUDE_JSON = path.join(HOME, '.claude.json');
-const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.yaml');
+const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.json');
 const CLAUDE_JSON_LEGACY = path.join(HOME, '.claude.yaml');
+
+// ──────────────── Command Code ────────────────
+const COMMANDCODE_DIR = path.join(HOME, '.commandcode');
+const COMMANDCODE_JSON = path.join(COMMANDCODE_DIR, 'mcp.json');
 
 // ──────────────── OpenCode ────────────────
 const OPENCODE_DIR = path.join(HOME, '.opencode');
@@ -269,6 +273,9 @@ module.exports = {
   CLAUDE_JSON,
   CLAUDE_SETTINGS,
   CLAUDE_JSON_LEGACY,
+  // Command Code
+  COMMANDCODE_DIR,
+  COMMANDCODE_JSON,
   // OpenCode
   OPENCODE_DIR,
   OPENCODE_CONFIG,

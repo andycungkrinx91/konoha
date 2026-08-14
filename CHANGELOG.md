@@ -2,12 +2,24 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Added the Google Policy Compliance v1.1.7 report using the Konoha v2.0.0 filename convention and corrected the latest-compliance README link.
+- Canonicalized Genin routing and metadata to `genin-skill` across packaged and client deployment copies while preserving legacy upgrade normalization.
+- Fresh installation and missing-database auto-setup now require and verify the canonical `genin-skill` SQLite entry before client registration.
+- Replaced embedded documentation diagrams with a validated multi-page editable Draw.io architecture source and manifest.
+- Added a post-fix cleanup gate to the developer-only Konoha maintenance skill.
+
+### Removed
+- Removed unreferenced historical patch, fix, and revert scripts plus confirmed transient cache/task artifacts.
+
 ## [2.0.0] - 2026-08-04
 
 ### Fix: Sanin MCP Tool Naming
-- **Consistent tool naming**: Fixed inconsistent MCP tool name for `run_mcp_sannin` — now consistently uses `mcp__konoha__sannin` (was `mcp__konoha__mcp_sannin` in JS bridge managers, `mcp__konoha__sannin` in Python server). Updated `mcp-tools-block.md` reference skill, DB entry, and server execution protocol instructions.
+- **Consistent tool naming**: Fixed inconsistent MCP tool name for `run_sannin` — now consistently uses `mcp__konoha__sannin` (was `mcp__konoha__sannin` in JS bridge managers, `mcp__konoha__sannin` in Python server). Updated `mcp-tools-block.md` reference skill, DB entry, and server execution protocol instructions.
 - **MCP block consistency**: The routing rules in the subagent MCP block now correctly reference `mcp__konoha__sannin` for all client integrations.
-- **MCP Tool Alias Architecture**: All MCP tool names now use consistent double-underscore naming (`mcp__konoha__*`, `mcp__semble__*`). The `sannin` orchestrator tool is `mcp__konoha__sannin`. Subagent aliases (`mcp_kage`, `mcp_jonin`, etc.) remain for the legacy name-lookup route.
+- **MCP Tool Alias Architecture**: All MCP tool names now use consistent double-underscore naming (`mcp__konoha__*`, `mcp__semble__*`). The `sannin` orchestrator tool is `mcp__konoha__sannin`. Subagent aliases (`kage`, `jonin`, etc.) remain for the legacy name-lookup route.
 
 ### Major: Three-Way Cross-Platform IDE/CLI Support
 - **Cursor IDE & CLI Integration**: New `src/cursor_manager.js` registers `konoha`, `semble`, and `konoha-files` in `~/.cursor/mcp.json`, deploys ninja subagents to `~/.cursor/agents/` with Cursor model slugs (`composer-2.5-fast`, `claude-opus-4-8-thinking-high`, `gpt-5.3-codex`, etc.), writes project `.cursor/rules/konoha.mdc` orchestrator rules, and configures Cursor CLI MCP permissions in `~/.cursor/cli-config.json`.
@@ -31,7 +43,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Compression Safety**: Strips `accept-encoding` headers in gateway forwarding to guarantee uncompressed responses.
 
 ### Major: MCP Architecture
-- **MCP Alias Architecture**: Subagents (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, `mcp_genin`) are inline persona-injection aliases served by the konoha MCP server. When called, they return the agent's persona, system prompt, and embedded skills as tool response text.
+- **MCP Alias Architecture**: Subagents (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) are inline persona-injection aliases served by the konoha MCP server. When called, they return the agent's persona, system prompt, and embedded skills as tool response text.
 - **Forced Konoha MCP + Semble MCP Usage**: Added top-level "Forced MCP Usage & Delegation" preamble (`⚠️ MANDATORY`) to all instruction files (`GEMINI.md`, `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/konoha.mdc`). Agents MUST use `konoha` MCP (skills + bounded file ops) and `semble` MCP (codebase search) — never generic `Read`/`Grep`/`Glob`/`cat`/`grep`.
 - **Native Tool Denial Enforcement**: `antigravity_tool_sanitize_hook.js` now denies `view_file`, `grep_search`, `list_dir`, `Read`, `Grep`, `Glob`, and `Search` tools at the platform level.
 - **Shell Command Blocking**: Extended sanitize hook to block `run_command` calls containing `cat`, `head`, `tail`, `grep`, `rg`, `find`, `fd`, `ag`, `ack`, `less`, `more`, `bat`, `wc`.
@@ -53,7 +65,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Fast-Path Auto-Setup CLI Caching**: Timestamp-based fast-path caching (`.last_autosetup`) in `ensureAutoSetup()` accelerates `konoha` CLI execution from > 5s to **< 100ms**.
 - **Enterprise Web Search Tool**: `web_search` MCP tool with Google Custom Search API, DuckDuckGo API, and Wikipedia OpenSearch fallback, automated browser header emulation, and query simplification loops.
 - **Multi-Source Zero-API-Key Search Chain**: Dynamic public SearXNG instance resolution from searx.space with 24h caching, 1h best-instance verification, DuckDuckGo/Startpage/Wikipedia fallbacks.
-- **mcp_chunin Deep Research Integration**: Automatically triggers parallel web search and injects cited, ranked findings into the subagent's initialization prompt for deep research tasks.
+- **chunin Deep Research Integration**: Automatically triggers parallel web search and injects cited, ranked findings into the subagent's initialization prompt for deep research tasks.
 - **Proxy Gateway Token Preflight Mocking**: Added preflight interceptor for `POST /v1/messages/count_tokens` returning `{"input_tokens": 0}` with `200 OK` — prevents Claude CLI and Cherry Studio gateway infinite retry loops.
 - **Models Status Subcommand**: `konoha models status` views model configurations of the agent village without listing all available models.
 - **Passive Sidecar Discovery**: Strict sidecar process discovery (`discovery.js`) — the bridge connects only to already active, user-initiated `agy` CLI or Antigravity IDE sessions. Never auto-spawns background daemons.
@@ -93,7 +105,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **`konoha saving` alias**: Added `saving` as a routed alias for `savings`.
 - **Package Manager Mandate**: Strictly forbids `npm` or standalone `npx`; mandates `pnpm` exclusively for package installation/building.
 - **Cross-Platform Install Fixes**: Fixed `konoha` command not found after nvm version switch on all platforms (Linux, macOS, Windows nvm-windows).
-- **Node.js Version-Agnostic Install**: Konoha now works with any Node.js version (v18+) via global npm install.
+- **Node.js Version-Agnostic Install**: Konoha now works with any Node.js version (v18+) via global pnpm installation.
 - **Python Cross-Platform Detection**: `platform_utils.js` handles Windows (`py -3`, `python`), macOS (`python3`, `python`), and Linux (`python3`, `python`).
 - **Windows Line-Ending Fix**: Added guidance for CRLF→LF conversion on `db_bridges.py`.
 - **Windows Port 19999 Fix**: Added `netstat`/`taskkill` alongside `fuser` for port collision resolution.
@@ -119,7 +131,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Bridge Gateway Preservation Guard**: Safety guardrail (`NEVER touch stable Bridge Gateway`) built into all rule templates and agent instructions.
 
 ### Fixed
-- **Savings Token Attribution**: Fixed `db_savings.py` where `mcp_jonin` output tokens were erroneously calculated at the Pro tier rate instead of Flash tier.
+- **Savings Token Attribution**: Fixed `db_savings.py` where `jonin` output tokens were erroneously calculated at the Pro tier rate instead of Flash tier.
 - **Claude Code MCP Namespacing**: Fixed dot-notation MCP tool calls (`konoha.find_skill`) to use double-underscore format (`mcp__konoha__find_skill`) in all Claude Code configurations.
 - **Claude Code Subagent Delegation Bug**: Fixed subagents being generated with orchestrator-centric protocols (`delegate.md`, `~/.agents/AGENTS.md`) causing failures in single-agent Claude Code environment.
 - **Claude Code Subagent MCP Tool Permissions**: Fixed wildcard bug — prefixes corrected from `mcp_semble_*` to `mcp__semble__*`, `mcp__konoha__*`, `mcp__konoha-files__*`.
@@ -157,7 +169,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **`ensureAutoSetup` project guard**: Silent bootstrap no longer deploys `.cursor/` into arbitrary working directories.
 - **Cursor transcript ordering**: `server.py` prefers most-recent `.jsonl` for Cursor subagent attribution.
 - **Deploy utils**: `copyRecursiveIfDifferent` tolerates broken symlinks.
-- **Cursor Model Fields**: `cursorModel` and `cursorFallbackModel` added to `src/templates/agents.json`.
+
 - **Enhanced SvelteKit Skills Reference**: Added advanced Svelte 5 accessibility guidelines, verification pipeline (`svelte-check`, tsc, `pnpm lint`), SSR hydration safety, and image-to-code layout similarity comparison loops.
 - **`yaml_parser` Migration Module Fix**: Deployed `yaml_parser.py` resolving `ModuleNotFoundError` during `konoha migrate`.
 - **Subprocess Buffer & Event Loop Protections**: Configured Node `maxBuffer` to 1GB across all router spawns; ensured proper `child.unref()` and `process.stdin.pause()` cleanup.

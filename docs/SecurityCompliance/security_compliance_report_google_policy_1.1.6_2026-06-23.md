@@ -19,7 +19,7 @@ This compliance report audits version 1.1.6 of the Konoha Project, focusing on t
 
 ### 4. Cursor Subagent Model Embedding
 - **Action Verified**: `src/cursor_manager.js` `generateCursorSubagent()` injects `model: inherit` (Cursor Auto) into YAML frontmatter for all six official ninja agents by default, supporting Cursor Free accounts without explicit model selection.
-- **Impact**: Subagents follow the session Auto model while remaining overridable via `cursorModel` in `agents.json`.
+- **Impact**: Subagents follow the session Auto model.
 
 ### 5. Restored Auto-Setup Execution
 - **Action Verified**: `bin/cli.js` `main()` now calls `ensureAutoSetup()` on every command except `uninstall` and `help`, restoring the documented v1.0.7+ self-healing bootstrap that was previously defined but not invoked.

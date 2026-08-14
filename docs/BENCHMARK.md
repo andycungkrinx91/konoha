@@ -1,6 +1,6 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-06-25**). Metrics combine **konoha** and **semble** usage.
+This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-08-04** — v2.0.0 release). Metrics combine **konoha** and **semble** usage.
 
 > Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
@@ -10,7 +10,7 @@ This report presents **live** token savings metrics from `konoha savings` on thi
 
 By moving from full-disk file loading to on-demand context injection, developers achieve a combined context reduction of **83% to 98% average per query**.
 
-### 📈 Live Savings Summary (2026-06-25)
+### 📈 Live Savings Summary (v2.0.0 — 2026-08-04)
 
 | Period | Total Calls | Cumulative Saved | Token Reduction |
 |:---|:---:|:---:|:---:|
@@ -63,7 +63,22 @@ The `konoha` MCP server complements semble with hard-capped file operations:
 
 **Recommended workflow**: `semble.search` → locate target → `read_file_range` / `get_file_structure` for precise context.
 
-**Security (v1.1.7+)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
+**Security (v2.0.0)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
+
+---
+
+## 4. 🦀 RTK (Rust Token Killer) Savings
+
+If `rtk` is installed on PATH, agents prefix all shell commands with `rtk` to reduce token consumption from noisy command output:
+
+| Tool | Typical Output | RTK Reduction |
+|------|---------------|---------------|
+| `rtk git status` | verbose git log | ~70-90% token reduction |
+| `rtk ls src/` | full directory listing | ~80-90% token reduction |
+| `rtk grep "pattern" src/` | full file dumps | ~85-95% token reduction |
+| `rtk docker ps` | wide table output | ~75-90% token reduction |
+
+RTK rules are auto-deployed to all three supported clients (`~/.gemini/antigravity-cli/rules/rtk.md`, `~/.gemini/antigravity-ide/rules/rtk.md`, `~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`) on `konoha init`. If `rtk` is not installed, Konoha skips deployment gracefully.
 
 ---
 
@@ -77,7 +92,7 @@ Large context windows slow down LLM token generation speeds and increase costs. 
 
 ---
 
-## 🧪 Release QA Gates (v1.1.7)
+## 🧪 Release QA Gates (v2.0.0)
 
 Before public release, verify:
 
@@ -149,4 +164,4 @@ Before public release, verify:
 | **Token Savings** | 0% (Baseline) | **83% - 98% reduction** |
 | **Cost & Context Bloat** | High context footprint, high API bills | Minimal footprint, highly cost-effective |
 | **Multi-Tool Config** | Hand-crafted and fragile configuration | Unified via `konoha init` + per-client MCP JSON |
-| **Onboarding** | Copy files and manually configure IDE/CLI | Run `npx github:andycungkrinx91/konoha init` (cross-platform) |
+| **Onboarding** | Copy files and manually configure IDE/CLI | Run `pnpm dlx github:andycungkrinx91/konoha init` (cross-platform) |

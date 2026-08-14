@@ -1,6 +1,19 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v1.1.7+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity. The same `konoha` + `semble` MCP stack and seven ninja subagents work in both environments.
+Konoha **v2.0.0+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity and Claude Code. The same `konoha` + `semble` MCP stack and seven ninja subagents work in both environments.
+
+## RTK (Rust Token Killer) — Token-Optimized Shell
+
+If you have [`rtk`](https://github.com/raxodog/rtk) installed on your system (`cargo install rtk`), Konoha will automatically deploy an RTK rule to `~/.cursor/rules/rtk.mdc` on `konoha init`. This rule instructs the agent to prefix all shell commands with `rtk` to minimize token consumption:
+
+```bash
+rtk git status
+rtk ls src/
+rtk grep "pattern" src/
+rtk find "*.ts" .
+```
+
+Meta commands like `rtk gain` show token savings, and `rtk discover` finds missed RTK opportunities. RTK can cut up to 90% of bash output on common operations. If `rtk` is not installed, Konoha skips this step gracefully.
 
 ## Prerequisites
 
@@ -24,17 +37,18 @@ Konoha **v1.1.7+** supports **Cursor IDE** and **Cursor CLI** alongside Antigrav
 For a full install:
 
 ```bash
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` binary on PATH) and skip silently otherwise. The following paths are deployed:
 
 | Path | Purpose |
 |------|---------|
-| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then **replaced** with `konoha` + `semble` only |
-| `~/.cursor/skills/` | Agent skills mirrored from `~/.agents/skills/` (same layout as Antigravity) |
+| `~/.cursor/mcp.yaml` | **Backed up** to `mcp.yaml.back` (first install only), then updated with `konoha` + `semble` |
+| `~/.agents/skills/` | Canonical agent skill source indexed and served through Konoha FTS5; no Cursor filesystem mirror |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
+| `~/.cursor/rules/rtk.mdc` | **RTK (Rust Token Killer) rule** — deployed automatically when `rtk` binary is on PATH |
 | `.cursor/mcp.json` (project) | Project-scoped MCP config |
 | `.cursor/rules/konoha.mdc` | Orchestrator delegation rules |
 | `.cursor/skills/` (project) | Project-scoped skills (mirrored from `.agents/skills/` or `~/.agents/skills/`) |
@@ -90,9 +104,9 @@ After semble locates targets, use **konoha** MCP for precise, capped file operat
 | `get_file_structure` | Class/function signatures without bodies |
 | `find_files_clean` | Glob file list (skips `node_modules`, `.git`, lockfiles) |
 
-### Subagent models (Cursor Free)
+### Subagent models
 
-All official subagents default to **`model: inherit`** (Cursor Auto session model). No manual model selection is required on free-tier Cursor accounts.
+All subagents run on `Claude Sonnet 4.6 (Thinking)`. Cursor Free users are unaffected — no manual model selection is required.
 
 ## Agent Call Statistics (`konoha agent status`)
 

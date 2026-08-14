@@ -18,16 +18,37 @@ const PROJECT_CURSOR_DIR = '.cursor';
 
 const CURSOR_FALLBACK_MODEL = 'inherit';
 
+const CURSOR_RULES_GLOBAL = path.join(CURSOR_DIR, 'rules');
+const CURSOR_RTK_RULE_SRC = path.join(__dirname, '..', '.cursor', 'rules', 'rtk.mdc');
+
 const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
+
+function isRtkInstalled() {
+  return isCommandAvailable('rtk');
+}
+
+function deployCursorRtkRule(silent = true) {
+  if (!isRtkInstalled()) {
+    return { ok: false, reason: 'rtk-not-installed' };
+  }
+  if (!fileExists(CURSOR_RTK_RULE_SRC)) {
+    return { ok: false, reason: 'rtk-rule-template-missing' };
+  }
+
+  ensureDir(CURSOR_RULES_GLOBAL);
+  const dest = path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc');
+  try {
+    fs.copyFileSync(CURSOR_RTK_RULE_SRC, dest);
+    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'copy-failed', error: e.message };
+  }
+}
 
 function isCursorInstalled() {
   // Only detect via binary presence — ~/.cursor/ may linger after uninstall.
   return isCommandAvailable('cursor');
-}
-
-function resolveCursorModel(agent) {
-  // Always use IDE default — no model tier mapping
-  return CURSOR_FALLBACK_MODEL;
 }
 
 function adaptInstructionsForCursor(instructions) {
@@ -40,8 +61,11 @@ function adaptInstructionsForCursor(instructions) {
     .trim();
 }
 
+function resolveCursorModel(agent = {}) {
+  return agent.cursor_fallback_model || agent.cursorFallbackModel || CURSOR_FALLBACK_MODEL;
+}
+
 function generateCursorSubagent(agent) {
-  const model = resolveCursorModel(agent);
   const readonly = agent.name === 'genin';
   const description = `${agent.description} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
   
@@ -51,13 +75,15 @@ function generateCursorSubagent(agent) {
 
   if (agent.skills && agent.skills.length > 0) {
     const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
     const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
     const logMatch = instructions.match(logPattern);
     if (logMatch) {
       const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ` + instructions.slice(insertIndex);
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
     } else {
-      instructions = `Before work: ${findSkillCalls} ` + instructions;
+      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
     }
   }
 
@@ -69,7 +95,6 @@ function generateCursorSubagent(agent) {
     '---',
     `name: ${agent.name}`,
     `description: ${description.replace(/\n/g, ' ')}`,
-    `model: ${model}`,
   ];
   if (readonly) {
     frontmatter.push('readonly: true');
@@ -96,12 +121,12 @@ alwaysApply: true
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in Cursor tools (\`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`) or shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) is **STRICTLY FORBIDDEN**.
 >
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`, \`search_file\`)
+> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
 > - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
 > - **NEVER** call Cursor \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
-You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_kage\`, \`konoha.mcp_anbu\`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
+You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. \`konoha.kage\`, \`konoha.anbu\`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
 
 ## Ninja Agents (MCP tools)
 
@@ -119,8 +144,8 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 
 ### BRANCH B: Website Scaffolding (SKIP standard pipeline)
 1. Call \`konoha.build_from_text(name, description, framework)\` or \`konoha.build_from_source(name, source_dir, framework)\` FIRST.
-2. Write \`delegate.md\` with returned directives as constraints and call \`konoha.mcp_jonin\` directly — DO NOT call Chunin, Genin, or Kage.
-3. After Jonin completes, call \`konoha.mcp_tokubetsu_jonin\` for documentation.
+2. Write \`delegate.md\` with returned directives as constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
+3. After Jonin completes, call \`konoha.tokubetsu_jonin\` for documentation.
 4. Output final report.
 
 ### BRANCH A: Standard Workflow (for non-website tasks)
@@ -129,8 +154,8 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 3. **File reads**: After semble locates targets, use \`konoha\` MCP for reads/grep/structure — **never Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`.**
 4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
    - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any agent.
-   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage, backend to @mcp_anbu, UI to @mcp_jonin).
-   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.mcp_anbu\`), passing \`task_dir\` pointing to a task directory (resolved via \`konoha.get_resolved_task_dir\` → \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace) containing \`delegate.md\` instructions.
+   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @kage, backend to @anbu, UI to @jonin).
+   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.anbu\`), passing \`task_dir\` pointing to a task directory (resolved via \`konoha.get_resolved_task_dir\` → \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace) containing \`delegate.md\` instructions.
 5. **Synthesize**: Present results to the user.
 6. **Resuming & Multi-Turn Conversations (CRITICAL)**: Upon resuming a conversation or handling any follow-up turn in Cursor, you MUST ALWAYS re-evaluate the user prompt, write \`delegate.md\`, and execute the \`mcp_<agentname>\` delegation workflow again for all non-trivial tasks. NEVER skip \`mcp_<agentname>\` delegation when resuming a conversation.
 7. **Package Manager Mandate**: ALWAYS use \`pnpm\` (e.g., \`pnpm dlx create-next-app@latest\`, \`pnpm create\`, \`pnpm install\`, \`pnpm run dev\`) for all project scaffolding, dependencies, and dev server execution. NEVER use \`npm\` or standalone \`npx\` without pnpm.
@@ -140,7 +165,7 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 | Embedded Skills | Subagent MCP Tool |
 |---|---|
 ${delegationRows}
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @mcp_kage). |
+| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 
 ${buildSembleSearchPolicy()}
 
@@ -163,6 +188,7 @@ ${buildFileToolsPolicy()}
 - **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Codebase Hygiene & Cleanup**: When working on fixes or testing features manually, ensure that all temporary files, debugging scripts (e.g., \`patch_test.py\`, \`savings_out.txt\`, \`test_clients_e2e.py\`, \`fix_json.js\`, etc.), or manual mock files created during the testing process are ALWAYS DELETED before concluding the task. The project codebase must remain clean and strictly contain only production logic and official test suites.
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - Read-only for \`.env\`, \`terraform.tfvars\`, \`secrets.yaml\` unless user approves
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
@@ -448,6 +474,7 @@ function ensureCursorSetup(options = {}) {
   registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent);
   registerCursorCliPermissions(silent);
   registerCursorHooks(silent, allowHooks);
+  deployCursorRtkRule(silent);
 
   if (deployProject) {
     const root = projectRoot || process.cwd();
@@ -562,7 +589,9 @@ function getCursorStatus() {
     hooks: false,
     projectMcp: false,
     projectRule: false,
-    projectAgents: 0
+    projectAgents: 0,
+    rtkInstalled: isRtkInstalled(),
+    rtkRuleDeployed: fileExists(path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc'))
   };
 
   if (status.mcpGlobal) {
@@ -628,9 +657,11 @@ module.exports = {
   CURSOR_SKILLS_GLOBAL,
   CURSOR_HOOKS_GLOBAL,
   CURSOR_CLI_CONFIG,
+  CURSOR_RULES_GLOBAL,
   CURSOR_FALLBACK_MODEL,
-  isCursorInstalled,
   resolveCursorModel,
+  isCursorInstalled,
+  isRtkInstalled,
   generateCursorSubagent,
   generateCursorRule,
   registerCursorMcp,
@@ -638,6 +669,7 @@ module.exports = {
   registerCursorCliPermissions,
   registerCursorHooks,
   deployProjectCursor,
+  deployCursorRtkRule,
   ensureCursorSetup,
   removeCursorConfig,
   getCursorStatus,

@@ -17,7 +17,7 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 
 In the 8-phase Konoha workflow, Sannin serves a dual role:
 
-- **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `mcp_sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
+- **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
 - **Phase 7: synthesize**: After `document` completes, the orchestrator dispatches sannin to read all phase outputs (`result.md`, `plan.md`, `delegate.md` from each phase) and synthesize them into a cohesive `final_report.md`. Sannin returns this final report to the caller and the workflow advances to `done`.
 
 ## The Orchestration Pipeline
@@ -56,7 +56,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 
 | If the task involves... | Route to |
 |---|---|
-| Codebase exploration, tracing code paths | `@mcp_genin` |
+| Codebase exploration, tracing code paths | `@genin` |
 | Architecture decisions, security audits | `@mcp_Kage` |
 | Web research, documentation lookup | `@mcp_Chunin` |
 | UI/frontend development, building websites, e-commerce, Next.js/Svelte UIs | `@mcp_Jonin` (load `jonin-skill` & use `pnpm`) |
@@ -79,7 +79,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 1. When prompt requests building/scaffolding a website, web app, e-commerce site, Next.js, or Svelte UI:
 2. Call `konoha.build_from_text` (or `konoha.build_from_source` for mockups) first.
 3. Pass `jonin-skill` in required skills and mandate `pnpm` (never `npm` or standalone `npx`) in `delegate.md`.
-4. Delegate execution to `@mcp_jonin`.
+4. Delegate execution to `@jonin`.
 
 ## SOP 4: Project-Local Knowledge & Skills Discovery
 1. Before writing `delegate.md`, inspect the target workspace for project-local knowledge files (`README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and project-local skills in `.agents/skills`, `.cursor/skills`, `skills/`, `.skills/`, `docs/skills/`).

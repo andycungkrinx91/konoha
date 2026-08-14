@@ -43,7 +43,7 @@ async function main() {
     if (name === 'define_subagent' || name === 'invoke_subagent') {
       respond({
         decision: 'deny',
-        reason: `Subagents must be executed strictly as MCP tools (e.g. mcp_kage, mcp_jonin, etc.) served by the konoha MCP server. Direct agent tool calls (define_subagent, invoke_subagent) are disabled in Konoha.`,
+        reason: `Subagents must be executed strictly as MCP tools (e.g. kage, jonin, etc.) served by the konoha MCP server. Direct agent tool calls (define_subagent, invoke_subagent) are disabled in Konoha.`,
       });
       return;
     }

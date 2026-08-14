@@ -1,7 +1,8 @@
+› Konoha help
 | |/ /  / _ \ | \| | / _ \ | || |   / \
 | ' /  | | | || .` || | | || __ |  / _ \
 |_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
-Konoha — SQLite FTS5 Skills-DB
+Konoha — MCP Tools Orchestrator
 Token reduction: 83-98% via on-demand search
 Maintainer: Andy Setiyawan
 
@@ -42,16 +43,13 @@ GLOBAL OPTIONS
 
 QUICK-START EXAMPLES FOR BEGINNERS
   1. Setup everything for the first time:
-     npx github:andycungkrinx91/konoha init
+     pnpm dlx github:andycungkrinx91/konoha init
 
   2. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:
      konoha skill search golang
 
   3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):
      konoha agent skill genin
-
-  4. Interactively change models for a subagent (e.g. set @kage to Claude Opus 4.6):
-     konoha agent models kage
 
   5. View how many tokens (and how much context window) you have saved:
      konoha savings

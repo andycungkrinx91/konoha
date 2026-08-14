@@ -3,12 +3,15 @@
 </p>
 
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=rocket&logoColor=white)](README.md)
+[![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB?logo=python&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2021%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2021%2B%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
+[![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Token Savings](https://img.shields.io/badge/Token%20Savings-83--98%25-9ece6a)](README.md)
 
 
@@ -16,7 +19,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.7](docs/SecurityCompliance/security_compliance_report_google_policy_1.1.6_2026-07-28.md)
+* **Latest Security Compliance:** [Google Policy Compliance v1.1.7 — Konoha v2.0.0](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md)
 
 | | |
 |:---:|:---:|
@@ -31,9 +34,12 @@
 * [Antigravity IDE Setup Guide](docs/SETUP-IDE.md)
 * [Antigravity CLI Setup Guide](docs/SETUP-CLI.md)
 * [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md)
+* [Claude Code Setup Guide](docs/SETUP-MCP-CLIENTS.md)
+* [SearXNG Multi-Source Search](docs/SETUP-SEARXNG.md)
 * [Adding Skills from skills.sh](docs/ADDING-SKILLS.md)
 * [Token Savings Benchmarks](docs/BENCHMARK.md)
 * [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+* [System Architecture](docs/ARCHITECTURE.md)
 
 ## ⚠️ The Problem
 
@@ -89,34 +95,54 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 
 Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption via MCP Tools), specifically engineered to deliver maximum performance, complete cross-IDE portability, and **83–98% token savings**.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          MCP TOOLS ORCHESTRATOR MODEL                           │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│   👤 User Prompt / Resume Action                                                │
-│        │                                                                        │
-│        ▼                                                                        │
-│   🌀 Main Orchestrator Thread (Sannin)                                          │
-│        │                                                                        │
-│        ├─ Step 1: Read prompt spec via `konoha` MCP (`read_file_head`/`range`)  │
-│        ├─ Step 2: Discover target skills & codebase via `konoha` & `semble` MCP │
-│        ├─ Step 3: Write delegation spec (`delegate.md`) in transient task dir   │
-│        ├─ Step 4: Invoke Subagent MCP Tool (e.g., `konoha.mcp_anbu`)            │
-│        │             │                                                          │
-│        │             └─► MCP Tool returns persona & instructions JSON           │
-│        │                                                                        │
-│        ├─ Step 5: Adopt Persona ──► Execute task & write `result.md`            │
-│        └─ Step 6: Call `mcp_sannin` tool to close task loop & synthesize        │
-│                                                                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+> **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Diagram manifest](docs/diagrams/README.md).
+
+```mermaid
+---
+title: Konoha Orchestrator Task Artifact Flow
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#ede9fe'
+    primaryTextColor: '#1e1b4b'
+    primaryBorderColor: '#7c3aed'
+    lineColor: '#64748b'
+    secondaryColor: '#d1fae5'
+    tertiaryColor: '#dbeafe'
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  flowchart:
+    nodeSpacing: 90
+    rankSpacing: 110
+    padding: 32
+    wrappingWidth: 360
+---
+flowchart LR
+    Prompt([User Prompt / Resume]) --> Orchestrator[Primary Orchestrator]
+    Orchestrator --> Read[Read prompt spec<br/>Konoha bounded file tools]
+    Orchestrator --> Discover[Discover skill + code<br/>Konoha MCP + Semble MCP]
+    Orchestrator --> Contract[Write delegate.md<br/>Isolated task directory]
+    Contract --> Agent[Selected Ninja Agent<br/>Genin · Kage · Jonin<br/>Anbu · Chunin<br/>Tokubetsu-jonin]
+    Agent --> Result[Write result.md]
+    Result --> Close[sannin closes loop]
+    Close --> Response([Synthesized Response])
+
+    classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
+    classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46
+    classDef artifact fill:#fef3c7,stroke:#d97706,color:#78350f
+    class Prompt,Response user
+    class Orchestrator,Close orchestration
+    class Read,Discover mcp
+    class Contract,Result artifact
+    class Agent orchestration
 ```
 
 ### Architectural Comparison
 
 | Dimension | 1. Agent-to-Agent (Process Spawning) | 2. MCP-to-MCP (Server-to-Server RPC) | 3. MCP Tools Orchestrator (Konoha Model) |
 |:---|:---|:---|:---|
-| **Execution Model** | Spawns separate LLM child processes (`invoke_subagent`). | One MCP Server calls another downstream MCP Server via backend RPC. | Subagents run as **MCP Tools** (`mcp_anbu`, `mcp_kage`); Orchestrator adopts persona dynamically. |
+| **Execution Model** | Spawns separate LLM child processes (`invoke_subagent`). | One MCP Server calls another downstream MCP Server via backend RPC. | Subagents run as **MCP Tools** (`anbu`, `kage`); Orchestrator adopts persona dynamically. |
 | **Token Efficiency** | ❌ **Poor**: High token bloat from duplicating system prompts & context (3x–10x token cost). | ⚠️ **Moderate**: Depends on RPC serialization payload size. | ✅ **Extreme (83–98% Savings)**: In-flight execution using bounded MCP context. |
 | **Startup Latency** | ❌ **High**: 3–10 seconds of cold-start delay per child process launch. | ⚠️ **Moderate**: Network/IPC serialization hops between cascading servers. | ✅ **Near-Zero Latency**: Instant inline tool invocations and persona handoffs. |
 | **Task Auditability** | ⚠️ Complex transcript aggregation across detached process trees. | ❌ Hidden backend execution; opaque to the client UI/user. | ✅ **Fully Transparent**: Human-readable task contracts (`delegate.md` & `result.md`). |
@@ -135,12 +161,12 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 When installing Konoha globally, all required Node.js libraries, Python helper dependencies, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
 
 ```bash
-npm install -g konoha
+pnpm add --global konoha
 konoha init
 ```
 
 Konoha handles all setup steps automatically:
-- 📦 **Node.js dependencies**: Installed via `package.json` (`@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `ora`, `chalk`).
+- 📦 **Node.js dependencies**: Installed via `package.json` (`@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/skills.db`.
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
@@ -154,7 +180,7 @@ Get Konoha up and running in under 2 minutes:
 
 ```bash
 # 1. Initialize on any machine directly from GitHub
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 
 # 2. Verify the MCP server connection works
 konoha test
@@ -169,7 +195,7 @@ konoha status
 
 - **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
 - **Python 3** ≥ 3.8 (for MCP server, uses standard library only — no external pip packages required)
-- **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Cursor users also get `~/.cursor/skills/` mirrored automatically
+- **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
 - **Cross-platform**: Linux, macOS, Windows (native and WSL)
 
 ## 🛠️ CLI Commands
@@ -177,7 +203,7 @@ konoha status
 To run all commands simply as `konoha <command>`, install the package globally:
 
 ```bash
-npm install -g github:andycungkrinx91/konoha
+pnpm add --global github:andycungkrinx91/konoha
 ```
 
 Once installed, the following CLI commands are available:
@@ -187,7 +213,7 @@ Once installed, the following CLI commands are available:
 | `konoha init` | Full install: server + migration + MCP config + GEMINI.md |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version and check for updates from GitHub |
+| `konoha version` | Display current local version (2.0.0) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -195,8 +221,7 @@ Once installed, the following CLI commands are available:
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
-| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `models`, `skill`, `delete`, `status`) |
-| `konoha models <subcommand>` | Manage available LLM models and assign them to subagents |
+| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `skill`, `delete`, `status`) |
 | `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
@@ -206,16 +231,32 @@ Once installed, the following CLI commands are available:
 Konoha works seamlessly on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
 
 ```bash
-npm install -g konoha
+pnpm add --global konoha
 konoha init
 ```
 
 If `konoha` is not found after install:
 - **nvm on Linux/macOS**: `source ~/.nvm/nvm.sh` then `nvm use stable`
-- **nvm-windows**: `nvm use <version>` then `npm install -g konoha`
+- **nvm-windows**: `nvm use <version>` then `pnpm add --global konoha`
 - **Windows without nvm**: Reinstall Node.js from [nodejs.org](https://nodejs.org/) and ensure PATH is set
 
 Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md](docs/SETUP-IDE.md), [SETUP-CURSOR.md](docs/SETUP-CURSOR.md), [SETUP-MCP-CLIENTS.md](docs/SETUP-MCP-CLIENTS.md).
+
+### RTK (Rust Token Killer)
+
+If `rtk` is installed on your system (`cargo install rtk`), Konoha auto-deploys RTK rules to all detected supported clients during `konoha init`:
+
+| Client | RTK Rule Location |
+|--------|-------------------|
+| **Antigravity** | `~/.gemini/antigravity-cli/rules/rtk.md` + `~/.gemini/antigravity-ide/rules/rtk.md` |
+| **Cursor** | `~/.cursor/rules/rtk.mdc` |
+| **Claude Code** | `~/.claude/rules/rtk.md` |
+| **OpenCode** | `~/.opencode/rules/rtk.md` |
+| **Command Code** | `~/.commandcode/rules/rtk.md` |
+
+This instructs agents to prefix all shell commands with `rtk <command>`, reducing token consumption by up to 90% on common operations. If `rtk` is not installed, Konoha skips this step gracefully.
+
+**Automatic Setup:** During `konoha init`, Konoha runs `rtk init -g` globally to install the Claude Code hook automatically — no manual configuration needed. The RTK rule (`~/.claude/rules/rtk.md`) and hook are deployed alongside the MCP server setup.
 
 ---
 
@@ -229,7 +270,7 @@ Bridges are registered manually by the user (the tables start empty on install).
 
 Examples:
 
-- Ollama-compatible endpoint — default `http://localhost:11434`
+- Ollama-compatible endpoint — default `http://localhost:11434/v1`
 - OpenAI-compatible endpoint — provide your own API key
 
 Configure bridges with `konoha bridge create` (interactive wizard). You can add multiple bridges for different providers:
@@ -239,7 +280,7 @@ Configure bridges with `konoha bridge create` (interactive wizard). You can add 
 | `gpt-api` | User-defined | `openai` | Direct proxy to OpenAI-compatible endpoints (e.g. `https://api.openai.com/v1`). |
 | `my-ollama` | User-defined | `openai-compatible` | Proxy to local LLM instances (e.g. Ollama, vLLM). |
 
-> **Note:** `openai-oauth` (device code flow) support was removed in v1.1.7+. Use `openai` (API key) or `openai-compatible` bridges instead.
+> **Note:** `openai-oauth` (device code flow) support was removed in v2.0.0. Use `openai` (API key) or `openai-compatible` bridges instead.
 
 Model routing examples:
 
@@ -279,7 +320,12 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
 
-~/.claude.json             ← konoha + semble (Claude Code, global only)
+~/.claude/
+├── settings.json          ← MCP auto-approval (all projects)
+├── CLAUDE.md              ← Global orchestrator instructions (Claude Code)
+├── agents/                ← Six ninja subagents (model: inherit)
+└── rules/
+    └── rtk.md             ← RTK rule (if rtk binary detected)
 ```
 
 ---
@@ -309,14 +355,14 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 The unified `konoha` server exposes 21 tools for skill retrieval, bounded file operations, project scaffolding, and subagent delegation workflows:
 
-#### `mcp_sannin(prompt?, task_dir?)`
+#### `sannin(prompt?, task_dir?)`
 The Sannin routing workflow tool. Resolves the task prompt, dynamically chooses the most suitable subagent to run, sets up the task directory, and executes the chosen subagent inline.
 
-#### Subagent Delegation Tools (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, `mcp_genin`)
+#### Subagent Delegation Tools (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`)
 Executes the specified subagent inline under a task directory (`task_dir`), loading its system instructions and skill references dynamically.
 
 #### `web_search(query, num_results?, search_depth?)`
-Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `mcp_chunin` for deep research.
+Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.
 
 #### `find_skill(keyword, limit?)`
 Search skills by keyword using FTS5 full-text search.
@@ -341,6 +387,9 @@ List all indexed skills and references with metadata.
 #### `optimize_report(keyword?)`
 Token-efficient skill discovery report with usage hints.
 
+#### `build_with_image_design(name, source_dir, framework)`
+Legacy alias for `build_from_source`, preserved for compatibility with existing clients.
+
 #### `build_from_source(name, source_dir, framework)`
 Scaffold from design mockups or reference source files (`.png`, `.html`, `.tsx`, etc.).
 
@@ -356,7 +405,6 @@ Scaffold from a text prompt using default premium templates.
 | `token_efficient_grep(pattern, dir, glob?, ignore_case?)` | Compressed regex search | Max **20** matches (cap 50) |
 | `get_file_structure(path)` | Class/function signatures only (no bodies) | AST (Python) / regex (JS/TS) |
 | `find_files_clean(pattern, dir)` | Glob walk with blacklist | Skips `.git`, `node_modules`, `dist`, lockfiles |
-| `search_file(query, dir?, top_k?)` | Semantic code/file search using semble | Semble-powered semantic search |
 
 > [!IMPORTANT]
 > **All agents must use konoha** for skill lookups, file reads, and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** (semantic code search) → **konoha** (skills & file operations).
@@ -381,7 +429,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 1. 🍃 Genin (Junior Scout)
 * **Operational Role**: Codebase Reconnaissance & Scout
-* **Primary Model**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Fast, read-only code exploration.
   - Traces codepaths, maps dependencies, and analyzes repository structure.
@@ -390,7 +438,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 2. 📜 Chunin (Journeyman Intel Gatherer)
 * **Operational Role**: Intel Gathering, Web Research, & Documentation Synthesis
-* **Primary Model**: `Gemini 3.5 Flash (Low)` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Researches libraries, API specifications, version histories, and best practices.
   - Leverages semantic search (`semble`) to discover codebase context before executing web searches.
@@ -400,7 +448,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 3. 🛡️ Jonin (Elite Builder)
 * **Operational Role**: UI/UX Master, Styling, & Component Architecture
-* **Primary Model**: `Gemini 3.5 Flash (High)` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Builds premium, visually stunning frontends (SvelteKit, Next.js, Tailwind v4, Magic UI, 3D web).
   - Enforces design tokens, custom typography, smooth gradients, and glassmorphism.
@@ -410,7 +458,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 4. 👥 Anbu (Special Black Ops)
 * **Operational Role**: Backend Specialist, Bug Resolution, DevOps, & Cybersecurity Defense Engineer
-* **Primary Model**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Designs backend systems, database schemas, APIs (Node.js, Express, GraphQL, Laravel, WordPress, Magento, PHP, Ruby, C++).
   - Architectures distributed messaging and caching layers (Kafka, RabbitMQ, Redis, Nginx, HAProxy, Varnish).
@@ -421,7 +469,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
 * **Operational Role**: Technical Writing, Documentation, PDF Reporting, & Postmortems
-* **Primary Model**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Authors and maintains README files, API specifications, runbooks, and onboarding guides (`documentation-writer`).
   - Produces printable professional PDF reports and styled documentation exports (`pdf`).
@@ -431,7 +479,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 6. 🌀 Kage (Village Leader)
 * **Operational Role**: Senior Architect, Strategist, & Deep Problem Solver
-* **Primary Model**: `Gemini 3.1 Pro (High)` | **Fallback**: `Gemini 3.1 Flash-Lite`
+* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
 * **Key Responsibilities**:
   - Guides high-level architecture decisions, security audits, and risk assessments (`risk-assessment`, `improve-codebase-architecture`).
   - Constructs professional architecture diagrams and visualizations (`drawio-skill`, `mermaid-diagrams`).
@@ -449,11 +497,11 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 >
 > * **Proactive Execution (No commanding back)**: Subagents must never instruct the user to manually create/edit files or run terminal commands that the agent is equipped to perform itself.
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
-> * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep; `rg` only if semble MCP is unavailable.
+> * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 7 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `sannin`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
 > * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
-> * **Rate Limit Fallback**: In the event of API rate limits, the system will fallback to `Gemini 3.1 Flash-Lite` and use direct tool calls instead of spawning additional subagents.
+> * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
 
 ---
 
@@ -473,44 +521,48 @@ Konoha (On-Demand):   █                              12 KB   (97.8% savings)
 ────────────────────────────────────────────────────────────
 ```
 
+> **Canonical editable diagram:** [07 Token Footprint Comparison](docs/diagrams/konoha-architecture.drawio) · [Diagram manifest](docs/diagrams/README.md).
+
 ```mermaid
 ---
-title: Token Footprint — Before vs After
+title: Token Footprint Before and After Konoha
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#fee2e2'
+    primaryTextColor: '#7f1d1d'
+    primaryBorderColor: '#ef4444'
+    lineColor: '#64748b'
+    secondaryColor: '#d1fae5'
+    tertiaryColor: '#fef3c7'
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+  flowchart:
+    nodeSpacing: 90
+    rankSpacing: 110
+    padding: 32
+    wrappingWidth: 360
 ---
 flowchart LR
-    %% ── Style Definitions ──────────────────────────────────────
-    classDef stepBad fill:#2d202f,stroke:#f7768e,stroke-width:1px,color:#fca5a5;
-    classDef stepGood fill:#1a2e1a,stroke:#9ece6a,stroke-width:1px,color:#bbf7d0;
-    classDef metricBad fill:#f7768e,stroke:#f7768e,stroke-width:2px,color:#1a1b26;
-    classDef metricGood fill:#9ece6a,stroke:#9ece6a,stroke-width:2px,color:#1a1b26;
-    classDef verdict fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff;
-
-    %% ── Before Path (Wasteful) ─────────────────────────────────
-    subgraph BEFORE ["Before — Raw Disk Loading"]
-        direction LR
-        B1("Load SKILL.md files<br>72 KB") -->|"roundtrip 1"| B2("Parse router table<br>overhead")
-        B2 -->|"roundtrip 2"| B3("Load reference files<br>478 KB")
-        B3 -->|"roundtrip 3"| B4("Load scripts<br>547 KB")
+    subgraph Before["Before: folder-level loading"]
+        direction TB
+        Raw["Raw SKILL.md files"] --> References["All references<br/>and scripts"]
+        References --> FullContext["Entire context window<br/>large repeated payload"]
     end
-    B4 --> B_Total(["Total: 1.1 MB / session"])
-
-    %% ── After Path (Optimized) ─────────────────────────────────
-    subgraph AFTER ["After — Konoha FTS5 On-Demand"]
-        direction LR
-        A1("Agent calls find_skill") -->|"single roundtrip"| A2("FTS5 BM25 search<br>SQLite query")
+    subgraph After["After: on-demand retrieval"]
+        direction TB
+        Index["SQLite FTS5 index"] --> Query["find_skill(keyword)"]
+        Query --> Relevant["Relevant bounded reference<br/>preview or full content"]
     end
-    A2 --> A_Total(["Total: 4-12 KB / query"])
+    FullContext --> Compare{"Smaller query payload"}
+    Relevant --> Compare
 
-    %% ── Verdict ────────────────────────────────────────────────
-    B_Total --> Savings{"98% Token Reduction"}
-    A_Total --> Savings
-
-    %% ── Apply Styles ──────────────────────────────────────────
-    class B1,B2,B3,B4 stepBad
-    class B_Total metricBad
-    class A1,A2 stepGood
-    class A_Total metricGood
-    class Savings verdict
+    classDef waste fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:2px
+    classDef optimized fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    class Raw,References,FullContext waste
+    class Index,Query,Relevant optimized
+    class Compare decision
 ```
 
 📊 **Benchmark Comparison: Antigravity Session Metrics**
@@ -572,7 +624,9 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 
 ## Credits
 
-Special thanks to [semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic code search capability that forms the second half of Konoha's optimization stack.
+Special thanks to [Semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic code search capability that forms the second half of Konoha's optimization stack.
+
+Special thanks to [RTK (Rust Token Killer)](https://github.com/reachingforthejack/rtk) for providing the high-performance CLI proxy that filters and summarizes command outputs before they reach the LLM context, completing Konoha's token-efficient stack alongside Semble and the konoha MCP.
 
 **Citation:** If you use Konoha in academic research, please also cite Semble as follows:
 

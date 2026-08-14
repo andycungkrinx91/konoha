@@ -61,11 +61,11 @@ python --version   # Windows
 
 ### ❌ "Server not installed" or "Database not found"
 
-Starting with version `1.0.9`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
+Starting with version `2.0.0`, Konoha features self-healing capabilities. Running any `konoha` command (or executing the `konoha doctor` command) will automatically bootstrap and repair missing files.
 
 Alternatively, you can manually re-run the full installer script to verify all files are correctly created and configured:
 ```bash
-npx github:andycungkrinx91/konoha init
+pnpm dlx github:andycungkrinx91/konoha init
 ```
 
 ---
@@ -99,14 +99,14 @@ npx github:andycungkrinx91/konoha init
      "mcpServers": {
        "konoha": {
          "command": "node",
-         "args": ["C:/Users/youruser/.konoha/file_tools_launcher.js"]
+         "args": ["C:/Users/youruser/.konoha/file_tools_launcher.sh"]
        }
      }
    }
    ```
 
 3. **Restart Antigravity IDE/CLI** — MCP configuration files are only read once on startup.
-4. For CLI, run `agy inspect` to verify if `konoha` is successfully loaded.
+4. For CLI, run `agy mcp list` to verify if `konoha` is successfully loaded.
 
 ---
 
@@ -127,13 +127,13 @@ npx github:andycungkrinx91/konoha init
 
 4. **Restart Cursor** — open a new agent session after MCP config changes.
 
-5. Run `konoha doctor --yes` to auto-repair Cursor MCP, subagents, hooks, and CLI permissions80. See [SETUP-CURSOR.md](SETUP-CURSOR.md) for full Cursor setup.
+5. Run `konoha doctor --yes` to auto-repair Cursor MCP, subagents, hooks, and CLI permissions. See [SETUP-CURSOR.md](SETUP-CURSOR.md) for full Cursor setup.
 
 ---
 
 ### 💥 MCP Crashes with "signal: terminated" or "signal: killed" (Port 19999 Collision)
 
-If you see `signal: terminated` or `signal: killed` when Antigravity/Cursor tries to load the `konoha` MCP server, it is likely due to a **Proxy Gateway Port Collision**.
+If you see `signal: terminated` or `signal: killed` when Antigravity / Cursor / Claude Code tries to load the `konoha` MCP server, it is likely due to a **Proxy Gateway Port Collision**.
 
 The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an orphaned Node process from a previous crashed session is still running and occupying port 19999, the new MCP server will instantly crash with `EADDRINUSE 127.0.0.1:19999`. The IDE MCP client catches this immediate exit and throws `signal: terminated`, placing the server in a permanent failed state for that session.
 
@@ -159,6 +159,19 @@ The Konoha MCP server runs a background Bridge Gateway on port **19999**. If an 
 2. **Restart your IDE / CLI Session completely** to clear the cached failed state of the MCP client.
 
 ---
+
+
+### 🔌 MCP Server Not Detected in Claude Code
+
+1. Check `~/.claude.json` for the `mcpServers` section:
+   ```bash
+   # Linux/macOS
+   grep -A 20 mcpServers ~/.claude.json
+   ```
+2. Verify both `konoha` and `semble` entries are present (installed by `konoha init` when `claude` CLI is detected).
+3. Run `/mcp` inside a Claude Code session — should list `konoha` and `semble` as connected servers.
+4. If missing, run `konoha doctor --yes` to auto-repair the `~/.claude.json` registration.
+5. Restart Claude Code to pick up the new MCP config.
 
 
 2. If **not installed**, Konoha skips auto-setup by design — use templates in `docs/templates/` after you install the CLI, or run `konoha init` once the CLI is available.
@@ -267,7 +280,7 @@ The agent's instructions must be updated. Check the following:
 
 1. `~/.gemini/GEMINI.md` — should contain instructions for `konoha` references, NOT "Load and follow".
 2. IDE User Rules — should match the updated `GEMINI.md`.
-3. If necessary, force-reinstall instructions: `npx github:andycungkrinx91/konoha init --force`
+3. If necessary, force-reinstall instructions: `pnpm dlx github:andycungkrinx91/konoha init --force`
 
 ---
 
@@ -315,7 +328,7 @@ Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents
 * **nvm-windows**: Konoha works seamlessly with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>
-  npm install -g konoha
+  pnpm add --global konoha
   ```
 * **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
 * **Cursor on Windows**: Works natively on Windows; ensure `node` and `python` (not `python3`) are on PATH.
@@ -343,9 +356,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node ~/.kono
 
 ## API Rate Limits and Errors
 
-If a task execution encounters rate limits or API errors, the coordinator will fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task.
-
-The system and agent configurations will automatically fallback to `Gemini 3.1 Flash-Lite` to ensure continuous operational capability.
+If a task execution encounters rate limits or API errors, the coordinator will fall back to Direct Tool Calls (executing edits, reads, and commands directly) to complete the task. All subagents use `Claude Sonnet 4.6 (Thinking)` since v2.0.0 — there is no separate fallback tier.
 
 ## Bridge Gateway Troubleshooting
 
