@@ -14,10 +14,12 @@ const HOME = os.homedir();
 const KONOHA_DIR = path.join(HOME, '.konoha');
 const CURSOR_DIR = path.join(HOME, '.cursor');
 const CURSOR_MCP = path.join(CURSOR_DIR, 'mcp.json');
-const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
-const AGENTS_SKILLS = path.join(HOME, '.agents', 'skills');
 const SERVER_PATH = path.join(KONOHA_DIR, 'server.py');
 const FILE_TOOLS_MCP_PATH = path.join(KONOHA_DIR, 'file_tools_mcp.js');
+const CURSOR_RULE = path.join(CURSOR_DIR, 'rules', 'konoha.mdc');
+const CURSOR_RTK_RULE = path.join(CURSOR_DIR, 'rules', 'rtk.mdc');
+const CONTRACT_MARKER = 'KONOHA-CONTRACT-START';
+const CONTRACT_VERSION = '2.0.0-cross-client-1';
 
 function fileExists(p) {
   try { return fs.existsSync(p); } catch { return false; }
@@ -113,56 +115,6 @@ function registerMcp(python) {
   }
 }
 
-function listSkillEntries(skillsDir) {
-  if (!fileExists(skillsDir)) return [];
-  const names = [];
-  try {
-    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-      if (entry.isDirectory() && fileExists(path.join(skillsDir, entry.name, 'SKILL.md'))) {
-        names.push(entry.name);
-      } else if (entry.isFile() && entry.name.endsWith('-skill.md')) {
-        names.push(entry.name);
-      }
-    }
-  } catch {}
-  return names;
-}
-
-function copyRecursiveIfDifferent(src, dest) {
-  let stats;
-  try {
-    stats = fs.statSync(src);
-  } catch {
-    return;
-  }
-  if (stats.isDirectory()) {
-    ensureDir(dest);
-    for (const entry of fs.readdirSync(src)) {
-      copyRecursiveIfDifferent(path.join(src, entry), path.join(dest, entry));
-    }
-    return;
-  }
-  if (!fileExists(dest)) {
-    fs.copyFileSync(src, dest);
-    return;
-  }
-  try {
-    const a = fs.readFileSync(src);
-    const b = fs.readFileSync(dest);
-    if (!a.equals(b)) fs.copyFileSync(src, dest);
-  } catch {
-    try { fs.copyFileSync(src, dest); } catch {}
-  }
-}
-
-function syncCursorSkills() {
-  if (!fileExists(AGENTS_SKILLS)) return;
-  ensureDir(CURSOR_SKILLS);
-  for (const name of listSkillEntries(AGENTS_SKILLS)) {
-    copyRecursiveIfDifferent(path.join(AGENTS_SKILLS, name), path.join(CURSOR_SKILLS, name));
-  }
-}
-
 async function main() {
   try {
     await new Promise((resolve) => {
@@ -178,7 +130,30 @@ async function main() {
 
     const python = checkPython();
     registerMcp(python);
-    syncCursorSkills();
+    ensureDir(path.dirname(CURSOR_RULE));
+    const projectRule = path.join(process.cwd(), '.cursor', 'rules', 'konoha.mdc');
+    const projectContent = fileExists(projectRule) ? fs.readFileSync(projectRule, 'utf8') : '';
+    const currentRule = fileExists(CURSOR_RULE) ? fs.readFileSync(CURSOR_RULE, 'utf8') : '';
+    if (!currentRule.includes(CONTRACT_MARKER) || !currentRule.includes(CONTRACT_VERSION)) {
+      const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
+      if (fileExists(contractPath)) {
+        const agentContract = require(contractPath);
+        const base = projectContent || currentRule;
+        const repaired = agentContract.buildManagedContract(base, agentContract.buildMainAgentContract('cursor'));
+        fs.writeFileSync(CURSOR_RULE, repaired);
+        if (projectContent && (!projectContent.includes(CONTRACT_MARKER) || !projectContent.includes(CONTRACT_VERSION))) {
+          fs.writeFileSync(projectRule, repaired);
+        }
+      } else if (projectContent) {
+        fs.copyFileSync(projectRule, CURSOR_RULE);
+      }
+    }
+    const packagedRtk = path.join(KONOHA_DIR, 'rtk.mdc');
+    if (fileExists(packagedRtk)) {
+      const packaged = fs.readFileSync(packagedRtk);
+      const installed = fileExists(CURSOR_RTK_RULE) ? fs.readFileSync(CURSOR_RTK_RULE) : null;
+      if (!installed || !installed.equals(packaged)) fs.writeFileSync(CURSOR_RTK_RULE, packaged);
+    }
   } catch {
     // fail-open
   }

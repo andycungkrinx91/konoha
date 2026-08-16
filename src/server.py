@@ -580,7 +580,7 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
         is_new_turn = (current_time - last_time) > 60
         LAST_CALL_TIMES[agent_key] = current_time
         
-        if tool_name == "get_skill" or not is_new_turn:
+        if tool_name not in ("find_skill", "list_skills") or not is_new_turn:
             bytes_saved = 0
             tokens_saved = 0
             total_library_bytes = returned_bytes

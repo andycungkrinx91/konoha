@@ -87,6 +87,11 @@ function createContext(config) {
 }
 
 async function startBridge(config) {
+  if (config.provider === 'antigravity-extension') {
+    _bridgeProcesses.set(config.name, { config, external: true });
+    process.stderr.write(`[bridge:${config.name}] External Antigravity extension at ${config.targetUrl || `http://127.0.0.1:${config.port}`}; not spawning a local server.\n`);
+    return { name: config.name, port: config.port, status: 'external' };
+  }
   const { createContext: _ctx } = require('./context');
   const { startServer, stopServer } = require('./server');
   const ctx = _ctx();
@@ -113,7 +118,7 @@ async function stopBridge(name) {
   const entry = _bridgeProcesses.get(name);
   if (!entry) return { name, status: 'stopped' };
   try {
-    await stopServer(entry.ctx);
+    if (entry.ctx) await stopServer(entry.ctx);
     _bridgeProcesses.delete(name);
     process.stderr.write(`[bridge:${name}] ⏹️  Stopped\n`);
     return { name, status: 'stopped' };
@@ -141,6 +146,8 @@ async function startGateway() {
     const entry = _bridgeProcesses.get(b.name);
     if (entry) {
       _gatewayActiveBridges.set(b.name, entry);
+    } else if (b.provider === 'antigravity-extension') {
+      _gatewayActiveBridges.set(b.name, { bridgeConfig: b, external: true });
     }
   }
   try {

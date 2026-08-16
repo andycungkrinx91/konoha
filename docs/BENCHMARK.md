@@ -1,6 +1,6 @@
 # 📊 Token Savings & Optimization Benchmark Report
 
-This report presents **live** token savings metrics from `konoha savings` on this workspace (captured **2026-08-04** — v2.0.0 release). Metrics combine **konoha** and **semble** usage.
+This report documents a **historical workspace snapshot** from `konoha savings` (captured **2026-08-04** for the v2.0.0 release). Metrics combine **konoha** and **semble** usage; they are not universal performance guarantees.
 
 > Reproduce locally: `konoha savings` (requires `konoha init` and active MCP usage history).
 
@@ -8,9 +8,9 @@ This report presents **live** token savings metrics from `konoha savings` on thi
 
 ## 🏆 Combined Optimization Impact
 
-By moving from full-disk file loading to on-demand context injection, developers achieve a combined context reduction of **83% to 98% average per query**.
+The historical workspace snapshot below reports combined retrieval reductions of **83% to 98% per query** under that workspace’s recorded Konoha and Semble usage. It is not a universal benchmark.
 
-### 📈 Live Savings Summary (v2.0.0 — 2026-08-04)
+### 📈 Historical Savings Snapshot (v2.0.0 — 2026-08-04)
 
 | Period | Total Calls | Cumulative Saved | Token Reduction |
 |:---|:---:|:---:|:---:|
@@ -22,15 +22,10 @@ By moving from full-disk file loading to on-demand context injection, developers
 
 ## 1. ⚡ Skills-DB (konoha) Savings
 
-Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at session start. With FTS5 on-demand retrieval, each query returns ~12 KB relevant chunks.
+Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at session start. With FTS5 on-demand retrieval, each query returns ~1-2 KB relevant chunks (`find_skill`), avoiding loading the full 550 KB skill catalog into context.
 
-| Period | Total Calls | Cumulative Data Saved | Token Reduction |
-|:---|:---:|:---:|:---:|
-| **Today** | 77 | 67.18 MB | **~17.6M tokens (99%)** |
-| **Last 7 Days** | 201 | 124.91 MB | **~32.7M tokens (99%)** |
-| **All Time** | 201 | 124.91 MB | **~32.7M tokens (99%)** |
-
-*Source: `python3 ~/.konoha/db_savings.py ~/.konoha/skills.db`*
+- **Formula**: `Tokens Saved = (Library Baseline - Returned Query Chunks) / 4` (evaluated per interaction turn on skill discovery).
+- **Full Skill Load (`get_skill`)**: Once a specific skill is requested, the full skill is returned (`Tokens Saved = 0`).
 
 ---
 
@@ -50,20 +45,18 @@ Without `konoha`, orchestrators load full `SKILL.md` trees (~550 KB baseline) at
 
 ## 3. ⚙️ konoha MCP (Token-Efficient File Tools) Savings
 
-The `konoha` MCP server complements semble with hard-capped file operations:
+The `konoha` MCP server complements semble with hard-capped, bounded file operations:
 
-| Tool | Cap | Benefit |
-|------|-----|---------|
-| `read_file_head` | ≤200 lines | Preview without full file load |
-| `read_file_range` | ≤500 lines | Avoids loading multi-thousand-line files |
-| `file_info` | Metadata only | Plan read windows before loading content |
-| `token_efficient_grep` | ≤20 matches (max 50) | Replaces unbounded grep dumps |
-| `get_file_structure` | Signatures only | Skips function bodies |
-| `find_files_clean` | Blacklisted walks | Skips `node_modules`, `.git`, lockfiles |
+| Tool | Cap | Baseline Applied | Exact Token Savings Formula |
+|------|-----|------------------|-----------------------------|
+| `read_file_head` | ≤200 lines | Actual target file size | `max(0, Target File Size - Returned Window) / 4` |
+| `read_file_range` | ≤500 lines | Actual target file size | `max(0, Target File Size - Returned Window) / 4` |
+| `file_info` | Metadata only | Actual target file size | `max(0, Target File Size - Metadata JSON) / 4` |
+| `token_efficient_grep` | ≤20 matches (max 50) | Target file size | `max(0, Target File Size - Matched Lines) / 4` |
+| `get_file_structure` | Signatures only | Target file size | `max(0, Target File Size - Outline Size) / 4` |
+| `find_files_clean` | Filtered tree | Directory tree | Skips `node_modules`, `.git`, build artifacts |
 
-**Recommended workflow**: `semble.search` → locate target → `read_file_range` / `get_file_structure` for precise context.
-
-**Security (v2.0.0)**: All paths are sandboxed to the MCP workspace root; absolute paths outside the project are rejected.
+**Verification & Accuracy**: Every bounded file tool computes savings against the *actual target file's size on disk*, ensuring 100% mathematically truthful metrics with zero artificial multipliers.
 
 ---
 
@@ -78,17 +71,13 @@ If `rtk` is installed on PATH, agents prefix all shell commands with `rtk` to re
 | `rtk grep "pattern" src/` | full file dumps | ~85-95% token reduction |
 | `rtk docker ps` | wide table output | ~75-90% token reduction |
 
-RTK rules are auto-deployed to all three supported clients (`~/.gemini/antigravity-cli/rules/rtk.md`, `~/.gemini/antigravity-ide/rules/rtk.md`, `~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`) on `konoha init`. If `rtk` is not installed, Konoha skips deployment gracefully.
+RTK rules are auto-deployed to every detected supported client (`~/.gemini/antigravity-cli/rules/rtk.md`, `~/.gemini/antigravity-ide/rules/rtk.md`, `~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`, `~/.opencode/rules/rtk.md`, and `~/.commandcode/rules/rtk.md`) when `rtk` is installed. If `rtk` is unavailable, Konoha warns and leaves the client configuration usable.
 
 ---
 
-## 📉 Latency & Resource Impact
+## 📉 Resource and measurement limits
 
-Large context windows slow down LLM token generation speeds and increase costs. By clipping context down from ~1.1MB to ~12KB:
-
-* **API Latency**: Latency drops by **~42%** on average due to reduced prompt input parsing.
-* **Context Stability**: Prevents agents from hitting "Context window limit exceeded" errors during long-running tasks.
-* **Execution Cost**: Over **95% reduction** in API token fees per agent session.
+The repository measures Konoha and Semble retrieval savings through `konoha savings`; it does not contain a controlled latency or provider-cost benchmark harness. Latency, context-window stability, and API cost vary with the client, model, network, prompt, and provider pricing. Do not interpret the historical token/byte snapshot above as a guaranteed percentage for another environment.
 
 ---
 
@@ -103,8 +92,9 @@ Before public release, verify:
 | Cursor attribution | `python3 tests/test_cursor_attribution.py` | 8/8 PASS |
 | Environment health | `konoha doctor --yes` | All checks passed |
 | Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → konoha, semble |
-| Cursor skills mirror | `konoha status` | `~/.cursor/skills/` synced from `~/.agents/skills/` |
-| Skills indexed | `konoha status` | 165+ entries (includes `konoha-maintenance`) |
+| Cross-client contract | `node tests/test_cross_client_contract.js` | all supported clients and official agents pass |
+| Cursor skill source | `node tests/test_no_filesystem_mirrors.js` | no Konoha-managed `.cursor/skills/` mirror |
+| Skills indexed | `konoha status` | report the installed count; do not assume a fixed total |
 
 ---
 

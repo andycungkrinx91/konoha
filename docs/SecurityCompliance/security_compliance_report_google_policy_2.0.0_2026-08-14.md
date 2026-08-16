@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross-client MCP integration, canonical `genin-skill` routing, fresh-install verification, documentation diagram updates, and repository-hygiene changes. The review covers interactive setup boundaries, MCP tool permissions, workspace/task isolation, skill migration integrity, client auto-setup behavior, bridge security boundaries, and documentation/test currency.
+This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross-client Konoha/Semble/RTK contract, lifecycle repair, live-master Antigravity extension refresh, MCP E2E failure handling, and documentation corrections. The review covers interactive setup boundaries, MCP tool permissions, workspace/task isolation, skill migration integrity, new/resumed-session repair, bridge supply-chain boundaries, and documentation/test currency.
 
-**Overall outcome:** PASS for the controls reviewed. The Draw.io desktop CLI was unavailable in the review environment, so rendered visual export was not assessed; editable XML passed structural validation.
+**Overall outcome:** PASS for the repository controls reviewed. Tests validate generated configurations and deterministic client fixtures; proprietary client processes were not launched in this environment. The Draw.io desktop CLI was unavailable, so rendered visual export was not assessed; editable XML was checked structurally.
 
 ## Findings
 
@@ -15,8 +15,8 @@ This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross
 
 ### 2. MCP Tool Boundary Enforcement
 
-- **Action Verified:** `src/agent_manager.js`, `src/cursor_manager.js`, `src/mcp_clients_manager.js`, and `src/search_policy.js` generate rules that route skill lookup through Konoha MCP and code search through Semble MCP. Native file/search bypasses remain prohibited by the generated policies and hooks.
-- **Impact:** All supported clients use the same controlled MCP surfaces for skill retrieval, bounded file reads, and semantic code discovery.
+- **Action Verified:** `src/agent_contract.js` is rendered into `src/agent_manager.js`, `src/antigravity_manager.js`, `src/cursor_manager.js`, `src/mcp_clients_manager.js`, and `src/opencode_manager.js`. The contract requires Konoha for skills/bounded reads, Semble for code search, RTK for commands when available, and re-evaluation on new/resumed sessions. `tests/test_cross_client_contract.js` covers all five clients and seven official agents.
+- **Impact:** Generated client rules and official subagent profiles expose one consistent, testable contract; instruction text is not represented as proof that a proprietary client obeyed every rule.
 
 ### 3. Canonical Genin Skill Routing
 
@@ -30,18 +30,18 @@ This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross
 
 ### 5. Cross-Client Auto-Setup Contract
 
-- **Action Verified:** `src/antigravity_manager.js`, `src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/opencode_manager.js`, and the CLI setup path are verified by `tests/test_client_skill_loading.js` for Antigravity CLI/IDE, Cursor, Claude Code, OpenCode, and Command Code. Generated instructions preserve `genin-skill` and expose Konoha MCP `find_skill`/`get_skill` loading.
-- **Impact:** Supported clients receive a consistent skill-loading contract and do not depend on a physical `deep-code-explorer` folder.
+- **Action Verified:** `tests/test_client_skill_loading.js`, `tests/test_cross_client_contract.js`, `tests/test_no_filesystem_mirrors.js`, and the manager generators cover Antigravity CLI/IDE, Cursor, Claude Code, OpenCode, and Command Code. `src/cursor_bootstrap.js` repairs stale Cursor rules/RTK state and does not mirror skills. `bin/cli.js` regenerates contracts on every runtime auto-setup.
+- **Impact:** Fresh, repeated, forced-init, and session-bootstrap paths have deterministic repair coverage; Cursor skill content remains SQLite/Konoha MCP-backed.
 
 ### 6. Workspace and Task Isolation
 
 - **Action Verified:** `src/server.py` resolves task directories under the Konoha-managed temporary root, and `tests/test_scratch_path.py` verifies that delegated artifacts do not default to project workspace paths. Repository cleanup removed generated task trash after validation.
 - **Impact:** Delegation artifacts such as `delegate.md` and `result.md` remain outside normal project source paths, reducing accidental commits and workspace contamination.
 
-### 7. Bridge Gateway Security Boundary
+### 7. Bridge Gateway and External Extension Boundary
 
-- **Action Verified:** `src/bridge/gateway.js` and related handlers retain local gateway routing on port `19999`, inbound credential/header sanitization, response model rewriting, request validation, and single-bridge request routing. The architecture documentation distinguishes request-time bridge selection from sidecar-internal retries.
-- **Impact:** Credentials remain at the outbound bridge boundary, while the gateway does not claim or perform unsupported global 429 round-robin failover.
+- **Action Verified:** `bin/cli.js` refreshes `https://github.com/andycungkrinx91/konoha-bridge` from live `master` only when Antigravity IDE is detected, validates publisher/name/entry point/port `1313`, records the resolved commit, stages atomically, and preserves rollback. The exact install path is `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. The embedded gateway remains on `19999`; the extension is never started as standalone Node and external bridge rows remain disabled by default.
+- **Impact:** Port ownership and local credential boundaries remain explicit. Live-branch installation is a documented supply-chain/reproducibility risk mitigated by commit recording, validation, atomic activation, and rollback.
 
 ### 8. Professional Diagram and Documentation Integrity
 
@@ -55,8 +55,8 @@ This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross
 
 ### 10. Verification Evidence
 
-- **Action Verified:** `pnpm test` completed with **30 suites passed and 0 failed**. Focused Genin, client-loading, documentation, Mermaid synchronization, and Draw.io XML tests passed. The bundled Draw.io validator reported **0 errors, 0 warnings, 0 through-vertex routes, 0 crossings, and 0 overlaps**.
-- **Impact:** The reviewed controls are backed by repeatable repository tests and structural diagram validation rather than documentation claims alone.
+- **Action Verified:** Focused verification passed for JavaScript syntax, `tests/test_client_skill_loading.js`, `tests/test_cross_client_contract.js`, `tests/test_antigravity_bridge_contract.js`, `tests/test_no_filesystem_mirrors.js`, `tests/test_mcp_e2e.js` (21/21 handlers), `tests/agent_manager.test.js` (29/29), and the documentation/diagram checks run after these updates. The repository runner derives its suite count dynamically; this report does not hard-code a suite total. Draw.io rendering was not performed.
+- **Impact:** The reviewed controls are backed by repeatable repository tests and structural checks without overstating live-client or rendered-diagram evidence.
 
 ## Conclusion
 

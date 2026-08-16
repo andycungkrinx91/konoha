@@ -7,6 +7,10 @@ const {
   buildSembleSearchPolicyCompact,
   buildFileToolsPolicyCompact
 } = require('./search_policy');
+const {
+  buildSubagentContract,
+  buildMainAgentContract
+} = require('./agent_contract');
 
 const {
   SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
@@ -146,7 +150,8 @@ function initRtkHook(silent = true) {
     const res = spawnSync('rtk', ['init', '-g'], {
       encoding: 'utf-8',
       timeout: 10000,
-      stdio: silent ? ['ignore', 'ignore', 'ignore'] : ['inherit', 'pipe', 'pipe']
+      input: 'y\nN\n',
+      stdio: silent ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'pipe', 'pipe']
     });
     if (res.status === 0) {
       if (!silent) console.log('  ✓ RTK hook initialized globally for Claude Code');
@@ -409,6 +414,7 @@ function generateClaudeCodeSubagent(agent) {
     }
   }
 
+  instructions = `${instructions}\n\n${buildSubagentContract('claude')}`;
   const body = adaptInstructionsForClaudeCode(instructions);
   const sembleLine = buildSembleSearchPolicyCompact();
   const fileToolsLine = buildFileToolsPolicyCompact();
@@ -433,7 +439,20 @@ function generateClaudeCodeSubagent(agent) {
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
 }
 
-
+function deployCommandCodeRules(silent = true) {
+  const dest = path.join(HOME, '.commandcode', 'rules', 'konoha.md');
+  try {
+    ensureDir(path.dirname(dest));
+    const content = buildMainAgentContract('commandcode') + '\n';
+    if (!fileExists(dest) || fs.readFileSync(dest, 'utf8') !== content) {
+      fs.writeFileSync(dest, content, 'utf8');
+    }
+    if (!silent) console.log(`  ✓ Deployed Konoha contract to ${dest}`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: 'copy-failed', error: error.message };
+  }
+}
 
 function ensureClaudeCodeSetup(options = {}) {
   const {
@@ -547,6 +566,7 @@ function ensureCommandCodeSetup(options = {}) {
   }
   registerCommandCodePermissions(silent);
   const rtkRule = deployCommandCodeRtkRule(silent);
+  const contractRule = deployCommandCodeRules(silent);
   const status = getCommandCodeStatus();
   if (!status.mcpKonoha || !status.mcpSemble) {
     return { ok: false, reason: 'commandcode-mcp-verification-failed' };
@@ -554,7 +574,8 @@ function ensureCommandCodeSetup(options = {}) {
   return {
     ok: true,
     rtk: status.rtkInstalled ? 'already-installed' : 'rtk-not-installed',
-    rtkRule: rtkRule.ok ? 'deployed' : rtkRule.reason
+    rtkRule: rtkRule.ok ? 'deployed' : rtkRule.reason,
+    contractRule: contractRule.ok ? 'deployed' : contractRule.reason
   };
 }
 
@@ -967,6 +988,7 @@ module.exports = {
   deployClaudeCodeRules,
   deployClaudeCodeRtkRule,
   deployCommandCodeRtkRule,
+  deployCommandCodeRules,
   initRtkHook,
   deployProjectClaudeMd,
   removeProjectClaudeMd,

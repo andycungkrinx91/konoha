@@ -12,7 +12,7 @@
 [![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2021%2B%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
-[![Token Savings](https://img.shields.io/badge/Token%20Savings-83--98%25-9ece6a)](README.md)
+[![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
 
 
 ---
@@ -63,7 +63,7 @@
 3. **Optimizes context** — replaces the redundant "load SKILL.md → parse router → load reference" chain.
 
 > [!TIP]
-> **Optimization Result**: Context size is reduced to **~12 KB** per query instead of **~550 KB** per session — achieving a **98% token reduction** and **42% faster response times**.
+> **Optimization Result**: Konoha and Semble retrieve bounded, task-relevant context instead of full skill trees. See [BENCHMARK.md](docs/BENCHMARK.md) for historical snapshots and reproducible `konoha savings` output; latency and cost reductions are environment-dependent and are not guaranteed.
 
 ---
 ## ⚙️ How It Works
@@ -77,7 +77,7 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 - **Skill lookup** (`konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`.
 - **Codebase search** (`semble.search`, `semble.find_related`) — always via `semble` MCP, never `grep`/`rg`/`find`.
 - **Bounded file reads** — `konoha.read_file_head` / `read_file_range` / `file_info` / `token_efficient_grep`, never generic `Read` / `Grep` / `Glob` / shell `cat`/`head`/`tail`.
-- **Project Knowledge Discovery** — inspect project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and project skills (`.agents/skills`, `.cursor/skills`, `skills/`) before executing code.
+- **Project Knowledge Discovery** — inspect project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and canonical project skills (`.agents/skills`, `skills/`) before executing code.
 - **Package Manager Mandate** — ALWAYS use `pnpm` (never standalone `npx` or `npm`) for all JS/TS scaffolding, installs, and builds.
 - **Subagent routing** — match the task domain to a ninja agent:
   - `@genin` — codebase exploration, codepath tracing
@@ -262,7 +262,7 @@ This instructs agents to prefix all shell commands with `rtk <command>`, reducin
 
 ## 🛰️ Konoha Bridge Router
 
-Konoha ships a local **Konoha Bridge Router** on port **`19999`** that multiplexes requests across one or more inner **LLM Bridges**. The router forwards requests to a bridge based on the model name prefix `<bridge-name>-<model-name>`, strips inbound `Authorization` / `x-api-key` / `x-konoha-gateway-*` headers, and forwards to `127.0.0.1:<bridge-port>`. Local clients never need to send an API key to the router.
+Konoha ships a local **Konoha Bridge Router** on port **`19999`** that multiplexes requests across one or more inner **LLM Bridges**. The optional Antigravity IDE extension is refreshed from the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and serves `127.0.0.1:1313`; it is never installed on CLI-only hosts. The router forwards requests to a bridge based on the model name prefix `<bridge-name>-<model-name>`, strips inbound `Authorization` / `x-api-key` / `x-konoha-gateway-*` headers, and forwards to `127.0.0.1:<bridge-port>`. Local clients never need to send an API key to the router.
 
 Bridge configuration examples (bridges are registered manually by the user — the `bridges` table starts empty on install and is persisted in `~/.konoha/skills.db` via `src/db_bridges.py`):
 
@@ -287,7 +287,7 @@ Model routing examples:
 - `my-ollama-llama3` → gateway strips `my-ollama-`, forwards `llama3` to the inner bridge on its designated local port.
 - `gpt-api-gpt-4o` → gateway routes to `gpt-api` bridge configured with your OpenAI API key.
 
-Automatic failover: when a bridge returns an error, the gateway automatically rotates to the next eligible bridge.
+Routing behavior: the gateway selects one enabled bridge per request and does not perform gateway-level round-robin retry after an error.
 
 Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
@@ -307,6 +307,7 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── platform_utils.js      ← cross-OS path/Python helpers
 ├── .node_exec_path        ← recorded Node path (auto)
 ├── .python_cmd            ← recorded Python command (auto)
+├── konoha-bridge.json     ← live master extension commit/path manifest (Antigravity IDE only)
 ├── file_tools/            ← Python streaming helpers (grep, read, search)
 ├── bridge/                ← Proxy Gateway bridge modules
 ├── server.py              ← Legacy Python skill worker (kept for backward compat)
@@ -315,8 +316,7 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
 ~/.cursor/
 ├── mcp.json               ← konoha + semble MCP (Cursor)
-├── agents/                ← Six ninja subagents (model: inherit)
-├── skills/                ← Agent skills (mirrored from ~/.agents/skills/)
+├── agents/                ← Official ninja subagents
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
 
@@ -343,7 +343,7 @@ konoha migrate
 konoha migrate --force
 ```
 
-This updates `skills.db`, syncs `.cursor/skills/` and `~/.agents/skills/`, and refreshes all system instructions automatically.
+This updates `skills.db`, refreshes all system instructions, and repairs detected client MCP/rule/subagent integrations automatically. Cursor skill content remains SQLite/Konoha MCP-backed; no `.cursor/skills/` mirror is created.
 
 ---
 
@@ -574,15 +574,15 @@ flowchart LR
 | **Active Workspace Calls** | — | **~2,904 calls** | — |
 | **Context Data Saved** | — | **~302 MB** | — |
 | **Active Tokens Saved** | 0 (baseline) | **~110M tokens** | **~110M tokens saved** |
-| **Response Latency** | Baseline (100%) | **~58%** (42% faster response times) | **~42% speed improvement** |
-| **API Cost Footprint** | Baseline (100%) | **~5%** (95% cost reduction) | **~95% token cost savings** |
+| **Response Latency** | Environment-dependent | Not measured by the repository test suite | No fixed claim |
+| **API Cost Footprint** | Provider/model-dependent | Not measured by the repository test suite | No fixed claim |
 
-**Real-world Savings** (live metrics from `konoha savings`, captured 2026-06-23):
+**Historical workspace snapshot** (captured 2026-06-23; not a universal benchmark):
 - **Combined Token Savings**: **~110M tokens saved** all-time across ~2,904 MCP calls (~302 MB of context data saved).
 - **Skills-DB (konoha) Efficiency**: **97–99% reduction** per query (~79.1M tokens saved across 2,064 calls).
 - **Semble MCP Efficiency**: **96% reduction** average per search query (~30.8M tokens saved across 840 calls).
-- **Response Latency Reduction**: **~42% faster** agent responses due to minimized input context parsing.
-- **API Cost Reduction**: **~95% reduction** in API token fees per agent session.
+- **Response latency**: not measured by this repository’s reproducible test suite and varies by client, model, network, and prompt.
+- **API cost**: not measured by this repository’s reproducible test suite and varies by provider/model pricing.
 
 > [!TIP]
 > Read the complete [Token Savings & Optimization Benchmark Report](docs/BENCHMARK.md) for full metrics breakdown and analysis.

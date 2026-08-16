@@ -297,15 +297,15 @@ chmod 644 ~/.konoha/skills.db
 
 ### 🪞 Cursor Skills Mirror Missing or Stale
 
-Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.agents/skills/` → `.cursor/skills/` when project deploy is enabled). Skill **content** is still loaded via `konoha` MCP — the mirror is filesystem parity for Cursor.
+Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are indexed in SQLite and Cursor loads content through Konoha MCP.
 
-**Symptoms:** `~/.cursor/skills/` empty, outdated, or missing a skill you added to `~/.agents/skills/`.
+**Symptoms:** Cursor cannot find a newly added skill.
 
-**Fixes:**
-1. Run `konoha doctor --yes` — re-syncs global and project Cursor skills.
-2. After editing skills: `konoha migrate` (re-indexes DB and refreshes mirrors).
-3. After `konoha skill add`: mirror runs automatically; verify with `ls ~/.cursor/skills/`.
-4. On Cursor session start: `cursor_bootstrap.js` self-heals skills mirror (fail-open).
+**Fix:**
+1. Run `konoha doctor --yes` to repair MCP and generated rules.
+2. Run `konoha migrate` after adding or editing a skill.
+3. Verify the session calls `konoha.find_skill` and `konoha.get_skill`; do not create a filesystem mirror.
+4. On Cursor session start: `cursor_bootstrap.js` self-heals MCP, generated rules, and RTK state (fail-open).
 
 ---
 
@@ -443,11 +443,25 @@ If Antigravity IDE was shut down but its bridge remains registered as `AVAILABLE
 
 ### Bridge Returns Rate Limit Errors
 
-The gateway automatically rotates to the next available bridge when rate limits are hit. You can also:
+The gateway does not rotate globally to another bridge after a rate limit. It forwards the upstream status to the caller; retry behavior belongs to supported sidecar paths or the client. You can:
 
 1. Check bridge status: `konoha bridge status`
 2. Disable a failing bridge: `konoha bridge disable <bridge-name>`
 3. Remove and recreate: `konoha bridge delete <bridge-name>` then `konoha bridge create`
+
+### External Antigravity Extension
+
+The optional `konoha-bridge` extension is installed only when Antigravity IDE is detected. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
+
+1. Check the extension API on port `1313`.
+2. Run `konoha bridge list`.
+3. Explicitly enable the `antigravity-extension` record with `konoha bridge enable <name>`.
+
+On headless or CLI-only machines, no extension directory is expected and the embedded Konoha bridge remains the fallback.
+
+### External Extension Not Installed
+
+Check Antigravity IDE detection. Konoha refreshes the external source from the live `master` branch only when the IDE is present, installs it at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`, and records the resolved commit. It never runs the extension as a standalone Node process.
 
 ---
 

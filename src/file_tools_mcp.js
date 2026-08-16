@@ -144,13 +144,35 @@ function detect_active_client_from_env() {
   return "antigravity";
 }
 
+function getBaselineBytesForTool(toolName, args) {
+  try {
+    const filePath = args.path || args.file_path || args.filepath || args.dir;
+    if (filePath) {
+      const resolved = router.resolveInputPath(filePath);
+      if (fs.existsSync(resolved)) {
+        const st = fs.statSync(resolved);
+        if (st.isFile()) return st.size;
+      }
+    }
+  } catch (_) {}
+  return 0;
+}
+
 function logToolCallSavings(toolName, args, returnedBytes) {
   // Fire-and-forget: spawn detached so the stdio event loop never stalls.
   try {
     const queryStr = JSON.stringify(args || {}).slice(0, 500);
+    const baselineBytes = getBaselineBytesForTool(toolName, args || {});
     spawn(
       PYTHON_CMD,
-      [SAVINGS_LOGGER, toolName, queryStr, String(returnedBytes), (activeClient || detect_active_client_from_env() || '')],
+      [
+        SAVINGS_LOGGER,
+        toolName,
+        queryStr,
+        String(returnedBytes),
+        (activeClient || detect_active_client_from_env() || ''),
+        String(baselineBytes || 0)
+      ],
       { stdio: "ignore", detached: true },
     ).unref();
   } catch (_) {
@@ -303,7 +325,12 @@ function loadBridgesFromMcp() {
           b.disabled = true;
         }
       }
-      return existing;
+      return existing.map((b) => {
+        if (b.provider === 'antigravity-extension' && !b.targetUrl) {
+          b.targetUrl = 'http://127.0.0.1:1313';
+        }
+        return b;
+      });
     }
   } catch (err) {
     process.stderr.write(`[mcp ${SERVER_NAME}] SQLite bridge load error: ${err.message}\n`);
@@ -329,6 +356,8 @@ async function syncBridges() {
 
     const bridges = loadBridgesFromMcp();
     const enabledBridges = bridges.filter((b) => b.enabled);
+    const embeddedBridges = enabledBridges.filter((b) => b.provider !== 'antigravity-extension');
+    const externalBridges = enabledBridges.filter((b) => b.provider === 'antigravity-extension');
     const enabledNames = new Set(enabledBridges.map((b) => b.name));
 
     // 1. Stop bridges that are no longer enabled or deleted.
@@ -338,7 +367,7 @@ async function syncBridges() {
       if (!stillEnabled) {
         process.stderr.write(`[bridge:${name}] Stopping bridge (bridge disabled in bridges.json).\n`);
         try {
-          await stopServer(active.ctx);
+          if (active.ctx) await stopServer(active.ctx);
           process.stderr.write(`[bridge:${name}] Bridge server stopped.\n`);
         } catch (err) {
           process.stderr.write(`[bridge:${name}] Error stopping server: ${err.message}\n`);
@@ -347,9 +376,23 @@ async function syncBridges() {
       }
     }
 
-    // 2. Start or reload bridges
-    for (const b of enabledBridges) {
-      const active = activeBridges.get(b.name);
+    // External Antigravity extensions own their HTTP server; expose them to
+    // the aggregate gateway without spawning an embedded replacement.
+    for (const b of externalBridges) {
+      const existing = activeBridges.get(b.name);
+      if (existing && !existing.external && existing.ctx) {
+        try { await stopServer(existing.ctx); } catch {}
+      }
+      activeBridges.set(b.name, { bridgeConfig: b, external: true });
+    }
+
+    // 2. Start or reload embedded bridges.
+    for (const b of embeddedBridges) {
+      let active = activeBridges.get(b.name);
+      if (active?.external) {
+        activeBridges.delete(b.name);
+        active = null;
+      }
       if (!active) {
         // Start new bridge
         const ctx = createContext();

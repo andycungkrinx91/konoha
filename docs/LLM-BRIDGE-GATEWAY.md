@@ -2,7 +2,7 @@
 
 > **v2.0.0 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
 
-The **Konoha Bridge Gateway** provides a unified local API server (port 19999) to route, multiplex, and stream LLM requests across multiple OpenAI-compatible providers from a single entry point.
+The **Konoha Bridge Gateway** provides a unified local API server on `127.0.0.1:19999` to route, multiplex, and stream LLM requests across multiple explicitly configured bridges from a single entry point. The embedded Konoha bridge remains available on machines without Antigravity IDE.
 
 ## Architecture
 
@@ -211,12 +211,14 @@ The gateway sets `Accept-Encoding: identity` on forwarded requests to guarantee 
 CREATE TABLE bridges (
     name        TEXT    PRIMARY KEY,
     port        INTEGER NOT NULL,
-    provider    TEXT    NOT NULL,   -- openai | openai-compatible | antigravity
+    provider    TEXT    NOT NULL,   -- openai | openai-compatible | antigravity | antigravity-extension
     enabled     INTEGER NOT NULL DEFAULT 1,
     target_url  TEXT,
     api_key     TEXT
 );
 ```
+
+`antigravity-extension` is an IDE-owned endpoint at `http://127.0.0.1:1313` and is disabled by default when explicitly created. Konoha never starts that extension process; enable it only after Antigravity IDE and the extension are running. No external bridge row is seeded automatically.
 
 ### Python CLI: `src/db_bridges.py`
 
@@ -250,53 +252,40 @@ python3 src/db_bridges.py --disable my-bridge
 
 ---
 
-## Konoha Bridge Extension — Auto-Install
+## Konoha Bridge Extension — Optional Antigravity Integration
 
-The Antigravity-side `konoha-bridge` extension is a customized fork of the open-source `ag-local-bridge` project. It runs **inside Antigravity's process** and provides:
+The external `konoha-bridge` repository is an Antigravity/VS Code extension. It runs **inside Antigravity IDE**, discovers the active sidecar, and exposes an OpenAI-compatible API on `http://127.0.0.1:1313`. Konoha’s own aggregate gateway remains separate on `http://127.0.0.1:19999`.
 
-- WebSocket-based sidecar communication for the bridge router (port `19999`).
-- Automatic bridge discovery when the Antigravity IDE/CLI is open (`requiresSidecar: true`).
-
-### Source & Installation
+### Source and installation contract
 
 | Property | Value |
 |---|---|
-| **Repository** | `https://github.com/andycungkrinx91/konoha-bridge/tree/master` |
-| **Current version** | `1.2.0` (bumped when upstream releases change) |
-| **Default branch** | `master` |
-| **Install locations** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-1.2.0-universal/` (primary), mirrored to legacy `~/.antigravity/extensions/` and `~/.vscode/extensions/` for back-compat |
+| **Repository** | `https://github.com/andycungkrinx91/konoha-bridge` |
+| **Ref** | live `master` branch |
+| **Package identity** | publisher `andycungkrinx91`, name `konoha-bridge`; package version is read from the checkout |
+| **Extension setting namespace** | `agLocalBridge` |
+| **Extension API** | `http://127.0.0.1:1313` |
+| **Konoha aggregate gateway** | `http://127.0.0.1:19999` |
+| **Primary install location** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` |
 
-### Auto-Install Flow
+Konoha detects Antigravity IDE before cloning. Without the IDE, it skips the clone and creates no extension directory. Antigravity CLI alone does not qualify for the IDE extension. When the IDE is present, Konoha clones the live `master` branch, validates repository/package identity, records the resolved commit SHA, stages it, and atomically installs it. `konoha init --force` and `konoha upgrade` refresh this checkout. Konoha never executes the extension as a standalone Node process.
 
-```
-konoha init   → autoInstallKonohaBridgeExtension(true)   ← one-time on fresh install
-konoha <cmd>  → ensureAutoSetup() → autoInstallKonohaBridgeExtension(true)  ← every CLI run
-```
-
-**What happens on each call:**
-
-1. Detects whether the extension is **already installed at the correct version** across all three target paths.
-2. If present → logs a skipped message and returns `true` immediately (zero-op).
-3. If absent or **version mismatch** → clones from `github:andycungkrinx91/konoha-bridge@master --depth=1` into a **temp directory** first.
-4. After a successful clone, copies into all three extension directories and **removes stale old-version directories** to avoid conflicts.
-5. Cleans up the temp directory regardless of success or failure.
-6. On any failure (git error, copy error, permission error) → logs a warning but **does not block** the CLI — the bridge simply won't be available until the user retries or runs `konoha doctor --yes`.
-
-### Manual Reinstall
+Installation does **not** create or enable an external bridge row. To use the extension through Konoha’s aggregate gateway, explicitly create/select an `antigravity-extension` bridge and enable it:
 
 ```bash
-# Remove stale extension directories then re-run init
-rm -rf ~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-*
-rm -rf ~/.antigravity/extensions/andycungkrinx91.konoha-bridge-*
-konoha doctor --yes
+konoha bridge create
+konoha bridge enable <bridge-name>
 ```
+
+The external provider defaults to disabled and targets `http://127.0.0.1:1313`. Konoha’s embedded bridge remains the fallback on machines without Antigravity IDE.
 
 ### Troubleshooting
 
 | Symptom | Fix |
-|---------|-----|
-| `konoha-bridge` extension not loading in Antigravity IDE | Check `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-1.2.0-universal/package.json` exists. If missing, run `konoha doctor --yes` |
-| Extension fails to connect to bridge router on port 19999 | Start the gateway: `konoha bridge start` or run `konoha bridge create` to register an Antigravity sidecar bridge |
-| Stale extension version after `konoha upgrade` | Run the manual reinstall above, then `konoha doctor --yes` |
+|---|---|
+| Extension installation skipped | Antigravity IDE was not detected. This is expected on headless or CLI-only machines. Use the embedded Konoha bridge instead. |
+| Extension is installed but no external traffic flows | Check the extension API on port `1313`, then inspect `konoha bridge list` and explicitly enable the external bridge. |
+| Konoha gateway unavailable | Check `http://127.0.0.1:19999/healthz`; start the embedded gateway with `konoha bridge start` if needed. |
+| Stale extension checkout | Run `konoha init --force` or `konoha upgrade` with Antigravity IDE installed; the master checkout is staged before replacement and the previous valid directory is restored if validation fails. | 
 
-**Note:** The extension install is **fire-and-forget** — a failure does not block any other CLI operation (MCP registration, file-tools deploy, agent setup, etc.). Check the warning output for details.
+The gateway selects one enabled bridge per request. It does not perform global round-robin rotation after a `429`; retry behavior belongs to supported sidecar paths or the calling client.

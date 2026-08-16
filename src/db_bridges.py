@@ -8,11 +8,15 @@ import sys
 import os
 import json
 import sqlite3
+from urllib.parse import urlparse
 
 DB_PATH = os.path.expanduser("~/.konoha/skills.db")
 BRIDGES_JSON_PATH = os.path.expanduser("~/.konoha/bridges.json")
 
 DEFAULT_BRIDGES = []
+EXTERNAL_ANTIGRAVITY_PROVIDER = "antigravity-extension"
+EXTERNAL_ANTIGRAVITY_PORT = 1313
+EXTERNAL_ANTIGRAVITY_URL = "http://127.0.0.1:1313"
 
 def get_db_connection():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -56,10 +60,20 @@ def auto_migrate_json_if_needed(conn):
         name = b.get("name")
         if not name:
             continue
-        port = int(b.get("port", 11435))
         provider = b.get("provider", "openai")
-        enabled = 1 if b.get("enabled", True) else 0
+        is_external_antigravity = provider == EXTERNAL_ANTIGRAVITY_PROVIDER
+        port = int(b.get("port", EXTERNAL_ANTIGRAVITY_PORT if is_external_antigravity else 11435))
+        if is_external_antigravity and port != EXTERNAL_ANTIGRAVITY_PORT:
+            continue
+        enabled_default = False if is_external_antigravity else True
+        enabled = 1 if b.get("enabled", enabled_default) else 0
         target_url = b.get("targetUrl") or b.get("target_url")
+        if is_external_antigravity and not target_url:
+            target_url = EXTERNAL_ANTIGRAVITY_URL
+        if is_external_antigravity:
+            parsed = urlparse(target_url)
+            if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+                continue
         api_key = b.get("apiKey") or b.get("api_key")
         cursor.execute("""
             INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
@@ -95,10 +109,20 @@ def upsert_bridge(bridge_dict):
     if not name:
         conn.close()
         raise ValueError("Bridge name is required")
-    port = int(bridge_dict.get("port", 11435))
     provider = bridge_dict.get("provider", "openai")
-    enabled = 1 if bridge_dict.get("enabled", True) else 0
+    is_external_antigravity = provider == EXTERNAL_ANTIGRAVITY_PROVIDER
+    port = int(bridge_dict.get("port", EXTERNAL_ANTIGRAVITY_PORT if is_external_antigravity else 11435))
+    if is_external_antigravity and port != EXTERNAL_ANTIGRAVITY_PORT:
+        raise ValueError(f"{EXTERNAL_ANTIGRAVITY_PROVIDER} must use port {EXTERNAL_ANTIGRAVITY_PORT}")
+    enabled_default = False if is_external_antigravity else True
+    enabled = 1 if bridge_dict.get("enabled", enabled_default) else 0
     target_url = bridge_dict.get("targetUrl") or bridge_dict.get("target_url")
+    if is_external_antigravity and not target_url:
+        target_url = EXTERNAL_ANTIGRAVITY_URL
+    if is_external_antigravity:
+        parsed = urlparse(target_url)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError(f"{EXTERNAL_ANTIGRAVITY_PROVIDER} targetUrl must be a loopback http URL")
     api_key = bridge_dict.get("apiKey") or bridge_dict.get("api_key")
 
     cursor = conn.cursor()

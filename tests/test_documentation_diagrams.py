@@ -91,8 +91,28 @@ class TestDocumentationDiagrams(unittest.TestCase):
         for owner, link in owners.items():
             content = owner.read_text(encoding="utf-8")
             self.assertIn(link, content, owner)
-        self.assertIn("canonical editable source", MANIFEST.read_text(encoding="utf-8"))
-        self.assertIn("synchronized Mermaid companion", MANIFEST.read_text(encoding="utf-8"))
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        self.assertIn("canonical editable source", manifest)
+        self.assertIn("synchronized Mermaid companion", manifest)
+
+    def test_current_bridge_contract_is_documented(self):
+        docs = "\n".join(
+            (ROOT / rel).read_text(encoding="utf-8")
+            for rel in (
+                "README.md",
+                "docs/LLM-BRIDGE-GATEWAY.md",
+                "docs/SETUP-MCP-CLIENTS.md",
+                "docs/TROUBLESHOOTING.md",
+            )
+        )
+        self.assertIn("127.0.0.1:1313", docs)
+        self.assertIn("127.0.0.1:19999", docs)
+        self.assertIn("antigravity-extension", docs)
+        self.assertIn("does not perform gateway-level round-robin", docs)
+        self.assertIn("andycungkrinx91.konoha-bridge-master-universal", docs)
+        self.assertNotIn("pinned to `v1.2.0`", docs)
+        self.assertNotIn("automatically rotates to the next eligible bridge", docs)
+        self.assertNotIn("WebSocket-based sidecar communication for the bridge router (port `19999`)", docs)
 
 
 if __name__ == "__main__":

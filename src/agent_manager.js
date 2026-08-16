@@ -18,6 +18,10 @@ const {
   buildFileToolsPolicy,
   buildFileToolsPolicyCompact
 } = require('./search_policy');
+const {
+  buildMainAgentContract,
+  buildManagedContract
+} = require('./agent_contract');
 
 
 let isRegenerating = false;
@@ -538,7 +542,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\`
 `;
 
-  return content;
+  return buildManagedContract(content, buildMainAgentContract('antigravity'));
 }
 
 function generateClaudeCodeMd(agents) {
@@ -603,7 +607,7 @@ ${dynamicTableRows}
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 `;
 
-  return content
+  return buildManagedContract(content, buildMainAgentContract('claude'))
     .replace(/view_file/g, 'Read')
     .replace(/write_to_file/g, 'Write')
     .replace(/replace_file_content/g, 'Edit')
@@ -766,7 +770,7 @@ Load **semble** when project source code search is needed — do NOT load it for
 | cloudrun | \`npx -y @google-cloud/cloud-run-mcp\` | GCP deployments |
 `;
 
-  return content;
+  return buildManagedContract(content, buildMainAgentContract('antigravity'));
 }
 
 // Regenerate template files and deploy them

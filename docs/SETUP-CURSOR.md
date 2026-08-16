@@ -20,7 +20,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 - **Cursor IDE** or **Cursor CLI** installed
 - **Python 3** ≥ 3.8
 - **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
-- Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha mirrors these to `~/.cursor/skills/` for Cursor
+- Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha indexes these in SQLite; Cursor uses Konoha MCP and does not receive a Konoha filesystem mirror
 
 ### Cross-Platform Notes
 
@@ -50,8 +50,7 @@ Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` bi
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
 | `~/.cursor/rules/rtk.mdc` | **RTK (Rust Token Killer) rule** — deployed automatically when `rtk` binary is on PATH |
 | `.cursor/mcp.json` (project) | Project-scoped MCP config |
-| `.cursor/rules/konoha.mdc` | Orchestrator delegation rules |
-| `.cursor/skills/` (project) | Project-scoped skills (mirrored from `.agents/skills/` or `~/.agents/skills/`) |
+| `.cursor/rules/konoha.mdc` | Main-agent Konoha + Semble + RTK contract and delegation rules |
 
 > [!NOTE]
 > Your original `~/.cursor/mcp.json` is preserved in `~/.cursor/mcp.json.back`. To restore:
@@ -77,7 +76,7 @@ Close and reopen Cursor (or start a new agent session) so MCP servers reload.
 2. **Skills first**: Call `konoha.find_skill`.
 3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
 4. **Delegate** via the **MCP tools** served by `konoha` (e.g., `mcp_jonin`, `mcp_anbu`, etc.) passing the `task_dir` parameter. Direct agent delegation structures are not used.
-5. **Skills on disk**: Konoha mirrors `~/.agents/skills/` → `~/.cursor/skills/` (and project `.cursor/skills/` on `konoha init`). Agents still load skill **content** via `konoha` MCP — do not read `SKILL.md` files directly into context.
+5. **Skills from MCP**: Konoha keeps `~/.agents/skills/` as the canonical source and indexes it in SQLite. Cursor agents load skill **content** via `konoha` MCP; Konoha does not create `.cursor/skills/` mirrors or symlinks.
 
 ### Default search / grep / find → semble
 
@@ -160,11 +159,11 @@ Run `konoha doctor --yes` to repair missing permissions.
 2. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
 3. Run `python3 tests/test_cursor_attribution.py` to validate attribution.
 
-### Missing or stale `~/.cursor/skills/`
+### Missing skill content in Cursor
 
-1. Run `konoha doctor --yes` to re-sync from `~/.agents/skills/`.
+1. Run `konoha doctor --yes` to repair MCP and generated rules.
 2. After `konoha skill add` or editing skills, run `konoha migrate`.
-3. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) (Cursor skills mirror section).
+3. Confirm the agent uses `konoha.find_skill` and `konoha.get_skill`; do not create a `.cursor/skills/` mirror.
 
 ### Dual-platform / multi-client (Antigravity + Cursor + others)
 

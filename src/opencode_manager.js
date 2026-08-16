@@ -24,6 +24,7 @@ const {
 } = require('../bin/lib/paths');
 
 const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
+const { buildMainAgentContract } = require('./agent_contract');
 
 /**
  * Auto-install oh-my-opencode-slim if available and not yet installed.
@@ -123,13 +124,11 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     command: ['node', FILE_TOOLS_LAUNCHER_PATH || path.join(KONOHA, 'file_tools_launcher.js')]
   };
 
-  // Add semble MCP server (if not already present)
-  if (!config.mcp['semble']) {
-    config.mcp['semble'] = {
-      type: 'local',
-      command: [uvxCmd, '--from', 'semble[mcp]', 'semble']
-    };
-  }
+  // Repair Semble MCP registration on every setup.
+  config.mcp['semble'] = {
+    type: 'local',
+    command: [uvxCmd, '--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+  };
 
   writeOpenCodeConfig(config);
 
@@ -138,6 +137,21 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   }
 
   return { ok: true };
+}
+
+function deployOpenCodeRules(silent = true) {
+  const dest = path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'konoha.md');
+  try {
+    ensureDir(path.dirname(dest));
+    const content = buildMainAgentContract('opencode') + '\n';
+    if (!fileExists(dest) || fs.readFileSync(dest, 'utf8') !== content) {
+      fs.writeFileSync(dest, content, 'utf8');
+    }
+    if (!silent) console.log(`  ✓ Deployed Konoha contract to ${dest}`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: 'copy-failed', error: error.message };
+  }
 }
 
 function deployOpenCodeRtkRule(silent = true) {
@@ -236,10 +250,11 @@ function ensureOpenCodeSetup(options = {}) {
   // Register MCP servers
   registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent);
 
-  // Deploy RTK Rule
-  deployOpenCodeRtkRule(silent);
+  // Deploy the shared contract and RTK rule (OpenCode has no RTK hook).
+  const contractRule = deployOpenCodeRules(silent);
+  const rtkRule = deployOpenCodeRtkRule(silent);
 
-  return { ok: true };
+  return { ok: true, contractRule, rtkRule };
 }
 
 module.exports = {
@@ -249,5 +264,6 @@ module.exports = {
   registerOpenCodeMcp,
   ensureOpenCodeSetup,
   removeOpenCodeConfig,
+  deployOpenCodeRules,
   deployOpenCodeRtkRule
 };

@@ -176,7 +176,7 @@ The SQLite database is stored at `~/.konoha/skills.db`. It consists of the follo
    - `name` (TEXT, PRIMARY KEY): Agent name (e.g. `genin`, `kage`).
    - `icon` (TEXT): Visual descriptor icon.
    - `title` (TEXT): Display title.
-   - `model_tier` (TEXT): Primary model tier fallback.
+   - `model_tier` (TEXT): Legacy compatibility column; current model selection is supplied by the host client.
    - `purpose` (TEXT): Dedicated purpose.
    - `skills` (TEXT): JSON-formatted string listing allowed/associated skills.
    - `delegate_when` (TEXT): Context descriptors for delegating to this agent.
@@ -185,10 +185,10 @@ The SQLite database is stored at `~/.konoha/skills.db`. It consists of the follo
    - `description` (TEXT): Long description text.
    - `instructions` (TEXT): Base agent instructions template.
    - `delegation_keywords` (TEXT): Keywords triggering delegation mapping.
-   - `cursor_model` (TEXT): Customized model mapping for Cursor.
+   - `cursor_model` (TEXT): Legacy compatibility column; not injected into current Cursor configuration.
    - `cursor_fallback_model` (TEXT): Cursor fallback model. (Deprecated — no longer set since v2.0.0; kept for DB backward compatibility.)
    - `enable_mcp_tools` (INTEGER): Flag for MCP tools authorization (0 or 1).
-   - `claude_model` (TEXT): Claude Code model override.
+   - `claude_model` (TEXT): Legacy compatibility column; not injected into current Claude Code configuration.
 
 ## Core Commands
 
@@ -286,7 +286,9 @@ Maintainers must use these CLI commands to build, inspect, and test the database
     2. **Exact match**: Look up the exact model name in the cache across all bridges.
     3. **Fallback**: Route to the first active bridge.
   - Cache TTL for bridge model lookups: **30 seconds**.
-- **Rotation**: The gateway's bridge rotator (in `src/bridge/gateway.js`) round-robins across enabled bridges. On 429 / `RESOURCE_EXHAUSTED`, the bridge is temporarily marked Unavailable in-memory only; state is not persisted.
+- **Request routing**: The gateway selects one enabled bridge per request using model-prefix, exact-model, then first-active fallback. It does not perform gateway-level round-robin retry after a 429; retries remain inside supported sidecar paths.
+- **External Antigravity extension**: `https://github.com/andycungkrinx91/konoha-bridge` is an IDE-owned extension refreshed from the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Install it only when Antigravity IDE is detected; it serves `http://127.0.0.1:1313` using the `agLocalBridge` namespace. Record the resolved commit, stage atomically, preserve rollback, never run it as standalone Node, and never seed an enabled external bridge row.
+- **Embedded fallback**: Konoha retains its embedded headless bridge implementation and aggregate gateway on `http://127.0.0.1:19999` for non-Antigravity machines.
 - Antigravity orchestrator templates may document model selection conventions; Konoha enforces routing at the proxy level.
 
 ### 6. Compliance Reports
@@ -371,7 +373,14 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Tool boundaries** (all clients): `semble` = code search; `konoha` = skills & bounded file reads.
 - **Documentation**: `docs/SETUP-MCP-CLIENTS.md`.
 
-### 18. Claude Code / IDE Auto-Setup (v2.0.0)
+### 18. External Antigravity Bridge Integration (v2.0.0)
+- The external `konoha-bridge` repository is an Antigravity/VS Code extension, not a standalone Node service: `https://github.com/andycungkrinx91/konoha-bridge`, refreshed from live `master` into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` on forced init/upgrade.
+- Detect Antigravity IDE before cloning. If the IDE is absent or only the CLI is present, skip installation and do not create extension directories.
+- The extension owns `http://127.0.0.1:1313` and uses the `agLocalBridge` setting namespace. Konoha’s embedded headless bridge and aggregate gateway remain on `http://127.0.0.1:19999`.
+- Validate package publisher/name/version/entry point before atomically staging the extension. Never execute the extension with Node or treat installation as runtime activation.
+- Never seed an external bridge row automatically. Provider `antigravity-extension` defaults to disabled and requires explicit `konoha bridge enable <name>`; no gateway-level round-robin failover occurs after `429`.
+
+### 19. Claude Code / IDE Auto-Setup (v2.0.0)
 - **Auto-Setup**: `ensureAutoSetup()` + `cursor_manager.ensureCursorSetup()` register MCP, subagents, hooks, and CLI permissions.
 - **Claude Code (auto)**: Merges into `~/.claude.json` (`mcpServers`) and deploys the 6 official ninja subagents to `~/.claude/agents/` with whitelisted allowed-tools matching `mcp_semble_*`, `mcp_konoha_*`.
 - **Claude Code Active Agent Detection**: Scans `~/.claude/projects/*/*.jsonl` session transcripts. Resolves session directories uniquely using `conv_dir = fpath` to isolate telemetry per session.
@@ -392,7 +401,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 ### 21. Release QA Gates (public release checklist)
 | Gate | Command | Pass |
 |------|---------|------|
-| MCP tests | `konoha test` | 16/16 |
+| MCP tests | `konoha test` | all discovered tests pass |
 | Agent delegation | `python3 tests/test_agent_delegation.py` | all pass |
 | Delegation chain | `python3 tests/test_delegation_chain.py` | all pass |
 | FTS5 sanitization | `python3 tests/test_fts5_sanitization.py` | all pass |
@@ -411,7 +420,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | Bridge routing check | `python3 tests/test_bridge_gateway.py` | 2/2 |
 | Self-heal | `konoha doctor --yes` | All healthy |
 | Claude Code MCP | `konoha status` | Row active when `claude` CLI present |
-| Cursor skills mirror | `ls ~/.cursor/skills/` | Matches `~/.agents/skills/` layout |
+| Cursor skill source | `node tests/test_no_filesystem_mirrors.js` | no Konoha-managed `.cursor/skills/` mirror |
 | Live benchmarks | `konoha savings` | konoha + semble metrics |
 | Deploy sync | `konoha migrate` | Copies `server.py`, file tools, hooks to `~/.konoha/` |
 
@@ -468,7 +477,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 
 Konoha relies on two model context protocol (MCP) servers to optimize token efficiency and codebase discoverability: `semble` and `konoha`.
 
-### 1. `konoha` MCP Server (Unified 20 Tools)
+### 1. `konoha` MCP Server (runtime-discovered tool inventory)
 Serves all skill knowledge retrieval, bounded file operations, and project scaffolding tools.
 
 * **`find_skill`**: Search skills by keyword using FTS.
@@ -535,5 +544,5 @@ If the Konoha MCP server crashes with `signal: terminated` or `signal: killed` u
 When debugging `ENOBUFS` exceptions in Konoha MCP tools, ensure the `maxBuffer` in `file_tools_router.js` is set to `1024 * 1024 * 1024` (1GB) to accommodate massive subagent instruction payloads.
 
 ### Tool Testing
-The `tests/test_mcp_e2e.js` script dynamically tests all 20+ exported tools in `file_tools_router.js`. It utilizes `os.homedir()` to ensure cross-machine compatibility for team environments.
+The `tests/test_mcp_e2e.js` script dynamically tests every exported handler in `file_tools_router.js` and exits nonzero on any failure. It utilizes `os.homedir()` to ensure cross-machine compatibility for team environments.
 

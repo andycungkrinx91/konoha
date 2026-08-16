@@ -303,7 +303,7 @@ def setup_db():
         CREATE TABLE IF NOT EXISTS bridges (
             name TEXT PRIMARY KEY,
             port INTEGER NOT NULL,
-            provider TEXT NOT NULL,
+            provider TEXT NOT NULL,  -- openai | openai-compatible | antigravity | antigravity-extension
             enabled INTEGER NOT NULL DEFAULT 1,
             target_url TEXT,
             api_key TEXT

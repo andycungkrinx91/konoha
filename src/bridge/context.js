@@ -3,12 +3,12 @@
 const { randomUUID } = require('crypto');
 
 /**
- * Shared mutable state for the in-process Konoha bridge (was: AG Local Bridge extension).
+ * Shared mutable state for the embedded, headless Konoha bridge.
  *
- * Previously bundled the full VS Code extension state (output channel, status bar,
- * H2 interceptor captures, captured CSRF tokens). After the VS Code extension
- * was retired, only the fields actually consumed by the in-process HTTP server,
- * sidecar, and Cascade remain.
+ * The external konoha-bridge project is an Antigravity IDE extension and is not
+ * started through this context; it owns its own HTTP server on port 1313.
+ * The embedded bridge keeps only the fields consumed by its HTTP server,
+ * sidecar, and Cascade.
  */
 function createContext() {
   return {

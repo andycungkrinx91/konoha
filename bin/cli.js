@@ -963,6 +963,11 @@ async function cmdInit(args) {
     spinner1b.success('uv installed successfully.');
   }
 
+  if (args.includes('--force')) {
+    const sembleRefresh = refreshSemblePackage(true);
+    if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
+  }
+
   // 3. Check for existing installation
   if (fileExists(SERVER_PATH) && hasCompleteDatabaseSchema(python)) {
     warn('Konoha MCP already installed.');
@@ -975,7 +980,7 @@ async function cmdInit(args) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1032,6 +1037,8 @@ async function cmdInit(args) {
       return;
     }
     warn('Reinstalling (--force)...');
+    const sembleRefresh = refreshSemblePackage(true);
+    if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
   }
 
   // 3. Detect skills directories
@@ -1122,6 +1129,11 @@ async function cmdInit(args) {
   if (fileExists(antigravityManagerSrc)) {
     copyFile(antigravityManagerSrc, antigravityManagerDest);
   }
+  const agentContractSrc = path.join(SRC_DIR, 'agent_contract.js');
+  const agentContractDest = path.join(SKILLS_DB_DIR, 'agent_contract.js');
+  if (fileExists(agentContractSrc)) {
+    copyFile(agentContractSrc, agentContractDest);
+  }
 
   const sanitizeHookSrc = path.join(SRC_DIR, 'antigravity_tool_sanitize_hook.js');
   const sanitizeHookDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
@@ -1143,8 +1155,8 @@ async function cmdInit(args) {
   installFileTools(true);
   spinner3.success('All files installed to ~/.konoha/');
 
-  // Install Konoha Bridge extension for Antigravity IDE
-  autoInstallKonohaBridgeExtension(true);
+  // Install or refresh Konoha Bridge extension for Antigravity IDE
+  autoInstallKonohaBridgeExtension(true, true);
 
   // 5. Run migration and always initialize the complete SQLite schema.
   header('📊 Seeding Default Subagent Skills to SQLite FTS5');
@@ -1195,7 +1207,9 @@ async function cmdInit(args) {
 
   // 8. Install and deploy RTK rules when the toolchain is available
   const rtkSpinner = startSpinner('Checking RTK (Rust Token Killer)...');
-  const rtkInstall = antigravityManager.ensureRtkInstalled(false);
+  const rtkInstall = args.includes('--force')
+    ? antigravityManager.refreshRtk(false)
+    : antigravityManager.ensureRtkInstalled(false);
   const rtkResult = antigravityManager.deployAntigravityRtkRule(true);
   if (rtkResult.ok) {
     rtkSpinner.success(`RTK rules deployed to ${rtkResult.deployed} Antigravity location(s).`);
@@ -1384,6 +1398,20 @@ function getUvCommand() {
   return null;
 }
 
+function refreshSemblePackage(silent = true) {
+  const uvxCmd = getUvxCommand();
+  try {
+    const result = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', '--version'], {
+      encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit'
+    });
+    return result.status === 0
+      ? { ok: true, command: uvxCmd }
+      : { ok: false, reason: `semble-refresh-failed-${result.status}` };
+  } catch (error) {
+    return { ok: false, reason: 'semble-refresh-failed', error: error.message };
+  }
+}
+
 function getUvxCommand() {
   const uvCmd = getUvCommand();
   if (!uvCmd) return 'uvx';
@@ -1396,79 +1424,113 @@ function getUvxCommand() {
   return 'uvx';
 }
 
-function autoInstallKonohaBridgeExtension(silent = false) {
-  // Source: https://github.com/andycungkrinx91/konoha-bridge/tree/master
-  // Bundle path matches marketplace id andycungkrinx91.konoha-bridge@1.2.0
-  const KONOHA_BRIDGE_VERSION = '1.2.0';
+function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) {
   const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
-  const KONOHA_BRIDGE_BRANCH = 'master';
-  const targetDirName = `andycungkrinx91.konoha-bridge-${KONOHA_BRIDGE_VERSION}-universal`;
+  const KONOHA_BRIDGE_REF = 'master';
+  const targetDirName = 'andycungkrinx91.konoha-bridge-master-universal';
+  const detection = antigravityManager.detectAntigravityIde();
 
-  // Antigravity IDE installs extensions into ~/.antigravity-ide/extensions
-  // (legacy location was ~/.antigravity/extensions — still mirrored for back-compat)
-  const antigravityExtDir = path.join(HOME, '.antigravity-ide', 'extensions');
-  const antigravityLegacyExtDir = path.join(HOME, '.antigravity', 'extensions');
-  const vscodeExtDir = path.join(HOME, '.vscode', 'extensions');
-  const targetPath = path.join(antigravityExtDir, targetDirName);
-  const targetPathLegacy = path.join(antigravityLegacyExtDir, targetDirName);
-  const targetPathVscode = path.join(vscodeExtDir, targetDirName);
-
-  // Skip only when the current version is already in place at every install path
-  const installedPaths = [targetPath, targetPathLegacy, targetPathVscode];
-  if (installedPaths.every(p => fileExists(p) && fileExists(path.join(p, 'package.json')))) {
-    if (!silent) log(`  ⚡ Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension already installed.`);
-    return true;
+  if (!detection.present) {
+    if (!silent) info(`Skipping konoha-bridge extension: ${detection.reason}.`);
+    return { installed: false, skipped: true, reason: 'antigravity-ide-not-detected' };
   }
 
-  if (!silent) info(`Installing Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension for Antigravity IDE...`);
+  const extensionDir = path.join(HOME, '.antigravity-ide', 'extensions');
+  const targetPath = path.join(extensionDir, targetDirName);
+  const installedPackage = path.join(targetPath, 'package.json');
+  const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
+  const readPackage = (packagePath) => {
+    try { return JSON.parse(fs.readFileSync(packagePath, 'utf8')); } catch { return null; }
+  };
+  const validatePackage = (packagePath) => {
+    const pkg = readPackage(packagePath);
+    const bridgePort = pkg?.contributes?.configuration?.properties?.['agLocalBridge.port']?.default;
+    return !!pkg && pkg.publisher === 'andycungkrinx91' &&
+      pkg.name === 'konoha-bridge' && bridgePort === 1313 &&
+      typeof pkg.main === 'string' && pkg.main.endsWith('src/extension.js');
+  };
+
+  if (!forceRefresh && fileExists(targetPath) && validatePackage(installedPackage)) {
+    antigravityManager.syncAntigravityExtensionRegistry(extensionDir, targetDirName, readPackage(installedPackage));
+    if (!silent) log(`  ⚡ Konoha Bridge master extension already installed.`);
+    return { installed: true, skipped: true, path: targetPath, ref: KONOHA_BRIDGE_REF };
+  }
+
+  if (!silent) info(`Installing Konoha Bridge from ${KONOHA_BRIDGE_REF} for Antigravity IDE...`);
+  const token = `${process.pid}-${Date.now()}`;
+  const tmpClone = path.join(SKILLS_DB_DIR, 'tmp', `bridge-clone-${token}`);
+  const stagingPath = path.join(extensionDir, `.konoha-bridge-${token}.staging`);
+  const backupPath = `${targetPath}.backup-${token}`;
+  let backupCreated = false;
+
   try {
-    ensureDir(antigravityExtDir);
-    ensureDir(antigravityLegacyExtDir);
-    ensureDir(vscodeExtDir);
-
-    // Clean any old versions so the new version can take over without conflicts
-    try {
-      const antigravityVersions = fs.readdirSync(antigravityExtDir).filter(n => n.startsWith('andycungkrinx91.konoha-bridge-'));
-      antigravityVersions.forEach(n => {
-        if (n !== targetDirName) {
-          try { fs.rmSync(path.join(antigravityExtDir, n), { recursive: true, force: true }); } catch {}
-        }
-      });
-      const legacyVersions = fs.readdirSync(antigravityLegacyExtDir).filter(n => n.startsWith('andycungkrinx91.konoha-bridge-'));
-      legacyVersions.forEach(n => {
-        try { fs.rmSync(path.join(antigravityLegacyExtDir, n), { recursive: true, force: true }); } catch {}
-      });
-    } catch {}
-
-    // Use a temp dir to avoid leaving partial clones if the clone fails
-    const tmpClone = path.join(KONOHA, 'tmp', `bridge-clone-${Date.now()}`);
     ensureDir(path.dirname(tmpClone));
-    const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_BRANCH, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], { stdio: 'ignore' });
-    if (cloneRes.status === 0 && fileExists(tmpClone)) {
-      try {
-        // Materialize the exact version-pinned directory name expected by Antigravity
-        try { fs.rmSync(targetPath, { recursive: true, force: true }); } catch {}
-        fs.cpSync(tmpClone, targetPath, { recursive: true });
-        // Mirror into legacy + VS Code for back-compat
-        try { fs.rmSync(targetPathLegacy, { recursive: true, force: true }); } catch {}
-        fs.cpSync(tmpClone, targetPathLegacy, { recursive: true });
-        try { fs.rmSync(targetPathVscode, { recursive: true, force: true }); } catch {}
-        fs.cpSync(tmpClone, targetPathVscode, { recursive: true });
-      } catch (cpErr) {
-        if (!silent) warn(`Cloned konoha-bridge but failed to copy into extension dirs: ${cpErr.message}`);
-      } finally {
-        try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch {}
-      }
-      if (!silent) success(`Konoha Bridge v${KONOHA_BRIDGE_VERSION} extension installed for Antigravity IDE (from ${KONOHA_BRIDGE_BRANCH}).`);
-      return true;
-    } else if (!silent && cloneRes.status !== 0) {
-      warn(`git clone of ${KONOHA_BRIDGE_REPO} failed (exit ${cloneRes.status}).`);
-      try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch (e) {}
+    const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], { encoding: 'utf8' });
+    if (cloneRes.status !== 0 || !fileExists(tmpClone)) {
+      throw new Error(`git clone failed for ${KONOHA_BRIDGE_REF} (exit ${cloneRes.status})`);
     }
+    const branchRes = spawnSync('git', ['-C', tmpClone, 'branch', '--show-current'], { encoding: 'utf8' });
+    const commitRes = spawnSync('git', ['-C', tmpClone, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+    const branch = (branchRes.stdout || '').trim();
+    const commit = (commitRes.stdout || '').trim();
+    if (branch !== KONOHA_BRIDGE_REF || !/^[0-9a-f]{40}$/i.test(commit)) {
+      throw new Error('cloned extension is not a valid master branch checkout');
+    }
+    if (!validatePackage(path.join(tmpClone, 'package.json'))) {
+      throw new Error('cloned package metadata is not a valid konoha-bridge extension');
+    }
+
+    ensureDir(extensionDir);
+    fs.rmSync(stagingPath, { recursive: true, force: true });
+    fs.cpSync(tmpClone, stagingPath, { recursive: true });
+    if (!validatePackage(path.join(stagingPath, 'package.json'))) {
+      throw new Error('staged extension package validation failed');
+    }
+
+    if (fileExists(targetPath)) {
+      fs.renameSync(targetPath, backupPath);
+      backupCreated = true;
+    }
+    fs.renameSync(stagingPath, targetPath);
+    if (!validatePackage(installedPackage)) {
+      throw new Error('installed extension package validation failed');
+    }
+
+    ensureDir(SKILLS_DB_DIR);
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      repository: KONOHA_BRIDGE_REPO,
+      ref: KONOHA_BRIDGE_REF,
+      commit,
+      path: targetPath,
+      package: readPackage(installedPackage)
+    }, null, 2) + '\n');
+
+    if (backupCreated) {
+      fs.rmSync(backupPath, { recursive: true, force: true });
+      backupCreated = false;
+    }
+
+    for (const entry of fs.readdirSync(extensionDir)) {
+      if (entry.startsWith('andycungkrinx91.konoha-bridge-') && entry !== targetDirName) {
+        fs.rmSync(path.join(extensionDir, entry), { recursive: true, force: true });
+      }
+    }
+    antigravityManager.syncAntigravityExtensionRegistry(extensionDir, targetDirName, readPackage(installedPackage));
+    if (!silent) success(`Konoha Bridge master extension installed at ${targetPath} (${commit.slice(0, 12)}).`);
+    return { installed: true, skipped: false, path: targetPath, ref: KONOHA_BRIDGE_REF, commit };
   } catch (err) {
+    try { fs.rmSync(stagingPath, { recursive: true, force: true }); } catch {}
+    if (backupCreated && fileExists(targetPath)) {
+      try { fs.rmSync(targetPath, { recursive: true, force: true }); } catch {}
+    }
+    if (backupCreated && !fileExists(targetPath) && fileExists(backupPath)) {
+      try { fs.renameSync(backupPath, targetPath); } catch {}
+    }
     if (!silent) warn(`Failed to auto-install konoha-bridge extension: ${err.message}`);
+    return { installed: false, skipped: false, reason: err.message };
+  } finally {
+    try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch {}
   }
-  return false;
 }
 
 function registerMcp(_python, silent = false, allowAutoApprove = true) {
@@ -1990,7 +2052,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -2020,9 +2082,9 @@ function ensureAutoSetup() {
     } catch (e) {}
   }
 
-  // 6. Ensure subagents and client integrations are fully deployed/updated
-  // Only regenerate if GEMINI.md or AGENTS.md is missing (like v1.1.5)
-  if (!fileExists(GEMINI_MD_PATH) || !fileExists(AGENTS_MD_PATH)) {
+  // 6. Ensure subagents and client integrations are fully deployed/updated.
+  // Reconcile on every startup so new and resumed sessions cannot retain stale contracts.
+  {
     const originalLog = console.log;
     console.log = () => {};
     let uvxCmd = 'uvx';
@@ -2038,6 +2100,7 @@ function ensureAutoSetup() {
         uvxCmd,
         projectRoot: currentCwd,
         deployProject: false,
+        force: true,
         silent: true
       });
     } catch (e) {
@@ -5040,7 +5103,8 @@ Examples:
 Provider: OpenAI Compatible (universal - works with all OpenAI-compatible APIs)
   1  OpenAI           - https://api.openai.com/v1
   2  OpenAI Compatible - any OpenAI-compatible API (Ollama, LM Studio, vLLM, ...)
-`);
+  3  Antigravity Extension - IDE-owned http://127.0.0.1:1313 (disabled by default)
+ `);
 }
 
 async function cmdBridge(args) {
@@ -5437,6 +5501,26 @@ async function cmdBridgeCreate(name) {
   if (bridges.some(b => b.name === bridgeName)) {
     error(`Bridge "${bridgeName}" already exists.`);
     process.exit(1);
+  }
+
+  const providerChoice = (await askQuestion('  Provider [1=OpenAI-compatible, 2=Antigravity extension]: ')).trim() || '1';
+  if (providerChoice === '2') {
+    const newBridge = {
+      name: bridgeName,
+      port: 1313,
+      provider: 'antigravity-extension',
+      targetUrl: 'http://127.0.0.1:1313',
+      enabled: false
+    };
+    if (bridges.some(b => b.port === newBridge.port)) { error(`Port ${newBridge.port} already in use.`); process.exit(1); }
+    if (!saveBridgeSqlite('upsert', newBridge)) {
+      error(`Failed to create bridge "${bridgeName}".`);
+      process.exit(1);
+    }
+    log('');
+    success(`Bridge "${bridgeName}" created disabled.`);
+    log('  Provider : Antigravity Extension (IDE-owned, port 1313)\n  Enable with: konoha bridge enable ' + bridgeName + '\n');
+    return;
   }
 
   // Port

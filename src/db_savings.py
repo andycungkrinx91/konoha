@@ -225,6 +225,22 @@ def query_stats(conn, time_filter=None):
         "by_client": by_client
     }
 
+def sanitize_legacy_records(conn):
+    """Sanitize legacy inflated baseline records and remove test records."""
+    try:
+        conn.execute("DELETE FROM tool_calls WHERE tool LIKE 'test_%' OR query LIKE '%test_tool%'")
+        conn.execute("""
+            UPDATE tool_calls
+            SET total_library_bytes = returned_bytes,
+                bytes_saved = 0,
+                tokens_saved = 0
+            WHERE tool NOT IN ('find_skill', 'list_skills')
+              AND total_library_bytes >= 400000
+        """)
+        conn.commit()
+    except Exception:
+        pass
+
 try:
     if not os.path.exists(db_path):
         print(json.dumps({"error": f"Database not found at {db_path}"}))
@@ -247,6 +263,8 @@ try:
             client TEXT
         );
     """)
+
+    sanitize_legacy_records(conn)
 
     stats_today = query_stats(conn, "today")
     stats_7days = query_stats(conn, "7days")

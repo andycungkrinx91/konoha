@@ -27,11 +27,8 @@ async function testAll() {
 
   const testFile = path.join(__dirname, '../src/server.py');
   const testDir = path.join(__dirname, '../src');
-  const dummyTaskDir = path.join(__dirname, '../tmp/dummy_task_dir');
-  if (!fs.existsSync(dummyTaskDir)) {
-    fs.mkdirSync(dummyTaskDir, { recursive: true });
-    fs.writeFileSync(path.join(dummyTaskDir, 'delegate.md'), 'Build an empty svelte site.');
-  }
+  const dummyTaskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-mcp-e2e-'));
+  fs.writeFileSync(path.join(dummyTaskDir, 'delegate.md'), 'Build an empty svelte site.');
 
   const universalPayload = {
     file_path: testFile,
@@ -62,6 +59,13 @@ async function testAll() {
   }
 
   console.log(`\n=== Test Complete: ${passed} Passed, ${failed} Failed ===`);
+  fs.rmSync(dummyTaskDir, { recursive: true, force: true });
+  if (failed > 0) {
+    process.exitCode = 1;
+  }
 }
 
-testAll().catch(console.error);
+testAll().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -95,26 +95,30 @@ def detect_active_client():
     return "antigravity"
 
 
-def log(tool: str, query: str, returned_bytes: int, client: str = None) -> None:
-    """Insert a single tool_calls row.
-
-    baseline = sum of all skill byte sizes (proxy for "library would have
-    been loaded"). Saving = baseline - returned_bytes. Always writes the
-    actual returned_bytes so the dashboard shows real numbers, not zeros.
-    """
+def log(tool: str, query: str, returned_bytes: int, client: str = None, baseline_bytes: int = None) -> None:
+    """Insert a single tool_calls row with accurate, verified baselines."""
     if client is None:
         client = detect_active_client()
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
-        baseline = DEFAULT_BASELINE
-        try:
-            row = cur.execute("SELECT SUM(byte_size) FROM skills").fetchone()
-            if row and row[0]:
-                baseline = int(row[0])
-        except Exception:
-            pass
+        if baseline_bytes is not None and baseline_bytes > 0:
+            baseline = int(baseline_bytes)
+        elif tool in ("read_file_head", "read_file_range", "token_efficient_grep", "file_info", "get_file_structure", "find_files_clean"):
+            baseline = returned_bytes
+        elif tool in ("find_skill", "list_skills"):
+            baseline = DEFAULT_BASELINE
+            try:
+                row = cur.execute("SELECT SUM(byte_size) FROM skills").fetchone()
+                if row and row[0]:
+                    baseline = int(row[0])
+            except Exception:
+                pass
+        elif tool == "get_skill":
+            baseline = returned_bytes
+        else:
+            baseline = returned_bytes
 
         bytes_saved = max(baseline - returned_bytes, 0)
         tokens_saved = bytes_saved // 4
@@ -135,12 +139,13 @@ def log(tool: str, query: str, returned_bytes: int, client: str = None) -> None:
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         sys.stderr.write(
-            "usage: tools_savings_logger.py <tool> <query> <returned_bytes> [client]\n"
+            "usage: tools_savings_logger.py <tool> <query> <returned_bytes> [client] [baseline_bytes]\n"
         )
         sys.exit(1)
     try:
-        client = sys.argv[4] if len(sys.argv) > 4 else None
-        log(sys.argv[1], sys.argv[2], int(sys.argv[3]), client)
+        client = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
+        baseline = int(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else None
+        log(sys.argv[1], sys.argv[2], int(sys.argv[3]), client, baseline)
     except Exception as exc:
         # Never crash the caller — the router wraps us in try/ignore.
         sys.stderr.write(f"[tools_savings_logger] {exc}\n")

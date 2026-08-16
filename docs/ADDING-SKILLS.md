@@ -118,7 +118,7 @@ konoha status
 
 You should see your total indexed count increase (e.g., from `93` to `96` entries).
 
-**Cursor users:** `konoha skill add` and `konoha migrate` also mirror the new skill to `~/.cursor/skills/<name>/` (and project `.cursor/skills/` when deployed). Run `konoha doctor --yes` if the mirror is missing.
+**Cursor users:** `konoha skill add` and `konoha migrate` index the new skill in the canonical SQLite database. Cursor loads the content through `konoha.find_skill`/`konoha.get_skill`; Konoha does not create `~/.cursor/skills/` mirrors or symlinks.
 
 ### Step 5: Start Using the Skill
 Your agent team is now ready to use the skill on-demand. When you prompt the agent with a task related to the new skill, the subagents will call `find_skill` or `get_skill` to retrieve the guidelines dynamically, avoiding start-up context bloat.

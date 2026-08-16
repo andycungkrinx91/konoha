@@ -10,8 +10,52 @@ import re
 import sys
 from pathlib import Path
 
-DOC_DIR = Path(__file__).resolve().parent.parent / "docs"
-SRC_DIR = Path(__file__).resolve().parent.parent / "src"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DOC_DIR = ROOT_DIR / "docs"
+SRC_DIR = ROOT_DIR / "src"
+
+REQUIRED_DOCS = [
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/BENCHMARK.md",
+    "docs/LLM-BRIDGE-GATEWAY.md",
+    "docs/SETUP-IDE.md",
+    "docs/SETUP-CLI.md",
+    "docs/SETUP-CURSOR.md",
+    "docs/SETUP-MCP-CLIENTS.md",
+    "docs/ADDING-SKILLS.md",
+    "docs/TROUBLESHOOTING.md",
+    "docs/diagrams/README.md",
+    "docs/diagrams/konoha-architecture.drawio",
+    "docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md",
+]
+
+
+def check_local_links():
+    """Validate repository-relative Markdown links and image/source targets."""
+    failures = []
+    markdown_files = [ROOT_DIR / "README.md", *DOC_DIR.rglob("*.md")]
+    pattern = re.compile(r"!?(?:\[[^\]]*\])\(([^)]+)\)")
+    for source in markdown_files:
+        content = read_file(source)
+        for raw_target in pattern.findall(content):
+            raw = raw_target.strip()
+            if not raw or re.match(r"^(?:https?:|mailto:|tel:|data:|#)", raw, re.I):
+                continue
+            if raw.lower().startswith("file://"):
+                from urllib.parse import unquote, urlparse
+                parsed = urlparse(raw)
+                resolved = Path(unquote(parsed.path)).resolve()
+            else:
+                target = raw.split("#", 1)[0].split("?", 1)[0]
+                resolved = (source.parent / target).resolve()
+            if not resolved.exists():
+                failures.append(f"{source.relative_to(ROOT_DIR)} -> {raw_target}")
+    return failures
+
+
+def check_required_docs():
+    return [doc for doc in REQUIRED_DOCS if not (ROOT_DIR / doc).exists()]
 
 # ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -157,6 +201,20 @@ def main():
     print()
 
     all_failures = []
+
+    missing_docs = check_required_docs()
+    if missing_docs:
+        all_failures.append(("repository", {"type": "MISSING_REQUIRED_DOCS", "detail": missing_docs}))
+
+    broken_links = check_local_links()
+    if broken_links:
+        all_failures.append(("local-links", {"type": "BROKEN_LOCAL_LINKS", "detail": broken_links}))
+
+    readme = read_file(ROOT_DIR / "README.md")
+    if "andycungkrinx91.konoha-bridge-master-universal" not in readme:
+        all_failures.append(("README.md", {"type": "STALE_BRIDGE_PATH", "detail": "README must document the master extension path"}))
+    if re.search(r"(?:mirrors?|synced from).*\.cursor/skills|\.cursor/skills.*(?:mirrored|synced)", readme, re.I):
+        all_failures.append(("README.md", {"type": "STALE_CURSOR_MIRROR", "detail": "README must not advertise a Konoha Cursor skill mirror"}))
 
     # Define checks per file
     doc_checks = [

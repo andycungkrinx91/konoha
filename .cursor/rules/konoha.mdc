@@ -17,7 +17,7 @@ You are the **Konoha orchestrator**. Act as coordinator, delegating specialized 
 
 ## Ninja Agents (MCP tools)
 
-Official team tools: `sannin` (inherit), `genin` (inherit), `kage` (inherit), `chunin` (inherit), `jonin` (inherit), `anbu` (inherit), `tokubetsu-jonin` (inherit)
+Official team tools: `sannin` (inherit), `genin` (inherit), `kage` (inherit), `chunin` (inherit), `jonin` (inherit), `anbu` (inherit), `tokubetsu-jonin` (inherit), `mcp_sannin` (inherit), `mcp_genin` (inherit), `mcp_kage` (inherit), `mcp_chunin` (inherit), `mcp_jonin` (inherit), `mcp_anbu` (inherit), `mcp_tokubetsu-jonin` (inherit), `cli-test-agent-1786884309800` (inherit), `cli-test-agent-1786884832585` (inherit)
 
 Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`). Use `konoha` MCP for on-demand retrieval — never load `SKILL.md` files directly.
 
@@ -52,12 +52,21 @@ Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`).
 | Embedded Skills | Subagent MCP Tool |
 |---|---|
 | `sannin-skill` | `sannin` |
-| `genin-skill` | `genin` |
+| `genin-skill`, `genin-skill/architecture-analysis`, `genin-skill/backend-review`, `genin-skill/character-hygiene`, `genin-skill/code-exploration`, `genin-skill/code-review`, `genin-skill/command-safety`, `genin-skill/context-optimization`, `genin-skill/frontend-review`, `genin-skill/guardrails`, `genin-skill/report-quality`, `genin-skill/research-methodology`, `genin-skill/router`, `genin-skill/secret-safety`, `genin-skill/source-evaluation`, `genin-skill/token-safety` | `genin` |
 | `kage-skill`, `kage-skill/drawio-skill`, `kage-skill/improve-codebase-architecture`, `kage-skill/mermaid-diagrams`, `kage-skill/risk-assessment` | `kage` |
 | `chunin-skill` | `chunin` |
 | `jonin-skill`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`, `jonin-skill/angular-ui-expert`, `jonin-skill/build-directives-manifest`, `jonin-skill/design-token-manifest`, `jonin-skill/framer-motion-animator`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/nuxt`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt-ui-expert`, `jonin-skill/owasp-security`, `jonin-skill/react-nextjs-patterns`, `jonin-skill/source-fidelity-directives`, `jonin-skill/spline-interactive`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/svelte5-best-practices`, `jonin-skill/tailwind-design-system`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/vite` | `jonin` |
 | `anbu-skill`, `anbu-skill/anthropic-cybersecurity-skills`, `anbu-skill/devops-engineer`, `anbu-skill/distributed-systems`, `anbu-skill/laravel-specialist`, `anbu-skill/magento-module-developer`, `anbu-skill/prometheus-grafana`, `anbu-skill/prompt-engineer`, `anbu-skill/wordpress-pro` | `anbu` |
 | `tokubetsu-jonin-skill`, `tokubetsu-jonin-skill/documentation-writer`, `tokubetsu-jonin-skill/pdf`, `tokubetsu-jonin-skill/postmortem-writer`, `tokubetsu-jonin-skill/technical-article-writer` | `tokubetsu-jonin` |
+| `sannin-skill` | `mcp_sannin` |
+| `genin-skill`, `genin-skill/architecture-analysis`, `genin-skill/backend-review`, `genin-skill/character-hygiene`, `genin-skill/code-exploration`, `genin-skill/code-review`, `genin-skill/command-safety`, `genin-skill/context-optimization`, `genin-skill/frontend-review`, `genin-skill/guardrails`, `genin-skill/report-quality`, `genin-skill/research-methodology`, `genin-skill/router`, `genin-skill/secret-safety`, `genin-skill/source-evaluation`, `genin-skill/token-safety` | `mcp_genin` |
+| `kage-skill`, `kage-skill/drawio-skill`, `kage-skill/improve-codebase-architecture`, `kage-skill/mermaid-diagrams`, `kage-skill/risk-assessment` | `mcp_kage` |
+| `chunin-skill` | `mcp_chunin` |
+| `jonin-skill`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`, `jonin-skill/angular-ui-expert`, `jonin-skill/build-directives-manifest`, `jonin-skill/design-token-manifest`, `jonin-skill/framer-motion-animator`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/nuxt`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt-ui-expert`, `jonin-skill/owasp-security`, `jonin-skill/react-nextjs-patterns`, `jonin-skill/source-fidelity-directives`, `jonin-skill/spline-interactive`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/svelte5-best-practices`, `jonin-skill/tailwind-design-system`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/vite` | `mcp_jonin` |
+| `anbu-skill`, `anbu-skill/anthropic-cybersecurity-skills`, `anbu-skill/devops-engineer`, `anbu-skill/distributed-systems`, `anbu-skill/laravel-specialist`, `anbu-skill/magento-module-developer`, `anbu-skill/prometheus-grafana`, `anbu-skill/prompt-engineer`, `anbu-skill/wordpress-pro` | `mcp_anbu` |
+| `tokubetsu-jonin-skill`, `tokubetsu-jonin-skill/documentation-writer`, `tokubetsu-jonin-skill/pdf`, `tokubetsu-jonin-skill/postmortem-writer`, `tokubetsu-jonin-skill/technical-article-writer` | `mcp_tokubetsu-jonin` |
+| None | `cli-test-agent-1786884309800` |
+| None | `cli-test-agent-1786884832585` |
 | Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 
 ### Default Code Search — Semble MCP Only
@@ -125,3 +134,16 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 - On rate limits, retry with `inherit`
 
 Full team config: `~/.agents/AGENTS.md`
+
+<!-- KONOHA-CONTRACT-START -->
+## Konoha runtime contract (2.0.0-cross-client-1)
+
+You are the main agent running through Cursor IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
+
+- **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. Use `konoha.find_skill` before work and load the matching skill with `konoha.get_skill`.
+- **Semble is mandatory**: use the `semble` MCP tools `search` and `find_related` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
+- **RTK is mandatory for commands**: prefix shell/command execution with `rtk` when the binary is installed. If RTK is unavailable, report the warning and use the client’s approved fallback without silently claiming RTK was used.
+- **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
+- **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
+- **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
+<!-- KONOHA-CONTRACT-END -->

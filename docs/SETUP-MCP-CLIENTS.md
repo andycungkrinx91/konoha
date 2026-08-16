@@ -3,7 +3,7 @@ Konoha registers **konoha** and **semble** for every supported client detected d
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
-| **Antigravity CLI/IDE** | Always | `~/.gemini/config/mcp_config.json` |
+| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension only when Antigravity IDE is detected | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
 | **Cursor** | When detected | `~/.cursor/mcp.yaml` and project `.cursor/mcp.yaml` |
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.opencode/config.json` → `mcp` |
@@ -89,6 +89,8 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.commandcode/mcp.json` → `mcpServers` (all projects on this machine).
+- `~/.commandcode/rules/konoha.md` → main-agent Konoha + Semble + RTK contract.
+- `~/.commandcode/rules/rtk.md` when RTK is installed.
 
 **Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha` and `semble`.
 
@@ -100,6 +102,7 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.opencode/config.json` → `mcp` (all projects on this machine).
+- `~/.opencode/rules/konoha.md` → main-agent Konoha + Semble + RTK contract.
 - `~/.opencode/rules/rtk.md` when RTK is installed.
 
 **Verify:** Open OpenCode IDE and check MCP configurations — should show `konoha` and `semble`.
@@ -111,11 +114,12 @@ konoha doctor --yes
 1. `konoha` `find_skill` for skills
 2. `semble` `search` / `find_related` for code
 3. `konoha` for bounded file reads
-4. The Konoha Bridge Router runs in-process inside the `konoha` MCP server. The router listens on `19999` and routes to inner OpenAI / Local LLM bridges based on model name prefixes. Local clients do not send API keys to the router.
+4. The embedded Konoha Bridge Router runs in-process inside the `konoha` MCP server on `127.0.0.1:19999`. The optional Antigravity IDE extension is separate and serves `127.0.0.1:1313`; it is never started by Konoha as a standalone process. Local clients do not send API keys to the aggregate router.
+5. External `antigravity-extension` bridge records are disabled by default and require explicit `konoha bridge enable <name>`.
 
 In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 
-**Cursor note:** Skills on disk are mirrored to `~/.cursor/skills/`; agents still load skill **content** via `konoha` — do not read `SKILL.md` files directly into context.
+**Cursor note:** Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Cursor agents load skill **content** through `konoha.find_skill`/`konoha.get_skill` and use `semble` for code search.
 
 ---
 
@@ -133,15 +137,14 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Adding Multiple Bridges
 
-Konoha Bridge Router supports multiple bridges per provider for failover.
+Konoha Bridge Router supports multiple bridges for explicit model routing. It does not perform gateway-level round-robin failover.
 
 ### Add a bridge
 
 ```bash
 konoha bridge create
-# => choose 1 (OpenAI API Key)         => prompts for name, port, target URL, API key
-# => choose 2 (OpenAI Compatible)     => prompts for name, port, target URL, API key
-# => choose 3 (Antigravity Sidecar)   => passive, requires live Antigravity IDE session
+# => choose 1 (OpenAI-compatible)     => prompts for name, port, target URL, API key
+# => choose 2 (Antigravity Extension) => port 1313, IDE-owned, disabled by default
 ```
 
 ### Manage bridges
@@ -183,8 +186,8 @@ my-ollama-llama3
 lm-studio-mistral-7b
 ```
 
-### Automatic failover
+### Bridge routing behavior
 
-When a bridge returns an error, the gateway automatically routes to the next available bridge (round-robin across providers).
+The gateway selects one enabled bridge per request using model-prefix, exact-model, then first-active fallback. It does not perform gateway-level round-robin retry after a `429`; retry behavior belongs to sidecar paths or the calling client.
 
 See [LLM-BRIDGE-GATEWAY.md](LLM-BRIDGE-GATEWAY.md) for full architecture details.

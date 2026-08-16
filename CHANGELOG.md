@@ -4,17 +4,16 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [Unreleased]
 
-### Changed
-- Added the Google Policy Compliance v1.1.7 report using the Konoha v2.0.0 filename convention and corrected the latest-compliance README link.
+### Removed
+- Removed unreferenced historical patch, fix, and revert scripts plus confirmed transient cache/task artifacts.
+
+## [2.0.0] - 2026-08-14
+### Fix: Base feature 
+- Replaced the obsolete pinned bridge-extension flow with live `master` refreshes for detected Antigravity IDE only; installs use `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`, record the resolved commit, preserve rollback, and keep external bridge records disabled by default.
 - Canonicalized Genin routing and metadata to `genin-skill` across packaged and client deployment copies while preserving legacy upgrade normalization.
 - Fresh installation and missing-database auto-setup now require and verify the canonical `genin-skill` SQLite entry before client registration.
 - Replaced embedded documentation diagrams with a validated multi-page editable Draw.io architecture source and manifest.
 - Added a post-fix cleanup gate to the developer-only Konoha maintenance skill.
-
-### Removed
-- Removed unreferenced historical patch, fix, and revert scripts plus confirmed transient cache/task artifacts.
-
-## [2.0.0] - 2026-08-04
 
 ### Fix: Sanin MCP Tool Naming
 - **Consistent tool naming**: Fixed inconsistent MCP tool name for `run_sannin` — now consistently uses `mcp__konoha__sannin` (was `mcp__konoha__sannin` in JS bridge managers, `mcp__konoha__sannin` in Python server). Updated `mcp-tools-block.md` reference skill, DB entry, and server execution protocol instructions.
@@ -181,14 +180,14 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **RTK (Rust Token Killer) Documentation**: Documented RTK auto-deployment to all clients, rule file locations, and `rtk` CLI usage patterns.
 - **CLI TUI**: Gradient styling and dynamic table widths in `konoha doctor`, `konoha status`, and installer output.
 - **konoha-files MCP fixes**: Cross-platform `file_tools_launcher.js`; 6 tools; Cursor MCP uses `node` + launcher; `platform_utils.js` for Windows `file://` URIs, tilde paths, and `py -3` Python detection.
-- **Cross-platform QA**: Path sandbox `normcase` on Windows; `.node_exec_path` and `.python_cmd` records; `konoha test` 14/14.
+- **Cross-platform QA**: Path sandbox `normcase` on Windows; `.node_exec_path` and `.python_cmd` records; test counts are reported from the discovered runner inventory.
 - **Separate Feature Diagrams**: Split monolithic `docs/LLM-BRIDGE-GATEWAY.md` into dedicated visual architectures for Konoha Bridge Router and LLM Bridges.
 - **Preflight & Ignores Documentation**: `find_files_clean` path ignores (`go-dist` / `vendor`) and Proxy Gateway preflight token count mocking documented in konoha SKILL.md.
 - **Installation/Setup Guides Updated**: README, ARCHITECTURE, SETUP-IDE, SETUP-CLI, SETUP-CURSOR, TROUBLESHOOTING, and konoha SKILL updated for v2.0.0 multi-client support, orchestrator pipeline, semble-default search, konoha-files MCP, and RTK auto-deployment.
 
 ### Release QA (v2.0.0)
 - **Attribution**: `test_agent_attribution.py` 7/7, `test_cursor_attribution.py` 8/8.
-- **MCP**: `konoha test` 14/14; `konoha doctor --yes` all healthy.
+- **MCP**: `konoha test` and `konoha doctor --yes` are release gates; exact counts come from the current runner output.
 - **Security**: `konoha-files` workspace path sandbox (JS + Python).
 - **Install repair**: `deploy_utils.js`, `registerHooks(true, true)`, semble args repair, Cursor project MCP merge, `cursor_bootstrap.js` konoha-files + semble policy.
 - **RTK**: RTK rule files deployed to `~/.gemini/antigravity-cli/rules/`, `~/.gemini/antigravity-ide/rules/`, `~/.cursor/rules/`, and `~/.claude/rules/` on init (gracefully skipped when `rtk` binary absent).

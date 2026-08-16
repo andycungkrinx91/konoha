@@ -260,9 +260,11 @@ To keep Konoha updated with the latest optimizations and features, you can check
   konoha upgrade
   ```
 
-### Model Registry and Fallbacks
+### Optional Antigravity Bridge Extension
 
-Konoha CLI maintains a registry of available Large Language Models (LLMs) that can be assigned to your subagents.
+The external `konoha-bridge` extension is refreshed from the live `master` branch only when Antigravity IDE is detected. It installs at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and serves `127.0.0.1:1313`; Konoha’s embedded gateway remains on `127.0.0.1:19999`. No external bridge is enabled automatically. On CLI-only or headless machines, Konoha skips the extension and uses its embedded fallback.
+
+### Model Registry and Fallbacks
 
 * **Available Models Registry**:
   - `Claude Sonnet 4.6 (Thinking)` (default for all Konoha subagents since v2.0.0)

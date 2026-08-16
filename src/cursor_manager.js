@@ -22,6 +22,11 @@ const CURSOR_RULES_GLOBAL = path.join(CURSOR_DIR, 'rules');
 const CURSOR_RTK_RULE_SRC = path.join(__dirname, '..', '.cursor', 'rules', 'rtk.mdc');
 
 const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
+const {
+  buildSubagentContract,
+  buildMainAgentContract,
+  buildManagedContract
+} = require('./agent_contract');
 
 function isRtkInstalled() {
   return isCommandAvailable('rtk');
@@ -87,6 +92,7 @@ function generateCursorSubagent(agent) {
     }
   }
 
+  instructions = `${instructions}\n\n${buildSubagentContract('cursor')}`;
   const body = adaptInstructionsForCursor(instructions);
   const sembleLine = buildSembleSearchPolicyCompact();
   const fileToolsLine = buildFileToolsPolicyCompact();
@@ -104,14 +110,15 @@ function generateCursorSubagent(agent) {
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
 }function generateCursorRule(agents, ruleContent = null) {
   if (ruleContent) {
-    return `---\ndescription: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills\nalwaysApply: true\n---\n\n` + ruleContent;
+    const managed = buildManagedContract(ruleContent, buildMainAgentContract('cursor'));
+    return `---\ndescription: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills\nalwaysApply: true\n---\n\n` + managed;
   }
   const agentList = agents.map(a => `\`${a.name}\` (${resolveCursorModel(a)})`).join(', ');
   const delegationRows = agents
     .map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`)
     .join('\n');
 
-  return `---
+  const rule = `---
 description: Konoha multi-agent orchestration — delegate to ninja agents via MCP tools, use konoha MCP for skills
 alwaysApply: true
 ---
@@ -196,6 +203,7 @@ ${buildFileToolsPolicy()}
 
 Full team config: \`~/.agents/AGENTS.md\`
 `;
+  return buildManagedContract(rule, buildMainAgentContract('cursor'));
 }
 
 function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
@@ -413,6 +421,22 @@ function registerCursorHooks(silent = true, allowHooks = true) {
   return true;
 }
 
+function deployCursorGlobalRule(agents, silent = true) {
+  if (!agents || agents.length === 0) return false;
+  try {
+    ensureDir(CURSOR_RULES_GLOBAL);
+    const rulePath = path.join(CURSOR_RULES_GLOBAL, 'konoha.mdc');
+    const content = generateCursorRule(agents);
+    if (!fileExists(rulePath) || fs.readFileSync(rulePath, 'utf8') !== content) {
+      fs.writeFileSync(rulePath, content, 'utf8');
+    }
+    if (!silent) console.log(`✓ Deployed global Cursor rule: ${rulePath}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = null) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
@@ -475,6 +499,7 @@ function ensureCursorSetup(options = {}) {
   registerCursorCliPermissions(silent);
   registerCursorHooks(silent, allowHooks);
   deployCursorRtkRule(silent);
+  if (agents.length > 0) deployCursorGlobalRule(agents, silent);
 
   if (deployProject) {
     const root = projectRoot || process.cwd();
@@ -669,6 +694,7 @@ module.exports = {
   registerCursorCliPermissions,
   registerCursorHooks,
   deployProjectCursor,
+  deployCursorGlobalRule,
   deployCursorRtkRule,
   ensureCursorSetup,
   removeCursorConfig,
