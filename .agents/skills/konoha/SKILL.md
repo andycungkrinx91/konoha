@@ -126,13 +126,18 @@ Konoha optimizes AI agent token usage by replacing massive folder-level context 
 
 ```mermaid
 ---
+title: Konoha Core Architecture
 config:
   theme: base
+  themeVariables:
+    background: '#ffffff'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 graph TB
     %% Styling Configuration
@@ -145,37 +150,40 @@ graph TB
 
     %% Subgraphs for Layered Architecture
     subgraph Layer1 ["1. Presentation Layer"]
-        User["👤 End User"]
+        User["End User"]
+        Client["Supported Client<br/>Antigravity / Claude / Cursor / OpenCode / Command Code"]
     end
 
     subgraph Layer15 ["1.5 Management & Configuration Layer"]
-        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, skill, agent)"]
-        AgentConfig["📄 Subagent Config (Source: SQLite agents table)"]
+        CLI["Konoha CLI<br/>(init, migrate, upgrade, skill, agent)"]
+        AgentConfig["Subagent Config<br/>(Source: SQLite agents table)"]
     end
 
     subgraph Layer2 ["2. Cognitive Agent Layer"]
-        Router{"🔀 Orchestrator <br/> (Main Agent)"}
-        Queue["📂 File Queue<br>(tasks/<task_id>/)"]
+        Router["Orchestrator<br/>(Main Agent)"]
+        Sannin["Sannin Router"]
+        Queue["File Queue<br/>(tasks/&lt;task_id&gt;/)"]
 
         subgraph Subagents ["Specialized Ninja Agents"]
-            Genin["🍃 Genin <br/> (Scout)"]
-            Chunin["📜 Chunin <br/> (Intel)"]
-            Jonin["🛡️ Jonin <br/> (UI Builder)"]
-            Anbu["👥 Anbu <br/> (Ops/DevOps)"]
-            Tokubetsu["🎯 Tokubetsu <br/> (Scribe)"]
-            Kage["🌀 Kage <br/> (Architect)"]
+            Genin["Genin<br/>(Scout)"]
+            Chunin["Chunin<br/>(Intel)"]
+            Jonin["Jonin<br/>(UI Builder)"]
+            Anbu["Anbu<br/>(Ops/DevOps)"]
+            Tokubetsu["Tokubetsu<br/>(Scribe)"]
+            Kage["Kage<br/>(Architect)"]
         end
     end
 
     subgraph Layer3 ["3. MCP Middleware Layer"]
-        KonohaMCP["⚡ konoha MCP<br>Skills FTS5 & File Operations (21 tools)"]
-        Semble["🔮 Semble MCP<br>Semantic code search"]
+        MCPConfig["Client MCP Configurations"]
+        KonohaMCP["konoha MCP<br/>Skills FTS5 & File Operations"]
+        Semble["Semble MCP<br/>Semantic code search"]
     end
 
     subgraph Layer4 ["4. Persistence Layer"]
-        DB[("🗄️ SQLite Database <br/> ~/.konoha/skills.db (skills, bridges & agents tables)")]
-        FTS5["🔍 SQLite FTS5 <br/> Full-Text Index"]
-        Codebase["��� Workspace Files"]
+        DB["SQLite Database<br/>~/.konoha/skills.db (skills, agents, bridges, memories)"]
+        FTS5["SQLite FTS5<br/>Full-Text Index"]
+        Codebase["Workspace Files"]
     end
 
     %% Workflow Connections

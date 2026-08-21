@@ -4576,6 +4576,12 @@ const AVAILABLE_MODELS = [
   { name: 'Gemini 3.5 Flash (Low)', tag: 'Fast', aliases: ['flash-low', 'gemini-3.5-flash-low', 'low'] },
   { name: 'Gemini 3.5 Flash (Medium)', tag: 'Fast', aliases: ['flash-medium', 'gemini-3.5-flash-medium', 'medium'] },
   { name: 'Gemini 3.5 Flash (High)', tag: 'Fast', aliases: ['flash-high', 'gemini-3.5-flash-high', 'high'] },
+  { name: 'Gemini 3.6 Flash (Low)', tag: 'Fast', aliases: ['flash-3.6-low', 'gemini-3.6-flash-low', '3.6-low'] },
+  { name: 'Gemini 3.6 Flash (Medium)', tag: 'Fast', aliases: ['flash-3.6-medium', 'gemini-3.6-flash-medium', '3.6-medium'] },
+  { name: 'Gemini 3.6 Flash (High)', tag: 'Fast', aliases: ['flash-3.6-high', 'gemini-3.6-flash-high', '3.6-high'] },
+  { name: 'Gemini 3.7 Flash (Low)', tag: 'Fast', aliases: ['flash-3.7-low', 'gemini-3.7-flash-low', '3.7-low'] },
+  { name: 'Gemini 3.7 Flash (Medium)', tag: 'Fast', aliases: ['flash-3.7-medium', 'gemini-3.7-flash-medium', '3.7-medium'] },
+  { name: 'Gemini 3.7 Flash (High)', tag: 'Fast', aliases: ['flash-3.7-high', 'gemini-3.7-flash-high', '3.7-high'] },
   { name: 'Gemini 3.1 Pro (Low)', tag: 'Standard', aliases: ['pro-low', 'gemini-3.1-pro-low'] },
   { name: 'Gemini 3.1 Pro (High)', tag: 'Standard', aliases: ['pro-high', 'gemini-3.1-pro-high'] },
   { name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Reasoning', aliases: ['sonnet', 'sonnet-4.6', 'claude-sonnet-4.6', 'sonnet-thinking'] },
@@ -4947,35 +4953,46 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
 
 function cmdDataHelp() {
   log(`
-${C.cyan}konoha data${C.reset} — Manage SQLite active session history and database size
+${C.cyan}konoha data${C.reset} — Manage SQLite active session history, persona memories, and database size
 
 ${C.bold}USAGE${C.reset}
   konoha data <subcommand>
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}view${C.reset}      📊 See how much disk size and records are in your database knowledge data.
-  ${C.cyan}prune${C.reset}     🧹 Clean up old active sessions and usage logs, then vacuum disk space.
-  ${C.cyan}export${C.reset}    📤 Export indexed skills and database knowledge into a Markdown report.
-  ${C.cyan}vacuum${C.reset}    ⚡ Defragment and compress SQLite database file directly.
+  ${C.cyan}view${C.reset}              📊 See how much disk size, skills, and persona memories are in your database.
+  ${C.cyan}memory [agent]${C.reset}    🧠 List saved persona rules, preferences, and episodic memory per agent.
+  ${C.cyan}add <agent> <txt>${C.reset} ➕ Save a persistent rule or preference for an agent persona.
+  ${C.cyan}search <query>${C.reset}    🔍 Search saved knowledge and memories across agents.
+  ${C.cyan}delete <id>${C.reset}       🗑️ Remove a saved memory item by ID.
+  ${C.cyan}export${C.reset}            📤 Export indexed skills and database knowledge into a Markdown report.
+  ${C.cyan}prune${C.reset}             🧹 Clean up old active sessions and usage logs (preserves memories), then vacuum.
+  ${C.cyan}vacuum${C.reset}            ⚡ Defragment and compress SQLite database file directly.
 
 ${C.bold}EXAMPLES${C.reset}
   ${C.dim}1. View current database statistics:${C.reset}
      konoha data view
 
-  ${C.dim}2. Prune usage logs and clean database free space:${C.reset}
+  ${C.dim}2. List saved persona memories for an agent:${C.reset}
+     konoha data memory anbu
+
+  ${C.dim}3. Add a persistent rule for an agent:${C.reset}
+     konoha data add anbu "Always use parameterized queries and WAL mode in SQLite" --type rule
+
+  ${C.dim}4. Search saved memories across all agents:${C.reset}
+     konoha data search "SQLite WAL"
+
+  ${C.dim}5. Prune usage logs while preserving saved memories:${C.reset}
      konoha data prune
 
-  ${C.dim}3. Export skills database to a Markdown persona file:${C.reset}
+  ${C.dim}6. Export skills and persona memories to a Markdown file:${C.reset}
      konoha data export
-
-  ${C.dim}4. Defragment and compress database size directly:${C.reset}
-     konoha data vacuum
 `);
 }
 
 async function cmdData(args) {
   await chidoriTransition('data');
   const subcommand = args[0];
+  const subArgs = args.slice(1);
 
   if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
     cmdDataHelp();
@@ -4985,6 +5002,24 @@ async function cmdData(args) {
   switch (subcommand) {
     case 'view':
       await cmdDataView();
+      break;
+    case 'memory':
+    case 'memories':
+    case 'list':
+      await cmdDataMemory(subArgs);
+      break;
+    case 'add':
+    case 'save':
+      await cmdDataAdd(subArgs);
+      break;
+    case 'search':
+    case 'find':
+      await cmdDataSearch(subArgs);
+      break;
+    case 'delete':
+    case 'remove':
+    case 'rm':
+      await cmdDataDelete(subArgs);
       break;
     case 'prune':
       await cmdDataPrune();
@@ -5844,6 +5879,209 @@ print("success")
     }
   } catch (err) {
     error(`Failed to export database: ${err.message}`);
+  }
+}
+
+async function cmdDataMemory(args) {
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const agentFilter = args[0] || '';
+      const script = `
+import sqlite3, os, sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+
+db_path = sys.argv[1]
+agent_name = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
+mems = persona_memory.list_memories(agent_name=agent_name, limit=50, db_path=db_path)
+print(json.dumps(mems))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agentFilter], { encoding: 'utf-8', timeout: 5000 });
+      if (run.status === 0) {
+        const mems = JSON.parse(run.stdout.trim());
+        header(`🧠 Konoha Saved Persona Memories ${agentFilter ? `(@${agentFilter})` : ''}`);
+        if (!mems || mems.length === 0) {
+          log(`  ${C.dim}No saved memories found. Use ${C.cyan}konoha data add <agent> <content>${C.dim} to save rules/learnings.${C.reset}\n`);
+          return;
+        }
+        mems.forEach((m, idx) => {
+          const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
+          log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
+          log(`     ${m.content}`);
+          if (m.tags) log(`     ${C.dim}Tags: ${m.tags}${C.reset}`);
+          log('');
+        });
+        success(`Total: ${mems.length} saved memory item(s).`);
+      } else {
+        error(`Failed to list memories: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to retrieve persona memories: ${err.message}`);
+  }
+}
+
+async function cmdDataAdd(args) {
+  if (args.length < 2) {
+    error('Usage: konoha data add <agent> <content> [--title <title>] [--type <type>] [--tags <tags>]');
+    process.exit(1);
+  }
+  const agent = args[0];
+  let content = '';
+  let title = '';
+  let type = 'rule';
+  let tags = '';
+  let importance = 1;
+
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--title' && i + 1 < args.length) {
+      title = args[++i];
+    } else if (args[i] === '--type' && i + 1 < args.length) {
+      type = args[++i];
+    } else if (args[i] === '--tags' && i + 1 < args.length) {
+      tags = args[++i];
+    } else if (args[i] === '--importance' && i + 1 < args.length) {
+      importance = parseInt(args[++i], 10) || 1;
+    } else {
+      content += (content ? ' ' : '') + args[i];
+    }
+  }
+
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const script = `
+import sqlite3, os, sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+
+db_path = sys.argv[1]
+agent = sys.argv[3]
+content = sys.argv[4]
+title = sys.argv[5]
+mtype = sys.argv[6]
+tags = sys.argv[7]
+imp = int(sys.argv[8])
+
+mem_id = persona_memory.save_memory(
+    agent_name=agent,
+    content=content,
+    title=title,
+    memory_type=mtype,
+    tags=tags,
+    importance=imp,
+    db_path=db_path
+)
+print(json.dumps({"id": mem_id, "agent": agent}))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agent, content, title, type, tags, String(importance)], { encoding: 'utf-8', timeout: 5000 });
+      if (run.status === 0) {
+        const res = JSON.parse(run.stdout.trim());
+        success(`Saved persona memory for @${res.agent}! (ID: ${res.id})`);
+        log(`  ${C.bold}Content:${C.reset} ${content}\n`);
+      } else {
+        error(`Failed to save persona memory: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to add persona memory: ${err.message}`);
+  }
+}
+
+async function cmdDataSearch(args) {
+  if (args.length === 0) {
+    error('Usage: konoha data search <query> [--agent <name>]');
+    process.exit(1);
+  }
+  let query = '';
+  let agentFilter = 'global';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--agent' && i + 1 < args.length) {
+      agentFilter = args[++i];
+    } else {
+      query += (query ? ' ' : '') + args[i];
+    }
+  }
+
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const script = `
+import sqlite3, os, sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+
+db_path = sys.argv[1]
+agent = sys.argv[3]
+query = sys.argv[4]
+
+mems = persona_memory.query_memories(agent_name=agent, query=query, limit=10, db_path=db_path)
+print(json.dumps(mems))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agentFilter, query], { encoding: 'utf-8', timeout: 5000 });
+      if (run.status === 0) {
+        const mems = JSON.parse(run.stdout.trim());
+        header(`🔍 Search Results for "${query}"`);
+        if (!mems || mems.length === 0) {
+          log(`  ${C.dim}No matching memories found.${C.reset}\n`);
+          return;
+        }
+        mems.forEach((m, idx) => {
+          const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
+          log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
+          log(`     ${m.content}\n`);
+        });
+      } else {
+        error(`Failed to search persona memories: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to search persona memories: ${err.message}`);
+  }
+}
+
+async function cmdDataDelete(args) {
+  if (args.length === 0) {
+    error('Usage: konoha data delete <id>');
+    process.exit(1);
+  }
+  const memId = args[0];
+  try {
+    const python = checkPython();
+    if (python && fileExists(DB_PATH)) {
+      const script = `
+import sqlite3, os, sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+
+db_path = sys.argv[1]
+mem_id = sys.argv[3]
+deleted = persona_memory.delete_memory(mem_id, db_path=db_path)
+print(json.dumps({"deleted": deleted, "id": mem_id}))
+`.trim();
+      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, memId], { encoding: 'utf-8', timeout: 5000 });
+      if (run.status === 0) {
+        const res = JSON.parse(run.stdout.trim());
+        if (res.deleted) {
+          success(`Deleted memory item ID: ${memId}`);
+        } else {
+          warn(`Memory item ID "${memId}" not found.`);
+        }
+      } else {
+        error(`Failed to delete persona memory: ${run.stderr}`);
+      }
+    } else {
+      error('SQLite database or python command not found.');
+    }
+  } catch (err) {
+    error(`Failed to delete memory: ${err.message}`);
   }
 }
 

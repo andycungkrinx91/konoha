@@ -23,21 +23,22 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#ccfbf1'
     tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 80
-    rankSpacing: 100
-    padding: 32
-    wrappingWidth: 320
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 flowchart TD
-    Query([Search Query]) --> Searx{1. Public<br/>SearXNG}
-    Searx -->|Success| Return[Format citations]
-    Searx -->|429 / empty / fail| DDG{2. DuckDuckGo<br/>HTML}
+    Query["Search Query"] --> Searx["1. Public SearXNG<br/>(Dynamic HTTPS)"]
+    Searx -->|Success| Return["Format citations"]
+    Searx -->|429 / empty / fail| DDG["2. DuckDuckGo<br/>(HTML Scraper)"]
     DDG -->|Success| Return
-    DDG -->|Captcha / empty / fail| Startpage{3. Startpage<br/>HTML}
+    DDG -->|Captcha / empty / fail| Startpage["3. Startpage<br/>(HTML Fallback)"]
     Startpage -->|Success| Return
-    Startpage -->|Empty / fail| Wikipedia[4. Wikipedia<br/>OpenSearch]
+    Startpage -->|Empty / fail| Wikipedia["4. Wikipedia<br/>(OpenSearch API)"]
     Wikipedia --> Return
 
     classDef input fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px

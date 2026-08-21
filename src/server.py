@@ -25,6 +25,9 @@ from urllib.parse import urlparse, unquote
 import tempfile
 from yaml_parser import parse_yaml, serialize_yaml, load_yaml_file, dump_yaml_file
 import glob
+import circuit_breaker
+from circuit_breaker import global_circuit_registry
+import persona_memory
 # PIL is NOT imported at module level to avoid crashing MCP on systems without Pillow.
 # PIL is lazy-loaded inside build_from_source() for image analysis.
 
@@ -2551,6 +2554,13 @@ def run_web_search(query, num_results=5, search_depth="standard"):
         return None
 
     def query_searxng(instance_url, q, num):
+        netloc = urllib.parse.urlparse(instance_url).netloc or instance_url
+        cb = global_circuit_registry.get_or_create(f"searxng:{netloc}", failure_threshold=3, recovery_timeout_sec=60.0)
+        if not cb.allow_request():
+            sys.stderr.write(f"[mcp konoha] Circuit OPEN for SearXNG instance {netloc} — skipping\n")
+            sys.stderr.flush()
+            return None
+
         base = instance_url.rstrip("/") + "/"
         search_url = f"{base}search?q={urllib.parse.quote(q)}&format=json"
         try:
@@ -2569,11 +2579,13 @@ def run_web_search(query, num_results=5, search_depth="standard"):
                             "title": title,
                             "url": link,
                             "snippet": content,
-                            "source": f"SearXNG ({urllib.parse.urlparse(instance_url).netloc})"
+                            "source": f"SearXNG ({netloc})"
                         })
+                cb.record_success()
                 return results
         except Exception as e:
-            sys.stderr.write(f"[mcp konoha] SearXNG query to {instance_url} failed: {str(e)}\n")
+            cb.record_failure()
+            sys.stderr.write(f"[mcp konoha] SearXNG query to {instance_url} failed ({cb.state}, fail_count={cb.failure_count}): {str(e)}\n")
             sys.stderr.flush()
             try:
                 if os.path.exists(BEST_INSTANCE_PATH):
@@ -2933,12 +2945,23 @@ def run_mcp_agent(agent_name, task_dir=None):
             sys.stderr.write(f"[mcp chunin] Error during automatic web search: {str(e)}\n")
             sys.stderr.flush()
             
+    persona_memories_block = ""
+    try:
+        saved_mems = persona_memory.query_memories(agent_name=db_agent_name, query=instructions, limit=4)
+        if saved_mems:
+            persona_memories_block = persona_memory.format_memories_for_prompt(saved_mems)
+    except Exception as e:
+        sys.stderr.write(f"[mcp {agent_name}] Error querying persona memories: {str(e)}\n")
+        sys.stderr.flush()
+
     system_prompt = (
         f"You are @{db_agent_name} ({title}).\n"
         f"Purpose: {purpose}\n\n"
         f"Instructions:\n{persona_instructions}\n\n"
         f"Constraints:\n{constraints}\n\n"
     )
+    if persona_memories_block:
+        system_prompt += persona_memories_block + "\n"
     system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT)
     if search_findings:
         system_prompt += search_findings + "\n"
@@ -3366,6 +3389,106 @@ def handle_request(req):
                                 }
                             }
                         }
+                    },
+                    {
+                        "name": "save_persona_memory",
+                        "description": "Persist a rule, user preference, architectural decision, or episodic learning for an agent persona into SQLite database.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "agent_name": {
+                                    "type": "string",
+                                    "description": "Target agent name (e.g. anbu, jonin, kage, genin, chunin, global)"
+                                },
+                                "content": {
+                                    "type": "string",
+                                    "description": "The exact rule, pattern, or learning content to persist."
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "description": "Short descriptive title for the memory item."
+                                },
+                                "memory_type": {
+                                    "type": "string",
+                                    "description": "Type of memory: 'rule', 'preference', 'episodic', 'architecture', 'pattern'.",
+                                    "enum": ["rule", "preference", "episodic", "architecture", "pattern"],
+                                    "default": "rule"
+                                },
+                                "tags": {
+                                    "type": "string",
+                                    "description": "Comma-separated search tags."
+                                },
+                                "importance": {
+                                    "type": "integer",
+                                    "description": "Priority weighting (1-5, default 1).",
+                                    "default": 1
+                                }
+                            },
+                            "required": ["agent_name", "content"]
+                        }
+                    },
+                    {
+                        "name": "query_persona_memory",
+                        "description": "Query stored persona memories and rules by keyword and agent from SQLite database.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "agent_name": {
+                                    "type": "string",
+                                    "description": "Agent name to query memories for (e.g. anbu, jonin, kage, global)."
+                                },
+                                "query": {
+                                    "type": "string",
+                                    "description": "Search keyword or phrase."
+                                },
+                                "memory_type": {
+                                    "type": "string",
+                                    "description": "Filter by memory type ('rule', 'preference', 'episodic', 'pattern')."
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum number of memories to return (default 5).",
+                                    "default": 5
+                                }
+                            },
+                            "required": ["agent_name"]
+                        }
+                    },
+                    {
+                        "name": "list_persona_memories",
+                        "description": "List stored persona memories across agents with optional type filter.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "agent_name": {
+                                    "type": "string",
+                                    "description": "Optional agent name filter."
+                                },
+                                "memory_type": {
+                                    "type": "string",
+                                    "description": "Optional memory type filter."
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum number of memories to return (default 50).",
+                                    "default": 50
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "delete_persona_memory",
+                        "description": "Delete a persona memory item by its unique ID.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string",
+                                    "description": "The unique ID of the memory item to delete."
+                                }
+                            },
+                            "required": ["id"]
+                        }
                     }
                 ]
             }
@@ -3425,6 +3548,69 @@ def handle_request(req):
         elif tool_name in ("kage", "jonin", "anbu", "chunin", "tokubetsu_jonin", "genin"):
             task_dir = args.get("task_dir")
             result_text = run_mcp_agent(agent_name=tool_name, task_dir=task_dir)
+        elif tool_name == "save_persona_memory":
+            target_agent = args.get("agent_name") or agent
+            content = args.get("content", "")
+            title = args.get("title", "")
+            memory_type = args.get("memory_type", "rule")
+            tags = args.get("tags", "")
+            importance = int(args.get("importance", 1))
+            if not target_agent or not content:
+                result_text = json.dumps({"error": "agent_name and content are required."})
+            else:
+                try:
+                    mem_id = persona_memory.save_memory(
+                        agent_name=target_agent,
+                        content=content,
+                        title=title,
+                        memory_type=memory_type,
+                        tags=tags,
+                        importance=importance,
+                        db_path=DB_PATH
+                    )
+                    result_text = json.dumps({"status": "saved", "id": mem_id, "agent": target_agent})
+                except Exception as e:
+                    result_text = json.dumps({"error": f"Failed to save memory: {str(e)}"})
+        elif tool_name == "query_persona_memory":
+            target_agent = args.get("agent_name") or agent
+            query = args.get("query", "")
+            memory_type = args.get("memory_type")
+            limit = int(args.get("limit", 5))
+            try:
+                mems = persona_memory.query_memories(
+                    agent_name=target_agent,
+                    query=query,
+                    memory_type=memory_type,
+                    limit=limit,
+                    db_path=DB_PATH
+                )
+                result_text = json.dumps({"agent": target_agent, "count": len(mems), "memories": mems})
+            except Exception as e:
+                result_text = json.dumps({"error": f"Failed to query memories: {str(e)}"})
+        elif tool_name == "list_persona_memories":
+            target_agent = args.get("agent_name")
+            memory_type = args.get("memory_type")
+            limit = int(args.get("limit", 50))
+            try:
+                mems = persona_memory.list_memories(
+                    agent_name=target_agent,
+                    memory_type=memory_type,
+                    limit=limit,
+                    db_path=DB_PATH
+                )
+                result_text = json.dumps({"count": len(mems), "memories": mems})
+            except Exception as e:
+                result_text = json.dumps({"error": f"Failed to list memories: {str(e)}"})
+        elif tool_name == "delete_persona_memory":
+            mem_id = args.get("id")
+            if not mem_id:
+                result_text = json.dumps({"error": "Memory id is required."})
+            else:
+                try:
+                    deleted = persona_memory.delete_memory(mem_id, db_path=DB_PATH)
+                    result_text = json.dumps({"status": "deleted" if deleted else "not_found", "id": mem_id})
+                except Exception as e:
+                    result_text = json.dumps({"error": f"Failed to delete memory: {str(e)}"})
         else:
             result_text = json.dumps({"error": f"Unknown tool: {tool_name}"})
 

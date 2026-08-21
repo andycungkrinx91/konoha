@@ -23,22 +23,23 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#e0e7ff'
     tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
-flowchart LR
-    Developer([Developer]) --> Registry[skills.sh<br/>Git repository]
-    Registry --> Files[Workspace or Home<br/>.agents/skills/&lt;name&gt;]
-    Templates[src/templates/skills] --> Files
-    Files --> Migrate[konoha migrate<br/>--clean]
-    Migrate --> DB[(SQLite skills.db<br/>skills + skills_fts)]
-    Client[Any Supported<br/>Client] --> Find[find_skill(keyword)]
+flowchart TB
+    Developer["Developer"] --> Registry["skills.sh<br/>(Git repository)"]
+    Registry --> Files["Workspace or Home<br/>.agents/skills/&lt;name&gt;"]
+    Templates["src/templates/skills"] --> Files
+    Files --> Migrate["konoha migrate<br/>(--clean)"]
+    Migrate --> DB["SQLite skills.db<br/>(skills + skills_fts)"]
+    Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
-    DB --> Get[get_skill<br/>(canonical name)]
+    DB --> Get["get_skill(canonical name)"]
     Get --> Client
 
     classDef actor fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px

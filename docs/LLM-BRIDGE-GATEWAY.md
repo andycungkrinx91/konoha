@@ -21,24 +21,30 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#dbeafe'
     tertiaryColor: '#ede9fe'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
-flowchart LR
-    Client([MCP / API Client]) --> Gateway[Konoha Bridge Router<br/>HTTP API :19999]
-    Gateway -->|Read model mapping| Bridges[(SQLite bridges table<br/>model cache)]
+flowchart TB
+    Client["MCP / API Client"] --> Gateway["Konoha Bridge Router<br/>HTTP API :19999"]
+    Gateway -->|Read model mapping| Bridges["SQLite bridges table<br/>(model cache)"]
     Bridges -->|Prefix / exact / first active| Gateway
-    Gateway -->|One request| OpenAI[OpenAI API-Key<br/>Bridge]
-    Gateway -->|One request| Compatible[OpenAI-Compatible<br/>Bridge]
-    Gateway -->|Sidecar route| Antigravity[Antigravity<br/>Sidecar]
-    OpenAI --> OpenAIAPI[OpenAI API]
-    Compatible --> Local[Local LLM<br/>Endpoint]
-    Antigravity --> Cascade[Sidecar protocol cascade<br/>proto -> raw -> gRPC]
-    Gateway -->|Discovery :19899| Discovery[UDP Discovery<br/>:19899]
+
+    subgraph BridgesLayer ["Available Bridges"]
+        OpenAI["OpenAI API-Key<br/>Bridge"]
+        Compatible["OpenAI-Compatible<br/>Bridge"]
+        Antigravity["Antigravity<br/>Sidecar"]
+        Discovery["UDP Discovery<br/>:19899"]
+    end
+
+    Gateway -->|Forward request| BridgesLayer
+    OpenAI --> OpenAIAPI["OpenAI API"]
+    Compatible --> Local["Local LLM Endpoint"]
+    Antigravity --> Cascade["Sidecar protocol cascade<br/>(proto -> raw -> gRPC)"]
 
     classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef gateway fill:#ffe6cc,stroke:#d97706,color:#78350f,stroke-width:2px

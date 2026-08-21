@@ -11,7 +11,7 @@ This skill contains the structural guidelines, command specifications, and archi
 
 **ABSOLUTE RULE:** All work MUST go through the **konoha MCP**, **semble MCP**, and **RTK CLI** — never execute tasks solo, never bypass the agent delegation workflow.
 
-- **Always use `konoha` MCP** (`konoha.find_skill`, `konoha.get_skill`, `konoha.list_skills`, `konoha.read_file_head`, `konoha.read_file_range`, `konoha.file_info`, `konoha.token_efficient_grep`, `konoha.get_file_structure`, `konoha.find_files_clean`, `konoha.get_resolved_task_dir`, `konoha.build_from_source`, `konoha.build_from_text`, `konoha.optimize_report`, `konoha.migrate_skills`, `konoha.web_search`, `konoha.sannin`, `konoha.kage`, `konoha.jonin`, `konoha.anbu`, `konoha.chunin`, `konoha.tokubetsu_jonin`, `konoha.genin`) for skills, skill discovery, bounded file operations, agent delegation, and orchestration. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
+- **Always use `konoha` MCP** (`konoha.find_skill`, `konoha.get_skill`, `konoha.list_skills`, `konoha.read_file_head`, `konoha.read_file_range`, `konoha.file_info`, `konoha.token_efficient_grep`, `konoha.get_file_structure`, `konoha.find_files_clean`, `konoha.get_resolved_task_dir`, `konoha.build_from_source`, `konoha.build_from_text`, `konoha.optimize_report`, `konoha.migrate_skills`, `konoha.web_search`, `konoha.save_persona_memory`, `konoha.query_persona_memory`, `konoha.list_persona_memories`, `konoha.delete_persona_memory`, `konoha.sannin`, `konoha.kage`, `konoha.jonin`, `konoha.anbu`, `konoha.chunin`, `konoha.tokubetsu_jonin`, `konoha.genin`) for skills, skill discovery, bounded file operations, persona memories, agent delegation, and orchestration. Never call generic `Read`, `Grep`, `Glob`, `Bash` `cat`/`head`/`tail`/`grep`/`rg`/`find` directly — always delegate to a konoha subagent via the konoha MCP.
 - **Always use `semble` MCP** (`semble.search`, `semble.find_related`) for codebase search. Never use `grep`, `rg`, `find`, `glob`, or built-in `Read`/`Grep`/`Glob` tools for code discovery — always delegate to a konoha subagent via the semble MCP.
 - **Always use `rtk` CLI** to wrap any shell command that produces output. `rtk` filters and compresses output before it reaches the LLM context — cutting 80-90% of tokens on typical commands. Use `rtk git status`, `rtk pytest tests/`, `rtk grep "pattern" src/`, `rtk ls`, etc. Meta commands (`rtk gain`, `rtk discover`) are always used raw without prefixing.
 - **Never use `semble` for skills** — use `konoha.find_skill` / `konoha.get_skill` only.
@@ -126,13 +126,18 @@ Konoha optimizes AI agent token usage by replacing massive folder-level context 
 
 ```mermaid
 ---
+title: Konoha Core Architecture
 config:
   theme: base
+  themeVariables:
+    background: '#ffffff'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 graph TB
     %% Styling Configuration
@@ -145,40 +150,40 @@ graph TB
 
     %% Subgraphs for Layered Architecture
     subgraph Layer1 ["1. Presentation Layer"]
-        User["👤 End User"]
-        Client["🖥️ Supported Client<br>Antigravity / Claude / Cursor / OpenCode / Command Code"]
+        User["End User"]
+        Client["Supported Client<br/>Antigravity / Claude / Cursor / OpenCode / Command Code"]
     end
 
     subgraph Layer15 ["1.5 Management & Configuration Layer"]
-        CLI["🛠️ Konoha CLI<br>(init, migrate, upgrade, skill, agent)"]
-        AgentConfig["📄 Subagent Config (Source: SQLite agents table)"]
+        CLI["Konoha CLI<br/>(init, migrate, upgrade, skill, agent)"]
+        AgentConfig["Subagent Config<br/>(Source: SQLite agents table)"]
     end
 
     subgraph Layer2 ["2. Cognitive Agent Layer"]
-        Router{"🔀 Orchestrator <br/> (Main Agent)"}
-        Sannin["🏯 Sannin Router"]
-        Queue["📂 File Queue<br>(tasks/<task_id>/)"]
+        Router["Orchestrator<br/>(Main Agent)"]
+        Sannin["Sannin Router"]
+        Queue["File Queue<br/>(tasks/&lt;task_id&gt;/)"]
 
         subgraph Subagents ["Specialized Ninja Agents"]
-            Genin["🍃 Genin <br/> (Scout)"]
-            Chunin["📜 Chunin <br/> (Intel)"]
-            Jonin["🛡️ Jonin <br/> (UI Builder)"]
-            Anbu["👥 Anbu <br/> (Ops/DevOps)"]
-            Tokubetsu["🎯 Tokubetsu <br/> (Scribe)"]
-            Kage["🌀 Kage <br/> (Architect)"]
+            Genin["Genin<br/>(Scout)"]
+            Chunin["Chunin<br/>(Intel)"]
+            Jonin["Jonin<br/>(UI Builder)"]
+            Anbu["Anbu<br/>(Ops/DevOps)"]
+            Tokubetsu["Tokubetsu<br/>(Scribe)"]
+            Kage["Kage<br/>(Architect)"]
         end
     end
 
     subgraph Layer3 ["3. MCP Middleware Layer"]
-        MCPConfig["⚙️ Client MCP Configurations"]
-        KonohaMCP["⚡ konoha MCP<br>Skills FTS5 & File Operations"]
-        Semble["🔮 Semble MCP<br>Semantic code search"]
+        MCPConfig["Client MCP Configurations"]
+        KonohaMCP["konoha MCP<br/>Skills FTS5 & File Operations"]
+        Semble["Semble MCP<br/>Semantic code search"]
     end
 
     subgraph Layer4 ["4. Persistence Layer"]
-        DB[("🗄️ SQLite Database <br/> ~/.konoha/skills.db (skills, agents, bridges, telemetry, sessions)")]
-        FTS5["🔍 SQLite FTS5 <br/> Full-Text Index"]
-        Codebase["��� Workspace Files"]
+        DB["SQLite Database<br/>~/.konoha/skills.db (skills, agents, bridges, memories)"]
+        FTS5["SQLite FTS5<br/>Full-Text Index"]
+        Codebase["Workspace Files"]
     end
 
     %% Workflow Connections
@@ -262,6 +267,21 @@ The SQLite database is stored at `~/.konoha/skills.db`. It consists of the follo
    - `enable_mcp_tools` (INTEGER): Flag for MCP tools authorization (0 or 1).
    - `claude_model` (TEXT): Legacy compatibility column; not injected into current Claude Code configuration.
 
+6. **`persona_memories`** (Agent persona & episodic rules):
+   - `id` (TEXT, PRIMARY KEY): Unique identifier.
+   - `agent_name` (TEXT): Target agent persona name (`anbu`, `jonin`, `kage`, `genin`, `chunin`, or `global`).
+   - `memory_type` (TEXT): Memory type (`rule`, `preference`, `episodic`, `pattern`, `architecture`).
+   - `title` (TEXT): Short summary title.
+   - `content` (TEXT): Full rule or memory description.
+   - `tags` (TEXT): Comma-separated search tags.
+   - `importance` (INTEGER): Priority weighting (1-5).
+   - `created_at` (TEXT): ISO timestamp.
+   - `updated_at` (TEXT): ISO timestamp.
+
+7. **`persona_memories_fts`** (FTS5 Virtual Table for Persona Memories):
+   - External content table mapped to `persona_memories`.
+   - Fields: `id`, `agent_name`, `title`, `content`, `tags`.
+
 ## Core Commands
 
 Maintainers must use these CLI commands to build, inspect, and test the database:
@@ -279,6 +299,16 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 | `python3 tests/test_database_migration.py` | Full database schema, FTS5 matches, and migration script verification. |
 | `python3 tests/test_web_search.py` | zero-API-key fallback search chain and cache TTL test suite. |
 | `python3 tests/test_bridge_gateway.py` | Bridge schema and model routing registration test suite. |
+| `python3 tests/test_circuit_breaker.py` | Unit tests for CircuitBreaker states (CLOSED, OPEN, HALF_OPEN) and registry. |
+| `python3 tests/test_persona_memory.py` | Unit tests for embedding-free SQLite Persona Memory persistence and FTS5 search. |
+| `node bin/cli.js data view` | Displays disk size, indexed skills, saved persona memories, and vacuumable space. |
+| `node bin/cli.js data memory [agent]` | Lists saved persona rules, preferences, and episodic memory per agent. |
+| `node bin/cli.js data add <agent> <content>` | Saves a persistent rule or preference for an agent persona. |
+| `node bin/cli.js data search <query>` | Searches saved knowledge and memories across agents. |
+| `node bin/cli.js data delete <id>` | Removes a saved memory item by ID. |
+| `node bin/cli.js data export` | Exports indexed skills, village roster, and persona memories into a Markdown report. |
+| `node bin/cli.js data prune` | Cleans old active sessions and usage logs while preserving persona memories. |
+| `node bin/cli.js data vacuum` | Defragments and compresses SQLite database file directly. |
 | `node bin/cli.js savings` | Queries and displays token and bytes savings metrics. |
 | `node bin/cli.js bridge status` | Shows runtime status and details of all configured bridges. |
 | `node bin/cli.js bridge list` | Lists all configured bridges in a formatted table with provider info. |

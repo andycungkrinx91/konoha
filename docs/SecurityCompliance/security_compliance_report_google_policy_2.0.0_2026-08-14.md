@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross-client Konoha/Semble/RTK contract, lifecycle repair, live-master Antigravity extension refresh, MCP E2E failure handling, and documentation corrections. The review covers interactive setup boundaries, MCP tool permissions, workspace/task isolation, skill migration integrity, new/resumed-session repair, bridge supply-chain boundaries, and documentation/test currency.
+This Google Policy Compliance v2.0.0 review audits Konoha v2.0.0 after the cross-client Konoha/Semble/RTK contract, lifecycle repair, live-master Antigravity extension refresh, MCP E2E failure handling, and documentation corrections. The review covers interactive setup boundaries, MCP tool permissions, workspace/task isolation, skill migration integrity, new/resumed-session repair, bridge supply-chain boundaries, and documentation/test currency.
 
 **Overall outcome:** PASS for the repository controls reviewed. Tests validate generated configurations and deterministic client fixtures; proprietary client processes were not launched in this environment. The Draw.io desktop CLI was unavailable, so rendered visual export was not assessed; editable XML was checked structurally.
 
@@ -60,4 +60,4 @@ This Google Policy Compliance v1.1.7 review audits Konoha v2.0.0 after the cross
 
 ## Conclusion
 
-Konoha v2.0.0 passes the Google Policy Compliance v1.1.7 review for the controls examined. The cross-client MCP contract, canonical Genin skill routing, migration checks, sandbox/task isolation, bridge security boundary, documentation synchronization, and repository cleanup policy are implemented and regression-tested. Rendered Draw.io export could not be assessed because the Draw.io desktop CLI was unavailable; the editable Draw.io XML itself passed structural validation.
+Konoha v2.0.0 passes the Google Policy Compliance v2.0.0 review for the controls examined. The cross-client MCP contract, canonical Genin skill routing, migration checks, sandbox/task isolation, bridge security boundary, documentation synchronization, and repository cleanup policy are implemented and regression-tested. Rendered Draw.io export could not be assessed because the Draw.io desktop CLI was unavailable; the editable Draw.io XML itself passed structural validation.

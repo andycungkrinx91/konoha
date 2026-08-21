@@ -754,6 +754,12 @@ ${agentSections}
 | Gemini 3.5 Flash (Low) | Fast | \`flash-low\`, \`low\` |
 | Gemini 3.5 Flash (Medium) | Fast | \`flash-medium\`, \`medium\` |
 | Gemini 3.5 Flash (High) | Fast | \`flash-high\`, \`high\` |
+| Gemini 3.6 Flash (Low) | Fast | \`flash-3.6-low\`, \`gemini-3.6-flash-low\` |
+| Gemini 3.6 Flash (Medium) | Fast | \`flash-3.6-medium\`, \`gemini-3.6-flash-medium\` |
+| Gemini 3.6 Flash (High) | Fast | \`flash-3.6-high\`, \`gemini-3.6-flash-high\` |
+| Gemini 3.7 Flash (Low) | Fast | \`flash-3.7-low\`, \`gemini-3.7-flash-low\` |
+| Gemini 3.7 Flash (Medium) | Fast | \`flash-3.7-medium\`, \`gemini-3.7-flash-medium\` |
+| Gemini 3.7 Flash (High) | Fast | \`flash-3.7-high\`, \`gemini-3.7-flash-high\` |
 | Gemini 3.1 Pro (Low) | Standard | \`pro-low\` |
 | Gemini 3.1 Pro (High) | Standard | \`pro-high\` |
 | Claude Sonnet 4.6 (Thinking) | Reasoning | \`sonnet\`, \`sonnet-thinking\` |

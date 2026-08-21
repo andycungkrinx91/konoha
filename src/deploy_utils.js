@@ -163,6 +163,8 @@ function installFileTools(silent = true, pythonCmd = null) {
     "yaml_parser.py",
     "db_bridges.py",
     "db_agents.py",
+    "circuit_breaker.py",
+    "persona_memory.py",
   ].forEach((f) => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);

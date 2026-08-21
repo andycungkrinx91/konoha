@@ -66,7 +66,7 @@ config:
   flowchart:
     nodeSpacing: 90
     rankSpacing: 110
-    padding: 32
+    padding: 10
     wrappingWidth: 360
 ---
 graph TB

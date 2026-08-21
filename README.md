@@ -19,7 +19,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v1.1.7 — Konoha v2.0.0](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md)
 
 | | |
 |:---:|:---:|
@@ -110,22 +110,24 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#d1fae5'
     tertiaryColor: '#dbeafe'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
-flowchart LR
-    Prompt([User Prompt / Resume]) --> Orchestrator[Primary Orchestrator]
-    Orchestrator --> Read[Read prompt spec<br/>Konoha bounded file tools]
-    Orchestrator --> Discover[Discover skill + code<br/>Konoha MCP + Semble MCP]
-    Orchestrator --> Contract[Write delegate.md<br/>Isolated task directory]
-    Contract --> Agent[Selected Ninja Agent<br/>Genin · Kage · Jonin<br/>Anbu · Chunin<br/>Tokubetsu-jonin]
-    Agent --> Result[Write result.md]
-    Result --> Close[sannin closes loop]
-    Close --> Response([Synthesized Response])
+flowchart TB
+    Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
+    Orchestrator --> Read["1. Read prompt spec<br/>(Konoha bounded file tools)"]
+    Orchestrator --> Discover["2. Discover skill + code<br/>(Konoha MCP + Semble MCP)"]
+    Read --> Contract["3. Write delegate.md<br/>(Isolated task directory)"]
+    Discover --> Contract
+    Contract --> Agent["4. Selected Ninja Agent<br/>(genin-skill · kage · jonin · anbu · chunin · tokubetsu)"]
+    Agent --> Result["5. Write result.md<br/>(Task findings)"]
+    Result --> Close["6. sannin closes loop<br/>(Synthesize findings)"]
+    Close --> Response["Synthesized Response"]
 
     classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
@@ -536,26 +538,27 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#d1fae5'
     tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
-flowchart LR
-    subgraph Before["Before: folder-level loading"]
-        direction TB
-        Raw["Raw SKILL.md files"] --> References["All references<br/>and scripts"]
-        References --> FullContext["Entire context window<br/>large repeated payload"]
+flowchart TB
+    subgraph Before ["Before: Folder-Level Loading"]
+        Raw["Raw SKILL.md files"] --> References["All references and scripts"]
+        References --> FullContext["Entire context window<br/>(Large repeated payload)"]
     end
-    subgraph After["After: on-demand retrieval"]
-        direction TB
+
+    subgraph After ["After: On-Demand Retrieval"]
         Index["SQLite FTS5 index"] --> Query["find_skill(keyword)"]
-        Query --> Relevant["Relevant bounded reference<br/>preview or full content"]
+        Query --> Relevant["Relevant bounded reference<br/>(Preview or full content)"]
     end
-    FullContext --> Compare{"Smaller query payload"}
-    Relevant --> Compare
+
+    Before --> Compare["Smaller query payload<br/>(97–99% token reduction)"]
+    After --> Compare
 
     classDef waste fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:2px
     classDef optimized fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px

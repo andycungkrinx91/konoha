@@ -17,41 +17,42 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#ede9fe'
     tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 90
-    rankSpacing: 110
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
 flowchart TB
-    User([End User]) --> Client[Supported Clients<br/>Antigravity CLI / IDE<br/>Claude Code · Cursor<br/>OpenCode · Command Code]
-    Client --> Orchestrator[Primary Orchestrator]
+    User["End User"] --> Client["Supported Clients<br/>Antigravity CLI / IDE<br/>Claude Code · Cursor<br/>OpenCode · Command Code"]
+    Client --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
 
-    subgraph Management["Management and Configuration"]
-        CLI[Konoha CLI]
-        Config[Client MCP Configurations]
-        Agents[(SQLite agents table)]
+    subgraph Management ["Management and Configuration"]
+        CLI["Konoha CLI"]
+        Config["Client MCP Configurations"]
+        Agents["SQLite agents table"]
         CLI --> Config
         CLI --> Agents
     end
 
-    subgraph Routing["Orchestration and Specialists"]
-        Sannin[sannin Router]
-        Ninja["Ninja Agents<br/>genin · kage · chunin<br/>jonin · anbu<br/>tokubetsu-jonin"]
+    subgraph Routing ["Orchestration and Specialists"]
+        Sannin["sannin Router"]
+        Ninja["Ninja Agents<br/>genin-skill · kage · chunin<br/>jonin · anbu · tokubetsu-jonin"]
         Artifacts["Task Artifacts<br/>delegate.md -> result.md"]
         Orchestrator --> Sannin --> Ninja --> Artifacts
     end
 
-    subgraph Middleware["MCP Middleware"]
-        Konoha[Konoha MCP<br/>find_skill · get_skill<br/>bounded file tools]
-        Semble[Semble MCP<br/>search · find_related]
+    subgraph Middleware ["MCP Middleware"]
+        Konoha["Konoha MCP<br/>find_skill · get_skill<br/>memory · bounded file tools"]
+        Semble["Semble MCP<br/>search · find_related"]
     end
 
-    subgraph Persistence["Persistence and Workspace"]
-        DB[(SQLite skills.db)]
-        FTS[SQLite FTS5<br/>BM25 index]
-        Codebase[Workspace Files]
+    subgraph Persistence ["Persistence and Workspace"]
+        DB["SQLite skills.db<br/>skills · agents · bridges<br/>memories · telemetry"]
+        FTS["SQLite FTS5<br/>BM25 index"]
+        Codebase["Workspace Files"]
         DB <--> FTS
     end
 
@@ -187,36 +188,39 @@ config:
     lineColor: '#64748b'
     secondaryColor: '#d1fae5'
     tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
   flowchart:
-    nodeSpacing: 85
-    rankSpacing: 100
-    padding: 32
-    wrappingWidth: 360
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
 ---
-flowchart LR
-    Prompt([Task Input]) --> Sannin{sannin Router}
-    Sannin -->|Website build| BuildText[build_from_text]
-    Sannin -->|Reference design| BuildSource[build_from_source]
-    Sannin -->|Exploration| Genin[genin / genin-skill]
-    Sannin -->|Architecture| Kage[kage / kage-skill]
-    Sannin -->|Frontend| Jonin[jonin / jonin-skill]
-    Sannin -->|Backend and Ops| Anbu[anbu / anbu-skill]
-    Sannin -->|Research| Chunin[chunin / chunin-skill]
-    Sannin -->|Documentation| Toku[tokubetsu-jonin<br/>tokubetsu-jonin-skill]
+flowchart TB
+    Prompt["Task Input"] --> Sannin["sannin Router<br/>(MCP Orchestrator)"]
 
-    subgraph Runtime["MCP Runtime"]
-        Konoha[Konoha MCP<br/>find_skill · get_skill]
-        Semble[Semble MCP<br/>search · find_related]
+    subgraph Builders ["Website Builders"]
+        BuildText["build_from_text"]
+        BuildSource["build_from_source"]
     end
 
-    Genin --> Konoha
-    Genin --> Semble
-    Kage --> Konoha
-    Jonin --> Konoha
-    Anbu --> Konoha
-    Chunin --> Konoha
-    Toku --> Konoha
+    subgraph Ninjas ["Specialist Ninja Agents"]
+        Genin["genin / genin-skill"]
+        Kage["kage / kage-skill"]
+        Jonin["jonin / jonin-skill"]
+        Anbu["anbu / anbu-skill"]
+        Chunin["chunin / chunin-skill"]
+        Toku["tokubetsu-jonin<br/>tokubetsu-jonin-skill"]
+    end
+
+    subgraph Runtime ["MCP Runtime"]
+        Konoha["Konoha MCP<br/>find_skill · get_skill · memory"]
+        Semble["Semble MCP<br/>search · find_related"]
+    end
+
+    Sannin --> Builders
+    Sannin --> Ninjas
+    Ninjas --> Runtime
 
     classDef route fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
     classDef build fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -231,6 +235,17 @@ flowchart LR
 - **Node.js `maxBuffer`**: 1GB (`1024 * 1024 * 1024`) across all router process spawns (`file_tools_router.js`) to accommodate massive prompt payloads.
 - **Port 19999 Bridge Gateway**: Local HTTP proxy gateway running on port 19999 for local model orchestration. Port collisions resolved via `fuser -k 19999/tcp`.
 - **Full E2E MCP Test Suite**: 21/21 exported MCP tools verified via `tests/test_mcp_e2e.js`.
+
+### Circuit Breaker Subsystem (`src/circuit_breaker.py`)
+- **State Machine**: Thread-safe `CircuitBreaker` with `CLOSED`, `OPEN`, and `HALF_OPEN` states.
+- **SearXNG Instance Fast-Fail**: Trips to `OPEN` upon consecutive timeout or HTTP errors, preventing latency cascades and immediately routing queries to healthy instances or Wikipedia fallback.
+- **Registry**: `CircuitBreakerRegistry` maintains named breakers per instance/host with automatic recovery timeouts.
+
+### Persona Memory & Persistence Subsystem (`src/persona_memory.py`)
+- **Embedding-Free Design**: Stores agent rules, preferences, and episodic learnings directly in SQLite (`persona_memories` table) without remote embedding dependencies or vector API costs.
+- **SQLite FTS5 Full-Text Index**: Virtual table `persona_memories_fts` provides sub-millisecond keyword and BM25-ranked retrieval.
+- **Dynamic Prompt Injection**: `run_mcp_agent` dynamically queries relevant persona memories based on task instructions and injects `### Agent Persona Memory & Learned Rules` into the subagent prompt.
+- **`konoha data` CLI Integration**: Full CRUD and export management via `konoha data memory`, `konoha data add`, `konoha data search`, `konoha data delete`, and `konoha data export`.
 
 
 
