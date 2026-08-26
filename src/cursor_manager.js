@@ -21,7 +21,7 @@ const CURSOR_FALLBACK_MODEL = 'inherit';
 const CURSOR_RULES_GLOBAL = path.join(CURSOR_DIR, 'rules');
 const CURSOR_RTK_RULE_SRC = path.join(__dirname, '..', '.cursor', 'rules', 'rtk.mdc');
 
-const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
+const { fileExists, ensureDir, isCommandAvailable, fileExistsCached } = require('./platform_utils');
 const {
   buildSubagentContract,
   buildMainAgentContract,
@@ -52,8 +52,11 @@ function deployCursorRtkRule(silent = true) {
 }
 
 function isCursorInstalled() {
-  // Only detect via binary presence — ~/.cursor/ may linger after uninstall.
-  return isCommandAvailable('cursor');
+  return (
+    isCommandAvailable('cursor') ||
+    fileExistsCached(CURSOR_DIR) ||
+    fileExistsCached(CURSOR_MCP_GLOBAL)
+  );
 }
 
 function adaptInstructionsForCursor(instructions) {

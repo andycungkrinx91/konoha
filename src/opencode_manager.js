@@ -17,13 +17,15 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const {
+  HOME,
+  OPENCODE_DIR,
   OPENCODE_CONFIG,
   FILE_TOOLS_LAUNCHER_PATH,
   KONOHA,
   SERVER_PATH
 } = require('../bin/lib/paths');
 
-const { fileExists, ensureDir, isCommandAvailable } = require('./platform_utils');
+const { fileExists, ensureDir, isCommandAvailable, fileExistsCached } = require('./platform_utils');
 const { buildMainAgentContract } = require('./agent_contract');
 
 /**
@@ -81,8 +83,11 @@ function installOhMyOpenCodeSlim(silent = true) {
 // ─── OpenCode Detection ───────────────────────────────────────────────────────
 
 function isOpenCodeInstalled() {
-  // Check for opencode binary in PATH
-  return isCommandAvailable('opencode');
+  return (
+    isCommandAvailable('opencode') ||
+    fileExistsCached(path.join(HOME, '.opencode')) ||
+    fileExistsCached(OPENCODE_CONFIG)
+  );
 }
 
 function isRtkInstalled() {
@@ -121,13 +126,13 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   // Add konoha MCP server
   config.mcp['konoha'] = {
     type: 'local',
-    command: ['node', FILE_TOOLS_LAUNCHER_PATH || path.join(KONOHA, 'file_tools_launcher.js')]
+    command: [pythonCmd || 'python3', serverPath || SERVER_PATH]
   };
 
   // Repair Semble MCP registration on every setup.
   config.mcp['semble'] = {
     type: 'local',
-    command: [uvxCmd, '--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+    command: [uvxCmd || 'uvx', '--from', 'git+https://github.com/dreadnode/semble', 'semble', 'mcp']
   };
 
   writeOpenCodeConfig(config);
