@@ -71,7 +71,7 @@ If `rtk` is installed on PATH, agents prefix all shell commands with `rtk` to re
 | `rtk grep "pattern" src/` | full file dumps | ~85-95% token reduction |
 | `rtk docker ps` | wide table output | ~75-90% token reduction |
 
-RTK rules are auto-deployed to every detected supported client (`~/.gemini/antigravity-cli/rules/rtk.md`, `~/.gemini/antigravity-ide/rules/rtk.md`, `~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`, `~/.opencode/rules/rtk.md`, and `~/.commandcode/rules/rtk.md`) when `rtk` is installed. If `rtk` is unavailable, Konoha warns and leaves the client configuration usable.
+RTK rules are auto-deployed to every detected supported client (`~/.gemini/antigravity-cli/rules/rtk.md`, `~/.gemini/antigravity-ide/rules/rtk.md`, `~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`, `~/.config/opencode/rules/rtk.md`, and `~/.commandcode/rules/rtk.md`) when `rtk` is installed. OpenCode receives a rule file only; it has no supported RTK hook. If `rtk` is unavailable, Konoha warns and leaves the client configuration usable.
 
 ---
 

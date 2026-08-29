@@ -18,9 +18,21 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 In the 8-phase Konoha workflow, Sannin serves a dual role:
 
 - **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
-- **Phase 7: synthesize**: After `document` completes, the orchestrator dispatches sannin to read all phase outputs (`result.md`, `plan.md`, `delegate.md` from each phase) and synthesize them into a cohesive `final_report.md`. Sannin returns this final report to the caller and the workflow advances to `done`.
+- **Review and synthesis**: After `document` completes, the orchestrator dispatches Kage for a blocking review of every persisted task and validation artifact. Only an explicit Kage approval with **minimum 90% confidence** permits Sannin to synthesize the phase outputs into `final_report.md` and advance to `done`. If confidence is < 90% or validation fails, Sannin MUST NOT deliver the result to the user, but instead re-delegates the tasks with Kage's remediation notes.
+- **Test Directory Discovery & Cleanup Invariant**: Prior to running or adding tests, explore existing test folders (e.g. `tests/`). Never create duplicate test folders. Upon Kage approval, all temporary debug and scratch scripts must be cleaned up before concluding the workflow.
 
 ## The Orchestration Pipeline
+
+The Konoha maintenance workflow uses six sequential steps:
+
+1. **Step 1: Deep Research (Chunin)**
+2. **Step 2: Code Exploration (Genin)**
+3. **Step 3: Architecture & Planning (Kage)**
+4. **Step 4: Execution**
+5. **Step 5: Documentation & Refinement (Tokubetsu-Jonin)**
+6. **Step 6: Final Report (Sannin)**
+
+Structured delegation is the primary path. Legacy task artifacts remain a compatibility fallback.
 
 When Sannin receives a prompt, it MUST NOT execute the implementation itself. Instead, it MUST orchestrate the workflow by delegating to the appropriate subagents via their `mcp_<agentname>` tools. Sannin waits for each agent to report back via `result.md` before proceeding to the next step.
 

@@ -27,7 +27,7 @@ REQUIRED_DOCS = [
     "docs/TROUBLESHOOTING.md",
     "docs/diagrams/README.md",
     "docs/diagrams/konoha-architecture.drawio",
-    "docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md",
+    "docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-27.md",
 ]
 
 
@@ -85,26 +85,21 @@ def read_tools_from_server_py():
 
 
 def parse_tools_list(server_path):
-    """Extract all tool names from server.py by scanning the tools/list response."""
-    content = server_path.read_text(encoding="utf-8")
-    start_idx = content.find('"tools":')
-    if start_idx == -1:
-        return []
-    # The tools array has pattern: { "name": "xxx", "description": ... },
-    # We want tool names that are at object level (name followed by description)
-    chunk = content[start_idx:start_idx + 30000]
-    tool_pattern = r'\{\s*"name"\s*:\s*"([a-z_][a-z_0-9]*)"[^}]*"description"\s*:'
-    names = re.findall(tool_pattern, chunk)
-    return names
+    """Read the canonical manifest used by both MCP runtimes."""
+    manifest_path = server_path.with_name("mcp_tool_manifest.json")
+    with manifest_path.open(encoding="utf-8") as manifest_file:
+        manifest = json.load(manifest_file)
+    return [tool["name"] for tool in manifest.get("tools", [])]
 
 
 def parse_tool_names_from_router(path):
-    """Parse tool names from file_tools_router.js."""
+    """Read router tool names from its exported manifest-backed handler map."""
     content = path.read_text(encoding="utf-8")
-    names = []
-    for m in re.finditer(r"name:\s*'([^']+)'", content):
-        names.append(m.group(1))
-    return names
+    start = content.index("const TOOL_HANDLERS = {")
+    end = content.index("};", start)
+    return re.findall(r"^\s{2}([a-z_]+):", content[start:end], re.MULTILINE)
+
+
 
 
 def check_md_file(filename, checks):
@@ -191,6 +186,15 @@ def main():
         sys.exit(1)
 
     actual_file_tools = parse_tool_names_from_router(router_path)
+    if len(actual_tools) != 38:
+        print(f"ERROR: Expected 38 manifest-backed tools, found {len(actual_tools)}", file=sys.stderr)
+        sys.exit(1)
+    if set(actual_tools) != set(actual_file_tools):
+        print("ERROR: Node/Python MCP tool registries differ", file=sys.stderr)
+        sys.exit(1)
+    if "review" not in read_file(SRC_DIR / "server.py"):
+        print("ERROR: Workflow review gate is not documented in runtime", file=sys.stderr)
+        sys.exit(1)
     if "search_file" in actual_file_tools:
         print("ERROR: search_file must be provided by Semble MCP, not Konoha file-tools", file=sys.stderr)
         sys.exit(1)

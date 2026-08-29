@@ -116,7 +116,10 @@ function writeNodeExecPathRecord() {
 function writePythonCmdRecord(pythonCmd) {
   const cmd = pythonCmd || detectPythonOrDefault();
   try {
-    fs.writeFileSync(FILE_TOOLS_PYTHON_CMD_FILE, `${cmd}\n`);
+    fs.writeFileSync(
+      FILE_TOOLS_PYTHON_CMD_FILE,
+      `${Array.isArray(cmd) ? JSON.stringify(cmd) : cmd}\n`,
+    );
   } catch {}
 }
 
@@ -158,7 +161,11 @@ function installFileTools(silent = true, pythonCmd = null) {
   [
     "file_tools_mcp.js",
     "file_tools_router.js",
+    "mcp_tool_manifest.json",
     "file_tools_launcher.js",
+    "server.py",
+    "migrate.py",
+    "tools_savings_logger.py",
     "platform_utils.js",
     "yaml_parser.py",
     "db_bridges.py",

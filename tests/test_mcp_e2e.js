@@ -1,6 +1,6 @@
 const path = require('path');
 const os = require('os');
-const router = require(path.join(os.homedir(), '.konoha', 'file_tools_router.js'));
+const router = require(path.join(__dirname, '..', 'src', 'file_tools_router.js'));
 const fs = require('fs');
 
 async function testAll() {

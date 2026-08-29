@@ -25,7 +25,7 @@
 
 When the user prompt mentions `source-image-design`, design images, or mockups:
 
-1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
+1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework, taste_dials?) before writing `delegate.md`.
 2. **Constraints section** MUST include:
    - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
    - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
@@ -42,7 +42,7 @@ When the user prompt mentions `source-image-design`, design images, or mockups:
 
 When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
 
-1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
+1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework, taste_dials?) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
 3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
 4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
@@ -72,8 +72,8 @@ When the user prompt involves modifying or working within an existing project:
   - All delegation is performed strictly via MCP tool calls to the matching subagent (e.g. `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, or `genin`).
 - **Website Scaffolding Shortcut (Branch B — TAKES PRIORITY)**:
   **BEFORE entering the standard workflow below**, check if the user's prompt matches website/UI creation intent (build/create/scaffold + website/app/UI/frontend/site/e-commerce/dashboard):
-  1. If mockup/design images provided → Call `konoha.build_from_source(name, source_dir, framework)` FIRST
-  2. If text description only → Call `konoha.build_from_text(name, description, framework)` FIRST
+  1. If mockup/design images provided → Call `konoha.build_from_source(name, source_dir, framework, taste_dials?)` FIRST
+  2. If text description only → Call `konoha.build_from_text(name, description, framework, taste_dials?)` FIRST
   3. Write `delegate.md` with the returned directives as constraints
   4. Call `jonin` directly — **SKIP Chunin, Genin, Kage** (premium template directives are lost in the standard pipeline)
   5. After Jonin completes, call `tokubetsu_jonin` for documentation

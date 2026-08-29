@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB?logo=python&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2021%2B%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2032%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
@@ -70,6 +70,27 @@
 
 For a detailed breakdown of Konoha's internal mechanics, including system layers, data flows, and query lifecycle sequence diagrams, please see the [System Architecture Guide](docs/ARCHITECTURE.md).
 
+
+### 🚀 Direct Structured MCP Delegation & Zero-Loop Reporting
+Konoha subagents execute inline via direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`) or specialized aliases (`delegate_to_jonin`, `delegate_to_anbu`, `delegate_to_kage`, etc.):
+- **Eliminates Scratch Loops**: Replaces multi-step disk file reading (`delegate.md` and `result.md`) with direct in-memory structured context passing.
+- **Auto-Checkpointing (`report_from_agent`)**: Automatically distills key architectural learnings and records them into persistent project memory upon task completion.
+
+### 🎨 Jonin + Taste-Skill Anti-Slop Frontend Engine (tasteskill.dev)
+Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leonxlnx/taste-skill`) design directives:
+- **Deterministic High-End Typography**: Enforces Geist, Cabinet Grotesk, Outfit, Satoshi, and Clash Display. Generic Inter defaults are forbidden.
+- **Cinematic Chapter Pacing**: Enforces generous vertical section rhythm (`py-24`, `py-32`, or `py-48`).
+- **Strict CSS Grid**: Implements CSS Grid (`grid-cols-12`, bento grids) with bounded `max-w-[1400px]` containers instead of flaky flexbox percentages.
+- **Mobile Viewport Stability**: Uses `min-h-[100dvh]` to eliminate layout jumps on mobile address bar resizing.
+- **Zero-Emoji Policy**: Pure SVG vector iconography (Lucide, Radix, Phosphor); zero emojis in production UI.
+- **Configurable Taste Dials**: `DESIGN_VARIANCE` (1-10), `MOTION_INTENSITY` (1-10), `VISUAL_DENSITY` (1-10).
+
+### 🏢 Persistent Project-Level Context & Memory (Zero Hallucination)
+- **Workspace Stack Profiler**: Automatically detects frameworks (Next.js, SvelteKit, Nuxt 3, Angular), styling engines (Tailwind v4, CSS Modules), and package managers (`pnpm`).
+- **Project-Scoped Memory**: Persists architectural invariants, rules, and episodic learnings per repository workspace in SQLite (`~/.konoha/skills.db`).
+- **Zero Session Amnesia**: Context and invariants are preserved and automatically injected across consecutive sessions.
+- **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
+
 ### Workflow: Forced MCP Delegation
 
 All non-trivial work on a Konoha-configured host **MUST** flow through the Konoha MCP and Semble MCP tools and be delegated to a konoha subagent — never executed solo by the main orchestrator.
@@ -99,7 +120,7 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 
 ```mermaid
 ---
-title: Konoha Orchestrator Task Artifact Flow
+title: Konoha Orchestration and Execution Flow
 config:
   theme: base
   themeVariables:
@@ -120,24 +141,25 @@ config:
 ---
 flowchart TB
     Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
-    Orchestrator --> Read["1. Read prompt spec<br/>(Konoha bounded file tools)"]
-    Orchestrator --> Discover["2. Discover skill + code<br/>(Konoha MCP + Semble MCP)"]
-    Read --> Contract["3. Write delegate.md<br/>(Isolated task directory)"]
-    Discover --> Contract
-    Contract --> Agent["4. Selected Ninja Agent<br/>(genin-skill · kage · jonin · anbu · chunin · tokubetsu)"]
-    Agent --> Result["5. Write result.md<br/>(Task findings)"]
-    Result --> Close["6. sannin closes loop<br/>(Synthesize findings)"]
-    Close --> Response["Synthesized Response"]
+    Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
+    Orchestrator --> Discover["2. Discover Skill + Code<br/>(konoha.find_skill + semble.search)"]
+    Context --> Delegate["3. Structured MCP Delegation<br/>(delegate_to_jonin / anbu / kage)"]
+    Discover --> Delegate
+    Delegate --> Agent["4. Specialist Ninja Agent<br/>(genin · kage · jonin · anbu · chunin · tokubetsu)"]
+    Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]
+    Report --> Review["6. Kage Review Gate<br/>(100% task & security verification)"]
+    Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
+    Synthesize --> Response["Synthesized Response"]
 
     classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
     classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46
-    classDef artifact fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef review fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
     class Prompt,Response user
-    class Orchestrator,Close orchestration
-    class Read,Discover mcp
-    class Contract,Result artifact
-    class Agent orchestration
+    class Orchestrator,Synthesize orchestration
+    class Context,Discover,Report mcp
+    class Review review
+    class Delegate,Agent orchestration
 ```
 
 ### Architectural Comparison
@@ -157,6 +179,24 @@ flowchart TB
 ---
 
 ## 🚀 Quick Start
+
+### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)
+
+For team members receiving the repository as a ZIP archive or cloning from Git:
+
+```bash
+# 1. Extract and enter the directory
+unzip konoha.zip
+cd konoha
+
+# 2. Install CLI dependencies (if node_modules is not included in zip)
+pnpm install
+
+# 3. Execute one-command cross-client initialization
+node bin/cli.js init --yes --force
+```
+
+*(Optional: Run `pnpm link --global` or `npm link` so team members can run `konoha status`, `konoha test`, or `konoha migrate` directly from any terminal).*
 
 ### Automatic Dependency & Environment Provisioning
 
@@ -318,16 +358,21 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 
 ~/.cursor/
 ├── mcp.json               ← konoha + semble MCP (Cursor)
-├── agents/                ← Official ninja subagents
+├── agents/                ← Official seven ninja subagents; host selects models
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
 
 ~/.claude/
-├── settings.json          ← MCP auto-approval (all projects)
+├── settings.json          ← MCP permissions (all projects)
 ├── CLAUDE.md              ← Global orchestrator instructions (Claude Code)
-├── agents/                ← Six ninja subagents (model: inherit)
+├── agents/                ← Official seven ninja subagents
 └── rules/
     └── rtk.md             ← RTK rule (if rtk binary detected)
+
+~/.config/opencode/
+├── opencode.json          ← OpenCode `mcp` configuration
+├── AGENTS.md              ← Global OpenCode instructions
+└── rules/rtk.md           ← RTK rule when installed
 ```
 
 ---
@@ -355,13 +400,13 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 21 tools for skill retrieval, bounded file operations, project scaffolding, and subagent delegation workflows:
+The unified `konoha` server exposes 38 tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, and subagent delegation workflows:
 
-#### `sannin(prompt?, task_dir?)`
-The Sannin routing workflow tool. Resolves the task prompt, dynamically chooses the most suitable subagent to run, sets up the task directory, and executes the chosen subagent inline.
+#### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
+The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
 
 #### Subagent Delegation Tools (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`)
-Executes the specified subagent inline under a task directory (`task_dir`), loading its system instructions and skill references dynamically.
+Executes the specified subagent inline with structured task context, dynamic skill loading, project context, and optional Taste-Skill dials.
 
 #### `web_search(query, num_results?, search_depth?)`
 Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.
@@ -392,11 +437,11 @@ Token-efficient skill discovery report with usage hints.
 #### `build_with_image_design(name, source_dir, framework)`
 Legacy alias for `build_from_source`, preserved for compatibility with existing clients.
 
-#### `build_from_source(name, source_dir, framework)`
-Scaffold from design mockups or reference source files (`.png`, `.html`, `.tsx`, etc.).
+#### `build_from_source(name, source_dir, framework, taste_dials?)`
+Return a validated, side-effect-free source-fidelity specification for design mockups or reference source files (`.png`, `.html`, `.tsx`, `.svelte`, `.vue`, etc.). Supported frameworks are Next.js, Nuxt 3, SvelteKit, and Angular. Jonin implements the returned directives.
 
-#### `build_from_text(name, description, framework)`
-Scaffold from a text prompt using default premium templates.
+#### `build_from_text(name, description, framework, taste_dials?)`
+Return a validated, side-effect-free premium specification for Next.js, Nuxt 3, SvelteKit, or Angular. Jonin implements the returned directives and runs the framework-native pnpm validation commands. Taste-Skill dials must be numeric values from 1 to 10.
 
 #### Bounded File Tools
 | Tool | Purpose | Token guard |
@@ -427,11 +472,11 @@ Find files semantically related to a given file — useful for understanding dep
 
 ## 🥷 Official Agent Team (Naruto Ninja Ranks)
 
-The installer updates your configuration to define a cohesive, specialized team of **7 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities, preferred model tier, fallback settings, and tool access:
+The installer updates your configuration to define a cohesive, specialized team of **7 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities and tool access; the host client controls model selection:
 
 ### 1. 🍃 Genin (Junior Scout)
 * **Operational Role**: Codebase Reconnaissance & Scout
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Fast, read-only code exploration.
   - Traces codepaths, maps dependencies, and analyzes repository structure.
@@ -440,7 +485,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 2. 📜 Chunin (Journeyman Intel Gatherer)
 * **Operational Role**: Intel Gathering, Web Research, & Documentation Synthesis
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Researches libraries, API specifications, version histories, and best practices.
   - Leverages semantic search (`semble`) to discover codebase context before executing web searches.
@@ -450,7 +495,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 3. 🛡️ Jonin (Elite Builder)
 * **Operational Role**: UI/UX Master, Styling, & Component Architecture
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Builds premium, visually stunning frontends (SvelteKit, Next.js, Tailwind v4, Magic UI, 3D web).
   - Enforces design tokens, custom typography, smooth gradients, and glassmorphism.
@@ -460,7 +505,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 4. 👥 Anbu (Special Black Ops)
 * **Operational Role**: Backend Specialist, Bug Resolution, DevOps, & Cybersecurity Defense Engineer
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Designs backend systems, database schemas, APIs (Node.js, Express, GraphQL, Laravel, WordPress, Magento, PHP, Ruby, C++).
   - Architectures distributed messaging and caching layers (Kafka, RabbitMQ, Redis, Nginx, HAProxy, Varnish).
@@ -471,7 +516,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
 * **Operational Role**: Technical Writing, Documentation, PDF Reporting, & Postmortems
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Authors and maintains README files, API specifications, runbooks, and onboarding guides (`documentation-writer`).
   - Produces printable professional PDF reports and styled documentation exports (`pdf`).
@@ -481,7 +526,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 
 ### 6. 🌀 Kage (Village Leader)
 * **Operational Role**: Senior Architect, Strategist, & Deep Problem Solver
-* **Model**: `Claude Sonnet 4.6 (Thinking)` (all subagents unified in v2.0.0)
+* **Model**: Selected by the host client; Konoha does not inject model fields
 * **Key Responsibilities**:
   - Guides high-level architecture decisions, security audits, and risk assessments (`risk-assessment`, `improve-codebase-architecture`).
   - Constructs professional architecture diagrams and visualizations (`drawio-skill`, `mermaid-diagrams`).
@@ -501,7 +546,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 7 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `sannin`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
-> * **Orchestrator Pipeline (Antigravity)**: User prompt → `prompt.md` → orchestrator analyzes → `delegate.md` → Konoha subagent → `result.md` → user report. Main agent coordinates only — no direct project edits.
+> * **Orchestrator Pipeline (Antigravity)**: User prompt → structured MCP delegation → Konoha subagent → structured result/report. Legacy `prompt.md` → `delegate.md` → `result.md` artifacts are fallback-only and remain isolated outside the project.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
 
@@ -590,21 +635,16 @@ flowchart TB
 > [!TIP]
 > Read the complete [Token Savings & Optimization Benchmark Report](docs/BENCHMARK.md) for full metrics breakdown and analysis.
 
-### 🔄 Token-Efficient File-Based Delegation
+### 🔄 Structured Delegation and Legacy Task Fallback
 
-Konoha implements a transient file-based Markdown communication protocol for Antigravity orchestration:
+Konoha passes `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` directly to subagent MCP tools. Hosts that cannot send structured arguments may use isolated legacy artifacts:
 
-| Step | Actor | File |
-|------|-------|------|
-| 1 | `prompt_hook.js` | `prompt.md` (user request) |
-| 2 | Orchestrator | reads `prompt.md`, discovers skills/code |
-| 3 | Orchestrator | writes `delegate.md` under `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` (resolved by an internal orchestrator helper) — **never** inside the project workspace, so transient agent files cannot be accidentally committed |
-| 4 | Subagent | reads `delegate.md`, executes, writes `result.md` |
-| 5 | Orchestrator | reads `result.md`, reports to user, cleans up |
+| Path | Purpose |
+|------|---------|
+| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/delegate.md` | Legacy task instructions only |
+| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/result.md` | Legacy result exchange only |
 
-* **Structured Context Isolation**: Subagents do not inherit the full parent chat — they read `delegate.md` (Goal, Context, Constraints) only.
-* **Substantial Savings**: Isolated subagent context yields up to **95%+ token savings** per invocation.
-* **Recursive Loop Circuit Breaker**: `depth` in `delegate.md` YAML frontmatter; circuit breaks at **depth > 7**.
+Structured reports use `report_from_agent` to return summaries, changed files, and project-scoped learnings. Legacy task directories remain outside the project workspace and are cleaned after use.
 
 ### Skill Resolution
 

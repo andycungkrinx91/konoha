@@ -723,14 +723,11 @@ For UI components, see `svelte-ui-expert.md`.
 ## Premium Visual Standards & 3D Interactivity Guidelines
 
 All generated Svelte code must conform to the following baseline visual standards:
-1. **10 Gradient Themes**: Nebula, Aurora, Sunset, Ocean, Matrix, Crimson, Cyber, Gold, Nordic, Amethyst defined via Tailwind CSS `@theme` variables.
-2. **Theme Switcher**: Floating interactive chat-like bubble in bottom-right corner utilizing a 3D entrance transition (perspective transform) with 10 options, saving to `localStorage`.
-3. **3D Hero Banner Carousel**: Autoplaying 3D interactive layout containing at least 4 images, perspective rotation, 3D card layout, and touch/mouse interaction.
-4. **5 Interactive 3D Carousels**: Minimum of 5 interactive 3D carousels per website (hero banner, category showcases, reviews, featured items, customer lookbooks) using GPU-accelerated CSS transforms.
-5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows and 3D tilts applied to all cards with `will-change: transform`.
-6. **3D SweetAlert2 Dialogs**: Entrance animation using custom 3D CSS scale and tilt transforms, styled with the active theme gradient on buttons.
-7. **Custom Styled SVG/CSS Logo**: Active inline SVG utilizing the active theme gradient (`stroke="url(#theme-gradient)"`) paired with gradient typography matching the actual project name.
-8. **Footer Watermark**: Muted text: "Build with Antigravity and Konoha agentic AI" at the bottom of the page.
+1. **10 Light-Mode Themes**: Nebula, Aurora, Sunset, Ocean, Forest, Volcano, Sakura, Cyberpunk, Midnight, and Gold with the exact shared CSS variable values from `design-token-manifest.md`.
+2. **Theme Switcher**: Floating bottom-left selector at `bottom-20 left-4 md:bottom-6 md:left-6 z-[1000]`, persisted under `konoha-theme`.
+3. **Optional 3D Hero**: When selected by the build archetype, implement 1200px perspective, max 12deg tilt, 6000ms autoplay, split drapes, thumbnails, keyboard controls, touch fallback, and reduced-motion behavior.
+4. **Accessible Interaction**: Use SvelteKit-native routing, semantic controls, focus states, `aria-pressed` where applicable, and teardown for timers, listeners, observers, and animation frames.
+5. **Footer Watermark**: Add `Build by Konoha` when the selected build contract requires the Konoha shell.
 
 ## Development Guidelines
 
@@ -742,3 +739,21 @@ All generated Svelte code must conform to the following baseline visual standard
   3. **Single-Image Vision Reading**: For binary images (`.png`, `.jpg`, `.webp`), open only the primary layout image first using `view_file` to capture page structure.
   4. **Start Development Server**: Bind the SvelteKit development server using `pnpm run dev`.
 - **Preserving Existing Codebase (Flow, Logic, and Style)**: When working inside an existing Svelte or Next.js project directory/workdir, the agent is strictly prohibited from altering the existing flow, core logic, or style guidelines of the project. It must respect and follow the current architecture, styling systems (like specific CSS setups or custom Tailwind configs), and logic flows without introducing breaking changes or refactoring existing styles.
+
+
+## Mandatory Package Manager & Modern Versioning Standards
+
+1. **Strict `pnpm` Only**:
+   - ALL dependency installations, script executions, and validation commands MUST use `pnpm` (`pnpm install`, `pnpm run build`, `pnpm dev`, `pnpm add <pkg>`).
+   - NEVER use `npm` or `yarn`.
+
+2. **Current Stable Framework Policy (verified 2026-08-27)**:
+   - Resolve package versions from official release pages and the pnpm registry immediately before scaffolding; never treat this document as a permanent `latest` pin.
+   - Tested stable baselines: **Next.js 16.3 + React 19**, **SvelteKit 2 stable + Svelte 5** (SvelteKit 3 is release-candidate and must not be selected unless explicitly requested), **Nuxt 4.3 + Vue 3.5**, and **Angular 20+** with standalone components and Signals.
+   - Use Tailwind CSS v4 and the framework-specific Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
+
+
+### Pre-Scaffolding Security & CVE Pre-Flight Standards
+- **Zero-Day & CVE Vulnerability Guard**: Verify all package versions against known security advisories before installation.
+- **Audit Verification on First Init**: Run No known vulnerabilities found after installation to confirm 0 high/critical vulnerabilities.
+- **Supply-Chain Hardening**: Use exact or strict caret ranges for verified stable releases (e.g. Next.js 16 / React 19, Svelte 5, Nuxt 3.15+, Angular 19+).

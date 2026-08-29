@@ -27,37 +27,16 @@
 15. **🐍 cli-test-agent-1786884309800** — 
 16. **🐍 cli-test-agent-1786884832585** — 
 
-### Image / mockup builds — delegate.md rules (CRITICAL)
+### Website build specifications (CRITICAL)
 
-When the user prompt mentions `source-image-design`, design images, or mockups:
+When the prompt requests a website or UI build:
 
-1. Orchestrator calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
-2. **Constraints section** MUST include:
-   - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
-   - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
-   - **Premium 3D animations**: Enhance source design with 3D perspective tilt, entrance animations, parallax depth — without altering source layout
-   - **Footer watermark**: `Build by Konoha` in small, elegant, muted typography (always required)
-   - **Custom error pages**: Unique, premium 4xx/5xx error pages with cute 3D illustrations (always required)
-   - **.env safety**: Never hardcode secrets; provide `.env.example`
-   - **Auto-open browser**: Start dev server with `--open` flag
-   - **FORBIDDEN**: 10-theme switcher, generic 3D carousels, SweetAlert2 premium dialogs, or jonin default premium template — unless shown in mockups
-3. **NEVER** paste "Mandatory UI/UX Standards" / premium template bullets from `nextjs-ui-expert` into `delegate.md` for image builds — that causes ugly generic sites instead of mockup fidelity.
-4. **Context** must list `absolute_image_paths` from `build_from_source` and require jonin to `view_file` every mockup before coding.
+1. Call `konoha.build_from_source(name, source_dir, framework, taste_dials?)` for mockups/reference files, or `konoha.build_from_text(name, description, framework, taste_dials?)` for text-only requests.
+2. Validate the returned specification, including canonical framework, required skills, source metadata, Taste-Skill dials, and `validation_commands`.
+3. Pass the specification to Jonin through structured MCP arguments. These tools are side-effect-free: Jonin creates or updates the project and runs the returned framework-native `pnpm` validation commands.
+4. For source builds, inspect every returned `absolute_image_paths` with approved Konoha file/visual tools and preserve source fidelity. For text builds, apply the returned premium Taste-Skill directives.
+5. Use isolated `delegate.md`/`result.md` artifacts only as a legacy fallback when the host cannot send structured arguments.
 
-### Text-based builds — delegate.md rules (CRITICAL)
-
-When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
-
-1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
-2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
-3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
-4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
-   - NO dark mode — Light Mode only with premium gradient color theme
-   - Premium 3D effect animations on ALL page components
-   - Footer watermark: `Build by Konoha`
-   - Custom premium error pages (4xx/5xx)
-   - Auto-open browser with `--open` flag
-   - .env safety and CVE-free dependencies
 
 ### Existing project rules — delegate.md rules (CRITICAL)
 
@@ -74,10 +53,18 @@ All subagents are migrated to MCP tools served by the `konoha` MCP server. Rathe
 
 The official delegation tools are: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `mcp_sannin`, `mcp_genin`, `mcp_kage`, `mcp_chunin`, `mcp_jonin`, `mcp_anbu`, `mcp_tokubetsu-jonin`, `cli-test-agent-1786884309800`, `cli-test-agent-1786884832585`.
 
+
+### Auto-Compaction Contract (Token Preservation across all clients)
+Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (`turn >= 2`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, and Cursor):
+- **Memory Continuity**: Project tech stack (`framework`, `styling`, `package_manager`), architectural invariants, and episodic learnings are permanently remembered and injected via compact badges without hallucination.
+- **Prompt Compaction**: Verbose instruction boilerplates, full skill manuals, and redundant diff explanations are automatically compacted to < 450 tokens.
+- **On-Demand Skills**: Reference manuals are served on-demand via `konoha.get_skill` instead of being dumped into prompts.
+
 ### Delegation Protocol
 
 To delegate a task:
-1. Resolve a task directory via the MCP tool `konoha.get_resolved_task_dir` (it returns `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` — **never** inside the project workspace, so transient agent files can never be accidentally committed). Create a fresh subdirectory there (e.g. `<task_dir>/<task_id>/`).
+1. **Direct Structured MCP Delegation (Recommended & Token-Safe)**: Call the subagent MCP tool directly (e.g. `jonin`, `anbu`, `delegate_to_jonin`, `delegate_to_anbu`) passing structured parameters: `task`, `context`, `constraints`, `skills`, and `taste_dials`. This avoids token-heavy disk file reading loops and automatically injects persistent project context.
+2. **File-Based Delegation (Legacy Fallback)**: Resolve a task directory via `konoha.get_resolved_task_dir` (it returns `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` — **never** inside the project workspace, so transient agent files can never be accidentally committed). Create a fresh subdirectory there (e.g. `<task_dir>/<task_id>/`).
 2. Write a `delegate.md` file inside the task directory containing:
    - Specific instructions, context, and file paths to modify.
    - The list of skill reference names to load (or omit to let prompt-driven autoload match skills from the prompt text).

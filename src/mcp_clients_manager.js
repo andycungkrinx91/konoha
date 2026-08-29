@@ -3,6 +3,7 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
+const { getRtkCommand, isRtkInstalled: checkRtkInstalled } = require('./platform_utils');
 const {
   buildSembleSearchPolicyCompact,
   buildFileToolsPolicyCompact
@@ -89,16 +90,7 @@ function isCommandCodeInstalled() {
 
 function isRtkInstalled() {
   if (__cmdAvailCache.has('rtk')) return __cmdAvailCache.get('rtk');
-  let result = false;
-  try {
-    const res = spawnSync('rtk', ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000
-    });
-    result = res.status === 0;
-  } catch {
-    result = false;
-  }
+  const result = checkRtkInstalled();
   __cmdAvailCache.set('rtk', result);
   return result;
 }
@@ -143,22 +135,20 @@ function deployClaudeCodeRtkRule(silent = true) {
 }
 
 function initRtkHook(silent = true) {
-  if (!isRtkInstalled()) {
+  const rtkCmd = getRtkCommand();
+  if (!rtkCmd) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
   try {
-    const res = spawnSync('rtk', ['init', '-g'], {
+    const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'claude', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      input: 'y\nN\n',
-      stdio: silent ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'pipe', 'pipe']
+      stdio: silent ? 'ignore' : 'inherit'
     });
     if (res.status === 0) {
       if (!silent) console.log('  ✓ RTK hook initialized globally for Claude Code');
       return { ok: true };
     }
-    // Non-zero exit — usually already set up; treat as success
-    if (!silent) console.log(`  ✓ RTK hook already initialized (exit ${res.status})`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'rtk-init-failed', error: e.message };
@@ -264,16 +254,21 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
   if (fileExists(CLAUDE_JSON)) {
     try {
       existingConfig = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8')) || {};
-    } catch { /* ignore parse errors, start fresh */ }
+    } catch {
+      if (!silent) console.warn(`Invalid JSON in ${CLAUDE_JSON}; leaving it unchanged.`);
+      return false;
+    }
   }
 
-  // Replace mcpServers entirely with only Konoha servers
-  existingConfig.mcpServers = servers;
+  if (!existingConfig.mcpServers || typeof existingConfig.mcpServers !== 'object' || Array.isArray(existingConfig.mcpServers)) {
+    existingConfig.mcpServers = {};
+  }
+  mergeMcpServersBlock(existingConfig.mcpServers, servers);
   ensureDir(path.dirname(CLAUDE_JSON));
   const tempFile = CLAUDE_JSON + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(existingConfig, null, 2) + '\n');
   fs.renameSync(tempFile, CLAUDE_JSON);
-  if (!silent) console.log(`  ✓ ${path.basename(CLAUDE_JSON)} replaced with Konoha-only MCP servers`);
+  if (!silent) console.log(`  ✓ ${path.basename(CLAUDE_JSON)} merged with Konoha MCP servers`);
   return true;
 }
 
@@ -287,10 +282,13 @@ function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tr
   if (fileExists(COMMANDCODE_JSON)) {
     try {
       existingConfig = JSON.parse(fs.readFileSync(COMMANDCODE_JSON, 'utf-8')) || {};
-    } catch { /* ignore parse errors, start fresh */ }
+    } catch {
+      if (!silent) console.warn(`Invalid JSON in ${COMMANDCODE_JSON}; leaving it unchanged.`);
+      return false;
+    }
   }
 
-  if (!existingConfig.mcpServers) {
+  if (!existingConfig.mcpServers || typeof existingConfig.mcpServers !== 'object' || Array.isArray(existingConfig.mcpServers)) {
     existingConfig.mcpServers = {};
   }
 
@@ -528,9 +526,9 @@ function registerCommandCodePermissions(silent = true) {
       const allow = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
       const grants = [
         'mcp__konoha__*',
-        'mcp__semble__*',
-        'Shell(rtk *)'
+        'mcp__semble__*'
       ];
+      if (isRtkInstalled()) grants.push('Shell(rtk *)');
       let updated = false;
       for (const grant of grants) {
         if (!allow.includes(grant)) {

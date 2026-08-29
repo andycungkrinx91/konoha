@@ -4,6 +4,20 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Official Framework Scaffolding Standards**: Standardized new website/project scaffolding commands across the Konoha MCP server, subagents, and client rules:
+  - Next.js: `pnpm create next-app@latest`
+  - Nuxt: `pnpm dlx nuxi@latest init <project-name>`
+  - Angular: `pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm`
+  - SvelteKit: `pnpm dlx sv create <project-name>`
+  - Added `scaffold_command` property to `BUILD_FRAMEWORKS` in `src/server.py` and included standard scaffolding commands in `build_from_text` and `build_from_source` output directives.
+- **Kage Reviewer Confidence Gate Report**: Standardized final delivery gate report across all 5 clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, and Command Code), enforcing a minimum 90% confidence threshold with category breakdown tables.
+- **Strict Factual Truth & Anti-Hallucination Guardrails**: Enforced explicit guardrails prohibiting simulated executions, unverified claims, or false completions without inspecting real command and tool outputs.
+- **High-Efficiency Auto-Compaction Contract**: Automatically activated after turn 2 across all coding environments to preserve project context and invariants under 450 tokens without prompt bloat.
+- **Promoted Structured MCP Delegation**: Primary cross-client workflow for all subagents (`delegate_to_jonin`, `delegate_to_anbu`, `delegate_to_kage`, etc.), keeping legacy `delegate.md`/`result.md` isolated as fallback-only paths.
+- **Taste-Skill Build Engine**: Validated, side-effect-free build specifications for Next.js, Nuxt, SvelteKit, and Angular with numeric taste dials and framework-native pnpm validation commands.
+- **Full Test Suite Extension**: Expanded test runner to 51 test suites, all passing with 0 failures (`tests/run_all.js`).
+
 ### Removed
 - Removed unreferenced historical patch, fix, and revert scripts plus confirmed transient cache/task artifacts.
 

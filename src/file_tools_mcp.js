@@ -4,6 +4,7 @@
  * Node.js orchestrates schemas; Python scripts perform streaming I/O.
  */
 const Module = require("module");
+const fs = require("fs");
 const path = require("path");
 
 // Hook 'vscode' module resolution for bridge compatibility
@@ -88,9 +89,19 @@ function detect_active_client_from_env() {
 
     if (convId) return "antigravity";
 
-    // Fallback to file detection (same as server.py)
-    const { execSync } = require("child_process");
+    // Fallback to file detection without shell utilities for cross-platform safety.
     const files = [];
+    const collectFiles = (directory, predicate, depth = 0) => {
+      if (depth > 15 || files.length >= 100) return;
+      let entries;
+      try { entries = require("fs").readdirSync(directory, { withFileTypes: true }); } catch (_) { return; }
+      for (const entry of entries) {
+        if (files.length >= 100) return;
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) collectFiles(entryPath, predicate, depth + 1);
+        else if (entry.isFile() && predicate(entryPath)) files.push(entryPath);
+      }
+    };
     [
       ANTIGRAVITY_IDE_BRAIN,
       ANTIGRAVITY_CLI_BRAIN,
@@ -100,32 +111,13 @@ function detect_active_client_from_env() {
       if (!require("fs").existsSync(brainDir)) return;
       const isCursor = brainDir.includes("cursor");
       const isClaude = brainDir.includes("claude");
-      try {
-        if (isCursor) {
-          const out = execSync(
-            `find "${brainDir}" -name "*.jsonl" -path "*/agent-transcripts/*" 2>/dev/null | head -5`,
-            { encoding: "utf8" },
-          );
-          out.split("\n").filter(Boolean).forEach((f) => files.push(f));
-        } else if (isClaude) {
-          const out = execSync(
-            `find "${brainDir}" -name "*.jsonl" 2>/dev/null | head -5`,
-            { encoding: "utf8" },
-          );
-          out.split("\n").filter(Boolean).forEach((f) => files.push(f));
-        } else {
-          const out1 = execSync(
-            `find "${brainDir}" -name "prompt.md" 2>/dev/null | head -5`,
-            { encoding: "utf8" },
-          );
-          const out2 = execSync(
-            `find "${brainDir}" -path "*/.system_generated/logs/transcript.jsonl" 2>/dev/null | head -5`,
-            { encoding: "utf8" },
-          );
-          out1.split("\n").filter(Boolean).forEach((f) => files.push(f));
-          out2.split("\n").filter(Boolean).forEach((f) => files.push(f));
-        }
-      } catch (_) {}
+      if (isCursor) {
+        collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl') && filePath.includes(`${path.sep}agent-transcripts${path.sep}`));
+      } else if (isClaude) {
+        collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl'));
+      } else {
+        collectFiles(brainDir, (filePath) => path.basename(filePath) === 'prompt.md' || filePath.endsWith(`${path.sep}.system_generated${path.sep}logs${path.sep}transcript.jsonl`));
+      }
     });
 
     if (!files.length) return "antigravity";
@@ -182,6 +174,7 @@ function logToolCallSavings(toolName, args, returnedBytes) {
 
 let initialized = false;
 let negotiatedProtocol = "2024-11-05";
+const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05", "2024-10-07", "2025-03-26", "2025-11-25", "2025-06-18", "0.1.0", "1.0.0"];
 
 function handleRequest(req) {
   const method = req.method;
@@ -196,9 +189,11 @@ function handleRequest(req) {
 
   if (method === "initialize") {
     const params = req.params || {};
-    if (params.protocolVersion) {
-      negotiatedProtocol = params.protocolVersion;
+    const requestedProtocol = params.protocolVersion || SUPPORTED_PROTOCOL_VERSIONS[0];
+    if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requestedProtocol)) {
+      return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unsupported protocol version: ${requestedProtocol}` } };
     }
+    negotiatedProtocol = requestedProtocol;
 
     // Detect active client from clientInfo (mirrors server.py logic)
     const client_info = params.clientInfo || {};
@@ -258,6 +253,10 @@ function handleRequest(req) {
     return null;
   }
 
+  if ((method === "tools/list" || method === "tools/call") && !initialized) {
+    return { jsonrpc: "2.0", id, error: { code: -32002, message: "Server is not initialized" } };
+  }
+
   if (method === "ping") {
     return { jsonrpc: "2.0", id, result: {} };
   }
@@ -292,7 +291,7 @@ function handleRequest(req) {
   }
 
   if (id !== undefined) {
-    return { jsonrpc: "2.0", id, result: {} };
+    return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } };
   }
   return null;
 }
@@ -438,10 +437,11 @@ async function syncBridges() {
               `[bridge:${b.name}] Old server stopped. Starting on port ${b.port} (${b.provider})...\n`,
             );
 
-            const ctx = createContext();
+            let ctx = null;
+            ctx = createContext();
             ctx.bridgeConfig = b;
             ctx.outputChannel = {
-              appendLine: (msg) => process.stderr.write(`[bridge:${b.name}] ${msg}\n`),
+              appendLine: (msg) => process.stderr.write(`[bridge:${b.name}] ${msg}\\n`),
               show: () => {},
               dispose: () => {},
             };
@@ -449,11 +449,11 @@ async function syncBridges() {
             await startServer(ctx);
             activeBridges.set(b.name, { bridgeConfig: b, ctx });
           } catch (err) {
-            if (err.message.includes('EADDRINUSE')) {
+            if (err.message.includes('EADDRINUSE') && ctx) {
               activeBridges.set(b.name, { bridgeConfig: b, ctx });
-              // Downgraded: port conflict during reload is expected when another daemon owns it.
+              // Port conflict during reload is expected when another daemon owns it.
             } else {
-              process.stderr.write(`[bridge:${b.name}] Error during reload: ${err.message}\n`);
+              process.stderr.write(`[bridge:${b.name}] Error during reload: ${err.message}\\n`);
               activeBridges.delete(b.name);
             }
           }

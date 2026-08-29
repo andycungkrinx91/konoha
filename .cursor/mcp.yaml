@@ -1,5 +1,11 @@
-mcpServers: "semble:     type: stdio"
-command: node
-args:
-  - "${userHome}/.konoha/file_tools_launcher.js"
-konoha: "type: stdio"
+mcpServers:
+  semble:
+    type: stdio
+    command: uvx
+    args:
+      - semble
+  konoha:
+    type: stdio
+    command: node
+    args:
+      - "${userHome}/.konoha/file_tools_launcher.js"

@@ -31,7 +31,11 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node tests/run_all.js"
+    "test": "node tests/run_all.js",
+    "test:mcp": "node tests/test_mcp_protocol.js && node tests/test_mcp_e2e.js",
+    "test:workflow": "python3 tests/test_workflow_gates.py && python3 tests/test_workflow_loop.py",
+    "test:jonin": "python3 tests/test_build_workflows.py && python3 tests/test_taste_skill_jonin.py",
+    "test:docs": "python3 tests/test_docs_currency.py && python3 tests/test_documentation_diagrams.py"
   },
   "os": [
     "linux",

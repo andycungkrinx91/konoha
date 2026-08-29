@@ -886,7 +886,39 @@ async function chidoriTransition(command) {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
+function cmdInitHelp() {
+  log(`
+${C.cyan}konoha init${C.reset} — Initialize Konoha MCP servers, register subagents, and configure detected coding clients
+
+${C.bold}USAGE${C.reset}
+  konoha init [options]
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--yes, -y${C.reset}       Automatic affirmative response to confirmation prompts (non-interactive).
+  ${C.cyan}--force${C.reset}         Force clean re-installation and replace existing configuration.
+  ${C.cyan}--python <path>${C.reset} Specify custom Python executable path.
+  ${C.cyan}--silent${C.reset}        Run quietly with minimal output.
+
+${C.bold}SUPPORTED CLIENTS AUTO-CONFIGURED${C.reset}
+  - Antigravity IDE & CLI (~/.gemini/antigravity-cli/ & ~/.gemini/antigravity-ide/)
+  - Cursor IDE (~/.cursor/mcp.json & .cursor/)
+  - Claude Code (~/.claude.json & ~/.claude/agents/)
+  - Command Code (~/.commandcode/mcp.json & ~/.commandcode/rules/)
+  - OpenCode (~/.config/opencode/opencode.json)
+
+${C.bold}EXAMPLES${C.reset}
+  konoha init
+  konoha init --yes
+  konoha init --force
+`);
+}
+
 async function cmdInit(args) {
+  if (args.includes('help') || args.includes('--help') || args.includes('-h')) {
+    cmdInitHelp();
+    return;
+  }
+  syncTemplateSkills();
   drawLogo();
   
   header('🚀 Konoha Installer');
@@ -928,9 +960,7 @@ async function cmdInit(args) {
     path.join(HOME, '.agents'),
     SKILLS_DB_DIR,
     path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config'),
-    path.join(HOME, '.cursor'),
-    path.join(HOME, '.cursor', 'agents')
+    path.join(HOME, '.gemini', 'config')
   ];
   dirs.forEach(d => {
     if (!fileExists(d)) {
@@ -1298,13 +1328,13 @@ async function cmdInit(args) {
     `Auto-configured clients:`,
     `${ok} Antigravity   ${C.dim}~/.gemini/config/mcp_config.json + hooks${C.reset}`,
     allowCursor
-      ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.yaml + subagents${C.reset}`
+       ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.json + subagents${C.reset}`
       : `${skip} Cursor        ${C.dim}(not installed)${C.reset}`,
     claudeInstalled
       ? `${ok} Claude Code   ${C.dim}~/.claude.json + RTK${C.reset}`
       : `${skip} Claude Code   ${C.dim}(not installed)${C.reset}`,
     openCodeInstalled
-      ? `${ok} OpenCode     ${C.dim}~/.opencode/config.json + RTK${C.reset}`
+       ? `${ok} OpenCode     ${C.dim}~/.config/opencode/opencode.json + RTK rule${C.reset}`
       : `${skip} OpenCode     ${C.dim}(not installed)${C.reset}`,
     commandCodeInstalled
       ? `${ok} Command Code ${C.dim}~/.commandcode/mcp.json + RTK${C.reset}`
@@ -1913,6 +1943,13 @@ function copyRecursiveIfDifferent(src, dest) {
   }
 }
 
+function syncTemplateSkills() {
+  const templateSkillsDir = path.join(SRC_DIR, 'templates', 'skills');
+  const packageSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  if (!fileExists(templateSkillsDir)) return;
+  copyRecursiveIfDifferent(templateSkillsDir, packageSkillsDir);
+}
+
 // Fast mtime+size fingerprint for a directory tree. Returns "mtime:count:size".
 // If two trees have the same fingerprint, they are guaranteed identical.
 function _treeFingerprint(root) {
@@ -2041,9 +2078,7 @@ function ensureAutoSetup() {
     path.join(HOME, '.agents'),
     SKILLS_DB_DIR,
     path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config'),
-    path.join(HOME, '.cursor'),
-    path.join(HOME, '.cursor', 'agents')
+    path.join(HOME, '.gemini', 'config')
   ];
   dirs.forEach(d => {
     if (!fileExists(d)) {
@@ -2052,7 +2087,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'mcp_tool_manifest.json', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -2288,7 +2323,30 @@ function moveUnusedSkills(skillsDirs, agents) {
   }
 }
 
+function cmdMigrateHelp() {
+  log(`
+${C.cyan}konoha migrate${C.reset} — Re-index skills and rebuild the SQLite FTS5 database
+
+${C.bold}USAGE${C.reset}
+  konoha migrate [options]
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--skills-dir <dir>${C.reset} Specify a custom directory to scan for skill folders.
+  ${C.cyan}--force${C.reset}            Prune unused/unembedded skills before migration.
+
+${C.bold}EXAMPLES${C.reset}
+  konoha migrate
+  konoha migrate --force
+  konoha migrate --skills-dir ./my-skills
+`);
+}
+
 async function cmdMigrate(args) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdMigrateHelp();
+    return;
+  }
+  syncTemplateSkills();
   header('📊 Re-running Skills Migration');
 
   const python = checkPython();
@@ -2343,40 +2401,34 @@ async function cmdMigrate(args) {
       }
     } else {
       let anySuccess = false;
-      let isFirst = true;
-      for (const s of skillsDirs) {
-        const skills = detectCustomSkills(s.path);
-        if (skills.length === 0) continue;
-
-        info(`Migrating from: ${s.path}`);
-        try {
-          const argsList = [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills];
-          if (isFirst) {
-            argsList.push('--clean');
-            isFirst = false;
-          }
-          const run = spawnSync(python, argsList, {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
-          });
-          if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
+      const migrateArgs = [MIGRATE_PATH, '--clean'];
+      for (const dir of skillsDirs) {
+        migrateArgs.push('--skills-dir', dir.path);
+      }
+      try {
+        const run = spawnSync(python, migrateArgs, {
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+        });
+        if (run.status === 0) {
           log(run.stdout);
           anySuccess = true;
-        } catch (e) {
-          warn(`Migration failed for ${s.path}: ${e.message}`);
+        } else {
+          error(`Migration failed: ${run.stderr}`);
         }
+      } catch (e) {
+        error(`Migration failed: ${e.message}`);
       }
+
       if (anySuccess) {
-        success('Migration complete!');
+        success('Migration complete for all skill directories!');
       } else {
-        error('Migration failed for all directories.');
         process.exit(1);
       }
     }
   }
 
-  // v1.1.0: Auto-optimize — regenerate GEMINI.md and AGENTS.md with compact token-optimized generators
+  // After migration, automatically optimize rules
   try {
-    info('Auto-optimizing generated configurations...');
     agentManager.regenerateAndDeploy();
     success('GEMINI.md and AGENTS.md regenerated with optimized token footprint.');
   } catch (e) {
@@ -2384,7 +2436,23 @@ async function cmdMigrate(args) {
   }
 }
 
-async function cmdTest() {
+function cmdTestHelp() {
+  log(`
+${C.cyan}konoha test${C.reset} — Perform verification tests on the MCP server and skill database
+
+${C.bold}USAGE${C.reset}
+  konoha test
+
+${C.bold}EXAMPLES${C.reset}
+  konoha test
+`);
+}
+
+async function cmdTest(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdTestHelp();
+    return;
+  }
   header('🧪 Testing Konoha MCP Server');
 
   const python = checkPython();
@@ -2602,7 +2670,23 @@ async function cmdTest() {
   }
 }
 
-async function cmdStatus() {
+function cmdStatusHelp() {
+  log(`
+${C.cyan}konoha status${C.reset} — Check installation health, database size, and loaded skills
+
+${C.bold}USAGE${C.reset}
+  konoha status
+
+${C.bold}EXAMPLES${C.reset}
+  konoha status
+`);
+}
+
+async function cmdStatus(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdStatusHelp();
+    return;
+  }
   drawLogo(false); // Static logo
   
   header('📋 Konoha MCP Status');
@@ -2677,7 +2761,7 @@ async function cmdStatus() {
   const cursorStatus = cursorManager.getCursorStatus();
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
   const cmdStatus = mcpClientsManager.getCommandCodeStatus();
-  openCodeStatus = opencodeManager.getOpenCodeStatus();
+   const openCodeStatus = opencodeManager.getOpenCodeStatus();
 
   log(`  ${C.bold}${applyGradient('1. 🔌 MCP Clients Configuration', RASENGAN_THEME)}${C.reset}`);
   log(`  Auto-setup bridges Konoha directly into IDE and CLI configuration files.\n`);
@@ -2702,9 +2786,9 @@ async function cmdStatus() {
   };
 
   printClientStatus('Antigravity IDE / CLI', '~/.gemini/config/mcp_config.json', agyStatus.mcpSkillsDb && agyStatus.mcpSemble, agyStatus.mcpConfigExists);
-  printClientStatus('Cursor IDE', '~/.cursor/mcp.yaml', cursorStatus.mcpKonoha && cursorStatus.mcpSemble, cursorStatus.mcpGlobal, cursorManager.isCursorInstalled());
+  printClientStatus('Cursor IDE / CLI', '~/.cursor/mcp.json', cursorStatus.mcpKonoha && cursorStatus.mcpSemble, cursorStatus.mcpGlobal, cursorManager.isCursorInstalled());
   printClientStatus('Claude Code CLI', '~/.claude.json', claudeStatus.mcpKonoha && claudeStatus.mcpSemble, claudeStatus.globalConfig, claudeStatus.installed);
-  printClientStatus('OpenCode IDE', '~/.opencode/config.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
+  printClientStatus('OpenCode IDE', '~/.config/opencode/opencode.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
   printClientStatus('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha && cmdStatus.mcpSemble, cmdStatus.globalConfig, cmdStatus.installed);
 
   // Antigravity IDE/CLI integrations
@@ -2740,7 +2824,7 @@ async function cmdStatus() {
   if (cursorManager.isCursorInstalled()) {
   sectionTitle('Cursor IDE/CLI Integrations:', NINJA_THEME);
   drawIntegrationRow(
-    '~/.cursor/mcp.yaml',
+    '~/.cursor/mcp.json',
     cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble,
     cursorStatus.mcpGlobal ? 'konoha + semble' : 'not configured',
     NINJA_THEME
@@ -2748,7 +2832,7 @@ async function cmdStatus() {
   drawIntegrationRow(
     'Cursor skills',
     cursorStatus.skillsGlobal > 0,
-    `${cursorStatus.skillsGlobal} in ~/.cursor/skills/ (mirrored from ~/.agents/skills/)`,
+    `${cursorStatus.skillsGlobal} indexed from ~/.agents/skills/; Cursor uses Konoha MCP content`,
     NINJA_THEME
   );
   drawIntegrationRow(
@@ -2805,20 +2889,20 @@ async function cmdStatus() {
   }
 
   // OpenCode integration (auto-configured when `opencode` CLI is installed)
-  openCodeStatus = opencodeManager.getOpenCodeStatus();
-  if (openCodeStatus.installed) {
+  const openCodeDetails = opencodeManager.getOpenCodeStatus();
+  if (openCodeDetails.installed) {
     sectionTitle('OpenCode Integrations:', NINJA_THEME);
-    const openCodeOk = openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble;
+    const openCodeOk = openCodeDetails.mcpKonoha && openCodeDetails.mcpSemble;
     drawIntegrationRow(
-      '~/.opencode/config.json',
+      openCodeDetails.configPath || '~/.config/opencode/opencode.json',
       openCodeOk,
       'konoha + semble',
       NINJA_THEME
     );
     drawIntegrationRow(
       'RTK (Token Killer)',
-      openCodeStatus.rtkRuleDeployed,
-      openCodeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.opencode/rules/' : 'rtk rule not deployed',
+      openCodeDetails.rtkRuleDeployed,
+      openCodeDetails.rtkRuleDeployed ? 'rtk rule deployed to ~/.config/opencode/rules/' : 'rtk rule not deployed',
       NINJA_THEME
     );
   } else {
@@ -2963,7 +3047,27 @@ async function cmdStatus() {
   log('');
 }
 
-async function cmdDoctor() {
+function cmdDoctorHelp() {
+  log(`
+${C.cyan}konoha doctor${C.reset} — Run environment diagnostics and auto-repair missing components
+
+${C.bold}USAGE${C.reset}
+  konoha doctor [options]
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--yes, -y${C.reset}  Auto-apply recommended repairs non-interactively.
+
+${C.bold}EXAMPLES${C.reset}
+  konoha doctor
+  konoha doctor --yes
+`);
+}
+
+async function cmdDoctor(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdDoctorHelp();
+    return;
+  }
   drawLogo();
   header('🩺 Konoha Doctor');
   log(`${applyGradient('Diagnosing environment requirements and auto-repairing missing components...', CHIDORI_THEME, 0.75)}\n`);
@@ -3536,7 +3640,26 @@ async function cmdDoctor() {
   }
 }
 
-async function cmdUninstall() {
+function cmdUninstallHelp() {
+  log(`
+${C.cyan}konoha uninstall${C.reset} — Safely remove Konoha MCP server configuration
+
+${C.bold}USAGE${C.reset}
+  konoha uninstall [options]
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--yes, -y${C.reset}  Non-interactive confirmation.
+
+${C.bold}EXAMPLES${C.reset}
+  konoha uninstall
+`);
+}
+
+async function cmdUninstall(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdUninstallHelp();
+    return;
+  }
   header('🗑️  Uninstalling Konoha MCP');
 
   // Remove server files (preserving the skills.db database and its metrics)
@@ -3771,7 +3894,23 @@ async function cmdAgentStatus() {
   log('');
 }
 
-async function cmdSavings() {
+function cmdSavingsHelp() {
+  log(`
+${C.cyan}konoha savings${C.reset} — View your total token savings (Today, 7 days, All time)
+
+${C.bold}USAGE${C.reset}
+  konoha savings
+
+${C.bold}EXAMPLES${C.reset}
+  konoha savings
+`);
+}
+
+async function cmdSavings(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdSavingsHelp();
+    return;
+  }
   drawLogo();
   
   header('📊 Token Savings Report');
@@ -3793,9 +3932,11 @@ async function cmdSavings() {
 
       const run = spawnSync(python, [scriptToUse, DB_PATH], {
         encoding: 'utf-8',
-        timeout: 5000
+        timeout: 25000
       });
-      if (run.status !== 0) throw new Error(run.stderr || 'Savings query failed');
+      if (run.status !== 0 || !run.stdout) {
+        throw new Error(run.stderr || (run.error ? run.error.message : 'Savings query failed or timed out'));
+      }
       const output = run.stdout;
       const stats = JSON.parse(output.trim());
 
@@ -4217,12 +4358,13 @@ function cmdAgentHelp() {
   ${C.dim}========================================================================
   An "Agent" (or Ninja) is a specialized AI assistant that handles specific tasks.
   By splitting work among multiple subagents, we get better results at lower cost.
+  - @sannin: Village Router & Planner for task triage, subagent selection & orchestration.
   - @genin: Scout for read-only codebase reconnaissance & tracing code dependencies.
-  - @kage: Village Leader for high-level architecture decisions & security audits.
-  - @chunin: Intelligence researcher for looking up documentation and best practices.
-  - @jonin: Builder for high-quality frontend styling and component creation.
-  - @anbu: Black Ops backend developer for fixing bugs, API logic, and DevOps/CI-CD.
-  - @tokubetsu-jonin: Scribe for writing READMEs, API specs, and runbooks.
+  - @kage: Village Leader for high-level architecture decisions, security audits & quality gate reviews.
+  - @chunin: Intelligence researcher for documentation lookup, web search & citations.
+  - @jonin: Elite Builder for frontend, Taste-Skill design engine & UI components (Next.js, Svelte, Nuxt, Angular).
+  - @anbu: Black Ops backend developer for bug fixes, API logic, and DevOps/CI-CD.
+  - @tokubetsu-jonin: Scribe for writing READMEs, API specs, PDF reports, and runbooks.
   ========================================================================${C.reset}
 
 ${C.bold}USAGE${C.reset}
@@ -4249,7 +4391,7 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}4. Permanently delete/prune an agent and clean up its database stats:${C.reset}
      konoha agent delete name
 
-  ${C.dim}6. Create a custom subagent manually:${C.reset}
+  ${C.dim}5. Create a custom subagent manually:${C.reset}
      konoha agent create my-agent --title "Special Agent" --purpose "Custom tasks" --instructions "Custom instructions" --keywords "my-agent"
 `);
 }
@@ -4646,9 +4788,8 @@ function cmdModelsHelp() {
   log(`
   ${C.bold}🤖 Antigravity Models Management Help 🤖${C.reset}
   ${C.dim}========================================================================
-  This command lets you view and configure which large language models (LLMs) are used
-  by your subagents. Using smaller, faster models for simple tasks and large models
-  only for complex reasoning saves you token usage and speeds up responses!
+  This command lists models exposed by configured bridges and manages local telemetry.
+  Model selection is controlled by the host client; Konoha does not assign models to agents.
   ========================================================================${C.reset}
 
 ${C.bold}USAGE${C.reset}
@@ -4656,7 +4797,7 @@ ${C.bold}USAGE${C.reset}
 
 ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}list${C.reset}                                           List all available Antigravity model tiers and current agent mapping.
-  ${C.cyan}reset${C.reset}                                          Clear local usage logs in sqlite db to restore model quotas.
+  ${C.cyan}reset${C.reset}                                          Clear local usage telemetry from the SQLite database.
 
 ${C.bold}MODEL EXPRESSIONS${C.reset}
   You can specify a single model, or a primary model with a fallback (supports "inherit" for Cursor):
@@ -4667,7 +4808,7 @@ ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. List all models and their current assignments:${C.reset}
      konoha models list
 
-  ${C.dim}2. Reset local usage logs and model quotas:${C.reset}
+  ${C.dim}2. Clear local usage telemetry (this does not change platform quotas):${C.reset}
      konoha models reset
 `);
 }
@@ -4813,7 +4954,23 @@ async function getLatestVersion() {
   throw new Error('No release or tag found on GitHub');
 }
 
-async function cmdVersion(args) {
+function cmdVersionHelp() {
+  log(`
+${C.cyan}konoha version${C.reset} — Display current version and check for updates on GitHub
+
+${C.bold}USAGE${C.reset}
+  konoha version
+
+${C.bold}EXAMPLES${C.reset}
+  konoha version
+`);
+}
+
+async function cmdVersion(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdVersionHelp();
+    return;
+  }
   const pkgPath = path.join(__dirname, '..', 'package.json');
   let currentVersion = '1.0.5';
   try {
@@ -4844,7 +5001,26 @@ async function cmdVersion(args) {
   }
 }
 
-async function cmdUpgrade(args) {
+function cmdUpgradeHelp() {
+  log(`
+${C.cyan}konoha upgrade${C.reset} — Upgrade Konoha CLI to the latest release from GitHub
+
+${C.bold}USAGE${C.reset}
+  konoha upgrade [options]
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--yes, -y${C.reset}  Non-interactive confirmation.
+
+${C.bold}EXAMPLES${C.reset}
+  konoha upgrade
+`);
+}
+
+async function cmdUpgrade(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdUpgradeHelp();
+    return;
+  }
   header('🔄 Upgrading Konoha');
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
@@ -4916,16 +5092,16 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
   ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from GitHub.
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
-  ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history and prune database space.
+  ${C.cyan}project${C.reset}       📁 Manage persistent project workspaces, detected stacks, and invariants.
+  ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history, persona memories, and database size.
   ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
   ${C.cyan}bridge${C.reset}        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
-
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
 ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
   ${C.cyan}skill${C.reset}         📚 Manage skills (list installed, search the public registry, add/remove).
-  ${C.cyan}agent${C.reset}         👤 Configure your Ninja subagents (list, change models, toggle skills, delete, status).
-  ${C.cyan}models${C.reset}        🤖 Manage available LLM models and assign them to subagents.
+  ${C.cyan}agent${C.reset}         👤 Configure Ninja subagents (list, create, toggle skills, delete, status).
+  ${C.cyan}models${C.reset}        🤖 Inspect bridge-served models and clear local telemetry.
   ${C.cyan}help${C.reset}          ❓ Show this educational help menu.
 
 ${C.bold}GLOBAL OPTIONS${C.reset}
@@ -4942,14 +5118,185 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):${C.reset}
      konoha agent skill genin
 
-  ${C.dim}5. View how many tokens (and how much context window) you have saved:${C.reset}
-     konoha savings
+  ${C.dim}4. View how many tokens (and how much context window) you have saved:${C.reset}
+      konoha savings
 
-  ${C.dim}6. View database disk space and active session size:${C.reset}
+  ${C.dim}5. View database disk space and active session size:${C.reset}
      konoha data view
 
 `);
 }
+
+
+function cmdProjectHelp() {
+  log(`
+${C.cyan}konoha project${C.reset} — Manage persistent project workspaces, detected stacks, and project invariants
+
+${C.bold}USAGE${C.reset}
+  konoha project <subcommand> [options]
+
+${C.bold}SUBCOMMANDS${C.reset}
+  ${C.cyan}context [path]${C.reset}        📊 View detected stack, package manager, and architectural invariants.
+  ${C.cyan}list${C.reset}                  📁 List all tracked project workspaces in Konoha.
+  ${C.cyan}memory [path]${C.reset}         🧠 List persistent memories & episodic learnings for a project workspace.
+  ${C.cyan}add [path] <summary>${C.reset}  ➕ Save architectural invariants or rules for a project.
+  ${C.cyan}delete <path|hash>${C.reset}    🗑️ Remove a project workspace profile from memory.
+
+${C.bold}EXAMPLES${C.reset}
+  ${C.dim}1. View current project context:${C.reset}
+     konoha project context
+
+  ${C.dim}2. List all registered projects:${C.reset}
+     konoha project list
+
+  ${C.dim}3. Add persistent project invariants:${C.reset}
+     konoha project add . "Use Tailwind v4 with @theme in globals.css, pnpm exclusively"
+`);
+}
+
+async function cmdProject(args) {
+  await chidoriTransition('project');
+  const sub = args[0] || 'context';
+  const subArgs = args.slice(1);
+
+  if (sub === 'help' || sub === '--help' || sub === '-h') {
+    cmdProjectHelp();
+    return;
+  }
+
+  const python = checkPython();
+  if (!python || !fileExists(DB_PATH)) {
+    error('SQLite database or python command not found.');
+    return;
+  }
+
+  if (sub === 'list') {
+    const script = `
+import sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+db_path = sys.argv[1]
+projs = persona_memory.list_projects(limit=50, db_path=db_path)
+print(json.dumps(projs))
+`.trim();
+    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR], { encoding: 'utf-8', timeout: 5000 });
+    if (run.status === 0) {
+      const projs = JSON.parse(run.stdout.trim());
+      header('📁 Tracked Project Workspaces in Konoha');
+      if (!projs || projs.length === 0) {
+        log(`  ${C.dim}No projects tracked yet. Run ${C.cyan}konoha project context${C.dim} in any workspace to register.${C.reset}\n`);
+        return;
+      }
+      projs.forEach((p, idx) => {
+        log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}${p.project_name}${C.reset} ${C.yellow}[${p.framework || 'Unknown'}]${C.reset} ${C.dim}(Hash: ${p.project_hash})${C.reset}`);
+        log(`     ${C.dim}Path:${C.reset} ${p.project_path}`);
+        log(`     ${C.dim}Styling:${C.reset} ${p.styling || 'CSS'} | ${C.dim}Package Manager:${C.reset} ${p.package_manager || 'pnpm'}`);
+        if (p.context_summary) log(`     ${C.dim}Invariants:${C.reset} ${p.context_summary}`);
+        log('');
+      });
+      success(`Total: ${projs.length} project workspace(s).`);
+    } else {
+      error(`Failed to list projects: ${run.stderr}`);
+    }
+  } else if (sub === 'context' || sub === 'show') {
+    const targetPath = subArgs[0] || process.cwd();
+    const script = `
+import sys, json, os
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+db_path = sys.argv[1]
+target = sys.argv[3]
+profile = persona_memory.get_project_profile(target, db_path=db_path)
+if not profile:
+    p_hash = persona_memory.save_or_update_project(target, db_path=db_path)
+    profile = persona_memory.get_project_profile(p_hash, db_path=db_path)
+mems = persona_memory.list_memories(project_path=target, limit=10, db_path=db_path)
+print(json.dumps({"profile": profile, "memories": mems}))
+`.trim();
+    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath], { encoding: 'utf-8', timeout: 5000 });
+    if (run.status === 0) {
+      const data = JSON.parse(run.stdout.trim());
+      const p = data.profile || {};
+      header(`🏢 Project Workspace Context: ${p.project_name || 'Active Project'}`);
+      log(`  ${C.bold}Project Path:${C.reset}     ${p.project_path || targetPath}`);
+      log(`  ${C.bold}Project Hash:${C.reset}     ${C.cyan}${p.project_hash || 'N/A'}${C.reset}`);
+      log(`  ${C.bold}Framework:${C.reset}        ${C.yellow}${p.framework || 'Unknown'}${C.reset}`);
+      log(`  ${C.bold}Styling Engine:${C.reset}   ${p.styling || 'Standard CSS'}`);
+      log(`  ${C.bold}Package Manager:${C.reset}  ${C.green}${p.package_manager || 'pnpm'}${C.reset}`);
+      if (p.context_summary) {
+        log(`  ${C.bold}Invariants & Rules:${C.reset}\n     ${p.context_summary}`);
+      }
+      log('');
+      const mems = data.memories || [];
+      if (mems.length > 0) {
+        log(`  ${C.bold}Persistent Project Learnings (${mems.length}):${C.reset}`);
+        mems.forEach(m => {
+          log(`    - ${C.yellow}[${(m.memory_type || 'rule').toUpperCase()}]${C.reset} ${m.content}`);
+        });
+        log('');
+      }
+      success('Project context is active and will be auto-injected to subagents.');
+    } else {
+      error(`Failed to get project context: ${run.stderr}`);
+    }
+  } else if (sub === 'memory') {
+    const targetPath = subArgs[0] || process.cwd();
+    await cmdDataMemory(['--project', targetPath]);
+  } else if (sub === 'add') {
+    if (subArgs.length === 0) {
+      error('Usage: konoha project add [path] "<summary>"');
+      return;
+    }
+    let targetPath = process.cwd();
+    let summary = '';
+    if (subArgs.length === 1) {
+      summary = subArgs[0];
+    } else {
+      targetPath = subArgs[0];
+      summary = subArgs.slice(1).join(' ');
+    }
+    const script = `
+import sys, json
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+db_path = sys.argv[1]
+target = sys.argv[3]
+summary = sys.argv[4]
+p_hash = persona_memory.save_or_update_project(target, context_summary=summary, db_path=db_path)
+print(p_hash)
+`.trim();
+    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath, summary], { encoding: 'utf-8', timeout: 5000 });
+    if (run.status === 0) {
+      success(`Saved architectural invariants for project (${run.stdout.trim()}).`);
+    } else {
+      error(`Failed to save project invariants: ${run.stderr}`);
+    }
+  } else if (sub === 'delete') {
+    if (subArgs.length === 0) {
+      error('Usage: konoha project delete <path|hash>');
+      return;
+    }
+    const target = subArgs[0];
+    const script = `
+import sys
+sys.path.insert(0, sys.argv[2])
+import persona_memory
+db_path = sys.argv[1]
+target = sys.argv[3]
+deleted = persona_memory.delete_project(target, db_path=db_path)
+print("true" if deleted else "false")
+`.trim();
+    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, target], { encoding: 'utf-8', timeout: 5000 });
+    if (run.status === 0 && run.stdout.trim() === 'true') {
+      success(`Deleted project profile: ${target}`);
+    } else {
+      error(`Project profile not found or could not be deleted: ${target}`);
+    }
+  } else {
+    cmdProjectHelp();
+  }
+}
+
 
 function cmdDataHelp() {
   log(`
@@ -6113,20 +6460,20 @@ async function main() {
         await cmdMigrate(args);
         break;
       case 'test':
-        await cmdTest();
+        await cmdTest(args);
         break;
       case 'status':
-        await cmdStatus();
+        await cmdStatus(args);
         break;
       case 'saving':
       case 'savings':
-        await cmdSavings();
+        await cmdSavings(args);
         break;
       case 'doctor':
-        await cmdDoctor();
+        await cmdDoctor(args);
         break;
       case 'uninstall':
-        await cmdUninstall();
+        await cmdUninstall(args);
         break;
       case 'version':
       case '--version':
@@ -6149,6 +6496,10 @@ async function main() {
       case 'data':
         await cmdData(args);
         break;
+      case 'project':
+      case 'projects':
+        await cmdProject(args);
+        break;
       case 'bridge':
         await cmdBridge(args);
         break;
@@ -6170,8 +6521,12 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  closeReadline();
-  error(`Execution error: ${err.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    closeReadline();
+    error(`Execution error: ${err.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { syncTemplateSkills };

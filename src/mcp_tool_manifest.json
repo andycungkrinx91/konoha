@@ -1,0 +1,1235 @@
+{
+  "protocol_versions": [
+    "2024-11-05",
+    "2024-10-07",
+    "2025-03-26",
+    "2025-11-25",
+    "2025-06-18",
+    "0.1.0",
+    "1.0.0"
+  ],
+  "tools": [
+    {
+      "name": "read_file_head",
+      "description": "Read the first N lines of a file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "filepath": {
+            "type": "string"
+          },
+          "max_lines": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "file_path"
+            ]
+          },
+          {
+            "required": [
+              "filepath"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "read_file_range",
+      "description": "Read a bounded inclusive line range.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "filepath": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1
+          },
+          "end_line": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "path",
+              "start_line",
+              "end_line"
+            ]
+          },
+          {
+            "required": [
+              "file_path",
+              "start_line",
+              "end_line"
+            ]
+          },
+          {
+            "required": [
+              "filepath",
+              "start_line",
+              "end_line"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "file_info",
+      "description": "Return file metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "filepath": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "file_path"
+            ]
+          },
+          {
+            "required": [
+              "filepath"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "token_efficient_grep",
+      "description": "Search text with a bounded result count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dir": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "filepath": {
+            "type": "string"
+          },
+          "glob": {
+            "type": "string"
+          },
+          "file_glob": {
+            "type": "string"
+          },
+          "ignore_case": {
+            "type": "boolean"
+          },
+          "max_matches": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_file_structure",
+      "description": "Return a compact class and function signature map.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "dir": {
+            "type": "string"
+          },
+          "dir_path": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "dir"
+            ]
+          },
+          {
+            "required": [
+              "dir_path"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_files_clean",
+      "description": "Find files while skipping build and VCS noise.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string"
+          },
+          "dir": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_resolved_task_dir",
+      "description": "Resolve an isolated task directory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_skill",
+      "description": "Search indexed skills.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 10
+          },
+          "agent": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keyword"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "List indexed skills.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_skill",
+      "description": "Retrieve a skill or reference by name.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "optimize_report",
+      "description": "Analyze skill token footprint.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "build_with_image_design",
+      "description": "Deprecated compatibility alias for build_from_source.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "source_dir": {
+            "type": "string",
+            "minLength": 1
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "nextjs",
+              "next",
+              "react",
+              "nuxt",
+              "nuxt3",
+              "vue",
+              "sveltekit",
+              "svelte",
+              "angular",
+              "ng"
+            ]
+          },
+          "taste_dials": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "source_dir",
+          "framework"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "build_from_source",
+      "description": "Return a source-fidelity build specification.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "source_dir": {
+            "type": "string",
+            "minLength": 1
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "nextjs",
+              "next",
+              "react",
+              "nuxt",
+              "nuxt3",
+              "vue",
+              "sveltekit",
+              "svelte",
+              "angular",
+              "ng"
+            ]
+          },
+          "taste_dials": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "source_dir",
+          "framework"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "build_from_text",
+      "description": "Return a text-driven build specification.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "nextjs",
+              "next",
+              "react",
+              "nuxt",
+              "nuxt3",
+              "vue",
+              "sveltekit",
+              "svelte",
+              "angular",
+              "ng"
+            ]
+          },
+          "taste_dials": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "framework"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sannin",
+      "description": "Route and orchestrate a task.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "kage",
+      "description": "Delegate architecture or review work to Kage.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "jonin",
+      "description": "Delegate frontend work to Jonin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "anbu",
+      "description": "Delegate backend or DevOps work to Anbu.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "chunin",
+      "description": "Delegate research work to Chunin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tokubetsu_jonin",
+      "description": "Delegate documentation work to Tokubetsu-Jonin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "genin",
+      "description": "Delegate codebase exploration to Genin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_sannin",
+      "description": "Compatibility alias for sannin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_kage",
+      "description": "Compatibility alias for kage.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_jonin",
+      "description": "Compatibility alias for jonin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_anbu",
+      "description": "Compatibility alias for anbu.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_chunin",
+      "description": "Compatibility alias for chunin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_tokubetsu_jonin",
+      "description": "Compatibility alias for tokubetsu_jonin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delegate_to_genin",
+      "description": "Compatibility alias for genin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "report_from_agent",
+      "description": "Record a structured agent result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "in_progress"
+            ]
+          },
+          "files_created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "files_modified": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "learnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          },
+          "dispatch_id": {
+            "type": "string"
+          },
+          "validation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "agent_name",
+          "summary"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_project_context",
+      "description": "Get project context and memories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project_path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "save_project_context",
+      "description": "Save project invariants.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project_path": {
+            "type": "string"
+          },
+          "context_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tech_stack": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "context_summary"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "query_project_memory",
+      "description": "Query project-scoped memories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "memory_type": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "web_search",
+      "description": "Search the web with fallback providers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "num_results": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 50
+          },
+          "search_depth": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "deep"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "migrate_skills",
+      "description": "Re-index skills into SQLite FTS5.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": "boolean"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skills_dir": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "save_persona_memory",
+      "description": "Save a persona memory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "memory_type": {
+            "type": "string",
+            "enum": [
+              "rule",
+              "preference",
+              "episodic",
+              "architecture",
+              "pattern"
+            ]
+          },
+          "tags": {
+            "type": "string"
+          },
+          "importance": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "agent_name",
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "query_persona_memory",
+      "description": "Query persona memories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string"
+          },
+          "memory_type": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "agent_name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_persona_memories",
+      "description": "List persona memories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string"
+          },
+          "memory_type": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delete_persona_memory",
+      "description": "Delete a persona memory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

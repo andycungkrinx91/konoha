@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const IS_WIN = process.platform === 'win32';
 
@@ -57,28 +57,18 @@ function uriToPath(uri) {
 }
 
 function detectPython() {
-  // POSIX: prefer the safer spawnSync arg-array form; Windows keeps the existing
-  // execSync-with-shell behavior because `py -3` is a cmd.exe compound command.
-  if (!IS_WIN) {
-    for (const cmd of ['python3', 'python']) {
-      try {
-        const res = spawnSync(cmd, ['--version'], { encoding: 'utf-8', shell: false });
-        if (res.status === 0 && res.stdout && res.stdout.includes('Python 3')) {
-          return cmd;
-        }
-      } catch {}
-    }
-    return null;
-  }
-  const cmds = ['py -3', 'py', 'python3', 'python'];
-  for (const cmd of cmds) {
+  const candidates = IS_WIN
+    ? [{ command: 'py', args: ['-3'] }, { command: 'py', args: [] }, { command: 'python3', args: [] }, { command: 'python', args: [] }]
+    : [{ command: 'python3', args: [] }, { command: 'python', args: [] }];
+  for (const candidate of candidates) {
     try {
-      const version = execSync(`${cmd} --version 2>&1`, {
+      const res = spawnSync(candidate.command, [...candidate.args, '--version'], {
         encoding: 'utf-8',
-        shell: IS_WIN
-      }).trim();
-      if (version.includes('Python 3')) {
-        return cmd;
+        shell: false
+      });
+      const version = `${res.stdout || ''}${res.stderr || ''}`;
+      if (res.status === 0 && version.includes('Python 3')) {
+        return candidate.command;
       }
     } catch {}
   }
@@ -89,10 +79,25 @@ function detectPythonOrDefault() {
   return detectPython() || (IS_WIN ? 'python' : 'python3');
 }
 
+function normalizeCommand(command) {
+  if (Array.isArray(command)) return { executable: command[0], prefixArgs: command.slice(1) };
+  if (typeof command !== 'string') return { executable: command, prefixArgs: [] };
+  const trimmed = command.trim();
+  if (trimmed.startsWith('[')) {
+    try {
+      return normalizeCommand(JSON.parse(trimmed));
+    } catch {}
+  }
+  const parts = trimmed.split(/\s+/);
+  return parts[0] === 'py' && parts[1] === '-3'
+    ? { executable: parts[0], prefixArgs: parts.slice(1) }
+    : { executable: command, prefixArgs: [] };
+}
+
 function getUvCommand() {
   try {
-    execSync('uv --version', { stdio: 'ignore' });
-    return 'uv';
+    const result = spawnSync('uv', ['--version'], { stdio: 'ignore' });
+    if (result.status === 0) return 'uv';
   } catch {}
 
   const home = os.homedir();
@@ -111,7 +116,8 @@ function getUvCommand() {
   for (const p of localPaths) {
     if (p && fileExists(p)) {
       try {
-        execSync(`"${p}" --version`, { stdio: 'ignore' });
+        const result = spawnSync(p, ['--version'], { stdio: 'ignore' });
+        if (result.status !== 0) throw new Error('uv probe failed');
         return p;
       } catch {}
     }
@@ -152,6 +158,69 @@ function ensureDir(dirPath) {
   }
 }
 
+
+function ensureUserBinInPath() {
+  const home = os.homedir();
+  const extraPaths = IS_WIN
+    ? [
+        path.join(home, '.local', 'bin'),
+        path.join(home, '.cargo', 'bin'),
+        path.join(process.env.LOCALAPPDATA || '', 'programs', 'rtk')
+      ]
+    : [
+        path.join(home, '.local', 'bin'),
+        path.join(home, '.cargo', 'bin'),
+        '/usr/local/bin',
+        '/opt/homebrew/bin'
+      ];
+
+  const currentParts = (process.env.PATH || '').split(path.delimiter);
+  const toAdd = extraPaths.filter((p) => fileExists(p) && !currentParts.includes(p));
+  if (toAdd.length > 0) {
+    process.env.PATH = [...toAdd, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
+  }
+}
+
+// Automatically ensure user bin paths are in PATH upon importing platform_utils
+ensureUserBinInPath();
+
+function getRtkCommand() {
+  ensureUserBinInPath();
+  try {
+    const result = spawnSync('rtk', ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    if (result.status === 0) return 'rtk';
+  } catch {}
+
+  const home = os.homedir();
+  const localPaths = IS_WIN
+    ? [
+        path.join(home, '.local', 'bin', 'rtk.exe'),
+        path.join(home, '.cargo', 'bin', 'rtk.exe'),
+        path.join(process.env.LOCALAPPDATA || '', 'programs', 'rtk', 'rtk.exe')
+      ]
+    : [
+        path.join(home, '.local', 'bin', 'rtk'),
+        path.join(home, '.cargo', 'bin', 'rtk'),
+        '/usr/local/bin/rtk',
+        '/usr/bin/rtk',
+        '/opt/homebrew/bin/rtk'
+      ];
+
+  for (const p of localPaths) {
+    if (p && fileExists(p)) {
+      try {
+        const result = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+        if (result.status === 0) return p;
+      } catch {}
+    }
+  }
+  return null;
+}
+
+function isRtkInstalled() {
+  return getRtkCommand() !== null;
+}
+
 module.exports = {
   IS_WIN,
   fileExists,
@@ -162,6 +231,10 @@ module.exports = {
   detectPython,
   getUvCommand,
   getUvxCommand,
+  getRtkCommand,
+  isRtkInstalled,
+  ensureUserBinInPath,
   isCommandAvailable,
-  detectPythonOrDefault
+  detectPythonOrDefault,
+  normalizeCommand
 };

@@ -83,7 +83,7 @@ Do NOT load SKILL.md files directly — always use find_skill.
 
 If Antigravity IDE User Rules must be set manually, copy the contents of `~/.gemini/GEMINI.md` after running `konoha migrate`.
 
-### Orchestration Model — MCP-Based Subagent Invocation
+### Orchestration Model — Structured MCP Subagent Invocation
 
 Konoha implements a pure MCP-based subagent delegation model. The main agent no longer needs to use `invoke_subagent` or rely on pre-tool hooks to translate custom ninja TypeNames. Instead, all delegation goes through the `mcp_sannin` (Village Elder) MCP tool, which intelligently routes tasks to specialized backend MCP agents.
 
@@ -92,9 +92,9 @@ Concretely, the orchestrator:
 1. Acts as a coordinator, analyzing the user's prompt in `prompt.md`.
 2. Discover skills via `konoha.find_skill` and loads them via `konoha.get_skill` if necessary.
 3. **Delegates** all tasks by calling the `mcp_sannin` MCP tool, passing the prompt and the workspace directory.
-4. `mcp_sannin` then creates a `delegate.md` and hands execution off to the appropriate backend MCP agent (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
-5. The chosen MCP agent reads `delegate.md`, executes the task, and writes the output to `result.md`.
-6. `mcp_sannin` returns the contents of `result.md` back to the orchestrator.
+4. `mcp_sannin` routes the structured task to the appropriate MCP agent (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
+5. The chosen MCP agent returns a structured result and can checkpoint learnings with `report_from_agent`.
+6. Hosts that cannot send structured arguments may use the isolated `delegate.md`/`result.md` fallback under `~/.konoha/tmp/`.
 
 #### Task lifecycle & Conversation Resumption
 

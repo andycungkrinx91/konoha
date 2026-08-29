@@ -46,16 +46,22 @@ def direct_today(stats):
 def last_logged_agent():
     conn = sqlite3.connect(DB)
     row = conn.execute(
-        "SELECT agent FROM tool_calls ORDER BY id DESC LIMIT 1"
+        "SELECT agent FROM tool_calls WHERE tool = 'find_skill' ORDER BY id DESC LIMIT 1"
     ).fetchone()
     conn.close()
     return (row[0] or "").lower() if row else None
 
 
 def mcp_find_skill_no_agent(keyword):
-    req = {
+    req_init = {
         "jsonrpc": "2.0",
         "id": 1,
+        "method": "initialize",
+        "params": {"protocolVersion": "2024-11-05", "clientInfo": {"name": "test-client"}},
+    }
+    req_call = {
+        "jsonrpc": "2.0",
+        "id": 2,
         "method": "tools/call",
         "params": {
             "name": "find_skill",
@@ -64,10 +70,10 @@ def mcp_find_skill_no_agent(keyword):
     }
     env = os.environ.copy()
     env.pop("ANTIGRAVITY_CONVERSATION_ID", None)
-    env["COMMANDCODE_CLIENT"] = "1"
+    payload = json.dumps(req_init) + "\n" + json.dumps(req_call) + "\n"
     proc = subprocess.run(
         [sys.executable, SERVER],
-        input=json.dumps(req) + "\n",
+        input=payload,
         env=env,
         capture_output=True,
         text=True,

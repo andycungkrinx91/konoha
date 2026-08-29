@@ -23,104 +23,105 @@
   --font-display: "Clash Display", ui-sans-serif, system-ui, sans-serif;
   --radius-card: 1.5rem;
 
-  /* Default Theme: Nebula (purple → indigo) */
-  --color-brand: #7c3aed;
+  /* Default Theme: Nebula (indigo -> cyan) */
+@theme {
+  --color-brand: #4f46e5;
   --color-brand-foreground: #ffffff;
-  --color-accent: #4f46e5;
-  --gradient-primary: linear-gradient(135deg, #7c3aed, #4f46e5, #2563eb);
-  --gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(79, 70, 229, 0.03));
-  --color-glow: rgba(124, 58, 237, 0.15);
-  --color-glow-accent: rgba(79, 70, 229, 0.1);
+  --color-accent: #06b6d4;
+  --gradient-primary: linear-gradient(135deg, #4f46e5, #06b6d4);
+  --gradient-subtle: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(6, 182, 212, 0.03));
+  --color-glow: rgba(79, 70, 229, 0.15);
+  --color-glow-accent: rgba(6, 182, 212, 0.1);
 }
 
-/* Theme 2: Aurora (emerald → cyan) */
+/* Theme 2: Aurora (emerald -> green) */
 [data-theme="aurora"] {
   --color-brand: #059669;
-  --color-accent: #0891b2;
-  --gradient-primary: linear-gradient(135deg, #059669, #0891b2, #0284c7);
-  --gradient-subtle: linear-gradient(135deg, rgba(5, 150, 105, 0.05), rgba(8, 145, 178, 0.03));
+  --color-accent: #10b981;
+  --gradient-primary: linear-gradient(135deg, #059669, #10b981);
+  --gradient-subtle: linear-gradient(135deg, rgba(5, 150, 105, 0.05), rgba(16, 185, 129, 0.03));
   --color-glow: rgba(5, 150, 105, 0.15);
-  --color-glow-accent: rgba(8, 145, 178, 0.1);
+  --color-glow-accent: rgba(16, 185, 129, 0.1);
 }
 
-/* Theme 3: Sunset (rose → amber) */
+/* Theme 3: Sunset (rose -> amber) */
 [data-theme="sunset"] {
   --color-brand: #e11d48;
-  --color-accent: #d97706;
-  --gradient-primary: linear-gradient(135deg, #e11d48, #db2777, #d97706);
-  --gradient-subtle: linear-gradient(135deg, rgba(225, 29, 72, 0.05), rgba(217, 119, 6, 0.03));
+  --color-accent: #f59e0b;
+  --gradient-primary: linear-gradient(135deg, #e11d48, #f59e0b);
+  --gradient-subtle: linear-gradient(135deg, rgba(225, 29, 72, 0.05), rgba(245, 158, 11, 0.03));
   --color-glow: rgba(225, 29, 72, 0.15);
-  --color-glow-accent: rgba(217, 119, 6, 0.1);
+  --color-glow-accent: rgba(245, 158, 11, 0.1);
 }
 
-/* Theme 4: Ocean (blue → teal) */
+/* Theme 4: Ocean (sky -> blue) */
 [data-theme="ocean"] {
-  --color-brand: #2563eb;
-  --color-accent: #0d9488;
-  --gradient-primary: linear-gradient(135deg, #2563eb, #0284c7, #0d9488);
-  --gradient-subtle: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(13, 148, 136, 0.03));
-  --color-glow: rgba(37, 99, 235, 0.15);
-  --color-glow-accent: rgba(13, 148, 136, 0.1);
+  --color-brand: #0284c7;
+  --color-accent: #3b82f6;
+  --gradient-primary: linear-gradient(135deg, #0284c7, #3b82f6);
+  --gradient-subtle: linear-gradient(135deg, rgba(2, 132, 199, 0.05), rgba(59, 130, 246, 0.03));
+  --color-glow: rgba(2, 132, 199, 0.15);
+  --color-glow-accent: rgba(59, 130, 246, 0.1);
 }
 
-/* Theme 5: Matrix (emerald → dark green) */
-[data-theme="matrix"] {
-  --color-brand: #10b981;
-  --color-accent: #065f46;
-  --gradient-primary: linear-gradient(135deg, #10b981, #059669, #064e3b);
-  --gradient-subtle: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(6, 95, 70, 0.03));
-  --color-glow: rgba(16, 185, 129, 0.15);
-  --color-glow-accent: rgba(6, 95, 70, 0.1);
+/* Theme 5: Forest (green -> lime) */
+[data-theme="forest"] {
+  --color-brand: #15803d;
+  --color-accent: #84cc16;
+  --gradient-primary: linear-gradient(135deg, #15803d, #84cc16);
+  --gradient-subtle: linear-gradient(135deg, rgba(21, 128, 61, 0.05), rgba(132, 204, 22, 0.03));
+  --color-glow: rgba(21, 128, 61, 0.15);
+  --color-glow-accent: rgba(132, 204, 22, 0.1);
 }
 
-/* Theme 6: Crimson (red → dark red) */
-[data-theme="crimson"] {
+/* Theme 6: Volcano (red -> orange) */
+[data-theme="volcano"] {
   --color-brand: #dc2626;
-  --color-accent: #7f1d1d;
-  --gradient-primary: linear-gradient(135deg, #dc2626, #b91c1c, #7f1d1d);
-  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(127, 29, 29, 0.03));
+  --color-accent: #ea580c;
+  --gradient-primary: linear-gradient(135deg, #dc2626, #ea580c);
+  --gradient-subtle: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(234, 88, 12, 0.03));
   --color-glow: rgba(220, 38, 38, 0.15);
-  --color-glow-accent: rgba(127, 29, 29, 0.1);
+  --color-glow-accent: rgba(234, 88, 12, 0.1);
 }
 
-/* Theme 7: Cyber (fuchsia → violet) */
-[data-theme="cyber"] {
-  --color-brand: #d946ef;
-  --color-accent: #7c3aed;
-  --gradient-primary: linear-gradient(135deg, #d946ef, #a21caf, #7c3aed);
-  --gradient-subtle: linear-gradient(135deg, rgba(217, 70, 239, 0.05), rgba(124, 58, 237, 0.03));
-  --color-glow: rgba(217, 70, 239, 0.15);
-  --color-glow-accent: rgba(124, 58, 237, 0.1);
+/* Theme 7: Sakura (pink -> rose) */
+[data-theme="sakura"] {
+  --color-brand: #db2777;
+  --color-accent: #f472b6;
+  --gradient-primary: linear-gradient(135deg, #db2777, #f472b6);
+  --gradient-subtle: linear-gradient(135deg, rgba(219, 39, 119, 0.05), rgba(244, 114, 182, 0.03));
+  --color-glow: rgba(219, 39, 119, 0.15);
+  --color-glow-accent: rgba(244, 114, 182, 0.1);
 }
 
-/* Theme 8: Gold (amber → yellow) */
+/* Theme 8: Cyberpunk (violet -> cyan) */
+[data-theme="cyberpunk"] {
+  --color-brand: #7c3aed;
+  --color-accent: #06b6d4;
+  --gradient-primary: linear-gradient(135deg, #7c3aed, #06b6d4);
+  --gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(6, 182, 212, 0.03));
+  --color-glow: rgba(124, 58, 237, 0.15);
+  --color-glow-accent: rgba(6, 182, 212, 0.1);
+}
+
+/* Theme 9: Midnight (slate -> gray) */
+[data-theme="midnight"] {
+  --color-brand: #1e293b;
+  --color-accent: #64748b;
+  --gradient-primary: linear-gradient(135deg, #1e293b, #64748b);
+  --gradient-subtle: linear-gradient(135deg, rgba(30, 41, 59, 0.05), rgba(100, 116, 139, 0.03));
+  --color-glow: rgba(30, 41, 59, 0.15);
+  --color-glow-accent: rgba(100, 116, 139, 0.1);
+}
+
+/* Theme 10: Gold (amber -> yellow) */
 [data-theme="gold"] {
   --color-brand: #d97706;
-  --color-accent: #ca8a04;
-  --gradient-primary: linear-gradient(135deg, #d97706, #ca8a04, #eab308);
-  --gradient-subtle: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(202, 138, 4, 0.03));
+  --color-accent: #f59e0b;
+  --gradient-primary: linear-gradient(135deg, #d97706, #f59e0b);
+  --gradient-subtle: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(245, 158, 11, 0.03));
   --color-glow: rgba(217, 119, 6, 0.15);
-  --color-glow-accent: rgba(202, 138, 4, 0.1);
-}
-
-/* Theme 9: Nordic (slate → charcoal) */
-[data-theme="nordic"] {
-  --color-brand: #475569;
-  --color-accent: #1e293b;
-  --gradient-primary: linear-gradient(135deg, #475569, #334155, #1e293b);
-  --gradient-subtle: linear-gradient(135deg, rgba(71, 85, 105, 0.05), rgba(30, 41, 59, 0.03));
-  --color-glow: rgba(71, 85, 105, 0.15);
-  --color-glow-accent: rgba(30, 41, 59, 0.1);
-}
-
-/* Theme 10: Amethyst (violet → deep purple) */
-[data-theme="amethyst"] {
-  --color-brand: #8b5cf6;
-  --color-accent: #4c1d95;
-  --gradient-primary: linear-gradient(135deg, #8b5cf6, #7c3aed, #4c1d95);
-  --gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(76, 29, 149, 0.03));
-  --color-glow: rgba(139, 92, 246, 0.15);
-  --color-glow-accent: rgba(76, 29, 149, 0.1);
+  --color-glow-accent: rgba(245, 158, 11, 0.1);
 }
 ```
 

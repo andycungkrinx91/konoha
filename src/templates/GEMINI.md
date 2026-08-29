@@ -17,40 +17,15 @@
 5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
 6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
 
-### Image / mockup builds — delegate.md rules (CRITICAL)
+### Website build specifications (CRITICAL)
 
-When the user prompt mentions `source-image-design`, design images, or mockups:
+When the prompt requests a website or UI build:
 
-1. The main agent calls `konoha.build_from_source`(name, source_dir, framework) before writing `delegate.md`.
-2. **Constraints section** MUST include:
-   - `build_from_source` mode: 100% exact match with source mockup layout/colors/spacing — zero hallucination, zero invention
-   - **NO DARK MODE**: All layouts must be Light Mode only unless the source design explicitly uses dark backgrounds
-   - **Premium 3D animations**: Enhance source design with 3D perspective tilt, entrance animations, parallax depth — without altering source layout
-   - **Footer watermark**: `Build by Konoha` in small, elegant, muted typography (always required)
-   - **Custom error pages**: Unique, premium 4xx/5xx error pages with cute 3D illustrations (always required)
-   - **.env safety**: Never hardcode secrets; provide `.env.example`
-   - **Auto-open browser**: Start dev server with `--open` flag
-   - **FORBIDDEN**: 10-theme switcher, generic 3D carousels, SweetAlert2 premium dialogs, or jonin default premium template — unless shown in mockups
-3. **NEVER** paste "Mandatory UI/UX Standards" / premium template bullets from `nextjs-ui-expert` into `delegate.md` for image builds — that causes ugly generic sites instead of mockup fidelity.
-4. **Context** must list `absolute_image_paths` from `build_from_source` and require jonin to `view_file` every mockup before coding.
-
-### Text-based builds — delegate.md rules (CRITICAL)
-
-When the user prompt requests building or scaffolding a website or user interface from text description (and no design mockup images are provided):
-
-1. The main agent MUST call the MCP tool `konoha.build_from_text`(name, description, framework) first before writing `delegate.md`.
-2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
-3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
-4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
-   - NO dark mode — Light Mode only with premium gradient color theme
-   - Premium 3D effect animations on ALL page components
-   - Footer watermark: `Build by Konoha`
-   - Custom premium error pages (4xx/5xx)
-   - Auto-open browser with `--open` flag
-   - 10-Theme Switcher Popup: Floating bottom-right button with 10 Light Mode gradient themes
-   - Sticky Mobile Bottom Navigation Dock with active theme gradient indicators
-   - Full 6-Page Production Application Architecture (Home 3D Carousel, Catalog with 50 items + Live Search + Multi-filter slider, About, Contact, Location Finder, Auth System) implemented in ONE SHOT
-   - .env safety and CVE-free dependencies
+1. Call `konoha.build_from_source(name, source_dir, framework, taste_dials?)` for mockups/reference files, or `konoha.build_from_text(name, description, framework, taste_dials?)` for text-only requests.
+2. Validate the returned specification, including canonical framework, required skills, source metadata, Taste-Skill dials, and `validation_commands`.
+3. Pass the specification to Jonin through structured MCP arguments. These tools are side-effect-free: Jonin creates or updates the project and runs the returned framework-native `pnpm` validation commands.
+4. For source builds, inspect every returned `absolute_image_paths` with approved Konoha file/visual tools and preserve source fidelity. For text builds, apply the returned premium Taste-Skill directives.
+5. Use isolated `delegate.md`/`result.md` artifacts only as a legacy fallback when the host cannot send structured arguments.
 
 ### Existing project rules — delegate.md rules (CRITICAL)
 
@@ -68,47 +43,25 @@ When the user prompt involves modifying or working within an existing project:
 > - The main agent (Antigravity main agent) acts as a coordinator, delegating tasks to ninja agents (defined globally).
 > - Direct Tool Calls in the main agent thread for executing file edits or running commands are strictly prohibited. The main agent must always route and delegate tasks to the specialized ninja agents.
 
-### Website Scaffolding Shortcut (Branch B — TAKES PRIORITY OVER STANDARD FLOW)
+### Website Build Specifications (Branch B — TAKES PRIORITY OVER STANDARD FLOW)
 
-**BEFORE entering the standard delegation flow below**, check if the user's prompt matches **website/UI creation intent** (action verbs like "build", "create", "scaffold", "generate", "make" combined with targets like "website", "web app", "landing page", "UI", "frontend", "site", "e-commerce", "storefront", "portfolio", "dashboard", "app"):
+**BEFORE entering the standard delegation flow below**, classify website/UI creation intent.
 
-1. **If mockup/design images are provided** → Call `konoha.build_from_source(name, source_dir, framework)` FIRST
-2. **If text description only** → Call `konoha.build_from_text(name, description, framework)` FIRST
-3. Write `delegate.md` with the returned directives/constraints
-4. Call `jonin` directly — **SKIP Chunin, Genin, and Kage** (they lose the premium template directives)
-5. After Jonin completes, delegate to `tokubetsu_jonin` for documentation
-6. Output final report to user
-
-> **⚠️ CRITICAL**: Premium design directives from `build_from_text`/`build_from_source` are LOST if routed through the standard Chunin → Genin → Kage pipeline. Always use this shortcut for website builds.
+1. For mockups/reference files, call `konoha.build_from_source(name, source_dir, framework, taste_dials?)` first.
+2. For text-only requests, call `konoha.build_from_text(name, description, framework, taste_dials?)` first.
+3. Validate the returned canonical framework, required skills, Taste-Skill dials, source metadata, and `validation_commands`.
+4. Pass the specification to Jonin through structured MCP arguments. The build tools return specifications only; Jonin creates or updates files and runs framework-native `pnpm` validation.
+5. Use isolated `delegate.md`/`result.md` only as a legacy fallback when the host cannot send structured arguments. Always use this shortcut for website builds.
 
 ### Standard Flow (Branch A — for non-website tasks)
 
 The main agent MUST follow this workflow for bug fixes, features, research, and code changes:
-1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it using the `view_file` tool to retrieve the complete user request/prompt. Rely on this file instead of large chat history inputs to save tokens.
-2. **Find Skill First**: Call `konoha.find_skill` or `optimize_report` using keywords from the user prompt (e.g. "ci/cd security") to discover specific skill reference names (e.g. `anbu-skill/ci-cd-security`). **Do NOT call `semble` tools when locating/searching skills. `semble` is strictly a code search MCP with 2 tools (search, find_related) and has no knowledge of skills, whereas the `konoha` MCP handles all skill lookups.**
-3. **Find Code Context**: If project source code context is needed, call the **`semble` MCP** (`search` or `find_related` tools) directly to locate exact project files before formulating a delegation. Always pass the `repo` parameter with the absolute path to the project directory (e.g. `semble.search(query="...", repo="/path/to/project")`). Do NOT call `konoha.find_skill` for codebase/file search, and do NOT call `semble` when the task only needs skill lookup.
-4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain:
-   - Check the team roster to see if the discovered skill is embedded in the `skills` array of any ninja agent.
-   - If no matching skill is embedded, select the closest matching agent (e.g., framework, architecture, and tool maintenance to `@kage`; backend, script automation, and database to `@anbu`; frontend styling and UI implementation to `@jonin`; documentation to `@tokubetsu-jonin`).
-   - The main agent always delegates the task by preparing a file-based delegation (Step 5) and invoking them (Step 6).
-5. **Prepare File-Based Delegation**: Write a highly structured markdown file containing the subtask parameters to `<appDataDir>/brain/<conversation-id>/scratch/tasks/<task_id>/delegate.md` (where `<task_id>` is a unique task subdirectory). You must embed a sequential loop counter at the very top of `delegate.md` in a YAML metadata block:
-   ```markdown
-   ---
-   depth: <N>
-   ---
-   ```
-   Before writing or updating the new `delegate.md`, read the `depth` metadata from your current incoming `delegate.md` (if you are an agent executing a delegated task) or the target `delegate.md` (if it already exists):
-   - If a depth value `N` is found in either, write the new `delegate.md` with `depth: N + 1`.
-   - Otherwise, initialize it to `depth: 1`.
-   - **Circuit Breaker**: If `depth > 7`, you MUST immediately stop the execution loop, freeze the file state, halt the agent pool, write a circuit breaker warning to `scratch/tasks/<task_id>/result.md`, and prompt the user directly in the chat for human-in-the-loop validation.
-   - **Artifact Metadata**: When writing or updating any file or artifact (including `delegate.md`, `result.md`, etc.), you MUST set `RequestFeedback: false` and `UserFacing: false` in the `ArtifactMetadata` block to prevent user prompt overlays and allow silent background execution.
-   Categorize the main content clearly:
-   - **Goal**: Clear explanation of what needs to be accomplished.
-   - **Context**: Relevant files, code snippets, and background details discovered via `semble`, **and the exact database names of the specific skill references discovered in Step 1 (e.g. `anbu-skill/ci-cd-security`)**.
-   - **Constraints**: Rule constraints and target files.
-6. **Delegate**: Invoke the ninja agent using the TypeName corresponding to the chosen agent (e.g., `anbu`, `genin`, etc.). Pass the absolute paths of `delegate.md` and `result.md` in the agent's prompt. The agent will read `delegate.md` from the absolute path specified in your invocation prompt. **If `delegate.md` specifies exact reference names under Context, the agent MUST immediately load and read those specific reference documents using the MCP tool `konoha.get_skill` (not via direct markdown file reads or view_file of files under .agents/skills/) before starting the task.** After invoking the agent, you MUST immediately end your turn by calling no more tools. Do NOT poll the result file or run loops waiting for completion.
-7. **Await Results**: Read the output from `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/result.md` to finalize the step, report back, and then delete the entire task directory `<appDataDir>/brain/<parent-conversation-id>/scratch/tasks/<task_id>/` to clean up. This cleanup of transient agent scratch folders must be done automatically and silently without asking the user for permission. This resets the depth counter for subsequent tasks.
-8. **Planning-to-File (Thought-to-Markdown)**: When formulating a plan or conducting research, write the detailed analysis, plan, or research details to a markdown file (e.g. `scratch/tasks/<task_id>/plan.md`) and refer to it, keeping the conversation log light and token-efficient.
+1. **Read User Prompt**: Re-evaluate the current prompt and project context on every new or resumed session.
+2. **Find Skill First**: Call `konoha.find_skill` or `optimize_report` using keywords from the user prompt to discover specific skill reference names. Do not call Semble for skills.
+3. **Find Code Context**: If project source code search is needed, call the **`semble` MCP** (`search` or `find_related`) directly with the absolute project repository path.
+4. **Select Agent**: Route to the correct agent dynamically based on the discovered skill or task domain.
+5. **Delegate with structured MCP arguments**: Pass `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` to the matching subagent MCP tool. The build tools return specifications only; Jonin creates or updates files and runs framework-native `pnpm` validation commands. Use an isolated `task_dir` with `delegate.md` and `result.md` only as a legacy fallback when structured arguments are unavailable.
+6. **Report**: Synthesize the structured result and any project-scoped learnings. For the legacy fallback, read `result.md` only from the isolated task directory and clean it afterward.
 
 The main agent ONLY delegates to the defined ninja agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`). Dynamic auto-creation of agents is prohibited.
 

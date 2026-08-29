@@ -44,7 +44,7 @@ Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` bi
 
 | Path | Purpose |
 |------|---------|
-| `~/.cursor/mcp.yaml` | **Backed up** to `mcp.yaml.back` (first install only), then updated with `konoha` + `semble` |
+| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then merged with `konoha` + `semble` while preserving unrelated servers |
 | `~/.agents/skills/` | Canonical agent skill source indexed and served through Konoha FTS5; no Cursor filesystem mirror |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
@@ -64,7 +64,7 @@ konoha test
 konoha status
 ```
 
-Confirm the **Cursor IDE/CLI Integrations** section shows **ACTIVE** for MCP, subagents (6/6), hooks, CLI permissions, and **Cursor skills** (mirrored from `~/.agents/skills/`).
+Confirm the **Cursor IDE/CLI Integrations** section shows **ACTIVE** for MCP, subagents, hooks, CLI permissions, and the indexed skill source. Cursor does not receive a Konoha-managed `.cursor/skills/` mirror.
 
 ## Step 3: Restart Cursor
 
@@ -75,7 +75,7 @@ Close and reopen Cursor (or start a new agent session) so MCP servers reload.
 1. **Orchestrator** (main agent) reads `.cursor/rules/konoha.mdc`.
 2. **Skills first**: Call `konoha.find_skill`.
 3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
-4. **Delegate** via the **MCP tools** served by `konoha` (e.g., `mcp_jonin`, `mcp_anbu`, etc.) passing the `task_dir` parameter. Direct agent delegation structures are not used.
+4. **Delegate** via structured MCP tools served by `konoha` (for example, `delegate_to_jonin` or `delegate_to_anbu`) with task context and Taste-Skill dials. Use `task_dir` only for legacy fallback hosts.
 5. **Skills from MCP**: Konoha keeps `~/.agents/skills/` as the canonical source and indexes it in SQLite. Cursor agents load skill **content** via `konoha` MCP; Konoha does not create `.cursor/skills/` mirrors or symlinks.
 
 ### Default search / grep / find → semble

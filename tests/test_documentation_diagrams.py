@@ -10,7 +10,7 @@ MANIFEST = ROOT / "docs" / "diagrams" / "README.md"
 
 MERMAID_OWNERS = {
     ROOT / "README.md": (2, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
-    ROOT / "docs" / "ARCHITECTURE.md": (3, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
+    ROOT / "docs" / "ARCHITECTURE.md": (6, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
     ROOT / "docs" / "LLM-BRIDGE-GATEWAY.md": (1, {"Konoha Bridge Router", "SQLite", "Antigravity Sidecar"}),
     ROOT / "docs" / "SETUP-SEARXNG.md": (1, {"SearXNG", "DuckDuckGo", "Startpage", "Wikipedia"}),
     ROOT / "docs" / "ADDING-SKILLS.md": (1, {"skills.sh", "konoha migrate", "SQLite", "find_skill", "get_skill"}),
@@ -30,7 +30,7 @@ class TestDocumentationDiagrams(unittest.TestCase):
     def test_drawio_pages_have_valid_cells_and_edges(self):
         root = ET.parse(DIAGRAM).getroot()
         pages = root.findall("diagram")
-        self.assertEqual(len(pages), 8)
+        self.assertEqual(len(pages), 11)
         expected = {
             "01 System Architecture",
             "02 Runtime Query Lifecycle",
@@ -40,6 +40,9 @@ class TestDocumentationDiagrams(unittest.TestCase):
             "06 Skill Registry Installation",
             "07 Token Footprint Comparison",
             "08 Orchestrator Task Artifact Flow",
+            "09 Jonin Taste-Skill Frontend Engine",
+            "10 Persistent Project Context & Auto-Compaction",
+            "11 Kage Pre-Delivery Reviewer Workflow Gate",
         }
         self.assertEqual({page.get("name") for page in pages}, expected)
         for page in pages:

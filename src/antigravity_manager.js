@@ -5,6 +5,7 @@ const { spawnSync } = require('child_process');
 
 // Self-contained: derive paths from HOME rather than importing bin/lib/paths.
 const { buildSubagentContract } = require('./agent_contract');
+const { getRtkCommand, isRtkInstalled } = require('./platform_utils');
 
 const HOME = os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
@@ -172,9 +173,8 @@ function deployAgentsToDir(agents, baseDir) {
 function ensureAntigravityAgents(agents, options = {}) {
   const globalResult = deployAgentsToDir(agents, ANTIGRAVITY_AGENTS_GLOBAL);
 
-  // Deploy to CLI and IDE specific directories as well for full discovery coverage
-  deployAgentsToDir(agents, ANTIGRAVITY_CLI_GLOBAL);
-  deployAgentsToDir(agents, ANTIGRAVITY_IDE_GLOBAL);
+  deployAgentsToDir(agents, path.join(ANTIGRAVITY_CLI_GLOBAL, 'agents'));
+  deployAgentsToDir(agents, path.join(ANTIGRAVITY_IDE_GLOBAL, 'agents'));
 
   let projectResult = null;
   if (options.projectDir) {
@@ -201,8 +201,8 @@ function removeAntigravityAgents() {
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   const dirs = [
     ANTIGRAVITY_AGENTS_GLOBAL,
-    ANTIGRAVITY_CLI_GLOBAL,
-    ANTIGRAVITY_IDE_GLOBAL
+    path.join(ANTIGRAVITY_CLI_GLOBAL, 'agents'),
+    path.join(ANTIGRAVITY_IDE_GLOBAL, 'agents')
   ];
 
   for (const baseDir of dirs) {
@@ -303,15 +303,15 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
 }
 
 function deployAntigravityRtkRule(silent = true) {
-  if (!isRtkInstalled()) {
+  const rtkCmd = getRtkCommand();
+  if (!rtkCmd) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
   try {
-    spawnSync('rtk', ['init', '-g'], {
+    spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      input: 'y\nN\n',
-      stdio: silent ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit']
+      stdio: silent ? 'ignore' : 'inherit'
     });
   } catch {}
   const src = path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
@@ -321,7 +321,9 @@ function deployAntigravityRtkRule(silent = true) {
 
   const targets = [
     path.join(HOME, '.gemini', 'antigravity-cli', 'rules', 'rtk.md'),
-    path.join(HOME, '.gemini', 'antigravity-ide', 'rules', 'rtk.md')
+    path.join(HOME, '.gemini', 'antigravity-ide', 'rules', 'rtk.md'),
+    path.join(HOME, '.agents', 'rules', 'rtk-rules.md'),
+    path.join(HOME, '.agents', 'rules', 'antigravity-rtk-rules.md')
   ];
 
   let deployed = 0;
@@ -428,17 +430,7 @@ function ensureAntigravityMcpSchemas(agents) {
   }
 }
 
-function isRtkInstalled() {
-  try {
-    const res = spawnSync('rtk', ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000
-    });
-    return res.status === 0;
-  } catch {
-    return false;
-  }
-}
+// isRtkInstalled is imported from platform_utils
 
 function refreshRtk(silent = true) {
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';

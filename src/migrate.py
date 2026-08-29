@@ -289,6 +289,7 @@ def setup_db():
             name TEXT PRIMARY KEY,
             icon TEXT,
             title TEXT,
+            model_tier TEXT,
             purpose TEXT,
             skills TEXT,
             delegate_when TEXT,
@@ -297,6 +298,7 @@ def setup_db():
             description TEXT,
             instructions TEXT,
             delegation_keywords TEXT,
+            cursor_fallback_model TEXT,
             enable_mcp_tools INTEGER NOT NULL DEFAULT 1
         );
 

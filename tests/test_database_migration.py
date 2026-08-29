@@ -45,28 +45,21 @@ class TestDatabaseMigration(unittest.TestCase):
         finally:
             conn.close()
 
-    @unittest.skip("migrate.py has syntax error in setup_db")
     def test_migration_execution(self):
-        """Verify that the python migration script executes cleanly by creating a temp database."""
-        if os.path.exists(MIGRATE_SCRIPT):
-            temp_db = "/tmp/konoha-test-migrate.db"
-            if os.path.exists(temp_db):
-                try:
-                    os.remove(temp_db)
-                except:
-                    pass
-            # Run migration on temporary database
+        """Verify that the production migration script executes cleanly in isolation."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_db = os.path.join(tmp, "konoha-test-migrate.db")
+            skills_dir = os.path.join(tmp, "skills", "genin-skill")
+            os.makedirs(skills_dir)
+            with open(os.path.join(skills_dir, "SKILL.md"), "w", encoding="utf-8") as f:
+                f.write("---\nname: genin-skill\ndescription: exploration\n---\n# Scout\n")
             proc = subprocess.run(
-                [sys.executable, MIGRATE_SCRIPT, "--db-path", temp_db],
+                [sys.executable, MIGRATE_SCRIPT, "--db-path", temp_db, "--skills-dir", os.path.dirname(skills_dir), "--require-skill", "genin-skill"],
                 capture_output=True,
                 text=True,
                 timeout=25
             )
-            try:
-                if os.path.exists(temp_db):
-                    os.remove(temp_db)
-            except:
-                pass
             self.assertEqual(proc.returncode, 0, f"Migration script execution failed: {proc.stderr}\nStdout: {proc.stdout}")
 
 if __name__ == "__main__":

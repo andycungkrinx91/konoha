@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const platform = require('./platform_utils');
+const MCP_MANIFEST = require('./mcp_tool_manifest.json');
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
@@ -35,15 +36,15 @@ let workspaceRoot = null;
 
 function getPythonCommand() {
   if (process.env.KONOHA_PYTHON) {
-    return process.env.KONOHA_PYTHON;
+    return platform.normalizeCommand(process.env.KONOHA_PYTHON);
   }
   if (fs.existsSync(PYTHON_CMD_FILE)) {
     const recorded = fs.readFileSync(PYTHON_CMD_FILE, 'utf8').trim();
     if (recorded) {
-      return recorded;
+      return platform.normalizeCommand(recorded);
     }
   }
-  return platform.detectPythonOrDefault();
+  return platform.normalizeCommand(platform.detectPythonOrDefault());
 }
 
 function setWorkspaceRoot(root) {
@@ -106,6 +107,9 @@ function assertWithinAllowed(resolvedPath) {
     path.join(HOME, '.vscode'),
     path.join(HOME, '.openai'),
     path.join(HOME, '.windsurf'),
+    path.join(HOME, '.commandcode'),
+    path.join(HOME, '.opencode'),
+    path.join(HOME, '.config', 'opencode'),
   ].map(d => platform.normPath(d));
   for (const p of SCRATCH_PREFIXES) {
     if (pathNorm === p || pathNorm.startsWith(p + path.sep) || pathNorm.startsWith(p + '/')) {
@@ -145,7 +149,8 @@ function runPythonScript(scriptName, args) {
 
   let result;
   try {
-    result = spawnSync(getPythonCommand(), [scriptPath, JSON.stringify(payload)], {
+    const python = getPythonCommand();
+    result = spawnSync(python.executable, [...python.prefixArgs, scriptPath, JSON.stringify(payload)], {
       encoding: 'utf-8',
       timeout: SCRIPT_TIMEOUT_MS,
       maxBuffer: 1024 * 1024 * 1024
@@ -190,9 +195,9 @@ function formatToolResult(data) {
 }
 
 function readFileRange(args = {}) {
-  const filePath = args.path || args.file_path || args.filepath;
-  const start_line = args.start_line;
-  const end_line = args.end_line;
+  const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
+  const start_line = args.start_line !== undefined ? args.start_line : args.StartLine;
+  const end_line = args.end_line !== undefined ? args.end_line : args.EndLine;
   if (start_line === undefined || end_line === undefined) {
     return { error: 'start_line and end_line are required' };
   }
@@ -205,8 +210,8 @@ function readFileRange(args = {}) {
 }
 
 function readFileHead(args = {}) {
-  const filePath = args.path || args.file_path || args.filepath;
-  const max_lines = args.max_lines;
+  const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
+  const max_lines = args.max_lines !== undefined ? args.max_lines : (args.lines !== undefined ? args.lines : (args.limit !== undefined ? args.limit : args.count));
   const resolved = resolveInputPath(filePath);
   const payload = { path: resolved };
   if (max_lines !== undefined) {
@@ -216,21 +221,22 @@ function readFileHead(args = {}) {
 }
 
 function fileInfo(args = {}) {
-  const filePath = args.path || args.file_path || args.filepath;
+  const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
   const resolved = resolveInputPath(filePath);
   return runPythonScript('file_info.py', { path: resolved });
 }
 
 function tokenEfficientGrep(args = {}) {
-  const { pattern, glob, file_glob, ignore_case, max_matches } = args;
+  const pattern = args.pattern || args.Pattern;
+  const { glob, file_glob, ignore_case, max_matches, CaseInsensitive } = args;
   if (!pattern) {
     return { error: 'pattern is required' };
   }
-  const dirPath = args.dir || args.path || args.file_path || '.';
+  const dirPath = args.dir || args.path || args.file_path || args.directory || args.dir_path || args.DirectoryPath || '.';
   const resolvedDir = resolveInputPath(dirPath);
-  
+
   let finalDir = resolvedDir;
-  let finalGlob = glob || file_glob;
+  let finalGlob = glob || file_glob || args.Glob;
   try {
     const stat = fs.statSync(resolvedDir);
     if (stat.isFile()) {
@@ -244,23 +250,24 @@ function tokenEfficientGrep(args = {}) {
 
   const payload = { pattern, dir: finalDir };
   if (finalGlob) payload.glob = finalGlob;
-  if (ignore_case !== undefined) payload.ignore_case = Boolean(ignore_case);
-  if (max_matches !== undefined) payload.max_matches = Number(max_matches);
+  const effIgnoreCase = ignore_case !== undefined ? ignore_case : CaseInsensitive;
+  if (effIgnoreCase !== undefined) payload.ignore_case = effIgnoreCase;
+  if (max_matches !== undefined) payload.max_matches = max_matches;
   return runPythonScript('token_efficient_grep.py', payload);
 }
 
 function getFileStructure(args = {}) {
-  const filePath = args.path || args.file_path || args.filepath || args.dir_path || args.dir;
+  const filePath = args.path || args.file_path || args.filepath || args.dir_path || args.dir || args.DirectoryPath || '.';
   const resolved = resolveInputPath(filePath);
   return runPythonScript('get_file_structure.py', { path: resolved });
 }
 
 function findFilesClean(args = {}) {
-  const { pattern } = args;
-  const dirPath = args.dir || args.path || args.file_path || '.';
+  const pattern = args.pattern || args.Pattern || '*';
+  const dirPath = args.dir || args.path || args.file_path || args.directory || args.dir_path || args.DirectoryPath || '.';
   const resolvedDir = resolveInputPath(dirPath);
   return runPythonScript('find_files_clean.py', {
-    pattern: pattern || '*',
+    pattern,
     dir: resolvedDir
   });
 }
@@ -273,7 +280,8 @@ function runPythonSkillTool(toolName, args) {
   let result;
   try {
     const timeoutMs = toolName.startsWith('mcp_') ? 600000 : SCRIPT_TIMEOUT_MS; // 10 minutes for subagents
-    result = spawnSync(getPythonCommand(), [serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
+    const python = getPythonCommand();
+    result = spawnSync(python.executable, [...python.prefixArgs, serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
       encoding: 'utf-8',
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024 * 1024
@@ -312,16 +320,133 @@ const TOOL_HANDLERS = {
   chunin: (args) => runPythonSkillTool('chunin', args),
   tokubetsu_jonin: (args) => runPythonSkillTool('tokubetsu_jonin', args),
   genin: (args) => runPythonSkillTool('genin', args),
+  delegate_to_sannin: (args) => runPythonSkillTool('delegate_to_sannin', args),
+  delegate_to_kage: (args) => runPythonSkillTool('delegate_to_kage', args),
+  delegate_to_jonin: (args) => runPythonSkillTool('delegate_to_jonin', args),
+  delegate_to_anbu: (args) => runPythonSkillTool('delegate_to_anbu', args),
+  delegate_to_chunin: (args) => runPythonSkillTool('delegate_to_chunin', args),
+  delegate_to_tokubetsu_jonin: (args) => runPythonSkillTool('delegate_to_tokubetsu_jonin', args),
+  delegate_to_genin: (args) => runPythonSkillTool('delegate_to_genin', args),
+  report_from_agent: (args) => runPythonSkillTool('report_from_agent', args),
+  get_project_context: (args) => runPythonSkillTool('get_project_context', args),
+  save_project_context: (args) => runPythonSkillTool('save_project_context', args),
+  query_project_memory: (args) => runPythonSkillTool('query_project_memory', args),
+  web_search: (args) => runPythonSkillTool('web_search', args),
+  migrate_skills: (args) => runPythonSkillTool('migrate_skills', args),
+  save_persona_memory: (args) => runPythonSkillTool('save_persona_memory', args),
+  query_persona_memory: (args) => runPythonSkillTool('query_persona_memory', args),
+  list_persona_memories: (args) => runPythonSkillTool('list_persona_memories', args),
+  delete_persona_memory: (args) => runPythonSkillTool('delete_persona_memory', args),
   get_resolved_task_dir: (args) => runPythonSkillTool('get_resolved_task_dir', args)
 };
 
-function dispatchTool(name, args) {
+function validateSchemaValue(value, schema, key) {
+  if (schema.type === 'object') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${key} must be an object`);
+    return;
+  }
+  if (schema.type === 'array') {
+    if (!Array.isArray(value)) throw new Error(`${key} must be an array`);
+    if (schema.items) value.forEach((item, index) => validateSchemaValue(item, schema.items, `${key}[${index}]`));
+    return;
+  }
+  if (schema.type === 'number' || schema.type === 'integer') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${key} must be a finite number`);
+    if (schema.integer && !Number.isInteger(value)) throw new Error(`${key} must be an integer`);
+    if (schema.type === 'integer' && !Number.isInteger(value)) throw new Error(`${key} must be an integer`);
+    if (schema.minimum !== undefined && value < schema.minimum) throw new Error(`${key} must be at least ${schema.minimum}`);
+    if (schema.maximum !== undefined && value > schema.maximum) throw new Error(`${key} must be at most ${schema.maximum}`);
+    return;
+  }
+  if (schema.type === 'string') {
+    if (typeof value !== 'string') throw new Error(`${key} must be a string`);
+    if (schema.minLength !== undefined && value.length < schema.minLength) throw new Error(`${key} must not be empty`);
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw new Error(`${key} is too long`);
+    return;
+  }
+  if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error(`${key} must be a boolean`);
+}
+
+const TOOL_SPECIFIC_ALIASES = {
+  read_file_head: { lines: 'max_lines', limit: 'max_lines', count: 'max_lines', FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
+  read_file_range: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', StartLine: 'start_line', EndLine: 'end_line' },
+  file_info: { FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
+  token_efficient_grep: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', Glob: 'glob', file_glob: 'glob', CaseInsensitive: 'ignore_case' },
+  get_file_structure: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir' },
+  find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern' },
+};
+
+const GLOBAL_ALIASES = {
+  filepath: 'file_path',
+  FilePath: 'file_path',
+  Path: 'path',
+  StartLine: 'start_line',
+  EndLine: 'end_line',
+  Pattern: 'pattern',
+  CaseInsensitive: 'ignore_case',
+  Keyword: 'keyword',
+  TasteDials: 'taste_dials',
+  ProjectPath: 'project_path',
+  TaskDir: 'task_dir',
+  AgentName: 'agent_name',
+};
+
+function normalizeToolArguments(name, rawArgs) {
+  if (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs)) return rawArgs;
+  const normalized = { ...rawArgs };
+  const toolAliases = TOOL_SPECIFIC_ALIASES[name] || {};
+  for (const [rawKey, targetKey] of Object.entries(toolAliases)) {
+    if (rawKey in normalized && !(targetKey in normalized)) {
+      normalized[targetKey] = normalized[rawKey];
+      delete normalized[rawKey];
+    }
+  }
+  for (const [rawKey, targetKey] of Object.entries(GLOBAL_ALIASES)) {
+    if (rawKey in normalized && !(targetKey in normalized)) {
+      normalized[targetKey] = normalized[rawKey];
+      delete normalized[rawKey];
+    }
+  }
+  return normalized;
+}
+
+function validateToolArguments(name, args) {
+  const schema = MCP_MANIFEST.tools.find((tool) => tool.name === name)?.inputSchema;
+  if (!schema) throw new Error(`Unknown tool: ${name}`);
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) throw new Error('arguments must be an object');
+  for (const required of schema.required || []) {
+    if (!(required in args)) throw new Error(`${required} is required`);
+  }
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(args)) {
+      if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw new Error(`Unknown argument: ${key}`);
+    }
+  }
+  for (const [key, value] of Object.entries(args)) {
+    const property = schema.properties && schema.properties[key];
+    if (property) {
+      validateSchemaValue(value, property, key);
+      if (property.enum && !property.enum.includes(value)) throw new Error(`${key} must be one of: ${property.enum.join(', ')}`);
+    }
+  }
+  if (schema.anyOf && !schema.anyOf.some((option) => (option.required || []).every((key) => key in args))) {
+    throw new Error('one of the supported path arguments is required');
+  }
+}
+
+function dispatchTool(name, rawArgs) {
+  const args = normalizeToolArguments(name, rawArgs || {});
   const handler = TOOL_HANDLERS[name];
+  try {
+    validateToolArguments(name, args);
+  } catch (err) {
+    return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
+  }
   if (!handler) {
     return { text: JSON.stringify({ error: `Unknown tool: ${name}` }), isError: true };
   }
   try {
-    const result = handler(args || {});
+    const result = handler(args);
     return formatToolResult(result);
   } catch (err) {
     return { text: JSON.stringify({ error: err.message || String(err) }), isError: true };
@@ -329,262 +454,19 @@ function dispatchTool(name, args) {
 }
 
 function listToolSchemas() {
-  return [
-    {
-      name: 'read_file_head',
-      description:
-        'Token-efficient file preview. Reads the first N lines (default 80, max 200) with line numbers. Use before read_file_range to avoid loading large files.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute or workspace-relative file path' },
-          max_lines: { type: 'number', description: 'Lines to read from start (default 80, max 200)' }
-        },
-        required: ['path']
-      }
-    },
-    {
-      name: 'read_file_range',
-      description:
-        'Token-efficient file read. Streams only lines between start_line and end_line (1-indexed) with line numbers. Refuses spans > 500 lines.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute or workspace-relative file path' },
-          start_line: { type: 'number', description: 'First line to read (1-indexed)' },
-          end_line: { type: 'number', description: 'Last line to read (1-indexed, inclusive)' }
-        },
-        required: ['path', 'start_line', 'end_line']
-      }
-    },
-    {
-      name: 'file_info',
-      description:
-        'File metadata without content: size, line count (text files), mtime, extension. Use to plan read_file_range windows and save tokens.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute or workspace-relative file path' }
-        },
-        required: ['path']
-      }
-    },
-    {
-      name: 'token_efficient_grep',
-      description:
-        'Compressed regex search capped at 20 matches (max 50). Output: [relative/path:line] snippet. Skips node_modules, .git, dist, build, venv, lockfiles.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          pattern: { type: 'string', description: 'Python regex pattern' },
-          dir: { type: 'string', description: 'Directory to search (default: workspace root)' },
-          glob: { type: 'string', description: 'Optional filename glob filter (e.g. "*.js")' },
-          ignore_case: { type: 'boolean', description: 'Case-insensitive regex (default false)' },
-          max_matches: { type: 'number', description: 'Match cap (default 20, max 50)' }
-        },
-        required: ['pattern']
-      }
-    },
-    {
-      name: 'get_file_structure',
-      description:
-        'Returns compact class/function signature map for a file (ast for Python, regex for JS/TS and other languages). Omits function bodies to save tokens.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute or workspace-relative file/dir path' },
-          dir: { type: 'string', description: 'Alias for path' },
-          dir_path: { type: 'string', description: 'Alias for path' }
-        }
-      }
-    },
-    {
-      name: 'find_files_clean',
-      description:
-        'Find files by glob pattern under dir. Skips .git, node_modules, dist, build, venv, .venv, and lockfiles. Returns dense JSON { files: [...] }.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          pattern: { type: 'string', description: 'Glob pattern (e.g. "*.py", "**/*.test.js")' },
-          dir: { type: 'string', description: 'Root directory (default: workspace root)' }
-        }
-      }
-    },
-    {
-      name: 'get_resolved_task_dir',
-      description: 'Resolve a transient task directory outside the workspace to avoid accidental git commits. Pass an optional task_dir name, or leave empty for default.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Optional explicit task directory name/ID' }
-        }
-      }
-    },
-    {
-      name: 'find_skill',
-      description: 'Search SQLite FTS5 database for skills matching keyword. Returns top matching skill chunks.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          keyword: { type: 'string', description: 'Search keyword or query string' },
-          limit: { type: 'number', description: 'Maximum number of results to return (default 5, max 10)' },
-          agent: { type: 'string', description: 'Calling subagent name (optional)' },
-          compact: { type: 'boolean', description: 'Return 500-char compact previews (default false)' }
-        },
-        required: ['keyword']
-      }
-    },
-    {
-      name: 'list_skills',
-      description: 'List indexed skill names and metadata from SQLite database.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          agent: { type: 'string', description: 'Calling subagent name (optional)' },
-          fields: { type: 'array', items: { type: 'string' }, description: 'Specific fields to return (optional)' }
-        }
-      }
-    },
-    {
-      name: 'get_skill',
-      description: 'Retrieve full content of a specific skill or reference by exact name.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Exact skill or reference name (e.g. "devsecops-engineer" or "devsecops-engineer/ci-cd-security")' },
-          agent: { type: 'string', description: 'Calling subagent name (optional)' }
-        },
-        required: ['name']
-      }
-    },
-    {
-      name: 'optimize_report',
-      description: 'Analyze token footprint and return token optimization recommendations for skills.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          keyword: { type: 'string', description: 'Skill topic or keyword (optional)' },
-          agent: { type: 'string', description: 'Calling subagent name (optional)' }
-        }
-      }
-    },
-    {
-      name: 'build_with_image_design',
-      description: 'Legacy alias for build_from_source. Builds UI components/apps with 100% exact layout/color match to input mockup images.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Project or component name' },
-          source_dir: { type: 'string', description: 'Directory containing source design mockup images' },
-          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
-        },
-        required: ['name', 'source_dir', 'framework']
-      }
-    },
-    {
-      name: 'build_from_source',
-      description: 'Build UI components/apps with 100% exact layout/color match to input mockup images.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Project or component name' },
-          source_dir: { type: 'string', description: 'Directory containing source design mockup images' },
-          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
-        },
-        required: ['name', 'source_dir', 'framework']
-      }
-    },
-    {
-      name: 'build_from_text',
-      description: 'Scaffold modern UI applications directly from text description using premium design standards.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Project name' },
-          description: { type: 'string', description: 'Text description of desired web application or UI' },
-          framework: { type: 'string', description: 'Target framework (e.g. svelte, nextjs, react)' }
-        },
-        required: ['name', 'description', 'framework']
-      }
-    },
-    {
-      name: 'sannin',
-      description: 'Sannin router agent. Resolves the task prompt, chooses the best subagent to run, and triggers it.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          prompt: { type: 'string', description: 'The task prompt. If not provided, reads from prompt.md in task_dir.' },
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'kage',
-      description: 'Village Leader & Architect subagent. Focuses on architecture decisions, security audits, and critical problem solving.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'jonin',
-      description: 'UI & Frontend Specialist subagent. Focuses on UI components, SvelteKit, Next.js, and visual excellence.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'anbu',
-      description: 'Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'chunin',
-      description: 'Intel & Research subagent. Focuses on web research, documentation lookup, compliance, and evidence synthesis.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'tokubetsu_jonin',
-      description: 'Technical Writer & Scribe subagent. Focuses on README, API specs, diagrams, specs, and documentation.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    },
-    {
-      name: 'genin',
-      description: 'Codebase Scout subagent. Focuses on read-only codebase navigation, symbol tracing, and dependency mapping.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task_dir: { type: 'string', description: 'Task workspace directory.' }
-        }
-      }
-    }
-  ];
+  return MCP_MANIFEST.tools;
 }
 
 function validateInstall() {
   const errors = [];
   if (!fs.existsSync(path.join(__dirname, 'file_tools_mcp.js'))) {
     errors.push('file_tools_mcp.js missing');
+  }
+  if (!fs.existsSync(path.join(__dirname, 'mcp_tool_manifest.json'))) {
+    errors.push('mcp_tool_manifest.json missing');
+  }
+  for (const runtimeFile of ['server.py', 'migrate.py', 'tools_savings_logger.py']) {
+    if (!fs.existsSync(path.join(__dirname, runtimeFile))) errors.push(`${runtimeFile} missing`);
   }
   if (!fs.existsSync(TOOLS_DIR)) {
     errors.push(`file_tools/ directory missing at ${TOOLS_DIR}`);
@@ -613,5 +495,7 @@ module.exports = {
   dispatchTool,
   listToolSchemas,
   validateInstall,
-  TOOL_HANDLERS
+  TOOL_HANDLERS,
+  validateToolArguments,
+  MCP_MANIFEST
 };

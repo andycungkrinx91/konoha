@@ -1,12 +1,12 @@
-# ⚙️ How It Works
+# ⚙️ How It Works: System Architecture & Multi-Archetype Engine
 
 ## Architecture
 
-> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md). Draw.io owns editable geometry; this Mermaid view keeps the same semantic architecture in Markdown.
+> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md).
 
 ```mermaid
 ---
-title: Konoha System Architecture
+title: Konoha System Architecture & Multi-Client Flow
 config:
   theme: base
   themeVariables:
@@ -26,237 +26,80 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    User["End User"] --> Client["Supported Clients<br/>Antigravity CLI / IDE<br/>Claude Code · Cursor<br/>OpenCode · Command Code"]
-    Client --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
+    User["End User Prompt"] --> Clients["5 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code"]
+    Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
-    subgraph Management ["Management and Configuration"]
-        CLI["Konoha CLI"]
-        Config["Client MCP Configurations"]
-        Agents["SQLite agents table"]
-        CLI --> Config
-        CLI --> Agents
+    subgraph CoreMCP ["Konoha MCP & Search Engines"]
+        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search)"]
+        SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
+        SQLiteDB[("SQLite FTS5 Skills DB<br/>~/.konoha/skills.db")]
+        KonohaMCP <--> SQLiteDB
     end
 
-    subgraph Routing ["Orchestration and Specialists"]
-        Sannin["sannin Router"]
-        Ninja["Ninja Agents<br/>genin-skill · kage · chunin<br/>jonin · anbu · tokubetsu-jonin"]
-        Artifacts["Task Artifacts<br/>delegate.md -> result.md"]
-        Orchestrator --> Sannin --> Ninja --> Artifacts
+    subgraph Specialists ["Specialized Subagents (Sannin Router)"]
+        Sannin["✧ sannin (Router)"]
+        Jonin["♦ jonin (Elite Frontend Builder)"]
+        Anbu["♠ anbu (Backend & DevOps)"]
+        Kage["◎ kage (Security & Architecture Gate)"]
+        Genin["⚑ genin (Read-only Code Explorer)"]
+        Chunin["▫ chunin (Research & Web Intel)"]
+        Tokubetsu["⬡ tokubetsu-jonin / tokubetsu_jonin (Technical Documentation)"]
     end
 
-    subgraph Middleware ["MCP Middleware"]
-        Konoha["Konoha MCP<br/>find_skill · get_skill<br/>memory · bounded file tools"]
-        Semble["Semble MCP<br/>search · find_related"]
+    subgraph UniversalInvariants ["Universal Website Archetypes & Layout Engine"]
+        Archetypes["Archetypes Engine<br/>E-commerce · Admin Dashboard · Metric Infra<br/>Portfolio · SaaS / Landing · Company Profile · Docs"]
+        Invariants["Layout Invariants<br/>• Far-Left Brand Logo (0 Mobile Header Toggle)<br/>• Floating Bottom-Left 10-Theme FAB Modal<br/>• Archetype-Adaptive Fixed Bottom MobileDock<br/>• 4-Slide Hero Autoplay Carousel<br/>• Admin/Infra Fixed Left Sidebar (w-64)"]
+        SSRSafety["SSR & Hydration Safety<br/>• Next.js: useMounted() Guard<br/>• Svelte 5: $effect / onMount<br/>• Nuxt 3: onMounted() / <ClientOnly><br/>• Angular: afterNextRender"]
     end
 
-    subgraph Persistence ["Persistence and Workspace"]
-        DB["SQLite skills.db<br/>skills · agents · bridges<br/>memories · telemetry"]
-        FTS["SQLite FTS5<br/>BM25 index"]
-        Codebase["Workspace Files"]
-        DB <--> FTS
-    end
-
-    Client --> Config
-    Orchestrator --> Agents
-    Ninja --> Konoha
-    Ninja --> Semble
-    Konoha --> DB
-    Konoha --> Codebase
-    Semble --> Codebase
-
-    classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
-    classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
-    classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
-    classDef persistence fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px
-    class User,Client,Config client
-    class Orchestrator,Sannin,Ninja,Artifacts orchestration
-    class Konoha,Semble mcp
-    class DB,FTS,Codebase,Agents persistence
+    Orchestrator --> KonohaMCP
+    Orchestrator --> SembleMCP
+    KonohaMCP --> Sannin
+    Sannin --> Specialists
+    Specialists --> UniversalInvariants
 ```
 
-> **Legend** — 🔵 Presentation (Antigravity CLI/IDE, Claude Code, Cursor, OpenCode, Command Code) &nbsp;|&nbsp; ⚫ Orchestration &nbsp;|&nbsp; 🟣 Skill references &nbsp;|&nbsp; 🟢 konoha MCP &nbsp;|&nbsp; 🩵 Semble MCP &nbsp;|&nbsp; 🟠 Persistence
->
-> In v2.0.0, Konoha supports **five client families** (Antigravity CLI/IDE, Cursor, Claude Code, OpenCode, and Command Code). All detected clients share the same MCP stack (`konoha` + `semble`) and seven ninja subagents, with client-specific config auto-deployed on `konoha init`. SQLite FTS5 stores skills, agents, bridges, tool telemetry, and active sessions in `~/.konoha/skills.db`.
->
-> **Orchestration model:** The orchestrator runs as the primary thread and coordinates tasks by delegating to specialized konoha subagents. All subagent delegation goes through the `sannin` (Village Elder) MCP tool, which intelligently routes tasks to backend MCP agents (e.g. `kage`, `jonin`). Custom IDE-native agents and hook-based translations are no longer used.
-
-## Query Lifecycle
-
-> **Canonical editable diagram:** [02 Runtime Query Lifecycle](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md). The lifecycle separates the primary orchestrator, `sannin`, selected ninja agent, Konoha MCP, and Semble MCP.
-
-```mermaid
 ---
-title: Runtime Query Lifecycle
-config:
-  theme: base
-  themeVariables:
-    background: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#64748b'
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
-  sequence:
-    useMaxWidth: false
-    wrap: true
-    width: 220
-    height: 60
-    actorMargin: 70
-    messageMargin: 45
+
+## 🛠️ Canonical Konoha MCP Tools Matrix
+
+| Tool Category | Registered Tools | Description |
+| :--- | :--- | :--- |
+| **Skill Discovery & Loading** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient skill ingestion. |
+| **Autonomous Website Builders** | `build_from_text`, `build_from_source`, `build_with_image_design` | Side-effect-free structured specifications for multi-archetype website generation. |
+| **Intel & Web Search** | `web_search` | Real-time web evidence gathering and documentation lookups. |
+| **Specialist Delegation Subagents** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin` (or `tokubetsu-jonin`), `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
+| **Bounded File Operations** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
+
 ---
-sequenceDiagram
-    autonumber
-    actor User
-    participant Client as Supported Client
-    participant Orchestrator as Primary Orchestrator
-    participant Konoha as Konoha MCP
-    participant DB as SQLite FTS5
-    participant Semble as Semble MCP
-    participant Agent as Selected Ninja Agent
-    participant Task as Task Artifacts
 
-    User->>Client: Prompt or resume conversation
-    Client->>Orchestrator: Load task specification
-    Orchestrator->>Konoha: find_skill(keyword)
-    Konoha->>DB: FTS5 ranked lookup
-    DB-->>Konoha: Relevant skill preview
-    Konoha-->>Orchestrator: Skill matches
-    Orchestrator->>Konoha: get_skill(canonical name)
-    Konoha-->>Orchestrator: Full skill content
-    Orchestrator->>Semble: search / find_related
-    Semble-->>Orchestrator: Code context and targets
-    Orchestrator->>Task: Write delegate.md
-    Orchestrator->>Agent: Delegate task through sannin
-    Agent->>Task: Write result.md
-    Task-->>Orchestrator: Completed findings
-    Orchestrator-->>Client: Synthesized response
-    Client-->>User: Final answer
-```
+## 🏗️ Multi-Archetype Website Builder Specifications
 
-## Forced MCP Usage & Delegation Policy
+Konoha features an autonomous multi-archetype generator (`konoha.build_from_text` and `konoha.build_from_source`) that crafts production-grade applications across 4 major frameworks:
 
-**ABSOLUTE RULE:** All non-trivial work MUST go through the **konoha MCP** and **semble MCP** tools — never execute tasks solo, never bypass the agent delegation workflow.
+1. **Next.js 16 (React 19, Tailwind CSS v4)**
+2. **SvelteKit 2 (Svelte 5 Runes, Tailwind CSS)**
+3. **Nuxt 3 (Vue 3 Composition API, Tailwind CSS)**
+4. **Angular v19+ (Standalone Components, Signals)**
 
-- **Skill discovery**: Always via `konoha` MCP (`find_skill`, `get_skill`, `list_skills`, `optimize_report`). Never use `semble` for skills.
-- **Codebase search**: Always via `semble` MCP (`search`, `find_related`). Never use `grep`, `rg`, `find`, `glob`, or generic `Read`/`Grep` tools for code discovery.
-- **Conversation Resume / Multi-Turn Protocol**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute the `mcp_<agentname>` delegation workflow via the `konoha` MCP. ALWAYS use the `semble` MCP for code search, and ALWAYS adhere to the RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
-- **File reads & builds**: Always via `konoha` MCP (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`, `build_with_image_design`, `build_from_source`, `build_from_text`, `web_search`). Use Semble MCP (`search`, `find_related`) for code discovery. Never use shell `cat`/`head`/`tail`/`less` or generic Read/Grep tools.
-- **Non-trivial delegation**: Any task that requires code changes, multi-step planning, or specialized expertise MUST be delegated to a konoha subagent by calling their official MCP tool:
-  - `genin` (`@genin`) — codebase search, tracing codepaths, read-only exploration
-  - `kage` (`@kage`) — architecture decisions, security review, deep analysis, risk assessment, diagrams (`drawio`, `mermaid`)
-  - `chunin` (`@chunin`) — web research (`web_search`), documentation synthesis, citation-backed recommendations
-  - `jonin` (`@jonin`) — UI/frontend development (SvelteKit, Next.js, Tailwind), design match (`build_from_source`, `build_from_text`)
-  - `anbu` (`@anbu`) — backend dev, bug fixing, DevOps, infrastructure, messaging/caching (`kafka`, `redis`, `nginx`), cyber defense, prompt engineering
-  - `tokubetsu_jonin` (`@tokubetsu-jonin`) — technical writing, documentation, API specs, PDF reports (`pdf`), postmortems/RCA (`postmortem-writer`), technical articles (`technical-article-writer`)
+### 📐 Archetype Directory Matrix
 
-**The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** The only exception is simple/trivial tasks (single read/edit on a known file) which may be executed directly.
+| Archetype | Key Structural Invariants | Target Scenarios |
+| :--- | :--- | :--- |
+| **Admin & Infra Dashboard** | Fixed Left Sidebar (`w-64`) on desktop + Top Header bar + Bottom MobileDock | Cloud monitoring, K8s cluster management, user management, metrics telemetry |
+| **Portfolio / Personal** | Far-left logo sticky header + Projects Bento grid + Skills matrix + Contact form | Software engineers, cloud architects, designers, consultants |
+| **SaaS & Landing Page** | High-impact hero + Bento features + Monthly/Annual pricing switcher + Testimonials | SaaS startups, developer tools, waitlists, app launches |
+| **Company Profile** | Mission hero carousel + Team leadership grid + Services tabs + Office locations | Corporate businesses, digital agencies, consulting firms |
+| **E-Commerce** | 4-slide 3D hero carousel + 50-item catalog + Faceted filters + Slide-over cart drawer | Retail storefronts, brand merchandise, digital product stores |
+| **Documentation** | 3-column layout (Left Sidebar Nav, Center Markdown Content, Right TOC) | Open-source libraries, API specifications, technical handbooks |
 
-## Recent Architectural Improvements
-
-### 1. 1GB Node.js `spawnSync` Memory Buffer
-To prevent `ENOBUFS` errors when delegating to subagents (like `jonin`) with massive payloads (e.g., 10,000+ line architecture rules), the `maxBuffer` across all MCP tool `spawnSync` executions in `file_tools_router.js` was permanently increased from 16MB/64MB to **1GB**.
-
-### 2. Direct Semble Code Search
-Code discovery is delegated directly to the Semble MCP server through its `search` and `find_related` tools. Konoha does not expose a duplicate semantic-search wrapper; its file-tools MCP is reserved for bounded reads, metadata, structure, and capped text matching.
-
-### 3. Cross-Platform Install Support (v2.0.0+)
-- **Node.js version-agnostic**: Konoha works across supported Node.js versions (v18+); project package operations use `pnpm`.
-- **Python detection**: `platform_utils.js` detects Python on Windows (`py -3`, `python`), macOS (`python3`, `python`), and Linux (`python3`, `python`).
-- **Path handling**: All paths use `path.join()` and `path.normalize()` for cross-platform compatibility.
-- **nvm support**: Works with nvm on Linux, macOS, and Windows (nvm-windows).
-- **Cross-platform launchers**: `file_tools_launcher.js` and `file_tools_router.js` use `platform_utils.js` for all OS-specific operations.
-
-### 4. MCP Alias Architecture
-Subagents (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) are now inline persona-injection aliases served by the konoha MCP server. When called, they return the agent's persona, system prompt, and embedded skills as tool response text — the orchestrator then roleplays as that agent in the current thread. No real background subagents are spawned.
-
-
-
-## 🛡️ MCP Tooling & Agent Skill Routing Architecture
-
-> **Canonical editable diagram:** [03 MCP Tool and Skill Routing](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md).
-
-```mermaid
 ---
-title: MCP Tool and Skill Routing
-config:
-  theme: base
-  themeVariables:
-    background: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#4c1d95'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#64748b'
-    secondaryColor: '#d1fae5'
-    tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
-  flowchart:
-    nodeSpacing: 45
-    rankSpacing: 55
-    padding: 24
-    wrappingWidth: 380
----
-flowchart TB
-    Prompt["Task Input"] --> Sannin["sannin Router<br/>(MCP Orchestrator)"]
 
-    subgraph Builders ["Website Builders"]
-        BuildText["build_from_text"]
-        BuildSource["build_from_source"]
-    end
+## 🛡️ Quality & Verification Gates
 
-    subgraph Ninjas ["Specialist Ninja Agents"]
-        Genin["genin / genin-skill"]
-        Kage["kage / kage-skill"]
-        Jonin["jonin / jonin-skill"]
-        Anbu["anbu / anbu-skill"]
-        Chunin["chunin / chunin-skill"]
-        Toku["tokubetsu-jonin<br/>tokubetsu-jonin-skill"]
-    end
-
-    subgraph Runtime ["MCP Runtime"]
-        Konoha["Konoha MCP<br/>find_skill · get_skill · memory"]
-        Semble["Semble MCP<br/>search · find_related"]
-    end
-
-    Sannin --> Builders
-    Sannin --> Ninjas
-    Ninjas --> Runtime
-
-    classDef route fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
-    classDef build fill:#fef3c7,stroke:#d97706,color:#78350f
-    classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
-    class Prompt,Sannin route
-    class Genin,Kage,Jonin,Anbu,Chunin,Toku route
-    class BuildText,BuildSource build
-    class Konoha,Semble mcp
-```
-
-### System Health & Buffer Specifications
-- **Node.js `maxBuffer`**: 1GB (`1024 * 1024 * 1024`) across all router process spawns (`file_tools_router.js`) to accommodate massive prompt payloads.
-- **Port 19999 Bridge Gateway**: Local HTTP proxy gateway running on port 19999 for local model orchestration. Port collisions resolved via `fuser -k 19999/tcp`.
-- **Full E2E MCP Test Suite**: 21/21 exported MCP tools verified via `tests/test_mcp_e2e.js`.
-
-### Circuit Breaker Subsystem (`src/circuit_breaker.py`)
-- **State Machine**: Thread-safe `CircuitBreaker` with `CLOSED`, `OPEN`, and `HALF_OPEN` states.
-- **SearXNG Instance Fast-Fail**: Trips to `OPEN` upon consecutive timeout or HTTP errors, preventing latency cascades and immediately routing queries to healthy instances or Wikipedia fallback.
-- **Registry**: `CircuitBreakerRegistry` maintains named breakers per instance/host with automatic recovery timeouts.
-
-### Persona Memory & Persistence Subsystem (`src/persona_memory.py`)
-- **Embedding-Free Design**: Stores agent rules, preferences, and episodic learnings directly in SQLite (`persona_memories` table) without remote embedding dependencies or vector API costs.
-- **SQLite FTS5 Full-Text Index**: Virtual table `persona_memories_fts` provides sub-millisecond keyword and BM25-ranked retrieval.
-- **Dynamic Prompt Injection**: `run_mcp_agent` dynamically queries relevant persona memories based on task instructions and injects `### Agent Persona Memory & Learned Rules` into the subagent prompt.
-- **`konoha data` CLI Integration**: Full CRUD and export management via `konoha data memory`, `konoha data add`, `konoha data search`, `konoha data delete`, and `konoha data export`.
-
-
-
-## Konoha Design System
-
-Konoha implements a unified, premium design system across all supported web frameworks (Next.js, SvelteKit, Nuxt, Angular).
-
-### Architecture
-- **Exclusive Entry Point**: The design system directives are injected *exclusively* via the `build_from_text` MCP tool in `src/server.py`. (They are not used in `build_from_source`, which relies on pixel-perfect matching of user-provided mockups).
-- **Design Token Manifest**: Common CSS variables (`--color-bg`, `--color-accent`, etc.) and typography (DM Sans, Roboto) ensure a consistent, premium feel.
-- **Framework Skill References**: Each framework has a dedicated markdown reference file in `.agents/skills/jonin-skill/references/` detailing its specific implementation of the design system components (e.g., `nextjs-ui-expert.md`, `svelte-ui-expert.md`).
-- **Mandatory Preserved Components**: Every generated application includes non-negotiable features:
-  1. **10-Theme Switcher**: Fixed bottom-left popup with 10 gradient Light Mode themes.
-  2. **Sticky Mobile Bottom Dock**: The sole navigation paradigm for mobile devices (no hamburger menus), featuring active accent indicators.
+1. **Kage Reviewer 90% Minimum Confidence Gate**:
+   - Every task is reviewed by `kage` for structural integrity, zero hallucination, and security compliance.
+2. **Zero Errors & Zero Warnings**:
+   - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` to complete with 0 errors and 0 warnings.
+3. **Auto-Compaction & Memory Continuity**:
+   - High-Efficiency Auto-Compaction preserves token quota across multi-turn sessions.

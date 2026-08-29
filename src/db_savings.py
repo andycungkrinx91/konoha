@@ -27,63 +27,51 @@ def parse_iso_datetime(dt_str):
             continue
     return None
 
-def calculate_model_tokens(time_filter=None):
-    """Scan all transcript files to calculate generated content and thought tokens and their USD costs for a period."""
+def calculate_all_model_tokens():
+    """Scan transcript files once to calculate generated content and thought tokens and USD costs for today, 7days, and alltime."""
     brain_dirs = [
         os.path.expanduser("~/.gemini/antigravity-cli/brain"),
         os.path.expanduser("~/.gemini/antigravity-ide/brain")
     ]
     patterns = [os.path.join(bd, "*", ".system_generated", "logs", "transcript.jsonl") for bd in brain_dirs]
-    
-    total_content_chars = 0
-    total_thought_chars = 0
-    
+
+    now = datetime.now()
+    cutoff_today = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
+    cutoff_7days = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
+
     flash_out_rate = 0.30 / 1000000
     pro_out_rate = 5.00 / 1000000
-    total_output_cost = 0.0
-    
-    cutoff_dt = None
-    if time_filter == "today":
-        cutoff_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
-    elif time_filter == "7days":
-        cutoff_dt = (datetime.now() - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
-        
+
+    metrics = {
+        "today": {"content_chars": 0, "thought_chars": 0, "cost": 0.0},
+        "7days": {"content_chars": 0, "thought_chars": 0, "cost": 0.0},
+        "all": {"content_chars": 0, "thought_chars": 0, "cost": 0.0},
+    }
+
     all_paths = []
     for pattern in patterns:
         all_paths.extend(glob.glob(pattern, recursive=True))
-        
+
     for path in all_paths:
         if not os.path.exists(path):
             continue
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
-                    if not line.strip():
+                    if not line.strip() or '"source":"MODEL"' not in line:
                         continue
                     try:
                         record = json.loads(line)
                         if record.get("source") == "MODEL" and record.get("type") == "PLANNER_RESPONSE":
                             created_at_str = record.get("created_at")
-                            if cutoff_dt:
-                                if not created_at_str:
-                                    continue
-                                dt = parse_iso_datetime(created_at_str)
-                                if dt is None or dt < cutoff_dt:
-                                    continue
+                            dt = parse_iso_datetime(created_at_str)
 
                             content = record.get("content") or ""
                             thinking = record.get("thinking") or ""
-                            
                             content_len = len(content)
                             thinking_len = len(thinking)
-                            
-                            total_content_chars += content_len
-                            total_thought_chars += thinking_len
-                            
-                            content_tokens = content_len / 4.0
-                            thinking_tokens = thinking_len / 4.0
-                            total_turn_out_tokens = content_tokens + thinking_tokens
-                            
+                            total_turn_out_tokens = (content_len + thinking_len) / 4.0
+
                             is_pro = True
                             lower_content = content.lower()
                             if "genin" in lower_content or "chunin" in lower_content or "tokubetsu" in lower_content or "jonin" in lower_content:
@@ -93,21 +81,35 @@ def calculate_model_tokens(time_filter=None):
                             else:
                                 if "genin" in path.lower() or "chunin" in path.lower() or "tokubetsu" in path.lower() or "jonin" in path.lower():
                                     is_pro = False
-                                    
+
                             rate = pro_out_rate if is_pro else flash_out_rate
-                            total_output_cost += total_turn_out_tokens * rate
+                            cost = total_turn_out_tokens * rate
+
+                            metrics["all"]["content_chars"] += content_len
+                            metrics["all"]["thought_chars"] += thinking_len
+                            metrics["all"]["cost"] += cost
+
+                            if dt and dt >= cutoff_7days:
+                                metrics["7days"]["content_chars"] += content_len
+                                metrics["7days"]["thought_chars"] += thinking_len
+                                metrics["7days"]["cost"] += cost
+
+                            if dt and dt >= cutoff_today:
+                                metrics["today"]["content_chars"] += content_len
+                                metrics["today"]["thought_chars"] += thinking_len
+                                metrics["today"]["cost"] += cost
                     except Exception:
                         pass
         except Exception:
             pass
-            
-    content_tokens = int(total_content_chars / 4)
-    thought_tokens = int(total_thought_chars / 4)
-    
+
     return {
-        "content_tokens": content_tokens,
-        "thought_tokens": thought_tokens,
-        "output_cost_usd": total_output_cost
+        key: {
+            "content_tokens": int(metrics[key]["content_chars"] / 4),
+            "thought_tokens": int(metrics[key]["thought_chars"] / 4),
+            "output_cost_usd": metrics[key]["cost"]
+        }
+        for key in ("today", "7days", "all")
     }
 
 def query_input_savings_cost(conn, time_filter=None):
@@ -143,7 +145,7 @@ def query_input_savings_cost(conn, time_filter=None):
         
     return total_saved_usd
 
-def query_stats(conn, time_filter=None):
+def query_stats(conn, time_filter=None, model_tokens=None):
     """Query statistics based on a SQL time filter."""
     where_clause = ""
     if time_filter is None or time_filter == "all":
@@ -174,7 +176,7 @@ def query_stats(conn, time_filter=None):
     pct = round((row[1] / total_bytes * 100)) if total_bytes > 0 else 0
 
     saved_usd = query_input_savings_cost(conn, time_filter)
-    out_stats = calculate_model_tokens(time_filter)
+    out_stats = model_tokens if model_tokens else {"content_tokens": 0, "thought_tokens": 0, "output_cost_usd": 0.0}
     net_saved_usd = max(0.0, saved_usd - out_stats["output_cost_usd"])
     
     # Query client breakdown
@@ -266,9 +268,10 @@ try:
 
     sanitize_legacy_records(conn)
 
-    stats_today = query_stats(conn, "today")
-    stats_7days = query_stats(conn, "7days")
-    stats_all = query_stats(conn, "all")
+    all_model_tokens = calculate_all_model_tokens()
+    stats_today = query_stats(conn, "today", all_model_tokens.get("today"))
+    stats_7days = query_stats(conn, "7days", all_model_tokens.get("7days"))
+    stats_all = query_stats(conn, "all", all_model_tokens.get("all"))
     
     # Query tool call breakdown by type
     def query_by_call_type(c):

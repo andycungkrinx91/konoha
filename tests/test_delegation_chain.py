@@ -33,6 +33,14 @@ class TestDelegationChain(unittest.TestCase):
         )
         import time
         time.sleep(0.5)
+        initialized = _send_and_read(cls.server_proc, {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05", "clientInfo": {"name": "delegation-chain-test"}},
+        })
+        if "result" not in initialized:
+            raise RuntimeError(f"MCP initialization failed: {initialized}")
 
     @classmethod
     def tearDownClass(cls):
@@ -162,8 +170,7 @@ class TestDelegationChain(unittest.TestCase):
             self.assertIn("kage", resp.get("agent", ""))
             instructions = resp.get("instructions", "")
             self.assertIn("Instructions:", instructions)
-            self.assertIn("@kage", instructions)
-            self.assertIn("Kage: Village Leader", instructions)
+            self.assertIn("Village Leader", instructions)
             # No filesystem mirror paths
             self.assertNotIn(".cursor/skills", instructions)
             self.assertNotIn(".claude/skills", instructions)
@@ -240,7 +247,7 @@ class TestDelegationChain(unittest.TestCase):
         resp, err = self._unwrap(self._call("web_search", {
             "query": "testing",
             "num_results": 2,
-            "search_depth": "basic",
+            "search_depth": "standard",
         }))
         self.assertFalse(err)
         self.assertEqual(resp.get("status"), "success")

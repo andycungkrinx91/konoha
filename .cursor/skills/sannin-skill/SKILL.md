@@ -17,10 +17,21 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 
 In the 8-phase Konoha workflow, Sannin serves a dual role:
 
-- **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `mcp_sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
+- **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
 - **Phase 7: synthesize**: After `document` completes, the orchestrator dispatches sannin to read all phase outputs (`result.md`, `plan.md`, `delegate.md` from each phase) and synthesize them into a cohesive `final_report.md`. Sannin returns this final report to the caller and the workflow advances to `done`.
 
 ## The Orchestration Pipeline
+
+The Konoha maintenance workflow uses six sequential steps:
+
+1. **Step 1: Deep Research (Chunin)**
+2. **Step 2: Code Exploration (Genin)**
+3. **Step 3: Architecture & Planning (Kage)**
+4. **Step 4: Execution**
+5. **Step 5: Documentation & Refinement (Tokubetsu-Jonin)**
+6. **Step 6: Final Report (Sannin)**
+
+Structured delegation is the primary path. Legacy task artifacts remain a compatibility fallback.
 
 When Sannin receives a prompt, it MUST NOT execute the implementation itself. Instead, it MUST orchestrate the workflow by delegating to the appropriate subagents via their `mcp_<agentname>` tools. Sannin waits for each agent to report back via `result.md` before proceeding to the next step.
 
@@ -42,16 +53,10 @@ Before entering any pipeline branch, you MUST classify the user's request to det
 
 > **⚠️ CRITICAL**: If classified as BRANCH B, you MUST jump directly to the BRANCH B section below. Do NOT enter BRANCH A steps (Chunin, Genin, Kage). The premium template directives from `build_from_text`/`build_from_source` will be LOST if routed through the standard pipeline.
 
-**BRANCH B: WEBSITE SCAFFOLDING REQUESTS** — SKIP Chunin, Genin, Kage:
-1. Call `konoha.build_from_text(name, description, framework)` or `konoha.build_from_source(name, source_dir, framework)`
-2. Write `delegate.md` with returned directives as constraints
-3. Call `mcp_jonin` directly
-4. After Jonin completes, call `mcp_tokubetsu_jonin` for documentation
-5. Output final report
-
-**BRANCH A: STANDARD REQUESTS** — Full sequential pipeline (Chunin → Genin → Kage → Executor → TJ)
-
 ---
+
+**BRANCH A: STANDARD REQUESTS** (Bug fixes, new features, research, code exploration)
+You MUST follow this exact sequential workflow:
 
 > [!NOTE]
 > **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
@@ -62,7 +67,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 
 | If the task involves... | Route to |
 |---|---|
-| Codebase exploration, tracing code paths | `@mcp_genin` |
+| Codebase exploration, tracing code paths | `@genin` |
 | Architecture decisions, security audits | `@mcp_Kage` |
 | Web research, documentation lookup | `@mcp_Chunin` |
 | UI/frontend development, building websites, e-commerce, Next.js/Svelte UIs | `@mcp_Jonin` (load `jonin-skill` & use `pnpm`) |
@@ -77,7 +82,6 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 5. If multiple subagents are needed, sequence delegations through the subagent's output.
 
 ## SOP 2: Conversation Resume & Multi-Turn Delegation
-1. When resuming a conversation or processing a follow-up turn in Antigravity, Claude Code, or Cursor:
 2. Re-read the latest user prompt or context (using `konoha` MCP `read_file_head`/`read_file_range` if `prompt.md` exists).
 3. Always re-evaluate the target task domain and write a fresh `delegate.md`.
 4. Trigger the target `mcp_<agentname>` workflow tool. NEVER skip subagent delegation when resuming a conversation.
@@ -86,7 +90,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 1. When prompt requests building/scaffolding a website, web app, e-commerce site, Next.js, or Svelte UI:
 2. Call `konoha.build_from_text` (or `konoha.build_from_source` for mockups) first.
 3. Pass `jonin-skill` in required skills and mandate `pnpm` (never `npm` or standalone `npx`) in `delegate.md`.
-4. Delegate execution to `@mcp_jonin`.
+4. Delegate execution to `@jonin`.
 
 ## SOP 4: Project-Local Knowledge & Skills Discovery
 1. Before writing `delegate.md`, inspect the target workspace for project-local knowledge files (`README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and project-local skills in `.agents/skills`, `.cursor/skills`, `skills/`, `.skills/`, `docs/skills/`).

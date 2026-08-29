@@ -15,9 +15,14 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Kage age
 
 ## Workflow Role
 
-In the 8-phase Konoha workflow, Kage handles **Phase 3: plan** (and Phase 4 re-plan). The orchestrator dispatches the kage MCP agent after `explore` (genin). Kage produces architecture decisions, trade-off matrices, `plan_tasks`, and flags (`needs_research`, `needs_replan`) on `plan.md`. If `needs_research` is true, the orchestrator advances to `research` (chunin) and later returns to `plan` for kage to absorb the external evidence.
+In the Konoha workflow, Kage owns architecture planning, research re-planning, and the mandatory post-execution review gate. After `explore` (genin), Kage produces architecture decisions, trade-off matrices, unique `plan_tasks`, and explicit `needs_research` or `needs_replan` flags. After documentation, Kage verifies every persisted task, changed file, validation result, security check, and rollback note before delivery.
 
-If `needs_replan=True` from the chunin research cycle, kage re-evaluates the plan and may issue new `plan_tasks` or clear the research flag before the workflow proceeds to `execute`.
+A Kage review must write a structured approval artifact (`kage_review.json`):
+- **Minimum 90% Confidence Threshold**: Kage assesses overall execution confidence (0–100%). If `confidence < 90%`, `approved: false`, missing task evidence, or failed validation exists, delivery is BLOCKED. Sannin MUST NOT deliver the result to the user, but instead re-delegate the missing/failing items to the appropriate executor until ≥ 90% confidence is achieved.
+- **Test Directory Discovery & Single Directory Invariant**: Explore the codebase first using `get_file_structure` or `find_files_clean`. If an existing test directory exists (e.g. `tests/`, `test/`, `spec/`), ALWAYS place test files within that existing folder. NEVER create duplicate or conflicting test directories.
+- **Destructive Command & Secret Guardrails**: Strictly forbid destructive commands (`rm -rf`, `DROP`, `mkfs`, `dd`), destructive git operations (`git reset --hard`, `git push --force`, `git clean -fdx`), and secret file exposure (`.env*`, `secrets.yaml`, `*.tfvars`, private keys) without explicit user permission.
+- **Post-Approval Cleanup Gate**: All temporary debug scripts (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) must be removed upon final approval so the repository remains production-clean.
+- **Standard Final Delivery Report Format**: Every final response and delivery report MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence %, structured breakdown table covering `Verification Category`, `Target`, `Evaluated Result`, `Category Confidence`, and `Status`, followed by the overall confidence verdict).
 
 > [!NOTE]
 > **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.

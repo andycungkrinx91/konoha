@@ -387,8 +387,10 @@ class TestWorkflowLoop(unittest.TestCase):
                 },
                 "history": [],
             }, f)
-        # Write plan, findings, etc. so synthesis has full context
+        # Write plan, findings, and explicit Kage approval so synthesis can proceed.
         self._write_findings(task, "# Findings\n\nMapped.\n")
+        with open(os.path.join(task, "kage_review.json"), "w") as f:
+            json.dump({"approved": True, "verified_task_ids": ["anbu", "jonin"], "validation": ["all configured checks passed"], "security_reviewed": True, "rollback_reviewed": True, "findings": []}, f)
         self._write_plan(task, "## Plan\n\nDo everything.\n")
         self._write_research(task, '{"query": "X best practices", "findings": []}')
         with open(os.path.join(task, "final_docs.md"), "w") as f:

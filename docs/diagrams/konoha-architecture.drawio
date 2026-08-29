@@ -599,4 +599,113 @@
             </root>
         </mxGraphModel>
     </diagram>
-</mxfile>
+<diagram id="taste-skill-engine" name="09 Jonin Taste-Skill Frontend Engine">
+        <mxGraphModel dx="1596" dy="1219" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p9-title" value="09 Jonin Taste-Skill Frontend Engine Architecture" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="900" height="40" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-spec" value="Build Specification&#10;(build_from_source / build_from_text)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="320" width="240" height="90" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-jonin" value="♦ Jonin Frontend Builder&#10;(jonin-skill + taste-skill-frontend-expert)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="300" width="300" height="130" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-dials" value="Taste Dials (1–10 Tuning)&#10;DESIGN_VARIANCE: 8&#10;MOTION_INTENSITY: 7&#10;VISUAL_DENSITY: 6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="100" width="300" height="120" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-rules" value="Taste-Skill Anti-Slop Standards&#10;• Typography: Geist / Cabinet Grotesk / Clash Display&#10;• Layout: 12-col CSS Grid / max-w-[1400px] bounds&#10;• Spacing: py-24 / py-32 cinematic chapter rhythm&#10;• Mobile: min-h-[100dvh] &amp; fixed bottom navigation dock&#10;• Zero-Emoji: Vector Lucide icons only&#10;• Theme: 10 light-mode data-theme palettes" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="100" width="400" height="220" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-targets" value="Supported Canonical Frameworks&#10;• Next.js 16.3+ (React 19, Motion 12, Tailwind v4)&#10;• SvelteKit 2 (Svelte 5 Runes, Tailwind v4)&#10;• Nuxt 3.15+ (Vue 3.5, Tailwind v4)&#10;• Angular v19+ (Signals, Tailwind v4)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=0;align=left;spacingLeft=15;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="380" width="400" height="180" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-edge1" edge="1" parent="1" source="p9-spec" target="p9-jonin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-edge2" edge="1" parent="1" source="p9-dials" target="p9-jonin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-edge3" edge="1" parent="1" source="p9-jonin" target="p9-rules" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p9-edge4" edge="1" parent="1" source="p9-jonin" target="p9-targets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ea580c;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram><diagram id="project-memory-bank" name="10 Persistent Project Context &amp; Auto-Compaction">
+        <mxGraphModel dx="1596" dy="1219" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p10-title" value="10 Persistent Project Context &amp; 2-Prompt Auto-Compaction Contract" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-workspace" value="Project Workspace Directory&#10;(Deterministic 12-char project_hash)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="260" width="260" height="90" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-profiler" value="Project Context Profiler&#10;• Stack Detection (Framework, Styling, PkgMgr)&#10;• Invariants &amp; Episodic Learnings Storage" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="240" width="320" height="130" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-db" value="SQLite Database (~/.konoha/skills.db)&#10;• projects table (path, hash, name, framework)&#10;• persona_memories table (scoped by project_path)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="470" width="280" height="120" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-compactor" value="2-Prompt Auto-Compaction Engine&#10;• Turn 1: Full context with Taste directives (~1,800 tokens)&#10;• Turn 2+: Compact badge mode (&lt; 450 tokens)&#10;• On-demand skills served via konoha.get_skill&#10;• Permanent memory continuity without hallucination" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="220" width="420" height="170" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-edge1" edge="1" parent="1" source="p10-workspace" target="p10-profiler" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-edge2" edge="1" parent="1" source="p10-profiler" target="p10-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ea580c;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+                <mxCell id="p10-edge3" edge="1" parent="1" source="p10-profiler" target="p10-compactor" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=2;">
+                    <mxGeometry relative="1" as="geometry" />
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram><diagram id="kage-reviewer-gate" name="11 Kage Pre-Delivery Reviewer Workflow Gate">
+        <mxGraphModel dx="1596" dy="1219" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+                <mxCell id="p11-title" value="11 Konoha 8-Phase Orchestration Pipeline &amp; Kage Reviewer Gate" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-route" value="1. Route Phase&#10;(Prompt Analysis)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="180" width="150" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-explore" value="2. Explore Phase&#10;(Genin: Read-only Scout)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="180" width="180" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-plan" value="3. Plan Phase&#10;(Kage Architect &amp; Tasks)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="180" width="180" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-exec" value="4. Execute Phase&#10;(Anbu: Backend · Jonin: UI)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="180" width="200" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-doc" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="180" width="190" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="320" width="430" height="190" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-synth" value="7. Synthesize Phase&#10;(Sannin Final Report)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="440" width="180" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-done" value="8. Done Phase&#10;(Delivered to User)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="440" width="160" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p11-e1" edge="1" parent="1" source="p11-route" target="p11-explore" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7c3aed;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e2" edge="1" parent="1" source="p11-explore" target="p11-plan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e3" edge="1" parent="1" source="p11-plan" target="p11-exec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d97706;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e4" edge="1" parent="1" source="p11-exec" target="p11-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e5" edge="1" parent="1" source="p11-doc" target="p11-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ea580c;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e6" edge="1" parent="1" source="p11-review" target="p11-synth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ef4444;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+                <mxCell id="p11-e7" edge="1" parent="1" source="p11-synth" target="p11-done" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram></mxfile>

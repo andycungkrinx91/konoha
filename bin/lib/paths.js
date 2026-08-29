@@ -80,7 +80,7 @@ const FILE_TOOLS_ROUTER_PATH = path.join(KONOHA, 'file_tools_router.js');
 const FILE_TOOLS_PY_DIR = FILE_TOOLS_DIR;
 
 /** file_tools/ dir next to router.js (src/file_tools/) — different from ~/.konoha/file_tools */
-const TOOL_WORKERS_DIR = path.join(__dirname, 'file_tools');
+const TOOL_WORKERS_DIR = path.resolve(LIB_DIR, '..', '..', 'src', 'file_tools');
 
 // ──────────────── Agent definitions ~/.agents ────────────────
 
@@ -177,7 +177,8 @@ const CURSOR_DIR = path.join(HOME, '.cursor');
 const CURSOR_MCP = path.join(CURSOR_DIR, 'mcp.json');
 const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
 
-const CURSOR_MCP_GLOBAL = path.join(CURSOR_DIR, 'mcp.yaml');
+const CURSOR_MCP_GLOBAL = CURSOR_MCP;
+const CURSOR_MCP_LEGACY = path.join(CURSOR_DIR, 'mcp.yaml');
 const CURSOR_AGENTS_GLOBAL = path.join(CURSOR_DIR, 'agents');
 const CURSOR_SKILLS_GLOBAL = path.join(CURSOR_DIR, 'skills');
 const CURSOR_HOOKS_GLOBAL = path.join(CURSOR_DIR, 'hooks.json');
@@ -197,8 +198,10 @@ const COMMANDCODE_DIR = path.join(HOME, '.commandcode');
 const COMMANDCODE_JSON = path.join(COMMANDCODE_DIR, 'mcp.json');
 
 // ──────────────── OpenCode ────────────────
-const OPENCODE_DIR = path.join(HOME, '.opencode');
-const OPENCODE_CONFIG = path.join(OPENCODE_DIR, 'config.json');
+const OPENCODE_DIR = path.join(HOME, '.config', 'opencode');
+const OPENCODE_CONFIG = path.join(OPENCODE_DIR, 'opencode.json');
+const OPENCODE_LEGACY_DIR = path.join(HOME, '.opencode');
+const OPENCODE_LEGACY_CONFIG = path.join(OPENCODE_LEGACY_DIR, 'config.json');
 
 // ──────────────── Migration paths ────────────────
 
@@ -264,6 +267,7 @@ module.exports = {
   CURSOR_MCP,
   CURSOR_SKILLS,
   CURSOR_MCP_GLOBAL,
+  CURSOR_MCP_LEGACY,
   CURSOR_AGENTS_GLOBAL,
   CURSOR_SKILLS_GLOBAL,
   CURSOR_HOOKS_GLOBAL,
@@ -279,6 +283,8 @@ module.exports = {
   // OpenCode
   OPENCODE_DIR,
   OPENCODE_CONFIG,
+  OPENCODE_LEGACY_DIR,
+  OPENCODE_LEGACY_CONFIG,
   // Tool workers
   TOOL_WORKERS_DIR,
 };

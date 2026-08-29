@@ -41,9 +41,11 @@ class TestAgentDelegation(unittest.TestCase):
                   "CONFLUENTIAIDE_CONVERSATION_ID"):
             self.saved_env[k] = os.environ.pop(k, None)
         server.ACTIVE_CLIENT = None
-        # Reset rate-limiter so repeated calls in setUp of each test don't get deduped
+        # Reset rate-limiter and session turns so repeated calls don't bleed across tests
         if hasattr(server, "LAST_CALL_TIMES") and isinstance(server.LAST_CALL_TIMES, dict):
             server.LAST_CALL_TIMES.clear()
+        if hasattr(server, "SESSION_TURNS") and isinstance(server.SESSION_TURNS, dict):
+            server.SESSION_TURNS.clear()
 
     def tearDown(self):
         shutil.rmtree(self.task_root, ignore_errors=True)
@@ -227,8 +229,8 @@ class TestAgentDelegation(unittest.TestCase):
         res = json.loads(server.run_mcp_agent(agent_name="jonin", task_dir=task))
         self.assertEqual(res["status"], "ready")
         instructions = res["instructions"]
-        # Skill was loaded
-        self.assertIn("### Skill: jonin-skill", instructions)
+        # Skill was loaded or listed on-demand
+        self.assertTrue("jonin-skill" in instructions)
         # At least one reference was embedded (server.py:2351-2353)
         # self.assertIn("### Reference:", instructions)  # References loading is optional
 

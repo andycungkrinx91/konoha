@@ -384,7 +384,8 @@ def import_yaml_to_db():
                 INSERT OR REPLACE INTO agents (
                     name, icon, title, purpose, skills, delegate_when,
                     constraints_text, workflow, description, instructions, delegation_keywords,
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    enable_mcp_tools
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name,
                 a.get("icon"),
@@ -415,7 +416,8 @@ def bulk_import_agents(agents_list):
             INSERT OR REPLACE INTO agents (
                 name, icon, title, purpose, skills, delegate_when,
                 constraints_text, workflow, description, instructions, delegation_keywords,
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                enable_mcp_tools
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             name,
             a.get("icon"),

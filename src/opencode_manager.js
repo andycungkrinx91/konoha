@@ -3,7 +3,8 @@
  *
  * Handles auto-injection of Konoha MCP servers into OpenCode's settings.json.
  *
- * OpenCode config location: ~/.opencode/config.json
+ * OpenCode config location: ~/.config/opencode/opencode.json
+ * Legacy config location: ~/.opencode/config.json (read for compatibility)
  * Config format: JSON with "mcp" key for MCP servers
  *
  * NOTE: OpenCode is NOT a supported RTK hook provider. `rtk hook opencode`
@@ -20,13 +21,15 @@ const {
   HOME,
   OPENCODE_DIR,
   OPENCODE_CONFIG,
+  OPENCODE_LEGACY_DIR,
+  OPENCODE_LEGACY_CONFIG,
   FILE_TOOLS_LAUNCHER_PATH,
   KONOHA,
   SERVER_PATH
 } = require('../bin/lib/paths');
 
-const { fileExists, ensureDir, isCommandAvailable, fileExistsCached } = require('./platform_utils');
-const { buildMainAgentContract } = require('./agent_contract');
+const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
+const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
 
 /**
  * Auto-install oh-my-opencode-slim if available and not yet installed.
@@ -41,42 +44,9 @@ function installOhMyOpenCodeSlim(silent = true) {
     return { ok: true, reason: 'already-installed' };
   }
 
-  // Try to install via pip if pip is available
-  try {
-    const res = spawnSync('pip', ['install', '--user', 'oh-my-opencode-slim'], {
-      encoding: 'utf-8',
-      timeout: 30000
-    });
-    if (res.status === 0) {
-      if (!silent) {
-        console.log('  ✓ oh-my-opencode-slim installed successfully');
-      }
-      return { ok: true, reason: 'installed' };
-    }
-  } catch (e) {
-    if (!silent) {
-      console.log('  ⚠ Failed to install oh-my-opencode-slim:', e.message);
-    }
+  if (!silent) {
+    console.log('  ⚠ oh-my-opencode-slim is not installed; continuing without optional integration');
   }
-
-  // Try pip3
-  try {
-    const res = spawnSync('pip3', ['install', '--user', 'oh-my-opencode-slim'], {
-      encoding: 'utf-8',
-      timeout: 30000
-    });
-    if (res.status === 0) {
-      if (!silent) {
-        console.log('  ✓ oh-my-opencode-slim installed successfully');
-      }
-      return { ok: true, reason: 'installed' };
-    }
-  } catch (e) {
-    if (!silent) {
-      console.log('  ⚠ Failed to install oh-my-opencode-slim:', e.message);
-    }
-  }
-
   return { ok: false, reason: 'not-available' };
 }
 
@@ -85,38 +55,57 @@ function installOhMyOpenCodeSlim(silent = true) {
 function isOpenCodeInstalled() {
   return (
     isCommandAvailable('opencode') ||
-    fileExistsCached(path.join(HOME, '.opencode')) ||
-    fileExistsCached(OPENCODE_CONFIG)
+    fileExistsCached(OPENCODE_DIR) ||
+    fileExistsCached(OPENCODE_CONFIG) ||
+    fileExistsCached(OPENCODE_LEGACY_DIR) ||
+    fileExistsCached(OPENCODE_LEGACY_CONFIG)
   );
 }
 
-function isRtkInstalled() {
-  // Check if RTK is installed and available
-  return isCommandAvailable('rtk');
-}
+// isRtkInstalled is imported from platform_utils
 
 // ─── Config Helpers ───────────────────────────────────────────────────────────
 
+function getOpenCodeConfigPath() {
+  if (fileExists(OPENCODE_CONFIG)) return OPENCODE_CONFIG;
+  if (fileExists(OPENCODE_LEGACY_CONFIG) && !fileExists(OPENCODE_DIR)) return OPENCODE_LEGACY_CONFIG;
+  return OPENCODE_CONFIG;
+}
+
 function readOpenCodeConfig() {
-  if (!fileExists(OPENCODE_CONFIG)) {
-    return {};
-  }
-  try {
-    return JSON.parse(fs.readFileSync(OPENCODE_CONFIG, 'utf-8'));
-  } catch (err) {
-    return {};
-  }
+  const configPath = getOpenCodeConfigPath();
+  if (!fileExists(configPath)) return {};
+  return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 }
 
 function writeOpenCodeConfig(config) {
-  ensureDir(path.dirname(OPENCODE_CONFIG));
-  fs.writeFileSync(OPENCODE_CONFIG, JSON.stringify(config, null, 2) + '\n');
+  const configPath = getOpenCodeConfigPath();
+  ensureDir(path.dirname(configPath));
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
+function readOpenCodeInstructions() {
+  const instructionPath = path.join(OPENCODE_DIR, 'AGENTS.md');
+  if (!fileExists(instructionPath)) return '';
+  return fs.readFileSync(instructionPath, 'utf-8');
+}
+
+function writeOpenCodeInstructions(content) {
+  const instructionPath = path.join(OPENCODE_DIR, 'AGENTS.md');
+  ensureDir(path.dirname(instructionPath));
+  fs.writeFileSync(instructionPath, content, 'utf-8');
 }
 
 // ─── MCP Server Registration ─────────────────────────────────────────────────
 
 function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
-  const config = readOpenCodeConfig();
+  let config;
+  try {
+    config = readOpenCodeConfig();
+  } catch (error) {
+    if (!silent) console.warn(`Invalid OpenCode JSON; leaving it unchanged: ${error.message}`);
+    return { ok: false, reason: 'invalid-config' };
+  }
 
   // Ensure mcp namespace exists
   if (!config.mcp) {
@@ -132,7 +121,8 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   // Repair Semble MCP registration on every setup.
   config.mcp['semble'] = {
     type: 'local',
-    command: [uvxCmd || 'uvx', '--from', 'git+https://github.com/dreadnode/semble', 'semble', 'mcp']
+    command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+    enabled: true
   };
 
   writeOpenCodeConfig(config);
@@ -145,12 +135,14 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 }
 
 function deployOpenCodeRules(silent = true) {
-  const dest = path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'konoha.md');
+  const dest = path.join(OPENCODE_DIR, 'AGENTS.md');
   try {
     ensureDir(path.dirname(dest));
-    const content = buildMainAgentContract('opencode') + '\n';
-    if (!fileExists(dest) || fs.readFileSync(dest, 'utf8') !== content) {
-      fs.writeFileSync(dest, content, 'utf8');
+    const contract = buildMainAgentContract('opencode');
+    const existing = readOpenCodeInstructions();
+    const content = buildManagedContract(existing, contract).trim() + '\n';
+    if (existing !== content) {
+      writeOpenCodeInstructions(content);
     }
     if (!silent) console.log(`  ✓ Deployed Konoha contract to ${dest}`);
     return { ok: true };
@@ -160,14 +152,22 @@ function deployOpenCodeRules(silent = true) {
 }
 
 function deployOpenCodeRtkRule(silent = true) {
-  if (!isRtkInstalled()) {
+  const rtkCmd = getRtkCommand();
+  if (!rtkCmd) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
+  try {
+    spawnSync(rtkCmd, ['init', '-g', '--opencode', '--auto-patch', '--trust-filters'], {
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: silent ? 'ignore' : 'inherit'
+    });
+  } catch {}
   const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
   if (!fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
-  const dest = path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'rtk.md');
+  const dest = path.join(OPENCODE_DIR, 'rules', 'rtk.md');
   try {
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
@@ -183,10 +183,11 @@ function deployOpenCodeRtkRule(silent = true) {
 function getOpenCodeStatus() {
   const status = {
     installed: isOpenCodeInstalled(),
-    configExists: fileExists(OPENCODE_CONFIG),
+    configExists: fileExists(OPENCODE_CONFIG) || fileExists(OPENCODE_LEGACY_CONFIG),
+    configPath: getOpenCodeConfigPath(),
     mcpKonoha: false,
     mcpSemble: false,
-    rtkRuleDeployed: fileExists(path.join(process.env.HOME || process.env.USERPROFILE, '.opencode', 'rules', 'rtk.md'))
+    rtkRuleDeployed: fileExists(path.join(OPENCODE_DIR, 'rules', 'rtk.md'))
   };
 
   if (status.configExists) {
@@ -203,7 +204,7 @@ function getOpenCodeStatus() {
 // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 function removeOpenCodeConfig(silent = true) {
-  if (!fileExists(OPENCODE_CONFIG)) {
+  if (!fileExists(OPENCODE_CONFIG) && !fileExists(OPENCODE_LEGACY_CONFIG)) {
     return;
   }
 
@@ -253,7 +254,10 @@ function ensureOpenCodeSetup(options = {}) {
   }
 
   // Register MCP servers
-  registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent);
+  const mcpResult = registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent);
+  if (!mcpResult.ok) {
+    return { ok: false, reason: mcpResult.reason || 'opencode-mcp-registration-failed' };
+  }
 
   // Deploy the shared contract and RTK rule (OpenCode has no RTK hook).
   const contractRule = deployOpenCodeRules(silent);

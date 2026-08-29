@@ -33,11 +33,21 @@ If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to `~
 
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
-> [!NOTE]
-> **Zero-Prompt Auto-Setup**:
->
-> If you still want to perform a manual clean initialization, run:
+### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)
+For manual repository distribution or local development:
+```bash
+# 1. Extract and enter the directory
+unzip konoha.zip
+cd konoha
 
+# 2. Install CLI dependencies (if node_modules is not included in zip)
+pnpm install
+
+# 3. Execute one-command cross-client initialization
+node bin/cli.js init --yes --force
+```
+
+### Direct Global Initialization
 ```bash
 pnpm dlx github:andycungkrinx91/konoha init
 ```
@@ -104,7 +114,7 @@ Then ask:
 Search for "terraform aws" using the konoha MCP tool.
 ```
 
-The agent should call `find_skill("terraform aws")` and return relevant anbu-skill references — without loading any SKILL.md files.
+The agent should call `konoha.find_skill("terraform aws")` and return relevant anbu-skill references — without loading any SKILL.md files.
 
 ## How Skills-DB Integrates with agy
 

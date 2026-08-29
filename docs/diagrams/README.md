@@ -1,6 +1,6 @@
 # Konoha diagrams
 
-`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains eight pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
+`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains eleven pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
 
 **Format policy:** Draw.io owns editable geometry, page layout, and presentation routing. Mermaid owns Markdown-native rendering. The two formats must keep the same semantic nodes, relationships, titles, and implementation anchors; their visual layouts may differ.
 
@@ -20,11 +20,14 @@
 | 01 System Architecture | Client, orchestration, MCP, persistence, workspace | `docs/ARCHITECTURE.md` | `src/server.py`, `src/agent_manager.js`, `bin/cli.js` |
 | 02 Runtime Query Lifecycle | Prompt, skill retrieval, code search, delegation, synthesis | `docs/ARCHITECTURE.md` | `src/server.py`, `src/prompt_hook.js` |
 | 03 MCP Tool and Skill Routing | `sannin` routing to tools and ninja agents | `docs/ARCHITECTURE.md` | `src/server.py`, `src/templates/agents.yaml` |
-| 04 LLM Bridge Gateway | Model selection, bridge providers, sidecar protocol retries | `docs/LLM-BRIDGE-GATEWAY.md` | `src/bridge/gateway.js`, `src/bridge/sidecar/` |
+| 04 LLM Bridge Gateway | Bridge selection, provider boundaries, sidecar protocol retries | `docs/LLM-BRIDGE-GATEWAY.md` | `src/bridge/gateway.js`, `src/bridge/sidecar/` |
 | 05 Search Fallback Chain | SearXNG, DuckDuckGo, Startpage, Wikipedia fallback | `docs/SETUP-SEARXNG.md` | `src/server.py:web_search` |
 | 06 Skill Registry Installation | Template/package sync, migration, SQLite retrieval | `docs/ADDING-SKILLS.md` | `src/migrate.py`, `bin/cli.js`, `src/skill_manager.js` |
 | 07 Token Footprint Comparison | Folder loading versus bounded FTS5 retrieval | `README.md` | `src/server.py`, `src/migrate.py` |
-| 08 Orchestrator Task Artifact Flow | `delegate.md`, agent execution, `result.md`, synthesis | `README.md` | `src/server.py`, `src/agent_manager.js` |
+| 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.py`, `src/agent_manager.js` |
+| 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.py:build_from_source`, `src/server.py:build_from_text` |
+| 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-prompt auto-compaction (< 450 tokens on turn ≥ 2) | `docs/ARCHITECTURE.md` | `src/persona_memory.py`, `src/server.py` |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.py:run_mcp_workflow`, `src/server.py:_workflow_review_approved` |
 
 ## Source policy
 

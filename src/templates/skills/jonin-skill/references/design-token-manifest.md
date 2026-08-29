@@ -242,18 +242,18 @@ All 10 themes MUST be defined in ALL frameworks (Svelte, Next.js, Nuxt, Angular)
 
 | ID | Name | Brand | Accent |
 |----|------|-------|--------|
-| `nebula` | Nebula | `#7c3aed` | `#4f46e5` |
-| `aurora` | Aurora | `#059669` | `#0891b2` |
-| `sunset` | Sunset | `#e11d48` | `#d97706` |
-| `ocean` | Ocean | `#2563eb` | `#0d9488` |
-| `matrix` | Matrix | `#10b981` | `#065f46` |
-| `crimson` | Crimson | `#dc2626` | `#7f1d1d` |
-| `cyber` | Cyber | `#d946ef` | `#7c3aed` |
-| `gold` | Gold | `#d97706` | `#ca8a04` |
-| `nordic` | Nordic | `#475569` | `#1e293b` |
-| `amethyst` | Amethyst | `#8b5cf6` | `#4c1d95` |
+| `nebula` | Nebula | `#4f46e5` | `#06b6d4` |
+| `aurora` | Aurora | `#059669` | `#10b981` |
+| `sunset` | Sunset | `#e11d48` | `#f59e0b` |
+| `ocean` | Ocean | `#0284c7` | `#3b82f6` |
+| `forest` | Forest | `#15803d` | `#84cc16` |
+| `volcano` | Volcano | `#dc2626` | `#ea580c` |
+| `sakura` | Sakura | `#db2777` | `#f472b6` |
+| `cyberpunk` | Cyberpunk | `#7c3aed` | `#06b6d4` |
+| `midnight` | Midnight | `#1e293b` | `#64748b` |
+| `gold` | Gold | `#d97706` | `#f59e0b` |
 
-> **Note**: Theme names were standardized across all four frameworks (Svelte, Next.js, Nuxt, Angular). Earlier versions had divergent names (e.g., `forest`/`matrix`, `volcano`/`crimson`). All four files must now use the exact IDs from this table. The dark `--color-glow-start` rgba values per theme are identical across all files (already correct). See `tailwind-design-system.md` for the full hex values.
+> **Note**: These ten IDs and hex values are the only canonical theme contract across SvelteKit, Next.js, Nuxt, and Angular. All framework references and generated builds must use this matrix exactly. The themes are light-mode surfaces even when a gradient uses a deep accent.
 
 ---
 
