@@ -359,7 +359,7 @@ The official delegation tools are: ${agents.map(a => `\`${a.name}\``).join(', ')
 
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (\`turn >= 2\`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, and Cursor):
+Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (\`turn >= 2\`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
 - **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and episodic learnings are permanently remembered and injected via compact badges without hallucination.
 - **Prompt Compaction**: Verbose instruction boilerplates, full skill manuals, and redundant diff explanations are automatically compacted to < 450 tokens.
 - **On-Demand Skills**: Reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
@@ -598,7 +598,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (\`turn >= 2\`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, and Cursor):
+Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (\`turn >= 2\`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
 - **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and episodic learnings are permanently remembered and injected via compact badges without hallucination.
 - **Prompt Compaction**: Verbose instruction boilerplates, full skill manuals, and redundant diff explanations are automatically compacted to < 450 tokens.
 - **On-Demand Skills**: Reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.

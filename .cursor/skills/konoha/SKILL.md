@@ -1,9 +1,23 @@
 ---
 name: konoha
-description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and Bridge Router.
+description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 6 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex).
 ---
 
-# Konoha Maintenance Skill
+# 🍃 Konoha Maintenance & Engineering Skill
+
+Comprehensive operational guide for maintaining, extending, and debugging the **Konoha MCP Tools Orchestrator**, SQLite FTS5 indexer, and multi-archetype website generation engine.
+
+---
+
+## 🏛️ System Architecture Overview
+
+Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 6 AI coding clients:
+- **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
+- **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `.cursor/rules/`)
+- **Claude Code** (`~/.claude.json`)
+- **OpenCode** (`~/.config/opencode/opencode.json`)
+- **Command Code** (`~/.commandcode/mcp.json`)
+- **Codex** (`~/.codex/config.toml`, `~/.codex/AGENTS.md`)
 
 This skill contains the structural guidelines, command specifications, and architectural rules for maintaining and developing the **Konoha** MCP Tools Orchestrator application, MCP middleware, and Bridge Router.
 

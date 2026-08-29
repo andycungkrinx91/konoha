@@ -17,7 +17,7 @@
                 <mxCell id="p1-user" value="End User" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
                     <mxGeometry x="40" y="50" width="180" height="50" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-client" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
+                <mxCell id="p1-client" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
                     <mxGeometry x="340" y="40" width="360" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-config" value="Client MCP Configurations&#10;Konoha + Semble + optional RTK rules" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" parent="p1-l1" vertex="1">

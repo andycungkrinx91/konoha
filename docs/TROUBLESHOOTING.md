@@ -233,6 +233,19 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ---
 
+### 🤖 Codex MCP Configuration Not Detected
+
+1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]` and `[mcp_servers.semble]`:
+   ```bash
+   cat ~/.codex/config.toml
+   ```
+
+2. Run `konoha doctor --yes` or `konoha init --yes` to auto-repair the Codex TOML configuration and runtime contracts.
+
+3. Restart Codex session to reload MCP servers from `config.toml`.
+
+---
+
 ### 📊 `konoha agent status` Shows Wrong Counts
 
 Agent attribution when the `agent` MCP parameter is omitted is resolved by `detect_active_agent()` in `server.py`:

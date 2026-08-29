@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * konoha CLI
- * 
- * MCP Tools Orchestrator installer for Antigravity IDE/CLI and Cursor IDE/CLI.
+ * bin/cli.js — Konoha command-line interface.
+ *
+ * MCP Tools Orchestrator installer for Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, and Codex.
  * Migrates agent skills into a searchable MCP server to reduce token usage.
  *
  * Usage:
@@ -28,6 +28,7 @@ const skillManager = require('../src/skill_manager');
 const cursorManager = require('../src/cursor_manager');
 const mcpClientsManager = require('../src/mcp_clients_manager');
 const opencodeManager = require('../src/opencode_manager');
+const codexManager = require('../src/codex_manager');
 const deployUtils = require('../src/deploy_utils');
 const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
@@ -905,6 +906,7 @@ ${C.bold}SUPPORTED CLIENTS AUTO-CONFIGURED${C.reset}
   - Claude Code (~/.claude.json & ~/.claude/agents/)
   - Command Code (~/.commandcode/mcp.json & ~/.commandcode/rules/)
   - OpenCode (~/.config/opencode/opencode.json)
+  - Codex (~/.codex/config.toml)
 
 ${C.bold}EXAMPLES${C.reset}
   konoha init
@@ -920,9 +922,9 @@ async function cmdInit(args) {
   }
   syncTemplateSkills();
   drawLogo();
-  
+
   header('🚀 Konoha Installer');
-  log(`${C.dim}MCP Tools Orchestrator for Antigravity IDE/CLI${C.reset}`);
+  log(`${C.dim}MCP Tools Orchestrator for Antigravity, Cursor, Claude Code, OpenCode, Command Code, and Codex${C.reset}`);
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
   let confirm;
@@ -952,6 +954,7 @@ async function cmdInit(args) {
   const claudeInstalled = mcpClientsManager.isClaudeCodeInstalled();
   const openCodeInstalled = opencodeManager.isOpenCodeInstalled();
   const commandCodeInstalled = mcpClientsManager.isCommandCodeInstalled();
+  const codexInstalled = codexManager.isCodexInstalled();
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
   // 1. Ensure the directories exist
@@ -1057,6 +1060,14 @@ async function cmdInit(args) {
       }
       if (commandCodeInstalled) {
         mcpClientsManager.ensureCommandCodeSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
+      if (codexInstalled) {
+        codexManager.ensureCodexSetup({
           pythonCmd: python,
           serverPath: SERVER_PATH,
           uvxCmd: getUvxCommand(),
@@ -1318,6 +1329,19 @@ async function cmdInit(args) {
     else spinnerCommandCode.warn(`Command Code setup skipped: ${commandCodeSetup.reason || 'unknown error'}`);
   }
 
+  if (codexInstalled) {
+    header('🤖 Configuring Codex');
+    const spinnerCodex = startSpinner('Registering Codex MCP servers and RTK rules...');
+    const codexSetup = codexManager.ensureCodexSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd: getUvxCommand(),
+      silent: true
+    });
+    if (codexSetup.ok) spinnerCodex.success('Codex MCP and RTK configured.');
+    else spinnerCodex.warn(`Codex setup skipped: ${codexSetup.reason || 'unknown error'}`);
+  }
+
   // 11. Summary
   header('✅ Installation Complete!');
 
@@ -1339,6 +1363,9 @@ async function cmdInit(args) {
     commandCodeInstalled
       ? `${ok} Command Code ${C.dim}~/.commandcode/mcp.json + RTK${C.reset}`
       : `${skip} Command Code ${C.dim}(not installed)${C.reset}`,
+    codexInstalled
+      ? `${ok} Codex        ${C.dim}~/.codex/config.toml + RTK${C.reset}`
+      : `${skip} Codex        ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
@@ -1353,7 +1380,7 @@ async function cmdInit(args) {
   log('');
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}) to load MCP servers`);
+  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}${codexInstalled ? ', Codex' : ''}) to load MCP servers`);
   log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
   log(`  3. Check status:   ${C.cyan}konoha status${C.reset}`);
   log('');
@@ -2215,6 +2242,18 @@ function ensureAutoSetup() {
       // ignore — silent self-heal
     }
   }
+  if (codexManager.isCodexInstalled()) {
+    try {
+      codexManager.ensureCodexSetup({
+        pythonCmd: python,
+        serverPath: SERVER_PATH,
+        uvxCmd,
+        silent: true
+      });
+    } catch (e) {
+      // ignore — silent self-heal
+    }
+  }
 
   // 7. Silently trigger migration if database file (skills.db) is missing
   if (!fileExists(DB_PATH)) {
@@ -2761,7 +2800,8 @@ async function cmdStatus(args = []) {
   const cursorStatus = cursorManager.getCursorStatus();
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
   const cmdStatus = mcpClientsManager.getCommandCodeStatus();
-   const openCodeStatus = opencodeManager.getOpenCodeStatus();
+  const openCodeStatus = opencodeManager.getOpenCodeStatus();
+  const codexStatus = codexManager.getCodexStatus();
 
   log(`  ${C.bold}${applyGradient('1. 🔌 MCP Clients Configuration', RASENGAN_THEME)}${C.reset}`);
   log(`  Auto-setup bridges Konoha directly into IDE and CLI configuration files.\n`);
@@ -2790,6 +2830,7 @@ async function cmdStatus(args = []) {
   printClientStatus('Claude Code CLI', '~/.claude.json', claudeStatus.mcpKonoha && claudeStatus.mcpSemble, claudeStatus.globalConfig, claudeStatus.installed);
   printClientStatus('OpenCode IDE', '~/.config/opencode/opencode.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
   printClientStatus('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha && cmdStatus.mcpSemble, cmdStatus.globalConfig, cmdStatus.installed);
+  printClientStatus('Codex IDE / CLI', '~/.codex/config.toml', codexStatus.mcpKonoha && codexStatus.mcpSemble, codexStatus.configExists, codexStatus.installed);
 
   // Antigravity IDE/CLI integrations
   sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
@@ -2928,6 +2969,27 @@ async function cmdStatus(args = []) {
     );
   } else {
     log(`\n  ${applyGradient('Command Code:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
+  }
+
+  // Codex integration
+  const codexDetails = codexManager.getCodexStatus();
+  if (codexDetails.installed) {
+    sectionTitle('Codex Integrations:', NINJA_THEME);
+    const codexOk = codexDetails.mcpKonoha && codexDetails.mcpSemble;
+    drawIntegrationRow(
+      codexDetails.configPath || '~/.codex/config.toml',
+      codexOk,
+      'konoha + semble',
+      NINJA_THEME
+    );
+    drawIntegrationRow(
+      'RTK (Token Killer)',
+      codexDetails.rtkRuleDeployed,
+      codexDetails.rtkRuleDeployed ? 'rtk rule deployed to ~/.codex/rules/' : 'rtk rule not deployed',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('Codex:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
   }
 
   // Check instructions patterns
@@ -3568,6 +3630,35 @@ async function cmdDoctor(args = []) {
     }
   }
 
+  // 9g. Codex Configuration
+  if (codexManager.isCodexInstalled()) {
+    const codexStatus = codexManager.getCodexStatus();
+    const codexHealthy = codexStatus.mcpKonoha && codexStatus.mcpSemble;
+    if (codexHealthy) {
+      record('Codex (~/.codex/config.toml)', 'HEALTHY', 'konoha and semble active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        codexManager.ensureCodexSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+        const repaired = codexManager.getCodexStatus();
+        if (repaired.mcpKonoha && repaired.mcpSemble) {
+          record('Codex (~/.codex/config.toml)', 'REPAIRED', 'Registered Konoha MCP servers');
+          repairsDone++;
+        } else {
+          record('Codex (~/.codex/config.toml)', 'WARNING', 'Partial Codex setup — run konoha init');
+        }
+      } catch (e) {
+        record('Codex (~/.codex/config.toml)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
+    }
+  }
+
   // 10. agent-browser CLI check
   let agentBrowserInstalled = false;
   let agentBrowserVersion = '';
@@ -3998,7 +4089,8 @@ async function cmdSavings(args = []) {
           { name: 'Cursor', key: 'cursor', icon: '♦' },
           { name: 'Claude Code', key: 'claudecode', icon: '◎' },
           { name: 'OpenCode', key: 'opencode', icon: '▫' },
-          { name: 'CommandCode', key: 'commandcode', icon: '⚡' }
+          { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
+          { name: 'Codex', key: 'codex', icon: '🤖' }
         ];
 
         clients.forEach(client => {
@@ -5075,17 +5167,18 @@ async function cmdHelp() {
   log(`
   ${C.bold}🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃${C.reset}
   ${C.dim}========================================================================
-  Konoha helps you manage a team of specialized AI subagents (Ninjas) for your
-  Antigravity IDE or CLI. It stores agent "skills" (instructions, rules, scripts)
-  in a local SQLite FTS5 database and exposes them via a searchable MCP server,
-  providing massive token savings (~80-95%) while keeping agents highly capable.
+  Konoha helps you manage a team of specialized AI subagents (Ninjas) across
+  Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, and Codex.
+  It stores agent "skills" (instructions, rules, scripts) in a local SQLite FTS5
+  database and exposes them via a searchable MCP server, providing massive token
+  savings (~80-98%) while keeping agents highly capable.
   ========================================================================${C.reset}
 
 ${C.bold}USAGE${C.reset}
   konoha <command> [options]
 
 ${C.bold}CORE COMMANDS${C.reset}
-  ${C.cyan}init${C.reset}          🚀 Setup MCP server, migrate local skills, and configure Antigravity.
+  ${C.cyan}init${C.reset}          🚀 Setup MCP servers, migrate local skills, and configure supported clients.
   ${C.cyan}migrate${C.reset}       🔄 Re-index/migrate your custom skills database (run after editing skills).
   ${C.cyan}test${C.reset}          🧪 Perform verification tests on the MCP server.
   ${C.cyan}status${C.reset}        🩺 Check installation health, database size, and loaded skills.

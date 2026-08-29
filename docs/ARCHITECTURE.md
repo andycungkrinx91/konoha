@@ -26,7 +26,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    User["End User Prompt"] --> Clients["5 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code"]
+    User["End User Prompt"] --> Clients["6 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex"]
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP & Search Engines"]
@@ -41,7 +41,7 @@ flowchart TB
         Jonin["♦ jonin (Elite Frontend Builder)"]
         Anbu["♠ anbu (Backend & DevOps)"]
         Kage["◎ kage (Security & Architecture Gate)"]
-        Genin["⚑ genin (Read-only Code Explorer)"]
+        Genin["⚑ genin (genin-skill Code Explorer)"]
         Chunin["▫ chunin (Research & Web Intel)"]
         Tokubetsu["⬡ tokubetsu-jonin / tokubetsu_jonin (Technical Documentation)"]
     end

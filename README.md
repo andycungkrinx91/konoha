@@ -19,12 +19,16 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-14.md)
+<p align="center">
+  <img src="assets/demo.gif" alt="Konoha Features Demo" width="100%">
+</p>
+
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0 (2026-08-29)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-29.md)
 
 | | |
 |:---:|:---:|
-| **📊 Database Status (`konoha status`)**<br><img src="assets/konoha-status.png" alt="konoha status" width="450"> | **🥷 Subagent Team Status (`konoha agent status`)**<br><img src="assets/konoha-agent-status.png" alt="konoha agent status" width="450"> |
-| **📜 Installed Skills List (`konoha skill list`)**<br><img src="assets/konoha-skill-list.png" alt="konoha skill list" width="450"> | **📈 Token Savings Dashboard (`konoha savings`)**<br><img src="assets/konoha-savings.png" alt="konoha savings" width="450"> |
+| **📊 Database Status (`konoha status`)**<br><img src="assets/konoha-status.png" alt="konoha status" width="100%"> | **🥷 Subagent Team Status (`konoha agent status`)**<br><img src="assets/konoha-agent-status.png" alt="konoha agent status" width="100%"> |
+| **📜 Installed Skills List (`konoha skill list`)**<br><img src="assets/konoha-skill-list.png" alt="konoha skill list" width="100%"> | **📈 Token Savings Dashboard (`konoha savings`)**<br><img src="assets/konoha-savings.png" alt="konoha savings" width="100%"> |
 
 ---
 
@@ -293,8 +297,9 @@ If `rtk` is installed on your system (`cargo install rtk`), Konoha auto-deploys 
 | **Antigravity** | `~/.gemini/antigravity-cli/rules/rtk.md` + `~/.gemini/antigravity-ide/rules/rtk.md` |
 | **Cursor** | `~/.cursor/rules/rtk.mdc` |
 | **Claude Code** | `~/.claude/rules/rtk.md` |
-| **OpenCode** | `~/.opencode/rules/rtk.md` |
+| **OpenCode** | `~/.config/opencode/rules/rtk.md` |
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
+| **Codex** | `~/.codex/rules/rtk.md` |
 
 This instructs agents to prefix all shell commands with `rtk <command>`, reducing token consumption by up to 90% on common operations. If `rtk` is not installed, Konoha skips this step gracefully.
 
@@ -373,6 +378,19 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── opencode.json          ← OpenCode `mcp` configuration
 ├── AGENTS.md              ← Global OpenCode instructions
 └── rules/rtk.md           ← RTK rule when installed
+
+~/.commandcode/
+├── mcp.json               ← Command Code `mcpServers` configuration
+├── settings.json          ← Command Code permissions
+└── rules/
+    ├── konoha.md          ← Global Command Code instructions
+    └── rtk.md             ← RTK rule when installed
+
+~/.codex/
+├── config.toml            ← Codex `[mcp_servers]` configuration (TOML)
+├── AGENTS.md              ← Global Codex instructions
+└── rules/
+    └── rtk.md             ← RTK rule when installed
 ```
 
 ---

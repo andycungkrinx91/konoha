@@ -1,6 +1,6 @@
 ---
 name: konoha
-description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 5 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code).
+description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 6 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex).
 ---
 
 # 🍃 Konoha Maintenance & Engineering Skill
@@ -11,12 +11,13 @@ Comprehensive operational guide for maintaining, extending, and debugging the **
 
 ## 🏛️ System Architecture Overview
 
-Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 5 AI coding clients:
+Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 6 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`)
 - **OpenCode** (`~/.config/opencode/opencode.json`)
 - **Command Code** (`~/.commandcode/mcp.json`)
+- **Codex** (`~/.codex/config.toml`, `~/.codex/AGENTS.md`)
 
 ---
 
@@ -62,13 +63,33 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 
 ---
 
+## 🔄 6-Step Sequential Orchestration Pipeline
+
+1. **Step 1: Deep Research (Chunin)** — Research web documentation, APIs, and external evidence.
+2. **Step 2: Code Exploration (Genin)** — Read-only exploration, symbol mapping, and dependency tracing via `Semble MCP`.
+3. **Step 3: Architecture & Planning (Kage)** — Architectural review, task decomposition, and risk analysis.
+4. **Step 4: Execution (Jonin / Anbu)** — Frontend UI construction (`jonin`) or Backend/DevOps engineering (`anbu`).
+5. **Step 5: Documentation & Refinement (Tokubetsu-Jonin)** — Technical documentation, API specs, and diagrams.
+6. **Step 6: Final Report (Sannin)** — Synthesis and structured final delivery.
+
+---
+
 ## 🛠️ Maintenance & Release Checklist
 
-1. **Rule Synchronization**:
-   - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
-2. **Database Migration**:
+1. **Tool & MCP Boundaries**:
+   - Always use **Konoha MCP** for skill discovery/loading and bounded file operations.
+   - Always use **Semble MCP** for project codebase search and discovery.
+   - Use **RTK** for shell commands when installed.
+2. **Filesystem Mirrors**:
+   - **Konoha does not maintain filesystem mirrors** (e.g. no `.cursor/skills/` mirrors); skill content is served on-demand via SQLite FTS5 index.
+3. **Bridge Extension Sync**:
+   - The Antigravity extension tracks the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`.
+4. **Rule Synchronization**:
+   - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
+5. **Database Migration**:
    - Run `node bin/cli.js migrate` to re-seed all skills and reference documents into the SQLite FTS5 database (`~/.konoha/skills.db`).
-3. **Cross-Client Initialization**:
-   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 5 clients.
-4. **Automated Verification**:
-   - Run `python3 tests/test_docs_currency.py` to ensure complete consistency between source code, tools, and documentation.
+6. **Cross-Client Initialization**:
+   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 6 clients.
+7. **Automated Verification & Quality Gate**:
+   - Ensure `python3 tests/test_docs_currency.py` and **all discovered tests pass** with 0 failures before release.
+

@@ -203,6 +203,13 @@ const OPENCODE_CONFIG = path.join(OPENCODE_DIR, 'opencode.json');
 const OPENCODE_LEGACY_DIR = path.join(HOME, '.opencode');
 const OPENCODE_LEGACY_CONFIG = path.join(OPENCODE_LEGACY_DIR, 'config.json');
 
+// ──────────────── Codex ────────────────
+const CODEX_DIR = path.join(HOME, '.codex');
+const CODEX_CONFIG = path.join(CODEX_DIR, 'config.toml');
+const CODEX_AGENTS_MD = path.join(CODEX_DIR, 'AGENTS.md');
+const CODEX_RULES_DIR = path.join(CODEX_DIR, 'rules');
+const CODEX_RTK_RULE = path.join(CODEX_RULES_DIR, 'rtk.md');
+
 // ──────────────── Migration paths ────────────────
 
 // ──────────────── Exports ────────────────
@@ -285,6 +292,12 @@ module.exports = {
   OPENCODE_CONFIG,
   OPENCODE_LEGACY_DIR,
   OPENCODE_LEGACY_CONFIG,
+  // Codex
+  CODEX_DIR,
+  CODEX_CONFIG,
+  CODEX_AGENTS_MD,
+  CODEX_RULES_DIR,
+  CODEX_RTK_RULE,
   // Tool workers
   TOOL_WORKERS_DIR,
 };

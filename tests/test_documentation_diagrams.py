@@ -10,7 +10,7 @@ MANIFEST = ROOT / "docs" / "diagrams" / "README.md"
 
 MERMAID_OWNERS = {
     ROOT / "README.md": (2, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
-    ROOT / "docs" / "ARCHITECTURE.md": (6, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
+    ROOT / "docs" / "ARCHITECTURE.md": (1, {"genin-skill", "sannin", "Konoha MCP", "Semble MCP", "SQLite FTS5"}),
     ROOT / "docs" / "LLM-BRIDGE-GATEWAY.md": (1, {"Konoha Bridge Router", "SQLite", "Antigravity Sidecar"}),
     ROOT / "docs" / "SETUP-SEARXNG.md": (1, {"SearXNG", "DuckDuckGo", "Startpage", "Wikipedia"}),
     ROOT / "docs" / "ADDING-SKILLS.md": (1, {"skills.sh", "konoha migrate", "SQLite", "find_skill", "get_skill"}),

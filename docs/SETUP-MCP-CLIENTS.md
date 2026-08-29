@@ -123,6 +123,30 @@ konoha doctor --yes
 
 ---
 
+## Codex CLI / IDE (global)
+
+**Detection**: `codex` binary in PATH, or `~/.codex/`, or `~/.codex/config.toml`.
+
+**Writes:**
+- `~/.codex/config.toml` → `[mcp_servers]` (all projects on this machine).
+- `~/.codex/AGENTS.md` → global Konoha + Semble contract.
+- `~/.codex/rules/rtk.md` when RTK is installed.
+
+**Config format (TOML):**
+```toml
+[mcp_servers.konoha]
+command = "python3"
+args = ["/home/<user>/.konoha/server.py"]
+
+[mcp_servers.semble]
+command = "uvx"
+args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
+```
+
+**Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha` and `semble`.
+
+---
+
 ## Agent workflow (all clients)
 
 1. `konoha` `find_skill` for skills

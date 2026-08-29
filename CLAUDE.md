@@ -59,7 +59,7 @@ You are the main agent running through Claude Code. This contract is mandatory o
 
 - **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. Use `mcp__konoha__find_skill` before work and load the matching skill with `mcp__konoha__get_skill`.
 - **Semble is mandatory**: use the `semble` MCP tools `search` and `find_related` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
-- **RTK is mandatory for commands**: prefix shell/command execution with `rtk` when the binary is installed. If RTK is unavailable, report the warning and use the client’s approved fallback without silently claiming RTK was used.
+- **RTK is mandatory for commands**: ALWAYS force-run all shell/command executions with `rtk <command>` first; prefix shell/command execution with `rtk` to filter noisy terminal output and minimize token consumption. When RTK is not installed, fails, or is unsupported for a specific command, immediately fall back to direct shell/bash (`sh` / `bash`) execution without silently claiming RTK was used.
 - **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
 - **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
@@ -86,7 +86,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (`turn >= 2`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, and Cursor):
+Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (`turn >= 2`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
 - **Memory Continuity**: Project tech stack (`framework`, `styling`, `package_manager`), architectural invariants, and episodic learnings are permanently remembered and injected via compact badges without hallucination.
 - **Prompt Compaction**: Verbose instruction boilerplates, full skill manuals, and redundant diff explanations are automatically compacted to < 450 tokens.
 - **On-Demand Skills**: Reference manuals are served on-demand via `mcp__konoha__get_skill` instead of being dumped into prompts.
@@ -142,7 +142,7 @@ You are the main agent running through Claude Code. This contract is mandatory o
 
 - **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. Use `mcp__konoha__find_skill` before work and load the matching skill with `mcp__konoha__get_skill`.
 - **Semble is mandatory**: use the `semble` MCP tools `search` and `find_related` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
-- **RTK is mandatory for commands**: prefix shell/command execution with `rtk` when the binary is installed. If RTK is unavailable, report the warning and use the client’s approved fallback without silently claiming RTK was used.
+- **RTK is mandatory for commands**: ALWAYS force-run all shell/command executions with `rtk <command>` first. Prefix shell/command execution with `rtk` to filter noisy terminal output and minimize token consumption. When RTK is not installed, fails, or is unsupported for a specific command, immediately fall back to direct shell/bash (`sh` / `bash`) execution without silently claiming RTK was used.
 - **Test directory discovery & reuse**: ALWAYS explore the codebase first (`mcp__konoha__get_file_structure` or `mcp__konoha__find_files_clean`) to discover existing test folders (`tests/`, `test/`, `spec/`). NEVER create duplicate test folders (e.g. creating `test/` when `tests/` exists).
 - **Kage Reviewer 90% minimum confidence & Standard Delivery Report**: Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **90% confidence** is required. If confidence < 90%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response and delivery report MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status and confidence %, breakdown table covering `Verification Category`, `Target`, `Evaluated Result`, `Category Confidence`, and `Status`, followed by the overall confidence verdict).
 - **Destructive command, Git & secret guardrails**:

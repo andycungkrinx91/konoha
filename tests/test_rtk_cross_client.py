@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Cross-client RTK verification test across all 5 clients:
-Antigravity, Claude Code, Cursor, OpenCode, and CommandCode.
+"""Cross-client RTK verification test across all 6 clients:
+Antigravity, Claude Code, Cursor, OpenCode, CommandCode, and Codex.
 """
 import os
 import subprocess
@@ -128,6 +128,24 @@ class TestRtkCrossClient(unittest.TestCase):
         res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertTrue((HOME / ".commandcode" / "rules" / "rtk.md").exists())
+
+    def test_rtk_deployment_codex(self):
+        """Verify RTK deployment for Codex."""
+        cmd = [
+            "node",
+            "-e",
+            """
+            const { deployCodexRtkRule } = require('./src/codex_manager');
+            const res = deployCodexRtkRule(true);
+            if (!res.ok) {
+                console.error('Codex RTK deployment failed:', res);
+                process.exit(1);
+            }
+            """
+        ]
+        res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertTrue((HOME / ".codex" / "rules" / "rtk.md").exists())
 
     def test_rtk_contract_in_rules_and_prompts(self):
         """Verify contract rules require RTK prefixing across rule templates."""

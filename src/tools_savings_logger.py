@@ -58,6 +58,12 @@ def detect_active_client():
         COMMANDCODE_PROJECTS = os.path.join(HOME, ".commandcode", "projects")
         if os.path.isdir(COMMANDCODE_PROJECTS):
             brain_dirs.append(COMMANDCODE_PROJECTS)
+        OPENCODE_PROJECTS = os.path.join(HOME, ".config", "opencode", "projects")
+        if os.path.isdir(OPENCODE_PROJECTS):
+            brain_dirs.append(OPENCODE_PROJECTS)
+        CODEX_PROJECTS = os.path.join(HOME, ".codex", "sessions")
+        if os.path.isdir(CODEX_PROJECTS):
+            brain_dirs.append(CODEX_PROJECTS)
 
         all_files = []
         for brain_dir in brain_dirs:
