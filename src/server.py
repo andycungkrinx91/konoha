@@ -483,24 +483,72 @@ import time
 # interaction turn. We only credit the baseline_bytes savings ONCE per interaction turn.
 LAST_CALL_TIMES = {}
 
-
 def detect_active_client():
     import glob
     try:
         global ACTIVE_CLIENT
-        
+
         # Explicit ACTIVE_CLIENT override wins over detection heuristics
         if ACTIVE_CLIENT:
             return ACTIVE_CLIENT
 
-        if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
-            return "claudecode"
+        active_override = (os.environ.get("ACTIVE_CLIENT") or os.environ.get("KONOHA_CLIENT") or "").lower().strip()
+        if active_override:
+            if "codex" in active_override or "openai" in active_override:
+                return "codex"
+            if "commandcode" in active_override or "command-code" in active_override:
+                return "commandcode"
+            if "opencode" in active_override:
+                return "opencode"
+            if "claude" in active_override:
+                return "claudecode"
+            if "cursor" in active_override:
+                return "cursor"
+            if "agy" in active_override or "antigravity-cli" in active_override:
+                return "agy"
+            if "antigravity" in active_override or "ide" in active_override:
+                return "antigravity"
+
+        if os.environ.get("CODEX_SESSION") or os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_CI"):
+            return "codex"
 
         if os.environ.get("OPENCODE_CLIENT") == "1" or os.environ.get("OPENCODE_SESSION") == "1":
             return "opencode"
 
         if os.environ.get("COMMANDCODE_CLIENT") == "1" or os.environ.get("COMMANDCODE_SESSION") == "1":
             return "commandcode"
+
+        if os.environ.get("CLAUDE_CODE_CHILD_SESSION") == "1":
+            return "claudecode"
+
+        # Process hierarchy inspection (Linux /proc)
+        try:
+            ppid = os.getppid()
+            for _ in range(5):
+                if ppid <= 1:
+                    break
+                cmd_path = f"/proc/{ppid}/cmdline"
+                if os.path.exists(cmd_path):
+                    with open(cmd_path, "rb") as f:
+                        cmd = f.read().decode("utf-8", errors="ignore").lower()
+                    if "codex" in cmd:
+                        return "codex"
+                    if "commandcode" in cmd or "command-code" in cmd:
+                        return "commandcode"
+                    if "opencode" in cmd:
+                        return "opencode"
+                    if "claude" in cmd:
+                        return "claudecode"
+                    if "cursor" in cmd:
+                        return "cursor"
+                stat_path = f"/proc/{ppid}/stat"
+                if os.path.exists(stat_path):
+                    with open(stat_path, "r") as f:
+                        ppid = int(f.read().split()[3])
+                else:
+                    break
+        except Exception:
+            pass
 
         # Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
         conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
@@ -522,6 +570,9 @@ def detect_active_client():
             ANTIGRAVITY_CLI_BRAIN,
             CURSOR_PROJECTS,
             CLAUDE_PROJECTS,
+            os.path.join(HOME, ".codex", "sessions"),
+            os.path.join(HOME, ".commandcode", "logs"),
+            os.path.join(HOME, ".config", "opencode")
         ]
         all_files = []
         for brain_dir in brain_dirs:
@@ -533,6 +584,10 @@ def detect_active_client():
             elif "claude" in brain_dir:
                 pattern_transcript = os.path.join(brain_dir, "*", "*.jsonl")
                 all_files.extend(glob.glob(pattern_transcript))
+            elif "codex" in brain_dir:
+                all_files.extend(glob.glob(os.path.join(brain_dir, "*.json")) + glob.glob(os.path.join(brain_dir, "*.jsonl")) + glob.glob(os.path.join(brain_dir, "*.sqlite")))
+            elif "commandcode" in brain_dir or "opencode" in brain_dir:
+                all_files.extend(glob.glob(os.path.join(brain_dir, "*.json")) + glob.glob(os.path.join(brain_dir, "*.jsonl")) + glob.glob(os.path.join(brain_dir, "*.log")))
             else:
                 pattern_prompt = os.path.join(brain_dir, "*", "prompt.md")
                 pattern_transcript = os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")
@@ -548,6 +603,12 @@ def detect_active_client():
             return "cursor"
         elif "claude" in most_recent:
             return "claudecode"
+        elif "codex" in most_recent:
+            return "codex"
+        elif "commandcode" in most_recent:
+            return "commandcode"
+        elif "opencode" in most_recent:
+            return "opencode"
         elif "antigravity-cli" in most_recent:
             return "agy"
         else:
@@ -558,17 +619,31 @@ def detect_active_client():
 
 
 def build_subagent_mcp_block(client=None):
-    """Return the MCP-tools block injected into every mcp_<agent> subagent prompt from SQLite."""
-    import sqlite3
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        row = conn.execute("SELECT content FROM skills WHERE name = ?", ("konoha/mcp-tools-block",)).fetchone()
-        conn.close()
-        if row and row[0]:
-            return f"\n{row[0]}\n"
-    except Exception:
-        pass
-    return "\n## MCP Tools Available To You\n[Check konoha/mcp-tools-block for available tools]\n"
+    """Return the MCP-tools block injected into every mcp_<agent> subagent prompt."""
+    return """
+## MCP Tools Available To You
+- `mcp__konoha__sannin` — Sannin router agent
+- `mcp__konoha__kage` — Village Leader & Architect
+- `mcp__konoha__jonin` — UI & Frontend Specialist
+- `mcp__konoha__anbu` — Backend & DevOps Specialist
+- `mcp__konoha__chunin` — Intel Ninja
+- `mcp__konoha__tokubetsu_jonin` — Scribe
+- `mcp__konoha__genin` — Scout
+- `mcp__konoha__find_skill` — Find skills
+- `mcp__konoha__get_skill` — Get skill content
+- `mcp__konoha__list_skills` — List all skills
+- `mcp__konoha__read_file_head` — Read head of file
+- `mcp__konoha__read_file_range` — Read range of lines in file
+- `mcp__konoha__file_info` — Get file info
+- `mcp__konoha__token_efficient_grep` — Token-efficient grep
+- `mcp__konoha__get_file_structure` — Get file tree
+- `mcp__konoha__find_files_clean` — Find files cleanly
+- `mcp__semble__search` — Search project codebase
+- `mcp__semble__find_related` — Find related code symbols
+
+### Strict Tool Boundaries
+Use konoha MCP for skill lookup and bounded file reads/grep. Use semble MCP for project code search.
+"""
 
 
 def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
@@ -3597,7 +3672,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
         f"You must now act as {db_agent_name} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n"
         f"## Execution Protocol\n\n"
         f"1. Execute the task directly as described in TASK INSTRUCTIONS above.\n"
-        f"2. When complete, you can report your results and key learnings via the `report_from_agent` tool or structured response."
+        f"2. When complete, write your summary to `result.md` in the task directory (or report your results and key learnings via the `report_from_agent` tool or structured response)."
     )
 
     res = json.dumps({

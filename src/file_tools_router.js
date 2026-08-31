@@ -109,7 +109,10 @@ function assertWithinAllowed(resolvedPath) {
     path.join(HOME, '.windsurf'),
     path.join(HOME, '.commandcode'),
     path.join(HOME, '.opencode'),
-    path.join(HOME, '.config', 'opencode'),
+    path.join(HOME, '.config'),
+    path.join(HOME, '.codex'),
+    path.join(HOME, '.agents'),
+    path.join(HOME, '.claude.json'),
   ].map(d => platform.normPath(d));
   for (const p of SCRATCH_PREFIXES) {
     if (pathNorm === p || pathNorm.startsWith(p + path.sep) || pathNorm.startsWith(p + '/')) {

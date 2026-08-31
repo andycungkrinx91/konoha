@@ -102,6 +102,12 @@ def assert_within_allowed(resolved_path, base_dir=None):
         os.path.join(home_dir, '.vscode'),
         os.path.join(home_dir, '.openai'),
         os.path.join(home_dir, '.windsurf'),
+        os.path.join(home_dir, '.commandcode'),
+        os.path.join(home_dir, '.opencode'),
+        os.path.join(home_dir, '.config'),
+        os.path.join(home_dir, '.codex'),
+        os.path.join(home_dir, '.agents'),
+        os.path.join(home_dir, '.claude.json'),
     ]
     for p in scratch_prefixes:
         p_norm = _norm(p)

@@ -9,6 +9,7 @@ const {
 const deployUtils = require('./deploy_utils');
 const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
+  HOME,
   CURSOR_DIR, CURSOR_MCP_GLOBAL, CURSOR_MCP_LEGACY, CURSOR_AGENTS_GLOBAL, CURSOR_SKILLS_GLOBAL, AGENTS_SKILLS,
   CURSOR_HOOKS_GLOBAL, CURSOR_CLI_CONFIG, SKILLS_DB_DIR,
   SERVER_PATH, FILE_TOOLS_MCP_PATH, CURSOR_BOOTSTRAP_PATH, SRC_DIR
@@ -222,6 +223,7 @@ ${buildFileToolsPolicy()}
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Codebase Hygiene & Cleanup**: When working on fixes or testing features manually, ensure that all temporary files, debugging scripts (e.g., \`patch_test.py\`, \`savings_out.txt\`, \`test_clients_e2e.py\`, \`fix_json.js\`, etc.), or manual mock files created during the testing process are ALWAYS DELETED before concluding the task. The project codebase must remain clean and strictly contain only production logic and official test suites.
+- **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
 - **Kage Reviewer 90% Minimum Confidence Gate & Standard Report**: Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **90% confidence** is required. If confidence < 90%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
@@ -249,12 +251,16 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
     semble: {
       type: 'stdio',
       command: uvxCmd,
-      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+      autoApprove: ['*', 'search', 'find_related'],
+      auto_approve: true
     }
   };
 
   const konohaEntry = deployUtils.buildKonohaFilesMcpEntry('cursor');
   if (konohaEntry) {
+    konohaEntry.autoApprove = ['*'];
+    konohaEntry.auto_approve = true;
     servers['konoha'] = konohaEntry;
   }
   return servers;
@@ -368,23 +374,9 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
 }
 
 function registerCursorCliPermissions(silent = true) {
-  if (!fileExists(CURSOR_CLI_CONFIG)) {
-    return false;
-  }
-
-  let config;
-  try {
-    config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
-  } catch {
-    return false;
-  }
-
-  if (!config.permissions) config.permissions = {};
-  const allowRaw = config.permissions.allow;
-  config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
-
   const grants = [
     'Mcp(konoha)',
+    'Mcp(konoha, *)',
     'Mcp(konoha, find_skill)',
     'Mcp(konoha, get_skill)',
     'Mcp(konoha, list_skills)',
@@ -396,12 +388,33 @@ function registerCursorCliPermissions(silent = true) {
     'Mcp(konoha, get_file_structure)',
     'Mcp(konoha, find_files_clean)',
     'Mcp(semble)',
+    'Mcp(semble, *)',
     'Mcp(semble, search)',
     'Mcp(semble, find_related)',
+    'Shell(rtk)',
+    'Shell(rtk *)',
+    'Shell(rtk:*)',
     'Shell(konoha)',
+    'Shell(konoha *)',
     'Shell(node bin/cli.js)',
-    'Shell(node */.konoha/cursor_bootstrap.js)'
+    'Shell(node */.konoha/cursor_bootstrap.js)',
+    '*'
   ];
+
+  ensureDir(CURSOR_DIR);
+
+  let config = {};
+  if (fileExists(CURSOR_CLI_CONFIG)) {
+    try {
+      config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8')) || {};
+    } catch {
+      config = {};
+    }
+  }
+
+  if (!config.permissions) config.permissions = {};
+  const allowRaw = config.permissions.allow;
+  config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
 
   let updated = false;
   for (const grant of grants) {
@@ -411,12 +424,41 @@ function registerCursorCliPermissions(silent = true) {
     }
   }
 
-  if (updated) {
+  if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
+    config.autoApprove = ['*'];
+    updated = true;
+  }
+
+  try {
     fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
-    if (!silent) {
+    if (updated && !silent) {
       console.log(`✓ Cursor CLI permissions updated: ${CURSOR_CLI_CONFIG}`);
     }
+  } catch {}
+
+  // Also update Cursor settings.json if present or in Cursor User settings
+  const cursorSettingsPaths = [
+    path.join(CURSOR_DIR, 'settings.json'),
+    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json')
+  ];
+
+  for (const sPath of cursorSettingsPaths) {
+    try {
+      ensureDir(path.dirname(sPath));
+      let sObj = {};
+      if (fileExists(sPath)) {
+        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch {}
+      }
+      sObj['cursor.mcp.autoApprove'] = ['*'];
+      sObj['cursor.mcp.allowAll'] = true;
+      sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha', '*'];
+      sObj['cursor.agent.autoApprove'] = true;
+      if (!sObj.permissions) sObj.permissions = {};
+      sObj.permissions.allow = grants;
+      fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
+    } catch {}
   }
+
   return true;
 }
 

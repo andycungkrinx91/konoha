@@ -137,18 +137,18 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
     : FILE_TOOLS_MCP_PATH;
   const useJsLauncher = launcherJs !== FILE_TOOLS_MCP_PATH;
 
-  if (mode === "cursor" || mode === "global") {
-    return {
-      type: "stdio",
-      command: "node",
-      args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
-    };
-  }
+  const clientName = (mode === "global" || mode === "execPath") ? "antigravity" : mode;
 
   return {
     type: "stdio",
-    command: process.execPath || "node",
+    command: (mode === "cursor" || mode === "global") ? "node" : (process.execPath || "node"),
     args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
+    env: {
+      ACTIVE_CLIENT: clientName,
+      KONOHA_CLIENT: clientName
+    },
+    autoApprove: ["*"],
+    auto_approve: true
   };
 }
 

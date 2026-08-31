@@ -66,13 +66,19 @@ function detect_active_client_from_env() {
     const CURSOR_PROJECTS = path.join(HOME, ".cursor", "projects");
     const CLAUDE_PROJECTS = path.join(HOME, ".claude", "projects");
 
-    // Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
-    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-    if (convId) {
-      const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
-      const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
-      if (require("fs").existsSync(cliDir)) return "agy";
-      if (require("fs").existsSync(ideDir)) return "antigravity";
+    const activeOverride = (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || "").toLowerCase().trim();
+    if (activeOverride) {
+      if (activeOverride.includes("codex") || activeOverride.includes("openai")) return "codex";
+      if (activeOverride.includes("commandcode") || activeOverride.includes("command-code")) return "commandcode";
+      if (activeOverride.includes("opencode")) return "opencode";
+      if (activeOverride.includes("claude")) return "claudecode";
+      if (activeOverride.includes("cursor")) return "cursor";
+      if (activeOverride.includes("agy") || activeOverride.includes("antigravity-cli")) return "agy";
+      if (activeOverride.includes("antigravity") || activeOverride.includes("ide")) return "antigravity";
+    }
+
+    if (process.env.CODEX_SESSION || process.env.CODEX_THREAD_ID || process.env.CODEX_CI) {
+      return "codex";
     }
 
     if (process.env.OPENCODE_CLIENT === "1" || process.env.OPENCODE_SESSION === "1") {
@@ -85,6 +91,39 @@ function detect_active_client_from_env() {
 
     if (process.env.CLAUDE_CODE_CHILD_SESSION === "1") {
       return "claudecode";
+    }
+
+    // Process hierarchy inspection (Linux /proc)
+    try {
+      let ppid = process.ppid;
+      for (let i = 0; i < 5; i++) {
+        if (!ppid || ppid <= 1) break;
+        const cmdPath = `/proc/${ppid}/cmdline`;
+        if (require("fs").existsSync(cmdPath)) {
+          const cmd = require("fs").readFileSync(cmdPath, "utf-8").toLowerCase();
+          if (cmd.includes("codex")) return "codex";
+          if (cmd.includes("commandcode") || cmd.includes("command-code")) return "commandcode";
+          if (cmd.includes("opencode")) return "opencode";
+          if (cmd.includes("claude")) return "claudecode";
+          if (cmd.includes("cursor")) return "cursor";
+        }
+        const statPath = `/proc/${ppid}/stat`;
+        if (require("fs").existsSync(statPath)) {
+          const stat = require("fs").readFileSync(statPath, "utf-8");
+          ppid = parseInt(stat.split(" ")[3], 10);
+        } else {
+          break;
+        }
+      }
+    } catch (_) {}
+
+    // Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
+    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+    if (convId) {
+      const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
+      const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
+      if (require("fs").existsSync(cliDir)) return "agy";
+      if (require("fs").existsSync(ideDir)) return "antigravity";
     }
 
     if (convId) return "antigravity";
@@ -107,14 +146,24 @@ function detect_active_client_from_env() {
       ANTIGRAVITY_CLI_BRAIN,
       CURSOR_PROJECTS,
       CLAUDE_PROJECTS,
+      path.join(HOME, ".codex", "sessions"),
+      path.join(HOME, ".commandcode", "logs"),
+      path.join(HOME, ".config", "opencode")
     ].forEach((brainDir) => {
       if (!require("fs").existsSync(brainDir)) return;
       const isCursor = brainDir.includes("cursor");
       const isClaude = brainDir.includes("claude");
+      const isCodex = brainDir.includes("codex");
+      const isCommandCode = brainDir.includes("commandcode");
+      const isOpenCode = brainDir.includes("opencode");
       if (isCursor) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl') && filePath.includes(`${path.sep}agent-transcripts${path.sep}`));
       } else if (isClaude) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl'));
+      } else if (isCodex) {
+        collectFiles(brainDir, (filePath) => filePath.endsWith('.json') || filePath.endsWith('.jsonl') || filePath.endsWith('.sqlite'));
+      } else if (isCommandCode || isOpenCode) {
+        collectFiles(brainDir, (filePath) => filePath.endsWith('.json') || filePath.endsWith('.jsonl') || filePath.endsWith('.log'));
       } else {
         collectFiles(brainDir, (filePath) => path.basename(filePath) === 'prompt.md' || filePath.endsWith(`${path.sep}.system_generated${path.sep}logs${path.sep}transcript.jsonl`));
       }
@@ -130,6 +179,9 @@ function detect_active_client_from_env() {
     const mostRecent = files[0];
     if (mostRecent.includes("cursor")) return "cursor";
     if (mostRecent.includes("claude")) return "claudecode";
+    if (mostRecent.includes("codex")) return "codex";
+    if (mostRecent.includes("commandcode")) return "commandcode";
+    if (mostRecent.includes("opencode")) return "opencode";
     if (mostRecent.includes("antigravity-cli")) return "agy";
     return "antigravity";
   } catch (_) {}
@@ -204,8 +256,10 @@ function handleRequest(req) {
       activeClient = "claudecode";
     } else if (client_name.indexOf("opencode") !== -1) {
       activeClient = "opencode";
-    } else if (client_name.indexOf("commandcode") !== -1) {
+    } else if (client_name.indexOf("commandcode") !== -1 || client_name.indexOf("command-code") !== -1) {
       activeClient = "commandcode";
+    } else if (client_name.indexOf("codex") !== -1 || client_name.indexOf("openai") !== -1) {
+      activeClient = "codex";
     } else if (client_name.indexOf("antigravity-cli") !== -1 || client_name.indexOf("agy") !== -1) {
       activeClient = "agy";
     } else if (client_name.indexOf("antigravity") !== -1 || client_name.indexOf("ide") !== -1) {

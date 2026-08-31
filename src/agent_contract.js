@@ -84,6 +84,67 @@ function buildContractManifest(extra = {}) {
   };
 }
 
+function generateGenericSubagentMd(agent, client = 'generic') {
+  const DEFAULT_ROLE_DESCRIPTIONS = {
+    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
+    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
+    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
+    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
+    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
+    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+  };
+  const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
+  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+
+  let instructions = agent.instructions || '';
+  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
+  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
+  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
+  instructions = instructions.trim();
+  if (instructions && !instructions.endsWith('.')) {
+    instructions += '.';
+  }
+
+  if (agent.skills && agent.skills.length > 0) {
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
+    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
+    const logMatch = instructions.match(logPattern);
+    if (logMatch) {
+      const insertIndex = logMatch.index + logMatch[0].length;
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
+    } else {
+      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
+    }
+  }
+
+  instructions = `${instructions}\n\n${buildSubagentContract(client)}`;
+  const searchLine = 'Search codebase using semble MCP tools (search, find_related). Always pass repo absolute path.';
+  const fileToolsLine = 'Read/inspect files using konoha MCP bounded file tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean).';
+
+  const frontmatter = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+    'allowed-tools:',
+    '  - Write',
+    '  - Edit',
+    '  - Bash',
+    '  - Shell',
+    '  - TodoRead',
+    '  - TodoWrite',
+    '  - WebSearch',
+    '  - mcp__semble__*',
+    '  - mcp__konoha__*',
+    '---',
+    ''
+  ];
+
+  return frontmatter.join('\n') + instructions + '\n\n' + searchLine + '\n' + fileToolsLine + '\n';
+}
+
 module.exports = {
   CONTRACT_VERSION,
   CONTRACT_START,
@@ -94,4 +155,5 @@ module.exports = {
   buildManagedContract,
   validateContractText,
   buildContractManifest,
+  generateGenericSubagentMd
 };

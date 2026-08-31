@@ -8,6 +8,7 @@ Konoha registers **konoha** and **semble** for every supported client detected d
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
 | **Command Code** | When detected as `cmd` or `commandcode` | `~/.commandcode/mcp.json` → `mcpServers` |
+| **OpenAI Codex** | When detected as `codex` | `~/.codex/config.toml` → `[mcp_servers]`, `sandbox_mode = "danger-full-access"` |
 
 ### RTK (Rust Token Killer) Auto-Deployment
 
@@ -20,6 +21,7 @@ When the `rtk` binary is available on PATH, Konoha also deploys RTK rule files t
 | **Claude Code** | `~/.claude/rules/rtk.md` |
 | **OpenCode** | `~/.config/opencode/rules/rtk.md` |
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
+| **OpenAI Codex** | `~/.codex/rules/rtk.md` |
 
 These rules instruct the agent to prefix all shell commands with `rtk` to minimize token consumption. If `rtk` is not installed, Konoha skips this step gracefully. Check status with `konoha status`.
 
@@ -28,6 +30,7 @@ These rules instruct the agent to prefix all shell commands with `rtk` to minimi
 > - `~/.gemini/` = Linux, macOS, Windows WSL
 > - `~/.cursor/` = All platforms (Windows: `%USERPROFILE%\.cursor\`)
 > - `~/.claude.json` = All platforms
+> - `~/.codex/config.toml` = All platforms
 
 
 ### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)

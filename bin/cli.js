@@ -1686,74 +1686,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
 }
 
 function registerPermissions(silent = false) {
-  const settingsPaths = [
-    SETTINGS_PATH,
-    path.join(HOME, '.gemini', 'settings.json')
-  ];
-
-  for (const settingsPath of settingsPaths) {
-    ensureDir(path.dirname(settingsPath));
-
-    let settings = {};
-    if (fileExists(settingsPath)) {
-      try {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      } catch {
-        settings = {};
-      }
-    }
-
-    if (!settings.permissions) settings.permissions = {};
-    const allowRaw = settings.permissions.allow;
-    settings.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
-
-    const requiredGrants = [
-      'command(node bin/cli.js)',
-      'command(konoha)',
-      'command(node "' + path.join(SKILLS_DB_DIR, 'prompt_hook.js') + '")',
-      'mcp(semble/search)',
-      'mcp(semble/find_related)',
-      'mcp(semble/*)',
-      'mcp(konoha/read_file_head)',
-      'mcp(konoha/read_file_range)',
-      'mcp(konoha/file_info)',
-      'mcp(konoha/token_efficient_grep)',
-      'mcp(konoha/get_file_structure)',
-      'mcp(konoha/find_files_clean)',
-      'mcp(konoha/find_skill)',
-      'mcp(konoha/list_skills)',
-      'mcp(konoha/get_skill)',
-      'mcp(konoha/optimize_report)',
-      'mcp(konoha/build_from_source)',
-      'mcp(konoha/build_from_text)',
-      'mcp(konoha/*)'
-    ];
-
-    let updated = false;
-    for (const grant of requiredGrants) {
-      if (!settings.permissions.allow.includes(grant)) {
-        settings.permissions.allow.push(grant);
-        updated = true;
-      }
-    }
-
-    if (updated) {
-      try {
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-        if (!silent) {
-          success(`Command permissions auto-approved in: ${settingsPath}`);
-        }
-      } catch (e) {
-        if (!silent) {
-          warn(`Could not update settings.json: ${e.message}`);
-        }
-      }
-    } else {
-      if (!silent) {
-        info(`Command permissions for Konoha already configured in ${settingsPath}`);
-      }
-    }
-  }
+  antigravityManager.ensureAntigravityPermissions(silent);
 }
 
 function unregisterPermissions(silent = false) {

@@ -187,6 +187,7 @@ def query_stats(conn, time_filter=None, model_tokens=None):
         "claudecode": {"calls": 0, "bytes": 0, "tokens": 0},
         "opencode": {"calls": 0, "bytes": 0, "tokens": 0},
         "commandcode": {"calls": 0, "bytes": 0, "tokens": 0},
+        "codex": {"calls": 0, "bytes": 0, "tokens": 0},
     }
     
     query_client = f"""

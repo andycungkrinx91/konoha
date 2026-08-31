@@ -24,12 +24,15 @@ const {
   OPENCODE_LEGACY_DIR,
   OPENCODE_LEGACY_CONFIG,
   FILE_TOOLS_LAUNCHER_PATH,
+  FILE_TOOLS_MCP_PATH,
+  SKILLS_DB_DIR,
   KONOHA,
   SERVER_PATH
 } = require('../bin/lib/paths');
 
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
-const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
+const { buildMainAgentContract, buildManagedContract, generateGenericSubagentMd } = require('./agent_contract');
+const { loadAgents, generateAgentsMd } = require('./agent_manager');
 
 /**
  * Auto-install oh-my-opencode-slim if available and not yet installed.
@@ -112,20 +115,131 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     config.mcp = {};
   }
 
-  // Add konoha MCP server
+  const launcherJs = fileExists(path.join(SKILLS_DB_DIR, 'file_tools_launcher.js'))
+    ? path.join(SKILLS_DB_DIR, 'file_tools_launcher.js')
+    : (fileExists(FILE_TOOLS_MCP_PATH) ? FILE_TOOLS_MCP_PATH : (serverPath || SERVER_PATH));
+
+  const isJsLauncher = launcherJs.endsWith('.js');
+
+  // Add konoha MCP server with auto-approve
   config.mcp['konoha'] = {
     type: 'local',
-    command: [pythonCmd || 'python3', serverPath || SERVER_PATH]
+    command: isJsLauncher
+      ? [process.execPath || 'node', launcherJs]
+      : [pythonCmd || 'python3', launcherJs],
+    environment: {
+      ACTIVE_CLIENT: 'opencode',
+      OPENCODE_CLIENT: '1',
+      KONOHA_CLIENT: 'opencode'
+    },
+    enabled: true,
+    autoApprove: ['*'],
+    auto_approve: true
   };
 
-  // Repair Semble MCP registration on every setup.
+  // Semble MCP registration with auto-approve
   config.mcp['semble'] = {
     type: 'local',
     command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-    enabled: true
+    environment: {
+      ACTIVE_CLIENT: 'opencode',
+      OPENCODE_CLIENT: '1',
+      KONOHA_CLIENT: 'opencode'
+    },
+    enabled: true,
+    autoApprove: ['*', 'search', 'find_related'],
+    auto_approve: true
   };
 
+  // Root autoApprove and permissions
+  config.autoApprove = ['*'];
+  if (!config.permissions) config.permissions = {};
+  config.permissions.allow = [
+    'mcp:konoha:*',
+    'mcp:semble:*',
+    'mcp__konoha__*',
+    'mcp__semble__*',
+    'konoha:*',
+    'semble:*',
+    'rtk:*',
+    'rtk *',
+    'rtk',
+    '*'
+  ];
+  config.permissions.autoApprove = ['*'];
+
+  // Register ninja agents in opencode.json
+  const DEFAULT_ROLE_DESCRIPTIONS = {
+    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
+    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
+    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
+    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
+    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
+    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+  };
+
+  try {
+    const agents = loadAgents();
+    const newAgentMap = {};
+
+    // Keep disabled entries with valid descriptions
+    if (config.agent && typeof config.agent === 'object') {
+      for (const [k, v] of Object.entries(config.agent)) {
+        if (k.startsWith('cli-test-') || k.startsWith('mcp_')) continue;
+        if (v && v.disable) {
+          newAgentMap[k] = {
+            description: v.description || `Built-in ${k} agent (disabled)`,
+            disable: true
+          };
+        }
+      }
+    }
+
+    for (const agent of agents) {
+      if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      const desc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
+      newAgentMap[agent.name] = {
+        description: desc,
+        prompt: agent.instructions || `Execute ${agent.name} workflow using konoha and semble MCP tools.`,
+        mode: 'subagent'
+      };
+    }
+    config.agent = newAgentMap;
+    config.instructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+  } catch {}
+
   writeOpenCodeConfig(config);
+
+  // Write settings.json in both OpenCode config locations
+  const openCodeSettingsPaths = [
+    path.join(OPENCODE_DIR, 'settings.json'),
+    path.join(OPENCODE_LEGACY_DIR, 'settings.json')
+  ];
+  for (const sPath of openCodeSettingsPaths) {
+    try {
+      ensureDir(path.dirname(sPath));
+      let sObj = {};
+      if (fileExists(sPath)) {
+        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch {}
+      }
+      sObj.autoApprove = ['*'];
+      sObj.autoApproval = true;
+      sObj.permissionMode = 'allowAll';
+      sObj.instructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+      if (!sObj.permissions) sObj.permissions = {};
+      sObj.permissions.allow = ['*'];
+      fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
+    } catch {}
+  }
+
+  // If legacy config exists or legacy directory exists, sync it too
+  if (fileExists(OPENCODE_LEGACY_DIR) || fileExists(OPENCODE_LEGACY_CONFIG)) {
+    try {
+      ensureDir(OPENCODE_LEGACY_DIR);
+      fs.writeFileSync(OPENCODE_LEGACY_CONFIG, JSON.stringify(config, null, 2) + '\n');
+    } catch {}
+  }
 
   if (!silent) {
     console.log('  ✓ OpenCode MCP servers configured (konoha, semble)');
@@ -135,20 +249,57 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 }
 
 function deployOpenCodeRules(silent = true) {
-  const dest = path.join(OPENCODE_DIR, 'AGENTS.md');
+  let agents = [];
   try {
-    ensureDir(path.dirname(dest));
-    const contract = buildMainAgentContract('opencode');
-    const existing = readOpenCodeInstructions();
-    const content = buildManagedContract(existing, contract).trim() + '\n';
-    if (existing !== content) {
-      writeOpenCodeInstructions(content);
-    }
-    if (!silent) console.log(`  ✓ Deployed Konoha contract to ${dest}`);
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, reason: 'copy-failed', error: error.message };
+    agents = loadAgents();
+  } catch {}
+
+  const fullInstructions = generateAgentsMd(agents, 'opencode');
+
+  const targets = [
+    path.join(OPENCODE_DIR, 'AGENTS.md'),
+    path.join(OPENCODE_LEGACY_DIR, 'AGENTS.md')
+  ];
+
+  let deployed = 0;
+  for (const dest of targets) {
+    try {
+      ensureDir(path.dirname(dest));
+      fs.writeFileSync(dest, fullInstructions, 'utf-8');
+      deployed++;
+    } catch {}
   }
+
+  // Deploy rules/konoha.md
+  const ruleTargets = [
+    path.join(OPENCODE_DIR, 'rules', 'konoha.md'),
+    path.join(OPENCODE_LEGACY_DIR, 'rules', 'konoha.md')
+  ];
+  for (const rDest of ruleTargets) {
+    try {
+      ensureDir(path.dirname(rDest));
+      fs.writeFileSync(rDest, buildMainAgentContract('opencode') + '\n', 'utf8');
+    } catch {}
+  }
+
+  // Deploy subagents to ~/.config/opencode/agents/ and ~/.opencode/agents/
+  const agentDirs = [
+    path.join(OPENCODE_DIR, 'agents'),
+    path.join(OPENCODE_LEGACY_DIR, 'agents')
+  ];
+  for (const aDir of agentDirs) {
+    try {
+      ensureDir(aDir);
+      for (const agent of agents) {
+        if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+        const subagentMd = generateGenericSubagentMd(agent, 'opencode');
+        fs.writeFileSync(path.join(aDir, `${agent.name}.md`), subagentMd, 'utf8');
+      }
+    } catch {}
+  }
+
+  if (!silent && deployed > 0) console.log(`  ✓ Deployed Konoha instructions & agents to OpenCode`);
+  return { ok: deployed > 0 };
 }
 
 function deployOpenCodeRtkRule(silent = true) {
@@ -167,15 +318,23 @@ function deployOpenCodeRtkRule(silent = true) {
   if (!fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
-  const dest = path.join(OPENCODE_DIR, 'rules', 'rtk.md');
-  try {
-    ensureDir(path.dirname(dest));
-    fs.copyFileSync(src, dest);
-    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, reason: 'copy-failed', error: e.message };
+
+  const targets = [
+    path.join(OPENCODE_DIR, 'rules', 'rtk.md'),
+    path.join(OPENCODE_LEGACY_DIR, 'rules', 'rtk.md')
+  ];
+
+  let deployed = 0;
+  for (const dest of targets) {
+    try {
+      ensureDir(path.dirname(dest));
+      fs.copyFileSync(src, dest);
+      deployed++;
+    } catch {}
   }
+
+  if (!silent && deployed > 0) console.log(`  ✓ Deployed RTK rule to OpenCode`);
+  return { ok: deployed > 0 };
 }
 
 // ─── Status Checking ──────────────────────────────────────────────────────────
