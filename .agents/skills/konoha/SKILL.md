@@ -63,6 +63,17 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 
 ---
 
+### 8. Mandatory Package.json Scripts Invariant (pnpm lint, pnpm build, pnpm start)
+- **Required Lifecycle Scripts**: Every generated or scaffolded project across all 4 frameworks MUST always define working scripts in `package.json` for:
+  - `"dev"`: Local development server (`next dev`, `vite dev`, `nuxt dev`, `ng serve`)
+  - `"lint"`: Formatting & lint check (`next lint`, `eslint .`, `ng lint`)
+  - `"build"`: Production application build (`next build`, `vite build`, `nuxt build`, `ng build`)
+  - `"start"`: Production preview/server runtime (`next start`, `vite preview`, `nuxt preview`, `ng serve`)
+  - (For SvelteKit): `"check"`: Type check verification (`svelte-kit sync && svelte-check --tsconfig ./tsconfig.json`)
+- **Execution Verification**: Executing `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operational without missing script errors.
+
+---
+
 ## 🔄 6-Step Sequential Orchestration Pipeline
 
 1. **Step 1: Deep Research (Chunin)** — Research web documentation, APIs, and external evidence.

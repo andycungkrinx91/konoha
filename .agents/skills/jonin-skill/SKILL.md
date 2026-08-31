@@ -41,6 +41,7 @@ When prompt requests building a website/app from text description (no mockup ima
    - **Asymmetric & Bento Grids**: Intentional CSS Grid compositions.
    - **Polished Micro-Interactions**: Smooth cubic-bezier transitions, subtle hover scale/lift, and glassmorphic depth.
    - **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and controls. Use crisp vector SVG icons (Lucide).
+4. **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated project MUST always define working scripts in `package.json` for `"dev"`, `"lint"` (`pnpm run lint`), `"build"` (`pnpm run build`), and `"start"` (`pnpm run start`) (plus `"check"` for SvelteKit). Executing `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operational with 0 errors.
 4. **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run check` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
 ---

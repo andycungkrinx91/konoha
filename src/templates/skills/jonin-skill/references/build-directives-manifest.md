@@ -31,6 +31,19 @@ All web application builds execute in two complementary layers:
 - Add `pnpm run lint` and `pnpm run build`; SvelteKit also requires `pnpm run check`.
 - Completion requires zero errors and zero warnings from all configured validation commands.
 
+## Mandatory package.json Scripts Invariant
+
+Every project built from text or source across all 4 frameworks MUST define working scripts in `package.json` for all canonical lifecycle phases:
+
+| Framework | `pnpm dev` | `pnpm build` | `pnpm start` | `pnpm lint` | `pnpm check` (if applicable) |
+|---|---|---|---|---|---|
+| **Next.js** | `next dev` | `next build` | `next start` | `next lint` | N/A |
+| **SvelteKit** | `vite dev` | `vite build` | `vite preview` | `prettier --check . && eslint .` | `svelte-kit sync && svelte-check --tsconfig ./tsconfig.json` |
+| **Nuxt** | `nuxt dev` | `nuxt build` | `nuxt preview` | `eslint .` | N/A |
+| **Angular** | `ng serve` | `ng build` | `ng serve` | `ng lint` | N/A |
+
+Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operational with 0 errors.
+
 ## Framework routing
 
 | Framework | Required routing | Required validation |

@@ -1071,6 +1071,7 @@ BUILD_FRAMEWORKS = {
         "scaffold_command": "pnpm create next-app@latest",
         "routing": "Use Next.js 16 App Router under app/ (strictly Next.js 16.3+, React 19, Tailwind v4 — NEVER Next.js 15, 14, or hash-based SPA routing).",
         "validation": ["pnpm run lint", "pnpm run build"],
+        "required_scripts": ["pnpm lint", "pnpm build", "pnpm start", "pnpm dev"],
         "source_extensions": {".html", ".css", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"},
         "skill_prefix": "nextjs",
     },
@@ -1081,6 +1082,7 @@ BUILD_FRAMEWORKS = {
         "scaffold_command": "pnpm dlx sv create <project-name>",
         "routing": "Use SvelteKit file-based routing under src/routes/ — NEVER hash-based SPA routing.",
         "validation": ["pnpm run check", "pnpm run lint", "pnpm run build"],
+        "required_scripts": ["pnpm check", "pnpm lint", "pnpm build", "pnpm start", "pnpm dev"],
         "source_extensions": {".html", ".css", ".js", ".mjs", ".ts", ".svelte"},
         "skill_prefix": "svelte",
     },
@@ -1091,6 +1093,7 @@ BUILD_FRAMEWORKS = {
         "scaffold_command": "pnpm dlx nuxi@latest init <project-name>",
         "routing": "Use Nuxt 4 file-based routing under app/pages/ and app/layouts/ — NEVER hash-based SPA routing.",
         "validation": ["pnpm run lint", "pnpm run build"],
+        "required_scripts": ["pnpm lint", "pnpm build", "pnpm start", "pnpm dev"],
         "source_extensions": {".html", ".css", ".js", ".mjs", ".ts", ".vue"},
         "skill_prefix": "nuxt",
     },
@@ -1101,6 +1104,7 @@ BUILD_FRAMEWORKS = {
         "scaffold_command": "pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm",
         "routing": "Use standalone Angular Router with app.routes.ts — NEVER hash-based SPA routing.",
         "validation": ["pnpm run lint", "pnpm run build"],
+        "required_scripts": ["pnpm lint", "pnpm build", "pnpm start", "pnpm dev"],
         "source_extensions": {".html", ".css", ".scss", ".js", ".mjs", ".ts"},
         "skill_prefix": "angular",
     },
@@ -1463,6 +1467,7 @@ def build_from_source(name, source_dir, framework, agent_name=None, taste_dials=
     else:
         directives.append("Use framework-native routing — NEVER hash-based SPA routing.")
     directives.append(f"Provide the framework validation scripts: {', '.join(framework_spec['validation'])}. All validation must finish with zero errors and zero warnings.")
+    directives.append("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).")
     directives.append(f"Apply Taste-Skill dials: DESIGN_VARIANCE={validated_dials['design_variance']}/10, MOTION_INTENSITY={validated_dials['motion_intensity']}/10, VISUAL_DENSITY={validated_dials['visual_density']}/10.")
 
     # Load critical skill content
@@ -1682,6 +1687,7 @@ def build_from_text(name, description, framework, agent_name=None, taste_dials=N
         ])
     else:
         build_directives.append("Application features: infer only the routes and interactions required by the description, adhering strictly to the 4 layout invariants, 10 light-mode themes, and zero errors contract.")
+    build_directives.append("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).")
 
     # Load critical skill content
     skill_blocks = []
