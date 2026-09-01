@@ -3,7 +3,15 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
-const { getRtkCommand, isRtkInstalled: checkRtkInstalled } = require('./platform_utils');
+const {
+  fileExists,
+  fileExistsCached,
+  clearFileStatCache,
+  ensureDir,
+  isCommandAvailable,
+  getRtkCommand,
+  isRtkInstalled
+} = require('./platform_utils');
 const {
   buildSembleSearchPolicyCompact,
   buildFileToolsPolicyCompact
@@ -12,64 +20,12 @@ const {
   buildSubagentContract,
   buildMainAgentContract
 } = require('./agent_contract');
-
 const {
   SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME,
 } = require('../bin/lib/paths');
 
 const KONOHA_MCP_NAMES = ['konoha', 'semble'];
-
-function fileExists(p) {
-  try {
-    return fs.existsSync(p);
-  } catch {
-    return false;
-  }
-}
-
-function ensureDir(d) {
-  if (!fileExists(d)) {
-    fs.mkdirSync(d, { recursive: true });
-  }
-}
-
-const __cmdAvailCache = new Map();
-const __fileExistCache = new Map();
-
-function fileExistsCached(p) {
-  if (__fileExistCache.has(p)) return __fileExistCache.get(p);
-  let v;
-  try { v = fs.existsSync(p); } catch { v = false; }
-  __fileExistCache.set(p, v);
-  return v;
-}
-
-function isCommandAvailable(cmd) {
-  if (__cmdAvailCache.has(cmd)) return __cmdAvailCache.get(cmd);
-  let result = false;
-  try {
-    const probe = process.platform === 'win32' ? 'where' : 'which';
-    const found = spawnSync(probe, [cmd], { encoding: 'utf-8', timeout: 5000 });
-    if (found.status === 0 && (found.stdout || '').trim()) {
-      result = true;
-    }
-  } catch {}
-  if (!result) {
-    try {
-      const version = spawnSync(cmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        shell: process.platform === 'win32'
-      });
-      result = version.status === 0;
-    } catch {
-      result = false;
-    }
-  }
-  __cmdAvailCache.set(cmd, result);
-  return result;
-}
 
 function isClaudeCodeInstalled() {
   return (
@@ -86,13 +42,6 @@ function isCommandCodeInstalled() {
     fileExistsCached(path.join(HOME, '.commandcode')) ||
     fileExistsCached(COMMANDCODE_JSON)
   );
-}
-
-function isRtkInstalled() {
-  if (__cmdAvailCache.has('rtk')) return __cmdAvailCache.get('rtk');
-  const result = checkRtkInstalled();
-  __cmdAvailCache.set('rtk', result);
-  return result;
 }
 
 

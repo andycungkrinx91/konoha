@@ -16,6 +16,23 @@ function fileExists(p) {
   }
 }
 
+const _statCache = new Map();
+function fileExistsCached(p, maxAgeMs = 5000) {
+  if (!p) return false;
+  const now = Date.now();
+  const cached = _statCache.get(p);
+  if (cached && now - cached.ts < maxAgeMs) {
+    return cached.exists;
+  }
+  const exists = fileExists(p);
+  _statCache.set(p, { exists, ts: now });
+  return exists;
+}
+
+function clearFileStatCache() {
+  _statCache.clear();
+}
+
 function normPath(p) {
   return IS_WIN ? path.normalize(p).toLowerCase() : path.normalize(p);
 }
@@ -224,6 +241,8 @@ function isRtkInstalled() {
 module.exports = {
   IS_WIN,
   fileExists,
+  fileExistsCached,
+  clearFileStatCache,
   ensureDir,
   normPath,
   expandUser,

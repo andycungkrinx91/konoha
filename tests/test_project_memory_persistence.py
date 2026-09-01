@@ -131,5 +131,29 @@ class TestProjectMemoryPersistence(unittest.TestCase):
         self.assertIn('Tailwind CSS v4', prompt_block)
         self.assertIn('server actions', prompt_block)
 
+    def test_all_agents_receive_project_context_memory(self):
+        all_agents = ['sannin', 'genin', 'kage', 'chunin', 'anbu', 'jonin', 'tokubetsu-jonin']
+        persona_memory.save_or_update_project(self.project_a, db_path=self.db_path)
+        profile = persona_memory.get_project_profile(self.project_a, db_path=self.db_path)
+        self.assertIsNotNone(profile)
+
+        for agent in all_agents:
+            persona_memory.save_memory(
+                agent_name=agent,
+                content=f'{agent} verified stack invariant for project A',
+                project_path=self.project_a,
+                db_path=self.db_path
+            )
+            mems = persona_memory.query_memories(
+                agent_name=agent,
+                project_path=self.project_a,
+                db_path=self.db_path
+            )
+            self.assertGreaterEqual(len(mems), 1)
+            block = persona_memory.format_project_context_for_prompt(profile, mems, compact=True)
+            self.assertIn('Project Context Memory', block)
+            self.assertIn('Next.js', block)
+            self.assertIn('pnpm', block)
+
 if __name__ == '__main__':
     unittest.main()
