@@ -18,7 +18,7 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 In the 8-phase Konoha workflow, Sannin serves a dual role:
 
 - **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
-- **Review and synthesis**: After `document` completes, the orchestrator dispatches Kage for a blocking review of every persisted task and validation artifact. Only an explicit Kage approval with **minimum 90% confidence** permits Sannin to synthesize the phase outputs into `final_report.md` and advance to `done`. If confidence is < 90% or validation fails, Sannin MUST NOT deliver the result to the user, but instead re-delegates the tasks with Kage's remediation notes.
+- **Review and synthesis**: After `document` completes, the orchestrator dispatches Kage for a blocking review of every persisted task and validation artifact. Only an explicit Kage approval with **minimum 95% confidence** permits Sannin to synthesize the phase outputs into `final_report.md` and advance to `done`. If confidence is < 90% or validation fails, Sannin MUST NOT deliver the result to the user, but instead re-delegates the tasks with Kage's remediation notes.
 - **Test Directory Discovery & Cleanup Invariant**: Prior to running or adding tests, explore existing test folders (e.g. `tests/`). Never create duplicate test folders. Upon Kage approval, all temporary debug and scratch scripts must be cleaned up before concluding the workflow.
 
 ## The Orchestration Pipeline

@@ -23,7 +23,7 @@
   <img src="assets/demo.gif" alt="Konoha Features Demo" width="100%">
 </p>
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0 (2026-08-29)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-29.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta — Konoha v2.0.0-beta (2026-09-01)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta_2026-09-01.md)
 
 | | |
 |:---:|:---:|

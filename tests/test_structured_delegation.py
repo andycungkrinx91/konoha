@@ -110,10 +110,13 @@ class TestStructuredDelegation(unittest.TestCase):
                 'Showroom uses CSS Grid 12-column layout with max-w-[1400px]',
                 'Primary brand color is Emerald 600 with slate backdrop'
             ],
+            validation=['pnpm run build exited 0', 'vitest: 12 passed'],
             project_path=self.project_dir
         )
         rep = json.loads(rep_json)
         self.assertEqual(rep['status'], 'recorded')
+        self.assertEqual(rep['task_status'], 'completed')
+        self.assertTrue(rep.get('verified', True))
         self.assertEqual(rep['learnings_saved_count'], 2)
 
         # Verify learnings are now in project memory!
@@ -121,6 +124,57 @@ class TestStructuredDelegation(unittest.TestCase):
         self.assertEqual(len(mems), 2)
         contents = [m['content'] for m in mems]
         self.assertIn('Showroom uses CSS Grid 12-column layout with max-w-[1400px]', contents)
+
+        # Reporting the same learnings again must not duplicate them.
+        rep_dup_json = server.report_from_agent(
+            agent_name='jonin',
+            summary='Re-report with identical learnings',
+            status='completed',
+            learnings=[
+                'Showroom uses CSS Grid 12-column layout with max-w-[1400px]',
+                'Primary brand color is Emerald 600 with slate backdrop'
+            ],
+            validation=['pnpm run build exited 0'],
+            project_path=self.project_dir
+        )
+        rep_dup = json.loads(rep_dup_json)
+        self.assertEqual(rep_dup['learnings_saved_count'], 0)
+        mems_after = persona_memory.list_memories(project_path=self.project_dir, db_path=self.db_path)
+        self.assertEqual(len(mems_after), 2)
+
+    def test_unverified_report_defers_learnings(self):
+        """A completion claim without validation evidence must be recorded as
+        unverified and must NOT persist learnings into project memory."""
+        rep_json = server.report_from_agent(
+            agent_name='jonin',
+            summary='Claimed completion without evidence',
+            status='completed',
+            learnings=['DB9 is caused by the collections Map mismatch'],
+            project_path=self.project_dir
+        )
+        rep = json.loads(rep_json)
+        self.assertEqual(rep['status'], 'recorded')
+        self.assertEqual(rep['task_status'], 'unverified')
+        self.assertFalse(rep['verified'])
+        self.assertIn('remediation', rep)
+        self.assertEqual(rep['learnings_saved_count'], 0)
+        mems = persona_memory.list_memories(project_path=self.project_dir, db_path=self.db_path)
+        self.assertEqual(len(mems), 0)
+
+    def test_bare_claim_validation_is_insufficient(self):
+        """Bare 'pass' claims are not real evidence — only command/exit-code
+        style evidence verifies a task."""
+        rep_json = server.report_from_agent(
+            agent_name='anbu',
+            summary='Fixed bug',
+            status='completed',
+            learnings=['learned something'],
+            validation=['pass'],
+            project_path=self.project_dir
+        )
+        rep = json.loads(rep_json)
+        self.assertEqual(rep['task_status'], 'unverified')
+        self.assertFalse(rep['verified'])
 
     def test_backward_compatibility_with_task_dir(self):
         task_dir = os.path.join(self.tmp_dir.name, 'legacy_task')

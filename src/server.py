@@ -2579,6 +2579,10 @@ def _workflow_review_approved(task_dir, status):
     if not tasks or any(task.get("status") != "completed" for task in tasks):
         return False
     for task in tasks:
+        # Tasks explicitly recorded as unverified (no validation evidence)
+        # block approval regardless of the review file's claims.
+        if task.get("verified") is False:
+            return False
         validation = [str(item).lower() for item in task.get("validation", [])]
         if any("error" in item or "warning" in item or "fail" in item for item in validation):
             return False
@@ -2592,7 +2596,7 @@ def _workflow_review_approved(task_dir, status):
             security_verified = review.get("security_reviewed") is True
             rollback_verified = review.get("rollback_reviewed") is True
             confidence = review.get("confidence", review.get("confidence_score", 100))
-            confidence_pass = isinstance(confidence, (int, float)) and confidence >= 90
+            confidence_pass = isinstance(confidence, (int, float)) and confidence >= 95
             clean_validation = review_validation and not any(any(word in str(item).lower() for word in ("error", "warning", "fail")) for item in review_validation)
             if review.get("approved") is True and clean_validation and verified_tasks == expected_tasks and security_verified and rollback_verified and confidence_pass:
                 status["review"] = review
@@ -2603,7 +2607,7 @@ def _workflow_review_approved(task_dir, status):
             return False
     review = status.get("review") or {}
     confidence = review.get("confidence", review.get("confidence_score", 100))
-    confidence_pass = isinstance(confidence, (int, float)) and confidence >= 90
+    confidence_pass = isinstance(confidence, (int, float)) and confidence >= 95
     return review.get("approved") is True and confidence_pass and all(task.get("status") == "completed" for task in status.get("tasks", []))
 
 
@@ -2680,10 +2684,16 @@ def run_mcp_workflow(task_dir=None):
             task_id = dispatch.get("task_id")
             task = next((item for item in status.get("tasks", []) if item.get("id") == task_id), None)
             if task:
-                task["status"] = "completed"
+                # Respect verification gate: if report_from_agent already set
+                # this task to "unverified", keep that status — do not blindly
+                # override to "completed". Only mark as "completed" when the
+                # task was still pending/in-progress.
+                if task.get("status") not in ("completed", "unverified"):
+                    task["status"] = "completed"
                 task["result"] = completion["result"]
                 task["completed_dispatch_id"] = dispatch_id
-                status.setdefault("completed_executors", []).append(task_id)
+                if task.get("status") == "completed":
+                    status.setdefault("completed_executors", []).append(task_id)
                 status.setdefault("executed", {})[task_id] = {"agent": task["agent"], "task": task["task"], "result": completion["result"], "validation": task.get("validation", [])}
             phase = "execute"
         elif phase == "document":
@@ -2783,25 +2793,67 @@ def run_mcp_workflow(task_dir=None):
                 review_data = json.loads(review_raw)
             except Exception:
                 review_data = {}
+
+        # Build the confidence gate report from REAL task state — never from a
+        # hardcoded template. Every number below is computed from status.json.
+        def _task_evidence_ok(t):
+            if t.get("verified") is False:
+                return False
+            if t.get("verified") is True:
+                return True
+            validation = [str(v).lower() for v in t.get("validation", [])]
+            if validation and not any(
+                any(w in item for w in ("error", "warning", "fail")) for item in validation
+            ):
+                return True
+            if review_data.get("approved") is True and t.get("id") in review_data.get("verified_task_ids", []):
+                return True
+            return False
+
+        tasks = status.get("tasks", [])
+        total_tasks = len(tasks)
+        unverified_ids = [t.get("id") for t in tasks if not _task_evidence_ok(t)]
+        if unverified_ids:
+            status["review"] = {
+                "approved": False,
+                "reason": f"Tasks without verifiable validation evidence: {', '.join(unverified_ids)}",
+            }
+            _save_workflow_status(task_dir, status)
+            return json.dumps({
+                "status": "blocked",
+                "phase": "review",
+                "message": "Delivery blocked: tasks lack validation evidence: " + ", ".join(unverified_ids),
+            })
+
+        verified_count = total_tasks - len(unverified_ids)
+        evidence_pct = 100 if total_tasks == 0 else round(100 * verified_count / total_tasks)
+        validation_entries = sum(len(t.get("validation", []) or []) for t in tasks)
+        security_verified = review_data.get("security_reviewed") is True
+        rollback_verified = review_data.get("rollback_reviewed") is True
+        review_findings = review_data.get("findings") or []
         confidence_val = review_data.get("confidence", review_data.get("confidence_score", 95))
+
+        def _mark(ok):
+            return "✅ Passed" if ok else "❌ Needs Attention"
+
         review_gate_block = (
             "### 🛡️ Kage Reviewer Confidence Gate Report\n\n"
             "```\n"
             "┌───────────────────────────────────────────────────────────────┐\n"
             "│  ◎ KAGE REVIEW GATE: APPROVED                                 │\n"
-            f"│  📊 CONFIDENCE SCORE: {confidence_val}% (Minimum Required: ≥ 90%)           │\n"
+            f"│  📊 CONFIDENCE SCORE: {confidence_val}% (Minimum Required: ≥ 95%)           │\n"
             "└───────────────────────────────────────────────────────────────┘\n"
             "```\n\n"
-            "### 📋 Confidence Score Breakdown\n\n"
+            "### 📋 Confidence Score Breakdown (computed from recorded task evidence)\n\n"
             "| Verification Category | Target | Evaluated Result | Category Confidence | Status |\n"
             "|---|---|---|---|---|\n"
-            "| **Direct Real-Time Execution** | Task completed without timeout | Verified execution logs & output evidence | **100%** | ✅ Passed |\n"
-            "| **Comprehensive Test Suite** | 100% pass across test suites | 0 failed test suites | **100%** | ✅ Passed |\n"
-            "| **Architectural Safety & Invariants** | Zero regressions, invariants preserved | Verified no breaking changes | **98%** | ✅ Passed |\n"
-            "| **Strict Factual Truth Guardrail** | No simulated or fabricated logs | Verified real tool/command outputs | **100%** | ✅ Passed |\n\n"
+            f"| **Task Validation Evidence** | {total_tasks}/{total_tasks} tasks with passing evidence | {verified_count}/{total_tasks} verified, {validation_entries} validation entries recorded | **{evidence_pct}%** | {_mark(evidence_pct == 100)} |\n"
+            f"| **Kage Review Findings** | 0 unresolved findings | {len(review_findings)} finding(s) recorded in kage_review.json | **{100 if not review_findings else max(60, 100 - 10 * len(review_findings))}%** | {_mark(not review_findings)} |\n"
+            f"| **Security Review** | security_reviewed = true | security_reviewed = {str(security_verified).lower()} | **{100 if security_verified else 0}%** | {_mark(security_verified)} |\n"
+            f"| **Rollback Review** | rollback_reviewed = true | rollback_reviewed = {str(rollback_verified).lower()} | **{100 if rollback_verified else 0}%** | {_mark(rollback_verified)} |\n\n"
             f"### 🎯 Overall Confidence: **{confidence_val}%**\n"
-            "- **Threshold**: Minimum 90% required to allow delivery.\n"
-            "- **Verdict**: **PASSED & APPROVED FOR DELIVERY**.\n\n"
+            "- **Threshold**: Minimum 95% required to allow delivery.\n"
+            "- **Verdict**: **PASSED & APPROVED FOR DELIVERY** (all recorded tasks carry validation evidence).\n\n"
         )
         report = f"# Final Report\n\n{review_gate_block}## Task\n{prompt}\n\n## Exploration Findings\n{findings}\n\n## Implementation Plan\n{plan}\n\n## Research\n{research}\n\n## Documentation\n{final_docs}\n\n## Executor Results\n\n"
         for task in status.get("tasks", []):
@@ -3250,10 +3302,51 @@ def run_web_search(query, num_results=5, search_depth="standard", agent_name=Non
     return result
 
 
+_VALIDATION_EVIDENCE_PATTERN = re.compile(
+    r"(exit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*0\b"
+    r"|0\s+errors?(?:\s+and\s+0\s+warnings?)?"
+    r"|\bpassed\b"
+    r"|\bpassthrough\b"
+    r"|✓"
+    r"|\bOK\b"
+    r"|\bsucceeded\b"
+    r"|\bcompleted successfully\b)",
+    re.IGNORECASE
+)
+
+
+def _assess_validation_evidence(validation):
+    """Assess whether a subagent's validation list contains real, checkable
+    evidence (command runs, exit codes, pass markers) instead of bare claims.
+
+    Returns (verified: bool, reason: str).
+    """
+    if not validation or not isinstance(validation, list):
+        return False, "no validation evidence provided"
+    evidence = [v for v in validation if isinstance(v, str) and v.strip()]
+    if not evidence:
+        return False, "validation evidence is empty"
+    for entry in evidence:
+        if _VALIDATION_EVIDENCE_PATTERN.search(entry):
+            return True, "validation evidence contains a passing command/exit-code marker"
+    return False, (
+        "validation entries contain no command/exit-code evidence "
+        "(expected entries like 'npm run build exited 0' or 'pytest: 12 passed')"
+    )
+
+
 def report_from_agent(agent_name, summary, status="completed", files_created=None, files_modified=None, learnings=None, project_path=None, task_dir=None, dispatch_id=None, validation=None):
     """Structured task completion reporting with automatic project memory checkpointing."""
     p_path = project_path or WORKSPACE_ROOT or os.getcwd()
     workflow_status = None
+
+    # Verification gate: a "completed" claim must carry real validation
+    # evidence. Without it, the task is recorded as "unverified" so the
+    # orchestrator cannot mistake a self-reported success for a real one.
+    verified, verification_reason = _assess_validation_evidence(validation)
+    if status == "completed" and not verified:
+        status = "unverified"
+
     if task_dir and os.path.isdir(task_dir):
         workflow_status = _load_workflow_status(task_dir)
         dispatch = workflow_status.get("current_dispatch") or {}
@@ -3261,12 +3354,13 @@ def report_from_agent(agent_name, summary, status="completed", files_created=Non
             return json.dumps({"status": "error", "message": "dispatch_id does not match the active workflow dispatch"})
         if dispatch and dispatch.get("agent") != agent_name.replace("_", "-"):
             return json.dumps({"status": "error", "message": "agent_name does not match the active workflow dispatch"})
-        if status == "completed" and dispatch:
+        if status in ("completed", "unverified") and dispatch:
             task = next((item for item in workflow_status.get("tasks", []) if item.get("id") == dispatch.get("task_id")), None)
             if task:
-                task["status"] = "completed"
+                task["status"] = status
                 task["result"] = summary
                 task["validation"] = validation or []
+                task["verified"] = verified
                 task["files_created"] = files_created or []
                 task["files_modified"] = files_modified or []
             if dispatch.get("id") not in workflow_status.setdefault("completed_dispatches", []):
@@ -3281,13 +3375,28 @@ def report_from_agent(agent_name, summary, status="completed", files_created=Non
     clean_agent = clean_agent.replace("_", "-")
 
     saved_ids = []
+    deferred_learnings = 0
     if learnings and isinstance(learnings, list):
         for l in learnings:
             if l and isinstance(l, str) and l.strip():
+                content = l.strip()
                 try:
+                    # Learnings from unverified tasks are not persisted: they
+                    # would inject unconfirmed (often wrong) root-cause
+                    # conclusions into future prompts.
+                    if not verified:
+                        deferred_learnings += 1
+                        continue
+                    if persona_memory.memory_content_exists(
+                        content=content,
+                        agent_name=clean_agent,
+                        project_path=p_path,
+                        db_path=DB_PATH
+                    ):
+                        continue
                     mid = persona_memory.save_memory(
                         agent_name=clean_agent,
-                        content=l.strip(),
+                        content=content,
                         title=f"{clean_agent} decision",
                         memory_type="episodic",
                         importance=2,
@@ -3299,16 +3408,26 @@ def report_from_agent(agent_name, summary, status="completed", files_created=Non
                     sys.stderr.write(f"[mcp report_from_agent] Error saving learning: {e}\n")
                     sys.stderr.flush()
 
-    res = json.dumps({
+    result = {
         "status": "recorded",
         "agent": clean_agent,
         "task_status": status,
         "summary": summary,
+        "verified": verified,
         "files_created": files_created or [],
         "files_modified": files_modified or [],
         "learnings_saved_count": len(saved_ids),
         "project_path": p_path
-    })
+    }
+    if not verified:
+        result["verification_reason"] = verification_reason
+        result["remediation"] = (
+            "Task recorded as UNVERIFIED. Re-run the actual validation commands "
+            "(build/test/lint), confirm real output, then re-report with validation "
+            "entries that include the command and its exit code or pass result "
+            "(e.g. 'npm run build exited 0'). Do NOT claim completion without it."
+        )
+    res = json.dumps(result)
     log_tool_call("report_from_agent", f"agent={clean_agent} status={status}", res, agent_name=clean_agent)
     return res
 
@@ -3367,6 +3486,8 @@ def query_project_memory(query="", project_path=None, agent_name=None, memory_ty
 
 # Session & Turn Tracking for Auto-Compaction across Antigravity, Claude Code, CommandCode, OpenCode, Cursor
 SESSION_TURNS = {}
+SESSION_TURN_LAST_ACCESS = {}
+SESSION_IDLE_RESET_SECONDS = 30 * 60  # reset turn counts after 30 min of inactivity
 
 def get_session_key(project_path=None):
     """Generates a stable session key across Antigravity, Claude Code, CommandCode, OpenCode, and Cursor."""
@@ -3387,10 +3508,37 @@ def get_session_key(project_path=None):
     return f"{client}:{p_hash}"
 
 def get_and_increment_session_turn(session_key):
-    """Increment and return current prompt/turn index for the session."""
+    """Increment and return current prompt/turn index for the session.
+
+    Resets the counter after SESSION_IDLE_RESET_SECONDS of inactivity so a
+    long-lived MCP process (e.g. Claude Code desktop) does not carry turn
+    counts from a previous conversation into a new one when no conversation-id
+    environment variable is available.
+    """
+    now = time.time()
+    last = SESSION_TURN_LAST_ACCESS.get(session_key)
+    if last is not None and (now - last) > SESSION_IDLE_RESET_SECONDS:
+        SESSION_TURNS[session_key] = 0
+    SESSION_TURN_LAST_ACCESS[session_key] = now
     current = SESSION_TURNS.get(session_key, 0) + 1
     SESSION_TURNS[session_key] = current
     return current
+
+def _truncate_at_boundary(text, max_chars):
+    """Truncate text to at most max_chars, cutting at the last sentence/line
+    boundary so procedural instructions are never chopped mid-step."""
+    text = text or ""
+    if len(text) <= max_chars:
+        return text
+    head = text[:max_chars]
+    cut_points = [head.rfind(". "), head.rfind(".\n"), head.rfind("\n")]
+    cut = max(cut_points)
+    if cut < max_chars // 2:
+        cut = max_chars
+    else:
+        cut += 1
+    return head[:cut].rstrip() + " ...[truncated]"
+
 
 def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=None, taste_dials=None, project_path=None, task_dir=None):
     import json
@@ -3527,9 +3675,11 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
                 "jonin-skill/taste-skill-frontend-expert",
             ]
 
-    # Token-Guarded Skill Loading: minimal preview on first turn, on-demand reference on compact turns
+    # Token-Guarded Skill Loading: minimal preview every turn (full manual only
+    # on-demand). The preview is always included — even on compact turns — so
+    # the agent never loses the core SOP/workflow of its primary skill.
     skills_content = []
-    if skills_list and not is_auto_compact:
+    if skills_list:
         try:
             conn = sqlite3.connect(DB_PATH)
             conn.row_factory = sqlite3.Row
@@ -3619,12 +3769,18 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
             )
 
     if is_auto_compact:
-        compact_header = f"[Konoha Auto-Compact: Active (Turn {turn}) - Token Preservation Enabled]\n\n"
+        compact_header = (
+            f"[Konoha Auto-Compact: Active (Turn {turn}) - Token Preservation Enabled]\n\n"
+            "IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, "
+            "authoritative task. Never reinterpret, narrow, or replace them with a newly "
+            "discovered error. If you find an additional bug while fixing, fix the ORIGINAL "
+            "task first, then report the new finding — do not abandon or delete prior work.\n\n"
+        )
         system_prompt = (
             f"{compact_header}You are @{db_agent_name} ({title}).\n"
             f"Purpose: {purpose}\n"
-            f"Instructions: {persona_instructions[:250]}\n"
-            f"Constraints: {agent_constraints[:250]}\n\n"
+            f"Instructions: {_truncate_at_boundary(persona_instructions, 1200)}\n"
+            f"Constraints: {_truncate_at_boundary(agent_constraints, 600)}\n\n"
         )
         if project_context_block:
             system_prompt += project_context_block + "\n"

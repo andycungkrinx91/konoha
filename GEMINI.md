@@ -55,10 +55,10 @@ The official delegation tools are: `sannin`, `genin`, `kage`, `chunin`, `jonin`,
 
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 prompts (`turn >= 2`) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
-- **Memory Continuity**: Project tech stack (`framework`, `styling`, `package_manager`), architectural invariants, and episodic learnings are permanently remembered and injected via compact badges without hallucination.
-- **Prompt Compaction**: Verbose instruction boilerplates, full skill manuals, and redundant diff explanations are automatically compacted to < 450 tokens.
-- **On-Demand Skills**: Reference manuals are served on-demand via `konoha.get_skill` instead of being dumped into prompts.
+Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP delegations (`turn >= 2`, reset after 30 min idle) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
+- **Memory Continuity**: Project tech stack (`framework`, `styling`, `package_manager`), architectural invariants, and verified episodic learnings are permanently remembered and injected via compact badges without hallucination. Unverified learnings are never persisted.
+- **Prompt Compaction**: Verbose instruction boilerplates and redundant diff explanations are compacted. The primary skill SOP preview (250 chars) is always included even on compact turns. Agent instructions are truncated to 1200 chars and constraints to 600 chars (never stripped entirely).
+- **On-Demand Skills**: Full reference manuals are served on-demand via `konoha.get_skill` instead of being dumped into prompts.
 
 ### Delegation Protocol
 

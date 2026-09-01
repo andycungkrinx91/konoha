@@ -26,7 +26,7 @@
 | 07 Token Footprint Comparison | Folder loading versus bounded FTS5 retrieval | `README.md` | `src/server.py`, `src/migrate.py` |
 | 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.py`, `src/agent_manager.js` |
 | 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.py:build_from_source`, `src/server.py:build_from_text` |
-| 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-prompt auto-compaction (< 450 tokens on turn ≥ 2) | `docs/ARCHITECTURE.md` | `src/persona_memory.py`, `src/server.py` |
+| 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.py`, `src/server.py` |
 | 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.py:run_mcp_workflow`, `src/server.py:_workflow_review_approved` |
 
 ## Source policy

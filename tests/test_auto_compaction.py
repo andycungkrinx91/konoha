@@ -22,6 +22,8 @@ import persona_memory
 class TestAutoCompaction(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
+        self.previous_db_path = server.DB_PATH
+        self.previous_persona_db = persona_memory.DB_PATH
         self.db_path = os.path.join(self.tmp_dir.name, 'test_skills.db')
         self.project_dir = os.path.join(self.tmp_dir.name, 'ecommerce_app')
         os.makedirs(self.project_dir, exist_ok=True)
@@ -57,6 +59,8 @@ class TestAutoCompaction(unittest.TestCase):
         server.SESSION_TURNS.clear()
 
     def tearDown(self):
+        server.DB_PATH = self.previous_db_path
+        persona_memory.DB_PATH = self.previous_persona_db
         self.tmp_dir.cleanup()
 
     def test_turn1_vs_turn2_auto_compaction(self):
@@ -104,6 +108,74 @@ class TestAutoCompaction(unittest.TestCase):
 
             self.assertIn("Auto-Compact", r2['instructions'])
             self.assertIn("ecommerce-app", r2['instructions'])
+
+    def test_compact_turn_retains_skill_sop_and_task_authority(self):
+        """Regression test for the goal-drift bug: on compact (turn 2+)
+        delegations the agent must still receive its primary skill preview and
+        an explicit directive that the TASK INSTRUCTIONS are authoritative."""
+        # Seed a skills table with a real SOP for jonin-skill
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS skills (
+                name TEXT PRIMARY KEY,
+                skill_name TEXT,
+                type TEXT,
+                content TEXT,
+                tags TEXT,
+                byte_size INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            INSERT OR REPLACE INTO skills (name, skill_name, type, content, tags, byte_size)
+            VALUES ('jonin-skill', 'jonin-skill', 'skill', 'Root cause first: reproduce the bug, read the failing code, then fix. Never delete prior fixes when a new error appears.', 'ui', 120)
+        """)
+        # Give the agent long procedural instructions to exercise boundary truncation
+        conn.execute("UPDATE agents SET instructions = ? WHERE name = 'jonin'", (
+            'Step 1. Reproduce the reported bug. ' * 60,
+        ))
+        conn.commit()
+        conn.close()
+
+        os.environ['ANTIGRAVITY_CONVERSATION_ID'] = 'conv-compact-retention'
+        server.ACTIVE_CLIENT = 'agy'
+        server.SESSION_TURNS.clear()
+
+        json.loads(server.run_mcp_agent(agent_name='jonin', task='Turn one task', project_path=self.project_dir))
+        res2 = json.loads(server.run_mcp_agent(agent_name='jonin', task='Fix the DB9 reload bug', project_path=self.project_dir))
+        instr2 = res2['instructions']
+
+        # Skill SOP preview must survive compaction
+        self.assertIn("jonin-skill", instr2)
+        self.assertIn("Root cause first", instr2)
+        # Task authority directive must be present
+        self.assertIn("authoritative task", instr2)
+        self.assertIn("Never reinterpret, narrow, or replace", instr2)
+        # The full task text must be present verbatim
+        self.assertIn("Fix the DB9 reload bug", instr2)
+        # Instructions truncated at a sentence boundary, not mid-word
+        if "...[truncated]" in instr2:
+            truncated_at = instr2.index("...[truncated]")
+            self.assertIn("Reproduce the reported bug.", instr2[:truncated_at])
+
+    def test_session_turn_resets_after_idle(self):
+        """Long-lived MCP processes must not carry turn counts across
+        conversations when no conversation-id env var is available."""
+        os.environ.pop('ANTIGRAVITY_CONVERSATION_ID', None)
+        for var in ('CLAUDE_CONVERSATION_ID', 'OPENCODE_SESSION_ID', 'COMMANDCODE_SESSION_ID', 'CURSOR_SESSION_ID', 'SESSION_ID'):
+            os.environ.pop(var, None)
+        server.SESSION_TURNS.clear()
+        server.SESSION_TURN_LAST_ACCESS.clear()
+        server.ACTIVE_CLIENT = 'agy'
+
+        json.loads(server.run_mcp_agent(agent_name='jonin', task='old session task', project_path=self.project_dir))
+        r2 = json.loads(server.run_mcp_agent(agent_name='jonin', task='old session task 2', project_path=self.project_dir))
+        self.assertIn("Auto-Compact", r2['instructions'])
+
+        # Simulate 31 minutes of inactivity: the next call starts fresh (turn 1, no compaction)
+        key = next(iter(server.SESSION_TURN_LAST_ACCESS))
+        server.SESSION_TURN_LAST_ACCESS[key] -= (server.SESSION_IDLE_RESET_SECONDS + 60)
+        r3 = json.loads(server.run_mcp_agent(agent_name='jonin', task='new session task', project_path=self.project_dir))
+        self.assertNotIn("Auto-Compact", r3['instructions'])
 
 if __name__ == '__main__':
     unittest.main()

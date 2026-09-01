@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Shell(pnpm:*)"
+      "Shell(pnpm:*)",
+      "Shell(python3 -m pytest tests/test_auto_compaction.py -x -q 2 >& 1)",
+      "Shell(python3 -m pytest tests/test_auto_compaction.py tests/test_workflow_gates.py tests/test_structured_delegation.py -q 2 >& 1)"
     ],
     "deny": [],
     "defaultMode": "default"

@@ -40,6 +40,16 @@ async function getLastUserInput(transcriptPath) {
 
 const CONTINUE_PATTERN = /^(continue|go|proceed|next|ok|yes|y)$/i;
 
+const PROMPT_HEADER = [
+  '# Session Prompts',
+  '',
+  '> The FIRST section below is the ORIGINAL TASK. Sections marked "Follow-up"',
+  '> refine it but NEVER replace it. When executing, always preserve the',
+  '> original goal: fix the reported bug itself; do not abandon prior work',
+  '> when a new error appears — resolve both, original task first.',
+  ''
+].join('\n');
+
 async function writePromptFile(lastInput, artifactDirectoryPath) {
   if (!lastInput || !artifactDirectoryPath) return;
   try {
@@ -47,10 +57,29 @@ async function writePromptFile(lastInput, artifactDirectoryPath) {
       fs.mkdirSync(artifactDirectoryPath, { recursive: true });
     }
     const promptFilePath = path.join(artifactDirectoryPath, 'prompt.md');
-    if (fs.existsSync(promptFilePath)) {
-      if (CONTINUE_PATTERN.test(lastInput.trim())) return;
+    const trimmed = lastInput.trim();
+    if (!trimmed) return;
+
+    if (!fs.existsSync(promptFilePath)) {
+      fs.writeFileSync(promptFilePath, `${PROMPT_HEADER}\n## Original Task\n\n${trimmed}\n`, 'utf-8');
+      return;
     }
-    fs.writeFileSync(promptFilePath, lastInput, 'utf-8');
+
+    // Continue-style inputs carry no new task content — leave the file as-is.
+    if (CONTINUE_PATTERN.test(trimmed)) return;
+
+    const existing = fs.readFileSync(promptFilePath, 'utf-8');
+    // Skip exact duplicates (hook may fire twice for the same input).
+    if (existing.includes(trimmed)) return;
+
+    // Append as a follow-up so the original task is never overwritten or lost.
+    const followUpCount = (existing.match(/^## Follow-up /gm) || []).length;
+    const stamp = new Date().toISOString();
+    fs.appendFileSync(
+      promptFilePath,
+      `\n\n## Follow-up ${followUpCount + 1} (${stamp})\n\n${trimmed}\n`,
+      'utf-8'
+    );
   } catch {
     // ignore write errors
   }
@@ -60,7 +89,7 @@ const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the <agentname> workflow immediately."
+        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the <agentname> workflow immediately. Note: prompt.md may contain an Original Task section plus Follow-up sections — the Original Task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
     }
   ]
 };

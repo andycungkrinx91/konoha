@@ -97,9 +97,22 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 
 ## 🛡️ Quality & Verification Gates
 
-1. **Kage Reviewer 90% Minimum Confidence Gate**:
+1. **Kage Reviewer 95% Minimum Confidence Gate**:
    - Every task is reviewed by `kage` for structural integrity, zero hallucination, and security compliance.
+   - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 95%, delivery is blocked and tasks are re-delegated for remediation.
 2. **Zero Errors & Zero Warnings**:
-   - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` to complete with 0 errors and 0 warnings.
-3. **Auto-Compaction & Memory Continuity**:
-   - High-Efficiency Auto-Compaction preserves token quota across multi-turn sessions.
+   - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
+3. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
+   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 6 coding clients.
+   - Preserves token budget by compacting instruction boilerplate while permanently retaining the primary skill SOP preview (250 chars) so fixing agents never lose their methodology.
+   - Bounds instruction truncation to 1200 chars and constraint truncation to 600 chars at sentence boundaries (no mid-sentence chopping).
+   - Enforces a 30-minute idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`) preventing cross-session turn accumulation in long-lived MCP server processes.
+4. **Append-Only Prompt History & Original Task Authority**:
+   - `src/prompt_hook.js` records user inputs in an append-only format (`# Session Prompts`) with `## Original Task` as the authoritative goal.
+   - Subsequent user messages or pasted errors are recorded as timestamped `## Follow-up N` refinements that never replace, delete, or overwrite the original bug task.
+5. **Real Validation Evidence Assessment in `report_from_agent`**:
+   - `report_from_agent()` verifies that completion claims contain real command output evidence matching passing markers (`exit code 0`, `0 errors`, `passed`, `succeeded`).
+   - Unsubstantiated claims are automatically downgraded to `status: "unverified"`, preventing unverified tasks from silently completing the workflow.
+6. **Episodic Learnings & Memory Hygiene**:
+   - Only learnings from verified tasks (`verified = True`) are persisted to episodic memory in `persona_memory.py`.
+   - `memory_content_exists()` performs deduplication against the SQLite database, preventing corrupted or hallucinated diagnoses from polluting future prompts.

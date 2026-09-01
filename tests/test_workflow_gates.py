@@ -85,13 +85,36 @@ class TestWorkflowGates(unittest.TestCase):
         execute = json.loads(server.run_mcp_workflow(self.root))
         report = json.loads(server.report_from_agent(
             "anbu", "API fixed", task_dir=self.root,
+            dispatch_id=execute["dispatch_id"], validation=["npm run build exited 0"],
+        ))
+        self.assertEqual(report["status"], "recorded")
+        self.assertTrue(report["verified"])
+        status = json.loads(Path(self.root, "status.json").read_text())
+        self.assertEqual(status["tasks"][0]["status"], "completed")
+        self.assertTrue(status["tasks"][0]["verified"])
+        next_state = json.loads(server.run_mcp_workflow(self.root))
+        self.assertEqual(next_state["phase"], "document")
+
+    def test_unverified_report_blocks_task_completion(self):
+        """A report without real validation evidence must not complete the
+        task — the workflow re-dispatches instead of advancing."""
+        self._advance_to_plan()
+        self._write("plan.md", "- [anbu]: Fix the API\n")
+        self._write("result.md", "Kage approved the implementation plan.")
+        execute = json.loads(server.run_mcp_workflow(self.root))
+        report = json.loads(server.report_from_agent(
+            "anbu", "API fixed (claimed)", task_dir=self.root,
             dispatch_id=execute["dispatch_id"], validation=["pass"],
         ))
         self.assertEqual(report["status"], "recorded")
+        self.assertFalse(report["verified"])
+        self.assertEqual(report["task_status"], "unverified")
+        self.assertIn("remediation", report)
         status = json.loads(Path(self.root, "status.json").read_text())
-        self.assertEqual(status["tasks"][0]["status"], "completed")
+        self.assertEqual(status["tasks"][0]["status"], "unverified")
+        self.assertFalse(status["tasks"][0]["verified"])
         next_state = json.loads(server.run_mcp_workflow(self.root))
-        self.assertEqual(next_state["phase"], "document")
+        self.assertEqual(next_state["phase"], "execute")
 
 
 if __name__ == "__main__":

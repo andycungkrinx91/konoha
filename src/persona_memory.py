@@ -408,6 +408,47 @@ def save_memory(
     return mem_id
 
 
+def memory_content_exists(
+    content: str,
+    agent_name: Optional[str] = None,
+    project_path: Optional[str] = None,
+    project_hash: Optional[str] = None,
+    db_path: str = DB_PATH
+) -> bool:
+    """Check whether an identical memory content already exists for the agent
+    (optionally project-scoped). Used to dedupe learnings before persisting."""
+    content = (content or "").strip()
+    if not content:
+        return False
+
+    clean_agent = agent_name.lower().strip() if agent_name else ""
+    if clean_agent.startswith("mcp_"):
+        clean_agent = clean_agent[4:]
+
+    p_hash = ""
+    if project_hash:
+        p_hash = project_hash.strip()
+    elif project_path:
+        p_hash = compute_project_hash(project_path)
+
+    conn = get_db(db_path)
+    try:
+        init_memory_tables(conn)
+        if clean_agent:
+            row = conn.execute(
+                "SELECT 1 FROM persona_memories WHERE agent_name = ? AND content = ? LIMIT 1",
+                (clean_agent, content)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT 1 FROM persona_memories WHERE content = ? LIMIT 1",
+                (content,)
+            ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
 def query_memories(
     agent_name: Optional[str] = None,
     query: str = "",
