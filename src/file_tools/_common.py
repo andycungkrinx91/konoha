@@ -45,12 +45,42 @@ def load_args():
         emit_error(f'Invalid JSON arguments: {exc}')
 
 
+def is_ide_installation_dir(path):
+    if not path:
+        return False
+    norm = str(path).replace('\\', '/').lower()
+    if any(x in norm for x in [
+        '/appdata/local/programs/antigravity',
+        '/program files/antigravity',
+        '/program files (x86)/antigravity',
+        '/antigravity ide',
+        '/antigravity-ide'
+    ]):
+        return True
+    try:
+        if os.path.isdir(path):
+            entries = {e.lower() for e in os.listdir(path)}
+            if any(e in entries for e in [
+                'antigravity ide.exe',
+                'antigravity.exe',
+                'antigravity ide.visualelementsmanifest.xml',
+                'dxcompiler.dll'
+            ]) or ('resources.pak' in entries and 'v8_context_snapshot.bin' in entries):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def resolve_path(raw_path, base_dir=None):
     if not raw_path or not isinstance(raw_path, str):
         emit_error('path is required')
     expanded = os.path.expanduser(raw_path)
     if not os.path.isabs(expanded):
-        base = base_dir or os.getcwd()
+        base = base_dir if base_dir and not is_ide_installation_dir(base_dir) else None
+        if not base:
+            cwd = os.getcwd()
+            base = cwd if not is_ide_installation_dir(cwd) else os.path.expanduser('~')
         expanded = os.path.abspath(os.path.join(base, expanded))
     else:
         expanded = os.path.abspath(expanded)
@@ -85,7 +115,12 @@ def assert_within_allowed(resolved_path, base_dir=None):
     files (scripts, configs, skill data) even when the IDE workspace
     is something unrelated (e.g. a brain session directory).
     """
+    if is_ide_installation_dir(resolved_path):
+        emit_error(f'Access to IDE installation directory is forbidden: {resolved_path}')
+
     norm_path = _norm(resolved_path)
+    if is_ide_installation_dir(norm_path):
+        emit_error(f'Access to IDE installation directory is forbidden: {resolved_path}')
 
     # 1. Konoha install directory — always allowed
     norm_konoha = _norm(_get_konoha_home())

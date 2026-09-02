@@ -141,4 +141,6 @@ You are the main agent running through Antigravity IDE/CLI. This contract is man
 - **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
 - **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
+- **Skill discovery vs file search**: Skills are discovered exclusively via `konoha.find_skill` or `konoha.list_skills`. NEVER call `get_file_structure` or `find_files_clean` on root directories (`.`) to search for skills. File tools are strictly for exploring project files.
+- **IDE Directory Protection**: Access to IDE binary installation directories (containing `Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.) is strictly forbidden across all file operations.
 <!-- KONOHA-CONTRACT-END -->

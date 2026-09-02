@@ -476,11 +476,45 @@ On headless or CLI-only machines, no extension directory is expected and the emb
 
 Check Antigravity IDE detection. Konoha refreshes the external source from the live `master` branch only when the IDE is present, installs it at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`, and records the resolved commit. It never runs the extension as a standalone Node process.
 
+### ⚠️ Claude Code Settings Warning: Invalid Permission Rule
+
+If Claude Code logs a warning such as:
+```
+Settings Warning
+~/.claude/settings.json
+├ permissions.allow: Invalid permission rule "mcp:konoha:*" was skipped: Wildcard tool name "mcp:konoha:*" is not supported...
+```
+**Cause:** Claude Code requires permission rules to follow the `mcp__<server>__*` schema (double underscores) and does not permit colon wildcards (`mcp:konoha:*`) or bare command wildcards (`rtk *`).
+
+**Fix:** Run `konoha doctor --yes` or `node bin/cli.js init --yes --force`. Konoha automatically prunes legacy invalid entries and writes valid syntax (`mcp__konoha__*`, `mcp__semble__*`, `Bash(...)`).
+
+---
+
+### ⚠️ OpenCode Configuration Invalid: V2 Permissions Not Supported by OpenCode V1
+
+If OpenCode fails to load with:
+```
+Configuration is invalid at ~/.config/opencode/opencode.json
+↳ V2 permissions are not supported by OpenCode V1. Use V1 "permission" rules or run opencode2.
+```
+**Cause:** OpenCode V1 expects a singular `"permission"` dictionary (`read: "allow"`, `edit: "allow"`, `bash: "allow"`, etc.) rather than the V2 plural `"permissions"` or root `"autoApprove"` properties.
+
+**Fix:** Run `konoha doctor --yes`. Konoha will rewrite `~/.config/opencode/opencode.json` with the schema-compliant V1 singular `"permission"` dictionary.
+
+---
+
+### ⚠️ Windows Antigravity IDE Scans App Installation Directory Instead of Project
+
+If running `get_file_structure` with `{"dir_path": "."}` on Windows outputs IDE binaries (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`):
+**Cause:** Electron child processes on Windows inherit `C:\Users\<user>\AppData\Local\Programs\Antigravity IDE\` as `process.cwd()` when no explicit `rootUri` is provided during MCP initialize.
+
+**Fix:** Konoha incorporates strict `isIdeInstallationDirectory` guards in `file_tools_router.js`, `_common.py`, and `server.py`. Access to IDE program directories is permanently blocked, and `detectWorkspaceRoot()` automatically resolves the real project directory from session cache (`last_conversations.json`, `projects.json`) or `WORKSPACE_ROOT`. Run `konoha doctor --yes` to ensure all latest file tools are synced to `~/.konoha/`.
+
 ---
 
 ## Getting Help
 
 1. Run `konoha status` for diagnostic info
 2. Run `konoha test` for server health check
-3. Run `konoha doctor --yes` for auto-repair (Antigravity + Cursor)
+3. Run `konoha doctor --yes` for auto-repair across all supported clients
 4. Check the logs at `~/.konoha/` for any error files

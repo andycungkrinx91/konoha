@@ -2443,15 +2443,8 @@ async function cmdTest(args = []) {
     process.exit(1);
   }
 
-  let tempTestDir = '';
-  try {
-    tempTestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-test-'));
-    fs.writeFileSync(path.join(tempTestDir, 'index.css'), '/* test style */');
-  } catch (e) {
-    warn(`Could not create temp directory for build_from_source test: ${e.message}`);
-  }
-
-  const buildFromSourceDir = tempTestDir || 'src';
+  const tempTestDir = '';
+  const buildFromSourceDir = 'src';
   const buildFromSourceReq = JSON.stringify({
     jsonrpc: "2.0",
     id: 8,
@@ -2461,8 +2454,7 @@ async function cmdTest(args = []) {
       arguments: {
         name: "test_build",
         source_dir: buildFromSourceDir,
-        framework: "nextjs",
-        agent: "jonin"
+        framework: "nextjs"
       }
     }
   });
@@ -2476,13 +2468,18 @@ async function cmdTest(args = []) {
     { name: 'Get Skill (jonin-skill)', req: '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"jonin-skill","agent":"jonin"}}}' },
     { name: 'Get Skill (konoha)', req: '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_skill","arguments":{"name":"konoha","agent":"kage"}}}' },
     { name: 'Build from Source', req: buildFromSourceReq },
-    { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs","agent":"jonin"}}}' }
+    { name: 'Build from Text', req: '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"build_from_text","arguments":{"name":"test_build","description":"a dummy storefront","framework":"nextjs"}}}' }
   ];
 
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const workspaceUri = JSON.stringify(path.join(SRC_DIR, '..'));
     tests.push(
-      { name: 'File Tools List', req: '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}', useNode: true },
+      {
+        name: 'File Tools List',
+        req: '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}',
+        useNode: true,
+        init: `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootPath":${workspaceUri}}}`
+      },
       {
         name: 'Read File Head',
         req: `{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"read_file_head","arguments":{"path":"src/search_policy.js","max_lines":5}}}`,
@@ -2528,7 +2525,11 @@ async function cmdTest(args = []) {
     for (const test of tests) {
       try {
         const inputParts = [];
-        if (test.init) inputParts.push(test.init);
+        if (test.init) {
+          inputParts.push(test.init);
+        } else if (!test.useNode && test.name !== 'Initialize') {
+          inputParts.push('{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}');
+        }
         inputParts.push(test.req);
         const input = inputParts.join('\n');
 
@@ -2540,7 +2541,7 @@ async function cmdTest(args = []) {
               cwd: path.join(SRC_DIR, '..')
             })
           : spawnSync(python, [SERVER_PATH], {
-              input: test.req,
+              input,
               encoding: 'utf-8',
               timeout: 10000,
               cwd: path.join(SRC_DIR, '..')

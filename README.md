@@ -19,16 +19,169 @@
 
 ## 📸 Preview
 
-<p align="center">
-  <img src="assets/demo.gif" alt="Konoha Features Demo" width="100%">
-</p>
-
 * **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta — Konoha v2.0.0-beta (2026-09-01)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta_2026-09-01.md)
 
-| | |
-|:---:|:---:|
-| **📊 Database Status (`konoha status`)**<br><img src="assets/konoha-status.png" alt="konoha status" width="100%"> | **🥷 Subagent Team Status (`konoha agent status`)**<br><img src="assets/konoha-agent-status.png" alt="konoha agent status" width="100%"> |
-| **📜 Installed Skills List (`konoha skill list`)**<br><img src="assets/konoha-skill-list.png" alt="konoha skill list" width="100%"> | **📈 Token Savings Dashboard (`konoha savings`)**<br><img src="assets/konoha-savings.png" alt="konoha savings" width="100%"> |
+<details open>
+<summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
+<br>
+
+<p align="center">
+  <img src="assets/demo.gif" alt="Konoha Core & Subagent Commands Demo" width="100%">
+</p>
+</details>
+
+<details>
+<summary><b>🧪 Full QA & Verification Suite (<code>testing.gif</code>)</b></summary>
+<br>
+
+<p align="center">
+  <img src="assets/testing.gif" alt="Konoha Test Suite QA Demo" width="100%">
+</p>
+</details>
+
+<details>
+<summary><b>🥷 Real Coding Agent Client Demos (6 Clients)</b></summary>
+<br>
+
+<details>
+<summary><b>🟣 Antigravity CLI Prompting & Delegation (<code>demo-agy.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-agy.gif" alt="Antigravity CLI Demo" width="100%">
+</details>
+
+<details>
+<summary><b>💻 Command Code Prompting & Delegation (<code>demo-commandcode.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-commandcode.gif" alt="Command Code Demo" width="100%">
+</details>
+
+<details>
+<summary><b>🤖 OpenAI Codex CLI Prompting & Delegation (<code>demo-codex.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-codex.gif" alt="Codex CLI Demo" width="100%">
+</details>
+
+<details>
+<summary><b>🟩 OpenCode IDE Prompting & Delegation (<code>demo-opencode.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-opencode.gif" alt="OpenCode IDE Demo" width="100%">
+</details>
+
+<details>
+<summary><b>🟠 Claude Code Prompting & Delegation (<code>demo-claude.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-claude.gif" alt="Claude Code Demo" width="100%">
+</details>
+
+<details>
+<summary><b>⚡ Cursor Agent Prompting & Delegation (<code>demo-cursor.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-cursor.gif" alt="Cursor Agent Demo" width="100%">
+</details>
+
+</details>
+
+<details>
+<summary><b>📸 CLI Command Screenshots & Dashboards (15 Images)</b></summary>
+<br>
+
+<details>
+<summary><b>📊 Database & Village Status (<code>konoha status</code>)</b></summary>
+<br>
+<img src="assets/konoha-status.png" alt="konoha status" width="100%">
+</details>
+
+<details>
+<summary><b>🥷 Subagent Team Telemetry (<code>konoha agent status</code>)</b></summary>
+<br>
+<img src="assets/konoha-agent-status.png" alt="konoha agent status" width="100%">
+</details>
+
+<details>
+<summary><b>📜 Installed Skills Registry (<code>konoha skill list</code>)</b></summary>
+<br>
+<img src="assets/konoha-skill-list.png" alt="konoha skill list" width="100%">
+</details>
+
+<details>
+<summary><b>📈 Token Savings Dashboard (<code>konoha savings</code>)</b></summary>
+<br>
+<img src="assets/konoha-savings.png" alt="konoha savings" width="100%">
+</details>
+
+<details>
+<summary><b>❓ CLI Educational Help Menu (<code>konoha help</code>)</b></summary>
+<br>
+<img src="assets/konoha-help.png" alt="konoha help" width="100%">
+</details>
+
+<details>
+<summary><b>🚀 First-Time Interactive Init (<code>konoha init</code>)</b></summary>
+<br>
+<img src="assets/konoha-init.png" alt="konoha init" width="100%">
+</details>
+
+<details>
+<summary><b>🔄 Skills Database Migration & FTS5 Re-index (<code>konoha migrate</code>)</b></summary>
+<br>
+<img src="assets/konoha-migrate.png" alt="konoha migrate" width="100%">
+</details>
+
+<details>
+<summary><b>🧪 Verification Tests & Feature Suite (<code>konoha test</code>)</b></summary>
+<br>
+<img src="assets/konoha-test.png" alt="konoha test" width="100%">
+</details>
+
+<details>
+<summary><b>✨ Version & GitHub Release Sync (<code>konoha version</code>)</b></summary>
+<br>
+<img src="assets/konoha-version.png" alt="konoha version" width="100%">
+</details>
+
+<details>
+<summary><b>🔄 CLI Auto-Upgrade (<code>konoha upgrade</code>)</b></summary>
+<br>
+<img src="assets/konoha-upgrade.png" alt="konoha upgrade" width="100%">
+</details>
+
+<details>
+<summary><b>📁 Persistent Workspaces & Invariants (<code>konoha project</code>)</b></summary>
+<br>
+<img src="assets/konoha-project.png" alt="konoha project" width="100%">
+</details>
+
+<details>
+<summary><b>🧠 SQLite Sessions & Memory Storage (<code>konoha data</code>)</b></summary>
+<br>
+<img src="assets/konoha-data.png" alt="konoha data" width="100%">
+</details>
+
+<details>
+<summary><b>🩺 Cross-Client Diagnostics & Self-Healing (<code>konoha doctor</code>)</b></summary>
+<br>
+<img src="assets/konoha-doctor.png" alt="konoha doctor" width="100%">
+</details>
+
+<details>
+<summary><b>🌉 Local LLM Bridge Router Gateway (<code>konoha bridge</code>)</b></summary>
+<br>
+<img src="assets/konoha-bridge.png" alt="konoha bridge" width="100%">
+</details>
+
+<details>
+<summary><b>🤖 Bridge-Served Models & Telemetry (<code>konoha models</code>)</b></summary>
+<br>
+<img src="assets/konoha-models.png" alt="konoha models" width="100%">
+</details>
+
+<details>
+<summary><b>🗑️ Safe Uninstaller (<code>konoha uninstall</code>)</b></summary>
+<br>
+<img src="assets/konoha-uninstall.png" alt="konoha uninstall" width="100%">
+</details>
+
+</details>
 
 ---
 

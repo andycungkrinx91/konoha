@@ -90,6 +90,7 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
+- `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
 - `~/.claude/CLAUDE.md` → Global orchestrator instructions.
 - `~/.claude/agents/` → Seven official ninja subagents; the host client controls model selection.
 - `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
@@ -118,11 +119,11 @@ konoha doctor --yes
 **Detection**: `opencode` binary in PATH, or `~/.config/opencode/`, or the legacy `~/.opencode/config.json`.
 
 **Writes:**
-- `~/.config/opencode/opencode.json` → `mcp` (all projects on this machine).
+- `~/.config/opencode/opencode.json` → `mcp` (all projects on this machine) with strict OpenCode V1 `"permission"` rules schema (`read: "allow"`, `edit: "allow"`, `bash: "allow"`, `task: "allow"`, etc.), avoiding V2 `"permissions"` or root `"autoApprove"` properties that fail OpenCode v1.18+ validation.
 - `~/.config/opencode/AGENTS.md` → global Konoha + Semble contract.
 - `~/.config/opencode/rules/rtk.md` when RTK is installed; OpenCode has no supported RTK hook.
 
-**Verify:** Open OpenCode IDE and check MCP configurations — should show `konoha` and `semble`.
+**Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha` and `semble` active.
 
 ---
 

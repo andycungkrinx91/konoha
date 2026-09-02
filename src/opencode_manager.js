@@ -132,12 +132,10 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       OPENCODE_CLIENT: '1',
       KONOHA_CLIENT: 'opencode'
     },
-    enabled: true,
-    autoApprove: ['*'],
-    auto_approve: true
+    enabled: true
   };
 
-  // Semble MCP registration with auto-approve
+  // Semble MCP registration
   config.mcp['semble'] = {
     type: 'local',
     command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
@@ -146,27 +144,29 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       OPENCODE_CLIENT: '1',
       KONOHA_CLIENT: 'opencode'
     },
-    enabled: true,
-    autoApprove: ['*', 'search', 'find_related'],
-    auto_approve: true
+    enabled: true
   };
 
-  // Root autoApprove and permissions
-  config.autoApprove = ['*'];
-  if (!config.permissions) config.permissions = {};
-  config.permissions.allow = [
-    'mcp:konoha:*',
-    'mcp:semble:*',
-    'mcp__konoha__*',
-    'mcp__semble__*',
-    'konoha:*',
-    'semble:*',
-    'rtk:*',
-    'rtk *',
-    'rtk',
-    '*'
-  ];
-  config.permissions.autoApprove = ['*'];
+  // V1 permission configuration (OpenCode V1 strictly requires singular 'permission')
+  delete config.permissions;
+  delete config.autoApprove;
+  config.permission = {
+    read: 'allow',
+    edit: 'allow',
+    glob: 'allow',
+    grep: 'allow',
+    list: 'allow',
+    bash: 'allow',
+    task: 'allow',
+    external_directory: 'allow',
+    todowrite: 'allow',
+    question: 'allow',
+    webfetch: 'allow',
+    websearch: 'allow',
+    lsp: 'allow',
+    doom_loop: 'allow',
+    skill: 'allow'
+  };
 
   // Register ninja agents in opencode.json
   const DEFAULT_ROLE_DESCRIPTIONS = {
@@ -223,12 +223,28 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       if (fileExists(sPath)) {
         try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch {}
       }
-      sObj.autoApprove = ['*'];
+      delete sObj.permissions;
+      delete sObj.autoApprove;
       sObj.autoApproval = true;
       sObj.permissionMode = 'allowAll';
       sObj.instructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
-      if (!sObj.permissions) sObj.permissions = {};
-      sObj.permissions.allow = ['*'];
+      sObj.permission = {
+        read: 'allow',
+        edit: 'allow',
+        glob: 'allow',
+        grep: 'allow',
+        list: 'allow',
+        bash: 'allow',
+        task: 'allow',
+        external_directory: 'allow',
+        todowrite: 'allow',
+        question: 'allow',
+        webfetch: 'allow',
+        websearch: 'allow',
+        lsp: 'allow',
+        doom_loop: 'allow',
+        skill: 'allow'
+      };
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
     } catch {}
   }

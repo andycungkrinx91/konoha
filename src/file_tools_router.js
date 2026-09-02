@@ -47,12 +47,97 @@ function getPythonCommand() {
   return platform.normalizeCommand(platform.detectPythonOrDefault());
 }
 
+function isIdeInstallationDirectory(dirPath) {
+  if (!dirPath || typeof dirPath !== 'string') return false;
+  const norm = dirPath.replace(/\\/g, '/').toLowerCase();
+  if (
+    norm.includes('/appdata/local/programs/antigravity') ||
+    norm.includes('/program files/antigravity') ||
+    norm.includes('/program files (x86)/antigravity') ||
+    norm.includes('/antigravity ide') ||
+    norm.includes('/antigravity-ide')
+  ) {
+    return true;
+  }
+  try {
+    if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
+      const entries = fs.readdirSync(dirPath);
+      const isIde = entries.some(f => {
+        const fl = f.toLowerCase();
+        return (
+          fl === 'antigravity ide.exe' ||
+          fl === 'antigravity.exe' ||
+          fl === 'antigravity ide.visualelementsmanifest.xml' ||
+          fl === 'dxcompiler.dll'
+        );
+      }) || (entries.includes('resources.pak') && entries.includes('v8_context_snapshot.bin'));
+      if (isIde) return true;
+    }
+  } catch {}
+  return false;
+}
+
+function detectWorkspaceRoot() {
+  const envCandidates = [
+    process.env.WORKSPACE_ROOT,
+    process.env.KONOHA_WORKSPACE,
+    process.env.PROJECT_DIR,
+    process.env.INIT_CWD
+  ];
+  for (const c of envCandidates) {
+    if (c && typeof c === 'string' && fs.existsSync(c) && !isIdeInstallationDirectory(c)) {
+      return c;
+    }
+  }
+
+  const HOME = os.homedir();
+  const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+  const brainRoots = [
+    path.join(HOME, '.gemini', 'antigravity-cli', 'brain'),
+    path.join(HOME, '.gemini', 'antigravity-ide', 'brain')
+  ];
+
+  const cliCache = path.join(HOME, '.gemini', 'antigravity-cli', 'cache');
+  const ideCache = path.join(HOME, '.gemini', 'antigravity-ide', 'cache');
+  for (const cacheDir of [cliCache, ideCache]) {
+    const lastConvFile = path.join(cacheDir, 'last_conversations.json');
+    if (convId && fs.existsSync(lastConvFile)) {
+      try {
+        const mapping = JSON.parse(fs.readFileSync(lastConvFile, 'utf8'));
+        for (const [p, id] of Object.entries(mapping)) {
+          if (id === convId && fs.existsSync(p) && !isIdeInstallationDirectory(p)) {
+            return p;
+          }
+        }
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
 function setWorkspaceRoot(root) {
+  if (root && isIdeInstallationDirectory(root)) {
+    workspaceRoot = null;
+    return;
+  }
   workspaceRoot = root || null;
 }
 
 function getWorkspaceRoot() {
-  return workspaceRoot || process.cwd();
+  if (workspaceRoot && !isIdeInstallationDirectory(workspaceRoot)) {
+    return workspaceRoot;
+  }
+  const detected = detectWorkspaceRoot();
+  if (detected && !isIdeInstallationDirectory(detected)) {
+    workspaceRoot = detected;
+    return detected;
+  }
+  const cwd = process.cwd();
+  if (!isIdeInstallationDirectory(cwd)) {
+    return cwd;
+  }
+  return os.homedir();
 }
 
 function uriToPath(uri) {
@@ -89,6 +174,11 @@ function resolveInputPath(rawPath) {
  */
 function assertWithinAllowed(resolvedPath) {
   const pathNorm = platform.normPath(resolvedPath);
+
+  // 0. Explicit block for IDE binary installation directory
+  if (isIdeInstallationDirectory(resolvedPath) || isIdeInstallationDirectory(pathNorm)) {
+    throw new Error(`Access to IDE installation directory is forbidden: ${resolvedPath}`);
+  }
 
   // 1. Konoha install directory — always allowed
   if (pathNorm === KONOHA_DIR_NORM || pathNorm.startsWith(KONOHA_DIR_NORM + path.sep) || pathNorm.startsWith(KONOHA_DIR_NORM + '/')) {
@@ -494,6 +584,8 @@ module.exports = {
   resolveInputPath,
   setWorkspaceRoot,
   getWorkspaceRoot,
+  assertWithinAllowed,
+  isIdeInstallationDirectory,
   uriToPath,
   dispatchTool,
   listToolSchemas,

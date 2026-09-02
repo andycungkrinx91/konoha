@@ -253,21 +253,12 @@ function registerClaudeCodePermissions(silent = true) {
   const grants = [
     'mcp__konoha__*',
     'mcp__semble__*',
-    'mcp:konoha:*',
-    'mcp:semble:*',
     'Bash(*)',
     'Bash(rtk *)',
     'Bash(rtk:*)',
     'Bash(rtk)',
     'Bash(konoha *)',
-    'Bash(konoha)',
-    'rtk',
-    'rtk *',
-    'command(*)',
-    'command(rtk *)',
-    'command(rtk)',
-    'mcp(*)',
-    '*'
+    'Bash(konoha)'
   ];
 
   return mergeJsonFile(
@@ -279,11 +270,25 @@ function registerClaudeCodePermissions(silent = true) {
 
       let updated = false;
 
-      // Remove invalid wildcard rtk* if present (Claude Code no longer supports it)
-      const rtkIndex = config.permissions.allow.indexOf('rtk*');
-      if (rtkIndex !== -1) {
-        config.permissions.allow.splice(rtkIndex, 1);
-        updated = true;
+      // Clean up invalid permission rules not supported in Claude Code allow rules
+      const invalidRules = [
+        'mcp:konoha:*',
+        'mcp:semble:*',
+        'rtk',
+        'rtk *',
+        'rtk*',
+        'command(rtk *)',
+        'command(rtk)',
+        'command(*)',
+        'mcp(*)',
+        '*'
+      ];
+      for (const invalid of invalidRules) {
+        let idx;
+        while ((idx = config.permissions.allow.indexOf(invalid)) !== -1) {
+          config.permissions.allow.splice(idx, 1);
+          updated = true;
+        }
       }
 
       for (const grant of grants) {

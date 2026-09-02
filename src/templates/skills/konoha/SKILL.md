@@ -120,4 +120,14 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 12. **Strict Changelog Preservation Invariant (NEVER REMOVE OLD CHANGELOGS)**:
     - Under NO circumstances should past version entries or historical release notes in `CHANGELOG.md` ever be pruned, truncated, or removed.
     - When updating `CHANGELOG.md`, always prepend the new version section (`## [version] - YYYY-MM-DD`) at the top of the file, permanently preserving the entire historical record back to `## [1.0.0]` without exception.
+13. **Claude Code Permission Syntax Specification**:
+    - `~/.claude/settings.json` permissions allow rules strictly require the prefix `mcp__<server>__*` for MCP tools and `Bash(...)` for command permissions.
+    - Bare commands (`rtk`), foreign syntax (`command(...)`, `mcp(...)`), colon wildcards (`mcp:konoha:*`), and unscoped wildcards (`*`) are invalid in allow rules and must be automatically sanitized by `registerClaudeCodePermissions`.
+14. **OpenCode V1 Schema Invariant**:
+    - OpenCode v1.18+ strictly requires the singular `"permission"` dictionary (`read: "allow"`, `edit: "allow"`, `bash: "allow"`, etc.).
+    - The plural `"permissions"` and root `"autoApprove"` keys are V2 schema properties rejected by OpenCode V1 and must never be generated in `opencode.json` or `settings.json`.
+15. **Windows Workspace Isolation & IDE Installation Directory Guard**:
+    - In Windows Antigravity IDE/CLI, child processes inherit the IDE binary folder as `cwd` when `rootUri` is not passed during MCP handshake.
+    - `file_tools_router.js`, `_common.py`, and `server.py` enforce `isIdeInstallationDirectory` / `is_ide_installation_dir`. Any attempt to inspect or scan IDE binary folders (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`, etc.) is strictly forbidden.
+    - `detectWorkspaceRoot()` auto-resolves the active project directory from `WORKSPACE_ROOT`, `KONOHA_WORKSPACE`, session metadata (`last_conversations.json`, `projects.json`), and transcripts, falling back safely to user home instead of IDE program folders.
 

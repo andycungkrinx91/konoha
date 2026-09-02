@@ -20,6 +20,12 @@
 
 If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to both `~/.gemini/antigravity-cli/rules/rtk.md` and `~/.gemini/antigravity-ide/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
 
+### Windows Workspace Isolation & IDE Directory Guard
+
+On native Windows, child processes spawned by Antigravity IDE default to the Electron executable installation directory (`C:\Users\<user>\AppData\Local\Programs\Antigravity IDE\` or `C:\Program Files\Antigravity IDE\`) if no working directory is specified. Konoha enforces strict safeguards:
+- **IDE Directory Guard (`isIdeInstallationDirectory`)**: File exploration and reading tools (`get_file_structure`, `find_files_clean`, `token_efficient_grep`, `read_file_head`, etc.) strictly disallow reading, scanning, or listing any Antigravity IDE installation binaries (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.).
+- **Automatic Workspace Detection (`detectWorkspaceRoot`)**: Resolves the true user project workspace from `WORKSPACE_ROOT` / `KONOHA_WORKSPACE` environment variables, or through active Antigravity session cache (`~/.gemini/antigravity-cli/cache/last_conversations.json`, `projects.json`, and session transcripts), completely preventing unintended scans of the IDE root.
+
 ## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
 
 > [!NOTE]

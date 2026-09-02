@@ -68,9 +68,38 @@ ANTIGRAVITY_IDE_BRAIN = os.path.join(ANTIGRAVITY_IDE, "brain")
 CURSOR_PROJECTS = os.path.join(CURSOR_DIR, "projects")
 CLAUDE_PROJECTS = os.path.join(CLAUDE_DIR, "projects")
 
-USER_AGENTS_YAML = os.path.join(AGENTS_DIR, "agents.yaml")
+def is_ide_installation_dir(path):
+    if not path:
+        return False
+    norm = str(path).replace('\\', '/').lower()
+    if any(x in norm for x in [
+        '/appdata/local/programs/antigravity',
+        '/program files/antigravity',
+        '/program files (x86)/antigravity',
+        '/antigravity ide',
+        '/antigravity-ide'
+    ]):
+        return True
+    try:
+        if os.path.isdir(path):
+            entries = {e.lower() for e in os.listdir(path)}
+            if any(e in entries for e in [
+                'antigravity ide.exe',
+                'antigravity.exe',
+                'antigravity ide.visualelementsmanifest.xml',
+                'dxcompiler.dll'
+            ]) or ('resources.pak' in entries and 'v8_context_snapshot.bin' in entries):
+                return True
+    except Exception:
+        pass
+    return False
 
-WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", os.environ.get("KONOHA_WORKSPACE", os.getcwd()))
+_raw_ws = os.environ.get("WORKSPACE_ROOT", os.environ.get("KONOHA_WORKSPACE", None))
+if not _raw_ws or is_ide_installation_dir(_raw_ws):
+    _cwd = os.getcwd()
+    WORKSPACE_ROOT = _cwd if not is_ide_installation_dir(_cwd) else None
+else:
+    WORKSPACE_ROOT = _raw_ws
 ACTIVE_CLIENT = os.environ.get("ACTIVE_CLIENT", os.environ.get("KONOHA_CLIENT", None))
 
 
@@ -430,6 +459,8 @@ def is_path_visible(file_path):
     
     # Normalize paths (resolve symlinks, remove relative segments, lowercase drive letters on Windows)
     norm_fp = os.path.normcase(os.path.realpath(file_path))
+    if is_ide_installation_dir(norm_fp):
+        return False
     
     # Check if the path contains custom/workspace skills directories (.agents/skills, .cursor/skills, .gemini/skills, .konoha/skills, skills/, docs/skills)
     normalized_slash_path = norm_fp.replace(os.sep, "/")
@@ -3901,8 +3932,10 @@ def handle_request(req):
         # 1. Try rootUri
         root_uri = params.get("rootUri")
         if root_uri:
-            WORKSPACE_ROOT = uri_to_path(root_uri)
-            
+            cand = uri_to_path(root_uri)
+            if not is_ide_installation_dir(cand):
+                WORKSPACE_ROOT = cand
+
         # 2. Try workspaceFolders fallback
         if not WORKSPACE_ROOT:
             folders = params.get("workspaceFolders", [])
@@ -3911,13 +3944,17 @@ def handle_request(req):
                 if isinstance(first_folder, dict):
                     uri = first_folder.get("uri")
                     if uri:
-                        WORKSPACE_ROOT = uri_to_path(uri)
-                        
+                        cand = uri_to_path(uri)
+                        if not is_ide_installation_dir(cand):
+                            WORKSPACE_ROOT = cand
+
         # 3. Try rootPath fallback
         if not WORKSPACE_ROOT:
             root_path = params.get("rootPath")
             if root_path:
-                WORKSPACE_ROOT = uri_to_path(root_path)
+                cand = uri_to_path(root_path)
+                if not is_ide_installation_dir(cand):
+                    WORKSPACE_ROOT = cand
                         
         if WORKSPACE_ROOT:
             sys.stderr.write(f"[mcp konoha] Initialized with workspace root: {WORKSPACE_ROOT}\n")
