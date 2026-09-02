@@ -3,7 +3,7 @@ Konoha registers **konoha** and **semble** for every supported client detected d
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
-| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension only when Antigravity IDE is detected | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
+| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension auto-cloned, packaged into VSIX, and installed across IDE CLIs (`antigravity`, `code`, `cursor`) on init and upgrade | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
 | **Cursor** | When detected | `~/.cursor/mcp.json` and project `.cursor/mcp.json` |
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |

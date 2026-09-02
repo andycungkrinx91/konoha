@@ -12,7 +12,7 @@
 - Canonical `genin-skill` naming is used; `deep-code-explorer` is never a current diagram node.
 - Draw.io ports/waypoints and Mermaid layout both keep dense flows readable.
 - Bridge ownership is explicit: external `konoha-bridge` extension `127.0.0.1:1313`; embedded Konoha aggregate gateway `127.0.0.1:19999`.
-- External extension installation is Antigravity IDE-only, refreshed from the live `master` branch at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`, and does not imply an enabled bridge record.
+- External extension installation is automated on fresh install (`konoha init`) and upgrade (`konoha upgrade`), cloned from live master, packaged into `konoha-bridge-1.3.0.vsix`, and installed across IDE CLIs (`antigravity`, `code`, `cursor`), with atomic directory sync to `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`.
 
 
 | Page | Scope | Markdown owner | Implementation anchors |

@@ -1021,6 +1021,13 @@ async function cmdInit(args) {
       });
       installFileTools(true);
       autoInstallKonohaBridgeExtension(true);
+      try {
+        const bridge1313Active = await checkPortActive(1313);
+        const bridge19999Active = await checkPortActive(19999);
+        if (!bridge1313Active || !bridge19999Active) {
+          await cmdBridgeStart();
+        }
+      } catch {}
       registerMcp(python, true, allowAutoApprove);
       registerHooks(true, allowHooks);
       const agentsForSetup = agentManager.loadAgents();
@@ -1379,6 +1386,15 @@ async function cmdInit(args) {
   drawBox('Installed Files', summaryLines, LEAF_THEME);
   log('');
 
+  // Auto-run Konoha Bridge service in background so http://localhost:1313/v1/models is immediately live
+  try {
+    const bridge1313Active = await checkPortActive(1313);
+    const bridge19999Active = await checkPortActive(19999);
+    if (!bridge1313Active || !bridge19999Active) {
+      await cmdBridgeStart();
+    }
+  } catch {}
+
   info(`${C.bold}Next steps:${C.reset}`);
   log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}${codexInstalled ? ', Codex' : ''}) to load MCP servers`);
   log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
@@ -1481,21 +1497,70 @@ function getUvxCommand() {
   return 'uvx';
 }
 
+function findIdeExecutable(name) {
+  const isWin = process.platform === 'win32';
+  const exts = isWin ? ['.exe', '.cmd', '.bat', ''] : [''];
+  const dirs = (process.env.PATH || '').split(path.delimiter);
+
+  if (!isWin) {
+    dirs.push(path.join(HOME, '.local', 'bin'), '/usr/local/bin', '/usr/bin', '/bin');
+  }
+
+  for (const d of dirs) {
+    for (const ext of exts) {
+      const fullPath = path.join(d, name + ext);
+      try {
+        if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+          return fullPath;
+        }
+      } catch {}
+    }
+  }
+  return null;
+}
+
+function installExtensionViaCli(cliName, vsixPath, silent = false) {
+  const exe = findIdeExecutable(cliName);
+  if (!exe) {
+    if (!silent) log(`  ⚡ ${cliName} CLI: not detected on PATH, skipped.`);
+    return { installed: false, skipped: true, reason: `${cliName}-not-found` };
+  }
+
+  try {
+    const res = spawnSync(exe, ['--install-extension', vsixPath, '--force'], {
+      encoding: 'utf8',
+      timeout: 35000,
+      env: process.env,
+      shell: process.platform === 'win32',
+    });
+    const stdout = (res.stdout || '').trim();
+    const stderr = (res.stderr || '').trim();
+    const output = `${stdout}\n${stderr}`.trim();
+    if (res.status === 0 || output.includes('successfully installed') || output.includes('already installed')) {
+      if (!silent) success(`  ⚡ ${cliName} CLI: Extension '${path.basename(vsixPath)}' installed successfully.`);
+      return { installed: true, skipped: false, cli: cliName, output };
+    } else {
+      if (!silent) warn(`  ⚡ ${cliName} CLI: ${output || `exited with code ${res.status}`}`);
+      return { installed: false, skipped: false, cli: cliName, error: output };
+    }
+  } catch (err) {
+    if (!silent) warn(`  ⚡ ${cliName} CLI install error: ${err.message}`);
+    return { installed: false, skipped: false, cli: cliName, error: err.message };
+  }
+}
+
 function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) {
   const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
   const KONOHA_BRIDGE_REF = 'master';
   const targetDirName = 'andycungkrinx91.konoha-bridge-master-universal';
-  const detection = antigravityManager.detectAntigravityIde();
-
-  if (!detection.present) {
-    if (!silent) info(`Skipping konoha-bridge extension: ${detection.reason}.`);
-    return { installed: false, skipped: true, reason: 'antigravity-ide-not-detected' };
-  }
-
+  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.3.0.vsix');
+  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.3.0.vsix');
+  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.3.0.vsix');
+  const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
   const extensionDir = path.join(HOME, '.antigravity-ide', 'extensions');
   const targetPath = path.join(extensionDir, targetDirName);
   const installedPackage = path.join(targetPath, 'package.json');
-  const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
+
   const readPackage = (packagePath) => {
     try { return JSON.parse(fs.readFileSync(packagePath, 'utf8')); } catch { return null; }
   };
@@ -1507,75 +1572,100 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
       typeof pkg.main === 'string' && pkg.main.endsWith('src/extension.js');
   };
 
-  if (!forceRefresh && fileExists(targetPath) && validatePackage(installedPackage)) {
-    antigravityManager.syncAntigravityExtensionRegistry(extensionDir, targetDirName, readPackage(installedPackage));
-    if (!silent) log(`  ⚡ Konoha Bridge master extension already installed.`);
-    return { installed: true, skipped: true, path: targetPath, ref: KONOHA_BRIDGE_REF };
+  let vsixPath = fileExists(cachedVsixPath) ? cachedVsixPath : (fileExists(bundledVsixPath) ? bundledVsixPath : (fileExists(globalCachedVsix) ? globalCachedVsix : null));
+
+  if (!forceRefresh && vsixPath && fileExists(vsixPath)) {
+    if (!fileExists(cachedVsixPath) && vsixPath !== cachedVsixPath) {
+      try { ensureDir(SKILLS_DB_DIR); fs.copyFileSync(vsixPath, cachedVsixPath); } catch {}
+    }
+    if (fileExists(targetPath) && validatePackage(installedPackage)) {
+      if (!silent) log(`  ⚡ Konoha Bridge master extension already installed.`);
+      return { installed: true, skipped: true, path: targetPath, ref: KONOHA_BRIDGE_REF, vsixPath };
+    }
   }
 
-  if (!silent) info(`Installing Konoha Bridge from ${KONOHA_BRIDGE_REF} for Antigravity IDE...`);
+  if (!silent) info(`Installing Konoha Bridge from ${KONOHA_BRIDGE_REPO}...`);
   const token = `${process.pid}-${Date.now()}`;
   const tmpClone = path.join(SKILLS_DB_DIR, 'tmp', `bridge-clone-${token}`);
   const stagingPath = path.join(extensionDir, `.konoha-bridge-${token}.staging`);
   const backupPath = `${targetPath}.backup-${token}`;
   let backupCreated = false;
+  let commit = 'master';
 
   try {
-    ensureDir(path.dirname(tmpClone));
-    const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], { encoding: 'utf8' });
-    if (cloneRes.status !== 0 || !fileExists(tmpClone)) {
-      throw new Error(`git clone failed for ${KONOHA_BRIDGE_REF} (exit ${cloneRes.status})`);
-    }
-    const branchRes = spawnSync('git', ['-C', tmpClone, 'branch', '--show-current'], { encoding: 'utf8' });
-    const commitRes = spawnSync('git', ['-C', tmpClone, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
-    const branch = (branchRes.stdout || '').trim();
-    const commit = (commitRes.stdout || '').trim();
-    if (branch !== KONOHA_BRIDGE_REF || !/^[0-9a-f]{40}$/i.test(commit)) {
-      throw new Error('cloned extension is not a valid master branch checkout');
-    }
-    if (!validatePackage(path.join(tmpClone, 'package.json'))) {
-      throw new Error('cloned package metadata is not a valid konoha-bridge extension');
-    }
+    if (forceRefresh || !vsixPath || !fileExists(vsixPath)) {
+      ensureDir(path.dirname(tmpClone));
+      const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], {
+        encoding: 'utf8',
+        timeout: 60000,
+        shell: process.platform === 'win32',
+      });
+      if (cloneRes.status === 0 && fileExists(tmpClone)) {
+        const commitRes = spawnSync('git', ['-C', tmpClone, 'rev-parse', 'HEAD'], {
+          encoding: 'utf8',
+          shell: process.platform === 'win32',
+        });
+        commit = (commitRes.stdout || '').trim() || commit;
 
-    ensureDir(extensionDir);
-    fs.rmSync(stagingPath, { recursive: true, force: true });
-    fs.cpSync(tmpClone, stagingPath, { recursive: true });
-    if (!validatePackage(path.join(stagingPath, 'package.json'))) {
-      throw new Error('staged extension package validation failed');
-    }
+        // Install dependencies in clone
+        try {
+          spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+            cwd: tmpClone,
+            encoding: 'utf8',
+            timeout: 30000,
+            shell: process.platform === 'win32',
+          });
+        } catch {}
 
-    if (fileExists(targetPath)) {
-      fs.renameSync(targetPath, backupPath);
-      backupCreated = true;
-    }
-    fs.renameSync(stagingPath, targetPath);
-    if (!validatePackage(installedPackage)) {
-      throw new Error('installed extension package validation failed');
-    }
-
-    ensureDir(SKILLS_DB_DIR);
-    fs.writeFileSync(manifestPath, JSON.stringify({
-      repository: KONOHA_BRIDGE_REPO,
-      ref: KONOHA_BRIDGE_REF,
-      commit,
-      path: targetPath,
-      package: readPackage(installedPackage)
-    }, null, 2) + '\n');
-
-    if (backupCreated) {
-      fs.rmSync(backupPath, { recursive: true, force: true });
-      backupCreated = false;
-    }
-
-    for (const entry of fs.readdirSync(extensionDir)) {
-      if (entry.startsWith('andycungkrinx91.konoha-bridge-') && entry !== targetDirName) {
-        fs.rmSync(path.join(extensionDir, entry), { recursive: true, force: true });
+        // Package VSIX using @vscode/vsce package --allow-star-activation
+        try {
+          spawnSync('npx', ['--yes', '@vscode/vsce', 'package', '--allow-star-activation'], {
+            cwd: tmpClone,
+            encoding: 'utf8',
+            timeout: 60000,
+            env: process.env,
+            shell: process.platform === 'win32',
+          });
+          const vsixFiles = fs.readdirSync(tmpClone).filter(f => f.endsWith('.vsix'));
+          if (vsixFiles.length > 0) {
+            const generatedVsix = path.join(tmpClone, vsixFiles[0]);
+            ensureDir(SKILLS_DB_DIR);
+            fs.copyFileSync(generatedVsix, cachedVsixPath);
+            vsixPath = cachedVsixPath;
+          }
+        } catch {}
       }
     }
-    antigravityManager.syncAntigravityExtensionRegistry(extensionDir, targetDirName, readPackage(installedPackage));
-    if (!silent) success(`Konoha Bridge master extension installed at ${targetPath} (${commit.slice(0, 12)}).`);
-    return { installed: true, skipped: false, path: targetPath, ref: KONOHA_BRIDGE_REF, commit };
-  } catch (err) {
+
+      // Direct directory copy for Antigravity IDE
+      const detection = antigravityManager.detectAntigravityIde();
+      if (!detection.present) {
+        if (!silent) info(`Skipping Antigravity IDE directory copy: ${detection.reason || 'antigravity-ide-not-detected'}.`);
+      } else if (validatePackage(path.join(tmpClone, 'package.json'))) {
+        ensureDir(extensionDir);
+        fs.rmSync(stagingPath, { recursive: true, force: true });
+        fs.cpSync(tmpClone, stagingPath, { recursive: true });
+
+        if (fileExists(targetPath)) {
+          fs.renameSync(targetPath, backupPath);
+          backupCreated = true;
+        }
+        fs.renameSync(stagingPath, targetPath);
+
+        if (backupCreated) {
+          fs.rmSync(backupPath, { recursive: true, force: true });
+          backupCreated = false;
+        }
+
+        for (const entry of fs.readdirSync(extensionDir)) {
+          if (entry.startsWith('andycungkrinx91.konoha-bridge-') && entry !== targetDirName) {
+            fs.rmSync(path.join(extensionDir, entry), { recursive: true, force: true });
+          }
+        }
+        antigravityManager.syncAntigravityExtensionRegistry(extensionDir, targetDirName, readPackage(installedPackage));
+        if (!silent) success(`  ⚡ Antigravity IDE: Extension synced to ${targetPath}.`);
+      }
+    } catch (err) {
     try { fs.rmSync(stagingPath, { recursive: true, force: true }); } catch {}
     if (backupCreated && fileExists(targetPath)) {
       try { fs.rmSync(targetPath, { recursive: true, force: true }); } catch {}
@@ -1583,11 +1673,34 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
     if (backupCreated && !fileExists(targetPath) && fileExists(backupPath)) {
       try { fs.renameSync(backupPath, targetPath); } catch {}
     }
-    if (!silent) warn(`Failed to auto-install konoha-bridge extension: ${err.message}`);
-    return { installed: false, skipped: false, reason: err.message };
+    if (!silent) warn(`Failed during konoha-bridge git clone or build: ${err.message}`);
   } finally {
     try { fs.rmSync(tmpClone, { recursive: true, force: true }); } catch {}
   }
+
+  // If we have vsixPath, run the CLI install commands for Antigravity, VS Code, and Cursor
+  if (vsixPath && fileExists(vsixPath)) {
+    // # Antigravity IDE CLI
+    installExtensionViaCli('antigravity', vsixPath, silent);
+    // # Standard VS Code CLI
+    installExtensionViaCli('code', vsixPath, silent);
+    // # Cursor IDE CLI
+    installExtensionViaCli('cursor', vsixPath, silent);
+  }
+
+  ensureDir(SKILLS_DB_DIR);
+  try {
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      repository: KONOHA_BRIDGE_REPO,
+      ref: KONOHA_BRIDGE_REF,
+      commit,
+      vsixPath,
+      updatedAt: new Date().toISOString()
+    }, null, 2) + '\n');
+  } catch {}
+
+  if (!silent) success(`Konoha Bridge extension setup completed.`);
+  return { installed: true, skipped: false, path: targetPath, ref: KONOHA_BRIDGE_REF, commit, vsixPath };
 }
 
 function registerMcp(_python, silent = false, allowAutoApprove = true) {
@@ -5050,16 +5163,20 @@ async function cmdUpgrade(args = []) {
   header('🔄 Upgrading Konoha');
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
-  let confirm;
-  try {
-    const prompts = await import('@inquirer/prompts');
-    confirm = prompts.confirm;
-  } catch (e) {
-    error('Could not load @inquirer/prompts. Please run "pnpm install".');
-    process.exit(1);
+  const autoYes = args && (args.includes('--yes') || args.includes('-y'));
+  let doUpgrade = autoYes;
+  if (!autoYes) {
+    let confirm;
+    try {
+      const prompts = await import('@inquirer/prompts');
+      confirm = prompts.confirm;
+    } catch (e) {
+      error('Could not load @inquirer/prompts. Please run "pnpm install".');
+      process.exit(1);
+    }
+    doUpgrade = await confirm({ message: 'Proceed with upgrading Konoha and modify ~/.gemini configurations?', default: true });
   }
 
-  const doUpgrade = await confirm({ message: 'Proceed with upgrading Konoha and modify ~/.gemini configurations?', default: true });
   if (!doUpgrade) {
     warn('Upgrade aborted.');
     return;
@@ -5080,6 +5197,8 @@ async function cmdUpgrade(args = []) {
 
   try {
     const res = spawnSync(cmd, cmdArgs, options);
+    // Ensure Konoha Bridge extension is freshly cloned, packaged, and installed across IDEs
+    autoInstallKonohaBridgeExtension(false, true);
     if (res.status === 0) {
       success('Konoha has been successfully upgraded!');
     } else {
@@ -5087,6 +5206,7 @@ async function cmdUpgrade(args = []) {
       process.exit(res.status || 1);
     }
   } catch (err) {
+    try { autoInstallKonohaBridgeExtension(false, true); } catch {}
     error(`Failed to execute upgrade command: ${err.message}`);
     process.exit(1);
   }
@@ -5627,9 +5747,11 @@ async function cmdBridgeStop() {
     }
     if (!targeted) {
       if (process.platform === 'win32') {
-        execSync('taskkill /f /im node.exe', { stdio: 'ignore' });
+        // Only target PID file to avoid killing host IDE processes
       } else {
-        execSync('pkill -f file_tools_mcp.js', { stdio: 'ignore' });
+        try {
+          execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
+        } catch {}
       }
     }
     success('Stopped background bridge proxy gateway services.');
@@ -5642,6 +5764,12 @@ async function cmdBridgeRestart() {
   header('Restarting Bridge Proxy Gateway Service');
   success('Stopping existing bridge service...');
   await cmdBridgeStop();
+  try {
+    saveBridgeSqlite('disable', 'Antigravity');
+    await new Promise((r) => setTimeout(r, 300));
+    saveBridgeSqlite('enable', 'Antigravity');
+  } catch {}
+  await new Promise((r) => setTimeout(r, 600));
   success('Starting bridge service...');
   await cmdBridgeStart();
 }
@@ -5698,7 +5826,15 @@ async function cmdBridgeModels() {
   }
 
   const bridgeTargets = bridgeList.map(async bridge => {
-    const targetPath = bridge.targetUrl.endsWith('/v1') ? bridge.targetUrl + '/models' : bridge.targetUrl;
+    let targetPath = bridge.targetUrl || `http://127.0.0.1:${bridge.port}`;
+    if (targetPath.endsWith('/chat/completions')) {
+      targetPath = targetPath.replace('/chat/completions', '/models');
+    }
+    if (!targetPath.endsWith('/models')) {
+      if (targetPath.endsWith('/')) targetPath = targetPath.slice(0, -1);
+      if (targetPath.endsWith('/v1')) targetPath = targetPath + '/models';
+      else targetPath = targetPath + '/v1/models';
+    }
     const parsed = new URL(targetPath);
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const url = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;

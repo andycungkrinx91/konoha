@@ -464,17 +464,24 @@ The gateway does not rotate globally to another bridge after a rate limit. It fo
 
 ### External Antigravity Extension
 
-The optional `konoha-bridge` extension is installed only when Antigravity IDE is detected. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
+The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix`, and installed via CLI across detected IDEs during `konoha init` and `konoha upgrade`:
+```bash
+# Antigravity IDE CLI
+antigravity --install-extension konoha-bridge-1.3.0.vsix
 
-1. Check the extension API on port `1313`.
+# Standard VS Code CLI
+code --install-extension konoha-bridge-1.3.0.vsix
+
+# Cursor IDE CLI
+cursor --install-extension konoha-bridge-1.3.0.vsix
+```
+When Antigravity IDE is present, it is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
+
+1. Check the extension API on port `1313`: `curl -s http://localhost:1313/v1/models | jq .`
 2. Run `konoha bridge list`.
 3. Explicitly enable the `antigravity-extension` record with `konoha bridge enable <name>`.
 
-On headless or CLI-only machines, no extension directory is expected and the embedded Konoha bridge remains the fallback.
-
-### External Extension Not Installed
-
-Check Antigravity IDE detection. Konoha refreshes the external source from the live `master` branch only when the IDE is present, installs it at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`, and records the resolved commit. It never runs the extension as a standalone Node process.
+On headless or non-Antigravity machines, the embedded Konoha bridge remains the active fallback.
 
 ### ⚠️ Claude Code Settings Warning: Invalid Permission Rule
 

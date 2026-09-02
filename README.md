@@ -13,13 +13,14 @@
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
 
 ---
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta — Konoha v2.0.0-beta (2026-09-01)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta_2026-09-01.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta — Konoha v2.0.0-beta (2026-09-02)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta_2026-09-02.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -853,6 +854,16 @@ Special thanks to [RTK (Rust Token Killer)](https://github.com/reachingforthejac
   organization = {MinishLab}
 }
 ```
+
+## ☕ Support & Donation
+
+If you find Konoha helpful and want to support ongoing development, maintenance, and coffee-fueled coding sessions, consider buying me a coffee!
+
+[![Donate via Saweria](https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
+
+👉 **[Support Andy on Saweria (Buy Me Some Coffee)](https://saweria.co/andycungkrinx)**
+
+---
 
 ## License
 

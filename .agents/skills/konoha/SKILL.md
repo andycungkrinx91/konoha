@@ -93,8 +93,8 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
    - Use **RTK** for shell commands when installed.
 2. **Filesystem Mirrors**:
    - **Konoha does not maintain filesystem mirrors** (e.g. no `.cursor/skills/` mirrors); skill content is served on-demand via SQLite FTS5 index.
-3. **Bridge Extension Sync**:
-   - The Antigravity extension tracks the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`.
+3. **Bridge Extension Sync & CLI Distribution**:
+   - On fresh installation (`konoha init`) and upgrade (`konoha upgrade`), `https://github.com/andycungkrinx91/konoha-bridge` is cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension`, `code --install-extension`, `cursor --install-extension`). When Antigravity IDE is present, an atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` is also performed with `extensions.json` registration. Fallback VSIX is bundled in `assets/konoha-bridge-1.3.0.vsix`.
 4. **Rule Synchronization**:
    - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
 5. **Database Migration**:

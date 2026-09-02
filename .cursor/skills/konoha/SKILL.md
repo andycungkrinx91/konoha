@@ -400,7 +400,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
     3. **Fallback**: Route to the first active bridge.
   - Cache TTL for bridge model lookups: **30 seconds**.
 - **Request routing**: The gateway selects one enabled bridge per request using model-prefix, exact-model, then first-active fallback. It does not perform gateway-level round-robin retry after a 429; retries remain inside supported sidecar paths.
-- **External Antigravity extension**: `https://github.com/andycungkrinx91/konoha-bridge` is an IDE-owned extension refreshed from the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. Install it only when Antigravity IDE is detected; it serves `http://127.0.0.1:1313` using the `agLocalBridge` namespace. Record the resolved commit, stage atomically, preserve rollback, never run it as standalone Node, and never seed an enabled external bridge row.
+- **External Antigravity extension**: `https://github.com/andycungkrinx91/konoha-bridge` is cloned from the live `master` branch on fresh installation (`konoha init`), packaged into `konoha-bridge-1.3.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension konoha-bridge-1.3.0.vsix`, `code --install-extension konoha-bridge-1.3.0.vsix`, `cursor --install-extension konoha-bridge-1.3.0.vsix`). It is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` when Antigravity IDE is present; it serves `http://127.0.0.1:1313` using the `agLocalBridge` namespace. Record the resolved commit, stage atomically, preserve rollback, never run it as standalone Node, and never seed an enabled external bridge row.
 - **Embedded fallback**: Konoha retains its embedded headless bridge implementation and aggregate gateway on `http://127.0.0.1:19999` for non-Antigravity machines.
 - Antigravity orchestrator templates may document model selection conventions; Konoha enforces routing at the proxy level.
 
@@ -487,8 +487,18 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Documentation**: `docs/SETUP-MCP-CLIENTS.md`.
 
 ### 18. External Antigravity Bridge Integration (v2.0.0)
-- The external `konoha-bridge` repository is an Antigravity/VS Code extension, not a standalone Node service: `https://github.com/andycungkrinx91/konoha-bridge`, refreshed from live `master` into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` on forced init/upgrade.
-- Detect Antigravity IDE before cloning. If the IDE is absent or only the CLI is present, skip installation and do not create extension directories.
+- The external `konoha-bridge` repository is an Antigravity/VS Code extension, not a standalone Node service: `https://github.com/andycungkrinx91/konoha-bridge`. On fresh installation (`konoha init`), it is cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix`, and installed via CLI:
+  ```bash
+  # Antigravity IDE CLI
+  antigravity --install-extension konoha-bridge-1.3.0.vsix
+
+  # Standard VS Code CLI
+  code --install-extension konoha-bridge-1.3.0.vsix
+
+  # Cursor IDE CLI
+  cursor --install-extension konoha-bridge-1.3.0.vsix
+  ```
+- It is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` when Antigravity IDE is present.
 - The extension owns `http://127.0.0.1:1313` and uses the `agLocalBridge` setting namespace. Konoha’s embedded headless bridge and aggregate gateway remain on `http://127.0.0.1:19999`.
 - Validate package publisher/name/version/entry point before atomically staging the extension. Never execute the extension with Node or treat installation as runtime activation.
 - Never seed an external bridge row automatically. Provider `antigravity-extension` defaults to disabled and requires explicit `konoha bridge enable <name>`; no gateway-level round-robin failover occurs after `429`.

@@ -1,6 +1,6 @@
 'use strict';
 
-const vscode = require('vscode');
+let vscode; try { vscode = require('vscode'); } catch { vscode = require('../vscode-mock'); }
 const path = require('path');
 const { log, verboseLog } = require('../utils');
 const { extractText } = require('../images');

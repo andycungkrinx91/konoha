@@ -404,6 +404,11 @@ async function syncBridges() {
   isSyncing = true;
 
   try {
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes('/bridge/') || key.includes('\\bridge\\')) {
+        delete require.cache[key];
+      }
+    }
     const { createContext } = require("./bridge/context");
     const { startServer, stopServer } = require("./bridge/server");
 
@@ -429,14 +434,58 @@ async function syncBridges() {
       }
     }
 
-    // External Antigravity extensions own their HTTP server; expose them to
-    // the aggregate gateway without spawning an embedded replacement.
+    function checkPortListening(port) {
+      const net = require("net");
+      return new Promise((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(300);
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve(true);
+        });
+        socket.once("error", () => {
+          socket.destroy();
+          resolve(false);
+        });
+        socket.once("timeout", () => {
+          socket.destroy();
+          resolve(false);
+        });
+        socket.connect(port, "127.0.0.1");
+      });
+    }
+
+    // External Antigravity extensions own port 1313; if active, expose to gateway.
+    // If not listening, start the embedded bridge server on port 1313 so localhost:1313 is always live.
     for (const b of externalBridges) {
+      const port = b.port || 1313;
       const existing = activeBridges.get(b.name);
-      if (existing && !existing.external && existing.ctx) {
-        try { await stopServer(existing.ctx); } catch {}
+      if (existing && existing.ctx && !existing.external) {
+        // Embedded bridge is already running for this external bridge; keep it running.
+        continue;
       }
-      activeBridges.set(b.name, { bridgeConfig: b, external: true });
+      const isListening = await checkPortListening(port);
+      if (isListening) {
+        activeBridges.set(b.name, { bridgeConfig: b, external: true });
+      } else {
+        const ctx = createContext();
+        ctx.bridgeConfig = b;
+        ctx.outputChannel = {
+          appendLine: (msg) => process.stderr.write(`[bridge:${b.name}] ${msg}\n`),
+          show: () => {},
+          dispose: () => {},
+        };
+        try {
+          await startServer(ctx);
+          activeBridges.set(b.name, { bridgeConfig: b, ctx, external: false });
+        } catch (err) {
+          if (err.message.includes("EADDRINUSE")) {
+            activeBridges.set(b.name, { bridgeConfig: b, external: true });
+          } else {
+            process.stderr.write(`[bridge:${b.name}] Failed to start bridge server: ${err.message}\n`);
+          }
+        }
+      }
     }
 
     // 2. Start or reload embedded bridges.
@@ -526,37 +575,44 @@ async function syncBridges() {
 }
 
 function main() {
-  // Start the local bridge servers in-process and monitor for changes
-  syncBridges()
-    .then(() => {
-      const { startGateway } = require("./bridge/gateway");
-      return startGateway(activeBridges, 19999);
-    })
-    .catch((err) => {
-      process.stderr.write(`[bridge] Initial sync / gateway failed: ${err.message}\n`);
-    });
-
-  // Periodically check SQLite database for updates (every 5 seconds)
-  const pollInterval = setInterval(() => {
-    syncBridges().catch((err) => {
-      process.stderr.write(`[bridge] Polling sync failed: ${err.message}\n`);
-    });
-  }, 5000);
-
-  // Watch skills.db for instant response
-  const fs = require("fs");
-  const os = require("os");
-  const path = require("path");
-  const dbPath = DB_PATH;
+  // Only start the local bridge servers and gateway if running as the dedicated KONOHA_DAEMON.
+  // When running as an interactive/stdio MCP server inside an IDE/CLI, we do NOT bind HTTP ports
+  // (19999, 1313, 11437) to prevent port-locking, so 'konoha bridge start/stop/restart' can freely
+  // manage the background bridge daemon without interference or stale in-memory module caching.
+  let pollInterval = null;
   let watcher = null;
-  if (fs.existsSync(dbPath)) {
-    try {
-      watcher = fs.watch(dbPath, (eventType) => {
-        if (eventType === "change") {
-          syncBridges().catch(() => {});
-        }
+
+  if (process.env.KONOHA_DAEMON === 'true') {
+    syncBridges()
+      .then(() => {
+        const { startGateway } = require("./bridge/gateway");
+        return startGateway(activeBridges, 19999);
+      })
+      .catch((err) => {
+        process.stderr.write(`[bridge] Initial sync / gateway failed: ${err.message}\n`);
       });
-    } catch (e) {}
+
+    // Periodically check SQLite database for updates (every 5 seconds)
+    pollInterval = setInterval(() => {
+      syncBridges().catch((err) => {
+        process.stderr.write(`[bridge] Polling sync failed: ${err.message}\n`);
+      });
+    }, 5000);
+
+    // Watch skills.db for instant response
+    const fs = require("fs");
+    const os = require("os");
+    const path = require("path");
+    const dbPath = DB_PATH;
+    if (fs.existsSync(dbPath)) {
+      try {
+        watcher = fs.watch(dbPath, (eventType) => {
+          if (eventType === "change") {
+            syncBridges().catch(() => {});
+          }
+        });
+      } catch (e) {}
+    }
   }
 
   if (process.env.KONOHA_DAEMON !== "true") {

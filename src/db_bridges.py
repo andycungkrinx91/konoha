@@ -154,6 +154,18 @@ def main():
 
     cmd = sys.argv[1]
     if cmd == "--list" or cmd == "list":
+        # If called by an interactive/stdio MCP server (not the background KONOHA_DAEMON),
+        # return empty list so the MCP server never binds HTTP bridge ports or steals them from daemon.
+        is_daemon = os.environ.get("KONOHA_DAEMON") == "true"
+        try:
+            ppid = os.getppid()
+            with open(f"/proc/{ppid}/cmdline", "rb") as f:
+                pcmd = f.read().decode("utf-8", errors="ignore")
+                if "file_tools_mcp.js" in pcmd and not is_daemon:
+                    print("[]")
+                    return
+        except Exception:
+            pass
         print(json.dumps(list_bridges()))
     elif cmd == "--upsert" or cmd == "upsert":
         if len(sys.argv) < 3:

@@ -1,7 +1,16 @@
 'use strict';
 
-const { MODEL_MAP } = require('../models');
 const { sendJson, log } = require('../utils');
+
+function getModelMap() {
+  try {
+    const modelsPath = require.resolve('../models');
+    delete require.cache[modelsPath];
+    return require('../models').MODEL_MAP;
+  } catch {
+    return require('../models').MODEL_MAP;
+  }
+}
 
 // ─────────────────────────────────────────────
 // GET /v1/models
@@ -64,16 +73,30 @@ async function handleModels(ctx, req, res) {
     }
   }
 
-  // Default antigravity provider: use hardcoded MODEL_MAP
+  // Antigravity models
+  const MODEL_MAP = getModelMap();
+  const models = {};
   const data = Object.entries(MODEL_MAP)
     .filter(([, m]) => !m.hidden)
-    .map(([id, m]) => ({
-      id,
-      object: 'model',
-      created: 1700000000,
-      owned_by: m.owned_by,
-    }));
-  sendJson(res, 200, { object: 'list', data });
+    .map(([id, m]) => {
+      models[id] = {
+        name: m.name,
+        modalities: m.modalities || { input: ['text', 'image'], output: ['text'] },
+        limit: m.limit || { context: 1048576, output: 65536 },
+      };
+      return {
+        id,
+        object: 'model',
+        created: 1700000000,
+        owned_by: m.owned_by,
+      };
+    });
+
+  sendJson(res, 200, {
+    models,
+    object: 'list',
+    data,
+  });
 }
 
 module.exports = { handleModels };

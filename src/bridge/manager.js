@@ -9,6 +9,17 @@ const http = require('http');
 const { spawnSync, execSync } = require('child_process');
 const path = require('path');
 const os = require('os');
+const Module = require('module');
+
+// Hook 'vscode' module resolution for bridge compatibility
+const originalResolveFilename = Module._resolveFilename;
+const vscodeMockPath = path.join(__dirname, 'vscode-mock.js');
+Module._resolveFilename = function (request, parent, isMain, options) {
+  if (request === 'vscode') {
+    return vscodeMockPath;
+  }
+  return originalResolveFilename.call(this, request, parent, isMain, options);
+};
 
 // ─── Database helpers ────────────────────────────────────────────────────────
 
@@ -87,10 +98,14 @@ function createContext(config) {
 }
 
 async function startBridge(config) {
+  const port = config.port || 11435;
   if (config.provider === 'antigravity-extension') {
-    _bridgeProcesses.set(config.name, { config, external: true });
-    process.stderr.write(`[bridge:${config.name}] External Antigravity extension at ${config.targetUrl || `http://127.0.0.1:${config.port}`}; not spawning a local server.\n`);
-    return { name: config.name, port: config.port, status: 'external' };
+    const isListening = !(await _isPortFree(port));
+    if (isListening) {
+      _bridgeProcesses.set(config.name, { config, external: true });
+      process.stderr.write(`[bridge:${config.name}] External Antigravity extension active on port ${port}.\n`);
+      return { name: config.name, port, status: 'external' };
+    }
   }
   const { createContext: _ctx } = require('./context');
   const { startServer, stopServer } = require('./server');
@@ -102,13 +117,16 @@ async function startBridge(config) {
     dispose: () => {},
   };
 
-  const port = config.port;
   try {
     await startServer(ctx);
     _bridgeProcesses.set(config.name, { ctx, config });
     process.stderr.write(`[bridge:${config.name}] ✅ Started on port ${port}\n`);
     return { name: config.name, port, status: 'running' };
   } catch (err) {
+    if (err.message.includes('EADDRINUSE') && config.provider === 'antigravity-extension') {
+      _bridgeProcesses.set(config.name, { config, external: true });
+      return { name: config.name, port, status: 'external' };
+    }
     process.stderr.write(`[bridge:${config.name}] ❌ Failed to start on port ${port}: ${err.message}\n`);
     return { name: config.name, port, status: 'error', error: err.message };
   }
