@@ -84,11 +84,17 @@ function registerMcp(python) {
     updated = true;
   }
 
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const servers = {
     semble: {
       type: 'stdio',
       command: getUvx(),
       args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+    },
+    aislop: {
+      type: 'stdio',
+      command: npxCmd,
+      args: ['-y', 'aislop-mcp']
     }
   };
   if (FILE_TOOLS_MCP_PATH && fileExists(FILE_TOOLS_MCP_PATH)) {

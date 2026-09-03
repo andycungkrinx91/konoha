@@ -240,7 +240,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         const existing = entries.find(e => e?.relativeLocation === targetDirName || e?.identifier?.id?.toLowerCase() === 'andycungkrinx91.konoha-bridge');
         if (existing) {
           existing.identifier = { id: 'andycungkrinx91.konoha-bridge' };
-          existing.version = pkg?.version || '1.3.0';
+          existing.version = pkg?.version || '1.4.0';
           existing.location = {
             $mid: 1,
             fsPath: targetPath,
@@ -251,7 +251,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         } else {
           entries.push({
             identifier: { id: 'andycungkrinx91.konoha-bridge' },
-            version: pkg?.version || '1.3.0',
+            version: pkg?.version || '1.4.0',
             location: {
               $mid: 1,
               fsPath: targetPath,
@@ -491,6 +491,7 @@ function getAntigravityStatus() {
       if (config.mcpServers) {
         mcpSkillsDb = !!config.mcpServers.konoha;
         mcpSemble = !!config.mcpServers.semble;
+        mcpAislop = !!config.mcpServers.aislop;
       }
     } catch {}
   }
@@ -527,6 +528,7 @@ function getAntigravityStatus() {
     mcpConfigExists,
     mcpSkillsDb,
     mcpSemble,
+    mcpAislop,
     hasHooks,
     agentsCount,
     schemasCount,
@@ -546,6 +548,11 @@ function ensureAntigravityPermissions(silent = true) {
     'mcp(semble/search)',
     'mcp(semble/find_related)',
     'mcp(semble/*)',
+    'mcp(aislop/aislop_scan)',
+    'mcp(aislop/aislop_fix)',
+    'mcp(aislop/aislop_why)',
+    'mcp(aislop/aislop_baseline)',
+    'mcp(aislop/*)',
     'mcp(konoha/read_file_head)',
     'mcp(konoha/read_file_range)',
     'mcp(konoha/file_info)',
@@ -588,8 +595,10 @@ function ensureAntigravityPermissions(silent = true) {
     'mcp(konoha/*)',
     'mcp__konoha__*',
     'mcp__semble__*',
+    'mcp__aislop__*',
     'mcp:konoha:*',
     'mcp:semble:*',
+    'mcp:aislop:*',
     'command(*)',
     'mcp(*)',
     'rtk',
@@ -671,7 +680,7 @@ function ensureAntigravityPermissions(silent = true) {
         const mConfig = JSON.parse(fs.readFileSync(mPath, 'utf8')) || {};
         if (mConfig.mcpServers) {
           let mModified = false;
-          for (const serverName of ['konoha', 'semble']) {
+          for (const serverName of ['konoha', 'semble', 'aislop']) {
             if (mConfig.mcpServers[serverName]) {
               if (!mConfig.mcpServers[serverName].autoApprove) {
                 mConfig.mcpServers[serverName].autoApprove = ['*'];

@@ -7,8 +7,10 @@ import os
 import glob
 import re
 from datetime import datetime, timedelta
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/skills.db")
+db_path = sys.argv[1] if len(sys.argv) > 1 else db.DB_PATH
 
 def parse_iso_datetime(dt_str):
     """Parse ISO datetime as a timezone-aware local-time value."""
@@ -249,23 +251,8 @@ try:
         print(json.dumps({"error": f"Database not found at {db_path}"}))
         sys.exit(1)
     
-    conn = sqlite3.connect(db_path)
-
-    # Ensure table exists (agent/client included in CREATE to avoid redundant ALTER)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS tool_calls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            tool TEXT NOT NULL,
-            query TEXT,
-            returned_bytes INTEGER,
-            total_library_bytes INTEGER,
-            bytes_saved INTEGER,
-            tokens_saved INTEGER,
-            agent TEXT,
-            client TEXT
-        );
-    """)
+    conn = db.get_connection(db_path)
+    db.setup_schema(conn)
 
     sanitize_legacy_records(conn)
 

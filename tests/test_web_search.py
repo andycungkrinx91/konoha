@@ -34,10 +34,18 @@ def mock_urlopen_selector(url_or_req, timeout=None):
                 "https://searx.test": {
                     "uptime": {"uptimeDay": 99.0},
                     "timing": {"search": {"all": {"median": 0.05}}}
+                },
+                "https://searx.broken-null-uptime": {
+                    "uptime": None,
+                    "timing": None
+                },
+                "https://searx.broken-null-search": {
+                    "uptime": {"uptimeDay": 98.0},
+                    "timing": {"search": None}
                 }
             }
         }).encode("utf-8")
-    elif "searx.test/search" in url:
+    elif "custom-searx.internal" in url or "searx.test/search" in url:
         if "q=test" in url:
             # Resolving test url during verification
             mock_resp.read.return_value = json.dumps({"results": []}).encode("utf-8")
@@ -84,15 +92,17 @@ class TestWebSearchChain(unittest.TestCase):
         self.assertEqual(shortened[1], "how to implement sveltekit 3d threlte framework in")
 
     @patch("urllib.request.urlopen", side_effect=mock_urlopen_selector)
-    def test_searxng_parser(self, mock_urlopen):
-        """Verify SearXNG JSON parsing handles results and returns expected fields."""
+    def test_searxng_parser_and_null_safety(self, mock_urlopen):
+        """Verify SearXNG JSON parsing handles results and safely ignores instances with null attributes."""
         # Ensure we delete cache file so it runs dynamic check
         best_cache = os.path.expanduser("~/.konoha/searxng/best_instance.json")
-        if os.path.exists(best_cache):
-            try:
-                os.remove(best_cache)
-            except:
-                pass
+        inst_cache = os.path.expanduser("~/.konoha/searxng/instances_cache.json")
+        for c in [best_cache, inst_cache]:
+            if os.path.exists(c):
+                try:
+                    os.remove(c)
+                except Exception:
+                    pass
 
         res = server.run_web_search("Svelte", num_results=1)
         data = json.loads(res)
@@ -103,6 +113,16 @@ class TestWebSearchChain(unittest.TestCase):
         self.assertEqual(first_res["title"], "Test Svelte")
         self.assertEqual(first_res["url"], "https://svelte.dev")
         self.assertEqual(first_res["snippet"], "Svelte component framework")
+
+    @patch.dict(os.environ, {"SEARXNG_URL": "https://custom-searx.internal"})
+    @patch("urllib.request.urlopen", side_effect=mock_urlopen_selector)
+    def test_searxng_env_override(self, mock_urlopen):
+        """Verify SEARXNG_URL environment variable routes searches directly to the custom instance."""
+        res = server.run_web_search("Svelte", num_results=1)
+        data = json.loads(res)
+        self.assertEqual(data["status"], "success")
+        self.assertGreater(len(data["results"]), 0)
+        self.assertIn("custom-searx.internal", data["results"][0]["source"])
 
     @patch("urllib.request.urlopen")
     @patch("sys.stderr")

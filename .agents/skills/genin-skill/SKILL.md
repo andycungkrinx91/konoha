@@ -94,6 +94,13 @@ Load guardrail references only when the task triggers them. Never load all refer
 4. Separate source-backed facts from repository findings and inference.
 5. Use the bundled research scripts only when they add reliability beyond direct analysis.
 
+### 6. AI-Slop Baseline Scan
+
+1. When performing Code Review (SOP 3) or Architecture Analysis (SOP 4) on a codebase, call `aislop_scan` with no path restriction (whole project, not just the current diff) to establish a slop baseline independent of Kage's changed-files gate.
+2. Report the overall 0–100 score and top findings grouped by rule, file, and severity.
+3. Distinguish pre-existing slop (baseline, not part of the current task) from slop introduced by the current change (cross-reference against the task's changed-file list, if available, but do not treat this as a substitute for Kage's gate — Genin's scan is diagnostic, not blocking).
+4. Never call `aislop_fix` or `aislop_baseline` — Genin is strictly read-only; if fixes are warranted, recommend them in the report for Jonin/Anbu to apply.
+
 ## Safety and Guardrails
 
 - Security analysis is defensive: identify vulnerabilities and remediation paths only.
@@ -114,7 +121,7 @@ Return:
 
 1. Scope and assumptions.
 2. Confirmed findings with exact paths and line references.
-3. Severity and confidence where applicable.
+3. Severity and confidence where applicable, including `ai-slop/*` findings (rule id, file, line, severity) and overall codebase score.
 4. Dependency/data-flow summary.
 5. Recommended next steps and verification commands.
 6. Uncertainty and non-obvious risks.

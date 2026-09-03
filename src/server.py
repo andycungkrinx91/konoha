@@ -19,6 +19,10 @@ import sqlite3
 import json
 import sys
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
+from db import get_connection
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
@@ -57,7 +61,7 @@ GEMINI_DIR = os.path.join(HOME, ".gemini")
 CURSOR_DIR = os.path.join(HOME, ".cursor")
 CLAUDE_DIR = os.path.join(HOME, ".claude")
 
-DB_PATH = os.path.join(KONOHA_DIR, "skills.db")
+DB_PATH = db.DB_PATH
 SERVER_PY_PATH = os.path.join(KONOHA_DIR, "server.py")
 DB_BRIDGES_PY_PATH = os.path.join(KONOHA_DIR, "db_bridges.py")
 
@@ -253,7 +257,7 @@ MAX_CONTENT_SIZE = 12000
 
 def get_db():
     """Get a database connection."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     return conn
@@ -301,7 +305,7 @@ def _optimize_content(content):
 
 
 def _setup_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     conn.commit()
@@ -649,32 +653,56 @@ def detect_active_client():
     return "antigravity"
 
 
-def build_subagent_mcp_block(client=None):
+def build_subagent_mcp_block(client=None, agent_name=None):
     """Return the MCP-tools block injected into every mcp_<agent> subagent prompt."""
-    return """
-## MCP Tools Available To You
-- `mcp__konoha__sannin` — Sannin router agent
-- `mcp__konoha__kage` — Village Leader & Architect
-- `mcp__konoha__jonin` — UI & Frontend Specialist
-- `mcp__konoha__anbu` — Backend & DevOps Specialist
-- `mcp__konoha__chunin` — Intel Ninja
-- `mcp__konoha__tokubetsu_jonin` — Scribe
-- `mcp__konoha__genin` — Scout
-- `mcp__konoha__find_skill` — Find skills
-- `mcp__konoha__get_skill` — Get skill content
-- `mcp__konoha__list_skills` — List all skills
-- `mcp__konoha__read_file_head` — Read head of file
-- `mcp__konoha__read_file_range` — Read range of lines in file
-- `mcp__konoha__file_info` — Get file info
-- `mcp__konoha__token_efficient_grep` — Token-efficient grep
-- `mcp__konoha__get_file_structure` — Get file tree
-- `mcp__konoha__find_files_clean` — Find files cleanly
-- `mcp__semble__search` — Search project codebase
-- `mcp__semble__find_related` — Find related code symbols
+    norm_agent = (agent_name or "").lower().replace("_", "-")
+    tools = [
+        "- `mcp__konoha__sannin` — Sannin router agent",
+        "- `mcp__konoha__kage` — Village Leader & Architect",
+        "- `mcp__konoha__jonin` — UI & Frontend Specialist",
+        "- `mcp__konoha__anbu` — Backend & DevOps Specialist",
+        "- `mcp__konoha__chunin` — Intel Ninja",
+        "- `mcp__konoha__tokubetsu_jonin` — Scribe",
+        "- `mcp__konoha__genin` — Scout",
+        "- `mcp__konoha__find_skill` — Find skills",
+        "- `mcp__konoha__get_skill` — Get skill content",
+        "- `mcp__konoha__list_skills` — List all skills",
+        "- `mcp__konoha__read_file_head` — Read head of file",
+        "- `mcp__konoha__read_file_range` — Read range of lines in file",
+        "- `mcp__konoha__file_info` — Get file info",
+        "- `mcp__konoha__token_efficient_grep` — Token-efficient grep",
+        "- `mcp__konoha__get_file_structure` — Get file tree",
+        "- `mcp__konoha__find_files_clean` — Find files cleanly",
+        "- `mcp__semble__search` — Search project codebase",
+        "- `mcp__semble__find_related` — Find related code symbols",
+    ]
 
-### Strict Tool Boundaries
-Use konoha MCP for skill lookup and bounded file reads/grep. Use semble MCP for project code search.
-"""
+    if norm_agent in ("genin", "kage"):
+        tools.append("- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan")
+        tools.append("- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning")
+    elif norm_agent in ("jonin", "anbu"):
+        tools.append("- `mcp__aislop__aislop_scan` — Zero-AI-slop and code quality scan")
+        tools.append("- `mcp__aislop__aislop_why` — Explain AI slop rule reasoning")
+        tools.append("- `mcp__aislop__aislop_fix` — Auto-fix AI slop issues")
+
+    tools_str = "\n".join(tools)
+
+    boundaries = (
+        "### Strict Tool Boundaries\n"
+        "Use konoha MCP for skill lookup and bounded file reads/grep. Use semble MCP for project code search.\n"
+    )
+    if norm_agent in ("genin", "kage"):
+        boundaries += (
+            "For aislop MCP: You are permitted to use `aislop_scan` and `aislop_why`. "
+            "You are strictly forbidden from calling `aislop_fix` or `aislop_baseline` (read-only mandate).\n"
+        )
+    elif norm_agent in ("jonin", "anbu"):
+        boundaries += (
+            "For aislop MCP: You are permitted to use `aislop_scan`, `aislop_fix`, and `aislop_why` "
+            "to detect and remediate slop issues before Kage delivery review.\n"
+        )
+
+    return f"\n## MCP Tools Available To You\n{tools_str}\n\n{boundaries}"
 
 
 def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
@@ -772,23 +800,36 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
 
     preview_limit = COMPACT_PREVIEW_LIMIT if compact else PREVIEW_LIMIT
 
-    # Try FTS5 search first (with bm25 ranking), retrieving a larger set to filter in Python
-    sanitized_keyword = sanitize_fts5_query(keyword)
+    rows = []
+    # If semantic search is enabled, attempt hybrid semantic + RRF + rerank retrieval
     try:
-        rows = conn.execute("""
-            SELECT s.name, s.skill_name, s.type, s.tags,
-                   s.content, s.byte_size, s.line_count, s.file_path,
-                   bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-            FROM skills_fts
-            JOIN skills s ON skills_fts.rowid = s.rowid
-            WHERE skills_fts MATCH ?
-            ORDER BY rank
-            LIMIT 50
-        """, (sanitized_keyword,)).fetchall()
+        import vector_search
+        if vector_search.is_semantic_search_enabled():
+            semantic_results = vector_search.find_skill_semantic(conn, keyword, top_k=limit * 2, candidate_k=25)
+            if semantic_results:
+                rows = semantic_results
     except Exception as e:
-        sys.stderr.write(f"  [Warning] FTS5 search failed for keyword '{keyword}' (sanitized: '{sanitized_keyword}'): {str(e)}. Falling back to LIKE search.\n")
+        sys.stderr.write(f"  [Warning] Semantic search failed: {e}. Falling back to FTS5.\n")
         sys.stderr.flush()
-        rows = []
+
+    if not rows:
+        # Try FTS5 search first (with bm25 ranking), retrieving a larger set to filter in Python
+        sanitized_keyword = sanitize_fts5_query(keyword)
+        try:
+            rows = conn.execute("""
+                SELECT s.name, s.skill_name, s.type, s.tags,
+                       s.content, s.byte_size, s.line_count, s.file_path,
+                       bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
+                FROM skills_fts
+                JOIN skills s ON skills_fts.rowid = s.rowid
+                WHERE skills_fts MATCH ?
+                ORDER BY rank
+                LIMIT 50
+            """, (sanitized_keyword,)).fetchall()
+        except Exception as e:
+            sys.stderr.write(f"  [Warning] FTS5 search failed for keyword '{keyword}' (sanitized: '{sanitized_keyword}'): {str(e)}. Falling back to LIKE search.\n")
+            sys.stderr.flush()
+            rows = []
 
     # Fallback: LIKE search on tags and name
     if not rows:
@@ -1065,7 +1106,7 @@ def get_agent_skills(agent_name):
         return None
     try:
         # Check SQLite DB agents table first
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT skills FROM agents WHERE name = ?", (agent_name,))
@@ -1504,7 +1545,7 @@ def build_from_source(name, source_dir, framework, agent_name=None, taste_dials=
     # Load critical skill content
     skill_blocks = []
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         fw_base = "svelte" if "svelte" in fw_lower_src else "nextjs" if "next" in fw_lower_src or "react" in fw_lower_src else "nuxt" if "nuxt" in fw_lower_src else "angular" if "angular" in fw_lower_src else None
         critical_skills = [
             f"jonin-skill/{fw_base}-ui-expert" if fw_base else None,
@@ -1723,7 +1764,7 @@ def build_from_text(name, description, framework, agent_name=None, taste_dials=N
     # Load critical skill content
     skill_blocks = []
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         fw_base = "svelte" if "svelte" in fw_lower else "nextjs" if "next" in fw_lower or "react" in fw_lower else "nuxt" if "nuxt" in fw_lower else "angular" if "angular" in fw_lower else None
         critical_skills = [
             f"jonin-skill/{fw_base}-ui-expert" if fw_base else None,
@@ -1955,7 +1996,7 @@ def detect_active_agent():
                 if detected:
                     # Save active session mapping to SQLite database
                     try:
-                        conn = sqlite3.connect(DB_PATH)
+                        conn = get_connection(DB_PATH)
                         conn.execute("""
                             CREATE TABLE IF NOT EXISTS active_sessions (
                                 client TEXT NOT NULL,
@@ -1995,7 +2036,7 @@ def detect_active_agent():
         # Fallback to database query if no active session files were found
         if WORKSPACE_ROOT:
             try:
-                conn = sqlite3.connect(DB_PATH)
+                conn = get_connection(DB_PATH)
                 row = conn.execute("""
                     SELECT session_id, transcript_path FROM active_sessions
                     WHERE client = ? AND workspace_root = ?
@@ -2047,7 +2088,7 @@ def get_active_session_id():
         return conv_id
         
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         row = conn.execute("""
             SELECT session_id FROM active_sessions
             WHERE client = ? AND workspace_root = ?
@@ -2287,7 +2328,7 @@ def get_resolved_task_dir(task_dir=None):
 
 def get_main_model():
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         row = conn.execute("SELECT model_tier FROM agents WHERE name = ?", ("sannin",)).fetchone()
         if row and row[0]:
             conn.close()
@@ -2376,7 +2417,7 @@ def run_sannin(prompt=None, task_dir=None):
     import sqlite3
     agent_descriptions = {}
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT name, title, purpose FROM agents")
         for row in cursor.fetchall():
@@ -2472,7 +2513,7 @@ def _route_by_keywords_with_prompt(task_dir, prompt=""):
     best_agent = None
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         conn.row_factory = sqlite3.Row
         agents = conn.execute(
             "SELECT name, delegation_keywords FROM agents "
@@ -2580,6 +2621,48 @@ def _workflow_dispatch_completed(task_dir, status):
         return None
 
 
+_VALIDATION_EVIDENCE_PATTERN = re.compile(
+    r"(exit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*0\b"
+    r"|0\s+errors?(?:\s+and\s+0\s+warnings?)?"
+    r"|\bpassed\b"
+    r"|\bpassthrough\b"
+    r"|✓"
+    r"|\bOK\b"
+    r"|\bsucceeded\b"
+    r"|\bcompleted successfully\b"
+    r"|\bpentest(?:ing)?\s+completed\b"
+    r"|\bscan(?:ning)?\s+completed\b"
+    r"|\bsecurity\s+audit\s+completed\b"
+    r"|\bvulnerability\s+assessment\s+completed\b"
+    r"|\b0\s+critical\s+vulnerabilities\b"
+    r"|\b0\s+unhandled\s+exploits\b)",
+    re.IGNORECASE
+)
+
+
+def _is_pentest_task(task_obj):
+    if not isinstance(task_obj, dict):
+        return False
+    text = f"{task_obj.get('task', '')} {task_obj.get('agent', '')}".lower()
+    return any(k in text for k in ("pentest", "penetration test", "penetration testing", "vulnerability scan", "security audit", "security test", "vuln scan", "devsecops"))
+
+
+def _is_clean_validation(validation_list, is_pentest=False, allow_empty=True):
+    if not validation_list:
+        return allow_empty
+    if is_pentest:
+        evidence = [str(item).lower() for item in validation_list]
+        has_completion = any(_VALIDATION_EVIDENCE_PATTERN.search(item) for item in evidence) or any(
+            marker in item for item in evidence for marker in ("completed", "passed", "finished", "reported", "clean", "done")
+        )
+        has_fatal = any(
+            marker in item for item in evidence for marker in ("fatal error", "unhandled exception", "segmentation fault", "traceback (most recent call last)")
+        )
+        return has_completion and not has_fatal
+    else:
+        return not any(any(word in str(item).lower() for word in ("error", "warning", "fail")) for item in validation_list)
+
+
 def _workflow_parse_tasks(plan_content):
     tasks = []
     for line_number, line in enumerate(plan_content.splitlines(), 1):
@@ -2614,8 +2697,8 @@ def _workflow_review_approved(task_dir, status):
         # block approval regardless of the review file's claims.
         if task.get("verified") is False:
             return False
-        validation = [str(item).lower() for item in task.get("validation", [])]
-        if any("error" in item or "warning" in item or "fail" in item for item in validation):
+        is_pentest = _is_pentest_task(task)
+        if not _is_clean_validation(task.get("validation", []), is_pentest=is_pentest):
             return False
     review_path = os.path.join(task_dir, "kage_review.json")
     if os.path.exists(review_path):
@@ -2627,9 +2710,21 @@ def _workflow_review_approved(task_dir, status):
             security_verified = review.get("security_reviewed") is True
             rollback_verified = review.get("rollback_reviewed") is True
             confidence = review.get("confidence", review.get("confidence_score", 100))
-            confidence_pass = isinstance(confidence, (int, float)) and confidence >= 95
-            clean_validation = review_validation and not any(any(word in str(item).lower() for word in ("error", "warning", "fail")) for item in review_validation)
-            if review.get("approved") is True and clean_validation and verified_tasks == expected_tasks and security_verified and rollback_verified and confidence_pass:
+            confidence_pass = isinstance(confidence, (int, float)) and not isinstance(confidence, bool) and confidence >= 95
+            is_pentest_review = any(_is_pentest_task(task) for task in tasks) or any("pentest" in str(item).lower() for item in review_validation)
+            clean_validation = review_validation and _is_clean_validation(review_validation, is_pentest=is_pentest_review, allow_empty=False)
+
+            # Zero AI-Slop Gate: must be clean and findings must be numeric 0
+            ai_slop_findings = review.get("ai_slop_findings")
+            ai_slop_clean = review.get("ai_slop_clean") is True
+            ai_slop_pass = (
+                ai_slop_clean and
+                isinstance(ai_slop_findings, (int, float)) and
+                not isinstance(ai_slop_findings, bool) and
+                ai_slop_findings == 0
+            )
+
+            if review.get("approved") is True and clean_validation and verified_tasks == expected_tasks and security_verified and rollback_verified and confidence_pass and ai_slop_pass:
                 status["review"] = review
                 return True
             status["review"] = review
@@ -2638,8 +2733,16 @@ def _workflow_review_approved(task_dir, status):
             return False
     review = status.get("review") or {}
     confidence = review.get("confidence", review.get("confidence_score", 100))
-    confidence_pass = isinstance(confidence, (int, float)) and confidence >= 95
-    return review.get("approved") is True and confidence_pass and all(task.get("status") == "completed" for task in status.get("tasks", []))
+    confidence_pass = isinstance(confidence, (int, float)) and not isinstance(confidence, bool) and confidence >= 95
+    ai_slop_findings = review.get("ai_slop_findings")
+    ai_slop_clean = review.get("ai_slop_clean") is True
+    ai_slop_pass = (
+        ai_slop_clean and
+        isinstance(ai_slop_findings, (int, float)) and
+        not isinstance(ai_slop_findings, bool) and
+        ai_slop_findings == 0
+    )
+    return review.get("approved") is True and confidence_pass and ai_slop_pass and all(task.get("status") == "completed" for task in status.get("tasks", []))
 
 
 def run_mcp_workflow(task_dir=None):
@@ -2737,9 +2840,14 @@ def run_mcp_workflow(task_dir=None):
                 status["assigned_agent"] = "sannin"
                 phase = "synthesize"
             else:
-                status["review"] = {"approved": False, "reason": "Kage review did not approve all completed tasks."}
+                review_obj = status.get("review") or {}
+                if not (review_obj.get("ai_slop_clean") is True and review_obj.get("ai_slop_findings") == 0):
+                    reason = "Zero-AI-Slop gate failed or was not executed (ai_slop_findings must be 0 and ai_slop_clean must be true)."
+                else:
+                    reason = "Kage review did not approve all completed tasks."
+                status["review"] = {"approved": False, "reason": reason}
                 _save_workflow_status(task_dir, status)
-                return json.dumps({"status": "blocked", "phase": "review", "message": "Kage review must approve every completed task before delivery."})
+                return json.dumps({"status": "blocked", "phase": "review", "message": f"Kage review must approve every completed task before delivery: {reason}"})
 
         _save_workflow_status(task_dir, status)
 
@@ -2804,14 +2912,19 @@ def run_mcp_workflow(task_dir=None):
     if phase == "review":
         dispatch = _workflow_dispatch(task_dir, status, "review", "kage")
         with open(os.path.join(task_dir, "delegate.md"), "w", encoding="utf-8") as f:
-            f.write(f"agent: kage\npriority: critical\nPhase: Review\ndispatch_id: {dispatch['id']}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, and security/rollback checks are documented. Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_reviewed, and findings fields, then write result.md.\n")
+            f.write(f"agent: kage\npriority: critical\nPhase: Review\ndispatch_id: {dispatch['id']}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented, and run aislop_scan to verify 0 ai-slop findings. Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_reviewed, ai_slop_findings, ai_slop_clean, and findings fields, then write result.md.\n")
         status["assigned_agent"] = "kage"
         _save_workflow_status(task_dir, status)
         return json.dumps({"status": "ready", "phase": "review", "agent": "kage", "dispatch_id": dispatch["id"], "task_dir": task_dir})
 
     if phase == "synthesize":
         if not _workflow_review_approved(task_dir, status):
-            return json.dumps({"status": "blocked", "phase": "review", "message": "Kage approval is required before synthesis."})
+            review_obj = status.get("review") or {}
+            if not (review_obj.get("ai_slop_clean") is True and review_obj.get("ai_slop_findings") == 0):
+                msg = "Zero-AI-Slop gate failed: Kage must run aislop_scan and verify 0 findings before synthesis."
+            else:
+                msg = "Kage approval is required before synthesis."
+            return json.dumps({"status": "blocked", "phase": "review", "message": msg})
         prompt = _read_file_safe(os.path.join(task_dir, "prompt.md")) or ""
         findings = _read_file_safe(os.path.join(task_dir, "findings.md")) or ""
         plan = _read_file_safe(os.path.join(task_dir, "plan.md")) or ""
@@ -2832,10 +2945,8 @@ def run_mcp_workflow(task_dir=None):
                 return False
             if t.get("verified") is True:
                 return True
-            validation = [str(v).lower() for v in t.get("validation", [])]
-            if validation and not any(
-                any(w in item for w in ("error", "warning", "fail")) for item in validation
-            ):
+            is_pentest = _is_pentest_task(t)
+            if _is_clean_validation(t.get("validation", []), is_pentest=is_pentest):
                 return True
             if review_data.get("approved") is True and t.get("id") in review_data.get("verified_task_ids", []):
                 return True
@@ -2864,6 +2975,21 @@ def run_mcp_workflow(task_dir=None):
         review_findings = review_data.get("findings") or []
         confidence_val = review_data.get("confidence", review_data.get("confidence_score", 95))
 
+        ai_slop_findings = review_data.get("ai_slop_findings")
+        ai_slop_clean = review_data.get("ai_slop_clean") is True
+        ai_slop_ok = (
+            ai_slop_clean and
+            isinstance(ai_slop_findings, (int, float)) and
+            not isinstance(ai_slop_findings, bool) and
+            ai_slop_findings == 0
+        )
+        ai_slop_eval = (
+            f"ai_slop_findings = {int(ai_slop_findings)}"
+            if isinstance(ai_slop_findings, (int, float)) and not isinstance(ai_slop_findings, bool)
+            else "missing ai_slop_findings"
+        )
+        ai_slop_conf = "100%" if ai_slop_ok else "BLOCKING (confidence withheld)"
+
         def _mark(ok):
             return "✅ Passed" if ok else "❌ Needs Attention"
 
@@ -2878,6 +3004,7 @@ def run_mcp_workflow(task_dir=None):
             "### 📋 Confidence Score Breakdown (computed from recorded task evidence)\n\n"
             "| Verification Category | Target | Evaluated Result | Category Confidence | Status |\n"
             "|---|---|---|---|---|\n"
+            f"| **AI Slop Scan** | All changed files | {ai_slop_eval} | **{ai_slop_conf}** | {_mark(ai_slop_ok)} |\n"
             f"| **Task Validation Evidence** | {total_tasks}/{total_tasks} tasks with passing evidence | {verified_count}/{total_tasks} verified, {validation_entries} validation entries recorded | **{evidence_pct}%** | {_mark(evidence_pct == 100)} |\n"
             f"| **Kage Review Findings** | 0 unresolved findings | {len(review_findings)} finding(s) recorded in kage_review.json | **{100 if not review_findings else max(60, 100 - 10 * len(review_findings))}%** | {_mark(not review_findings)} |\n"
             f"| **Security Review** | security_reviewed = true | security_reviewed = {str(security_verified).lower()} | **{100 if security_verified else 0}%** | {_mark(security_verified)} |\n"
@@ -2964,22 +3091,36 @@ def run_web_search(query, num_results=5, search_depth="standard", agent_name=Non
                 instances = data.get("instances", {})
                 candidates = []
                 for name, val in instances.items():
-                    if not name.startswith("https://"):
+                    if not name.startswith("https://") or not isinstance(val, dict):
                         continue
                     
-                    uptime = val.get("uptime", {}).get("uptimeDay", 0.0)
+                    uptime_data = val.get("uptime") or {}
+                    if not isinstance(uptime_data, dict):
+                        continue
+                    uptime = uptime_data.get("uptimeDay") or 0.0
                     if uptime <= 95.0:
                         continue
                     
-                    timing = val.get("timing", {})
+                    timing_data = val.get("timing") or {}
+                    if not isinstance(timing_data, dict):
+                        continue
+                    
                     latency = 9999.0
                     has_timing = False
-                    if "search" in timing and "all" in timing["search"]:
-                        latency = timing["search"]["all"].get("median", timing["search"]["all"].get("mean", 9999.0))
-                        has_timing = True
-                    elif "initial" in timing and "all" in timing["initial"]:
-                        latency = timing["initial"]["all"].get("value", 9999.0)
-                        has_timing = True
+                    search_timing = timing_data.get("search") or {}
+                    if isinstance(search_timing, dict):
+                        search_all = search_timing.get("all") or {}
+                        if isinstance(search_all, dict) and search_all:
+                            latency = search_all.get("median", search_all.get("mean", 9999.0)) or 9999.0
+                            has_timing = True
+                    
+                    if not has_timing:
+                        initial_timing = timing_data.get("initial") or {}
+                        if isinstance(initial_timing, dict):
+                            initial_all = initial_timing.get("all") or {}
+                            if isinstance(initial_all, dict) and initial_all:
+                                latency = initial_all.get("value", 9999.0) or 9999.0
+                                has_timing = True
                     
                     if has_timing:
                         candidates.append({
@@ -3006,6 +3147,11 @@ def run_web_search(query, num_results=5, search_depth="standard", agent_name=Non
             return []
 
     def resolve_best_instance(candidates):
+        # 0. Custom or self-hosted SearXNG instance environment override
+        custom_searx = os.environ.get("SEARXNG_URL") or os.environ.get("KONOHA_SEARXNG_URL")
+        if custom_searx and custom_searx.strip():
+            return custom_searx.strip().rstrip("/") + "/"
+
         # Check best instance cache (1h TTL)
         if os.path.exists(BEST_INSTANCE_PATH):
             try:
@@ -3333,18 +3479,7 @@ def run_web_search(query, num_results=5, search_depth="standard", agent_name=Non
     return result
 
 
-_VALIDATION_EVIDENCE_PATTERN = re.compile(
-    r"(exit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*0\b"
-    r"|0\s+errors?(?:\s+and\s+0\s+warnings?)?"
-    r"|\bpassed\b"
-    r"|\bpassthrough\b"
-    r"|✓"
-    r"|\bOK\b"
-    r"|\bsucceeded\b"
-    r"|\bcompleted successfully\b)",
-    re.IGNORECASE
-)
-
+# _VALIDATION_EVIDENCE_PATTERN moved above _workflow_parse_tasks
 
 def _assess_validation_evidence(validation):
     """Assess whether a subagent's validation list contains real, checkable
@@ -3623,7 +3758,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
     skills_list = list(skills) if skills and isinstance(skills, list) else []
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("""
@@ -3653,7 +3788,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
     skills_content = []
     if not skills_list and instructions:
         try:
-            _conn_autoload = sqlite3.connect(DB_PATH)
+            _conn_autoload = get_connection(DB_PATH)
             auto = _autoload_skills_from_prompt(instructions, _conn_autoload)
             _conn_autoload.close()
             if auto:
@@ -3712,7 +3847,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
     skills_content = []
     if skills_list:
         try:
-            conn = sqlite3.connect(DB_PATH)
+            conn = get_connection(DB_PATH)
             conn.row_factory = sqlite3.Row
             primary_skill = skills_list[0]
             resolved = _fuzzy_resolve_skill(primary_skill, conn)
@@ -3817,7 +3952,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
             system_prompt += project_context_block + "\n"
         if taste_skill_block:
             system_prompt += taste_skill_block + "\n"
-        system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT) + "\n"
+        system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT, agent_name=agent_name) + "\n"
         if search_findings:
             system_prompt += search_findings + "\n"
         if skills_content:
@@ -3839,7 +3974,7 @@ def run_mcp_agent(agent_name, task=None, context=None, constraints=None, skills=
             system_prompt += project_context_block + "\n"
         if taste_skill_block:
             system_prompt += taste_skill_block + "\n"
-        system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT)
+        system_prompt += build_subagent_mcp_block(client=ACTIVE_CLIENT, agent_name=agent_name)
         if search_findings:
             system_prompt += search_findings + "\n"
         if skills_content:

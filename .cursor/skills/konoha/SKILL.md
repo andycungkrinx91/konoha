@@ -400,7 +400,7 @@ Maintainers must use these CLI commands to build, inspect, and test the database
     3. **Fallback**: Route to the first active bridge.
   - Cache TTL for bridge model lookups: **30 seconds**.
 - **Request routing**: The gateway selects one enabled bridge per request using model-prefix, exact-model, then first-active fallback. It does not perform gateway-level round-robin retry after a 429; retries remain inside supported sidecar paths.
-- **External Antigravity extension**: `https://github.com/andycungkrinx91/konoha-bridge` is cloned from the live `master` branch on fresh installation (`konoha init`), packaged into `konoha-bridge-1.3.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension konoha-bridge-1.3.0.vsix`, `code --install-extension konoha-bridge-1.3.0.vsix`, `cursor --install-extension konoha-bridge-1.3.0.vsix`). It is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` when Antigravity IDE is present; it serves `http://127.0.0.1:1313` using the `agLocalBridge` namespace. Record the resolved commit, stage atomically, preserve rollback, never run it as standalone Node, and never seed an enabled external bridge row.
+- **External Antigravity extension**: `https://github.com/andycungkrinx91/konoha-bridge` is cloned from the live `master` branch on fresh installation (`konoha init`), packaged into `konoha-bridge-1.4.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension konoha-bridge-1.4.0.vsix`, `code --install-extension konoha-bridge-1.4.0.vsix`, `cursor --install-extension konoha-bridge-1.4.0.vsix`). It is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` when Antigravity IDE is present; it serves `http://127.0.0.1:1313` using the `agLocalBridge` namespace. Record the resolved commit, stage atomically, preserve rollback, never run it as standalone Node, and never seed an enabled external bridge row.
 - **Embedded fallback**: Konoha retains its embedded headless bridge implementation and aggregate gateway on `http://127.0.0.1:19999` for non-Antigravity machines.
 - Antigravity orchestrator templates may document model selection conventions; Konoha enforces routing at the proxy level.
 
@@ -487,16 +487,16 @@ Maintainers must use these CLI commands to build, inspect, and test the database
 - **Documentation**: `docs/SETUP-MCP-CLIENTS.md`.
 
 ### 18. External Antigravity Bridge Integration (v2.0.0)
-- The external `konoha-bridge` repository is an Antigravity/VS Code extension, not a standalone Node service: `https://github.com/andycungkrinx91/konoha-bridge`. On fresh installation (`konoha init`), it is cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix`, and installed via CLI:
+- The external `konoha-bridge` repository is an Antigravity/VS Code extension, not a standalone Node service: `https://github.com/andycungkrinx91/konoha-bridge`. On fresh installation (`konoha init`), it is cloned from live `master`, packaged into `konoha-bridge-1.4.0.vsix`, and installed via CLI:
   ```bash
   # Antigravity IDE CLI
-  antigravity --install-extension konoha-bridge-1.3.0.vsix
+  antigravity --install-extension konoha-bridge-1.4.0.vsix
 
   # Standard VS Code CLI
-  code --install-extension konoha-bridge-1.3.0.vsix
+  code --install-extension konoha-bridge-1.4.0.vsix
 
   # Cursor IDE CLI
-  cursor --install-extension konoha-bridge-1.3.0.vsix
+  cursor --install-extension konoha-bridge-1.4.0.vsix
   ```
 - It is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` when Antigravity IDE is present.
 - The extension owns `http://127.0.0.1:1313` and uses the `agLocalBridge` setting namespace. Konoha’s embedded headless bridge and aggregate gateway remain on `http://127.0.0.1:19999`.
@@ -679,3 +679,16 @@ The `tests/test_mcp_e2e.js` script dynamically tests every exported handler in `
 | `konoha data memory [agent] --project <path>` | Scopes persona memory queries to a specific project workspace. |
 | `delegate_to_<agent>` MCP tool | Direct structured delegation tool bypassing scratch file read/write cycles. |
 | `report_from_agent` MCP tool | Structured task completion report tool with automatic project memory checkpointing. |
+17. **4-Tier Embedding Feature Deduplication & Cache Architecture**:
+    - `chunk_document()` deduplicates Markdown document sections via SHA-256 content hashing of normalized whitespace.
+    - `embed_text()` integrates an in-memory dictionary cache (`_EMBED_CACHE`, 4,096 capacity) keyed by text hash, serving precomputed 384-dim embeddings in 0 ms with 0 ONNX compute.
+    - `index_single_skill_chunks()` checks `skill_chunks` for pre-existing embedding blobs matching `chunk_text`, reusing them across skills.
+    - `scan_nearest_chunks()` deduplicates candidate nearest chunks to preserve diversity and quality in top-K results.
+18. **Persona & Project Context Memory Deduplication & Token-Burn Guard**:
+    - Idempotent `save_memory()` updates existing rows, timestamps, and maximum importance if matching memory content exists for `(agent_name, content, project_hash)` without duplicating database rows.
+    - Context memory formatting strictly pulls verified database records from `projects` and `persona_memories` (Zero Hallucination).
+    - Auto-compact prompt badges reduce context footprint to < 120 tokens on turns >= 2 while maintaining 100% of architectural invariants.
+19. **Cross-Platform `agent-browser` Lifecycle & Self-Healing Diagnostics**:
+    - `getAgentBrowserCommand()` and `installAgentBrowser()` provide seamless cross-platform binary resolution across Windows (`agent-browser.cmd`), Linux, and macOS.
+    - Automated global installer cascades across `npm`, `pnpm`, and `yarn`.
+    - Integrated into `konoha init` (Step 2c), `konoha upgrade`, package definition (`optionalDependencies`), and self-healing doctor auto-repair (`konoha doctor` with `REPAIRED` status).

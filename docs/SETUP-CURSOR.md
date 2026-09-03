@@ -1,6 +1,6 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v2.0.0+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity and Claude Code. The same `konoha` + `semble` MCP stack and seven ninja subagents work in both environments.
+Konoha **v2.0.0+** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity and Claude Code. The same `konoha` + `semble` + `aislop` MCP stack and seven ninja subagents work in both environments.
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 
@@ -44,7 +44,7 @@ Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` bi
 
 | Path | Purpose |
 |------|---------|
-| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then merged with `konoha` + `semble` while preserving unrelated servers |
+| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then merged with `konoha` + `semble` + `aislop` while preserving unrelated servers |
 | `~/.agents/skills/` | Canonical agent skill source indexed and served through Konoha FTS5; no Cursor filesystem mirror |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
@@ -140,6 +140,7 @@ Custom subagents you create via `konoha agent create` can still be deleted.
 Cursor CLI reads `~/.cursor/cli-config.json` for MCP permissions. After `konoha init`, these grants are added:
 
 - `Mcp(semble)`, `Mcp(semble, search)`, `Mcp(semble, find_related)`
+- `Mcp(aislop)`, `Mcp(aislop, aislop_scan)`, `Mcp(aislop, aislop_fix)`, `Mcp(aislop, aislop_why)`, `Mcp(aislop, aislop_baseline)`
 - `Mcp(konoha)`, `Mcp(konoha, read_file_head)`, `Mcp(konoha, read_file_range)`, `Mcp(konoha, file_info)`, `Mcp(konoha, token_efficient_grep)`, `Mcp(konoha, get_file_structure)`, `Mcp(konoha, find_files_clean)`, `Mcp(konoha, find_skill)`, `Mcp(konoha, get_skill)`, `Mcp(konoha, list_skills)`, `Mcp(konoha, optimize_report)`, `Mcp(konoha, build_from_source)`, `Mcp(konoha, build_from_text)`
 
 Run `konoha doctor --yes` to repair missing permissions.
@@ -148,7 +149,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 ### MCP not detected in Cursor
 
-1. Check `~/.cursor/mcp.json` contains `konoha` and `semble`.
+1. Check `~/.cursor/mcp.json` contains `konoha`, `semble`, and `aislop`.
 2. Run `konoha doctor --yes`.
 3. Run `node ~/.konoha/cursor_bootstrap.js` (must exit 0).
 4. Restart Cursor.

@@ -235,7 +235,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ### 🤖 Codex MCP Configuration Not Detected
 
-1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]` and `[mcp_servers.semble]`:
+1. Verify `~/.codex/config.toml` exists and contains `[mcp_servers.konoha]`, `[mcp_servers.semble]`, and `[mcp_servers.aislop]`:
    ```bash
    cat ~/.codex/config.toml
    ```
@@ -243,6 +243,23 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 2. Run `konoha doctor --yes` or `konoha init --yes` to auto-repair the Codex TOML configuration and runtime contracts.
 
 3. Restart Codex session to reload MCP servers from `config.toml`.
+
+---
+
+### 🧹 Zero-AI-Slop Gate (`aislop` MCP) Issues
+
+1. **Workflow Delivery Blocked by Kage Review**:
+   - **Symptom**: `run_mcp_workflow` returns `status: "blocked"`, or the Kage Reviewer Confidence Gate Report indicates `ai_slop_findings > 0` or `ai_slop_clean: false`.
+   - **Reason**: The Zero-AI-Slop Gate is a hard pre-gate. Even with 100% test passing and 100% confidence, unsuppressed `ai-slop/*` findings prevent final delivery.
+   - **Fix**: Re-delegate the flagged files to execution agents (`jonin` or `anbu`) to run `aislop_fix` or manually correct code hygiene issues until `aislop_scan` returns 0 findings and `kage_review.json` has `ai_slop_findings: 0` and `ai_slop_clean: true`.
+
+2. **Missing `aislop` MCP Server**:
+   - **Symptom**: Agent cannot call `aislop_scan` or `aislop_fix`, or `konoha doctor` reports `aislop` missing.
+   - **Fix**: Run `konoha doctor --yes` to auto-register `aislop` across all installed clients (`Antigravity`, `Cursor`, `Claude Code`, `OpenCode`, `Command Code`, `Codex`). Ensure Node.js and `npx` are installed and available on PATH.
+
+3. **Role Boundary Violations**:
+   - **Symptom**: `genin` or `kage` attempts to call `aislop_fix` or `aislop_baseline`.
+   - **Reason**: `genin` and `kage` are strictly read-only analysis agents. Only execution agents (`jonin`, `anbu`) are permitted to execute code modification tools like `aislop_fix`.
 
 ---
 
@@ -464,16 +481,16 @@ The gateway does not rotate globally to another bridge after a rate limit. It fo
 
 ### External Antigravity Extension
 
-The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix`, and installed via CLI across detected IDEs during `konoha init` and `konoha upgrade`:
+The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.4.0.vsix`, and installed via CLI across detected IDEs during `konoha init` and `konoha upgrade`:
 ```bash
 # Antigravity IDE CLI
-antigravity --install-extension konoha-bridge-1.3.0.vsix
+antigravity --install-extension konoha-bridge-1.4.0.vsix
 
 # Standard VS Code CLI
-code --install-extension konoha-bridge-1.3.0.vsix
+code --install-extension konoha-bridge-1.4.0.vsix
 
 # Cursor IDE CLI
-cursor --install-extension konoha-bridge-1.3.0.vsix
+cursor --install-extension konoha-bridge-1.4.0.vsix
 ```
 When Antigravity IDE is present, it is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
 

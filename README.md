@@ -20,7 +20,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta — Konoha v2.0.0-beta (2026-09-02)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta_2026-09-02.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.2 — Konoha v2.0.0-beta.2 (2026-09-03)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.2_2026-09-03.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -249,6 +249,17 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **Zero Session Amnesia**: Context and invariants are preserved and automatically injected across consecutive sessions.
 - **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
 
+### 🧠 Hybrid Vector Search & Multilingual Retrieval (sqlite-vector + IBM Granite + GTE Reranker)
+Konoha integrates state-of-the-art hybrid semantic retrieval combining **SQLite-Vector**, **IBM Granite 97M Multilingual (ONNX)**, and **Alibaba GTE Multilingual Cross-Encoder Reranker**:
+- **Cross-Lingual Recall**: Queries in Indonesian (or English) retrieve the relevant English skill documentation with **97.5% Recall@5** and **0.885 MRR@5**.
+- **Reciprocal Rank Fusion (RRF)**: Merges dense vector embeddings with sparse FTS5 BM25 token ranks before cross-encoder reranking.
+- **Zero-Config Default & Opt-in Semantic Search**: By default, Konoha runs zero-config with ultra-fast SQLite FTS5. Semantic search is optionally enabled via `KONOHA_SEMANTIC_SEARCH=1`.
+- **Graceful Fallback**: If extension loading is disabled or models are unavailable, searches fall back to FTS5 / LIKE search seamlessly without crashing.
+- **Lazy First-Run Download**: Downloads platform-specific prebuilts (`linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) and int8 ONNX weights on first run to keep the base npm package lightweight.
+- **4-Tier Embedding Feature Deduplication**: Markdown heading-aware chunk hashing, in-memory `_EMBED_CACHE` (4,096 entries, 0ms latency), database-level binary blob reuse across skills, and candidate nearest-chunk deduplication.
+- **Persistent Persona & Project Memory**: Idempotent memory storage preventing duplicate SQLite rows, zero-hallucination factual extraction, and auto-compact turn-based prompt badges (< 120 tokens on turn >= 2).
+- **Cross-Platform `agent-browser` Lifecycle**: Automated multi-package-manager detection and self-healing doctor auto-repair across Windows (`agent-browser.cmd`), Linux, and macOS.
+
 ### Workflow: Forced MCP Delegation
 
 All non-trivial work on a Konoha-configured host **MUST** flow through the Konoha MCP and Semble MCP tools and be delegated to a konoha subagent — never executed solo by the main orchestrator.
@@ -256,6 +267,7 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 - **Skill lookup** (`konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`.
 - **Codebase search** (`semble.search`, `semble.find_related`) — always via `semble` MCP, never `grep`/`rg`/`find`.
 - **Bounded file reads** — `konoha.read_file_head` / `read_file_range` / `file_info` / `token_efficient_grep`, never generic `Read` / `Grep` / `Glob` / shell `cat`/`head`/`tail`.
+- **Zero-AI-Slop Code Quality** — `aislop.aislop_scan`, `aislop.aislop_fix`, `aislop.aislop_why` for code hygiene and Kage review gating.
 - **Project Knowledge Discovery** — inspect project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and canonical project skills (`.agents/skills`, `skills/`) before executing code.
 - **Package Manager Mandate** — ALWAYS use `pnpm` (never standalone `npx` or `npm`) for all JS/TS scaffolding, installs, and builds.
 - **Subagent routing** — match the task domain to a ninja agent:
@@ -263,7 +275,7 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
   - `@kage` — architecture, security, deep analysis
   - `@chunin` — web research, documentation synthesis
   - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4
-  - `@anbu` — backend, bug fixing, DevOps
+  - `@anbu` — backend, bug fixing, DevOps, & dev/local penetration testing
   - `@tokubetsu-jonin` — technical writing, docs, READMEs
 
 **The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** Trivial edits on a known file may run inline; everything else routes through a subagent.
@@ -275,6 +287,14 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption via MCP Tools), specifically engineered to deliver maximum performance, complete cross-IDE portability, and **83–98% token savings**.
 
 > **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Diagram manifest](docs/diagrams/README.md).
+
+<p align="center">
+  <img src="assets/konoha-orchestration-flow.gif" alt="Konoha MCP Orchestration & Execution Flow" width="100%" />
+</p>
+
+<details>
+<summary><b>📐 View Text-Based Mermaid Source Specification</b></summary>
+<br/>
 
 ```mermaid
 ---
@@ -300,12 +320,12 @@ config:
 flowchart TB
     Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
     Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
-    Orchestrator --> Discover["2. Discover Skill + Code<br/>(konoha.find_skill + semble.search)"]
+    Orchestrator --> Discover["2. Discover Skill, Code & Hygiene<br/>(konoha.find_skill · semble.search · aislop_scan)"]
     Context --> Delegate["3. Structured MCP Delegation<br/>(delegate_to_jonin / anbu / kage)"]
     Discover --> Delegate
     Delegate --> Agent["4. Specialist Ninja Agent<br/>(genin · kage · jonin · anbu · chunin · tokubetsu)"]
     Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]
-    Report --> Review["6. Kage Review Gate<br/>(100% task & security verification)"]
+    Report --> Review["6. Kage Review Gate<br/>(Zero-AI-slop pre-gate + 100% task & security verification)"]
     Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
     Synthesize --> Response["Synthesized Response"]
 
@@ -319,6 +339,8 @@ flowchart TB
     class Review review
     class Delegate,Agent orchestration
 ```
+
+</details>
 
 ### Architectural Comparison
 
@@ -497,7 +519,7 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ```
 ~/.gemini/
 ├── config/
-│   └── mcp_config.json   ← konoha + semble MCP (Antigravity)
+│   └── mcp_config.json   ← konoha + semble + aislop MCP (Antigravity)
 └── GEMINI.md              ← Orchestrator + subagent instructions
 
 ~/.konoha/
@@ -516,7 +538,7 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 └── skills.db              ← SQLite FTS5 database (+ `agents`, `bridges` tables)
 
 ~/.cursor/
-├── mcp.json               ← konoha + semble MCP (Cursor)
+├── mcp.json               ← konoha + semble + aislop MCP (Cursor)
 ├── agents/                ← Official seven ninja subagents; host selects models
 ├── hooks.json             ← sessionStart → cursor_bootstrap.js
 └── cli-config.json        ← Cursor CLI MCP permissions
@@ -640,6 +662,14 @@ Semantic search across the codebase — understands code meaning, not just text 
 #### `find_related(file_path)`
 Find files semantically related to a given file — useful for understanding dependencies and impact.
 
+### aislop — Zero-AI-Slop Code Quality & Anti-Slop Gate
+The `aislop` server (`scanaislop/aislop`) provides zero-AI-slop and code hygiene validation, rule explanations, and automated fixes. Registered via `npx -y @scanaislop/aislop-mcp@latest`.
+
+- **Hard Pre-Gate in Kage Review**: Enforces `ai_slop_findings: 0` and `ai_slop_clean: true` before any delivery is approved.
+- **Role Boundaries**:
+  - `genin` & `kage`: Permitted `aislop_scan` and `aislop_why` (strictly read-only / diagnostic exploration).
+  - `jonin` & `anbu`: Permitted `aislop_scan`, `aislop_why`, and `aislop_fix` (execution agents with automated repair capabilities).
+
 ---
 
 ## 🥷 Official Agent Team (Naruto Ninja Ranks)
@@ -681,7 +711,7 @@ The installer updates your configuration to define a cohesive, specialized team 
 * **Key Responsibilities**:
   - Designs backend systems, database schemas, APIs (Node.js, Express, GraphQL, Laravel, WordPress, Magento, PHP, Ruby, C++).
   - Architectures distributed messaging and caching layers (Kafka, RabbitMQ, Redis, Nginx, HAProxy, Varnish).
-  - Implements defensive cybersecurity forensics, threat hunting, and OWASP remediation (`anthropic-cybersecurity-skills`).
+  - Implements defensive cybersecurity forensics, threat hunting, OWASP remediation, and authorized penetration testing in dev/local environments (`anthropic-cybersecurity-skills`).
   - Provisions infrastructure (Terraform, Kubernetes, Helm) and manages secure CI/CD pipelines.
   - Formulates AI prompt engineering strategies (`prompt-engineer`) and creates/maintains agent skills (`skill-creator`).
 * **Skills-DB Keyword**: `terraform aws kubernetes helm ci-cd security kafka redis prompt` (loads backend and defense recipes).

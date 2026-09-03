@@ -147,14 +147,16 @@ const KONOHA_TOOLS = [
 ];
 
 const SEMBLE_TOOLS = ['search', 'find_related'];
+const AISLOP_TOOLS = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 
 /**
- * Injects or replaces [mcp_servers.konoha] and [mcp_servers.semble] in TOML content.
+ * Injects or replaces [mcp_servers.konoha], [mcp_servers.semble], and [mcp_servers.aislop] in TOML content.
  */
 function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const pythonExecutable = pythonCmd || 'python3';
   const serverEntryPoint = serverPath || SERVER_PATH;
   const uvxExecutable = uvxCmd || 'uvx';
+  const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
   // Remove existing [mcp_servers.*], [agents.*] and [features] blocks
   const lines = (existingToml || '').split('\n');
@@ -164,8 +166,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
     if (
-      /^\[mcp_servers\.(konoha|semble)/i.test(rawLine) ||
-      /^\[mcp\.(konoha|semble)/i.test(rawLine) ||
+      /^\[mcp_servers\.(konoha|semble|aislop)/i.test(rawLine) ||
+      /^\[mcp\.(konoha|semble|aislop)/i.test(rawLine) ||
       /^\[agents(\..*)?\]/i.test(rawLine) ||
       /^\[features\]/i.test(rawLine) ||
       /^suppress_unstable_features_warning\s*=/i.test(rawLine) ||
@@ -187,8 +189,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     if (skippingBlock) {
       if (rawLine.startsWith('[')) {
         if (
-          /^\[mcp_servers\.(konoha|semble)/i.test(rawLine) ||
-          /^\[mcp\.(konoha|semble)/i.test(rawLine) ||
+          /^\[mcp_servers\.(konoha|semble|aislop)/i.test(rawLine) ||
+          /^\[mcp\.(konoha|semble|aislop)/i.test(rawLine) ||
           /^\[agents(\..*)?\]/i.test(rawLine) ||
           /^\[features\]/i.test(rawLine)
         ) {
@@ -212,6 +214,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
+  const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
   const konohaBlock = [
     '[mcp_servers.konoha]',
@@ -232,12 +235,20 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'auto_approve_tools = ["*"]'
   ].join('\n');
 
+  const aislopBlock = [
+    '[mcp_servers.aislop]',
+    `command = "${npxExecutable}"`,
+    'args = ["-y", "aislop-mcp"]',
+    'auto_approve = true',
+    'auto_approve_tools = ["*"]'
+  ].join('\n');
+
   const featuresBlock = [
     '[features]',
     'skip_host_skill_discovery = true'
   ].join('\n');
 
-  const mcpSection = `${konohaToolBlocks}\n\n${sembleToolBlocks}\n\n${konohaBlock}\n\n${sembleBlock}\n\n${featuresBlock}`;
+  const mcpSection = `${konohaToolBlocks}\n\n${sembleToolBlocks}\n\n${aislopToolBlocks}\n\n${konohaBlock}\n\n${sembleBlock}\n\n${aislopBlock}\n\n${featuresBlock}`;
 
   const agents = (() => {
     try {
@@ -291,7 +302,7 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     writeCodexConfig(updated);
 
     if (!silent) {
-      console.log('  ✓ Codex MCP servers configured (konoha, semble) in config.toml');
+      console.log('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml');
     }
 
     return { ok: true };
@@ -390,6 +401,7 @@ function getCodexStatus() {
       const parsed = parseCodexToml(content);
       status.mcpKonoha = !!(parsed.mcp_servers && parsed.mcp_servers['konoha']);
       status.mcpSemble = !!(parsed.mcp_servers && parsed.mcp_servers['semble']);
+      status.mcpAislop = !!(parsed.mcp_servers && parsed.mcp_servers['aislop']);
     } catch {}
   }
 
@@ -410,8 +422,8 @@ function removeCodexConfig(silent = true) {
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
       if (
-        /^\[mcp_servers\.(konoha|semble)\]/i.test(rawLine) ||
-        /^\[mcp\.(konoha|semble)\]/i.test(rawLine)
+        /^\[mcp_servers\.(konoha|semble|aislop)\]/i.test(rawLine) ||
+        /^\[mcp\.(konoha|semble|aislop)\]/i.test(rawLine)
       ) {
         skippingBlock = true;
         continue;

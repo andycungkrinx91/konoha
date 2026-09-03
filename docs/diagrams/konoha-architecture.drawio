@@ -1,4 +1,3 @@
-<?xml version='1.0' encoding='utf-8'?>
 <mxfile host="65bd71144e">
     <diagram id="system-architecture" name="01 System Architecture">
         <mxGraphModel dx="1596" dy="1219" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
@@ -8,7 +7,7 @@
                 <mxCell id="p1-title" value="Konoha System Architecture" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;" parent="1" vertex="1">
                     <mxGeometry x="40" y="20" width="700" height="40" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-subtitle" value="Cross-client MCP orchestration, skill retrieval, semantic search, and persistence" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;align=left;verticalAlign=middle;" parent="1" vertex="1">
+                <mxCell id="p1-subtitle" value="Cross-client MCP orchestration, skill retrieval, semantic search, quality gate, and persistence" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;align=left;verticalAlign=middle;" parent="1" vertex="1">
                     <mxGeometry x="40" y="60" width="900" height="30" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-l1" value="Presentation and client surfaces" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#eff6ff;strokeColor=#93c5fd;fontColor=#1e3a8a;fontStyle=1;" parent="1" vertex="1">
@@ -20,7 +19,7 @@
                 <mxCell id="p1-client" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
                     <mxGeometry x="340" y="40" width="360" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-config" value="Client MCP Configurations&#10;Konoha + Semble + optional RTK rules" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" parent="p1-l1" vertex="1">
+                <mxCell id="p1-config" value="Client MCP Configurations&#10;Konoha + Semble + Aislop + optional RTK rules" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" parent="p1-l1" vertex="1">
                     <mxGeometry x="820" y="40" width="330" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-l2" value="Orchestration and specialist agents" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#f5f3ff;strokeColor=#a78bfa;fontColor=#4c1d95;fontStyle=1;" parent="1" vertex="1">
@@ -47,13 +46,16 @@
                 <mxCell id="p1-semble" value="Semble MCP&#10;search | find_related" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontColor=#134e4a;fontStyle=1;" parent="p1-l3" vertex="1">
                     <mxGeometry x="850" y="45" width="300" height="70" as="geometry" />
                 </mxCell>
+                <mxCell id="p1-aislop" value="Aislop MCP&#10;aislop_scan | aislop_fix | aislop_why" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;" parent="p1-l3" vertex="1">
+                    <mxGeometry x="1190" y="45" width="290" height="70" as="geometry" />
+                </mxCell>
                 <mxCell id="p1-l4" value="Persistence and workspace boundary" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#9a3412;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="40" y="720" width="1520" height="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-db" value="SQLite skills.db&#10;skills | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-db" value="SQLite skills.db (src/db.py)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
                     <mxGeometry x="160" y="50" width="400" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-fts" value="SQLite FTS5&#10;BM25-ranked skill index" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.py)&#10;BM25-ranked index + IBM Granite Embeddings + GTE Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
                     <mxGeometry x="680" y="55" width="260" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-code" value="Workspace Files&#10;Source code, docs, tests, task artifacts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;" parent="p1-l4" vertex="1">
@@ -248,7 +250,7 @@
                 <mxCell id="p3-e6" value="frontend" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4f46e5;exitX=1;exitY=0.777778;exitDx=0;exitDy=0;" parent="1" source="p3-sannin" target="p3-jonin" edge="1">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-e7" value="backend / ops" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4f46e5;exitX=1;exitY=0.888889;exitDx=0;exitDy=0;" parent="1" source="p3-sannin" target="p3-anbu" edge="1">
+                <mxCell id="p3-e7" value="backend / ops / dev-local pentest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4f46e5;exitX=1;exitY=0.888889;exitDx=0;exitDy=0;" parent="1" source="p3-sannin" target="p3-anbu" edge="1">
                     <mxGeometry relative="1" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-e8" value="research" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4f46e5;exitX=1;exitY=0.333333;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="p3-sannin" target="p3-chunin" edge="1">
@@ -432,11 +434,11 @@
                 <mxCell id="p6-package" value="Packaged source&#10;src/templates/skills/ -&gt; .agents/skills/" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="390" y="420" width="340" height="85" as="geometry" />
                 </mxCell>
-                <mxCell id="p6-migrate" value="konoha migrate --clean&#10;normalize + FTS5 indexing" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
-                    <mxGeometry x="790" y="260" width="300" height="80" as="geometry" />
+                <mxCell id="p6-migrate" value="konoha migrate&#10;FTS5 indexing + vector embedding backfill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="240" width="300" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p6-db" value="SQLite skills.db&#10;skills + skills_fts" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
-                    <mxGeometry x="1190" y="260" width="270" height="80" as="geometry" />
+                <mxCell id="p6-db" value="SQLite skills.db (src/db.py)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="420" width="300" height="100" as="geometry" />
                 </mxCell>
                 <mxCell id="p6-agent" value="Any Supported Client&#10;Konoha MCP runtime" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="790" y="510" width="290" height="80" as="geometry" />
@@ -684,13 +686,13 @@
                 <mxCell id="p11-plan" value="3. Plan Phase&#10;(Kage Architect &amp; Tasks)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="460" y="180" width="180" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-exec" value="4. Execute Phase&#10;(Anbu: Backend · Jonin: UI)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" parent="1" vertex="1">
+                <mxCell id="p11-exec" value="4. Execute Phase&#10;(Anbu: Backend &amp; Dev/Local Pentest · Jonin: UI)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="680" y="180" width="200" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-doc" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="920" y="180" width="190" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
+                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
                     <mxGeometry x="680" y="320" width="430" height="190" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-synth" value="7. Synthesize Phase&#10;(Sannin Final Report)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">

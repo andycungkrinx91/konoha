@@ -80,7 +80,7 @@ Run the Antigravity CLI inspect command:
 agy inspect
 ```
 
-You should see `konoha` and `semble` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains both entries (run `konoha doctor --yes` to repair).
+You should see `konoha`, `semble`, and `aislop` listed among the MCP servers. If not, check that `~/.gemini/config/mcp_config.json` contains all three entries (run `konoha doctor --yes` to repair).
 
 ### Windows PowerShell Alternative
 ```powershell
@@ -299,9 +299,10 @@ The installer registers whitelisted command prefixes in `~/.gemini/antigravity-c
 This allows the CLI agent to run status checks and test validations without triggering interactive terminal prompts.
 
 ### 2. Tool Auto-Approvals
-The installer registers tool auto-approval settings for the `konoha`, `semble`, and `konoha` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
+The installer registers tool auto-approval settings for the `konoha`, `semble`, and `aislop` MCP servers in `~/.gemini/config/mcp_config.json`. This permits silent execution of non-destructive operations:
 - **`konoha`**: Auto-approves `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `build_from_source`, `build_from_text`.
 - **`semble`**: Auto-approves `search` and `find_related`.
+- **`aislop`**: Auto-approves `aislop_scan`, `aislop_fix`, `aislop_why`, and `aislop_baseline`.
 - **`konoha`**: Auto-approves `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, and `find_files_clean`.
 
 These configurations eliminate manual user approval prompts for common reads, searches, and CLI execution commands during coding sessions.

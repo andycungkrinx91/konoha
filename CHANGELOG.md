@@ -2,6 +2,59 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [v.2.0.0-beta.2] - 2026-09-03
+
+### Major: Zero-AI-Slop Gate & `aislop` MCP Multi-Client Integration (`PLAN_FEATURE.md`)
+- **Multi-Client `aislop` MCP Registration**: Auto-configured and registered `aislop` MCP server across all 6 supported clients:
+  - **Antigravity**: Registered `aislop` in `~/.gemini/config/mcp_config.json` with granular permission allowlists (`mcp(aislop/aislop_scan)`, `mcp(aislop/aislop_fix)`, `mcp(aislop/aislop_why)`, `mcp(aislop/aislop_baseline)`), IDE allowlists, health verification, and auto-repair.
+  - **Cursor**: Added `aislop` to `~/.cursor/mcp.json` with `stdio` transport.
+  - **Claude Code**: Registered `aislop` in `~/.claude.json` and permissions in `~/.claude/settings.json`.
+  - **Command Code**: Registered `aislop` in `~/.commandcode/mcp.json` and `settings.json`.
+  - **OpenCode**: Registered `aislop` in `~/.config/opencode/opencode.json` with local transport.
+  - **Codex**: Registered `[mcp_servers.aislop]` and individual tool blocks (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`) with `approval_mode = "auto"` in `~/.codex/config.toml`.
+- **Role-Based Tool Boundaries**:
+  - `genin` & `kage`: Permitted `aislop_scan` and `aislop_why` (strictly read-only/diagnostic). Forbidden from mutating code via `aislop_fix` or modifying baselines via `aislop_baseline`.
+  - `jonin` & `anbu`: Permitted `aislop_scan`, `aislop_why`, and `aislop_fix` for automated slop remediation during execution.
+- **Kage Review Zero-AI-Slop Pre-Gate**:
+  - Mechanically enforced in `_workflow_review_approved()` and `run_mcp_workflow()` in `src/server.py`: requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json`. Missing or non-numeric/positive findings strictly block workflow delivery regardless of confidence score.
+  - Standardized **AI Slop Scan** row added to Kage Reviewer Confidence Gate Report table in final reports.
+- **Skill SOP Updates**:
+  - Updated `kage-skill`: Enforces Zero AI-Slop Pre-Gate before assessing confidence scores.
+  - Updated `genin-skill`: Added SOP 6 (AI-Slop Baseline Scan) for diagnostic code reviews and architectural audits.
+- **Default Scaffold**: Added `.aislop/config.yml` with `failBelow: 100` and `ai-slop/*: error`.
+- **Comprehensive Test Suite**: Added `tests/test_anti_slop_gate.py` (8/8 tests passing) covering gate blocking, missing fields rejection, clean approvals, confidence report rendering, role boundaries, config wiring, and dispatch prompt requirements.
+
+### Major: Single-DB Access Layer Consolidation (`src/db.py`)
+- **Canonical Connection & Schema Ownership**: Created `src/db.py` owning `DB_PATH`, `PRAGMA journal_mode=WAL;`, `PRAGMA foreign_keys=ON;`, `PRAGMA busy_timeout=5000;`, and `PRAGMA synchronous=NORMAL;`.
+- **Unified DDL `setup_schema`**: Consolidated all `CREATE TABLE IF NOT EXISTS`, virtual tables, sync triggers, and indexes from `migrate.py`, `db_agents.py`, `db_bridges.py`, `db_stats.py`, and `persona_memory.py` into a single canonical definition.
+- **Reconciled Schema Drift**: Removed duplicate narrow `skills` definition in `db_stats.py`, aligning with the canonical 8-column schema.
+- **Cross-Module Call Site Migration**: Updated `server.py`, `migrate.py`, `db_agents.py`, `db_bridges.py`, `db_savings.py`, `persona_memory.py`, and `cli.js` to route all connections through `db.get_connection()`.
+- **Centralized Test Fixtures**: Unified monkeypatched DB paths in `test_database_migration.py`, `test_auto_compaction.py`, `test_taste_skill_jonin.py`, and `test_structured_delegation.py` to `db.DB_PATH`.
+
+### Major: Hybrid Vector Search & Multilingual Retrieval (`src/vector_search.py`)
+- **Direct HuggingFace ONNX Integration**: Sourced IBM Granite 97M Multilingual ONNX (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`, 384-dim, int8 quantized, CLS pooling, L2 normalization) and Alibaba GTE Multilingual Reranker (`onnx-community/gte-multilingual-reranker-base`, int8 cross-encoder, sigmoid scoring) without bulky wrapper dependencies.
+- **Hardware-Accelerated SIMD & Fallback**: Sourced `sqlite-vector` extension with lazy first-run downloading per platform (`linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, `windows-x64`). Implemented robust build-time capability detection with seamless in-memory NumPy cosine similarity fallback.
+- **Markdown Heading-Aware Chunking**: Chunks documentation by section headers (`#`, `##`, `###`) capped at 2,000 characters with 100-character boundary overlap, storing indexed chunks in `skill_chunks`.
+- **Reciprocal Rank Fusion (RRF)**: Merges dense vector embeddings with sparse FTS5 BM25 token ranks (`k=60`).
+- **Cross-Lingual Benchmark**: Validated 97.5% Recall@5 and 0.885 MRR@5 across 40 real English and Indonesian test queries (100% Recall@5 on English, 95% on Indonesian).
+- **Opt-In Feature Flag**: Search defaults to lightweight zero-config FTS5, with hybrid semantic retrieval activated via `KONOHA_SEMANTIC_SEARCH=1`.
+
+### Major: 4-Tier Embedding Feature Deduplication & Memory Optimization
+- **Document Chunk-Level Deduplication**: Heading-aware document chunking (`chunk_document`) eliminates repeated headings, badges, and duplicate Markdown sections via SHA-256 content hashing over normalized whitespace.
+- **In-Memory Embedding Feature Cache**: `embed_text()` integrates a fast in-memory dictionary cache (`_EMBED_CACHE`, 4,096 capacity) keyed by text hash, returning precomputed 384-dimensional vectors in 0 ms runtime with 0 redundant ONNX compute.
+- **Database-Level Binary Blob Reuse**: `index_single_skill_chunks()` checks SQLite `skill_chunks` for matching `chunk_text` and non-null `embedding`, directly reusing pre-existing binary blobs across skills without re-running models.
+- **Candidate Result Deduplication**: `scan_nearest_chunks()` deduplicates candidate nearest chunks by normalized text to ensure diversity in top-K retrieval without redundant results.
+- **Persona & Project Memory Deduplication**: Idempotent `save_memory()` updates existing rows, timestamps, and maximum importance if matching memory content exists for `(agent_name, content, project_hash)` without duplicating database rows.
+- **Zero-Hallucination & Token-Burn Protection**: Context memory injection strictly pulls verified database records from `projects` and `persona_memories`. Auto-compact prompt badges reduce context footprint to < 120 tokens on turns >= 2 while maintaining 100% of architectural invariants.
+- **SQLite Extension Fallback Hygiene**: Refined fallback logging in `src/vector_search.py` and `~/.konoha/vector_search.py` to `debug` level when Python build-time `SQLITE_OMIT_LOAD_EXTENSION` is detected, ensuring clean terminal and test runner outputs while seamlessly executing in-memory NumPy vector search.
+- **Cross-Platform `agent-browser` Auto-Resolution & Doctor Self-Healing**: Added `getAgentBrowserCommand()` and `installAgentBrowser()` across Windows (`.cmd`), Linux, and macOS, integrated into fresh install (`konoha init` step 2c), upgrade lifecycle (`konoha upgrade`), package definition (`optionalDependencies`), and self-healing doctor auto-repair (`konoha doctor`).
+- **Comprehensive Test Suite Expansion**: Added `tests/test_embedding_deduplication.py` and updated `tests/test_cross_platform.py` (59 total test suites passing cleanly with 100% pass rate).
+
+### Enhancements: Subagent Penetration Testing, Bridge Extension 1.4.0 & CLI Hardening
+- **Anbu Dev/Local Penetration Testing**: Added SOP 5 ("Penetration Testing & Security Assessment in Dev/Local Environments") to `anbu-skill`, authorized Anbu in `agents.yaml` and client rules for dev/local penetration testing (`localhost`, `127.0.0.1`, dev containers, local clusters), and updated the Kage review gate to allow realistic pentest diagnostics (e.g. simulated attack errors, vulnerability findings) without false rejection.
+- **Konoha Bridge v1.4.0 Upgrade**: Upgraded bundled and auto-installed extension to `konoha-bridge-1.4.0.vsix` across Antigravity IDE, VS Code, and Cursor.
+- **CLI Update / Upgrade Hardening**: Added `update` alias for `konoha upgrade`, automated `--yes` propagation in upgrade subprocesses, and increased child process migration timeouts to 180s.
+
 ## [v.2.0.0-beta] - 2026-09-01
 
 ### Major: 6-Client Cross-Platform AI Coding Ecosystem

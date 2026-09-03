@@ -18,16 +18,19 @@ import sqlite3
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import server
 import persona_memory
+import db
 
 class TestAutoCompaction(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
-        self.previous_db_path = server.DB_PATH
+        self.previous_db_path = db.DB_PATH
+        self.previous_server_db = server.DB_PATH
         self.previous_persona_db = persona_memory.DB_PATH
         self.db_path = os.path.join(self.tmp_dir.name, 'test_skills.db')
         self.project_dir = os.path.join(self.tmp_dir.name, 'ecommerce_app')
         os.makedirs(self.project_dir, exist_ok=True)
 
+        db.DB_PATH = self.db_path
         server.DB_PATH = self.db_path
         persona_memory.DB_PATH = self.db_path
 
@@ -59,7 +62,8 @@ class TestAutoCompaction(unittest.TestCase):
         server.SESSION_TURNS.clear()
 
     def tearDown(self):
-        server.DB_PATH = self.previous_db_path
+        db.DB_PATH = self.previous_db_path
+        server.DB_PATH = self.previous_server_db
         persona_memory.DB_PATH = self.previous_persona_db
         self.tmp_dir.cleanup()
 

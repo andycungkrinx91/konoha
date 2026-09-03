@@ -91,6 +91,17 @@ For factual queries, if all web search endpoints fail, Wikipedia OpenSearch acts
 
 ## ⚙️ Configuration & Logging
 
+### Custom / Self-Hosted SearXNG Instance Override
+If you run a local SearXNG container (e.g. `http://localhost:8080`) or prefer a specific private/corporate instance, set the `SEARXNG_URL` or `KONOHA_SEARXNG_URL` environment variable:
+```bash
+export SEARXNG_URL="http://localhost:8080"
+# or in your .env / client settings
+export KONOHA_SEARXNG_URL="https://my-searxng-instance.internal"
+```
+When defined, Konoha prioritizes your custom instance directly, bypassing public candidate discovery on `searx.space`.
+
+## ⚙️ Configuration & Logging
+
 ### Log Location
 All search queries and chosen sources are logged to:
 ```bash

@@ -25,7 +25,7 @@ const {
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME,
 } = require('../bin/lib/paths');
 
-const KONOHA_MCP_NAMES = ['konoha', 'semble'];
+const KONOHA_MCP_NAMES = ['konoha', 'semble', 'aislop'];
 
 function isClaudeCodeInstalled() {
   return (
@@ -120,6 +120,13 @@ function buildStdioMcpServers(options = {}) {
       command: uvxCmd,
       args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
       autoApprove: ['*', 'search', 'find_related'],
+      auto_approve: true
+    },
+    aislop: {
+      type: 'stdio',
+      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      args: ['-y', 'aislop-mcp'],
+      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
       auto_approve: true
     }
   };
@@ -253,6 +260,7 @@ function registerClaudeCodePermissions(silent = true) {
   const grants = [
     'mcp__konoha__*',
     'mcp__semble__*',
+    'mcp__aislop__*',
     'Bash(*)',
     'Bash(rtk *)',
     'Bash(rtk:*)',
@@ -551,8 +559,10 @@ function registerCommandCodePermissions(silent = true) {
       const grants = [
         'mcp__konoha__*',
         'mcp__semble__*',
+        'mcp__aislop__*',
         'mcp:konoha:*',
         'mcp:semble:*',
+        'mcp:aislop:*',
         'Shell(rtk *)',
         'Shell(rtk)',
         'Bash(rtk *)',
@@ -577,8 +587,10 @@ function registerCommandCodePermissions(silent = true) {
       const autoApproveGrants = [
         'mcp__konoha__*',
         'mcp__semble__*',
+        'mcp__aislop__*',
         'mcp:konoha:*',
         'mcp:semble:*',
+        'mcp:aislop:*',
         'Shell(rtk *)',
         'Shell(rtk)',
         'Bash(rtk *)',
@@ -658,6 +670,7 @@ function readMcpHealth(config, key = 'mcpServers') {
   return {
     konoha: !!block['konoha'],
     semble: !!block.semble,
+    aislop: !!block.aislop,
     skillsDb: !!block['konoha']
   };
 }
@@ -737,6 +750,7 @@ function getClaudeCodeStatus() {
       const health = readMcpHealth(config, 'mcpServers');
       status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
+      status.mcpAislop = health.aislop;
       status.mcpSkillsDb = health.skillsDb;
     } catch {}
   }
@@ -754,7 +768,8 @@ function getClaudeCodeStatus() {
       const allowed = Array.isArray(allowRaw) ? allowRaw : [];
       status.permissionsAllowed =
         allowed.includes('mcp__konoha__*') &&
-        allowed.includes('mcp__semble__*');
+        allowed.includes('mcp__semble__*') &&
+        allowed.includes('mcp__aislop__*');
     } catch {}
   }
 
@@ -914,7 +929,7 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
           if (allowArr.length > 0) {
             const initialLength = allowArr.length;
             const filtered = allowArr.filter(
-              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*'
+              (p) => p !== 'mcp__skills-db__*' && p !== 'mcp__konoha-files__*' && p !== 'mcp__konoha__*' && p !== 'mcp__semble__*' && p !== 'mcp__aislop__*'
             );
             config.permissions.allow = filtered;
             return filtered.length !== initialLength;
@@ -1020,6 +1035,7 @@ function getCommandCodeStatus() {
       const health = readMcpHealth(config, 'mcpServers');
       status.mcpKonoha = health.konoha;
       status.mcpSemble = health.semble;
+      status.mcpAislop = health.aislop;
       status.mcpSkillsDb = health.skillsDb;
       status.mcpServers = config.mcpServers || {};
 
@@ -1028,10 +1044,10 @@ function getCommandCodeStatus() {
         try {
           const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
           const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
-          status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*');
+          status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*') && allow.includes('mcp__aislop__*');
         } catch {}
       }
-      if (health.konoha && health.semble) {
+      if (health.konoha && health.semble && health.aislop) {
         status.status = 'ok';
       }
     } catch {}

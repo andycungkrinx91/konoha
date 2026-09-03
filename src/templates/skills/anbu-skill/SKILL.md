@@ -45,12 +45,20 @@ In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: e
 2. **Zero CVE Guarantee**: After every package installation or environment setup, you MUST run `pnpm audit` and `pnpm audit fix`. 
 3. **Completion Gate**: You MUST NOT finish any task if there are high/critical vulnerabilities remaining. You must resolve all CVEs.
 
+## SOP 5: Penetration Testing & Security Assessment in Dev/Local Environments
+1. **Target Boundary Authorization**: Penetration testing is strictly scoped to local and development environments (`localhost`, `127.0.0.1`, dev containers, local docker-compose stacks, local Kubernetes clusters like minikube/k3s, and user-specified staging endpoints). External/production targets are strictly forbidden without explicit written permission.
+2. **Reconnaissance & Enumeration**: Map local ports, services, authentication endpoints, and API boundaries using authorized tools or automated scripts.
+3. **Vulnerability Assessment & Probing**: Probe for OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF, broken object-level authorization, authentication bypass, security misconfigurations, unpinned dependencies) safely within the dev/local target.
+4. **Validation Evidence & Reporting**: Record evidence confirming test execution (e.g. `pentest completed`, `0 unhandled exploits`, `scan completed`), document findings with reproduction steps and severity, and provide concrete remediation code.
+5. **Post-Assessment Cleanup**: Clean up all temporary test artifacts, test injection strings, and scratch files upon completion.
+
 ## Domain Routing
 
 Based on the user's request, load the specific reference file using `konoha.get_skill("anbu-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
 
 | If the request involves... | Load this reference |
 |---|---|
+| Penetration testing in dev/local environments, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
 | DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
 | Grafana, Prometheus, monitoring, metrics, observability dashboards | `anbu-skill/prometheus-grafana` |
 | Anthropic Cybersecurity Skills, security log analysis, threat hunting, defensive forensics, analytical hardening | `anbu-skill/anthropic-cybersecurity-skills` |

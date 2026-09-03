@@ -10,7 +10,8 @@ import json
 import sqlite3
 from urllib.parse import urlparse
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from db import DB_PATH, get_connection, setup_schema
 BRIDGES_JSON_PATH = os.path.expanduser("~/.konoha/bridges.json")
 
 DEFAULT_BRIDGES = []
@@ -18,22 +19,10 @@ EXTERNAL_ANTIGRAVITY_PROVIDER = "antigravity-extension"
 EXTERNAL_ANTIGRAVITY_PORT = 1313
 EXTERNAL_ANTIGRAVITY_URL = "http://127.0.0.1:1313"
 
-def get_db_connection():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS bridges (
-            name TEXT PRIMARY KEY,
-            port INTEGER NOT NULL,
-            provider TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            target_url TEXT,
-            api_key TEXT
-        );
-    """)
-    conn.commit()
+def get_db_connection(db_path=None):
+    target = db_path if db_path is not None else DB_PATH
+    conn = get_connection(target)
+    setup_schema(conn)
     return conn
 
 def auto_migrate_json_if_needed(conn):

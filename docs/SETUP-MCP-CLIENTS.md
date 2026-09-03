@@ -1,5 +1,5 @@
 
-Konoha registers **konoha** and **semble** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. Existing configs are preserved or backed up according to each client manager.
+Konoha registers **konoha**, **semble**, and **aislop** for every supported client detected during `konoha init`. Missing optional clients are skipped without failing installation. Existing configs are preserved or backed up according to each client manager.
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
@@ -90,12 +90,12 @@ konoha doctor --yes
 
 **Writes:**
 - `~/.claude.json` → `mcpServers` (all projects on this machine).
-- `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
+- `~/.claude/settings.json` → `permissions.allow` configured with strict Claude Code syntax: literal prefixes `mcp__<server>__*` (`mcp__konoha__*`, `mcp__semble__*`, `mcp__aislop__*`) and `Bash(...)` tool grants, completely avoiding invalid bare wildcards or colon syntax.
 - `~/.claude/CLAUDE.md` → Global orchestrator instructions.
 - `~/.claude/agents/` → Seven official ninja subagents; the host client controls model selection.
 - `~/.claude/rules/rtk.md` → RTK rule (if `rtk` binary detected).
 
-**Verify:** `/mcp` in Claude Code session — should show `konoha` and `semble`.
+**Verify:** `/mcp` in Claude Code session — should show `konoha`, `semble`, and `aislop`.
 
 **Model Selection:** The host client selects the active model. Konoha does not inject model fields into client configuration.
 
@@ -110,7 +110,7 @@ konoha doctor --yes
 - `~/.commandcode/rules/konoha.md` → main-agent Konoha + Semble + RTK contract.
 - `~/.commandcode/rules/rtk.md` when RTK is installed.
 
-**Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha` and `semble`.
+**Verify:** Run `cmd mcp list` or type `/mcp` in Command Code session — should show `konoha`, `semble`, and `aislop`.
 
 ---
 
@@ -123,7 +123,7 @@ konoha doctor --yes
 - `~/.config/opencode/AGENTS.md` → global Konoha + Semble contract.
 - `~/.config/opencode/rules/rtk.md` when RTK is installed; OpenCode has no supported RTK hook.
 
-**Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha` and `semble` active.
+**Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha`, `semble`, and `aislop` active.
 
 ---
 
@@ -145,9 +145,26 @@ args = ["/home/<user>/.konoha/server.py"]
 [mcp_servers.semble]
 command = "uvx"
 args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
+
+[mcp_servers.aislop]
+command = "npx"
+args = ["-y", "@scanaislop/aislop-mcp@latest"]
+auto_approve = true
+
+[mcp_servers.aislop.tools.aislop_scan]
+approval_mode = "auto"
+
+[mcp_servers.aislop.tools.aislop_fix]
+approval_mode = "auto"
+
+[mcp_servers.aislop.tools.aislop_why]
+approval_mode = "auto"
+
+[mcp_servers.aislop.tools.aislop_baseline]
+approval_mode = "auto"
 ```
 
-**Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha` and `semble`.
+**Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha`, `semble`, and `aislop`.
 
 ---
 
@@ -156,6 +173,7 @@ args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
 1. `konoha` `find_skill` for skills
 2. `semble` `search` / `find_related` for code
 3. `konoha` for bounded file reads
+4. `aislop` `aislop_scan` / `aislop_fix` / `aislop_why` for zero-AI-slop validation and code quality
 4. The embedded Konoha Bridge Router runs in-process inside the `konoha` MCP server on `127.0.0.1:19999`. The optional Antigravity IDE extension is separate and serves `127.0.0.1:1313`; it is never started by Konoha as a standalone process. Local clients do not send API keys to the aggregate router.
 5. External `antigravity-extension` bridge records are disabled by default and require explicit `konoha bridge enable <name>`.
 

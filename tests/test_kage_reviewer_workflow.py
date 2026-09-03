@@ -134,6 +134,8 @@ class TestKageReviewerWorkflow(unittest.TestCase):
             "verified_task_ids": ["task-1"],
             "security_reviewed": True,
             "rollback_reviewed": True,
+            "ai_slop_findings": 0,
+            "ai_slop_clean": True,
             "validation": ["all 10 tests passed successfully"]
         }
         with open(os.path.join(self.task_dir, "kage_review.json"), "w") as f:

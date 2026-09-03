@@ -1,6 +1,6 @@
 {
   "name": "Konoha",
-  "version": "2.0.0-beta",
+  "version": "2.0.0-beta.2",
   "keywords": [
     "antigravity",
     "cursor",
@@ -53,5 +53,8 @@
     "figlet": "^1.11.0",
     "gradient-string": "^3.0.0",
     "playwright": "^1.61.1"
+  },
+  "optionalDependencies": {
+    "agent-browser": "^0.36.0"
   }
 }

@@ -15,16 +15,15 @@ import re
 import hashlib
 from typing import List, Dict, Any, Optional
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
+
+DB_PATH = db.DB_PATH
 
 
 def get_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     """Get SQLite database connection with WAL mode enabled."""
-    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.row_factory = sqlite3.Row
-    return conn
+    return db.get_connection(db_path)
 
 
 def compute_project_hash(project_path: Optional[str]) -> str:
@@ -147,67 +146,7 @@ def detect_project_stack(workspace_path: Optional[str]) -> Dict[str, Any]:
 
 def init_memory_tables(conn: sqlite3.Connection):
     """Initializes persona memory, project workspace tables, and FTS5 search index."""
-    # 1. Projects metadata table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS projects (
-            project_hash TEXT PRIMARY KEY,
-            project_path TEXT NOT NULL,
-            project_name TEXT NOT NULL,
-            framework TEXT DEFAULT 'Unknown',
-            styling TEXT DEFAULT 'Standard CSS',
-            package_manager TEXT DEFAULT 'pnpm',
-            context_summary TEXT DEFAULT '',
-            tech_stack TEXT DEFAULT '{}',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(project_path);")
-
-    # 2. Persona memories table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS persona_memories (
-            id TEXT PRIMARY KEY,
-            project_hash TEXT DEFAULT '',
-            agent_name TEXT NOT NULL,
-            memory_type TEXT NOT NULL, -- 'rule', 'preference', 'episodic', 'pattern', 'architecture', 'project_context'
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            tags TEXT,
-            importance INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_agent ON persona_memories(agent_name);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_type ON persona_memories(memory_type);")
-
-    # Safe schema migration for existing databases missing project_hash
-    try:
-        cur = conn.cursor()
-        cur.execute("PRAGMA table_info(persona_memories);")
-        columns = [row["name"] for row in cur.fetchall()]
-        if "project_hash" not in columns:
-            conn.execute("ALTER TABLE persona_memories ADD COLUMN project_hash TEXT DEFAULT '';")
-    except Exception:
-        pass
-
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_mem_project ON persona_memories(project_hash);")
-
-    # 3. FTS5 virtual table for fast full-text keyword retrieval without embeddings
-    conn.execute("""
-        CREATE VIRTUAL TABLE IF NOT EXISTS persona_memories_fts USING fts5(
-            id UNINDEXED,
-            project_hash,
-            agent_name,
-            title,
-            content,
-            tags,
-            content='persona_memories',
-            content_rowid='rowid'
-        )
-    """)
-    conn.commit()
+    db.setup_schema(conn)
 
 
 def save_or_update_project(
@@ -387,6 +326,23 @@ def save_memory(
     conn = get_db(db_path)
     try:
         init_memory_tables(conn)
+        # Deduplication: check if exact memory exists for this agent and project scope
+        existing = conn.execute("""
+            SELECT id FROM persona_memories 
+            WHERE agent_name = ? AND content = ? AND project_hash = ?
+            LIMIT 1
+        """, (clean_agent, content.strip(), p_hash)).fetchone()
+
+        if existing:
+            existing_id = existing[0]
+            conn.execute("""
+                UPDATE persona_memories 
+                SET updated_at = ?, importance = MAX(importance, ?), title = CASE WHEN ? != '' THEN ? ELSE title END
+                WHERE id = ?
+            """, (now, importance, title, title, existing_id))
+            conn.commit()
+            return existing_id
+
         conn.execute("""
             INSERT INTO persona_memories (id, project_hash, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

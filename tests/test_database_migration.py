@@ -5,8 +5,10 @@ import sqlite3
 import subprocess
 import sys
 import unittest
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+import db
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+DB_PATH = db.DB_PATH
 MIGRATE_SCRIPT = os.path.expanduser("~/.konoha/migrate.py")
 
 class TestDatabaseMigration(unittest.TestCase):
@@ -24,7 +26,7 @@ class TestDatabaseMigration(unittest.TestCase):
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
         
-        expected_tables = {"skills", "tool_calls", "agents", "bridges"}
+        expected_tables = {"skills", "tool_calls", "agents", "bridges", "skill_chunks"}
         for t in expected_tables:
             self.assertIn(t, tables, f"Table '{t}' is missing from schema.")
 

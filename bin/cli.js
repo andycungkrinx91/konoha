@@ -42,8 +42,11 @@ const MCP_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'mcp_config.json');
 const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
 const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
 const DB_PATH = path.join(SKILLS_DB_DIR, 'skills.db');
+const DB_PY_PATH = path.join(SKILLS_DB_DIR, 'db.py');
+const VECTOR_SEARCH_PY_PATH = path.join(SKILLS_DB_DIR, 'vector_search.py');
 const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.py');
+const MIGRATION_TIMEOUT_MS = 180000; // 3 minutes for FTS5 + neural vector embedding generation
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 const FILE_TOOLS_ROUTER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_router.js');
 const FILE_TOOLS_LAUNCHER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_launcher.sh');
@@ -996,6 +999,18 @@ async function cmdInit(args) {
     spinner1b.success('uv installed successfully.');
   }
 
+  // 2c. Ensure agent-browser is available (for web inspection & design match comparison)
+  const spinner1c = startSpinner('Checking agent-browser CLI...');
+  let abInstalled = installAgentBrowser(true);
+  if (!abInstalled) {
+    abInstalled = installAgentBrowser(false);
+  }
+  if (abInstalled) {
+    spinner1c.success('agent-browser CLI is ready.');
+  } else {
+    spinner1c.warn('agent-browser not found — optional for browser automation.');
+  }
+
   if (args.includes('--force')) {
     const sembleRefresh = refreshSemblePackage(true);
     if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
@@ -1139,6 +1154,8 @@ async function cmdInit(args) {
     }
   }
 
+  copyFile(path.join(SRC_DIR, 'db.py'), DB_PY_PATH);
+  copyFile(path.join(SRC_DIR, 'vector_search.py'), VECTOR_SEARCH_PY_PATH);
   copyFile(path.join(SRC_DIR, 'server.py'), SERVER_PATH);
   copyFile(path.join(SRC_DIR, 'migrate.py'), MIGRATE_PATH);
 
@@ -1213,11 +1230,15 @@ async function cmdInit(args) {
   const migrationArgs = skills.length > 0
     ? ['--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill']
     : ['--clean', '--require-skill', 'genin-skill'];
+  if (process.env.KONOHA_SEMANTIC_SEARCH !== '1') {
+    migrationArgs.push('--skip-embeddings');
+  }
   const run = spawnSync(python, [MIGRATE_PATH, ...migrationArgs], {
-    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
   });
   if (run.status !== 0) {
-    spinnerMigrate.error(`Failed to initialize skills database: ${run.stderr || run.stdout || 'Migration failed'}`);
+    const detail = run.error ? run.error.message : (run.stderr || run.stdout || 'Migration failed');
+    spinnerMigrate.error(`Failed to initialize skills database: ${detail}`);
     process.exit(1);
   }
   const skillContract = verifySkillDatabaseContract(python);
@@ -1497,6 +1518,107 @@ function getUvxCommand() {
   return 'uvx';
 }
 
+function getAgentBrowserCommand() {
+  const isWin = process.platform === 'win32';
+  const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
+  try {
+    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin });
+    if (res.status === 0) {
+      return abCmd;
+    }
+  } catch {}
+
+  const home = os.homedir();
+  const candidates = [];
+  if (isWin) {
+    if (process.env.APPDATA) {
+      candidates.push(
+        path.join(process.env.APPDATA, 'npm', 'agent-browser.cmd'),
+        path.join(process.env.APPDATA, 'yarn', 'bin', 'agent-browser.cmd')
+      );
+    }
+    if (process.env.LOCALAPPDATA) {
+      candidates.push(
+        path.join(process.env.LOCALAPPDATA, 'pnpm', 'agent-browser.cmd')
+      );
+    }
+    candidates.push(
+      path.join(home, 'AppData', 'Roaming', 'npm', 'agent-browser.cmd'),
+      path.join(home, 'AppData', 'Local', 'pnpm', 'agent-browser.cmd')
+    );
+  } else {
+    candidates.push(
+      path.join(home, '.local', 'bin', 'agent-browser'),
+      path.join(home, '.npm-global', 'bin', 'agent-browser'),
+      path.join(home, '.pnpm-global', 'bin', 'agent-browser'),
+      path.join(home, '.yarn', 'bin', 'agent-browser'),
+      '/usr/local/bin/agent-browser',
+      '/usr/bin/agent-browser',
+      '/bin/agent-browser'
+    );
+  }
+
+  for (const p of candidates) {
+    if (p && fileExists(p)) {
+      try {
+        const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin });
+        if (res.status === 0) {
+          return p;
+        }
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
+function installAgentBrowser(silent = false) {
+  const existing = getAgentBrowserCommand();
+  if (existing) {
+    return true;
+  }
+
+  if (!silent) info('Attempting to install "agent-browser" CLI for browser automation...');
+
+  const isWin = process.platform === 'win32';
+  const pkgManagers = [
+    {
+      name: 'npm',
+      cmd: isWin ? 'npm.cmd' : 'npm',
+      args: ['install', '-g', 'agent-browser']
+    },
+    {
+      name: 'pnpm',
+      cmd: isWin ? 'pnpm.cmd' : 'pnpm',
+      args: ['add', '-g', 'agent-browser']
+    },
+    {
+      name: 'yarn',
+      cmd: isWin ? 'yarn.cmd' : 'yarn',
+      args: ['global', 'add', 'agent-browser']
+    }
+  ];
+
+  for (const pm of pkgManagers) {
+    try {
+      const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin });
+      if (check.status === 0) {
+        const stdioOpt = silent ? 'ignore' : 'inherit';
+        const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin });
+        if (installRes.status === 0) {
+          if (!silent) success(`agent-browser installed successfully via ${pm.name}!`);
+          return true;
+        }
+      }
+    } catch {}
+  }
+
+  if (!silent) {
+    warn('Could not auto-install agent-browser. You can install it manually: npm install -g agent-browser');
+  }
+  return false;
+}
+
 function findIdeExecutable(name) {
   const isWin = process.platform === 'win32';
   const exts = isWin ? ['.exe', '.cmd', '.bat', ''] : [''];
@@ -1553,9 +1675,9 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
   const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
   const KONOHA_BRIDGE_REF = 'master';
   const targetDirName = 'andycungkrinx91.konoha-bridge-master-universal';
-  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.3.0.vsix');
-  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.3.0.vsix');
-  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.3.0.vsix');
+  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.4.0.vsix');
+  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.4.0.vsix');
+  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.4.0.vsix');
   const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
   const extensionDir = path.join(HOME, '.antigravity-ide', 'extensions');
   const targetPath = path.join(extensionDir, targetDirName);
@@ -1752,6 +1874,15 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
     sembleConfig.autoApprove = ['*', 'search', 'find_related'];
   }
 
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const aislopConfig = {
+    command: npxCmd,
+    args: ['-y', 'aislop-mcp']
+  };
+  if (allowAutoApprove) {
+    aislopConfig.autoApprove = ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
+  }
+
   const konohaConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
   if (konohaConfig && allowAutoApprove) {
     konohaConfig.autoApprove = [
@@ -1780,12 +1911,13 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
 
   // Merge Konoha servers into existing mcpServers (preserve user's other servers)
   config.mcpServers['semble'] = sembleConfig;
+  config.mcpServers['aislop'] = aislopConfig;
   if (konohaConfig) config.mcpServers['konoha'] = konohaConfig;
   delete config.mcpServers['skills-db'];
   delete config.mcpServers['konoha-files'];
 
   if (!silent) {
-    success(`Registered 'semble' and 'konoha' MCP servers.`);
+    success(`Registered 'semble', 'konoha', and 'aislop' MCP servers.`);
   }
 
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
@@ -2306,25 +2438,26 @@ function ensureAutoSetup() {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     }
+    const extraArgs = process.env.KONOHA_SEMANTIC_SEARCH !== '1' ? ['--skip-embeddings'] : [];
     if (fileExists(pkgSkillsDir)) {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {
         try {
-          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill', ...extraArgs], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
         } catch (e) {
           try {
-            spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill'], {
-              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+            spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
           } catch (e2) {}
         }
       }
     } else {
       try {
-        spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill'], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+        spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
       } catch (e) {}
     }
@@ -2459,7 +2592,7 @@ async function cmdMigrate(args) {
     const customDir = args[customDirIdx + 1];
     try {
       const run = spawnSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
       });
       if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
       log(run.stdout);
@@ -2475,7 +2608,7 @@ async function cmdMigrate(args) {
       // Fallback: run without args
       try {
         const runFallback = spawnSync(python, [MIGRATE_PATH, '--clean'], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration failed');
         log(runFallback.stdout);
@@ -2492,7 +2625,7 @@ async function cmdMigrate(args) {
       }
       try {
         const run = spawnSync(python, migrateArgs, {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (run.status === 0) {
           log(run.stdout);
@@ -3252,6 +3385,12 @@ async function cmdDoctor(args = []) {
     }
   };
 
+  // 1b. DB Module
+  checkAndRepairFile('db.py', DB_PY_PATH, 'DB Module (db.py)');
+
+  // 1c. Vector Search Module
+  checkAndRepairFile('vector_search.py', VECTOR_SEARCH_PY_PATH, 'Vector Search Module (vector_search.py)');
+
   // 2. Server File
   checkAndRepairFile('server.py', SERVER_PATH, 'Server File (server.py)');
 
@@ -3371,7 +3510,7 @@ async function cmdDoctor(args = []) {
           
           try {
             const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
-              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
             if (run.status === 0) migrationSuccess = true;
           } catch {}
@@ -3381,7 +3520,7 @@ async function cmdDoctor(args = []) {
       if (!migrationSuccess) {
         try {
           const runFallback = spawnSync(python, [MIGRATE_PATH], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 30000
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
           if (runFallback.status === 0) migrationSuccess = true;
         } catch {}
@@ -3400,6 +3539,7 @@ async function cmdDoctor(args = []) {
   // 7. MCP Configuration
   const nodeCmd = process.execPath;
   const expectedSembleArgs = ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'];
+  const expectedAislopArgs = ['-y', 'aislop-mcp'];
   let mcpHealthy = false;
   if (fileExists(MCP_CONFIG_PATH) && python) {
     try {
@@ -3407,16 +3547,18 @@ async function cmdDoctor(args = []) {
       const servers = config.mcpServers || {};
       const sembleOk = servers['semble'] &&
         JSON.stringify(servers['semble'].args || []) === JSON.stringify(expectedSembleArgs);
+      const aislopOk = servers['aislop'] &&
+        JSON.stringify(servers['aislop'].args || []) === JSON.stringify(expectedAislopArgs);
       const konohaOk = servers['konoha'] &&
         servers['konoha'].args &&
         (servers['konoha'].args[0] === FILE_TOOLS_MCP_PATH || servers['konoha'].args[0] === path.join(HOME, '.konoha', 'file_tools_launcher.js')) &&
         (servers['konoha'].command === nodeCmd || servers['konoha'].command === 'node');
-      mcpHealthy = sembleOk && konohaOk;
+      mcpHealthy = sembleOk && konohaOk && aislopOk;
     } catch {}
   }
 
   if (mcpHealthy) {
-    record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha and semble are active');
+    record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
   } else {
     if (!python) {
       record('MCP Config (mcp_config.json)', 'FAILED', 'Incomplete registration; missing Python 3');
@@ -3424,7 +3566,7 @@ async function cmdDoctor(args = []) {
     } else {
       try {
         registerMcp(python);
-        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and semble in config');
+        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
         repairsDone++;
       } catch (e) {
         record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
@@ -3582,9 +3724,10 @@ async function cmdDoctor(args = []) {
     const claudeHealthy =
       claudeStatus.mcpKonoha &&
       claudeStatus.mcpSemble &&
+      claudeStatus.mcpAislop &&
       claudeStatus.permissionsAllowed;
     if (claudeHealthy) {
-      record('Claude Code (~/.claude.json)', 'HEALTHY', 'konoha and semble active & allowed');
+      record('Claude Code (~/.claude.json)', 'HEALTHY', 'konoha, semble, and aislop active & allowed');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3616,9 +3759,10 @@ async function cmdDoctor(args = []) {
     const openCodeStatus = opencodeManager.getOpenCodeStatus();
     const openCodeHealthy =
       openCodeStatus.mcpKonoha &&
-      openCodeStatus.mcpSemble;
+      openCodeStatus.mcpSemble &&
+      openCodeStatus.mcpAislop;
     if (openCodeHealthy) {
-      record('OpenCode (~/.opencode/config.json)', 'HEALTHY', 'konoha and semble active');
+      record('OpenCode (~/.opencode/config.json)', 'HEALTHY', 'konoha, semble, and aislop active');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3651,9 +3795,9 @@ async function cmdDoctor(args = []) {
   // 9f. Command Code Configuration
   if (mcpClientsManager.isCommandCodeInstalled()) {
     const cmdStatus = mcpClientsManager.getCommandCodeStatus();
-    const cmdHealthy = cmdStatus.mcpKonoha && cmdStatus.mcpSemble;
+    const cmdHealthy = cmdStatus.mcpKonoha && cmdStatus.mcpSemble && cmdStatus.mcpAislop;
     if (cmdHealthy) {
-      record('Command Code (~/.commandcode/mcp.json)', 'HEALTHY', 'konoha and semble active');
+      record('Command Code (~/.commandcode/mcp.json)', 'HEALTHY', 'konoha, semble, and aislop active');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3680,9 +3824,9 @@ async function cmdDoctor(args = []) {
   // 9g. Codex Configuration
   if (codexManager.isCodexInstalled()) {
     const codexStatus = codexManager.getCodexStatus();
-    const codexHealthy = codexStatus.mcpKonoha && codexStatus.mcpSemble;
+    const codexHealthy = codexStatus.mcpKonoha && codexStatus.mcpSemble && codexStatus.mcpAislop;
     if (codexHealthy) {
-      record('Codex (~/.codex/config.toml)', 'HEALTHY', 'konoha and semble active');
+      record('Codex (~/.codex/config.toml)', 'HEALTHY', 'konoha, semble, and aislop active');
     } else {
       try {
         const python = checkPython() || 'python3';
@@ -3706,22 +3850,34 @@ async function cmdDoctor(args = []) {
     }
   }
 
-  // 10. agent-browser CLI check
-  let agentBrowserInstalled = false;
+  // 10. agent-browser CLI check & auto-repair
+  let agentBrowserCmd = getAgentBrowserCommand();
+  let agentBrowserInstalled = !!agentBrowserCmd;
   let agentBrowserVersion = '';
-  try {
-    const abCmd = process.platform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
-    const abVerRes = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: process.platform === 'win32' });
-    if (abVerRes.status === 0) {
-      agentBrowserInstalled = true;
-      agentBrowserVersion = abVerRes.stdout.trim();
-    }
-  } catch (e) {
-    // not installed
+  if (agentBrowserCmd) {
+    try {
+      const abVerRes = spawnSync(agentBrowserCmd, ['--version'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+      if (abVerRes.status === 0) {
+        agentBrowserVersion = abVerRes.stdout.trim();
+      }
+    } catch {}
   }
 
   if (!agentBrowserInstalled) {
-    record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for design match comparison)');
+    try {
+      const repaired = installAgentBrowser(true);
+      agentBrowserCmd = getAgentBrowserCommand();
+      if (repaired && agentBrowserCmd) {
+        const abVerRes = spawnSync(agentBrowserCmd, ['--version'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+        const ver = abVerRes.status === 0 ? abVerRes.stdout.trim() : 'Installed';
+        record('agent-browser CLI', 'REPAIRED', `Auto-installed ${ver}`);
+        repairsDone++;
+      } else {
+        record('agent-browser CLI', 'WARNING', 'Missing agent-browser (run npm install -g agent-browser)');
+      }
+    } catch {
+      record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for design match comparison)');
+    }
   } else {
     record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
   }
@@ -3831,6 +3987,11 @@ async function cmdUninstall(args = []) {
       if (config.mcpServers && config.mcpServers['semble']) {
         delete config.mcpServers['semble'];
         success('Removed semble from MCP config');
+        updated = true;
+      }
+      if (config.mcpServers && config.mcpServers['aislop']) {
+        delete config.mcpServers['aislop'];
+        success('Removed aislop from MCP config');
         updated = true;
       }
       if (config.mcpServers && config.mcpServers['konoha-files']) {
@@ -5183,7 +5344,7 @@ async function cmdUpgrade(args = []) {
   }
 
   const cmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const cmdArgs = ['dlx', 'github:andycungkrinx91/konoha', 'init', '--force'];
+  const cmdArgs = ['dlx', 'github:andycungkrinx91/konoha', 'init', '--force', '--yes'];
 
   log(`  Executing: ${C.cyan}${cmd} ${cmdArgs.join(' ')}${C.reset}\n`);
 
@@ -5199,6 +5360,7 @@ async function cmdUpgrade(args = []) {
     const res = spawnSync(cmd, cmdArgs, options);
     // Ensure Konoha Bridge extension is freshly cloned, packaged, and installed across IDEs
     autoInstallKonohaBridgeExtension(false, true);
+    try { installAgentBrowser(true); } catch {}
     if (res.status === 0) {
       success('Konoha has been successfully upgraded!');
     } else {
@@ -6644,6 +6806,7 @@ async function main() {
         await cmdVersion(args);
         break;
       case 'upgrade':
+      case 'update':
         await cmdUpgrade(args);
         break;
       case 'skill':

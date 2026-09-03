@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the subagent MCP block injection."""
+"""Tests for the subagent MCP block injection and tool boundaries."""
 import os
 import sys
 import unittest
@@ -39,36 +39,41 @@ class TestSubagentMCPBlock(unittest.TestCase):
         self.assertLess(block_idx, task_idx,
                         "MCP block must appear before TASK INSTRUCTIONS")
 
-    def test_block_is_shared_across_subagents(self):
-        """The MCP block is the shared preamble injected by
-        build_subagent_mcp_block(). It starts at "MCP Tools Available
-        To You" and ends at the "### Strict Tool Boundaries" section.
-        """
-        import re
-
-        def block(text):
-            start = text.find("MCP Tools Available To You")
-            self.assertGreater(start, -1, "block start missing")
-            after = text[start + 1:]
-            # Find the end of the MCP block (before subagent-specific content)
-            m = re.search(r"\n### Strict Tool Boundaries", after)
-            if m:
-                return after[:m.start()]
-            # Fallback: return everything after start
-            return after
-
-        seen = {block(self._invoke(a)) for a in self.SUBAGENTS}
-        self.assertEqual(
-            len(seen), 1,
-            f"Expected identical MCP block across subagents, got {len(seen)} variants",
-        )
+    def test_core_mcp_tools_shared_across_subagents(self):
+        """All subagents must receive the core Konoha and Semble tools."""
+        for a in self.SUBAGENTS:
+            text = self._invoke(a)
+            self.assertIn("mcp__konoha__sannin", text)
+            self.assertIn("mcp__konoha__find_skill", text)
+            self.assertIn("mcp__konoha__get_skill", text)
+            self.assertIn("mcp__semble__search", text)
+            self.assertIn("mcp__semble__find_related", text)
 
     def test_routing_rules_present(self):
         """The MCP block should mention routing rules for subagents."""
         text = self._invoke("kage")
-        # Check that the block mentions key routing tools
         self.assertIn("mcp__konoha__sannin", text)
         self.assertIn("mcp__konoha__find_skill", text)
+
+    def test_genin_and_kage_cannot_reach_aislop_fix(self):
+        """Genin and Kage get aislop_scan/aislop_why, but never aislop_fix/aislop_baseline."""
+        for role in ("genin", "kage"):
+            text = self._invoke(role)
+            tools_section = text[text.find("## MCP Tools Available To You"):text.find("### Strict Tool Boundaries")]
+            self.assertIn("aislop_scan", tools_section, f"{role} should have aislop_scan")
+            self.assertIn("aislop_why", tools_section, f"{role} should have aislop_why")
+            self.assertNotIn("aislop_fix", tools_section, f"{role} must not have aislop_fix")
+            self.assertNotIn("aislop_baseline", tools_section, f"{role} must not have aislop_baseline")
+
+    def test_anbu_and_jonin_can_reach_aislop_fix(self):
+        """Jonin and Anbu (execution agents) get aislop_fix for remediation."""
+        for role in ("jonin", "anbu"):
+            text = self._invoke(role)
+            tools_section = text[text.find("## MCP Tools Available To You"):text.find("### Strict Tool Boundaries")]
+            self.assertIn("aislop_scan", tools_section, f"{role} should have aislop_scan")
+            self.assertIn("aislop_why", tools_section, f"{role} should have aislop_why")
+            self.assertIn("aislop_fix", tools_section, f"{role} should have aislop_fix")
+            self.assertNotIn("aislop_baseline", tools_section, f"{role} must not have aislop_baseline")
 
 
 if __name__ == "__main__":

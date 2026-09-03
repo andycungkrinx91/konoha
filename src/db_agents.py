@@ -10,7 +10,8 @@ import json
 import sqlite3
 import re
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from db import DB_PATH, get_connection, setup_schema
 AGENTS_YAML_PATH = os.path.expanduser("~/.agents/agents.yaml")
 
 def parse_yaml(yaml_content):
@@ -167,32 +168,10 @@ def serialize_yaml(data):
     return "\n".join(lines) + "\n"
 
 
-def get_db_connection():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS agents (
-            name TEXT PRIMARY KEY,
-            icon TEXT,
-            title TEXT,
-            model_tier TEXT,
-            purpose TEXT,
-            skills TEXT,
-            delegate_when TEXT,
-            constraints_text TEXT,
-            workflow TEXT,
-            description TEXT,
-            instructions TEXT,
-            delegation_keywords TEXT,
-            cursor_fallback_model TEXT,
-            enable_mcp_tools INTEGER NOT NULL DEFAULT 1
-        );
-    """)
-    conn.commit()
+def get_db_connection(db_path=None):
+    target = db_path if db_path is not None else DB_PATH
+    conn = get_connection(target)
+    setup_schema(conn)
     return conn
 
 def auto_migrate_yaml_to_db(conn):

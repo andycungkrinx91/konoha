@@ -41,7 +41,7 @@ This manual script or the auto-setup routine will:
 1. Create `~/.konoha/` with the MCP server and database
 2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5
 3. **Back up** existing `~/.gemini/config/mcp_config.json` → `mcp_config.json.back` (first install only)
-4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `semble`) while preserving unrelated entries
+4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `semble` + `aislop`) while preserving unrelated entries
 5. Update `~/.gemini/GEMINI.md` with new subagent instructions
 6. If Antigravity IDE is detected, refresh the live `master` branch of `konoha-bridge` at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` for `127.0.0.1:1313`; otherwise skip it without creating extension directories. Konoha’s embedded gateway remains on `127.0.0.1:19999`.
 
@@ -172,6 +172,7 @@ To support uninterrupted background task execution and avoid blocking prompt ove
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:
 - **`konoha`**: Automatically permits skill search, listing, fetching, and build tools.
 - **`semble`**: Automatically permits semantic code search (`search`, `find_related`).
+- **`aislop`**: Automatically permits zero-AI-slop quality validation (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`).
 - **`konoha`**: Automatically permits token-efficient file tools (`read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`).
 
 This is configured inside `~/.gemini/config/mcp_config.json`. Example structure (paths vary by platform):
@@ -187,6 +188,11 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
       "command": "uvx",
       "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
       "autoApprove": ["*", "search", "find_related"]
+    },
+    "aislop": {
+      "command": "npx",
+      "args": ["-y", "@scanaislop/aislop-mcp@latest"],
+      "autoApprove": ["*", "aislop_scan", "aislop_fix", "aislop_why", "aislop_baseline"]
     }
   }
 }

@@ -24,12 +24,15 @@ import re
 import sys
 import hashlib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-DB_PATH = os.path.expanduser("~/.konoha/skills.db")
+DB_PATH = db.DB_PATH
 SKILLS_DIR = os.path.expanduser("~/.agents/skills/")
 
 # Official Konoha skills (built-in, shipped with the package)
@@ -215,119 +218,11 @@ def seed_agents(conn):
         print(f"  ✗ Failed to seed agents: {str(e)}")
 
 
-def setup_db():
+def setup_db(db_path=None):
     """Create the database schema."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS skills (
-            name TEXT PRIMARY KEY,
-            skill_name TEXT NOT NULL,
-            type TEXT NOT NULL,
-            tags TEXT,
-            content TEXT,
-            file_path TEXT,
-            byte_size INTEGER,
-            line_count INTEGER
-        );
-
-        -- FTS5 virtual table for full-text search
-        -- content= means it's an external content table (shares data with skills)
-        CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts
-        USING fts5(
-            name,
-            skill_name,
-            tags,
-            content,
-            content=skills,
-            content_rowid=rowid
-        );
-
-        -- Triggers to keep FTS index in sync
-        CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
-            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
-            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
-            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-        END;
-
-        -- Table to store tool call statistics and token savings
-        CREATE TABLE IF NOT EXISTS tool_calls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            tool TEXT NOT NULL,
-            query TEXT,
-            returned_bytes INTEGER,
-            total_library_bytes INTEGER,
-            bytes_saved INTEGER,
-            tokens_saved INTEGER,
-            agent TEXT,
-            client TEXT
-        );
-
-        -- Table to store active sessions to prevent cross-session pollution
-        CREATE TABLE IF NOT EXISTS active_sessions (
-            client TEXT NOT NULL,
-            workspace_root TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            transcript_path TEXT,
-            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (client, workspace_root)
-        );
-
-        CREATE TABLE IF NOT EXISTS agents (
-            name TEXT PRIMARY KEY,
-            icon TEXT,
-            title TEXT,
-            model_tier TEXT,
-            purpose TEXT,
-            skills TEXT,
-            delegate_when TEXT,
-            constraints_text TEXT,
-            workflow TEXT,
-            description TEXT,
-            instructions TEXT,
-            delegation_keywords TEXT,
-            cursor_fallback_model TEXT,
-            enable_mcp_tools INTEGER NOT NULL DEFAULT 1
-        );
-
-        CREATE TABLE IF NOT EXISTS bridges (
-            name TEXT PRIMARY KEY,
-            port INTEGER NOT NULL,
-            provider TEXT NOT NULL,  -- openai | openai-compatible | antigravity | antigravity-extension
-            enabled INTEGER NOT NULL DEFAULT 1,
-            target_url TEXT,
-            api_key TEXT
-        );
-    """)
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN agent TEXT;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute("ALTER TABLE tool_calls ADD COLUMN client TEXT;")
-    except sqlite3.OperationalError:
-        pass
-
-    # Performance indexes
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_type ON skills(type);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_skills_skill_name ON skills(skill_name);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_agent ON tool_calls(agent);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_client ON tool_calls(client);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tool_calls_timestamp ON tool_calls(timestamp);")
-
-    conn.commit()
+    target_path = db_path if db_path is not None else DB_PATH
+    conn = db.get_connection(target_path)
+    db.setup_schema(conn)
     return conn
 
 
@@ -446,6 +341,10 @@ def migrate_skill(conn, skill_name):
             return 0
 
         # Clean existing entries for this skill to prevent stale references
+        try:
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)", (skill_name_clean, skill_name_clean))
+        except Exception:
+            pass
         conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name_clean,))
 
         with open(file_path, "r", encoding="utf-8") as f:
@@ -473,6 +372,10 @@ def migrate_skill(conn, skill_name):
         return 0
 
     # Clean existing entries for this skill to prevent stale references
+    try:
+        conn.execute("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)", (skill_name, skill_name))
+    except Exception:
+        pass
     conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name,))
 
     count = 0
@@ -516,6 +419,7 @@ def migrate_skill(conn, skill_name):
             line_count = content.count("\n") + 1
             pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (ref_key,))
             conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
             conn.execute(
                 "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
@@ -545,6 +449,7 @@ def migrate_skill(conn, skill_name):
         line_count = content.count("\n") + 1
         pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
+        conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (ref_key,))
         conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
         conn.execute(
             "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
@@ -663,6 +568,10 @@ def main():
                         help="Path to SQLite database (default: ~/.konoha/skills.db)")
     parser.add_argument("--clean", action="store_true",
                         help="Purge all existing skills from the database before migration")
+    parser.add_argument("--rebuild-embeddings", action="store_true",
+                        help="Force rebuilding of all vector embeddings")
+    parser.add_argument("--skip-embeddings", action="store_true",
+                        help="Skip vector embedding generation during migration")
     parser.add_argument("--require-skill", action="append", default=[],
                         help="Require a canonical skill row after migration")
     args = parser.parse_args()
@@ -721,6 +630,10 @@ def main():
 
     if args.clean:
         print("🧹 Purging existing skills from database...")
+        try:
+            conn.execute("DELETE FROM skill_chunks;")
+        except Exception:
+            pass
         conn.execute("DELETE FROM skills;")
         conn.commit()
 
@@ -777,6 +690,19 @@ def main():
             print(f"   FTS test query '{test_word}': {result[0]} matches")
         except Exception:
             print(f"   FTS test query '{test_word}': skipped (no matches)")
+
+    # Generate / update vector embeddings (opt-in gated by KONOHA_SEMANTIC_SEARCH=1 or --rebuild-embeddings)
+    should_embed = not args.skip_embeddings and (
+        os.environ.get("KONOHA_SEMANTIC_SEARCH") == "1" or args.rebuild_embeddings
+    )
+    if should_embed:
+        try:
+            import vector_search
+            print("\n⚡ Generating vector embeddings (IBM Granite Multilingual)...")
+            chunks_indexed = vector_search.backfill_all_embeddings(conn, force_rebuild=args.rebuild_embeddings)
+            print(f"   Vector index synchronized: {chunks_indexed} chunks processed.")
+        except Exception as e:
+            print(f"   ⚠ Vector embedding generation deferred/skipped: {e}")
 
     print_summary(conn)
     conn.close()

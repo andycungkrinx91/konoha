@@ -1,23 +1,18 @@
 #!/usr/bin/env python3
 """Helper script to print database stats as JSON."""
-import sqlite3
 import json
-import sys
 import os
+import sys
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/.konoha/skills.db")
+# Ensure src/ is on path for db import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
+
+db_path = sys.argv[1] if len(sys.argv) > 1 else db.DB_PATH
 
 try:
-    conn = sqlite3.connect(db_path)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS skills (
-            skill_name TEXT PRIMARY KEY,
-            content TEXT,
-            type TEXT DEFAULT 'skill',
-            byte_size INTEGER DEFAULT 0
-        )
-    """)
-    conn.commit()
+    conn = db.get_connection(db_path)
+    db.setup_schema(conn)
     total = conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
     skills = conn.execute("SELECT COUNT(*) FROM skills WHERE type='skill'").fetchone()[0]
     refs = conn.execute("SELECT COUNT(*) FROM skills WHERE type='reference'").fetchone()[0]

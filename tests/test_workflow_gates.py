@@ -70,7 +70,7 @@ class TestWorkflowGates(unittest.TestCase):
         self._write("result.md", "Review rejected because validation is missing.")
         blocked = json.loads(server.run_mcp_workflow(self.root))
         self.assertEqual(blocked["status"], "blocked")
-        self._write("kage_review.json", json.dumps({"approved": True, "verified_task_ids": ["task-1"], "validation": ["all configured checks passed"], "security_reviewed": True, "rollback_reviewed": True, "findings": []}))
+        self._write("kage_review.json", json.dumps({"approved": True, "verified_task_ids": ["task-1"], "validation": ["all configured checks passed"], "security_reviewed": True, "rollback_reviewed": True, "ai_slop_findings": 0, "ai_slop_clean": True, "findings": []}))
         self._write("result.md", "Kage approved all work.")
         approved = json.loads(server.run_mcp_workflow(self.root))
         self.assertEqual(approved["phase"], "done")
@@ -115,6 +115,62 @@ class TestWorkflowGates(unittest.TestCase):
         self.assertFalse(status["tasks"][0]["verified"])
         next_state = json.loads(server.run_mcp_workflow(self.root))
         self.assertEqual(next_state["phase"], "execute")
+
+
+    def test_anbu_pentest_dev_local_workflow_approval(self):
+        """Verify that Anbu can perform penetration testing in dev/local environments
+        and that realistic pentest validation findings (including error responses and
+        failed exploit attempts) pass through verification and Kage review gates cleanly."""
+        self._advance_to_plan()
+        self._write("plan.md", "- [anbu]: Perform penetration testing on local dev authentication endpoint (http://127.0.0.1:3000/auth)\n")
+        self._write("result.md", "Kage approved the security assessment plan.")
+        execute = json.loads(server.run_mcp_workflow(self.root))
+        self.assertEqual(execute["agent"], "anbu")
+        self.assertEqual(execute["phase"], "execute")
+
+        # Anbu executes pentest in local environment and reports findings with realistic diagnostics
+        report = json.loads(server.report_from_agent(
+            "anbu",
+            "Penetration test on local dev auth endpoint completed. Identified 1 low-severity warning, no critical exploits.",
+            task_dir=self.root,
+            dispatch_id=execute["dispatch_id"],
+            validation=[
+                "pentest completed on http://127.0.0.1:3000/auth",
+                "simulated SQL injection: input properly escaped, target returned 400 error",
+                "simulated auth bypass: failed to bypass token verification",
+                "0 critical vulnerabilities, 0 unhandled exploits"
+            ],
+        ))
+        self.assertEqual(report["status"], "recorded")
+        self.assertTrue(report["verified"])
+
+        # Advance to document phase
+        document = json.loads(server.run_mcp_workflow(self.root))
+        self.assertEqual(document["phase"], "document")
+        self._write("result.md", "Documented local pentest report and remediation recommendations.")
+
+        # Advance to review phase
+        review = json.loads(server.run_mcp_workflow(self.root))
+        self.assertEqual(review["phase"], "review")
+
+        # Kage reviews pentest task in dev/local
+        self._write("kage_review.json", json.dumps({
+            "approved": True,
+            "verified_task_ids": ["task-1"],
+            "validation": ["pentest completed on dev/local target with 0 unhandled exploits"],
+            "security_reviewed": True,
+            "rollback_reviewed": True,
+            "ai_slop_findings": 0,
+            "ai_slop_clean": True,
+            "confidence": 100,
+            "findings": []
+        }))
+        self._write("result.md", "Kage approved dev/local penetration testing results.")
+
+        # Workflow advances cleanly to done
+        done_state = json.loads(server.run_mcp_workflow(self.root))
+        self.assertEqual(done_state["phase"], "done")
+        self.assertTrue(Path(self.root, "final_report.md").exists())
 
 
 if __name__ == "__main__":

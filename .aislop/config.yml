@@ -1,0 +1,5 @@
+version: 1
+ci:
+  failBelow: 100
+rules:
+  ai-slop/*: error

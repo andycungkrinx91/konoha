@@ -274,17 +274,17 @@ The external `konoha-bridge` repository is an Antigravity/VS Code extension. It 
 | **Konoha aggregate gateway** | `http://127.0.0.1:19999` |
 | **Primary install location** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` |
 
-Konoha automatically clones `https://github.com/andycungkrinx91/konoha-bridge` on fresh installation (`konoha init`), packages the extension into `konoha-bridge-1.3.0.vsix` via `@vscode/vsce package`, and installs the extension across supported IDE CLIs:
+Konoha automatically clones `https://github.com/andycungkrinx91/konoha-bridge` on fresh installation (`konoha init`), packages the extension into `konoha-bridge-1.4.0.vsix` via `@vscode/vsce package`, and installs the extension across supported IDE CLIs:
 
 ```bash
 # Antigravity IDE CLI
-antigravity --install-extension konoha-bridge-1.3.0.vsix
+antigravity --install-extension konoha-bridge-1.4.0.vsix
 
 # Standard VS Code CLI
-code --install-extension konoha-bridge-1.3.0.vsix
+code --install-extension konoha-bridge-1.4.0.vsix
 
 # Cursor IDE CLI
-cursor --install-extension konoha-bridge-1.3.0.vsix
+cursor --install-extension konoha-bridge-1.4.0.vsix
 ```
 
 Additionally, if Antigravity IDE is present, Konoha performs an atomic directory sync directly into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and updates the extension registry. `konoha init --force` and `konoha upgrade` refresh this checkout. Konoha never executes the extension as a standalone Node process.

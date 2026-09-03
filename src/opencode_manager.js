@@ -147,6 +147,19 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     enabled: true
   };
 
+  // Aislop MCP registration
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  config.mcp['aislop'] = {
+    type: 'local',
+    command: [npxCmd, '-y', 'aislop-mcp'],
+    environment: {
+      ACTIVE_CLIENT: 'opencode',
+      OPENCODE_CLIENT: '1',
+      KONOHA_CLIENT: 'opencode'
+    },
+    enabled: true
+  };
+
   // V1 permission configuration (OpenCode V1 strictly requires singular 'permission')
   delete config.permissions;
   delete config.autoApprove;
@@ -258,7 +271,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   }
 
   if (!silent) {
-    console.log('  ✓ OpenCode MCP servers configured (konoha, semble)');
+    console.log('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)');
   }
 
   return { ok: true };
@@ -370,6 +383,7 @@ function getOpenCodeStatus() {
       const config = readOpenCodeConfig();
       status.mcpKonoha = !!(config.mcp && config.mcp['konoha']);
       status.mcpSemble = !!(config.mcp && config.mcp['semble']);
+      status.mcpAislop = !!(config.mcp && config.mcp['aislop']);
     } catch {}
   }
 
@@ -390,6 +404,7 @@ function removeOpenCodeConfig(silent = true) {
     if (config.mcp) {
       delete config.mcp['konoha'];
       delete config.mcp['semble'];
+      delete config.mcp['aislop'];
     }
 
     // OpenCode has no RTK hook integration — nothing to remove there

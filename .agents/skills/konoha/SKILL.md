@@ -19,6 +19,11 @@ Konoha operates as a high-efficiency MCP orchestrator designed to reduce context
 - **Command Code** (`~/.commandcode/mcp.json`)
 - **Codex** (`~/.codex/config.toml`, `~/.codex/AGENTS.md`)
 
+Each client environment is configured with three core MCP servers:
+1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration.
+2. **`semble`**: AI-powered semantic code search and dependency mapping.
+3. **`aislop`**: Zero-AI-slop code hygiene validation, rule reasoning, automated repairs, and Kage delivery gating (`ai_slop_findings: 0`, `ai_slop_clean: true`).
+
 ---
 
 ## 🎨 Universal Konoha Website Builder Invariants
@@ -79,7 +84,7 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 1. **Step 1: Deep Research (Chunin)** — Research web documentation, APIs, and external evidence.
 2. **Step 2: Code Exploration (Genin)** — Read-only exploration, symbol mapping, and dependency tracing via `Semble MCP`.
 3. **Step 3: Architecture & Planning (Kage)** — Architectural review, task decomposition, and risk analysis.
-4. **Step 4: Execution (Jonin / Anbu)** — Frontend UI construction (`jonin`) or Backend/DevOps engineering (`anbu`).
+4. **Step 4: Execution (Jonin / Anbu)** — Frontend UI construction (`jonin`) or Backend/DevOps engineering and dev/local penetration testing (`anbu`).
 5. **Step 5: Documentation & Refinement (Tokubetsu-Jonin)** — Technical documentation, API specs, and diagrams.
 6. **Step 6: Final Report (Sannin)** — Synthesis and structured final delivery.
 
@@ -94,7 +99,7 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 2. **Filesystem Mirrors**:
    - **Konoha does not maintain filesystem mirrors** (e.g. no `.cursor/skills/` mirrors); skill content is served on-demand via SQLite FTS5 index.
 3. **Bridge Extension Sync & CLI Distribution**:
-   - On fresh installation (`konoha init`) and upgrade (`konoha upgrade`), `https://github.com/andycungkrinx91/konoha-bridge` is cloned from live `master`, packaged into `konoha-bridge-1.3.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension`, `code --install-extension`, `cursor --install-extension`). When Antigravity IDE is present, an atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` is also performed with `extensions.json` registration. Fallback VSIX is bundled in `assets/konoha-bridge-1.3.0.vsix`.
+   - On fresh installation (`konoha init`) and upgrade (`konoha upgrade`), `https://github.com/andycungkrinx91/konoha-bridge` is cloned from live `master`, packaged into `konoha-bridge-1.4.0.vsix` via `@vscode/vsce package`, and auto-installed via CLI across supported IDEs (`antigravity --install-extension`, `code --install-extension`, `cursor --install-extension`). When Antigravity IDE is present, an atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` is also performed with `extensions.json` registration. Fallback VSIX is bundled in `assets/konoha-bridge-1.4.0.vsix`.
 4. **Rule Synchronization**:
    - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
 5. **Database Migration**:
@@ -113,6 +118,13 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
    - `## Original Task` remains permanently authoritative; short follow-ups (e.g. new console errors) must never replace or erase the original task.
 10. **Evidence-Based Validation Gate in `report_from_agent`**:
     - `report_from_agent` enforces regex assessment (`_assess_validation_evidence`) checking for real passing command markers (`exit code 0`, `passed`, `0 errors`).
+11. **Zero-AI-Slop Pre-Gate & `aislop` MCP Integration**:
+    - Multi-client registration of `aislop` MCP across all 6 clients (`antigravity`, `cursor`, `claude`, `commandcode`, `opencode`, `codex`).
+    - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate slop.
+    - Kage Review Pre-Gate: requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json` before any confidence scoring or workflow delivery.
+12. **Authorized Penetration Testing & Security Diagnostics in Dev/Local Environments**:
+    - Anbu is authorized to conduct penetration testing and vulnerability assessments in local/development targets (`localhost`, `127.0.0.1`, dev containers, local clusters).
+    - Workflow review gate utilizes pentest-aware validation (`_is_pentest_task`, `_is_clean_validation`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.
     - Reports without verifiable evidence are automatically downgraded to `status: "unverified"`.
 11. **Learnings & Memory Hygiene**:
     - Unverified task learnings are never persisted to episodic memory.
@@ -130,4 +142,22 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
     - In Windows Antigravity IDE/CLI, child processes inherit the IDE binary folder as `cwd` when `rootUri` is not passed during MCP handshake.
     - `file_tools_router.js`, `_common.py`, and `server.py` enforce `isIdeInstallationDirectory` / `is_ide_installation_dir`. Any attempt to inspect or scan IDE binary folders (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`, etc.) is strictly forbidden.
     - `detectWorkspaceRoot()` auto-resolves the active project directory from `WORKSPACE_ROOT`, `KONOHA_WORKSPACE`, session metadata (`last_conversations.json`, `projects.json`), and transcripts, falling back safely to user home instead of IDE program folders.
-
+16. **Single Database Access Layer & Hybrid Multilingual Vector Search Invariants**:
+    - `src/db.py` is the single canonical source of truth for `DB_PATH`, SQLite WAL mode, foreign keys, busy timeout (`5000ms`), and unified DDL schema (`setup_schema`). Never declare separate local DB paths or duplicate table definitions.
+    - `src/vector_search.py` provides semantic search using IBM Granite 97M Multilingual ONNX (384-dim, CLS pooling, L2 normalization) and Alibaba GTE Multilingual reranker (cross-encoder sigmoid scoring).
+    - `sqlite-vector` extension is lazily downloaded per platform on first run; extension loading failure falls back gracefully to in-memory NumPy cosine scan and FTS5.
+    - Cross-lingual retrieval guarantees that queries in Indonesian or English match English skill docs (97.5% Recall@5).
+    - Hybrid search in `src/server.py:find_skill` is gated behind `KONOHA_SEMANTIC_SEARCH=1` (default-off for zero-config lightweight operation).
+17. **4-Tier Embedding Feature Deduplication & Cache Architecture**:
+    - `chunk_document()` deduplicates Markdown document sections via SHA-256 content hashing of normalized whitespace.
+    - `embed_text()` integrates an in-memory dictionary cache (`_EMBED_CACHE`, 4,096 capacity) keyed by text hash, serving precomputed 384-dim embeddings in 0 ms with 0 ONNX compute.
+    - `index_single_skill_chunks()` checks `skill_chunks` for pre-existing embedding blobs matching `chunk_text`, reusing them across skills.
+    - `scan_nearest_chunks()` deduplicates candidate nearest chunks to preserve diversity and quality in top-K results.
+18. **Persona & Project Context Memory Deduplication & Token-Burn Guard**:
+    - Idempotent `save_memory()` updates existing rows, timestamps, and maximum importance if matching memory content exists for `(agent_name, content, project_hash)` without duplicating database rows.
+    - Context memory formatting strictly pulls verified database records from `projects` and `persona_memories` (Zero Hallucination).
+    - Auto-compact prompt badges reduce context footprint to < 120 tokens on turns >= 2 while maintaining 100% of architectural invariants.
+19. **Cross-Platform `agent-browser` Lifecycle & Self-Healing Diagnostics**:
+    - `getAgentBrowserCommand()` and `installAgentBrowser()` provide seamless cross-platform binary resolution across Windows (`agent-browser.cmd`), Linux, and macOS.
+    - Automated global installer cascades across `npm`, `pnpm`, and `yarn`.
+    - Integrated into `konoha init` (Step 2c), `konoha upgrade`, package definition (`optionalDependencies`), and self-healing doctor auto-repair (`konoha doctor` with `REPAIRED` status).

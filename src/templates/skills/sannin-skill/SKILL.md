@@ -72,7 +72,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 | Architecture decisions, security audits | `@mcp_Kage` |
 | Web research, documentation lookup | `@mcp_Chunin` |
 | UI/frontend development, building websites, e-commerce, Next.js/Svelte UIs | `@mcp_Jonin` (load `jonin-skill` & use `pnpm`) |
-| Backend, bug fixing, DevOps | `@mcp_Anbu` |
+| Backend, bug fixing, DevOps, penetration testing in dev/local environments | `@mcp_Anbu` |
 | Technical writing, documentation | `@mcp_Tokubetsu-Jonin` |
 
 ## SOP 1: Task Evaluation
