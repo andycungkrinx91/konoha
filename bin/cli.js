@@ -1727,6 +1727,15 @@ function findIdeExecutable(name) {
       const fullPath = path.join(d, name + ext);
       try {
         if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+          // If it is the cursor CLI wrapper that only handles 'cursor agent' (no GUI IDE present), skip it
+          if (name === 'cursor' && !isWin) {
+            try {
+              const head = fs.readFileSync(fullPath, 'utf8').slice(0, 800);
+              if (head.includes('No Cursor IDE installation found') || head.includes("Use 'cursor agent'")) {
+                continue;
+              }
+            } catch {}
+          }
           return fullPath;
         }
       } catch {}
@@ -1756,6 +1765,9 @@ function installExtensionViaCli(cliName, vsixPath, silent = false) {
     if (res.status === 0 || output.includes('successfully installed') || output.includes('already installed')) {
       if (!silent) success(`  ⚡ ${cliName} CLI: Extension '${path.basename(vsixPath)}' installed successfully.`);
       return { installed: true, skipped: false, cli: cliName, output };
+    } else if (output.includes('No Cursor IDE installation found') || output.includes("Use 'cursor agent'")) {
+      if (!silent) log(`  ⚡ ${cliName} CLI: Standalone agent/CLI mode active (skipped GUI extension).`);
+      return { installed: false, skipped: true, cli: cliName, reason: 'cursor-agent-mode' };
     } else {
       if (!silent) warn(`  ⚡ ${cliName} CLI: ${output || `exited with code ${res.status}`}`);
       return { installed: false, skipped: false, cli: cliName, error: output };

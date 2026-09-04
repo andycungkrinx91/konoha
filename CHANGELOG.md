@@ -22,6 +22,10 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Package Name vs Binary Name Resolution**: `aislop` is published to npm as `aislop` (providing binary `aislop-mcp`). Fixed all MCP configurations from `args: ["-y", "aislop-mcp"]` (which triggered 404 from npm registry) to `args: ["-y", "-p", "aislop", "aislop-mcp"]`.
 - **Cross-Client Consistency**: Synchronized across Antigravity IDE, Cursor, Claude Code, OpenCode, Command Code, and Codex. Live handshake verified clean.
 
+### Fixed: Cursor CLI Standalone Agent Compatibility
+- **Headless & Agent-Only Detection**: Handled environments where `agent` or the Cursor CLI wrapper is installed without the desktop GUI IDE. `findIdeExecutable` and `installExtensionViaCli` now identify standalone agent shims, skipping unsupported `--install-extension` calls cleanly without emitting `Error: No Cursor IDE installation found`.
+- **Command Detection**: Updated `isCursorInstalled()` in `src/cursor_manager.js` to recognize the `agent` command.
+
 ### Added: Cross-IDE Auto-Approval & Tool Permissions Hardening
 - **Universal Auto-Approval**: Standardized `autoApprove: ["*"]` and `auto_approve: true` across all 6 clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex).
 - **Cursor IDE Permissions**: Added `Mcp(aislop, *)` grants to `~/.cursor/cli-config.json`, `~/.cursor/settings.json`, and cross-platform User settings (`~/.config/Cursor/User/settings.json`, `%APPDATA%/Cursor/User/settings.json`, macOS Application Support).

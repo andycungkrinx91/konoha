@@ -47,9 +47,23 @@ pnpm install
 node bin/cli.js init --yes --force
 ```
 
-### Direct Global Initialization
+### Global Installation (Permanent 'konoha' terminal command)
 ```bash
+# Install globally directly from GitHub:
+pnpm add --global github:andycungkrinx91/konoha
+# Or with npm:
+npm install -g andycungkrinx91/konoha
+
+# Then initialize:
+konoha init
+```
+
+### Direct Execution (Zero-Install via pnpm dlx or npx)
+```bash
+# Run one-shot directly from GitHub without prior installation:
 pnpm dlx github:andycungkrinx91/konoha init
+# Or with npx:
+npx github:andycungkrinx91/konoha init
 ```
 
 This installs the MCP server and migrates your skills. The CLI should output:

@@ -403,7 +403,7 @@ node bin/cli.js init --yes --force
 When installing Konoha globally, all required Node.js libraries, Python helper dependencies, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
 
 ```bash
-pnpm add --global konoha
+pnpm add --global github:andycungkrinx91/konoha
 konoha init
 ```
 
@@ -473,13 +473,13 @@ Once installed, the following CLI commands are available:
 Konoha works seamlessly on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
 
 ```bash
-pnpm add --global konoha
+pnpm add --global github:andycungkrinx91/konoha
 konoha init
 ```
 
 If `konoha` is not found after install:
 - **nvm on Linux/macOS**: `source ~/.nvm/nvm.sh` then `nvm use stable`
-- **nvm-windows**: `nvm use <version>` then `pnpm add --global konoha`
+- **nvm-windows**: `nvm use <version>` then `pnpm add --global github:andycungkrinx91/konoha`
 - **Windows without nvm**: Reinstall Node.js from [nodejs.org](https://nodejs.org/) and ensure PATH is set
 
 Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md](docs/SETUP-IDE.md), [SETUP-CURSOR.md](docs/SETUP-CURSOR.md), [SETUP-MCP-CLIENTS.md](docs/SETUP-MCP-CLIENTS.md).

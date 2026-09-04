@@ -61,6 +61,7 @@ function deployCursorRtkRule(silent = true) {
 function isCursorInstalled() {
   return (
     isCommandAvailable('cursor') ||
+    isCommandAvailable('agent') ||
     fileExistsCached(CURSOR_DIR) ||
     fileExistsCached(CURSOR_MCP_GLOBAL) ||
     fileExistsCached(CURSOR_MCP_LEGACY)

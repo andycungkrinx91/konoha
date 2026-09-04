@@ -363,7 +363,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **nvm-windows**: Konoha works seamlessly with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>
-  pnpm add --global konoha
+  pnpm add --global github:andycungkrinx91/konoha
   ```
 * **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
 * **Cursor on Windows**: Works natively on Windows; ensure `node` and `python` (not `python3`) are on PATH.
