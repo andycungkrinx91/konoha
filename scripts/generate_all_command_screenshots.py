@@ -207,15 +207,15 @@ commands_data = {
     "assets/konoha-version.png": {
         "title": "konoha version — check version & git updates",
         "cmd": "konoha version",
-        "badge": "RELEASE v2.0.0",
+        "badge": "RELEASE v2.0.0-beta.3",
         "lines": [
             "[green]✨ Konoha Version Inspector[/green]",
             "[muted]========================================================================[/muted]",
-            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0 (cross-client unified)[/cyan]",
+            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.3 (cross-client unified)[/cyan]",
             "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
             "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
             "  • [bold]Python Runtime[/bold]      : [green]Python 3.11.10[/green]",
-            "  • [bold]Release Date[/bold]        : [amber]2026-08-29[/amber]",
+            "  • [bold]Release Date[/bold]        : [amber]2026-09-04[/amber]",
             "",
             "  › Checking remote GitHub updates (github:andycungkrinx91/konoha)...",
             "  [green]✓ You are running the latest version of Konoha![/green]",
@@ -233,7 +233,7 @@ commands_data = {
             "[muted]========================================================================[/muted]",
             "  › Fetching latest release manifest from GitHub...",
             "  › Installing latest package via pnpm...",
-            "    [cyan]pnpm dlx github:andycungkrinx91/konoha init --yes[/cyan]",
+            "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.3[/cyan]",
             "",
             "  › Re-syncing SQLite FTS5 database schemas...",
             "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -244,7 +244,7 @@ commands_data = {
             "    [green]✓ Command Code updated[/green]",
             "    [green]✓ Codex IDE / CLI updated[/green]",
             "",
-            "[green]✨ Konoha successfully upgraded to v2.0.0! All clients re-synced.[/green]"
+            "[green]✨ Konoha successfully upgraded to v2.0.0-beta.3! All clients re-synced.[/green]"
         ]
     },
     # 7. Savings

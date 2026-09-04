@@ -1251,6 +1251,12 @@ async function cmdInit(args, options = {}) {
   copyFile(path.join(SRC_DIR, 'server.py'), SERVER_PATH);
   copyFile(path.join(SRC_DIR, 'migrate.py'), MIGRATE_PATH);
 
+  const pkgSrc = path.join(__dirname, '..', 'package.json');
+  const pkgDest = path.join(SKILLS_DB_DIR, 'package.json');
+  if (fileExists(pkgSrc)) {
+    copyFile(pkgSrc, pkgDest);
+  }
+
   const statsScriptSrc = path.join(SRC_DIR, 'db_stats.py');
   const statsScriptDest = path.join(SKILLS_DB_DIR, 'db_stats.py');
   if (fileExists(statsScriptSrc)) {
@@ -2412,6 +2418,11 @@ function ensureAutoSetup() {
     }
   });
   installFileTools(true);
+  const pkgSrc = path.join(__dirname, '..', 'package.json');
+  const pkgDest = path.join(SKILLS_DB_DIR, 'package.json');
+  if (fileExists(pkgSrc)) {
+    copyIfDifferent(pkgSrc, pkgDest);
+  }
 
   // Also copy basic subagent skills to global directory if missing or outdated
   const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
@@ -5309,14 +5320,49 @@ print("success")
   }
 }
 
+function parseSemver(v) {
+  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const clean = String(v).trim().replace(/^v/, '');
+  const [main, ...preParts] = clean.split('-');
+  const pre = preParts.length > 0 ? preParts.join('-') : null;
+  const [major = '0', minor = '0', patch = '0'] = main.split('.');
+  return {
+    major: parseInt(major, 10) || 0,
+    minor: parseInt(minor, 10) || 0,
+    patch: parseInt(patch, 10) || 0,
+    prerelease: pre ? pre.split('.').map(part => {
+      const num = parseInt(part, 10);
+      return isNaN(num) ? part : num;
+    }) : null
+  };
+}
+
 function semverCompare(v1, v2) {
-  const p1 = v1.replace(/^v/, '').split('.').map(Number);
-  const p2 = v2.replace(/^v/, '').split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const n1 = p1[i] || 0;
-    const n2 = p2[i] || 0;
-    if (n1 > n2) return 1;
-    if (n2 > n1) return -1;
+  const p1 = parseSemver(v1);
+  const p2 = parseSemver(v2);
+
+  if (p1.major !== p2.major) return p1.major > p2.major ? 1 : -1;
+  if (p1.minor !== p2.minor) return p1.minor > p2.minor ? 1 : -1;
+  if (p1.patch !== p2.patch) return p1.patch > p2.patch ? 1 : -1;
+
+  if (!p1.prerelease && p2.prerelease) return 1;
+  if (p1.prerelease && !p2.prerelease) return -1;
+  if (!p1.prerelease && !p2.prerelease) return 0;
+
+  const len = Math.max(p1.prerelease.length, p2.prerelease.length);
+  for (let i = 0; i < len; i++) {
+    const id1 = p1.prerelease[i];
+    const id2 = p2.prerelease[i];
+    if (id1 === undefined) return -1;
+    if (id2 === undefined) return 1;
+    if (id1 === id2) continue;
+
+    const isNum1 = typeof id1 === 'number';
+    const isNum2 = typeof id2 === 'number';
+    if (isNum1 && isNum2) return id1 > id2 ? 1 : -1;
+    if (isNum1 && !isNum2) return -1;
+    if (!isNum1 && isNum2) return 1;
+    return String(id1).localeCompare(String(id2)) > 0 ? 1 : -1;
   }
   return 0;
 }
@@ -5348,24 +5394,40 @@ function getGithubData(url) {
 }
 
 async function getLatestVersion() {
+  const candidateTags = new Set();
   try {
-    const release = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases/latest');
-    if (release && release.tag_name) {
-      return release.tag_name;
+    const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
+    if (Array.isArray(releases)) {
+      releases.forEach(r => {
+        if (r && r.tag_name) candidateTags.add(r.tag_name);
+      });
     }
-  } catch (err) {
-    // Silently fall through to tags
+  } catch {}
+
+  try {
+    const tags = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/tags');
+    if (Array.isArray(tags)) {
+      tags.forEach(t => {
+        if (t && t.name) candidateTags.add(t.name);
+      });
+    }
+  } catch {}
+
+  if (candidateTags.size === 0) {
+    try {
+      const release = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases/latest');
+      if (release && release.tag_name) {
+        candidateTags.add(release.tag_name);
+      }
+    } catch {}
   }
 
-  const tags = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/tags');
-  if (tags && tags.length > 0) {
-    const sorted = tags
-      .map(t => t.name)
-      .filter(name => /v?\d+\.\d+\.\d+/.test(name))
-      .sort((a, b) => semverCompare(b, a));
-    if (sorted.length > 0) {
-      return sorted[0];
-    }
+  const sorted = Array.from(candidateTags)
+    .filter(name => /v?\d+\.\d+\.\d+/.test(name))
+    .sort((a, b) => semverCompare(b, a));
+
+  if (sorted.length > 0) {
+    return sorted[0];
   }
   throw new Error('No release or tag found on GitHub');
 }
@@ -5387,11 +5449,20 @@ async function cmdVersion(args = []) {
     cmdVersionHelp();
     return;
   }
-  const pkgPath = path.join(__dirname, '..', 'package.json');
-  let currentVersion = '1.0.5';
-  try {
-    currentVersion = require(pkgPath).version;
-  } catch {}
+  const candidatePkgPaths = [
+    path.join(__dirname, '..', 'package.json'),
+    path.join(SKILLS_DB_DIR, 'package.json'),
+    path.join(os.homedir(), '.konoha', 'package.json')
+  ];
+  let currentVersion = '2.0.0-beta.3';
+  for (const p of candidatePkgPaths) {
+    if (fileExists(p)) {
+      try {
+        const v = JSON.parse(fs.readFileSync(p, 'utf8')).version;
+        if (v) { currentVersion = v; break; }
+      } catch {}
+    }
+  }
 
   header('✨ Konoha Version');
   log(`  ${C.bold}Current Version:${C.reset}  ${C.green}${currentVersion}${C.reset}\n`);
@@ -5425,10 +5496,13 @@ ${C.bold}USAGE${C.reset}
   konoha upgrade [options]
 
 ${C.bold}OPTIONS${C.reset}
-  ${C.cyan}--yes, -y${C.reset}  Non-interactive confirmation.
+  ${C.cyan}--yes, -y${C.reset}    Non-interactive confirmation.
+  ${C.cyan}--force, -f${C.reset}  Force clean reinstallation from GitHub.
 
 ${C.bold}EXAMPLES${C.reset}
   konoha upgrade
+  konoha upgrade --yes
+  konoha upgrade --force --yes
 `);
 }
 
@@ -5463,43 +5537,83 @@ async function cmdUpgrade(args = []) {
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
 
   // Stage 1/7: Environment & Package Manager Detection
-  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager...`);
+  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager & resolving latest release...`);
   const isWin = process.platform === 'win32';
-  let cmd = isWin ? 'pnpm.cmd' : 'pnpm';
-  let cmdArgs = ['add', '--global', 'github:andycungkrinx91/konoha'];
 
-  let hasPnpm = false;
+  // Resolve target version/tag from GitHub
+  let targetTag = 'v2.0.0-beta.3';
   try {
-    const pCheck = spawnSync(cmd, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
-    hasPnpm = pCheck.status === 0;
+    const latest = await getLatestVersion();
+    if (latest) targetTag = latest;
   } catch {}
 
-  if (!hasPnpm) {
-    cmd = isWin ? 'npm.cmd' : 'npm';
-    cmdArgs = ['install', '--global', 'github:andycungkrinx91/konoha'];
+  const pkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
+
+  // Build package manager fallback chain
+  const pmCandidates = [];
+  const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+  const npmCmd = isWin ? 'npm.cmd' : 'npm';
+  const yarnCmd = isWin ? 'yarn.cmd' : 'yarn';
+
+  const checkCmd = (c) => {
+    try {
+      const res = spawnSync(c, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
+      return res.status === 0;
+    } catch { return false; }
+  };
+
+  if (checkCmd(pnpmCmd)) {
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
   }
-  pbar.logStep(`Package manager ready: ${C.bold}${cmd}${C.reset}`);
+  if (checkCmd(npmCmd)) {
+    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', pkgTarget] });
+  }
+  if (checkCmd(yarnCmd)) {
+    pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
+  }
+  if (pmCandidates.length === 0) {
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
+    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', pkgTarget] });
+  }
+
+  pbar.logStep(`Target: ${C.green}${targetTag}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
 
   // Stage 2/7: Fetching and installing latest release from GitHub
-  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching latest release from GitHub via ${cmd}...`);
-  pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and compiling Konoha package via ${cmd}...`);
+  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching ${targetTag} from GitHub via ${pmCandidates[0].name}...`);
+  pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and compiling Konoha package via ${pmCandidates[0].name}...`);
 
   const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 };
   if (isWin) {
     spawnOptions.shell = true;
   }
 
-  try {
-    const res = spawnSync(cmd, cmdArgs, spawnOptions);
-    pbar.stopPulse();
-    if (res.status === 0) {
-      pbar.logStep(`Latest Konoha release installed from GitHub via ${cmd}`);
-    } else {
-      pbar.logStep(`Package manager step completed (status ${res.status}); synchronizing runtime files`);
+  let installSuccess = false;
+  let lastError = null;
+
+  for (const pm of pmCandidates) {
+    try {
+      const res = spawnSync(pm.cmd, pm.args, spawnOptions);
+      if (res.status === 0) {
+        installSuccess = true;
+        pbar.stopPulse();
+        pbar.logStep(`Konoha ${targetTag} installed from GitHub via ${pm.name}`);
+        break;
+      } else {
+        const errOut = (res.stderr || res.stdout || '').toString().trim();
+        lastError = errOut ? errOut.split('\n').pop() : `exit status ${res.status}`;
+      }
+    } catch (err) {
+      lastError = err.message;
     }
-  } catch (err) {
+  }
+
+  if (!installSuccess) {
     pbar.stopPulse();
-    pbar.logStep(`Package manager note: ${err.message}; proceeding with local file sync`);
+    if (lastError) {
+      pbar.logStep(`Package manager note (${lastError}); synchronizing local runtime files`);
+    } else {
+      pbar.logStep(`Package manager step completed; synchronizing local runtime files`);
+    }
   }
 
   // Stages 3 through 6: Handled via in-process cmdInit with real-time onProgress updates
@@ -5524,7 +5638,9 @@ async function cmdUpgrade(args = []) {
     pbar.stopPulse();
     pbar.logStep(`Konoha Bridge extension & browser tools verified`);
 
-    pbar.finish('Konoha has been successfully upgraded to the latest version!');
+    pbar.finish(`Konoha has been successfully upgraded to ${targetTag}!`);
+    log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}${targetTag}${C.reset}`);
+    log(`  ⚡ ${C.bold}Platform:${C.reset}          ${C.cyan}${process.platform} (${process.arch})${C.reset}\n`);
   } catch (err) {
     pbar.stopPulse();
     error(`Failed to refresh Konoha configuration: ${err.message}`);

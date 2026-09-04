@@ -177,7 +177,7 @@ commands = [
     ("assets/konoha-data.png", "konoha data view", ["node", "bin/cli.js", "data", "view"], "SQLITE MEMORY PERSISTENCE"),
     ("assets/konoha-bridge.png", "konoha bridge status", ["node", "bin/cli.js", "bridge", "status"], "127.0.0.1:19999 ROUTER"),
     ("assets/konoha-models.png", "konoha models status", ["node", "bin/cli.js", "models", "status"], "MODEL TELEMETRY"),
-    ("assets/konoha-version.png", "konoha version", ["node", "bin/cli.js", "version"], "RELEASE v2.0.0"),
+    ("assets/konoha-version.png", "konoha version", ["node", "bin/cli.js", "version"], "RELEASE v2.0.0-beta.3"),
     ("assets/konoha-upgrade.png", "konoha upgrade --help", ["node", "bin/cli.js", "upgrade", "--help"], "ONE-COMMAND UPGRADE"),
     ("assets/konoha-uninstall.png", "konoha uninstall --help", ["node", "bin/cli.js", "uninstall", "--help"], "SAFE REMOVAL HELPER"),
 ]

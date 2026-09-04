@@ -4,6 +4,13 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [v.2.0.0-beta.3] - 2026-09-04
 
+### Fixed: Cross-Platform Upgrade & SemVer Pre-Release Resolution (`bin/cli.js`, `src/server.py`, `src/file_tools_mcp.js`)
+- **Pre-Release SemVer Engine (`parseSemver` & `semverCompare`)**: Replaced primitive `Number()` splitting with standard SemVer pre-release parsing, eliminating `NaN` comparisons that caused `v2.0.0-beta.3` to evaluate as equal to `2.0.0`.
+- **Target Tag Specifier & Git Cache Bypassing**: `cmdUpgrade` now queries GitHub tags/releases dynamically and installs `github:andycungkrinx91/konoha#${targetTag}`, bypassing stale Git clone caches on Windows and Unix clients.
+- **Cross-Platform Package Manager Fallback Chain**: Upgrades now attempt `pnpm` (without unsupported `--force`), falling back cleanly to `npm` (with `--force`) and `yarn`, with detailed error logging on PowerShell and Git Bash.
+- **Dynamic MCP `serverInfo` & `SERVER_VERSION`**: `src/server.py` and `src/file_tools_mcp.js` now dynamically resolve their version from `package.json` (with fallback `2.0.0-beta.3`), eliminating stale `2.0.0` metadata across IDE MCP clients.
+- **Runtime `package.json` Synchronization**: `cmdInit` and `ensureAutoSetup` now copy `package.json` into `~/.konoha/package.json`, ensuring the runtime files stay strictly in sync with the CLI release.
+
 ### Added: CLI Upgrade Engine & Interactive Progress Bar (`bin/cli.js`)
 - **KonohaProgressBar Terminal Engine**: Added dedicated progress bar engine supporting shaded block rendering (`████░░░░`), percentage tracking, TTY carriage return animations, non-TTY clean milestone output, and active pulse timers with elapsed duration.
 - **7-Stage Upgrade Pipeline**: Upgrades now progress visibly through 7 discrete milestones: (1) PM detection, (2) GitHub download with live pulse, (3) Environment validation, (4) MCP runtime deployment, (5) SQLite FTS5 skills indexing, (6) 6-client MCP synchronization, (7) Extension bridge and browser CLI verification.

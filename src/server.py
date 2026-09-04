@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-konoha MCP Server (v2.0.0 — Token-Optimized)
+konoha MCP Server (v2.0.0-beta.3 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -23,6 +23,23 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import db
 from db import get_connection
+
+def get_server_version() -> str:
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "package.json"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "package.json"),
+        os.path.expanduser("~/.konoha/package.json")
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            try:
+                with open(c, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if "version" in data and data["version"]:
+                        return str(data["version"])
+            except Exception:
+                pass
+    return "2.0.0-beta.3"
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
@@ -4105,7 +4122,7 @@ def handle_request(req):
             "result": {
                 "protocolVersion": requested_protocol,
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "konoha", "version": "2.0.0"}
+                "serverInfo": {"name": "konoha", "version": get_server_version()}
             }
         }
 

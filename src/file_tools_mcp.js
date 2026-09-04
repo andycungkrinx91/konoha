@@ -6,6 +6,7 @@
 const Module = require("module");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 // Hook 'vscode' module resolution for bridge compatibility
 const originalResolveFilename = Module._resolveFilename;
@@ -20,7 +21,22 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 const readline = require("readline");
 
 const SERVER_NAME = "konoha";
-const SERVER_VERSION = "2.0.0";
+const SERVER_VERSION = (() => {
+  const candidates = [
+    path.join(__dirname, '..', 'package.json'),
+    path.join(__dirname, 'package.json'),
+    path.join(os.homedir(), '.konoha', 'package.json')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      try {
+        const v = JSON.parse(fs.readFileSync(c, 'utf8')).version;
+        if (v) return v;
+      } catch (_) {}
+    }
+  }
+  return "2.0.0-beta.3";
+})();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
