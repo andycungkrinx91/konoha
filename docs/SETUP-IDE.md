@@ -191,7 +191,7 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
     },
     "aislop": {
       "command": "npx",
-      "args": ["-y", "@scanaislop/aislop-mcp@latest"],
+      "args": ["-y", "-p", "aislop", "aislop-mcp"],
       "autoApprove": ["*", "aislop_scan", "aislop_fix", "aislop_why", "aislop_baseline"]
     }
   }

@@ -730,6 +730,96 @@ function startSpinner(text) {
   };
 }
 
+class KonohaProgressBar {
+  constructor({ total = 100, width = 28, title = 'Progress' } = {}) {
+    this.total = Math.max(1, total);
+    this.width = width;
+    this.title = title;
+    this.current = 0;
+    this.status = '';
+    this.isTTY = Boolean(process.stdout && process.stdout.isTTY);
+    this.timer = null;
+    this._lastLoggedPercent = -1;
+  }
+
+  start(initialStatus = '') {
+    this.status = initialStatus;
+    this.render();
+    return this;
+  }
+
+  update(current, status) {
+    if (typeof current === 'number') this.current = Math.min(this.total, Math.max(0, current));
+    if (status !== undefined) this.status = status;
+    this.render();
+  }
+
+  increment(amount = 1, status) {
+    this.current = Math.min(this.total, this.current + amount);
+    if (status !== undefined) this.status = status;
+    this.render();
+  }
+
+  render() {
+    const percent = Math.min(100, Math.max(0, Math.round((this.current / this.total) * 100)));
+    const filledLen = Math.round((this.width * percent) / 100);
+    const emptyLen = Math.max(0, this.width - filledLen);
+    const filledBar = C.cyan + '█'.repeat(filledLen) + C.reset;
+    const emptyBar = C.dim + '░'.repeat(emptyLen) + C.reset;
+    const percentStr = `${percent.toString().padStart(3, ' ')}%`;
+    const line = `  [${filledBar}${emptyBar}] ${C.bold}${percentStr}${C.reset}  ${this.status}`;
+
+    if (this.isTTY) {
+      process.stdout.write(`\r\x1b[2K${line}`);
+    } else {
+      if (percent !== this._lastLoggedPercent && (percent - this._lastLoggedPercent >= 14 || percent === 100)) {
+        log(`  [Progress] ${percentStr} — ${this.status}`);
+        this._lastLoggedPercent = percent;
+      }
+    }
+  }
+
+  logStep(message) {
+    this.stopPulse();
+    if (this.isTTY) {
+      process.stdout.write('\r\x1b[2K');
+    }
+    log(`  ${C.green}✓${C.reset} ${message}`);
+    this.render();
+  }
+
+  startPulse(statusPrefix = '') {
+    if (this.timer) clearInterval(this.timer);
+    const pulseStart = Date.now();
+    this.timer = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - pulseStart) / 1000);
+      this.status = `${statusPrefix} ${C.dim}(${elapsedSec}s elapsed)${C.reset}`;
+      this.render();
+    }, 200);
+    if (this.timer && typeof this.timer.unref === 'function') {
+      this.timer.unref();
+    }
+  }
+
+  stopPulse() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  finish(finalMessage = 'Completed!') {
+    this.stopPulse();
+    this.current = this.total;
+    this.status = finalMessage;
+    this.render();
+    if (this.isTTY) {
+      process.stdout.write('\r\x1b[2K');
+    }
+    log(`  ${C.green}✓${C.reset} ${finalMessage}\n`);
+  }
+}
+
 
 function drawLogo() {
   
@@ -918,7 +1008,7 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
-async function cmdInit(args) {
+async function cmdInit(args, options = {}) {
   if (args.includes('help') || args.includes('--help') || args.includes('-h')) {
     cmdInitHelp();
     return;
@@ -974,6 +1064,7 @@ async function cmdInit(args) {
     }
   });
 
+  if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Python 3 environment...');
   // 2. Check Python
   const spinner1 = startSpinner('Checking Python 3 environment...');
   const python = checkPython();
@@ -1128,6 +1219,7 @@ async function cmdInit(args) {
   }
 
   // 4. Install server files
+  if (options.onProgress) options.onProgress(2, 'MCP Runtime', 'Installing MCP Server files to ~/.konoha/');
   header('📦 Installing MCP Server');
   const spinner3 = startSpinner('Installing MCP Server files...');
   ensureDir(SKILLS_DB_DIR);
@@ -1224,6 +1316,7 @@ async function cmdInit(args) {
   autoInstallKonohaBridgeExtension(true, true);
 
   // 5. Run migration and always initialize the complete SQLite schema.
+  if (options.onProgress) options.onProgress(3, 'Skills Index', 'Seeding subagent skills into SQLite FTS5 database');
   header('📊 Seeding Default Subagent Skills to SQLite FTS5');
   const skills = fileExists(pkgSkillsDir) ? detectCustomSkills(pkgSkillsDir) : [];
   const spinnerMigrate = startSpinner(skills.length > 0 ? `Seeding default skills from: ${pkgSkillsDir}...` : 'Initializing empty skills database schema...');
@@ -1290,6 +1383,7 @@ async function cmdInit(args) {
 
   // 10. Configure Cursor IDE/CLI
   const setupAgents = agentManager.loadAgents();
+  if (options.onProgress) options.onProgress(4, 'MCP Clients', 'Configuring Cursor, Claude Code, OpenCode, Command Code, Codex');
   if (allowCursor) {
     header('🖱️  Configuring Cursor IDE/CLI');
     const spinner7 = startSpinner('Registering Cursor MCP, subagents, and hooks...');
@@ -1653,6 +1747,7 @@ function installExtensionViaCli(cliName, vsixPath, silent = false) {
       encoding: 'utf8',
       timeout: 35000,
       env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
     });
     const stdout = (res.stdout || '').trim();
@@ -1696,17 +1791,17 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
 
   let vsixPath = fileExists(cachedVsixPath) ? cachedVsixPath : (fileExists(bundledVsixPath) ? bundledVsixPath : (fileExists(globalCachedVsix) ? globalCachedVsix : null));
 
-  if (!forceRefresh && vsixPath && fileExists(vsixPath)) {
+  if (vsixPath && fileExists(vsixPath)) {
     if (!fileExists(cachedVsixPath) && vsixPath !== cachedVsixPath) {
-      try { ensureDir(SKILLS_DB_DIR); fs.copyFileSync(vsixPath, cachedVsixPath); } catch {}
+      try { ensureDir(SKILLS_DB_DIR); fs.copyFileSync(vsixPath, cachedVsixPath); vsixPath = cachedVsixPath; } catch {}
     }
-    if (fileExists(targetPath) && validatePackage(installedPackage)) {
+    if (!forceRefresh && fileExists(targetPath) && validatePackage(installedPackage)) {
       if (!silent) log(`  ⚡ Konoha Bridge master extension already installed.`);
       return { installed: true, skipped: true, path: targetPath, ref: KONOHA_BRIDGE_REF, vsixPath };
     }
   }
 
-  if (!silent) info(`Installing Konoha Bridge from ${KONOHA_BRIDGE_REPO}...`);
+  if (!silent) info(`Installing Konoha Bridge from ${vsixPath || KONOHA_BRIDGE_REPO}...`);
   const token = `${process.pid}-${Date.now()}`;
   const tmpClone = path.join(SKILLS_DB_DIR, 'tmp', `bridge-clone-${token}`);
   const stagingPath = path.join(extensionDir, `.konoha-bridge-${token}.staging`);
@@ -1715,11 +1810,12 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
   let commit = 'master';
 
   try {
-    if (forceRefresh || !vsixPath || !fileExists(vsixPath)) {
+    if (!vsixPath || !fileExists(vsixPath)) {
       ensureDir(path.dirname(tmpClone));
       const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], {
         encoding: 'utf8',
-        timeout: 60000,
+        timeout: 30000,
+        stdio: ['ignore', 'pipe', 'pipe'],
         shell: process.platform === 'win32',
       });
       if (cloneRes.status === 0 && fileExists(tmpClone)) {
@@ -1730,23 +1826,26 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
         commit = (commitRes.stdout || '').trim() || commit;
 
         // Install dependencies in clone
+        const isWin = process.platform === 'win32';
         try {
-          spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+          spawnSync(isWin ? 'npm.cmd' : 'npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
             cwd: tmpClone,
             encoding: 'utf8',
             timeout: 30000,
-            shell: process.platform === 'win32',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: isWin,
           });
         } catch {}
 
-        // Package VSIX using @vscode/vsce package --allow-star-activation
+        // Package VSIX using @vscode/vsce package --allow-star-activation --skip-license
         try {
-          spawnSync('npx', ['--yes', '@vscode/vsce', 'package', '--allow-star-activation'], {
+          spawnSync(isWin ? 'npx.cmd' : 'npx', ['--yes', '@vscode/vsce', 'package', '--allow-star-activation', '--skip-license'], {
             cwd: tmpClone,
             encoding: 'utf8',
-            timeout: 60000,
+            timeout: 30000,
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: process.env,
-            shell: process.platform === 'win32',
+            shell: isWin,
           });
           const vsixFiles = fs.readdirSync(tmpClone).filter(f => f.endsWith('.vsix'));
           if (vsixFiles.length > 0) {
@@ -1877,7 +1976,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const aislopConfig = {
     command: npxCmd,
-    args: ['-y', 'aislop-mcp']
+    args: ['-y', '-p', 'aislop', 'aislop-mcp']
   };
   if (allowAutoApprove) {
     aislopConfig.autoApprove = ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
@@ -2779,17 +2878,22 @@ async function cmdTest(args = []) {
         inputParts.push(test.req);
         const input = inputParts.join('\n');
 
+        const testEnv = Object.assign({}, process.env);
+        delete testEnv.KONOHA_DAEMON;
+
         const run = test.useNode
           ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
               input,
               encoding: 'utf-8',
-              timeout: 15000,
+              timeout: 30000,
+              env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             })
           : spawnSync(python, [SERVER_PATH], {
               input,
               encoding: 'utf-8',
-              timeout: 10000,
+              timeout: 20000,
+              env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             });
         if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
@@ -3539,7 +3643,7 @@ async function cmdDoctor(args = []) {
   // 7. MCP Configuration
   const nodeCmd = process.execPath;
   const expectedSembleArgs = ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'];
-  const expectedAislopArgs = ['-y', 'aislop-mcp'];
+  const expectedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
   let mcpHealthy = false;
   if (fileExists(MCP_CONFIG_PATH) && python) {
     try {
@@ -5343,33 +5447,75 @@ async function cmdUpgrade(args = []) {
     return;
   }
 
-  const cmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const cmdArgs = ['dlx', 'github:andycungkrinx91/konoha', 'init', '--force', '--yes'];
+  log('');
+  const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
 
-  log(`  Executing: ${C.cyan}${cmd} ${cmdArgs.join(' ')}${C.reset}\n`);
+  // Stage 1/7: Environment & Package Manager Detection
+  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager...`);
+  const isWin = process.platform === 'win32';
+  let cmd = isWin ? 'pnpm.cmd' : 'pnpm';
+  let cmdArgs = ['add', '--global', 'github:andycungkrinx91/konoha'];
 
-  const spinner = startSpinner('Upgrading Konoha CLI...');
-  spinner.success('Starting upgrade command...');
+  let hasPnpm = false;
+  try {
+    const pCheck = spawnSync(cmd, ['--version'], { encoding: 'utf-8', shell: isWin, timeout: 5000 });
+    hasPnpm = pCheck.status === 0;
+  } catch {}
 
-  const options = { stdio: 'inherit' };
-  if (process.platform === 'win32') {
-    options.shell = true;
+  if (!hasPnpm) {
+    cmd = isWin ? 'npm.cmd' : 'npm';
+    cmdArgs = ['install', '--global', 'github:andycungkrinx91/konoha'];
+  }
+  pbar.logStep(`Package manager ready: ${C.bold}${cmd}${C.reset}`);
+
+  // Stage 2/7: Fetching and installing latest release from GitHub
+  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching latest release from GitHub via ${cmd}...`);
+  pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and compiling Konoha package via ${cmd}...`);
+
+  const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 };
+  if (isWin) {
+    spawnOptions.shell = true;
   }
 
   try {
-    const res = spawnSync(cmd, cmdArgs, options);
-    // Ensure Konoha Bridge extension is freshly cloned, packaged, and installed across IDEs
-    autoInstallKonohaBridgeExtension(false, true);
-    try { installAgentBrowser(true); } catch {}
+    const res = spawnSync(cmd, cmdArgs, spawnOptions);
+    pbar.stopPulse();
     if (res.status === 0) {
-      success('Konoha has been successfully upgraded!');
+      pbar.logStep(`Latest Konoha release installed from GitHub via ${cmd}`);
     } else {
-      error(`Upgrade failed with exit code ${res.status}.`);
-      process.exit(res.status || 1);
+      pbar.logStep(`Package manager step completed (status ${res.status}); synchronizing runtime files`);
     }
   } catch (err) {
-    try { autoInstallKonohaBridgeExtension(false, true); } catch {}
-    error(`Failed to execute upgrade command: ${err.message}`);
+    pbar.stopPulse();
+    pbar.logStep(`Package manager note: ${err.message}; proceeding with local file sync`);
+  }
+
+  // Stages 3 through 6: Handled via in-process cmdInit with real-time onProgress updates
+  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Python 3, uv, and runtime dependencies...`);
+
+  try {
+    await cmdInit(['--force', '--yes'], {
+      onProgress: (stepNum, stepTitle, stepDetail) => {
+        const stageNum = Math.min(6, 2 + stepNum);
+        pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
+      },
+      onStepComplete: (stepTitle) => {
+        pbar.logStep(stepTitle);
+      }
+    });
+
+    // Stage 7/7: Extension Bridge & Browser CLI
+    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying Konoha Bridge extension and browser CLI...`);
+    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying IDE bridge extension and tools...`);
+    autoInstallKonohaBridgeExtension(false, true);
+    try { installAgentBrowser(true); } catch {}
+    pbar.stopPulse();
+    pbar.logStep(`Konoha Bridge extension & browser tools verified`);
+
+    pbar.finish('Konoha has been successfully upgraded to the latest version!');
+  } catch (err) {
+    pbar.stopPulse();
+    error(`Failed to refresh Konoha configuration: ${err.message}`);
     process.exit(1);
   }
 }

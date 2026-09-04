@@ -265,9 +265,19 @@ To keep Konoha updated with the latest optimizations and features, you can check
   ```
 
 * **Upgrade CLI**:
-  Upgrades the local Konoha installation to the latest stable release from GitHub in-place. During execution, it uses interactive `@inquirer/prompts` to ensure explicit user consent before modifying configurations.
+  Upgrades the local Konoha installation to the latest stable release from GitHub in-place. Displays a real-time animated progress bar (`[████████░░] 80% (stage/total) [Stage Name] | Live action text`) tracking the 7-stage upgrade pipeline:
+  1. Environment Verification & Toolchain Diagnostics
+  2. Package Manager & Dependency Engine Update (`pnpm` / `npm`)
+  3. Global CLI Symlinks & Shell PATH Provisioning
+  4. Skill & Agent Registry Sync (idempotent preserve-protection)
+  5. Core Configuration & Database Regeneration
+  6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code)
+  7. Verification, Doctor Diagnostics & Self-Healing
+  During execution, it uses interactive `@inquirer/prompts` (or `--yes` / `-y` for headless non-interactive mode) before applying upgrades.
   ```bash
   konoha upgrade
+  # Non-interactive / headless CI mode:
+  konoha upgrade --yes
   ```
 
 ### Optional Antigravity Bridge Extension

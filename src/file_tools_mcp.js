@@ -48,16 +48,18 @@ if (installErrors.length) {
 }
 
 const { spawn } = require("child_process");
-const PYTHON_CMD = process.env.PYTHON_CMD || "python3";
+const PYTHON_CMD = process.env.PYTHON_CMD || (router && router.getPythonCommand ? router.getPythonCommand().executable : (process.platform === 'win32' ? 'python' : 'python3'));
 const SAVINGS_LOGGER = path.join(__dirname, "tools_savings_logger.py");
 
 let activeClient = null;
+let _cachedActiveClient = null;
 
 /**
  * Detect active MCP client from environment variables (same logic as server.py detect_active_client).
  * Used as fallback when clientInfo is not available (e.g. standalone gateway mode).
  */
 function detect_active_client_from_env() {
+  if (_cachedActiveClient) return _cachedActiveClient;
   try {
     const os = require("os");
     const HOME = os.homedir();
@@ -207,9 +209,11 @@ function logToolCallSavings(toolName, args, returnedBytes) {
   try {
     const queryStr = JSON.stringify(args || {}).slice(0, 500);
     const baselineBytes = getBaselineBytesForTool(toolName, args || {});
-    spawn(
-      PYTHON_CMD,
+    const py = (router && router.getPythonCommand) ? router.getPythonCommand() : { executable: PYTHON_CMD, prefixArgs: [] };
+    const child = spawn(
+      py.executable,
       [
+        ...py.prefixArgs,
         SAVINGS_LOGGER,
         toolName,
         queryStr,
@@ -218,7 +222,9 @@ function logToolCallSavings(toolName, args, returnedBytes) {
         String(baselineBytes || 0)
       ],
       { stdio: "ignore", detached: true },
-    ).unref();
+    );
+    child.on("error", () => {});
+    child.unref();
   } catch (_) {
     /* router must never break because the logger hiccupped */
   }

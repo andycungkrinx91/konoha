@@ -89,17 +89,23 @@ function registerMcp(python) {
     semble: {
       type: 'stdio',
       command: getUvx(),
-      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+      autoApprove: ['*', 'search', 'find_related'],
+      auto_approve: true
     },
     aislop: {
       type: 'stdio',
       command: npxCmd,
-      args: ['-y', 'aislop-mcp']
+      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
+      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+      auto_approve: true
     }
   };
   if (FILE_TOOLS_MCP_PATH && fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = buildKonohaFilesMcpEntry();
     if (entry) {
+      entry.autoApprove = ['*'];
+      entry.auto_approve = true;
       servers['konoha'] = entry;
       updated = true;
     }

@@ -2,6 +2,31 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [v.2.0.0-beta.3] - 2026-09-04
+
+### Added: CLI Upgrade Engine & Interactive Progress Bar (`bin/cli.js`)
+- **KonohaProgressBar Terminal Engine**: Added dedicated progress bar engine supporting shaded block rendering (`████░░░░`), percentage tracking, TTY carriage return animations, non-TTY clean milestone output, and active pulse timers with elapsed duration.
+- **7-Stage Upgrade Pipeline**: Upgrades now progress visibly through 7 discrete milestones: (1) PM detection, (2) GitHub download with live pulse, (3) Environment validation, (4) MCP runtime deployment, (5) SQLite FTS5 skills indexing, (6) 6-client MCP synchronization, (7) Extension bridge and browser CLI verification.
+- **cmdInit Progress Hooks**: Added `onProgress` and `onStepComplete` hooks enabling in-process progress reporting during upgrades.
+
+### Fixed: Windows Upgrade & Subprocess Hanging Issues
+- **Windows Upgrade Hang Fix**: Replaced external unconstrained `pnpm dlx` spawns with in-process `cmdInit(['--force', '--yes'])` execution wrapped in 180s timeout with `stdio: ['ignore', 'pipe', 'pipe']`.
+- **Pre-Bundled VSIX Prioritization**: `autoInstallKonohaBridgeExtension` now directly uses bundled `assets/konoha-bridge-1.4.0.vsix` with `--skip-license`, avoiding slow 2.5-minute external `git clone` rebuilds and interactive license hangs on Windows.
+- **Windows `Token Efficient Grep` & `konoha test` Port Collision Fix**:
+  - `cmdTest` now strictly sanitizes `KONOHA_DAEMON` from test environments, preventing test runs from starting long-lived HTTP gateway servers on port 20000 that kept Windows socket handles open past timeouts.
+  - Corrected `detectPython()` in `src/platform_utils.js` to preserve candidate arguments, retaining `py -3` on Windows instead of truncating to `py`.
+  - Normalized path arguments in `src/file_tools_router.js` and `token_efficient_grep.py`, stripping trailing backslashes that corrupted Windows JSON serialization.
+  - Attached safe detached process error handling on savings logging subprocesses.
+
+### Fixed: Codex & Antigravity IDE `aislop` MCP 404 & Connection Closed
+- **Package Name vs Binary Name Resolution**: `aislop` is published to npm as `aislop` (providing binary `aislop-mcp`). Fixed all MCP configurations from `args: ["-y", "aislop-mcp"]` (which triggered 404 from npm registry) to `args: ["-y", "-p", "aislop", "aislop-mcp"]`.
+- **Cross-Client Consistency**: Synchronized across Antigravity IDE, Cursor, Claude Code, OpenCode, Command Code, and Codex. Live handshake verified clean.
+
+### Added: Cross-IDE Auto-Approval & Tool Permissions Hardening
+- **Universal Auto-Approval**: Standardized `autoApprove: ["*"]` and `auto_approve: true` across all 6 clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex).
+- **Cursor IDE Permissions**: Added `Mcp(aislop, *)` grants to `~/.cursor/cli-config.json`, `~/.cursor/settings.json`, and cross-platform User settings (`~/.config/Cursor/User/settings.json`, `%APPDATA%/Cursor/User/settings.json`, macOS Application Support).
+- **Claude & Command Code Allowances**: Injected `mcp__aislop__*` and `mcp:aislop:*` into `autoApprove` and `permissions.allow`, with `permissionMode: "bypassPermissions"` (Claude) and `"allowAll"` (Command Code).
+
 ## [v.2.0.0-beta.2] - 2026-09-03
 
 ### Major: Zero-AI-Slop Gate & `aislop` MCP Multi-Client Integration (`PLAN_FEATURE.md`)

@@ -50,7 +50,7 @@ def main():
     for file_path in walk_files(root_dir):
         if not is_probably_text(file_path):
             continue
-        rel = os.path.relpath(file_path, root_dir)
+        rel = os.path.relpath(file_path, root_dir).replace('\\', '/')
         name = os.path.basename(file_path)
         if glob_pattern and not (
             fnmatch.fnmatch(name, glob_pattern) or fnmatch.fnmatch(rel, glob_pattern)

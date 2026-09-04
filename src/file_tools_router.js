@@ -239,6 +239,11 @@ function runPythonScript(scriptName, args) {
     ...args,
     workspace: getWorkspaceRoot()
   };
+  for (const k of ['dir', 'path', 'file_path', 'filepath', 'workspace']) {
+    if (typeof payload[k] === 'string' && payload[k].length > 3) {
+      payload[k] = payload[k].replace(/[/\\]+$/, '');
+    }
+  }
 
   let result;
   try {

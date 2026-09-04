@@ -85,7 +85,7 @@ function detectPython() {
       });
       const version = `${res.stdout || ''}${res.stderr || ''}`;
       if (res.status === 0 && version.includes('Python 3')) {
-        return candidate.command;
+        return candidate.args.length > 0 ? `${candidate.command} ${candidate.args.join(' ')}` : candidate.command;
       }
     } catch {}
   }

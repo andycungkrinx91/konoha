@@ -20,7 +20,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.2 — Konoha v2.0.0-beta.2 (2026-09-03)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.2_2026-09-03.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.3 — Konoha v2.0.0-beta.3 (2026-09-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.3_2026-09-04.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -143,6 +143,26 @@
 <details>
 <summary><b>🔄 CLI Auto-Upgrade (<code>konoha upgrade</code>)</b></summary>
 <br>
+
+Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgressBar`) providing live visual progress through a 7-stage upgrade pipeline with active elapsed timers and milestone verification:
+
+```text
+🔄 Upgrading Konoha
+════════════════════════════════════════════════════════════
+  Preparing to upgrade Konoha to the latest version...
+
+  ✓ Package manager ready: pnpm
+  ✓ Latest Konoha release installed from GitHub via pnpm
+  [████████████████░░░░░░░░░░░░]  57%  [Stage 5/7] Skills Index: Seeding subagent skills into SQLite FTS5 database
+  ✓ Subagent skills and references seeded to SQLite FTS5
+  [████████████████████░░░░░░░░]  71%  [Stage 6/7] MCP Clients: Configuring Cursor, Claude Code, OpenCode, Command Code, Codex
+  ✓ All 6 agentic IDE/CLI client configurations synchronized
+  [████████████████████████░░░░]  86%  [Stage 7/7] Verifying Konoha Bridge extension and browser CLI...
+  ✓ Konoha Bridge extension & browser tools verified
+  [████████████████████████████] 100%  Konoha has been successfully upgraded to the latest version!
+  ✓ Konoha has been successfully upgraded to the latest version!
+```
+
 <img src="assets/konoha-upgrade.png" alt="konoha upgrade" width="100%">
 </details>
 
@@ -436,7 +456,7 @@ Once installed, the following CLI commands are available:
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.0.0) and check for updates from GitHub |
-| `konoha upgrade` | Upgrade Konoha CLI to the latest version directly from GitHub |
+| `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless) |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |

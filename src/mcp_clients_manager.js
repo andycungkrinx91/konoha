@@ -125,7 +125,7 @@ function buildStdioMcpServers(options = {}) {
     aislop: {
       type: 'stdio',
       command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', 'aislop-mcp'],
+      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
       autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
       auto_approve: true
     }
@@ -306,12 +306,26 @@ function registerClaudeCodePermissions(silent = true) {
         }
       }
 
+      const autoApproveGrants = [
+        'mcp__konoha__*',
+        'mcp__semble__*',
+        'mcp__aislop__*',
+        'Bash(rtk *)',
+        'Bash(rtk:*)',
+        'Bash(rtk)',
+        'Bash(konoha *)',
+        '*'
+      ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
-        config.autoApprove = ['*'];
+        config.autoApprove = autoApproveGrants;
         updated = true;
-      } else if (!config.autoApprove.includes('*')) {
-        config.autoApprove.push('*');
-        updated = true;
+      } else {
+        for (const g of autoApproveGrants) {
+          if (!config.autoApprove.includes(g)) {
+            config.autoApprove.push(g);
+            updated = true;
+          }
+        }
       }
 
       if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
@@ -320,6 +334,18 @@ function registerClaudeCodePermissions(silent = true) {
       } else if (!config.allowedTools.includes('*')) {
         config.allowedTools.push('*');
         updated = true;
+      }
+
+      if (config.mcpServers && typeof config.mcpServers === 'object') {
+        const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+        if (!config.mcpServers.aislop) {
+          config.mcpServers.aislop = {
+            type: 'stdio',
+            command: npxCmd,
+            args: ['-y', '-p', 'aislop', 'aislop-mcp']
+          };
+          updated = true;
+        }
       }
 
       if (config.defaultMode !== 'bypassPermissions') {

@@ -17,6 +17,24 @@
       "args": [
         "${userHome}/.konoha/file_tools_launcher.js"
       ]
+    },
+    "aislop": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+        "aislop",
+        "aislop-mcp"
+      ],
+      "autoApprove": [
+        "*",
+        "aislop_scan",
+        "aislop_fix",
+        "aislop_why",
+        "aislop_baseline"
+      ],
+      "auto_approve": true
     }
   }
 }

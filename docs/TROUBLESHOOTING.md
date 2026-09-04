@@ -261,6 +261,11 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    - **Symptom**: `genin` or `kage` attempts to call `aislop_fix` or `aislop_baseline`.
    - **Reason**: `genin` and `kage` are strictly read-only analysis agents. Only execution agents (`jonin`, `anbu`) are permitted to execute code modification tools like `aislop_fix`.
 
+4. **`aislop` MCP Handshake Failure or npm 404 (`aislop-mcp`)**:
+   - **Symptom**: `npm error 404 Not Found - GET https://registry.npmjs.org/aislop-mcp` or `handshaking with MCP server failed: connection closed: initialize response` during client startup.
+   - **Reason**: Attempting to execute `npx aislop-mcp` prompts npm to search for a non-existent package named `aislop-mcp`. The binary `aislop-mcp` is packaged inside `aislop`.
+   - **Fix**: Update MCP client configuration arguments to `args: ["-y", "-p", "aislop", "aislop-mcp"]`. In `~/.codex/config.toml`, ensure `command = "npx"` and `args = ["-y", "-p", "aislop", "aislop-mcp"]`. Run `konoha upgrade --yes` or `konoha doctor --yes` to automatically repair all 6 client configurations.
+
 ---
 
 ### 📊 `konoha agent status` Shows Wrong Counts
@@ -362,6 +367,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   ```
 * **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
 * **Cursor on Windows**: Works natively on Windows; ensure `node` and `python` (not `python3`) are on PATH.
+* **`konoha upgrade` Freezes or Hangs**:
+  - **Symptom**: `konoha upgrade` hangs indefinitely while setting up client extensions.
+  - **Reason**: Remote `git clone` or network operations hanging or blocked on Windows without pre-bundled extensions, or child processes waiting on interactive stdin.
+  - **Fix**: As of `v2.0.0-beta.3`, Konoha uses in-process upgrade execution with pre-bundled VSIX prioritization, non-blocking `stdio: ['ignore', 'pipe', 'pipe']`, and a 180s safeguard timeout.
+* **`Token Efficient Grep: FAILED` with Proxy Gateway Output on Port 20000**:
+  - **Symptom**: Running `konoha test` displays `✗ Token Efficient Grep: FAILED - [gateway] Proxy Gateway running on http://127.0.0.1:20000`.
+  - **Reason**: The test runner subprocess inherited `KONOHA_DAEMON=1` from the environment, triggering an attempt to spawn the local proxy gateway server during unit tests. Additionally, unnormalized Windows backslashes with trailing separators caused python argument parsing failures.
+  - **Fix**: `bin/cli.js test` sanitizes the test environment (`delete testEnv.KONOHA_DAEMON`), path separators are normalized to forward slashes with trailing separators stripped, and Python launcher resolution prioritizes `py -3`.
 
 ---
 

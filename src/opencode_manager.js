@@ -151,7 +151,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   config.mcp['aislop'] = {
     type: 'local',
-    command: [npxCmd, '-y', 'aislop-mcp'],
+    command: [npxCmd, '-y', '-p', 'aislop', 'aislop-mcp'],
     environment: {
       ACTIVE_CLIENT: 'opencode',
       OPENCODE_CLIENT: '1',

@@ -181,3 +181,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 8. **Authorized Penetration Testing in Dev/Local Environments**:
    - `anbu` is authorized to conduct penetration testing and vulnerability assessments in dev/local environments (`localhost`, `127.0.0.1`, dev containers, local clusters).
    - The workflow review gate utilizes pentest-aware validation (`_is_pentest_task`, `_is_clean_validation`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.
+9. **CLI Upgrade Engine, Progress Tracking & Subprocess Resilience**:
+   - `KonohaProgressBar` delivers real-time terminal progress reporting (`0%` to `100%`) with shaded block indicators (`██████░░░░`), active elapsed timers, and unreferenced interval tickers (`timer.unref()`) to prevent event-loop stalls.
+   - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 6 MCP client configs, and verifies extension bridges.
+   - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while Windows Python launcher (`py -3`) arguments and normalized path separators (`/`) are preserved across all subprocess handlers.
+10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
+   - Zero-Interruption Execution: Automates permission whitelisting across all 6 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex), eliminating manual approval popups for routine reads, searches, and tests.
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (38 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).

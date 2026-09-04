@@ -249,12 +249,20 @@ Full team config: \`~/.agents/AGENTS.md\
 }
 
 function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const servers = {
     semble: {
       type: 'stdio',
       command: uvxCmd,
       args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
       autoApprove: ['*', 'search', 'find_related'],
+      auto_approve: true
+    },
+    aislop: {
+      type: 'stdio',
+      command: npxCmd,
+      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
+      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
       auto_approve: true
     }
   };
@@ -393,6 +401,12 @@ function registerCursorCliPermissions(silent = true) {
     'Mcp(semble, *)',
     'Mcp(semble, search)',
     'Mcp(semble, find_related)',
+    'Mcp(aislop)',
+    'Mcp(aislop, *)',
+    'Mcp(aislop, aislop_scan)',
+    'Mcp(aislop, aislop_fix)',
+    'Mcp(aislop, aislop_why)',
+    'Mcp(aislop, aislop_baseline)',
     'Shell(rtk)',
     'Shell(rtk *)',
     'Shell(rtk:*)',
@@ -441,8 +455,13 @@ function registerCursorCliPermissions(silent = true) {
   // Also update Cursor settings.json if present or in Cursor User settings
   const cursorSettingsPaths = [
     path.join(CURSOR_DIR, 'settings.json'),
-    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json')
-  ];
+    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json'),
+    path.join(HOME, '.config', 'Code', 'User', 'settings.json'),
+    process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
+    process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Code', 'User', 'settings.json') : null,
+    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null,
+    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Code', 'User', 'settings.json') : null
+  ].filter(Boolean);
 
   for (const sPath of cursorSettingsPaths) {
     try {

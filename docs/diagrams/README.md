@@ -1,6 +1,6 @@
 # Konoha diagrams
 
-`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains eleven pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
+`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains twelve pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
 
 **Format policy:** Draw.io owns editable geometry, page layout, and presentation routing. Mermaid owns Markdown-native rendering. The two formats must keep the same semantic nodes, relationships, titles, and implementation anchors; their visual layouts may differ.
 
@@ -28,6 +28,7 @@
 | 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.py:build_from_source`, `src/server.py:build_from_text` |
 | 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.py`, `src/server.py` |
 | 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.py:run_mcp_workflow`, `src/server.py:_workflow_review_approved`, `tests/test_anti_slop_gate.py` |
+| 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit` |
 
 ## Source policy
 

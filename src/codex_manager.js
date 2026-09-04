@@ -238,7 +238,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const aislopBlock = [
     '[mcp_servers.aislop]',
     `command = "${npxExecutable}"`,
-    'args = ["-y", "aislop-mcp"]',
+    'args = ["-y", "-p", "aislop", "aislop-mcp"]',
     'auto_approve = true',
     'auto_approve_tools = ["*"]'
   ].join('\n');

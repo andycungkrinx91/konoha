@@ -148,7 +148,7 @@ args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
 
 [mcp_servers.aislop]
 command = "npx"
-args = ["-y", "@scanaislop/aislop-mcp@latest"]
+args = ["-y", "-p", "aislop", "aislop-mcp"]
 auto_approve = true
 
 [mcp_servers.aislop.tools.aislop_scan]
