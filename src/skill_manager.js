@@ -225,7 +225,7 @@ function addSkillDirect(repoUrl, skillName) {
   if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
   console.log(`\n✓ Skill "${skillName}" installed successfully!`);
 
-  deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: currentCwd, silent: false });
+  syncAllClientSkills({ projectRoot: currentCwd, silent: false });
 
   console.log('\n🔄 Re-indexing SQLite database...');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
@@ -233,10 +233,153 @@ function addSkillDirect(repoUrl, skillName) {
   if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
 }
 
+// Add skill either by name (lookup from registry or scaffold local) or direct repo URL
+async function addSkill(nameOrUrl, optionalName) {
+  if (optionalName || nameOrUrl.startsWith('https://') || nameOrUrl.startsWith('git@') || nameOrUrl.startsWith('http://')) {
+    const repoUrl = nameOrUrl;
+    const skillName = optionalName;
+    if (!skillName) {
+      throw new Error('Skill name must be specified when adding via repository URL.');
+    }
+    return addSkillDirect(repoUrl, skillName);
+  }
+
+  const skillName = nameOrUrl;
+  console.log(`🔍 Checking skills registry for "${skillName}"...`);
+  try {
+    const results = await searchRegistry(skillName);
+    const found = results && results.find(item => (item.skillId === skillName || item.name === skillName));
+    if (found && found.source) {
+      const repoUrl = `https://github.com/${found.source}`;
+      console.log(`📦 Found skill in registry: ${repoUrl}`);
+      return addSkillDirect(repoUrl, skillName);
+    }
+  } catch (err) {
+    console.log(`⚠️  Registry search skipped: ${err.message}`);
+  }
+
+  // If not found in registry or search failed, create custom local skill
+  const targetDir = path.join(AGENTS_SKILLS, skillName);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+    const content = `---
+name: ${skillName}
+description: Custom skill for ${skillName}
+---
+
+# ${skillName} Skill
+
+## Overview
+Standard Operating Procedures and guidelines for ${skillName}.
+`;
+    fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content, 'utf8');
+    console.log(`\n✓ Skill "${skillName}" created successfully at ${targetDir}`);
+    deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: currentCwd, silent: false });
+
+    console.log('\n🔄 Re-indexing SQLite database...');
+    const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
+    const migrate = spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: false });
+    if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
+    return targetDir;
+  } else {
+    console.log(`✓ Skill "${skillName}" is already installed locally.`);
+    return targetDir;
+  }
+}
+
+function embedSkillInAgent(skillName, agentName) {
+  const agentManager = require('./agent_manager');
+  return agentManager.embedSkill(agentName, skillName);
+}
+
+function unembedSkillFromAgent(skillName, agentName) {
+  const agentManager = require('./agent_manager');
+  return agentManager.unembedSkill(agentName, skillName);
+}
+
+function syncAllClientSkills(options = {}) {
+  const silent = options.silent !== false;
+  const projectRoot = options.projectRoot || null;
+  const sourceSkillsDir = options.sourceSkillsDir || (
+    fs.existsSync(path.join(__dirname, '..', 'src', 'templates', 'skills'))
+      ? path.join(__dirname, '..', 'src', 'templates', 'skills')
+      : (fs.existsSync(path.join(HOME, '.agents', 'skills'))
+          ? path.join(HOME, '.agents', 'skills')
+          : path.join(__dirname, '..', '.agents', 'skills'))
+  );
+
+  if (!fs.existsSync(sourceSkillsDir)) return { synced: 0, targets: [] };
+
+  const targetDirs = [
+    path.join(HOME, '.cursor', 'skills'),
+    path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
+    path.join(HOME, '.claude', 'skills'),
+    path.join(HOME, '.config', 'opencode', 'skills'),
+    path.join(HOME, '.opencode', 'skills'),
+    path.join(HOME, '.commandcode', 'skills'),
+    path.join(HOME, '.codex', 'skills'),
+  ];
+
+  if (projectRoot && fs.existsSync(projectRoot)) {
+    targetDirs.push(path.join(projectRoot, '.cursor', 'skills'));
+    targetDirs.push(path.join(projectRoot, '.gemini', 'skills'));
+    targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
+  }
+
+  const syncedTargets = [];
+  for (const target of targetDirs) {
+    try {
+      deployUtils.copySkillsDirFast(sourceSkillsDir, target);
+      syncedTargets.push(target);
+    } catch (e) {
+      // Ignore if directory permissions restrict write
+    }
+  }
+
+  if (!silent) {
+    console.log(`✓ Synchronized all skills across ${syncedTargets.length} client directories.`);
+  }
+
+  return { synced: syncedTargets.length, targets: syncedTargets };
+}
+
+function autoMigrateProjectSkills(projectRoot) {
+  const ws = projectRoot || currentCwd;
+  if (!ws || !fs.existsSync(ws)) return { migrated: 0, skills: [] };
+
+  const candidateDirs = [
+    path.join(ws, '.agents', 'skills'),
+    path.join(ws, 'skills'),
+    path.join(ws, '.cursor', 'skills'),
+    path.join(ws, '.gemini', 'skills'),
+    path.join(ws, '.gemini', 'antigravity-cli', 'skills'),
+  ];
+
+  const foundDirs = candidateDirs.filter(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
+  if (foundDirs.length === 0) return { migrated: 0, skills: [] };
+
+  const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
+  let totalMigrated = 0;
+  for (const dir of foundDirs) {
+    try {
+      const run = spawnSync('node', [cliPath, 'migrate', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8' });
+      if (run.status === 0) {
+        totalMigrated++;
+      }
+    } catch {}
+  }
+  return { migrated: totalMigrated, dirs: foundDirs };
+}
+
 module.exports = {
   listInstalledSkills,
   searchRegistry,
   removeSkill,
   runInteractiveSearch,
-  addSkillDirect
+  addSkillDirect,
+  addSkill,
+  embedSkillInAgent,
+  unembedSkillFromAgent,
+  syncAllClientSkills,
+  autoMigrateProjectSkills
 };

@@ -405,6 +405,7 @@ const TOOL_HANDLERS = {
   get_file_structure: getFileStructure,
   find_files_clean: findFilesClean,
   find_skill: (args) => runPythonSkillTool('find_skill', args),
+  find_skills: (args) => runPythonSkillTool('find_skill', args),
   list_skills: (args) => runPythonSkillTool('list_skills', args),
   get_skill: (args) => runPythonSkillTool('get_skill', args),
   optimize_report: (args) => runPythonSkillTool('optimize_report', args),

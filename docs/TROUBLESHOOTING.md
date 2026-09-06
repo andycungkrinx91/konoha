@@ -375,6 +375,18 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Running `konoha test` displays `✗ Token Efficient Grep: FAILED - [gateway] Proxy Gateway running on http://127.0.0.1:20000`.
   - **Reason**: The test runner subprocess inherited `KONOHA_DAEMON=1` from the environment, triggering an attempt to spawn the local proxy gateway server during unit tests. Additionally, unnormalized Windows backslashes with trailing separators caused python argument parsing failures.
   - **Fix**: `bin/cli.js test` sanitizes the test environment (`delete testEnv.KONOHA_DAEMON`), path separators are normalized to forward slashes with trailing separators stripped, and Python launcher resolution prioritizes `py -3`.
+* **`Failed to initialize skills database: spawnSync py -3 ENOENT` on Windows**:
+  - **Symptom**: During `konoha upgrade`, `konoha init`, or `konoha migrate` on Windows, execution fails with `✗ Failed to initialize skills database: spawnSync py -3 ENOENT`.
+  - **Reason**: Windows systems using the Python launcher (`py.exe`) returned `'py -3'` from detection. Passing this string directly into `child_process.spawnSync` caused Node to look for an executable literally named `py -3.exe`.
+  - **Fix**: Resolved in `v2.0.0-beta.4` by introducing `spawnPythonSync` and `normalizeCommand` in `src/platform_utils.js`, ensuring commands with prefix arguments are automatically separated into the base executable (`py`) and prefix arguments (`-3`).
+* **`konoha upgrade` or `init` Still Displays Previous Version Due to Git/Package Caches**:
+  - **Symptom**: After running `konoha upgrade` or `konoha init --force`, the version displayed remains on an older pre-release (e.g. `2.0.0-beta.3`).
+  - **Reason**: Global package managers (`pnpm`, `npm`) cache git checkouts in their global store links (e.g. `pnpm/store/v11/links/@/Konoha/`), or reuse dirty temporary git repositories.
+  - **Fix**: As of `v2.0.0-beta.4`, Konoha automatically runs `purgePackageCaches` during `init --force` and Stage 1 of `upgrade`. It runs `pnpm store prune`, cleans npm/yarn caches, severs stale global store hardlinks with unlinking, and enforces `--prefer-online --no-cache`.
+* **Excessive Token Consumption / Prompt Loop in IDE**:
+  - **Symptom**: The AI assistant re-reads `prompt.md` repeatedly on every tool call, consuming thousands of tokens.
+  - **Reason**: The session prompt hook unconditionally injected ephemeral reminder messages on every single tool execution step.
+  - **Fix**: Resolved in `v2.0.0-beta.4` by adding response state tracking in `prompt_hook.js`. Ephemeral notifications are now only emitted once for fresh user inputs awaiting an initial response, and preview limits in `find_skill` were reduced to 500 characters.
 
 ---
 

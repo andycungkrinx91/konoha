@@ -142,7 +142,7 @@ alwaysApply: true
 >
 > - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
 > - **NEVER** call Cursor \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
 You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. \`konoha.kage\`, \`konoha.anbu\`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.

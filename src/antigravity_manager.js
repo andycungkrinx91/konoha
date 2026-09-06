@@ -428,6 +428,18 @@ function ensureAntigravityMcpSchemas(agents) {
     const filePath = path.join(schemaDir, `${info.name}.json`);
     fs.writeFileSync(filePath, JSON.stringify(info, null, 2) + '\n', 'utf8');
   }
+
+  const manifestPath = path.join(__dirname, 'mcp_tool_manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      for (const tool of (manifest.tools || [])) {
+        if (tool.name === 'find_skills') {
+          fs.writeFileSync(path.join(schemaDir, 'find_skills.json'), JSON.stringify(tool, null, 2) + '\n', 'utf8');
+        }
+      }
+    } catch {}
+  }
 }
 
 // isRtkInstalled is imported from platform_utils
@@ -560,6 +572,7 @@ function ensureAntigravityPermissions(silent = true) {
     'mcp(konoha/get_file_structure)',
     'mcp(konoha/find_files_clean)',
     'mcp(konoha/find_skill)',
+    'mcp(konoha/find_skills)',
     'mcp(konoha/list_skills)',
     'mcp(konoha/get_skill)',
     'mcp(konoha/optimize_report)',

@@ -32,6 +32,15 @@ const codexManager = require('../src/codex_manager');
 const deployUtils = require('../src/deploy_utils');
 const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
+const platform = require('../src/platform_utils');
+
+function spawnPythonSync(python, args = [], options = {}) {
+  return platform.spawnPythonSync(python, args, options);
+}
+
+function spawnPython(python, args = [], options = {}) {
+  return platform.spawnPython(python, args, options);
+}
 
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -74,6 +83,9 @@ const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.agents', 'skills'),
   path.join(HOME, '.gemini', 'antigravity-cli', 'skills'),
   path.join(currentCwd, '.agents', 'skills'),
+  path.join(currentCwd, 'skills'),
+  path.join(currentCwd, '.cursor', 'skills'),
+  path.join(currentCwd, '.gemini', 'skills'),
 ];
 
 // Colors for terminal output
@@ -821,13 +833,30 @@ class KonohaProgressBar {
 }
 
 
+function getCliVersion() {
+  const candidatePkgPaths = [
+    path.join(__dirname, '..', 'package.json'),
+    path.join(SKILLS_DB_DIR, 'package.json'),
+    path.join(os.homedir(), '.konoha', 'package.json')
+  ];
+  for (const p of candidatePkgPaths) {
+    if (fileExists(p)) {
+      try {
+        const v = JSON.parse(fs.readFileSync(p, 'utf8')).version;
+        if (v) return v;
+      } catch {}
+    }
+  }
+  return '2.0.0-beta.4';
+}
+
 function drawLogo() {
-  
+  const ver = getCliVersion();
   const textLines = [
     "| |/ /  / _ \\ | \\| | / _ \\ | || |   / \\  ",
     "| ' /  | | | || .` || | | || __ |  / _ \\ ",
     "|_|\\_\\  \\___/ |_|\\_| \\___/ |_||_| /_/ \\_\\",
-    `${C.bold}Konoha${C.reset} — MCP Tools Orchestrator`,
+    `${C.bold}Konoha v${ver}${C.reset} — MCP Tools Orchestrator`,
     `${C.dim}Token reduction: 83-98% via on-demand search${C.reset}`,
     `${C.dim}Maintainer: Andy Setiyawan${C.reset}`,
   ];
@@ -881,7 +910,7 @@ function copyFile(src, dest) {
 }
 
 function checkPython() {
-  return require('../src/platform_utils').detectPython();
+  return platform.detectPython();
 }
 
 function hasCompleteDatabaseSchema(python) {
@@ -894,7 +923,7 @@ function hasCompleteDatabaseSchema(python) {
     'raise SystemExit(0 if required.issubset(actual) else 1)'
   ].join('; ');
   try {
-    return spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 }).status === 0;
+    return spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 }).status === 0;
   } catch {
     return false;
   }
@@ -953,7 +982,7 @@ function verifySkillDatabaseContract(python, requiredSkill = 'genin-skill') {
     'print(json.dumps({"has_required": has_required, "legacy": legacy}))'
   ].join('; ');
   try {
-    const result = spawnSync(python, ['-c', script, DB_PATH, requiredSkill], {
+    const result = spawnPythonSync(python, ['-c', script, DB_PATH, requiredSkill], {
       encoding: 'utf-8', timeout: 5000
     });
     if (result.status !== 0) {
@@ -1008,10 +1037,66 @@ ${C.bold}EXAMPLES${C.reset}
 `);
 }
 
+function purgePackageCaches({ silent = false } = {}) {
+  const isWin = process.platform === 'win32';
+  const spawnOpts = { stdio: 'ignore', timeout: 15000 };
+  if (isWin) spawnOpts.shell = true;
+
+  // 1. pnpm store prune
+  try {
+    const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+    spawnSync(pnpmCmd, ['store', 'prune'], spawnOpts);
+  } catch {}
+
+  // 2. npm cache clean
+  try {
+    const npmCmd = isWin ? 'npm.cmd' : 'npm';
+    spawnSync(npmCmd, ['cache', 'clean', '--force'], spawnOpts);
+  } catch {}
+
+  // 3. yarn cache clean
+  try {
+    const yarnCmd = isWin ? 'yarn.cmd' : 'yarn';
+    spawnSync(yarnCmd, ['cache', 'clean', '--all'], spawnOpts);
+  } catch {}
+
+  // 4. Clean temporary pnpm/git clones across platforms (Windows, Linux, macOS)
+  try {
+    const tempDirs = [];
+    if (isWin) {
+      if (process.env.LOCALAPPDATA) {
+        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v3', 'tmp'));
+        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v10', 'tmp'));
+        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm', 'store', 'v11', 'tmp'));
+        tempDirs.push(path.join(process.env.LOCALAPPDATA, 'pnpm-cache'));
+      }
+      if (process.env.TEMP) {
+        tempDirs.push(path.join(process.env.TEMP, 'pnpm'));
+        tempDirs.push(path.join(process.env.TEMP, 'npm-cache'));
+      }
+    } else {
+      tempDirs.push(path.join(os.homedir(), '.cache', 'pnpm'));
+      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v3', 'tmp'));
+      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v10', 'tmp'));
+      tempDirs.push(path.join(os.homedir(), '.local', 'share', 'pnpm', 'store', 'v11', 'tmp'));
+      tempDirs.push(path.join(os.homedir(), 'Library', 'Caches', 'pnpm'));
+      tempDirs.push(path.join(os.homedir(), 'Library', 'pnpm', 'store', 'v11', 'tmp'));
+    }
+    for (const d of tempDirs) {
+      if (fileExists(d)) {
+        try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 3 }); } catch {}
+      }
+    }
+  } catch {}
+}
+
 async function cmdInit(args, options = {}) {
   if (args.includes('help') || args.includes('--help') || args.includes('-h')) {
     cmdInitHelp();
     return;
+  }
+  if (args.includes('--force')) {
+    purgePackageCaches({ silent: true });
   }
   syncTemplateSkills();
   drawLogo();
@@ -1332,7 +1417,7 @@ async function cmdInit(args, options = {}) {
   if (process.env.KONOHA_SEMANTIC_SEARCH !== '1') {
     migrationArgs.push('--skip-embeddings');
   }
-  const run = spawnSync(python, [MIGRATE_PATH, ...migrationArgs], {
+  const run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs], {
     encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
   });
   if (run.status !== 0) {
@@ -1347,7 +1432,7 @@ async function cmdInit(args, options = {}) {
   }
   spinnerMigrate.success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
   try {
-    const schemaCheck = spawnSync(python, ['-c', `import sqlite3; c=sqlite3.connect(${JSON.stringify(DB_PATH)}); names={r[0] for r in c.execute("select name from sqlite_master where type='table'")}; missing={'skills','skills_fts','tool_calls','active_sessions','agents','bridges'}-names; raise SystemExit(1 if missing else 0)`], { encoding: 'utf-8', timeout: 5000 });
+    const schemaCheck = spawnPythonSync(python, ['-c', `import sqlite3; c=sqlite3.connect(${JSON.stringify(DB_PATH)}); names={r[0] for r in c.execute("select name from sqlite_master where type='table'")}; missing={'skills','skills_fts','tool_calls','active_sessions','agents','bridges'}-names; raise SystemExit(1 if missing else 0)`], { encoding: 'utf-8', timeout: 5000 });
     if (schemaCheck.status !== 0) throw new Error('required SQLite schema is incomplete');
   } catch (schemaError) {
     error(`SQLite schema verification failed: ${schemaError.message}`);
@@ -1496,6 +1581,7 @@ async function cmdInit(args, options = {}) {
       : `${skip} Codex        ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
+    `Version:     ${C.green}v${getCliVersion()}${C.reset}`,
     `Server:     ${C.dim}${SERVER_PATH}${C.reset}`,
     `Migration:  ${C.dim}${MIGRATE_PATH}${C.reset}`,
     `Database:   ${C.dim}${DB_PATH}${C.reset}`,
@@ -2428,6 +2514,7 @@ function ensureAutoSetup() {
   const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
   copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
+  skillManager.syncAllClientSkills({ projectRoot: currentCwd, silent: true });
 
   // 3 & 4. Configure settings.json permissions & register skills-db and semble in mcp_config.json silently
   autoInstallKonohaBridgeExtension(true);
@@ -2565,12 +2652,12 @@ function ensureAutoSetup() {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {
         try {
-          spawnSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill', ...extraArgs], {
+          spawnPythonSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill', ...extraArgs], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
         } catch (e) {
           try {
-            spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+            spawnPythonSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
           } catch (e2) {}
@@ -2578,7 +2665,7 @@ function ensureAutoSetup() {
       }
     } else {
       try {
-        spawnSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+        spawnPythonSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
       } catch (e) {}
@@ -2643,6 +2730,16 @@ function moveUnusedSkills(skillsDirs, agents) {
       if (!isSkill) continue;
 
       const cleanName = skillName.endsWith('.md') ? skillName.slice(0, -3) : skillName;
+
+      // Canonical template skills must NEVER be pruned (Strict Skill Protection Invariant)
+      const templateSkillsDir = path.join(SRC_DIR, 'templates', 'skills');
+      const isCanonical = fs.existsSync(path.join(templateSkillsDir, skillName)) ||
+                          fs.existsSync(path.join(templateSkillsDir, cleanName)) ||
+                          fs.existsSync(path.join(templateSkillsDir, `${cleanName}-skill.md`));
+      if (isCanonical) {
+        continue;
+      }
+
       if (!activeSkills.has(cleanName.toLowerCase())) {
         const srcPath = path.join(skillsDir, skillName);
         const destPath = path.join(backupSkillsDir, `${cleanName}-${yyyymmdd}${entry.isFile() ? '.md' : ''}`);
@@ -2713,7 +2810,7 @@ async function cmdMigrate(args) {
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      const run = spawnSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
+      const run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
         encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
       });
       if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
@@ -2729,7 +2826,7 @@ async function cmdMigrate(args) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        const runFallback = spawnSync(python, [MIGRATE_PATH, '--clean'], {
+        const runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration failed');
@@ -2746,7 +2843,7 @@ async function cmdMigrate(args) {
         migrateArgs.push('--skills-dir', dir.path);
       }
       try {
-        const run = spawnSync(python, migrateArgs, {
+        const run = spawnPythonSync(python, migrateArgs, {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (run.status === 0) {
@@ -2912,7 +3009,7 @@ async function cmdTest(args = []) {
               env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             })
-          : spawnSync(python, [SERVER_PATH], {
+          : spawnPythonSync(python, [SERVER_PATH], {
               input,
               encoding: 'utf-8',
               timeout: 20000,
@@ -2993,7 +3090,7 @@ async function cmdTest(args = []) {
       for (const tf of testFiles) {
         const fp = path.join(srcDir, tf);
         info(`Running test suite: ${tf}...`);
-        const runTest = spawnSync(python, [fp], { stdio: 'inherit' });
+        const runTest = spawnPythonSync(python, [fp], { stdio: 'inherit' });
         if (runTest.status !== 0) {
           error(`${tf}: FAILED`);
           allPassed = false;
@@ -3636,7 +3733,7 @@ async function cmdDoctor(args = []) {
           if (skills.length === 0) continue;
           
           try {
-            const run = spawnSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
+            const run = spawnPythonSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
             if (run.status === 0) migrationSuccess = true;
@@ -3646,7 +3743,7 @@ async function cmdDoctor(args = []) {
       
       if (!migrationSuccess) {
         try {
-          const runFallback = spawnSync(python, [MIGRATE_PATH], {
+          const runFallback = spawnPythonSync(python, [MIGRATE_PATH], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
           if (runFallback.status === 0) migrationSuccess = true;
@@ -4234,7 +4331,7 @@ async function cmdAgentStatus() {
   let stats = {};
   if (fileExists(DB_PATH)) {
     try {
-      const run = spawnSync(python, [scriptToUse, DB_PATH], {
+      const run = spawnPythonSync(python, [scriptToUse, DB_PATH], {
         encoding: 'utf-8',
         timeout: 5000
       });
@@ -4356,7 +4453,7 @@ async function cmdSavings(args = []) {
     try {
       log(`\n  ${C.bold}${applyGradient('1. ⚡ Konoha MCP Savings', LEAF_THEME)}${C.reset}`);
 
-      const run = spawnSync(python, [scriptToUse, DB_PATH], {
+      const run = spawnPythonSync(python, [scriptToUse, DB_PATH], {
         encoding: 'utf-8',
         timeout: 25000
       });
@@ -4687,21 +4784,32 @@ function cmdSkillHelp() {
 
 ${C.bold}USAGE${C.reset}
   konoha skill <subcommand> [args]
+  konoha skill <skillname> embed <agentname>
+  konoha skill <skillname> unembed <agentname>
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}list${C.reset}                Show all custom skills currently installed in your village.
-  ${C.cyan}search <query>${C.reset}      Find new skills on the public registry (skills.sh) and install them.
-  ${C.cyan}add <url> <name>${C.reset}   Directly install a skill from a Git repository URL.
-  ${C.cyan}remove <name>${C.reset}      Uninstall a skill from your local environment.
+  ${C.cyan}list${C.reset}                         Show all custom skills currently installed in your village.
+  ${C.cyan}search <query>${C.reset}               Find new skills on the public registry (skills.sh) and install them.
+  ${C.cyan}add <name|url> [name]${C.reset}        Install a skill from registry or directly from a Git repository URL.
+  ${C.cyan}remove <name>${C.reset}                Uninstall a skill from your local environment.
+  ${C.cyan}<skillname> embed <agent>${C.reset}   Embed an installed skill into a specific subagent.
+  ${C.cyan}embed <skill> <agent>${C.reset}        Alias: Embed a skill into a specific subagent.
+  ${C.cyan}<skillname> unembed <agent>${C.reset} Remove an embedded skill from a specific subagent.
 
 ${C.bold}EXAMPLES FOR BEGINNERS${C.reset}
-  ${C.dim}1. Find and install a Terraform skill from the registry:${C.reset}
-     konoha skill search terraform
+  ${C.dim}1. Find and install a Helm skill from the registry:${C.reset}
+     konoha skill search helm
 
-  ${C.dim}2. Install a specific skill directly from GitHub:${C.reset}
+  ${C.dim}2. Add a skill directly by name from registry:${C.reset}
+     konoha skill add helm-chart-scaffolding
+
+  ${C.dim}3. Embed an installed skill into subagent @anbu:${C.reset}
+     konoha skill helm-chart-scaffolding embed anbu
+
+  ${C.dim}4. Install a specific skill directly from GitHub:${C.reset}
      konoha skill add https://github.com/example/my-skill my-custom-skill
 
-  ${C.dim}3. View all skills currently installed:${C.reset}
+  ${C.dim}5. View all skills currently installed:${C.reset}
      konoha skill list
 `);
 }
@@ -4714,6 +4822,47 @@ async function cmdSkill(args) {
   if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
     cmdSkillHelp();
     process.exit(0);
+  }
+
+  // Handle skill embed / unembed syntax:
+  // 1. konoha skill <skillname> embed <agentname>
+  // 2. konoha skill embed <skillname> <agentname>
+  // 3. konoha skill <skillname> unembed <agentname>
+  // 4. konoha skill unembed <skillname> <agentname>
+  const isEmbed = (subcommand === 'embed' || subArgs[0] === 'embed');
+  const isUnembed = (subcommand === 'unembed' || subArgs[0] === 'unembed');
+
+  if (isEmbed || isUnembed) {
+    const skillName = (subcommand === 'embed' || subcommand === 'unembed') ? subArgs[0] : subcommand;
+    const agentName = (subcommand === 'embed' || subcommand === 'unembed') ? subArgs[1] : subArgs[1];
+
+    if (!skillName || !agentName) {
+      error(`Usage: konoha skill <skillname> ${isEmbed ? 'embed' : 'unembed'} <agentname>`);
+      process.exit(1);
+    }
+
+    try {
+      if (isEmbed) {
+        const embedded = skillManager.embedSkillInAgent(skillName, agentName);
+        if (embedded) {
+          success(`Successfully embedded skill "${skillName}" into @${agentName}`);
+        } else {
+          warn(`Skill "${skillName}" is already embedded in @${agentName}`);
+        }
+      } else {
+        const unembedded = skillManager.unembedSkillFromAgent(skillName, agentName);
+        if (unembedded) {
+          success(`Successfully removed skill "${skillName}" from @${agentName}`);
+        } else {
+          warn(`Skill "${skillName}" was not embedded in @${agentName}`);
+        }
+      }
+      info('Re-deployed team configurations.');
+    } catch (err) {
+      error(`Failed to ${isEmbed ? 'embed' : 'unembed'} skill: ${err.message}`);
+      process.exit(1);
+    }
+    return;
   }
 
   switch (subcommand) {
@@ -4741,14 +4890,19 @@ async function cmdSkill(args) {
       break;
     }
     case 'add': {
-      const url = subArgs[0];
-      const name = subArgs[1];
-      if (!url || !name) {
-        error('Usage: konoha skill add <repository-url> <skill-name>');
+      if (subArgs.length === 0) {
+        error('Usage: konoha skill add <skill-name> OR konoha skill add <repository-url> <skill-name>');
         process.exit(1);
       }
       try {
-        skillManager.addSkillDirect(url, name);
+        if (subArgs.length >= 2) {
+          const url = subArgs[0];
+          const name = subArgs[1];
+          skillManager.addSkillDirect(url, name);
+        } else {
+          const nameOrUrl = subArgs[0];
+          await skillManager.addSkill(nameOrUrl);
+        }
       } catch (err) {
         error(`Failed to add skill: ${err.message}`);
         process.exit(1);
@@ -4914,10 +5068,6 @@ async function cmdAgent(args) {
       break;
     }
     case 'skill': {
-      if (!process.stdin || !process.stdin.isTTY) {
-        error('Cannot configure agent skills in non-interactive mode.');
-        process.exit(1);
-      }
       let agentName = subArgs[0];
       let agents = agentManager.loadAgents();
       if (agents.length === 0) {
@@ -4933,6 +5083,36 @@ async function cmdAgent(args) {
           process.exit(1);
         }
         agentName = found.name;
+      }
+
+      // Check if direct skill argument was passed, e.g. konoha agent skill anbu <skill-name>
+      if (agentPassedOnCli && subArgs[1]) {
+        const targetSkill = subArgs[1];
+        try {
+          const ok = agentManager.embedSkill(agentName, targetSkill);
+          if (ok) {
+            success(`Successfully embedded skill "${targetSkill}" into @${agentName}`);
+          } else {
+            warn(`Skill "${targetSkill}" is already embedded in @${agentName}`);
+          }
+          info('Re-deployed team configurations.');
+        } catch (err) {
+          error(`Failed to embed skill: ${err.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      if (!process.stdin || !process.stdin.isTTY) {
+        header(agentPassedOnCli ? `Skills Status for @${agentName}` : 'All Subagents Skills Status');
+        const targetAgents = agentPassedOnCli ? [agents.find(a => a.name === agentName)] : agents;
+        targetAgents.forEach(a => {
+          log(`  ${C.bold}${a.icon || '👤'} @${a.name}${C.reset} ── ${a.title || 'Subagent'}`);
+          const skillsList = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
+          log(`       ${C.dim}Skills: ${C.reset}${C.magenta}${skillsList}${C.reset}\n`);
+        });
+        info('Tip: Run interactively in a TTY, or use: konoha skill <skillname> embed <agentname>');
+        break;
       }
 
       let step = agentPassedOnCli ? 'SELECT_SKILL' : 'SELECT_AGENT';
@@ -5096,7 +5276,7 @@ async function cmdAgent(args) {
           
           if (scriptToUse) {
             try {
-              const run = spawnSync(python, [scriptToUse, DB_PATH, '--prune', name], {
+              const run = spawnPythonSync(python, [scriptToUse, DB_PATH, '--prune', name], {
                 encoding: 'utf-8',
                 timeout: 5000
               });
@@ -5299,7 +5479,7 @@ conn.execute("DELETE FROM tool_calls;")
 conn.commit()
 print("success")
 `.trim();
-          const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 3000 });
+          const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 3000 });
           if (run.status === 0 && run.stdout.trim() === 'success') {
             success('Successfully cleared local usage logs. Model quotas restored to 100%!');
           } else {
@@ -5454,7 +5634,7 @@ async function cmdVersion(args = []) {
     path.join(SKILLS_DB_DIR, 'package.json'),
     path.join(os.homedir(), '.konoha', 'package.json')
   ];
-  let currentVersion = '2.0.0-beta.3';
+  let currentVersion = '2.0.0-beta.4';
   for (const p of candidatePkgPaths) {
     if (fileExists(p)) {
       try {
@@ -5537,14 +5717,22 @@ async function cmdUpgrade(args = []) {
   const pbar = new KonohaProgressBar({ total: 7, width: 28, title: 'Upgrade' });
 
   // Stage 1/7: Environment & Package Manager Detection
-  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager & resolving latest release...`);
+  pbar.start(`${C.cyan}[Stage 1/7]${C.reset} Detecting package manager & purging stale caches...`);
   const isWin = process.platform === 'win32';
+  purgePackageCaches({ silent: true });
 
-  // Resolve target version/tag from GitHub
-  let targetTag = 'v2.0.0-beta.3';
+  // Resolve target version/tag from GitHub or local package (never downgrade)
+  const localVer = getCliVersion();
+  let targetTag = `v${localVer}`;
   try {
     const latest = await getLatestVersion();
-    if (latest) targetTag = latest;
+    if (latest) {
+      const cleanLatest = latest.replace(/^v/, '');
+      const cleanLocal = localVer.replace(/^v/, '');
+      if (semverCompare(cleanLatest, cleanLocal) >= 0) {
+        targetTag = latest;
+      }
+    }
   } catch {}
 
   const pkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
@@ -5563,17 +5751,19 @@ async function cmdUpgrade(args = []) {
   };
 
   if (checkCmd(pnpmCmd)) {
-    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
+    // Unlink old global package to purge stale store links before re-adding
+    try { spawnSync(pnpmCmd, ['remove', '--global', 'konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
   }
   if (checkCmd(npmCmd)) {
-    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', pkgTarget] });
+    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
   }
   if (checkCmd(yarnCmd)) {
     pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
   }
   if (pmCandidates.length === 0) {
-    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
-    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', pkgTarget] });
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
+    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
   }
 
   pbar.logStep(`Target: ${C.green}${targetTag}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
@@ -5762,7 +5952,7 @@ db_path = sys.argv[1]
 projs = persona_memory.list_projects(limit=50, db_path=db_path)
 print(json.dumps(projs))
 `.trim();
-    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR], { encoding: 'utf-8', timeout: 5000 });
+    const run = spawnPythonSync(python, ['-c', script, DB_PATH, SRC_DIR], { encoding: 'utf-8', timeout: 5000 });
     if (run.status === 0) {
       const projs = JSON.parse(run.stdout.trim());
       header('📁 Tracked Project Workspaces in Konoha');
@@ -5796,7 +5986,7 @@ if not profile:
 mems = persona_memory.list_memories(project_path=target, limit=10, db_path=db_path)
 print(json.dumps({"profile": profile, "memories": mems}))
 `.trim();
-    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath], { encoding: 'utf-8', timeout: 5000 });
+    const run = spawnPythonSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath], { encoding: 'utf-8', timeout: 5000 });
     if (run.status === 0) {
       const data = JSON.parse(run.stdout.trim());
       const p = data.profile || {};
@@ -6648,7 +6838,7 @@ print(json.dumps({
     "saved": max(size_before - size_after, 0)
 }))
 `.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
+      const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
       if (run.status === 0) {
         const data = JSON.parse(run.stdout.trim());
         
@@ -6710,7 +6900,7 @@ print(json.dumps({
     "saved": max(size_before - size_after, 0)
 }))
 `.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
+      const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
       if (run.status === 0) {
         const data = JSON.parse(run.stdout.trim());
         const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);

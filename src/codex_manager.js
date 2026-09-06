@@ -33,7 +33,8 @@ const {
   isCommandAvailable,
   fileExistsCached,
   getRtkCommand,
-  isRtkInstalled
+  isRtkInstalled,
+  normalizeCommand
 } = require('./platform_utils');
 
 const {
@@ -216,10 +217,12 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
+  const normPython = normalizeCommand(pythonExecutable);
+  const konohaArgs = [...normPython.prefixArgs, serverEntryPoint];
   const konohaBlock = [
     '[mcp_servers.konoha]',
-    `command = "${pythonExecutable}"`,
-    `args = ["${serverEntryPoint}"]`,
+    `command = "${normPython.executable}"`,
+    `args = [${konohaArgs.map(a => `"${a.replace(/\\/g, '\\\\')}"`).join(', ')}]`,
     'auto_approve = true',
     'auto_approve_tools = ["*"]',
     '[mcp_servers.konoha.env]',

@@ -17,7 +17,7 @@ You are the **Konoha orchestrator**. Act as coordinator, delegating specialized 
 
 ## Ninja Agents (MCP tools)
 
-Official team tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`
+Official team tools: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `mcp_sannin`, `mcp_genin`, `mcp_kage`, `mcp_chunin`, `mcp_jonin`, `mcp_anbu`, `mcp_tokubetsu-jonin`
 
 Skill packages live under `.cursor/skills/` (mirrored from `~/.agents/skills/`). Use `konoha` MCP for on-demand retrieval — never load `SKILL.md` files directly.
 
@@ -70,6 +70,13 @@ Taste-Skill is additive: validated `taste_dials` tune only visual design and nev
 | `jonin-skill`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`, `jonin-skill/angular-ui-expert`, `jonin-skill/build-directives-manifest`, `jonin-skill/design-token-manifest`, `jonin-skill/framer-motion-animator`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/nuxt`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt-ui-expert`, `jonin-skill/owasp-security`, `jonin-skill/react-nextjs-patterns`, `jonin-skill/source-fidelity-directives`, `jonin-skill/spline-interactive`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/svelte5-best-practices`, `jonin-skill/tailwind-design-system`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/taste-skill-frontend-expert`, `jonin-skill/vite` | `jonin` |
 | `anbu-skill`, `anbu-skill/anthropic-cybersecurity-skills`, `anbu-skill/devops-engineer`, `anbu-skill/distributed-systems`, `anbu-skill/laravel-specialist`, `anbu-skill/magento-module-developer`, `anbu-skill/prometheus-grafana`, `anbu-skill/prompt-engineer`, `anbu-skill/wordpress-pro` | `anbu` |
 | `tokubetsu-jonin-skill`, `tokubetsu-jonin-skill/documentation-writer`, `tokubetsu-jonin-skill/pdf`, `tokubetsu-jonin-skill/postmortem-writer`, `tokubetsu-jonin-skill/technical-article-writer` | `tokubetsu-jonin` |
+| `sannin-skill` | `mcp_sannin` |
+| `genin-skill`, `genin-skill/architecture-analysis`, `genin-skill/backend-review`, `genin-skill/character-hygiene`, `genin-skill/code-exploration`, `genin-skill/code-review`, `genin-skill/command-safety`, `genin-skill/context-optimization`, `genin-skill/frontend-review`, `genin-skill/guardrails`, `genin-skill/report-quality`, `genin-skill/research-methodology`, `genin-skill/router`, `genin-skill/secret-safety`, `genin-skill/source-evaluation`, `genin-skill/token-safety` | `mcp_genin` |
+| `kage-skill`, `kage-skill/drawio-skill`, `kage-skill/improve-codebase-architecture`, `kage-skill/mermaid-diagrams`, `kage-skill/risk-assessment` | `mcp_kage` |
+| `chunin-skill` | `mcp_chunin` |
+| `jonin-skill`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`, `jonin-skill/angular-ui-expert`, `jonin-skill/build-directives-manifest`, `jonin-skill/design-token-manifest`, `jonin-skill/framer-motion-animator`, `jonin-skill/nextjs-code-expert`, `jonin-skill/nextjs-ui-expert`, `jonin-skill/nuxt`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt-ui-expert`, `jonin-skill/owasp-security`, `jonin-skill/react-nextjs-patterns`, `jonin-skill/source-fidelity-directives`, `jonin-skill/spline-interactive`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte-ui-expert`, `jonin-skill/svelte5-best-practices`, `jonin-skill/tailwind-design-system`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/taste-skill-frontend-expert`, `jonin-skill/vite` | `mcp_jonin` |
+| `anbu-skill`, `anbu-skill/anthropic-cybersecurity-skills`, `anbu-skill/devops-engineer`, `anbu-skill/distributed-systems`, `anbu-skill/laravel-specialist`, `anbu-skill/magento-module-developer`, `anbu-skill/prometheus-grafana`, `anbu-skill/prompt-engineer`, `anbu-skill/wordpress-pro` | `mcp_anbu` |
+| `tokubetsu-jonin-skill`, `tokubetsu-jonin-skill/documentation-writer`, `tokubetsu-jonin-skill/pdf`, `tokubetsu-jonin-skill/postmortem-writer`, `tokubetsu-jonin-skill/technical-article-writer` | `mcp_tokubetsu-jonin` |
 | Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 
 ### Default Code Search — Semble MCP Only

@@ -5,7 +5,7 @@ const { readStdinJson, isConfirmedSelf } = require('./hook-base');
 
 async function getLastUserInput(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-    return null;
+    return { lastInput: null, isNewInput: false };
   }
   return new Promise((resolve) => {
     const fileStream = fs.createReadStream(transcriptPath);
@@ -15,12 +15,16 @@ async function getLastUserInput(transcriptPath) {
     });
 
     let lastInput = null;
+    let hasResponseAfterInput = false;
     rl.on('line', (line) => {
       if (!line.trim()) return;
       try {
         const record = JSON.parse(line);
         if (record && record.type === 'USER_INPUT') {
           lastInput = record.content || record.text;
+          hasResponseAfterInput = false;
+        } else if (record && (record.type === 'PLANNER_RESPONSE' || record.source === 'MODEL')) {
+          hasResponseAfterInput = true;
         }
       } catch (e) {
         // ignore parsing errors for corrupted or partial lines
@@ -28,12 +32,12 @@ async function getLastUserInput(transcriptPath) {
     });
 
     rl.on('close', () => {
-      resolve(lastInput);
+      resolve({ lastInput, isNewInput: lastInput !== null && !hasResponseAfterInput });
     });
 
     fileStream.on('error', () => {
       rl.close();
-      resolve(null);
+      resolve({ lastInput: null, isNewInput: false });
     });
   });
 }
@@ -102,13 +106,13 @@ async function main() {
     const { transcriptPath, artifactDirectoryPath } = context;
     if (!transcriptPath) process.exit(0);
 
-    const lastInput = await getLastUserInput(transcriptPath);
+    const { lastInput, isNewInput } = await getLastUserInput(transcriptPath);
     await writePromptFile(lastInput, artifactDirectoryPath);
 
-    // ONLY inject the self ephemeral for CONFIRMED self sessions.
-    // At invocation 0 the transcript is empty → isConfirmedSelf returns
-    // false → no injection. From invocation 1+ we have evidence.
-    if (lastInput && isConfirmedSelf(transcriptPath)) {
+    // ONLY inject the self ephemeral for CONFIRMED self sessions
+    // AND only when this is a NEW user input awaiting its initial response.
+    // Suppresses repetitive nudges on subsequent tool calls and steps within the turn.
+    if (isNewInput && isConfirmedSelf(transcriptPath)) {
       console.log(JSON.stringify(SELF_NUDGE));
     }
   } catch {

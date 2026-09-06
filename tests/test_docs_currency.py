@@ -186,8 +186,8 @@ def main():
         sys.exit(1)
 
     actual_file_tools = parse_tool_names_from_router(router_path)
-    if len(actual_tools) != 38:
-        print(f"ERROR: Expected 38 manifest-backed tools, found {len(actual_tools)}", file=sys.stderr)
+    if len(actual_tools) != 39:
+        print(f"ERROR: Expected 39 manifest-backed tools, found {len(actual_tools)}", file=sys.stderr)
         sys.exit(1)
     if set(actual_tools) != set(actual_file_tools):
         print("ERROR: Node/Python MCP tool registries differ", file=sys.stderr)

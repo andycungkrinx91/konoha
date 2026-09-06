@@ -79,31 +79,69 @@ function listSkillEntries(skillsDir) {
   return entries;
 }
 
+// Fast mtime+size fingerprint for a directory tree. Returns "mtime:count:size".
+function treeFingerprint(root) {
+  let maxMtime = 0;
+  let count = 0;
+  let totalSize = 0;
+  if (!fs.existsSync(root)) return "0:0:0";
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (dir === root && (entry.name === '.claude' || entry.name === '.cursor' || entry.name === 'CLAUDE.md' || entry.name === '.git' || entry.name === '.DS_Store')) {
+        continue;
+      }
+      const p = path.join(dir, entry.name);
+      try {
+        const st = fs.statSync(p);
+        if (entry.isDirectory()) { stack.push(p); }
+        else { count++; totalSize += st.size; if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs; }
+      } catch {}
+    }
+  }
+  return `${maxMtime.toFixed(0)}:${count}:${totalSize}`;
+}
+
+// Copy srcRoot -> destRoot only when files have actually changed.
+function copySkillsDirFast(srcRoot, destRoot) {
+  if (!fs.existsSync(srcRoot)) return;
+  ensureDir(destRoot);
+  const srcFp = treeFingerprint(srcRoot);
+  const fpMarker = destRoot + '.fingerprint';
+  let destFp = null;
+  try { destFp = fs.readFileSync(fpMarker, 'utf-8').trim(); } catch {}
+  if (srcFp === destFp) return;
+
+  const walk = (dir) => {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (dir === srcRoot && (entry.name === '.claude' || entry.name === '.cursor' || entry.name === 'CLAUDE.md' || entry.name === '.git' || entry.name === '.DS_Store')) {
+        continue;
+      }
+      const s = path.join(dir, entry.name);
+      const d = path.join(destRoot, path.relative(srcRoot, s));
+      if (entry.isDirectory()) {
+        ensureDir(d);
+        walk(s);
+      } else {
+        copyIfDifferent(s, d);
+      }
+    }
+  };
+  walk(srcRoot);
+  try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch {}
+}
+
 function mirrorSkillsDirectory(srcDir, destDir) {
-  // Konoha no longer creates filesystem skill mirrors.
-  // Skills are loaded from SQLite DB (skills.db) at runtime via the konoha MCP.
-  // This function is intentionally a no-op for backwards compatibility.
   return 0;
 }
 
 function syncCursorSkillsFromAgents(options = {}) {
-  const { projectRoot = null, deployProject = false, silent = true } = options;
-
-  const agentsGlobal = path.join(HOME, ".agents", "skills");
-  const cursorGlobal = path.join(HOME, ".cursor", "skills");
-  let total = mirrorSkillsDirectory(agentsGlobal, cursorGlobal);
-
-  if (deployProject && projectRoot && fileExists(projectRoot)) {
-    const projectAgents = path.join(projectRoot, ".agents", "skills");
-    const projectCursor = path.join(projectRoot, ".cursor", "skills");
-    const src = fileExists(projectAgents) ? projectAgents : agentsGlobal;
-    total += mirrorSkillsDirectory(src, projectCursor);
-  }
-
-  if (!silent && total > 0) {
-    console.log(`✓ Synced ${total} skill(s) to ~/.cursor/skills/`);
-  }
-  return total;
+  return 0;
 }
 
 function writeNodeExecPathRecord() {
@@ -263,5 +301,7 @@ module.exports = {
   writePythonCmdRecord,
   buildKonohaFilesMcpEntry,
   buildKonohaMcpEntry,
+  treeFingerprint,
+  copySkillsDirFast,
   installFileTools,
 };

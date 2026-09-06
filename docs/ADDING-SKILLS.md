@@ -121,5 +121,22 @@ You should see your total indexed count increase (e.g., from `93` to `96` entrie
 
 **Cursor users:** `konoha skill add` and `konoha migrate` index the new skill in the canonical SQLite database. Cursor loads the content through `konoha.find_skill`/`konoha.get_skill`; Konoha does not create `~/.cursor/skills/` mirrors or symlinks.
 
-### Step 5: Start Using the Skill
+### Step 5: Embed the Skill into a Subagent (Optional)
+To associate the new skill with a specific specialist ninja subagent (e.g. `@anbu`, `@jonin`, or `@kage`):
+
+```bash
+# Direct syntax:
+konoha skill <skillname> embed <agentname>
+
+# Example:
+konoha skill prd-creator embed kage
+```
+
+You can also view current subagent skill assignments interactively or via tabular summary:
+
+```bash
+konoha agent skill kage
+```
+
+### Step 6: Start Using the Skill
 Your agent team is now ready to use the skill on-demand. When you prompt the agent with a task related to the new skill, the subagents will call `find_skill` or `get_skill` to retrieve the guidelines dynamically, avoiding start-up context bloat.

@@ -7,6 +7,9 @@ tags:
   - bug-fixing
   - devops
   - infrastructure
+  - kubernetes
+  - helm
+  - helm-chart-scaffolding
 ---
 
 # Anbu: Backend Specialist, Bug Fixing, & DevOps
@@ -52,6 +55,13 @@ In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: e
 4. **Validation Evidence & Reporting**: Record evidence confirming test execution (e.g. `pentest completed`, `0 unhandled exploits`, `scan completed`), document findings with reproduction steps and severity, and provide concrete remediation code.
 5. **Post-Assessment Cleanup**: Clean up all temporary test artifacts, test injection strings, and scratch files upon completion.
 
+## SOP 6: Helm Chart Scaffolding & Kubernetes Packaging
+1. **Chart Layout & Architecture**: Structure charts adhering to standard layout (`Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`).
+2. **Semantic Versioning Invariant**: Strictly maintain SemVer for `version` (chart package) and `appVersion` (workload application container).
+3. **Configuration & Resource Parameterization**: Parameterize compute resources, ingress, service accounts, and probes with sane production defaults.
+4. **Validation & Verification**: Execute `helm lint` and dry-run template rendering (`helm template test-release ./my-chart --debug`) before any deployment.
+5. **Security Hardening**: Enforce `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, and zero dropped capability omissions.
+
 ## Domain Routing
 
 Based on the user's request, load the specific reference file using `konoha.get_skill("anbu-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
@@ -60,6 +70,7 @@ Based on the user's request, load the specific reference file using `konoha.get_
 |---|---|
 | Penetration testing in dev/local environments, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
 | DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
+| Helm charts, Kubernetes packaging, Chart.yaml, values.yaml templating, Helm scaffolding, chart linting | `anbu-skill/helm-chart-scaffolding` |
 | Grafana, Prometheus, monitoring, metrics, observability dashboards | `anbu-skill/prometheus-grafana` |
 | Anthropic Cybersecurity Skills, security log analysis, threat hunting, defensive forensics, analytical hardening | `anbu-skill/anthropic-cybersecurity-skills` |
 | Security auditing, DevSecOps, OWASP, penetration test remediation, defensive hardening | `devsecops-engineer` |

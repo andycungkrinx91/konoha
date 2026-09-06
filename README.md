@@ -20,7 +20,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.3 — Konoha v2.0.0-beta.3 (2026-09-04)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.3_2026-09-04.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.4 — Konoha v2.0.0-beta.4 (2026-09-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.4_2026-09-06.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -28,6 +28,15 @@
 
 <p align="center">
   <img src="assets/demo.gif" alt="Konoha Core & Subagent Commands Demo" width="100%">
+</p>
+</details>
+
+<details open>
+<summary><b>📦 Skill Creation & Subagent Embedding Flow (<code>demo-skill-embed.gif</code>)</b></summary>
+<br>
+
+<p align="center">
+  <img src="assets/demo-skill-embed.gif" alt="Konoha Skill Creation & Agent Embedding Demo" width="100%">
 </p>
 </details>
 
@@ -284,7 +293,7 @@ Konoha integrates state-of-the-art hybrid semantic retrieval combining **SQLite-
 
 All non-trivial work on a Konoha-configured host **MUST** flow through the Konoha MCP and Semble MCP tools and be delegated to a konoha subagent — never executed solo by the main orchestrator.
 
-- **Skill lookup** (`konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`.
+- **Skill lookup** (`konoha.find_skills`, `konoha.find_skill`, `konoha.get_skill`) — always via `konoha` MCP, never `semble`. Project-scoped skills (`.agents/skills`, `skills/`, `.cursor/skills`, `.gemini/skills`) auto-migrate into `skills.db`.
 - **Codebase search** (`semble.search`, `semble.find_related`) — always via `semble` MCP, never `grep`/`rg`/`find`.
 - **Bounded file reads** — `konoha.read_file_head` / `read_file_range` / `file_info` / `token_efficient_grep`, never generic `Read` / `Grep` / `Glob` / shell `cat`/`head`/`tail`.
 - **Zero-AI-Slop Code Quality** — `aislop.aislop_scan`, `aislop.aislop_fix`, `aislop.aislop_why` for code hygiene and Kage review gating.
@@ -625,8 +634,8 @@ Executes the specified subagent inline with structured task context, dynamic ski
 #### `web_search(query, num_results?, search_depth?)`
 Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.
 
-#### `find_skill(keyword, limit?)`
-Search skills by keyword using FTS5 full-text search.
+#### `find_skill(keyword, limit?)` (alias: `find_skills`)
+Search skills by keyword using SQLite FTS5 full-text search with automatic project-scoped skill discovery and migration.
 
 ```
 find_skill("terraform aws")     → anbu-skill references

@@ -30,7 +30,7 @@ class TestDocumentationDiagrams(unittest.TestCase):
     def test_drawio_pages_have_valid_cells_and_edges(self):
         root = ET.parse(DIAGRAM).getroot()
         pages = root.findall("diagram")
-        self.assertEqual(len(pages), 11)
+        self.assertEqual(len(pages), 12)
         expected = {
             "01 System Architecture",
             "02 Runtime Query Lifecycle",
@@ -43,6 +43,7 @@ class TestDocumentationDiagrams(unittest.TestCase):
             "09 Jonin Taste-Skill Frontend Engine",
             "10 Persistent Project Context & Auto-Compaction",
             "11 Kage Pre-Delivery Reviewer Workflow Gate",
+            "12 CLI Upgrade & Progress Engine",
         }
         self.assertEqual({page.get("name") for page in pages}, expected)
         for page in pages:

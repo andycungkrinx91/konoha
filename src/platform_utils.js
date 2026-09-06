@@ -98,18 +98,52 @@ function detectPythonOrDefault() {
 
 function normalizeCommand(command) {
   if (Array.isArray(command)) return { executable: command[0], prefixArgs: command.slice(1) };
+  if (command && typeof command === 'object' && command.executable) {
+    return {
+      executable: command.executable,
+      prefixArgs: Array.isArray(command.prefixArgs) ? command.prefixArgs : []
+    };
+  }
   if (typeof command !== 'string') return { executable: command, prefixArgs: [] };
   const trimmed = command.trim();
+  if (!trimmed) return { executable: '', prefixArgs: [] };
   if (trimmed.startsWith('[')) {
     try {
       return normalizeCommand(JSON.parse(trimmed));
     } catch {}
   }
+  if (fileExistsCached(trimmed)) {
+    return { executable: trimmed, prefixArgs: [] };
+  }
+  if (trimmed.startsWith('"')) {
+    const nextQuote = trimmed.indexOf('"', 1);
+    if (nextQuote !== -1) {
+      const exe = trimmed.slice(1, nextQuote);
+      const rest = trimmed.slice(nextQuote + 1).trim();
+      const prefixArgs = rest ? rest.split(/\s+/) : [];
+      return { executable: exe, prefixArgs };
+    }
+  }
   const parts = trimmed.split(/\s+/);
-  return parts[0] === 'py' && parts[1] === '-3'
-    ? { executable: parts[0], prefixArgs: parts.slice(1) }
-    : { executable: command, prefixArgs: [] };
+  if (parts.length > 1) {
+    return { executable: parts[0], prefixArgs: parts.slice(1) };
+  }
+  return { executable: trimmed, prefixArgs: [] };
 }
+
+function spawnPythonSync(pythonCmd, args = [], options = {}) {
+  const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
+  const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
+  return spawnSync(norm.executable, finalArgs, options);
+}
+
+function spawnPython(pythonCmd, args = [], options = {}) {
+  const { spawn } = require('child_process');
+  const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
+  const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
+  return spawn(norm.executable, finalArgs, options);
+}
+
 
 function getUvCommand() {
   try {
@@ -255,5 +289,7 @@ module.exports = {
   ensureUserBinInPath,
   isCommandAvailable,
   detectPythonOrDefault,
-  normalizeCommand
+  normalizeCommand,
+  spawnPythonSync,
+  spawnPython
 };

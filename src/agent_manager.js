@@ -93,23 +93,21 @@ function loadAgents(reloadDefaults = false, silent = false) {
   let loadedFromDb = false;
   let loadedFromUser = false;
 
-  if (!reloadDefaults) {
-    try {
-      const pythonCmd = _getPythonCmd();
-      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-      const res = spawnSync(pythonCmd, [dbAgentsScript, 'list-compact'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-      if (res.status === 0) {
-        agents = JSON.parse(res.stdout.trim());
-        loadedFromDb = true;
-      }
-    } catch (e) {}
-
-    if (!loadedFromDb && fs.existsSync(USER_AGENTS_YAML_PATH)) {
-      try {
-        agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf-8'));
-        loadedFromUser = true;
-      } catch (e) {}
+  try {
+    const pythonCmd = _getPythonCmd();
+    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+    const res = platform.spawnPythonSync(pythonCmd, [dbAgentsScript, 'list-compact'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    if (res.status === 0) {
+      agents = JSON.parse(res.stdout.trim());
+      loadedFromDb = true;
     }
+  } catch (e) {}
+
+  if (!loadedFromDb && fs.existsSync(USER_AGENTS_YAML_PATH)) {
+    try {
+      agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf-8'));
+      loadedFromUser = true;
+    } catch (e) {}
   }
 
   // Load defaults
@@ -120,13 +118,13 @@ function loadAgents(reloadDefaults = false, silent = false) {
     } catch (e) {}
   }
 
-  if ((agents.length === 0 || reloadDefaults) && defaults.length > 0) {
+  if (agents.length === 0 && defaults.length > 0) {
     agents = defaults;
     try {
       const pythonCmd = _getPythonCmd();
       const dbAgentsScript = path.join(__dirname, 'db_agents.py');
       // Bulk upsert via a single Python invocation to avoid N process startups
-      spawnSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
+      platform.spawnPythonSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
     } catch (e) {}
   }
 
@@ -143,7 +141,7 @@ try:
     print(json.dumps([r[0] for r in rows]))
 except Exception:
     print("[]")`;
-      const res = spawnSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
+      const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
       if (res.status === 0) {
         allDbSkills = JSON.parse(res.stdout.trim());
       }
@@ -331,11 +329,11 @@ function saveAgents(agents) {
   }
   fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(agents) + '\n');
 
-  // 2. Write to SQLite as source of truth via import (single transaction)
+  // 2. Write to SQLite as source of truth via bulk-import (single transaction)
   try {
     const pythonCmd = _getPythonCmd();
     const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-    spawnSync(pythonCmd, [dbAgentsScript, 'import'], { encoding: 'utf8' });
+    platform.spawnPythonSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
   } catch (e) {}
 
   // 3. Invalidate cache so next loadAgents reads the fresh state
@@ -452,7 +450,7 @@ try:
     print(json.dumps(res))
 except Exception:
     print("{}")`;
-    const res = spawnSync(pythonCmd, ['-c', script, dbPath, JSON.stringify(skillsList)], { encoding: 'utf8' });
+    const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath, JSON.stringify(skillsList)], { encoding: 'utf8' });
     if (res.status === 0) {
       return JSON.parse(res.stdout.trim());
     }
@@ -486,7 +484,7 @@ function generateGeminiMd(agents) {
 >
 > - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
 
 ### Team roster (reference — full instructions in ~/.agents/agents.yaml)
@@ -585,7 +583,7 @@ function generateClaudeCodeMd(agents) {
 >
 > - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\
 > - **Code search/discovery** → \`semble.search\`, \`semble.find_related\
-> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.list_skills\
+> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.find_skills\`, \`konoha.get_skill\`, \`konoha.list_skills\` (all clients call \`find_skills\` and project skills auto-migrate into skills.db)
 > - **NEVER** call \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`Bash\` with \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
 You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (\`konoha\`, \`semble\`).
@@ -722,7 +720,7 @@ function generateAgentsMd(agents) {
 >
 > - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`get_skill\`, \`list_skills\`)
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
 
 ## Team Roles & Delegation
@@ -933,6 +931,56 @@ function regenerateAndDeploy(silentOrOptions = false) {
     // Fail silently if Claude configs are not writable
   }
 
+  // Deploy OpenCode setup
+  try {
+    const opencodeManager = require('./opencode_manager');
+    opencodeManager.ensureOpenCodeSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
+      agents,
+      projectRoot,
+      deployProject,
+      silent: true
+    });
+  } catch (e) {}
+
+  // Deploy Codex setup
+  try {
+    const codexManager = require('./codex_manager');
+    codexManager.ensureCodexSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
+      agents,
+      projectRoot,
+      deployProject,
+      silent: true
+    });
+  } catch (e) {}
+
+  // Deploy Command Code setup
+  try {
+    mcpClientsManager.ensureCommandCodeSetup({
+      pythonCmd,
+      serverPath,
+      uvxCmd,
+      agents,
+      projectRoot,
+      deployProject,
+      silent: true
+    });
+  } catch (e) {}
+
+  // Synchronize all skills across all clients
+  try {
+    const skillManager = require('./skill_manager');
+    skillManager.syncAllClientSkills({
+      projectRoot,
+      silent: true
+    });
+  } catch (e) {}
+
   // Cache fingerprint so subsequent calls with unchanged agents.yaml skip the deploy.
   if (fingerprint) {
     try {
@@ -1006,11 +1054,15 @@ function createSubagent(name, options = {}) {
 }
 
 function findAgent(agents, name) {
-  const searchName = name.toLowerCase().replace(/^(mcp_|_mcp_|mcp-)/, '');
+  const lower = name.toLowerCase();
+  const exact = agents.find(a => a.name.toLowerCase() === lower);
+  if (exact) return exact;
+
+  const searchName = lower.replace(/^(mcp_|_mcp_|mcp-)/, '');
   return agents.find(a => {
     const aName = a.name.toLowerCase();
     const aBare = aName.replace(/^(mcp_|_mcp_|mcp-)/, '');
-    return aName === name.toLowerCase() || aBare === searchName;
+    return aBare === searchName;
   });
 }
 

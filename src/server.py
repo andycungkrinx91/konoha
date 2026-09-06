@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-konoha MCP Server (v2.0.0-beta.3 — Token-Optimized)
+konoha MCP Server (v2.0.0-beta.4 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -39,7 +39,7 @@ def get_server_version() -> str:
                         return str(data["version"])
             except Exception:
                 pass
-    return "2.0.0-beta.3"
+    return "2.0.0-beta.4"
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
@@ -266,8 +266,8 @@ def uri_to_path(uri):
     return None
 
 # Max chars to return in find_skill previews (saves tokens)
-PREVIEW_LIMIT = 1500
-COMPACT_PREVIEW_LIMIT = 500
+PREVIEW_LIMIT = 500
+COMPACT_PREVIEW_LIMIT = 250
 MAX_CONTENT_SIZE = 12000
 
 
@@ -466,6 +466,84 @@ def migrate_skills(force=False, skills=None, skills_dir=None):
         "total_entries_in_db": count,
         "skills_dir": skills_dir
     })
+
+
+_PROJECT_SKILLS_CACHE = {}
+
+def auto_migrate_project_skills(workspace_root=None):
+    """
+    Automatically detects and migrates project-scoped skills into skills.db.
+    Scans candidate directories in the active workspace:
+      - <workspace>/.agents/skills
+      - <workspace>/skills
+      - <workspace>/.cursor/skills
+      - <workspace>/.gemini/skills
+      - <workspace>/.gemini/antigravity-cli/skills
+    Ensures that when a project has skills, every coding client (Cursor, Antigravity,
+    Claude Code, OpenCode, Command Code, Codex) automatically finds them via konoha.find_skills / find_skill.
+    """
+    global WORKSPACE_ROOT
+    ws = workspace_root or WORKSPACE_ROOT
+    if not ws:
+        ws = os.environ.get("KONOHA_WORKSPACE") or os.environ.get("WORKSPACE_ROOT") or os.getcwd()
+
+    if not ws or is_ide_installation_dir(ws):
+        return []
+
+    norm_ws = os.path.normcase(os.path.realpath(ws))
+    home_dir = os.path.normcase(os.path.realpath(HOME))
+    if norm_ws == home_dir or norm_ws == os.path.normcase(os.path.realpath("/")) or (os.name == "nt" and len(norm_ws) <= 3):
+        return []
+
+    candidate_subdirs = [
+        os.path.join(ws, ".agents", "skills"),
+        os.path.join(ws, "skills"),
+        os.path.join(ws, ".cursor", "skills"),
+        os.path.join(ws, ".gemini", "skills"),
+        os.path.join(ws, ".gemini", "antigravity-cli", "skills"),
+    ]
+
+    migrated_skills = []
+    conn = None
+
+    for cdir in candidate_subdirs:
+        if not os.path.isdir(cdir):
+            continue
+        try:
+            st = os.stat(cdir)
+            cache_key = f"{cdir}:{st.st_mtime}:{st.st_size}"
+            if _PROJECT_SKILLS_CACHE.get(cdir) == cache_key:
+                continue
+
+            detected = _auto_detect_skills(cdir)
+            if not detected:
+                _PROJECT_SKILLS_CACHE[cdir] = cache_key
+                continue
+
+            if conn is None:
+                conn = _setup_db()
+
+            for skill_name in detected:
+                cnt = _migrate_skill(conn, skill_name, cdir)
+                if cnt > 0:
+                    migrated_skills.append(f"{skill_name} ({cdir})")
+                    sys.stderr.write(f"[mcp konoha] Auto-migrated project skill '{skill_name}' from {cdir} into skills.db\n")
+                    sys.stderr.flush()
+
+            _PROJECT_SKILLS_CACHE[cdir] = cache_key
+        except Exception as e:
+            sys.stderr.write(f"[mcp konoha] Error auto-migrating project skills from {cdir}: {e}\n")
+            sys.stderr.flush()
+
+    if conn is not None:
+        try:
+            _normalize_legacy_skill_names(conn)
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    return migrated_skills
 
 
 def is_path_visible(file_path):
@@ -812,6 +890,10 @@ def find_skill(keyword, limit=3, agent_name=None, compact=False):
     """
     sys.stderr.write(f"[mcp konoha] tool_call: find_skill(keyword='{keyword}', limit={limit}, compact={compact})\n")
     sys.stderr.flush()
+    try:
+        auto_migrate_project_skills()
+    except Exception:
+        pass
     keyword = normalize_legacy_skill_name(keyword)
     conn = get_db()
 
@@ -919,6 +1001,10 @@ def list_skills(agent_name=None, fields=None):
     """
     sys.stderr.write(f"[mcp konoha] tool_call: list_skills(fields={fields})\n")
     sys.stderr.flush()
+    try:
+        auto_migrate_project_skills()
+    except Exception:
+        pass
     conn = get_db()
     rows = conn.execute("""
         SELECT name, skill_name, type, tags, byte_size, line_count, file_path
@@ -964,6 +1050,10 @@ def get_skill(name, agent_name=None):
     """Get the full content of a specific skill or reference by exact name."""
     sys.stderr.write(f"[mcp konoha] tool_call: get_skill(name='{name}')\n")
     sys.stderr.flush()
+    try:
+        auto_migrate_project_skills()
+    except Exception:
+        pass
     name = normalize_legacy_skill_name(name)
     conn = get_db()
     row = conn.execute("""
@@ -4111,9 +4201,17 @@ def handle_request(req):
         if WORKSPACE_ROOT:
             sys.stderr.write(f"[mcp konoha] Initialized with workspace root: {WORKSPACE_ROOT}\n")
             sys.stderr.flush()
+            try:
+                auto_migrate_project_skills(WORKSPACE_ROOT)
+            except Exception:
+                pass
         else:
             sys.stderr.write(f"[mcp konoha] Initialized with no workspace root; using cwd: {os.getcwd()}\n")
             sys.stderr.flush()
+            try:
+                auto_migrate_project_skills(os.getcwd())
+            except Exception:
+                pass
 
         MCP_INITIALIZED = True
         return {
@@ -4152,7 +4250,7 @@ def handle_request(req):
             if search_depth not in ("standard", "deep"):
                 search_depth = "standard"
             result_text = run_web_search(query, num_results=num_results, search_depth=search_depth, agent_name=agent)
-        elif tool_name == "find_skill":
+        elif tool_name in ("find_skill", "find_skills"):
             keyword = args.get("keyword", "")
             limit = min(args.get("limit", 3), 5)
             compact = args.get("compact", False)

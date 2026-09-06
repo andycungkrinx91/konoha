@@ -253,7 +253,36 @@
     },
     {
       "name": "find_skill",
-      "description": "Search indexed skills.",
+      "description": "Search indexed skills across global and project-scoped repositories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 10
+          },
+          "agent": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keyword"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_skills",
+      "description": "Search indexed skills across global and project-scoped repositories (alias of find_skill).",
       "inputSchema": {
         "type": "object",
         "properties": {
