@@ -1082,7 +1082,13 @@ function purgePackageCaches({ silent = false } = {}) {
       tempDirs.push(path.join(os.homedir(), 'Library', 'Caches', 'pnpm'));
       tempDirs.push(path.join(os.homedir(), 'Library', 'pnpm', 'store', 'v11', 'tmp'));
     }
+    const activeScript = (process.argv[1] || '').toLowerCase();
+    const activeCwd = process.cwd().toLowerCase();
     for (const d of tempDirs) {
+      const dLower = d.toLowerCase();
+      if (activeScript.startsWith(dLower) || activeCwd.startsWith(dLower)) {
+        continue;
+      }
       if (fileExists(d)) {
         try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 3 }); } catch {}
       }
@@ -1844,12 +1850,14 @@ function installExtensionViaCli(cliName, vsixPath, silent = false) {
   }
 
   try {
-    const res = spawnSync(exe, ['--install-extension', vsixPath, '--force'], {
+    const isWin = process.platform === 'win32';
+    const spawnExe = (isWin && exe.includes(' ') && !exe.startsWith('"')) ? `"${exe}"` : exe;
+    const res = spawnSync(spawnExe, ['--install-extension', vsixPath, '--force'], {
       encoding: 'utf8',
       timeout: 35000,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
+      shell: isWin,
     });
     const stdout = (res.stdout || '').trim();
     const stderr = (res.stderr || '').trim();
@@ -5750,17 +5758,43 @@ async function cmdUpgrade(args = []) {
     } catch { return false; }
   };
 
-  if (checkCmd(pnpmCmd)) {
-    // Unlink old global package to purge stale store links before re-adding
-    try { spawnSync(pnpmCmd, ['remove', '--global', 'konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
-    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
-  }
-  if (checkCmd(npmCmd)) {
-    pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
-  }
-  if (checkCmd(yarnCmd)) {
-    pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
-  }
+  const scriptPath = (process.argv[1] || '').toLowerCase();
+  const prefersNpm = scriptPath.includes('npm');
+  const prefersYarn = scriptPath.includes('yarn');
+  const prefersPnpm = scriptPath.includes('pnpm');
+
+  const pnpmAvailable = checkCmd(pnpmCmd);
+  const npmAvailable = checkCmd(npmCmd);
+  const yarnAvailable = checkCmd(yarnCmd);
+
+  const addPnpm = () => {
+    if (pnpmAvailable && !pmCandidates.some(c => c.name === 'pnpm')) {
+      try { spawnSync(pnpmCmd, ['remove', '--global', 'konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
+      try { spawnSync(pnpmCmd, ['remove', '--global', 'Konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
+      pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
+    }
+  };
+
+  const addNpm = () => {
+    if (npmAvailable && !pmCandidates.some(c => c.name === 'npm')) {
+      pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
+    }
+  };
+
+  const addYarn = () => {
+    if (yarnAvailable && !pmCandidates.some(c => c.name === 'yarn')) {
+      pmCandidates.push({ name: 'yarn', cmd: yarnCmd, args: ['global', 'add', pkgTarget, '--force'] });
+    }
+  };
+
+  if (prefersNpm) addNpm();
+  else if (prefersYarn) addYarn();
+  else if (prefersPnpm) addPnpm();
+
+  addPnpm();
+  addNpm();
+  addYarn();
+
   if (pmCandidates.length === 0) {
     pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
     pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
