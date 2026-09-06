@@ -1210,7 +1210,7 @@ async function cmdInit(args, options = {}) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.py', 'vector_search.py', 'db.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1416,11 +1416,12 @@ async function cmdInit(args, options = {}) {
   if (options.onProgress) options.onProgress(3, 'Skills Index', 'Seeding subagent skills into SQLite FTS5 database');
   header('📊 Seeding Default Subagent Skills to SQLite FTS5');
   const skills = fileExists(pkgSkillsDir) ? detectCustomSkills(pkgSkillsDir) : [];
-  const spinnerMigrate = startSpinner(skills.length > 0 ? `Seeding default skills from: ${pkgSkillsDir}...` : 'Initializing empty skills database schema...');
+  const spinnerMigrate = startSpinner(skills.length > 0 ? `Seeding skills & pre-caching neural models from: ${pkgSkillsDir}...` : 'Initializing skills database schema...');
   const migrationArgs = skills.length > 0
     ? ['--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill']
     : ['--clean', '--require-skill', 'genin-skill'];
-  if (process.env.KONOHA_SEMANTIC_SEARCH !== '1') {
+  process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
+  if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
   }
   const run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs], {
@@ -2503,7 +2504,7 @@ function ensureAutoSetup() {
   });
 
   // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'mcp_tool_manifest.json', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+  const filesToCopy = ['server.py', 'vector_search.py', 'db.py', 'mcp_tool_manifest.json', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -2655,7 +2656,8 @@ function ensureAutoSetup() {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     }
-    const extraArgs = process.env.KONOHA_SEMANTIC_SEARCH !== '1' ? ['--skip-embeddings'] : [];
+    process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
+    const extraArgs = (process.env.KONOHA_SEMANTIC_SEARCH === '0' || process.env.KONOHA_SEMANTIC_SEARCH === 'false') ? ['--skip-embeddings'] : [];
     if (fileExists(pkgSkillsDir)) {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {

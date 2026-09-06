@@ -382,7 +382,8 @@ function runPythonSkillTool(toolName, args) {
     result = spawnSync(python.executable, [...python.prefixArgs, serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
       encoding: 'utf-8',
       timeout: timeoutMs,
-      maxBuffer: 1024 * 1024 * 1024
+      maxBuffer: 1024 * 1024 * 1024,
+      env: Object.assign({}, process.env, { KONOHA_SEMANTIC_SEARCH: '1' })
     });
   } catch (err) {
     return { error: err.message || String(err) };

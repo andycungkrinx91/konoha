@@ -227,7 +227,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'auto_approve_tools = ["*"]',
     '[mcp_servers.konoha.env]',
     'ACTIVE_CLIENT = "codex"',
-    'KONOHA_CLIENT = "codex"'
+    'KONOHA_CLIENT = "codex"',
+    'KONOHA_SEMANTIC_SEARCH = "1"'
   ].join('\n');
 
   const sembleBlock = [

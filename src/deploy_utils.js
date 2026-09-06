@@ -183,7 +183,8 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
     args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
     env: {
       ACTIVE_CLIENT: clientName,
-      KONOHA_CLIENT: clientName
+      KONOHA_CLIENT: clientName,
+      KONOHA_SEMANTIC_SEARCH: "1"
     },
     autoApprove: ["*"],
     auto_approve: true

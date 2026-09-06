@@ -130,7 +130,8 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     environment: {
       ACTIVE_CLIENT: 'opencode',
       OPENCODE_CLIENT: '1',
-      KONOHA_CLIENT: 'opencode'
+      KONOHA_CLIENT: 'opencode',
+      KONOHA_SEMANTIC_SEARCH: '1'
     },
     enabled: true
   };

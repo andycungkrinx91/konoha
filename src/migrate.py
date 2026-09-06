@@ -691,14 +691,20 @@ def main():
         except Exception:
             print(f"   FTS test query '{test_word}': skipped (no matches)")
 
-    # Generate / update vector embeddings (opt-in gated by KONOHA_SEMANTIC_SEARCH=1 or --rebuild-embeddings)
-    should_embed = not args.skip_embeddings and (
-        os.environ.get("KONOHA_SEMANTIC_SEARCH") == "1" or args.rebuild_embeddings
-    )
+    # Generate / update vector embeddings (enabled by default, pre-caches models across platforms)
+    try:
+        import vector_search
+        semantic_enabled = vector_search.is_semantic_search_enabled()
+    except Exception:
+        semantic_enabled = True
+
+    should_embed = not args.skip_embeddings and (semantic_enabled or args.rebuild_embeddings)
     if should_embed:
         try:
             import vector_search
-            print("\n⚡ Generating vector embeddings (IBM Granite Multilingual)...")
+            print("\n⚡ Pre-caching neural models across platforms (IBM Granite + GTE Reranker)...")
+            vector_search.predownload_all_models(silent=False)
+            print("⚡ Synchronizing vector embeddings (IBM Granite Multilingual)...")
             chunks_indexed = vector_search.backfill_all_embeddings(conn, force_rebuild=args.rebuild_embeddings)
             print(f"   Vector index synchronized: {chunks_indexed} chunks processed.")
         except Exception as e:

@@ -42,8 +42,9 @@ _RERANK_TOKENIZER = None
 
 
 def is_semantic_search_enabled() -> bool:
-    """Check if semantic search feature flag is enabled."""
-    return os.environ.get(SEMANTIC_SEARCH_ENV, "0") in ("1", "true", "True")
+    """Check if semantic search feature flag is enabled. Enabled by default."""
+    val = os.environ.get(SEMANTIC_SEARCH_ENV, "1").strip().lower()
+    return val not in ("0", "false", "no", "disabled")
 
 
 # ──────────────── Platform Detection & sqlite-vector Loading ────────────────
@@ -350,6 +351,45 @@ def get_rerank_model():
     _RERANK_SESSION = session
     _RERANK_TOKENIZER = tokenizer
     return _RERANK_SESSION, _RERANK_TOKENIZER
+
+
+def predownload_all_models(silent: bool = False) -> Dict[str, Any]:
+    """
+    Pre-downloads and caches all neural model weights (IBM Granite Multilingual ONNX,
+    GTE Multilingual Cross-Encoder Reranker, Tokenizers, and platform sqlite-vector binary).
+    Safe, idempotent, and cross-platform (Windows, Linux, macOS).
+    """
+    results: Dict[str, Any] = {}
+    try:
+        if not silent:
+            print("  ⚡ Pre-caching IBM Granite multilingual embedding model...")
+        get_embed_model()
+        results["embedding"] = True
+    except Exception as e:
+        results["embedding"] = False
+        results["embedding_error"] = str(e)
+        if not silent:
+            print(f"  ⚠ Embedding model pre-download: {e}")
+
+    try:
+        if not silent:
+            print("  ⚡ Pre-caching GTE multilingual reranker model...")
+        get_rerank_model()
+        results["reranker"] = True
+    except Exception as e:
+        results["reranker"] = False
+        results["reranker_error"] = str(e)
+        if not silent:
+            print(f"  ⚠ Reranker model pre-download: {e}")
+
+    try:
+        lib_path = get_vector_extension_path()
+        results["vector_extension"] = bool(lib_path)
+    except Exception as e:
+        results["vector_extension"] = False
+        results["vector_extension_error"] = str(e)
+
+    return results
 
 
 def embed_text(text: str) -> np.ndarray:
