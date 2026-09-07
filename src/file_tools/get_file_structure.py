@@ -79,7 +79,7 @@ def structure_generic(path):
 
 def main():
     args = load_args()
-    file_path = resolve_path(args.get('path'), args.get('workspace'))
+    file_path = resolve_path(args.get('path'), args.get('workspace'), dev_root=args.get('dev_root'))
 
     # Directory support: walk top-level files and extract signatures
     if os.path.isdir(file_path):

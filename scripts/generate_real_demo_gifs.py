@@ -357,7 +357,7 @@ def main():
         ("konoha test", ["node", "bin/cli.js", "test"], "MCP PROTOCOL & QA SUITE", None, False, None, "~"),
         ("node tests/test_ide_directory_guard.js", ["node", "tests/test_ide_directory_guard.js"], "WINDOWS WORKSPACE GUARD", None, False, None, "~"),
         ("python3 tests/test_docs_currency.py", ["python3", "tests/test_docs_currency.py"], "DOCS CURRENCY VERIFIED", None, False, None, "~"),
-        ("node tests/run_all.js", ["node", "tests/run_all.js"], "54 TEST SUITES PASSING (100% OK)", None, True, None, "~"),
+        ("node tests/run_all.js", ["node", "tests/run_all.js"], "63 TEST SUITES PASSING (100% OK)", None, True, None, "~"),
     ]
 
     testing_frames = []

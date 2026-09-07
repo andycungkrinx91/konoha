@@ -103,7 +103,7 @@ def _strip_win_prefix(p):
     return p
 
 
-def resolve_path(raw_path, base_dir=None):
+def resolve_path(raw_path, base_dir=None, dev_root=None):
     if not raw_path or not isinstance(raw_path, str):
         emit_error('path is required')
     raw_path = _strip_win_prefix(raw_path)
@@ -123,7 +123,7 @@ def resolve_path(raw_path, base_dir=None):
     except OSError:
         real = expanded
     real = _strip_win_prefix(real)
-    assert_within_allowed(real, base_dir)
+    assert_within_allowed(real, base_dir, dev_root=dev_root)
     return real
 
 
@@ -147,7 +147,7 @@ def _norm(p):
     return n
 
 
-def assert_within_allowed(resolved_path, base_dir=None):
+def assert_within_allowed(resolved_path, base_dir=None, dev_root=None):
     """Allow paths inside the workspace OR inside ~/.konoha/.
 
     The ~/.konoha/ allowance ensures the MCP server can read its own
@@ -170,6 +170,13 @@ def assert_within_allowed(resolved_path, base_dir=None):
     sep = os.sep
     if norm_path == norm_konoha or norm_path.startswith(norm_konoha + sep) or norm_path.startswith(norm_konoha + '/'):
         return
+
+    # 1b. Dev repository root (source checkout) — allowed in dev mode only,
+    #     passed by the Node router as `dev_root` in the JSON payload.
+    if dev_root:
+        norm_dev = _norm(dev_root)
+        if norm_path == norm_dev or norm_path.startswith(norm_dev + sep) or norm_path.startswith(norm_dev + '/'):
+            return
 
     # 1.5. Inside home-scoped agent scratch dirs (IDE internal caches)
     home_dir = os.path.expanduser('~')

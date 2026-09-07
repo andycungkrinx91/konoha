@@ -20,7 +20,8 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.5 — Konoha v2.0.0-beta.5 (2026-09-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.5_2026-09-07.md)
+* **Latest Release:** [v2.0.0-beta.6 (2026-09-07)](CHANGELOG.md) — TUI table column-overlap fixes, animated CLI spinner, cross-platform path resolution.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.6 — Konoha v2.0.0-beta.6 (2026-09-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.6_2026-09-07.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -895,7 +896,7 @@ Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, e
 
 ### Detailed Before vs After Comparison
 
-For an in-depth breakdown of system behavior, token consumption, configuration fragmentation, and architectural overhead, please read the [Detailed Before vs After Comparison](docs/BENCHMARK.md#detailed-before-vs-after-comparison) section in the Benchmark Report.
+For an in-depth breakdown of system behavior, token consumption, configuration fragmentation, and architectural overhead, please read the [Detailed Before vs After Comparison](docs/BENCHMARK.md#-detailed-before-vs-after-comparison) section in the Benchmark Report.
 
 
 ## Credits

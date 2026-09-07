@@ -75,6 +75,10 @@ src/__pycache__/
 # Test artifacts
 tests/snapshots/
 tests/.pytest_cache/
+# Client skill-sync side effects from running the test suite
+tests/.agents/
+tests/.cursor/
+tests/.gemini/
 
 # Build artifacts
 dist/

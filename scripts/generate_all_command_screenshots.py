@@ -188,8 +188,8 @@ commands_data = {
             "[green]📋 Konoha MCP Status[/green]",
             "[muted]========================================================================[/muted]",
             "  ✓ Python 3.11          : [green]/usr/bin/python3 (OK)[/green]",
-            "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (1.42 MB, 48 indexed skills)[/cyan]",
-            "  ✓ MCP Server Path      : [green]~/.konoha/server.py (38 registered tools)[/green]",
+            "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills)[/cyan]",
+            "  ✓ MCP Server Path      : [green]~/.konoha/server.py (39 registered tools)[/green]",
             "  ✓ Bridge Gateway       : [purple]127.0.0.1:19999 (in-process router active)[/purple]",
             "",
             "[bold]Client MCP Configurations & RTK Rule Status:[/bold]",
@@ -207,15 +207,15 @@ commands_data = {
     "assets/konoha-version.png": {
         "title": "konoha version — check version & git updates",
         "cmd": "konoha version",
-        "badge": "RELEASE v2.0.0-beta.3",
+        "badge": "RELEASE v2.0.0-beta.6",
         "lines": [
             "[green]✨ Konoha Version Inspector[/green]",
             "[muted]========================================================================[/muted]",
-            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.3 (cross-client unified)[/cyan]",
+            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.6 (cross-client unified)[/cyan]",
             "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
             "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
             "  • [bold]Python Runtime[/bold]      : [green]Python 3.11.10[/green]",
-            "  • [bold]Release Date[/bold]        : [amber]2026-09-04[/amber]",
+            "  • [bold]Release Date[/bold]        : [amber]2026-09-07[/amber]",
             "",
             "  › Checking remote GitHub updates (github:andycungkrinx91/konoha)...",
             "  [green]✓ You are running the latest version of Konoha![/green]",
@@ -233,7 +233,7 @@ commands_data = {
             "[muted]========================================================================[/muted]",
             "  › Fetching latest release manifest from GitHub...",
             "  › Installing latest package via pnpm...",
-            "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.3[/cyan]",
+            "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.6[/cyan]",
             "",
             "  › Re-syncing SQLite FTS5 database schemas...",
             "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -244,7 +244,7 @@ commands_data = {
             "    [green]✓ Command Code updated[/green]",
             "    [green]✓ Codex IDE / CLI updated[/green]",
             "",
-            "[green]✨ Konoha successfully upgraded to v2.0.0-beta.3! All clients re-synced.[/green]"
+            "[green]✨ Konoha successfully upgraded to v2.0.0-beta.6! All clients re-synced.[/green]"
         ]
     },
     # 7. Savings

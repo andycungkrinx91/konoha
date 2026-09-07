@@ -11,7 +11,7 @@ MAX_SPAN = 500
 
 def main():
     args = load_args()
-    file_path = resolve_path(args.get('path'), args.get('workspace'))
+    file_path = resolve_path(args.get('path'), args.get('workspace'), dev_root=args.get('dev_root'))
     start_line = int(args.get('start_line', 1))
     end_line = int(args.get('end_line', start_line))
 

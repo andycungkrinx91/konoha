@@ -404,6 +404,19 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Reason**: `_load_skill_content_for_build` dumped the full raw markdown of 5 full framework skills (~90 KB) into the response, accompanied by 2-space indented JSON formatting.
   - **Fix**: Resolved in `v2.0.0-beta.5` by replacing raw markdown dumps with token-efficient SOP previews (≤400 chars) that direct agents to load full reference manuals on demand via `konoha.get_skill`, cutting build payload sizes down to ~15 KB (an 85.2% direct context reduction saving ~22,000 tokens per request).
 
+* **`Execution error: a.instructions.includes is not a function` in `konoha status` (`v2.0.0-beta.6`)**:
+  - **Symptom**: Running `konoha status` fails to list subagents and displays `Subagents (Naruto Ninja Ranks): ✗ Execution error: a.instructions.includes is not a function`.
+  - **Reason**: The lightweight YAML parser in `bin/lib/yaml_utils.js` and `src/db_agents.py` treated unindented following keys (e.g. `instructions:\ntools:`) as empty object dictionaries `{}` or arrays `[]` rather than empty strings `""` when evaluating empty scalar YAML fields.
+  - **Fix**: Resolved in `v2.0.0-beta.6` by fixing empty scalar termination logic in `bin/lib/yaml_utils.js` and `src/db_agents.py`, and adding defensive type guards `(typeof a.instructions === 'string' ? a.instructions : '')` in `src/agent_manager.js`.
+* **High CLI Latency & Slow Execution on Every `konoha <command>` (`v2.0.0-beta.6`)**:
+  - **Symptom**: Commands like `konoha status`, `konoha list`, or `konoha test` take 7–10 seconds to respond even when idle.
+  - **Reason**: `needsReferenceLoadingUpgrade()` checked if instructions were non-empty but lacked the check for `'exact reference names'`, causing `sannin` to continuously detect an upgrade needed on every single CLI run. This triggered full multi-client re-deploy loops, repeated SQLite queries, and expensive child-process spawning on every invocation.
+  - **Fix**: Resolved in `v2.0.0-beta.6` by adding strict check for `'exact reference names'` in `needsReferenceLoadingUpgrade()`, replacing `konoha agent list-compact` child processes with direct YAML parsing (<0.5ms), adding an in-memory mtime cache to `_getDbSkills()`, and caching auto-setup state in `.auto_setup_state.json`. CLI response time dropped from 7.7s to 0.28s (a 27x speedup).
+* **Missing Global Binary after `konoha upgrade` on Linux / Mac (`v2.0.0-beta.6`)**:
+  - **Symptom**: Running `konoha upgrade` succeeds, but subsequent commands fail with `bash: /home/<user>/.local/share/pnpm/konoha: No such file or directory`.
+  - **Reason**: `addPnpm` prematurely ran `pnpm remove --global konoha` which deleted existing global binary symlinks, and passed the invalid `--prefer-online` npm flag to pnpm.
+  - **Fix**: Resolved in `v2.0.0-beta.6` by preserving existing binaries during pnpm global installation, removing `--prefer-online`, and introducing automated post-upgrade global symlink reconciliation.
+
 ---
 
 ### 🗄️ Database Corruption

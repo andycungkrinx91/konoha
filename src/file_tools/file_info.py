@@ -17,7 +17,7 @@ def count_lines(path):
 
 def main():
     args = load_args()
-    file_path = resolve_path(args.get('path'), args.get('workspace'))
+    file_path = resolve_path(args.get('path'), args.get('workspace'), dev_root=args.get('dev_root'))
 
     if not os.path.isfile(file_path):
         emit_error(f'File not found: {file_path}')

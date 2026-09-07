@@ -11,7 +11,7 @@ MAX_LINES = 200
 
 def main():
     args = load_args()
-    file_path = resolve_path(args.get('path'), args.get('workspace'))
+    file_path = resolve_path(args.get('path'), args.get('workspace'), dev_root=args.get('dev_root'))
     max_lines = int(args.get('max_lines', DEFAULT_LINES))
 
     if max_lines < 1:

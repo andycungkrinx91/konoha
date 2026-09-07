@@ -4,7 +4,6 @@
  */
 const assert = require('assert');
 const path = require('path');
-const fs = require('fs');
 
 console.log('Running test_file_tools_router.js...');
 
@@ -31,9 +30,10 @@ assert.strictEqual(platform.stripWinExtendedPrefix('\\\\?\\D:\\konoha\\src'), 'D
 assert.strictEqual(platform.stripWinExtendedPrefix('\\\\?\\UNC\\server\\share'), '\\\\server\\share');
 assert.strictEqual(platform.stripWinExtendedPrefix('//?/D:/konoha/src'), 'D:/konoha/src');
 
-// Test dispatching token_efficient_grep
-const grepRes = router.dispatchTool('token_efficient_grep', { pattern: 'buildSembleSearchPolicy', dir: 'src' });
-assert.ok(!grepRes.isError, 'token_efficient_grep should succeed');
+// Test dispatching token_efficient_grep (cwd-independent: resolve repo src)
+const repoSrc = path.join(__dirname, '..', 'src');
+const grepRes = router.dispatchTool('token_efficient_grep', { pattern: 'buildSembleSearchPolicy', dir: repoSrc });
+assert.ok(!grepRes.isError, 'token_efficient_grep should succeed: ' + (grepRes.text || ''));
 assert.ok(grepRes.text.includes('search_policy.js'), 'token_efficient_grep should find search_policy.js');
 
 console.log('  ✓ file_tools_router parameter resolution verified.');

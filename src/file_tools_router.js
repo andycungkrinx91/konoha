@@ -32,6 +32,13 @@ let konoHaReal = null;
 try { konoHaReal = fs.realpathSync(KONOHA_DIR); } catch { konoHaReal = path.resolve(KONOHA_DIR); }
 const KONOHA_DIR_NORM = platform.normPath(konoHaReal);
 
+// In dev mode (running from the source repo rather than ~/.konoha/), the
+// repository root is also an allowed root so tests and local dev against the
+// repo itself are not rejected by the workspace guard.
+const DEV_PROJECT_ROOT_NORM = devPaths
+  ? platform.normPath(devPaths.PROJECT_ROOT)
+  : null;
+
 let workspaceRoot = null;
 
 function getPythonCommand() {
@@ -92,10 +99,6 @@ function detectWorkspaceRoot() {
 
   const HOME = os.homedir();
   const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-  const brainRoots = [
-    path.join(HOME, '.gemini', 'antigravity-cli', 'brain'),
-    path.join(HOME, '.gemini', 'antigravity-ide', 'brain')
-  ];
 
   const cliCache = path.join(HOME, '.gemini', 'antigravity-cli', 'cache');
   const ideCache = path.join(HOME, '.gemini', 'antigravity-ide', 'cache');
@@ -187,6 +190,11 @@ function assertWithinAllowed(resolvedPath) {
     return;
   }
 
+  // 1b. Dev repository root (source checkout) — allowed in dev mode only
+  if (DEV_PROJECT_ROOT_NORM && (pathNorm === DEV_PROJECT_ROOT_NORM || pathNorm.startsWith(DEV_PROJECT_ROOT_NORM + path.sep) || pathNorm.startsWith(DEV_PROJECT_ROOT_NORM + '/'))) {
+    return;
+  }
+
   // 2. Inside home-scoped agent scratch dirs — IDE internal caches
   //    These paths are used by tools like read_file_head to inspect
   //    output files written by agent sub-sessions (e.g. Gemini brain/,
@@ -242,6 +250,10 @@ function runPythonScript(scriptName, args) {
     ...args,
     workspace: getWorkspaceRoot()
   };
+  // Dev-mode repo root is an extra allowed root for the Python workers.
+  if (DEV_PROJECT_ROOT_NORM) {
+    payload.dev_root = DEV_PROJECT_ROOT_NORM;
+  }
   for (const k of ['dir', 'path', 'file_path', 'filepath', 'workspace']) {
     if (typeof payload[k] === 'string' && payload[k].length > 3) {
       payload[k] = payload[k].replace(/[/\\]+$/, '');

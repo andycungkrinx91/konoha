@@ -158,22 +158,63 @@ const CHIDORI_THEME = [
 function log(msg) { console.log(msg); }
 
 // Helper to get visual length of string (ignoring ANSI and variation selectors)
+// Emoji-presentation symbols (\u26A1 \u25B6 \u2666 \u25CE \u25AB \u2026 ) render 2 columns in most modern
+// terminals, so they must be counted as 2 to avoid table column overlap.
+const WIDE_SYMBOL_RANGES = [
+  // CJK ideographs and kana \u2014 2 columns everywhere
+  [0x1100, 0x115F], // Hangul Jamo
+  [0x2E80, 0x303E], // CJK Radicals..CJK Symbols (incl. \u5FFD-style)
+  [0x3041, 0x33FF], // Hiragana..CJK Compatibility
+  [0x3400, 0x4DBF], // CJK Ext A
+  [0x4E00, 0x9FFF], // CJK Unified Ideographs
+  [0xA000, 0xA4CF], // Yi
+  [0xAC00, 0xD7A3], // Hangul Syllables
+  [0xF900, 0xFAFF], // CJK Compatibility Ideographs
+  [0xFE30, 0xFE4F], // CJK Compatibility Forms
+  [0xFF00, 0xFF60], // Fullwidth Forms
+  [0xFFE0, 0xFFE6], // Fullwidth Signs
+  // Emoji-presentation BMP symbols \u2014 2 columns in modern terminals
+  [0x2600, 0x2604], // \u2600 \u2602 \u2603 \u2604
+  [0x26A1, 0x26A1], // \u26A1 high voltage
+  [0x26BD, 0x26BD], // \u26BD
+  [0x26C4, 0x26C5], // \u26C4 \u26C5
+  [0x26F0, 0x26F5], // \u26F0 \u26F1 (mountain..umbrella on ground)
+  [0x26F7, 0x26FA], // \u26F7 \u26FA
+  [0x2668, 0x2668], // \u2668
+  [0x2B05, 0x2B07], // \u2B05 \u2B06 \u2B07
+  [0x2B1B, 0x2B1C], // \u2B1B \u2B1C
+  [0x2B50, 0x2B50], // \u2B50
+  [0x2B55, 0x2B55], // \u2B55
+  [0x1F300, 0x1F5FF], // Misc symbols and pictographs
+  [0x1F600, 0x1F64F], // Emoticons
+  [0x1F680, 0x1F6FF], // Transport and map
+  [0x1F900, 0x1F9FF], // Supplemental symbols
+  [0x1FA70, 0x1FAFF], // Symbols and pictographs extended-A
+];
+
+function isWideSymbol(codePoint) {
+  // Astral emoji planes are wide by definition (handled by surrogates below);
+  // these BMP ranges have emoji presentation by default.
+  for (const [lo, hi] of WIDE_SYMBOL_RANGES) {
+    if (codePoint >= lo && codePoint <= hi) return true;
+  }
+  return false;
+}
+
 function getVisualLength(str) {
   if (!str) return 0;
   let clean = str.replace(/\x1b\[[0-9;]*m/g, '');
   clean = clean.replace(/[\uFE00-\uFE0F\u200B-\u200D\u202A-\u202E]/g, '');
-  
+
   let len = 0;
   for (let i = 0; i < clean.length; i++) {
     const code = clean.charCodeAt(i);
     if (code >= 0xD800 && code <= 0xDBFF) {
-      const codePoint = clean.codePointAt(i);
-      if (codePoint === 0x1F6E1) {
-        len += 1; // Shield emoji U+1F6E1 renders as 1 column on some terminals
-      } else {
-        len += 2;
-      }
+      // Astral plane (emoji) \u2014 2 columns
+      len += 2;
       i++;
+    } else if (isWideSymbol(code)) {
+      len += 2;
     } else {
       len += 1;
     }
@@ -181,13 +222,16 @@ function getVisualLength(str) {
   return len;
 }
 
-// Helper to truncate a string to a target visual length
+// Helper to truncate a string to a target visual length.
+// ANSI escapes are stripped first so the cut lands on visible text and no
+// color code is left dangling (which would bleed color into the next column).
 function truncateVisual(str, maxLen) {
   if (!str) return '';
-  const visLen = getVisualLength(str);
-  if (visLen <= maxLen) return str;
-  
-  let truncated = str;
+  const clean = stripAnsi(String(str));
+  const visLen = getVisualLength(clean);
+  if (visLen <= maxLen) return clean;
+
+  let truncated = clean;
   while (getVisualLength(truncated + '...') > maxLen && truncated.length > 0) {
     const lastChar = truncated.charCodeAt(truncated.length - 1);
     if (lastChar >= 0xDC00 && lastChar <= 0xDFFF && truncated.length > 1) {
@@ -730,15 +774,50 @@ function divider() {
   log(applyGradient('═'.repeat(60), CHIDORI_THEME));
 }
 
+// Braille spinner frames for animated TTY feedback.
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_INTERVAL_MS = 90;
+
 function startSpinner(text) {
-  log(`  ${C.dim}›${C.reset} ${text}`);
+  // Static line for non-TTY / CI / NO_COLOR environments; animated in-TTY.
+  const animate = Boolean(
+    process.stdout && process.stdout.isTTY &&
+    !process.env.CI && !process.env.NO_COLOR && process.env.KONOHA_SPINNERS !== '0'
+  );
+  if (!animate) {
+    log(`  ${C.dim}›${C.reset} ${text}`);
+    return {
+      stop() {},
+      start(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
+      update(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
+      success(successText) { log(`  ${C.green}✓${C.reset} ${successText || text}`); },
+      warn(warnText) { log(`  ${C.yellow}⚠${C.reset} ${warnText || text}`); },
+      error(errText) { log(`  ${C.red}✗${C.reset} ${errText || text}`); },
+    };
+  }
+
+  let currentText = text;
+  let frame = 0;
+  let timer = setInterval(() => {
+    const glyph = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
+    frame++;
+    process.stdout.write(`\r\x1b[2K  ${C.cyan}${glyph}${C.reset} ${currentText}`);
+  }, SPINNER_INTERVAL_MS);
+  if (timer && typeof timer.unref === 'function') timer.unref();
+
+  function finish(marker, color, finalText) {
+    if (timer) { clearInterval(timer); timer = null; }
+    process.stdout.write('\r\x1b[2K');
+    log(`  ${color}${marker}${C.reset} ${finalText || currentText}`);
+  }
+
   return {
-    stop() {},
-    start(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
-    update(newText) { if (newText) log(`  ${C.dim}›${C.reset} ${newText}`); },
-    success(successText) { log(`  ${C.green}✓${C.reset} ${successText || text}`); },
-    warn(warnText) { log(`  ${C.yellow}⚠${C.reset} ${warnText || text}`); },
-    error(errText) { log(`  ${C.red}✗${C.reset} ${errText || text}`); },
+    stop() { finish('›', C.dim, currentText); },
+    start(newText) { if (newText) currentText = newText; },
+    update(newText) { if (newText) currentText = newText; },
+    success(successText) { finish('✓', C.green, successText); },
+    warn(warnText) { finish('⚠', C.yellow, warnText); },
+    error(errText) { finish('✗', C.red, errText); },
   };
 }
 
@@ -847,7 +926,7 @@ function getCliVersion() {
       } catch {}
     }
   }
-  return '2.0.0-beta.5';
+  return '2.0.0-beta.6';
 }
 
 function drawLogo() {
@@ -5681,7 +5760,7 @@ async function cmdVersion(args = []) {
     path.join(SKILLS_DB_DIR, 'package.json'),
     path.join(os.homedir(), '.konoha', 'package.json')
   ];
-  let currentVersion = '2.0.0-beta.5';
+  let currentVersion = '2.0.0-beta.6';
   for (const p of candidatePkgPaths) {
     if (fileExists(p)) {
       try {

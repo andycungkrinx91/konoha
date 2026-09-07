@@ -25,7 +25,7 @@ def main():
     if not pattern:
         emit_error('pattern is required')
 
-    root_dir = resolve_path(args.get('dir', '.'), args.get('workspace'))
+    root_dir = resolve_path(args.get('dir', '.'), args.get('workspace'), dev_root=args.get('dev_root'))
     if not os.path.isdir(root_dir):
         emit_error(f'Directory not found: {root_dir}')
 

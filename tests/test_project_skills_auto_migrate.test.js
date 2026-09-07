@@ -45,7 +45,10 @@ Reference instructions for project ops deployment.
 
     const pythonScript = `
 import sys, os, json
-sys.path.insert(0, os.path.abspath("src"))
+# Drop cwd so "import server" resolves to src/server.py, not the tests/server.py shim.
+_src = os.path.abspath(os.path.join(r"${__filename.replace(/\\/g, '/')}", "..", "..", "src"))
+sys.path = [p for p in sys.path if p not in ('', '.', os.getcwd())]
+sys.path.insert(0, _src)
 import server
 
 migrated = server.auto_migrate_project_skills(r"` + tmpProjectDir + `")

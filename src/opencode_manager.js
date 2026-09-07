@@ -189,7 +189,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
   };
 

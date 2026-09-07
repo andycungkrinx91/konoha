@@ -384,7 +384,7 @@ function ensureAntigravityMcpSchemas(agents) {
     },
     {
       name: 'anbu',
-      description: 'Backend & DevOps Specialist subagent. Focuses on backend logic, bug fixes, database schema, CI/CD, and infra.',
+      description: 'Backend Specialist & Cyber Black Ops subagent. Focuses on backend logic, bug fixes, CI/CD, infra, cyber defense, and dev/local penetration testing.',
       parameters: {
         type: 'object',
         properties: {

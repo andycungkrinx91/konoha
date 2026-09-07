@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-konoha MCP Server (v2.0.0-beta.5 — Token-Optimized)
+konoha MCP Server (v2.0.0-beta.6 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -39,7 +39,7 @@ def get_server_version() -> str:
                         return str(data["version"])
             except Exception:
                 pass
-    return "2.0.0-beta.5"
+    return "2.0.0-beta.6"
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
