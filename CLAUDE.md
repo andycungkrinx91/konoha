@@ -71,7 +71,8 @@ You are the main agent running through Claude Code. This contract is mandatory o
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
 > You MUST use `konoha` MCP and `semble` MCP for ALL file operations and code search. Using built-in tools (`Read`, `Grep`, `Glob`, `Bash` with `cat`/`head`/`grep`/`rg`/`find`) is **STRICTLY FORBIDDEN**.
 >
-> - **File reads/grep/structure** → `mcp__konoha__read_file_head`, `mcp__konoha__read_file_range`, `mcp__konoha__file_info`, `mcp__konoha__token_efficient_grep`, `mcp__konoha__get_file_structure`, `mcp__konoha__find_files_clean> - **Code search/discovery** → `mcp__semble__search`, `mcp__semble__find_related> - **Skill lookup** → `mcp__konoha__find_skill`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills> - **NEVER** call `Read`, `Grep`, `Glob`, `SemanticSearch`, or `Bash` with `cat`/`head`/`tail`/`grep`/`rg`/`find` — always use the MCP equivalents above.
+> - **File reads/grep/structure** → `mcp__konoha__read_file_head`, `mcp__konoha__read_file_range`, `mcp__konoha__file_info`, `mcp__konoha__token_efficient_grep`, `mcp__konoha__get_file_structure`, `mcp__konoha__find_files_clean> - **Code search/discovery** → `mcp__semble__search`, `mcp__semble__find_related> - **Skill lookup** → `mcp__konoha__find_skill`, `mcp__konoha__find_skills`, `mcp__konoha__get_skill`, `mcp__konoha__list_skills` (all clients call `find_skills` and project skills auto-migrate into skills.db)
+> - **NEVER** call `Read`, `Grep`, `Glob`, `SemanticSearch`, or `Bash` with `cat`/`head`/`tail`/`grep`/`rg`/`find` — always use the MCP equivalents above.
 
 You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (`konoha`, `semble`).
 
@@ -141,7 +142,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 
 You are the main agent running through Claude Code. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
-- **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. Use `mcp__konoha__find_skill` before work and load the matching skill with `mcp__konoha__get_skill`.
+- **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. All clients call skills through `mcp__konoha__find_skills` (or `mcp__konoha__find_skill`) to discover global and project skills before work, and load matching content with `mcp__konoha__get_skill`. When a project contains local skills, the client auto-migrates them into the skills database. Never load raw SKILL.md files directly.
 - **Semble is mandatory**: use the `semble` MCP tools `search` and `find_related` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
 - **RTK is mandatory for commands**: ALWAYS force-run all shell/command executions with `rtk <command>` first; prefix shell/command execution with `rtk` to filter noisy terminal output and minimize token consumption. When RTK is not installed, fails, or is unsupported for a specific command, immediately fall back to direct shell/bash (`sh` / `bash`) execution without silently claiming RTK was used.
 - **Test directory discovery & reuse**: ALWAYS explore the codebase first (`mcp__konoha__get_file_structure` or `mcp__konoha__find_files_clean`) to discover existing test folders (`tests/`, `test/`, `spec/`). NEVER create duplicate test folders (e.g. creating `test/` when `tests/` exists).
