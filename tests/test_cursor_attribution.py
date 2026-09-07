@@ -70,6 +70,9 @@ def mcp_find_skill_no_agent(keyword):
     }
     env = os.environ.copy()
     env.pop("ANTIGRAVITY_CONVERSATION_ID", None)
+    # Force Cursor client detection so transcript scanning targets ~/.cursor/projects
+    # regardless of which coding client (e.g. Claude Code) spawned this test process.
+    env["ACTIVE_CLIENT"] = "cursor"
     payload = json.dumps(req_init) + "\n" + json.dumps(req_call) + "\n"
     proc = subprocess.run(
         [sys.executable, SERVER],

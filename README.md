@@ -173,6 +173,8 @@ Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgress
 ```
 
 <img src="assets/konoha-upgrade.png" alt="konoha upgrade" width="100%">
+
+Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive fallback chain — full migration → retry with `--skip-embeddings` → `--skills-only` (seeding `SKILL.md` entries only) — and the migration loop itself honors a `KONOHA_MIGRATE_TIME_BUDGET` (default 150s) that defers non-required skills gracefully. Upgrades and fresh installs never fail from a slow migration; deferred references complete on the next `konoha migrate` or via on-demand indexing.
 </details>
 
 <details>

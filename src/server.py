@@ -350,6 +350,10 @@ def _migrate_skill(conn, skill_name, skills_dir):
         file_path = os.path.join(skills_dir, skill_name)
         if not os.path.isfile(file_path):
             return 0
+        try:
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)", (skill_name_clean, skill_name_clean))
+        except Exception:
+            pass
         conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name_clean,))
         with open(file_path, "r", encoding="utf-8") as f:
             raw_content = f.read()
@@ -357,6 +361,10 @@ def _migrate_skill(conn, skill_name, skills_dir):
         content = _optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
         line_count = content.count("\n") + 1
+        try:
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (skill_name_clean,))
+        except Exception:
+            pass
         conn.execute("DELETE FROM skills WHERE name = ?", (skill_name_clean,))
         conn.execute(
             "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
@@ -369,6 +377,10 @@ def _migrate_skill(conn, skill_name, skills_dir):
     if not os.path.isdir(skill_dir):
         return 0
 
+    try:
+        conn.execute("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)", (skill_name, skill_name))
+    except Exception:
+        pass
     conn.execute("DELETE FROM skills WHERE skill_name = ?", (skill_name,))
     count = 0
 
@@ -380,6 +392,10 @@ def _migrate_skill(conn, skill_name, skills_dir):
         content = _optimize_content(raw_content)
         byte_size = len(content.encode("utf-8"))
         line_count = content.count("\n") + 1
+        try:
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (skill_name,))
+        except Exception:
+            pass
         conn.execute("DELETE FROM skills WHERE name = ?", (skill_name,))
         conn.execute(
             "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
@@ -399,6 +415,10 @@ def _migrate_skill(conn, skill_name, skills_dir):
             content = _optimize_content(raw_content)
             byte_size = len(content.encode("utf-8"))
             line_count = content.count("\n") + 1
+            try:
+                conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (ref_key,))
+            except Exception:
+                pass
             conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
             conn.execute(
                 "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
