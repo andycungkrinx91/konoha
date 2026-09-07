@@ -33,8 +33,35 @@ function clearFileStatCache() {
   _statCache.clear();
 }
 
+function stripWinExtendedPrefix(p) {
+  if (typeof p !== 'string' || !p) return p;
+  if (p.startsWith('\\\\?\\UNC\\') || p.startsWith('\\\\?\\unc\\')) {
+    return '\\\\' + p.slice(8);
+  }
+  if (p.startsWith('\\\\?\\')) {
+    return p.slice(4);
+  }
+  if (p.startsWith('//?/UNC/') || p.startsWith('//?/unc/')) {
+    return '//' + p.slice(8);
+  }
+  if (p.startsWith('//?/')) {
+    return p.slice(4);
+  }
+  if (p.startsWith('\\??\\UNC\\') || p.startsWith('\\??\\unc\\')) {
+    return '\\\\' + p.slice(8);
+  }
+  if (p.startsWith('\\??\\')) {
+    return p.slice(4);
+  }
+  return p;
+}
+
 function normPath(p) {
-  return IS_WIN ? path.normalize(p).toLowerCase() : path.normalize(p);
+  if (!p || typeof p !== 'string') return p;
+  const stripped = stripWinExtendedPrefix(p);
+  const normalized = path.normalize(stripped);
+  const reStripped = stripWinExtendedPrefix(normalized);
+  return IS_WIN ? reStripped.toLowerCase() : reStripped;
 }
 
 function expandUser(rawPath) {
@@ -69,6 +96,9 @@ function uriToPath(uri) {
   }
   if (IS_WIN && /^\/[A-Za-z]:/.test(p)) {
     p = p.slice(1);
+  }
+  if (IS_WIN) {
+    p = stripWinExtendedPrefix(p);
   }
   return path.normalize(p);
 }
@@ -278,6 +308,7 @@ module.exports = {
   fileExistsCached,
   clearFileStatCache,
   ensureDir,
+  stripWinExtendedPrefix,
   normPath,
   expandUser,
   uriToPath,

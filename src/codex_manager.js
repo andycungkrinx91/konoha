@@ -159,59 +159,116 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const uvxExecutable = uvxCmd || 'uvx';
   const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-  // Remove existing [mcp_servers.*], [agents.*] and [features] blocks
+  // Remove existing managed blocks ([mcp_servers.*], [mcp.*], [agents.*], [features], [model_providers.heraxles], [profiles.heraxles]) and top-level managed keys
   const lines = (existingToml || '').split('\n');
-  const filteredLines = [];
-  let skippingBlock = false;
+  const preservedLines = [];
+  let skippingManagedSection = false;
+  let hasSeenSection = false;
+
+  const MANAGED_SECTION_PATTERNS = [
+    /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
+    /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
+    /^\[agents(\..*)?\]/i,
+    /^\[features\]/i,
+    /^\[model_providers\.heraxles(\..*)?\]/i,
+    /^\[profiles\.heraxles(\..*)?\]/i
+  ];
+
+  const TOP_LEVEL_MANAGED_KEYS = [
+    /^suppress_unstable_features_warning\s*=/i,
+    /^sandbox_mode\s*=/i,
+    /^approval_mode\s*=/i,
+    /^ask_for_approval\s*=/i,
+    /^approve_for_me\s*=/i,
+    /^sandbox\s*=/i,
+    /^sandbox_permissions\s*=/i,
+    /^auto_approve\s*=/i,
+    /^auto_approve_tools\s*=/i
+  ];
+
+  let hasModel = false;
+  let hasModelProvider = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
     if (
-      /^\[mcp_servers\.(konoha|semble|aislop)/i.test(rawLine) ||
-      /^\[mcp\.(konoha|semble|aislop)/i.test(rawLine) ||
-      /^\[agents(\..*)?\]/i.test(rawLine) ||
-      /^\[features\]/i.test(rawLine) ||
-      /^suppress_unstable_features_warning\s*=/i.test(rawLine) ||
-      /^sandbox_mode\s*=/i.test(rawLine) ||
-      /^approval_mode\s*=/i.test(rawLine) ||
-      /^ask_for_approval\s*=/i.test(rawLine) ||
-      /^approve_for_me\s*=/i.test(rawLine) ||
-      /^sandbox\s*=/i.test(rawLine) ||
-      /^sandbox_permissions\s*=/i.test(rawLine) ||
-      /^auto_approve\s*=/i.test(rawLine) ||
-      /^auto_approve_tools\s*=/i.test(rawLine) ||
-      rawLine.includes('A user prompt or conversation resume action') ||
-      rawLine === '# Official Konoha Ninja Agents'
+      rawLine === '# Official Konoha Ninja Agents' ||
+      rawLine.includes('A user prompt or conversation resume action')
     ) {
-      skippingBlock = true;
       continue;
     }
 
-    if (skippingBlock) {
-      if (rawLine.startsWith('[')) {
-        if (
-          /^\[mcp_servers\.(konoha|semble|aislop)/i.test(rawLine) ||
-          /^\[mcp\.(konoha|semble|aislop)/i.test(rawLine) ||
-          /^\[agents(\..*)?\]/i.test(rawLine) ||
-          /^\[features\]/i.test(rawLine)
-        ) {
-          continue;
-        }
-        skippingBlock = false;
+    if (rawLine.startsWith('[')) {
+      hasSeenSection = true;
+      const isManaged = MANAGED_SECTION_PATTERNS.some(p => p.test(rawLine));
+      if (isManaged) {
+        skippingManagedSection = true;
+        continue;
       } else {
+        skippingManagedSection = false;
+        preservedLines.push(lines[i]);
         continue;
       }
     }
 
-    filteredLines.push(lines[i]);
+    if (skippingManagedSection) {
+      continue;
+    }
+
+    if (!hasSeenSection) {
+      if (/^model\s*=/i.test(rawLine)) {
+        hasModel = true;
+        preservedLines.push(lines[i]);
+        continue;
+      }
+      if (/^model_provider\s*=/i.test(rawLine)) {
+        hasModelProvider = true;
+        preservedLines.push(lines[i]);
+        continue;
+      }
+      if (TOP_LEVEL_MANAGED_KEYS.some(k => k.test(rawLine))) {
+        continue;
+      }
+    }
+
+    preservedLines.push(lines[i]);
   }
 
-  let cleaned = filteredLines.join('\n').trim();
+  const cleaned = preservedLines.join('\n').trim();
 
-  const topFlags = [
-    'suppress_unstable_features_warning = true',
-    'sandbox_mode = "danger-full-access"'
+  const heraxlesProviderBlock = [
+    '[model_providers.heraxles]',
+    'name = "Heraxles"',
+    'base_url = "https://api.heraxles.dev/v1"',
+    'env_key = "HERAXLES_API_KEY"',
+    'wire_api = "responses"'
   ].join('\n');
+
+  const heraxlesProfileBlock = [
+    '[profiles.heraxles]',
+    'model = "claude-opus-5"',
+    'model_provider = "heraxles"'
+  ].join('\n');
+
+  const topDefaults = [];
+  if (!hasModel) topDefaults.push('model = "claude-opus-5"');
+  if (!hasModelProvider) topDefaults.push('model_provider = "heraxles"');
+  topDefaults.push('suppress_unstable_features_warning = true');
+  topDefaults.push('sandbox_mode = "danger-full-access"');
+  const topFlags = topDefaults.join('\n');
+
+  const resolvedUvx = uvxExecutable;
+
+  // Resolve aislop-mcp path
+  let resolvedAislopCmd = npxExecutable;
+  let resolvedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
+  try {
+    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8' });
+    if (whichAislop.status === 0 && whichAislop.stdout.trim()) {
+      resolvedAislopCmd = whichAislop.stdout.trim().split('\n')[0].trim();
+      resolvedAislopArgs = [];
+    }
+  } catch {}
 
   const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
@@ -223,8 +280,10 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     '[mcp_servers.konoha]',
     `command = "${normPython.executable}"`,
     `args = [${konohaArgs.map(a => `"${a.replace(/\\/g, '\\\\')}"`).join(', ')}]`,
-    'auto_approve = true',
-    'auto_approve_tools = ["*"]',
+    'startup_timeout_sec = 30',
+    'tool_timeout_sec = 60',
+    'default_tools_approval_mode = "auto"',
+    '',
     '[mcp_servers.konoha.env]',
     'ACTIVE_CLIENT = "codex"',
     'KONOHA_CLIENT = "codex"',
@@ -233,26 +292,44 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const sembleBlock = [
     '[mcp_servers.semble]',
-    `command = "${uvxExecutable}"`,
+    `command = "${resolvedUvx}"`,
     'args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]',
-    'auto_approve = true',
-    'auto_approve_tools = ["*"]'
+    'startup_timeout_sec = 30',
+    'tool_timeout_sec = 60',
+    'default_tools_approval_mode = "auto"'
   ].join('\n');
 
   const aislopBlock = [
     '[mcp_servers.aislop]',
-    `command = "${npxExecutable}"`,
-    'args = ["-y", "-p", "aislop", "aislop-mcp"]',
-    'auto_approve = true',
-    'auto_approve_tools = ["*"]'
+    `command = "${resolvedAislopCmd}"`,
+    `args = [${resolvedAislopArgs.map(a => `"${a}"`).join(', ')}]`,
+    'startup_timeout_sec = 30',
+    'tool_timeout_sec = 60',
+    'default_tools_approval_mode = "auto"'
   ].join('\n');
 
   const featuresBlock = [
     '[features]',
-    'skip_host_skill_discovery = true'
+    'skip_host_skill_discovery = true',
+    'skill_search = false'
   ].join('\n');
 
-  const mcpSection = `${konohaToolBlocks}\n\n${sembleToolBlocks}\n\n${aislopToolBlocks}\n\n${konohaBlock}\n\n${sembleBlock}\n\n${aislopBlock}\n\n${featuresBlock}`;
+  // Notice: Parent table headers MUST precede sub-tables in valid TOML
+  const mcpSection = [
+    konohaBlock,
+    '',
+    konohaToolBlocks,
+    '',
+    sembleBlock,
+    '',
+    sembleToolBlocks,
+    '',
+    aislopBlock,
+    '',
+    aislopToolBlocks,
+    '',
+    featuresBlock
+  ].join('\n');
 
   const agents = (() => {
     try {
@@ -286,6 +363,10 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     .join('\n\n');
 
   const extraSections = [
+    heraxlesProviderBlock,
+    '',
+    heraxlesProfileBlock,
+    '',
     mcpSection,
     agentBlocks ? `# Official Konoha Ninja Agents\n${agentBlocks}` : ''
   ].filter(Boolean).join('\n\n');
@@ -302,8 +383,40 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   try {
     const existing = readCodexConfig();
-    let updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, uvxCmd);
+    let resolvedUvx = uvxCmd || 'uvx';
+    try {
+      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8' });
+      if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
+        resolvedUvx = whichUvx.stdout.trim().split('\n')[0].trim();
+      }
+    } catch {}
+    let updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
     writeCodexConfig(updated);
+
+    // Also sync ~/.codex/heraxles.config.toml
+    try {
+      const heraxlesConfigPath = path.join(CODEX_DIR, 'heraxles.config.toml');
+      const heraxlesContent = [
+        'model = "claude-opus-5"',
+        'model_provider = "heraxles"',
+        '',
+        '[model_providers.heraxles]',
+        'name = "Heraxles"',
+        'base_url = "https://api.heraxles.dev/v1"',
+        'env_key = "HERAXLES_API_KEY"',
+        'wire_api = "responses"',
+        '',
+        '[profiles.heraxles]',
+        'model = "claude-opus-5"',
+        'model_provider = "heraxles"',
+        '',
+        '[features]',
+        'skip_host_skill_discovery = true',
+        'skill_search = false',
+        ''
+      ].join('\n');
+      fs.writeFileSync(heraxlesConfigPath, heraxlesContent, 'utf-8');
+    } catch {}
 
     if (!silent) {
       console.log('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml');
@@ -365,7 +478,7 @@ function deployCodexRtkRule(silent = true) {
 
   // Attempt RTK init if codex support exists
   try {
-    spawnSync(rtkCmd, ['init', '-g', '--agent', 'codex', '--auto-patch', '--trust-filters'], {
+    spawnSync(rtkCmd, ['init', '-g', '--codex', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
       stdio: silent ? 'ignore' : 'inherit'
@@ -426,8 +539,8 @@ function removeCodexConfig(silent = true) {
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
       if (
-        /^\[mcp_servers\.(konoha|semble|aislop)\]/i.test(rawLine) ||
-        /^\[mcp\.(konoha|semble|aislop)\]/i.test(rawLine)
+        /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine) ||
+        /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i.test(rawLine)
       ) {
         skippingBlock = true;
         continue;

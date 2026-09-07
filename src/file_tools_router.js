@@ -121,23 +121,24 @@ function setWorkspaceRoot(root) {
     workspaceRoot = null;
     return;
   }
-  workspaceRoot = root || null;
+  workspaceRoot = root ? platform.stripWinExtendedPrefix(root) : null;
 }
 
 function getWorkspaceRoot() {
+  let ws = null;
   if (workspaceRoot && !isIdeInstallationDirectory(workspaceRoot)) {
-    return workspaceRoot;
+    ws = workspaceRoot;
+  } else {
+    const detected = detectWorkspaceRoot();
+    if (detected && !isIdeInstallationDirectory(detected)) {
+      workspaceRoot = detected;
+      ws = detected;
+    } else {
+      const cwd = process.cwd();
+      ws = !isIdeInstallationDirectory(cwd) ? cwd : os.homedir();
+    }
   }
-  const detected = detectWorkspaceRoot();
-  if (detected && !isIdeInstallationDirectory(detected)) {
-    workspaceRoot = detected;
-    return detected;
-  }
-  const cwd = process.cwd();
-  if (!isIdeInstallationDirectory(cwd)) {
-    return cwd;
-  }
-  return os.homedir();
+  return ws ? platform.stripWinExtendedPrefix(ws) : ws;
 }
 
 function uriToPath(uri) {
@@ -163,6 +164,7 @@ function resolveInputPath(rawPath) {
   } catch {
     real = resolved;
   }
+  real = platform.stripWinExtendedPrefix(real);
   assertWithinAllowed(real);
   return real;
 }
@@ -219,6 +221,7 @@ function assertWithinAllowed(resolvedPath) {
   } catch {
     wsReal = path.resolve(workspace);
   }
+  wsReal = platform.stripWinExtendedPrefix(wsReal);
   const wsNorm = platform.normPath(wsReal);
   const rel = path.relative(wsNorm, pathNorm);
   if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
@@ -248,10 +251,16 @@ function runPythonScript(scriptName, args) {
   let result;
   try {
     const python = getPythonCommand();
-    result = spawnSync(python.executable, [...python.prefixArgs, scriptPath, JSON.stringify(payload)], {
+    const jsonPayload = JSON.stringify(payload);
+    result = spawnSync(python.executable, [...python.prefixArgs, scriptPath, '-'], {
+      input: jsonPayload,
       encoding: 'utf-8',
       timeout: SCRIPT_TIMEOUT_MS,
-      maxBuffer: 1024 * 1024 * 1024
+      maxBuffer: 1024 * 1024 * 1024,
+      env: Object.assign({}, process.env, {
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1'
+      })
     });
   } catch (err) {
     return { error: err.message || String(err) };

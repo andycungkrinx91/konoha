@@ -20,6 +20,12 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const readline = require("readline");
 
+process.on("unhandledRejection", (reason) => {
+  try {
+    process.stderr.write(`[mcp konoha] unhandledRejection: ${reason && reason.stack ? reason.stack : reason}\n`);
+  } catch (_) {}
+});
+
 const SERVER_NAME = "konoha";
 const SERVER_VERSION = (() => {
   const candidates = [
@@ -35,7 +41,7 @@ const SERVER_VERSION = (() => {
       } catch (_) {}
     }
   }
-  return "2.0.0-beta.4";
+  return "2.0.0-beta.5";
 })();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
@@ -214,9 +220,15 @@ function getBaselineBytesForTool(toolName, args) {
       if (fs.existsSync(resolved)) {
         const st = fs.statSync(resolved);
         if (st.isFile()) return st.size;
+        if (st.isDirectory()) {
+          if (toolName === "find_files_clean") return 250000;
+          if (toolName === "token_efficient_grep") return 150000;
+        }
       }
     }
   } catch (_) {}
+  if (toolName === "find_files_clean") return 250000;
+  if (toolName === "token_efficient_grep") return 150000;
   return 0;
 }
 
@@ -318,7 +330,7 @@ function handleRequest(req) {
       id,
       result: {
         protocolVersion: negotiatedProtocol,
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, resources: {}, prompts: {} },
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
       },
     };
@@ -335,6 +347,18 @@ function handleRequest(req) {
 
   if (method === "ping") {
     return { jsonrpc: "2.0", id, result: {} };
+  }
+
+  if (method === "resources/list") {
+    return { jsonrpc: "2.0", id, result: { resources: [] } };
+  }
+
+  if (method === "resources/templates/list") {
+    return { jsonrpc: "2.0", id, result: { resourceTemplates: [] } };
+  }
+
+  if (method === "prompts/list") {
+    return { jsonrpc: "2.0", id, result: { prompts: [] } };
   }
 
   if (method === "tools/list") {

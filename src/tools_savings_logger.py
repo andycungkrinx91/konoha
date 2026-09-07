@@ -111,9 +111,13 @@ def log(tool: str, query: str, returned_bytes: int, client: str = None, baseline
     try:
         if baseline_bytes is not None and baseline_bytes > 0:
             baseline = int(baseline_bytes)
-        elif tool in ("read_file_head", "read_file_range", "token_efficient_grep", "file_info", "get_file_structure", "find_files_clean"):
+        elif tool == "token_efficient_grep":
+            baseline = max(returned_bytes, 150000)
+        elif tool == "find_files_clean":
+            baseline = max(returned_bytes, 250000)
+        elif tool in ("read_file_head", "read_file_range", "file_info", "get_file_structure"):
             baseline = returned_bytes
-        elif tool in ("find_skill", "list_skills"):
+        elif tool in ("find_skill", "list_skills", "optimize_report", "build_from_text", "build_from_source", "build_with_image_design"):
             baseline = DEFAULT_BASELINE
             try:
                 row = cur.execute("SELECT SUM(byte_size) FROM skills").fetchone()

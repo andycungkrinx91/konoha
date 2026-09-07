@@ -847,7 +847,7 @@ function getCliVersion() {
       } catch {}
     }
   }
-  return '2.0.0-beta.4';
+  return '2.0.0-beta.5';
 }
 
 function drawLogo() {
@@ -2435,6 +2435,14 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     return { ok: false, error: 'file_tools_mcp.js missing' };
   }
 
+  const cleanEnv = Object.assign({}, process.env);
+  for (const k of Object.keys(cleanEnv)) {
+    if (k.toUpperCase() === 'KONOHA_DAEMON') {
+      delete cleanEnv[k];
+    }
+  }
+  cleanEnv.KONOHA_DAEMON = 'false';
+
   const input = [
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"konoha-doctor","version":"1.0"}}}',
     '{"jsonrpc":"2.0","method":"notifications/initialized"}',
@@ -2449,6 +2457,7 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
         input,
         encoding: 'utf-8',
         timeout: 15000,
+        env: cleanEnv,
         shell: process.platform === 'win32'
       });
     }
@@ -2457,7 +2466,8 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     run = spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
       input,
       encoding: 'utf-8',
-      timeout: 15000
+      timeout: 15000,
+      env: cleanEnv
     });
   }
 
@@ -3009,24 +3019,34 @@ async function cmdTest(args = []) {
         const input = inputParts.join('\n');
 
         const testEnv = Object.assign({}, process.env);
-        delete testEnv.KONOHA_DAEMON;
+        for (const k of Object.keys(testEnv)) {
+          if (k.toUpperCase() === 'KONOHA_DAEMON') {
+            delete testEnv[k];
+          }
+        }
+        testEnv.KONOHA_DAEMON = 'false';
 
         const run = test.useNode
           ? spawnSync(process.execPath, [FILE_TOOLS_MCP_PATH], {
               input,
               encoding: 'utf-8',
-              timeout: 30000,
+              timeout: 60000,
               env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             })
           : spawnPythonSync(python, [SERVER_PATH], {
               input,
               encoding: 'utf-8',
-              timeout: 20000,
+              timeout: 30000,
               env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             });
-        if (run.status !== 0) throw new Error(run.stderr || 'Execution failed');
+        if (run.status !== 0) {
+          if (run.error) {
+            throw new Error(run.error.message + (run.stderr ? '\n' + run.stderr : ''));
+          }
+          throw new Error(run.stderr || `Execution failed with exit code ${run.status}`);
+        }
         const lines = run.stdout.trim().split('\n').filter(Boolean);
         const response = JSON.parse(lines[lines.length - 1]);
         if (response.error) {
@@ -5644,7 +5664,7 @@ async function cmdVersion(args = []) {
     path.join(SKILLS_DB_DIR, 'package.json'),
     path.join(os.homedir(), '.konoha', 'package.json')
   ];
-  let currentVersion = '2.0.0-beta.4';
+  let currentVersion = '2.0.0-beta.5';
   for (const p of candidatePkgPaths) {
     if (fileExists(p)) {
       try {

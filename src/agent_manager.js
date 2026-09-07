@@ -716,10 +716,11 @@ function generateAgentsMd(agents) {
 > **Compatibility**: Antigravity IDE, CLI, and all Gemini agent surfaces. Place at \`~/.agents/AGENTS.md\`.
 
 > **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
-> You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
+> You are equipped with MCP servers: **\`konoha\`**, **\`semble\`**, and **\`aislop\`**. You MUST use them for ALL file operations, code search, and code hygiene/slop scans. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
 >
 > - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
+> - **Zero-AI-Slop & Anti-Slop Gate** → \`aislop\` MCP (\`aislop_scan\`, \`aislop_fix\`, \`aislop_why\`, \`aislop_baseline\`)
 > - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
 

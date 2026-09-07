@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-konoha MCP Server (v2.0.0-beta.4 — Token-Optimized)
+konoha MCP Server (v2.0.0-beta.5 — Token-Optimized)
 SQLite FTS5-backed skill content server for Antigravity IDE/CLI.
 Serves agent skill content on-demand via keyword search instead of
 loading entire SKILL.md files into context.
@@ -39,7 +39,7 @@ def get_server_version() -> str:
                         return str(data["version"])
             except Exception:
                 pass
-    return "2.0.0-beta.4"
+    return "2.0.0-beta.5"
 import hashlib
 import re
 from urllib.parse import urlparse, unquote
@@ -825,14 +825,27 @@ def log_tool_call(tool_name, query_str, returned_content, agent_name=None):
         is_new_turn = (current_time - last_time) > 60
         LAST_CALL_TIMES[agent_key] = current_time
         
-        if tool_name not in ("find_skill", "list_skills") or not is_new_turn:
+        # Skill discovery, search, build specifications, and subagent delegations
+        # all avoid loading the entire 550KB skill library / monolithic uncompacted prompts into context.
+        skill_saving_tools = (
+            "find_skill", "find_skills", "list_skills", "optimize_report",
+            "build_from_text", "build_from_source", "build_with_image_design",
+            "sannin", "kage", "jonin", "anbu", "chunin", "tokubetsu_jonin", "tokubetsu-jonin", "genin"
+        )
+        is_subagent = tool_name.startswith("delegate_to_") or tool_name.startswith("mcp_")
+
+        if tool_name in skill_saving_tools or is_subagent:
+            bytes_saved = max(baseline_bytes - returned_bytes, 0)
+            tokens_saved = int(bytes_saved / 4)
+            total_library_bytes = baseline_bytes
+        elif tool_name == "get_skill":
             bytes_saved = 0
             tokens_saved = 0
             total_library_bytes = returned_bytes
         else:
-            bytes_saved = max(baseline_bytes - returned_bytes, 0)
-            tokens_saved = int(bytes_saved / 4)
-            total_library_bytes = baseline_bytes
+            bytes_saved = 0
+            tokens_saved = 0
+            total_library_bytes = returned_bytes
             
         client_name = detect_active_client()
         conn.execute("""
@@ -1331,7 +1344,7 @@ def normalize_framework_name(framework):
 
 
 def _load_skill_content_for_build(skill_names, conn):
-    """Load actual skill content from SQLite for embedding in build output."""
+    """Load token-efficient skill content previews from SQLite for embedding in build output."""
     blocks = []
     for name in skill_names:
         resolved = _fuzzy_resolve_skill(name, conn)
@@ -1339,7 +1352,16 @@ def _load_skill_content_for_build(skill_names, conn):
         try:
             row = conn.execute("SELECT content FROM skills WHERE name = ?", (effective,)).fetchone()
             if row and row[0]:
-                blocks.append({"skill_name": effective, "content": row[0]})
+                raw_content = row[0].strip()
+                preview = raw_content[:400].strip()
+                if len(raw_content) > 400:
+                    preview += f"\n...(Call konoha.get_skill('{effective}') for full reference manual)"
+                blocks.append({
+                    "skill_name": effective,
+                    "content": preview,
+                    "byte_size": len(raw_content),
+                    "token_efficient": True
+                })
         except Exception as e:
             sys.stderr.write(f"[mcp konoha] Error loading skill {effective}: {e}\n")
             pass
@@ -1696,7 +1718,7 @@ def build_from_source(name, source_dir, framework, agent_name=None, taste_dials=
         "embedded_skill_content": skill_blocks
     }
 
-    res = json.dumps(spec, indent=2)
+    res = json.dumps(spec)
     log_tool_call("build_from_source", f"name={name}, source_dir={source_dir}, framework={framework}", res, agent_name=agent_name)
     return res
 
@@ -1908,7 +1930,7 @@ def build_from_text(name, description, framework, agent_name=None, taste_dials=N
         "validation_commands": framework_spec["validation"],
         "embedded_skill_content": skill_blocks
     }
-    res = json.dumps(spec, indent=2)
+    res = json.dumps(spec)
     log_tool_call("build_from_text", f"name={name}, description={description}, framework={framework}", res, agent_name=agent_name)
     return res
 

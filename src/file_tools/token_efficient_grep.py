@@ -38,7 +38,7 @@ def main():
     glob_pattern = args.get('glob') or args.get('file_glob')
     ignore_case = bool(args.get('ignore_case', False))
 
-    flags = re.IGNORECASE if ignore_case else 0
+    flags = (re.IGNORECASE if ignore_case else 0) | re.MULTILINE
     try:
         regex = re.compile(pattern, flags)
     except re.error as exc:
@@ -46,29 +46,42 @@ def main():
 
     matches = []
     truncated = False
+    has_path_glob = bool(glob_pattern and ('/' in glob_pattern or '\\' in glob_pattern))
 
     for file_path in walk_files(root_dir):
         if not is_probably_text(file_path):
             continue
-        rel = os.path.relpath(file_path, root_dir).replace('\\', '/')
+
         name = os.path.basename(file_path)
-        if glob_pattern and not (
+        if glob_pattern and not has_path_glob and not fnmatch.fnmatch(name, glob_pattern):
+            continue
+
+        try:
+            if os.path.getsize(file_path) > 1024 * 1024:
+                continue
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as handle:
+                content = handle.read()
+        except OSError:
+            continue
+
+        if not regex.search(content):
+            continue
+
+        rel = os.path.relpath(file_path, root_dir).replace('\\', '/')
+        if has_path_glob and not (
             fnmatch.fnmatch(name, glob_pattern) or fnmatch.fnmatch(rel, glob_pattern)
         ):
             continue
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='replace') as handle:
-                for line_no, line in enumerate(handle, start=1):
-                    if regex.search(line):
-                        snippet = line.strip()
-                        if len(snippet) > MATCH_TRIM:
-                            snippet = snippet[:MATCH_TRIM] + '…'
-                        matches.append(f'[{rel}:{line_no}] {snippet}')
-                        if len(matches) >= max_matches:
-                            truncated = True
-                            break
-        except OSError:
-            continue
+
+        for line_no, line in enumerate(content.splitlines(), start=1):
+            if regex.search(line):
+                snippet = line.strip()
+                if len(snippet) > MATCH_TRIM:
+                    snippet = snippet[:MATCH_TRIM] + '…'
+                matches.append(f'[{rel}:{line_no}] {snippet}')
+                if len(matches) >= max_matches:
+                    truncated = True
+                    break
         if truncated:
             break
 

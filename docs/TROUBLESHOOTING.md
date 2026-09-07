@@ -387,6 +387,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: The AI assistant re-reads `prompt.md` repeatedly on every tool call, consuming thousands of tokens.
   - **Reason**: The session prompt hook unconditionally injected ephemeral reminder messages on every single tool execution step.
   - **Fix**: Resolved in `v2.0.0-beta.4` by adding response state tracking in `prompt_hook.js`. Ephemeral notifications are now only emitted once for fresh user inputs awaiting an initial response, and preview limits in `find_skill` were reduced to 500 characters.
+* **`Token Efficient Grep: FAILED - Path outside workspace` or Timeout on Windows (`v2.0.0-beta.5`)**:
+  - **Symptom**: On Windows systems, running `konoha test` displays `✗ Token Efficient Grep: FAILED - [gateway] Proxy Gateway running on http://127.0.0.1:20002` or `Path outside workspace: D:\...`.
+  - **Reason**: On Windows NTFS drives, Node `realpathSync` produces extended prefix paths (`\\?\D:\...`). Python's `os.path.commonpath` threw `ValueError: Paths don't have the same drive` comparing `d:` and `\\?\d:`. Furthermore, Windows command-line argument quoting rules under `py.exe` corrupted backslashes in JSON payloads, and scanning 4,700+ reference files in `src/templates/skills` caused 60-second timeouts.
+  - **Fix**: Resolved in `v2.0.0-beta.5` by introducing `stripWinExtendedPrefix` and `_strip_win_prefix` across Node and Python runtimes, adding an `os.path.relpath` fallback, transporting JSON payloads safely via child process `stdin` with `PYTHONIOENCODING=utf-8`, and adding `'references'` and build caches to `SKIP_DIR_NAMES`.
+* **Severe Token-Burn on Website & Mockup Build Requests (`build_from_text` / `build_from_source`)**:
+  - **Symptom**: A single call to `build_from_text` or `build_from_source` returned over 100 KB (~26,000 tokens), causing context overflow and burning API quotas.
+  - **Reason**: `_load_skill_content_for_build` dumped the full raw markdown of 5 full framework skills (~90 KB) into the response, accompanied by 2-space indented JSON formatting.
+  - **Fix**: Resolved in `v2.0.0-beta.5` by replacing raw markdown dumps with token-efficient SOP previews (≤400 chars) that direct agents to load full reference manuals on demand via `konoha.get_skill`, cutting build payload sizes down to ~15 KB (an 85.2% direct context reduction saving ~22,000 tokens per request).
 
 ---
 

@@ -6,10 +6,22 @@ import json
 import os
 import sys
 
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 SKIP_DIR_NAMES = {
     '.git', 'node_modules', 'dist', 'build', 'venv', '.venv',
     '__pycache__', '.tox', '.mypy_cache', '.pytest_cache', '.next',
-    'coverage', '.nyc_output', 'target', 'go-dist', 'vendor'
+    'coverage', '.nyc_output', 'target', 'go-dist', 'vendor',
+    'references', '.turbo', '.cache', 'site-packages', 'third_party'
 }
 
 SKIP_FILE_NAMES = {
@@ -37,12 +49,20 @@ def emit_error(message, code=1):
 
 
 def load_args():
-    if len(sys.argv) < 2:
-        emit_error('Missing JSON arguments on argv[1]')
+    if len(sys.argv) > 1 and sys.argv[1] != '-':
+        try:
+            return json.loads(sys.argv[1])
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
     try:
-        return json.loads(sys.argv[1])
-    except json.JSONDecodeError as exc:
-        emit_error(f'Invalid JSON arguments: {exc}')
+        raw = sys.stdin.read()
+        if raw and raw.strip():
+            return json.loads(raw)
+    except Exception as exc:
+        emit_error(f'Invalid JSON arguments on stdin: {exc}')
+    if len(sys.argv) >= 2 and sys.argv[1] != '-':
+        emit_error('Missing or invalid JSON arguments on argv[1]')
+    emit_error('Missing JSON arguments on argv[1] or stdin')
 
 
 def is_ide_installation_dir(path):
@@ -72,9 +92,23 @@ def is_ide_installation_dir(path):
     return False
 
 
+def _strip_win_prefix(p):
+    if not p or not isinstance(p, str):
+        return p
+    for prefix in ("\\\\?\\UNC\\", "\\\\?\\unc\\", "\\\\?\\", "//?/UNC/", "//?/unc/", "//?/", "\\??\\UNC\\", "\\??\\"):
+        if p.startswith(prefix):
+            if "unc" in prefix.lower():
+                return "\\\\" + p[len(prefix):]
+            return p[len(prefix):]
+    return p
+
+
 def resolve_path(raw_path, base_dir=None):
     if not raw_path or not isinstance(raw_path, str):
         emit_error('path is required')
+    raw_path = _strip_win_prefix(raw_path)
+    if base_dir:
+        base_dir = _strip_win_prefix(base_dir)
     expanded = os.path.expanduser(raw_path)
     if not os.path.isabs(expanded):
         base = base_dir if base_dir and not is_ide_installation_dir(base_dir) else None
@@ -88,6 +122,7 @@ def resolve_path(raw_path, base_dir=None):
         real = os.path.realpath(expanded)
     except OSError:
         real = expanded
+    real = _strip_win_prefix(real)
     assert_within_allowed(real, base_dir)
     return real
 
@@ -96,13 +131,17 @@ _KONOHA_HOME = None
 def _get_konoha_home():
     global _KONOHA_HOME
     if _KONOHA_HOME is None:
-        _KONOHA_HOME = os.path.realpath(os.path.expanduser('~/.konoha'))
+        _KONOHA_HOME = _strip_win_prefix(os.path.realpath(os.path.expanduser('~/.konoha')))
     return _KONOHA_HOME
 
 
 def _norm(p):
-    """Normalize a path; on Windows also lowercase for case-insensitive compare."""
+    """Normalize a path; on Windows also lowercase for case-insensitive compare and strip extended prefixes."""
+    if not p:
+        return ''
+    p = _strip_win_prefix(p)
     n = os.path.normpath(p)
+    n = _strip_win_prefix(n)
     if os.name == 'nt':
         n = os.path.normcase(n)
     return n
@@ -115,6 +154,10 @@ def assert_within_allowed(resolved_path, base_dir=None):
     files (scripts, configs, skill data) even when the IDE workspace
     is something unrelated (e.g. a brain session directory).
     """
+    resolved_path = _strip_win_prefix(resolved_path)
+    if base_dir:
+        base_dir = _strip_win_prefix(base_dir)
+
     if is_ide_installation_dir(resolved_path):
         emit_error(f'Access to IDE installation directory is forbidden: {resolved_path}')
 
@@ -125,7 +168,7 @@ def assert_within_allowed(resolved_path, base_dir=None):
     # 1. Konoha install directory — always allowed
     norm_konoha = _norm(_get_konoha_home())
     sep = os.sep
-    if norm_path == norm_konoha or norm_path.startswith(norm_konoha + sep):
+    if norm_path == norm_konoha or norm_path.startswith(norm_konoha + sep) or norm_path.startswith(norm_konoha + '/'):
         return
 
     # 1.5. Inside home-scoped agent scratch dirs (IDE internal caches)
@@ -146,25 +189,36 @@ def assert_within_allowed(resolved_path, base_dir=None):
     ]
     for p in scratch_prefixes:
         p_norm = _norm(p)
-        if norm_path == p_norm or norm_path.startswith(p_norm + sep):
+        if norm_path == p_norm or norm_path.startswith(p_norm + sep) or norm_path.startswith(p_norm + '/'):
             return
 
     # 2. Inside workspace root — if provided
     workspace = base_dir or os.getcwd()
     if not workspace:
         return
+    workspace = _strip_win_prefix(workspace)
     try:
         ws_real = os.path.realpath(os.path.abspath(workspace))
     except OSError:
         ws_real = os.path.abspath(workspace)
-    ws_real = os.path.normpath(ws_real) if os.name != 'nt' else os.path.normcase(os.path.normpath(ws_real))
-    common = None
+    ws_real = _strip_win_prefix(ws_real)
+    ws_norm = _norm(ws_real)
+
     try:
-        common = os.path.commonpath([ws_real, norm_path])
-    except ValueError:
-        emit_error(f'Path outside workspace: {resolved_path}')
-    if common != ws_real:
-        emit_error(f'Path outside workspace: {resolved_path}')
+        common = os.path.commonpath([ws_norm, norm_path])
+        if common == ws_norm:
+            return
+    except (ValueError, Exception):
+        pass
+
+    try:
+        rel = os.path.relpath(norm_path, ws_norm)
+        if not rel.startswith('..' + os.sep) and not rel.startswith('../') and rel != '..':
+            return
+    except (ValueError, Exception):
+        pass
+
+    emit_error(f'Path outside workspace: {resolved_path}')
 
 
 def should_skip_dir(dirname):

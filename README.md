@@ -20,7 +20,7 @@
 
 ## 📸 Preview
 
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.4 — Konoha v2.0.0-beta.4 (2026-09-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.4_2026-09-06.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.5 — Konoha v2.0.0-beta.5 (2026-09-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.5_2026-09-07.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
