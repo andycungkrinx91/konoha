@@ -22,6 +22,7 @@ import os
 import glob
 import re
 import sys
+import time
 import hashlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -330,7 +331,7 @@ def content_md5(content):
     return hashlib.md5(content.encode('utf-8')).hexdigest()[:12]
 
 
-def migrate_skill(conn, skill_name):
+def migrate_skill(conn, skill_name, skills_only=False):
     """Migrate a single skill and its references."""
     # Check if skill_name is a flat file
     if skill_name.endswith(".md"):
@@ -405,7 +406,11 @@ def migrate_skill(conn, skill_name):
 
     # 2. Migrate references/*.md
     refs_dir = os.path.join(skill_dir, "references")
-    if os.path.isdir(refs_dir):
+    if skills_only and os.path.isdir(refs_dir):
+        deferred = len(glob.glob(os.path.join(refs_dir, "*.md")))
+        if deferred:
+            print(f"  ⏭ References deferred (--skills-only): {deferred} files skipped")
+    elif os.path.isdir(refs_dir):
         for ref_path in sorted(glob.glob(os.path.join(refs_dir, "*.md"))):
             ref_name_raw = os.path.splitext(os.path.basename(ref_path))[0]
             ref_key = f"{skill_name}/{ref_name_raw}"
@@ -432,32 +437,40 @@ def migrate_skill(conn, skill_name):
     # 3. Migrate other .md files in root of skill directory (e.g. prd-creator/JSON.md)
     # Exclude SKILL.md, README.md, LICENSE.md, CHANGELOG.md (case-insensitive)
     exclude_filenames = {"skill.md", "readme.md", "license.md", "changelog.md"}
-    for file_path in sorted(glob.glob(os.path.join(skill_dir, "*.md"))):
-        filename = os.path.basename(file_path)
-        if filename.lower() in exclude_filenames:
-            continue
+    if skills_only:
+        deferred_root = [
+            f for f in glob.glob(os.path.join(skill_dir, "*.md"))
+            if os.path.basename(f).lower() not in exclude_filenames
+        ]
+        if deferred_root:
+            print(f"  ⏭ Root references deferred (--skills-only): {len(deferred_root)} files skipped")
+    else:
+        for file_path in sorted(glob.glob(os.path.join(skill_dir, "*.md"))):
+            filename = os.path.basename(file_path)
+            if filename.lower() in exclude_filenames:
+                continue
 
-        ref_name_raw = os.path.splitext(filename)[0]
-        ref_key = f"{skill_name}/{ref_name_raw}"
+            ref_name_raw = os.path.splitext(filename)[0]
+            ref_key = f"{skill_name}/{ref_name_raw}"
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            raw_content = f.read()
-        tags = extract_tags_from_filename(file_path, skill_name)
-        content = optimize_content(raw_content)
-        byte_size = len(content.encode("utf-8"))
-        raw_size = len(raw_content.encode("utf-8"))
-        line_count = content.count("\n") + 1
-        pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_content = f.read()
+            tags = extract_tags_from_filename(file_path, skill_name)
+            content = optimize_content(raw_content)
+            byte_size = len(content.encode("utf-8"))
+            raw_size = len(raw_content.encode("utf-8"))
+            line_count = content.count("\n") + 1
+            pct = ((raw_size - byte_size) / raw_size * 100) if raw_size > 0 else 0
 
-        conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (ref_key,))
-        conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
-        conn.execute(
-            "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (ref_key, skill_name, "reference", tags, content, file_path, byte_size, line_count)
-        )
-        print(f"  ✓ {filename} ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%) [root reference]")
-        count += 1
+            conn.execute("DELETE FROM skill_chunks WHERE skill_name = ?", (ref_key,))
+            conn.execute("DELETE FROM skills WHERE name = ?", (ref_key,))
+            conn.execute(
+                "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (ref_key, skill_name, "reference", tags, content, file_path, byte_size, line_count)
+            )
+            print(f"  ✓ {filename} ({raw_size:,} → {byte_size:,} bytes, optimized {pct:.1f}%) [root reference]")
+            count += 1
 
     return count
 
@@ -572,6 +585,8 @@ def main():
                         help="Force rebuilding of all vector embeddings")
     parser.add_argument("--skip-embeddings", action="store_true",
                         help="Skip vector embedding generation during migration")
+    parser.add_argument("--skills-only", action="store_true",
+                        help="Migrate only SKILL.md entries; defer references to a later 'konoha migrate'")
     parser.add_argument("--require-skill", action="append", default=[],
                         help="Require a canonical skill row after migration")
     args = parser.parse_args()
@@ -616,6 +631,20 @@ def main():
         else:
             skills_to_migrate = CUSTOM_SKILLS
 
+    # Required skills first so a time-budget cutoff can never skip them
+    required_set = set(args.require_skill or [])
+    skills_to_migrate = sorted(
+        skills_to_migrate,
+        key=lambda s: (0 if s in required_set else 1, s)
+    )
+
+    try:
+        time_budget = float(os.environ.get("KONOHA_MIGRATE_TIME_BUDGET", "150"))
+    except ValueError:
+        time_budget = 150.0
+    start_time = time.monotonic()
+    deferred_skills = 0
+
     print("🚀 Skills Migration to SQLite FTS5 (v1.1.0 — Enhanced Optimization)")
     print(f"   Source: {SKILLS_DIR}")
     print(f"   Target: {DB_PATH}")
@@ -639,9 +668,15 @@ def main():
 
     total = 0
     for skill_name in skills_to_migrate:
+        if skill_name not in required_set and time_budget > 0 and (time.monotonic() - start_time) > time_budget:
+            deferred_skills += 1
+            continue
         print(f"\n📦 Migrating: {skill_name}")
-        count = migrate_skill(conn, skill_name)
+        count = migrate_skill(conn, skill_name, skills_only=args.skills_only)
         total += count
+
+    if deferred_skills:
+        print(f"\n  ⏭ Time budget reached; {deferred_skills} skills deferred to on-demand indexing")
 
     migrated_legacy, removed_legacy = normalize_legacy_skill_names(conn)
     conn.commit()

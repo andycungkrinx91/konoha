@@ -1424,13 +1424,23 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
   }
-  let run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs], {
-    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+  const runMigrate = (extraArgs, timeoutMs) => spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs, ...extraArgs], {
+    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
   });
-  if (run.status !== 0 && !migrationArgs.includes('--skip-embeddings')) {
-    run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs, '--skip-embeddings'], {
-      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 60000
+  let run = runMigrate([], MIGRATION_TIMEOUT_MS);
+  if (run.status !== 0) {
+    // Retry without neural embedding generation
+    run = runMigrate(['--skip-embeddings'], MIGRATION_TIMEOUT_MS);
+  }
+  if (run.status !== 0) {
+    // Final fallback: seed skills only, defer references to a later `konoha migrate`
+    const skillsOnlyArgs = migrationArgs.filter(a => a !== '--skip-embeddings');
+    run = spawnPythonSync(python, [MIGRATE_PATH, ...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], {
+      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
     });
+    if (run.status === 0) {
+      warn('Reference indexing deferred — run "konoha migrate" to complete remaining references.');
+    }
   }
   if (run.status !== 0) {
     const detail = run.error ? run.error.message : (run.stderr || run.stdout || 'Migration failed');
@@ -2628,9 +2638,15 @@ function ensureAutoSetup(force = false) {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {
         try {
-          spawnPythonSync(python, [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill', ...extraArgs], {
+          const bootstrapArgs = [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'];
+          let run = spawnPythonSync(python, [...bootstrapArgs, ...extraArgs], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
+          if (run.status !== 0) {
+            run = spawnPythonSync(python, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
+              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
+            });
+          }
         } catch (e) {
           try {
             spawnPythonSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
@@ -2786,15 +2802,20 @@ async function cmdMigrate(args) {
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      const run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
+      let run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
         encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
       });
-      if (run.status !== 0) throw new Error(run.stderr || 'Migration failed');
+      if (run.status !== 0) {
+        run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+        });
+      }
+      if (run.status !== 0) throw new Error(run.stderr || run.error?.message || 'Migration failed');
       log(run.stdout);
       success('Migration complete!');
     } catch (e) {
-      error(`Migration failed: ${e.message}`);
-      process.exit(1);
+      warn(`Migration timed out or partially failed: ${e.message}`);
+      warn('Run "konoha migrate" again to finish remaining references.');
     }
   } else {
     // Migrate all detected skill directories
@@ -2802,15 +2823,20 @@ async function cmdMigrate(args) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        const runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean'], {
+        let runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
-        if (runFallback.status !== 0) throw new Error(runFallback.stderr || 'Migration failed');
+        if (runFallback.status !== 0) {
+          runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-only', '--skip-embeddings'], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          });
+        }
+        if (runFallback.status !== 0) throw new Error(runFallback.stderr || runFallback.error?.message || 'Migration failed');
         log(runFallback.stdout);
         success('Migration complete!');
       } catch (e) {
-        error(`Migration failed: ${e.message}`);
-        process.exit(1);
+        warn(`Migration timed out or partially failed: ${e.message}`);
+        warn('Run "konoha migrate" again to finish remaining references.');
       }
     } else {
       let anySuccess = false;
@@ -2819,9 +2845,14 @@ async function cmdMigrate(args) {
         migrateArgs.push('--skills-dir', dir.path);
       }
       try {
-        const run = spawnPythonSync(python, migrateArgs, {
+        let run = spawnPythonSync(python, migrateArgs, {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
+        if (run.status !== 0) {
+          run = spawnPythonSync(python, [...migrateArgs, '--skills-only', '--skip-embeddings'], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          });
+        }
         if (run.status === 0) {
           log(run.stdout);
           anySuccess = true;
@@ -2835,7 +2866,7 @@ async function cmdMigrate(args) {
       if (anySuccess) {
         success('Migration complete for all skill directories!');
       } else {
-        process.exit(1);
+        warn('Migration timed out; run "konoha migrate" again to finish remaining references.');
       }
     }
   }
@@ -3719,9 +3750,15 @@ async function cmdDoctor(args = []) {
           if (skills.length === 0) continue;
           
           try {
-            const run = spawnPythonSync(python, [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills], {
+            const repairArgs = [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills];
+            let run = spawnPythonSync(python, repairArgs, {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
+            if (run.status !== 0) {
+              run = spawnPythonSync(python, [...repairArgs, '--skills-only', '--skip-embeddings'], {
+                encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
+              });
+            }
             if (run.status === 0) migrationSuccess = true;
           } catch {}
         }
