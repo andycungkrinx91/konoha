@@ -662,11 +662,14 @@ def index_single_skill_chunks(conn: sqlite3.Connection, skill_name: str, content
     return len(chunks)
 
 
-def backfill_all_embeddings(conn: sqlite3.Connection, force_rebuild: bool = False) -> int:
+def backfill_all_embeddings(conn: sqlite3.Connection, force_rebuild: bool = False, max_time_seconds: float = 40.0) -> int:
     """
     Backfills skill_chunks for all skills in database.
     Incremental: only embeds skills not yet in skill_chunks unless force_rebuild is True.
+    Prioritizes primary skills (type='skill') first, with a time budget to prevent blocking installations.
     """
+    import time
+    start_time = time.time()
     init_vector_table_if_supported(conn)
     if force_rebuild:
         conn.execute("DELETE FROM skill_chunks;")
@@ -676,12 +679,15 @@ def backfill_all_embeddings(conn: sqlite3.Connection, force_rebuild: bool = Fals
         r[0] for r in conn.execute("SELECT DISTINCT skill_name FROM skill_chunks").fetchall()
     )
 
-    rows = conn.execute("SELECT name, content FROM skills").fetchall()
+    rows = conn.execute("SELECT name, content, type FROM skills ORDER BY CASE WHEN type = 'skill' THEN 0 ELSE 1 END, name ASC").fetchall()
     total_chunks = 0
     for r in rows:
-        s_name, s_content = r[0], r[1]
+        s_name, s_content, s_type = r[0], r[1], r[2]
         if not force_rebuild and s_name in existing_indexed:
             continue
+        if s_type != 'skill' and max_time_seconds > 0 and (time.time() - start_time) > max_time_seconds:
+            print(f"   ℹ Time budget ({max_time_seconds:.0f}s) reached; {total_chunks} chunks indexed. Remaining references will be indexed on-demand.")
+            break
         if s_content:
             cnt = index_single_skill_chunks(conn, s_name, s_content)
             total_chunks += cnt

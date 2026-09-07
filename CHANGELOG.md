@@ -38,7 +38,8 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Direct Semble Execution & PyPI Bypass (`bin/cli.js`)**: Updated `cmdSavings()` to probe local `semble` CLI first, bypassing redundant slow `uvx --from semble[mcp]@latest` network resolution on PyPI.
 - **GitHub Version Check Caching (`bin/cli.js`)**: Added 1-hour cache (`.version_cache.json`) in `getLatestVersion()`, reducing `konoha version` from ~5.2s down to ~66ms.
 - **Source Fingerprint Reuse**: Computed `sourceFp` once before looping across client target directories in `skillManager.syncAllClientSkills()`, eliminating redundant tree traversals.
-- **PNPM Global Binary Link**: Re-linked `konoha` globally to `/home/andycungkrinx/.local/share/pnpm/konoha` via `pnpm link --global`.
+- **PNPM Upgrade Syntax & Global Link Reconciliation (`bin/cli.js`)**: Fixed `cmdUpgrade` where invalid `--prefer-online` npm flag was passed to `pnpm add --global` causing `Unknown option: 'prefer-online'`, and removed premature `pnpm remove --global konoha` that erased the binary prior to install. Added cross-platform binary link reconciliation verifying that `konoha` is reachable across all detected global bin directories (`~/.local/share/pnpm/konoha`, npm bin, etc.).
+- **Neural Embedding Timeout & Fallback Resilience (`src/vector_search.py`, `src/migrate.py`, `bin/cli.js`)**: Resolved `spawnSync python3 ETIMEDOUT` during `konoha upgrade` and `init` where unconstrained single-item neural inference on 986 chunks exceeded Node.js child process timeout. Added 40-second time budget and primary ninja skill prioritization (`type='skill'`) in `backfill_all_embeddings()`, deferred secondary reference docs to on-demand indexing, passed `--skip-embeddings` during rapid upgrade stages, and added automatic `--skip-embeddings` retry fallback in `cmdInit` so SQLite FTS5 database initialization never fails.
 
 ## [v.2.0.0-beta.4] - 2026-09-06
 

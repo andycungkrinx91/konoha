@@ -1424,9 +1424,14 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
   }
-  const run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs], {
+  let run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs], {
     encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
   });
+  if (run.status !== 0 && !migrationArgs.includes('--skip-embeddings')) {
+    run = spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs, '--skip-embeddings'], {
+      encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 60000
+    });
+  }
   if (run.status !== 0) {
     const detail = run.error ? run.error.message : (run.stderr || run.stdout || 'Migration failed');
     spinnerMigrate.error(`Failed to initialize skills database: ${detail}`);
@@ -5766,9 +5771,7 @@ async function cmdUpgrade(args = []) {
 
   const addPnpm = () => {
     if (pnpmAvailable && !pmCandidates.some(c => c.name === 'pnpm')) {
-      try { spawnSync(pnpmCmd, ['remove', '--global', 'konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
-      try { spawnSync(pnpmCmd, ['remove', '--global', 'Konoha'], { stdio: 'ignore', shell: isWin, timeout: 15000 }); } catch {}
-      pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
+      pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
     }
   };
 
@@ -5793,7 +5796,7 @@ async function cmdUpgrade(args = []) {
   addYarn();
 
   if (pmCandidates.length === 0) {
-    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', '--prefer-online', pkgTarget] });
+    pmCandidates.push({ name: 'pnpm', cmd: pnpmCmd, args: ['add', '--global', pkgTarget] });
     pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
   }
 
@@ -5841,7 +5844,7 @@ async function cmdUpgrade(args = []) {
   pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Python 3, uv, and runtime dependencies...`);
 
   try {
-    await cmdInit(['--force', '--yes'], {
+    await cmdInit(['--force', '--yes', '--skip-embeddings'], {
       onProgress: (stepNum, stepTitle, stepDetail) => {
         const stageNum = Math.min(6, 2 + stepNum);
         pbar.update(stageNum - 1, `${C.cyan}[Stage ${stageNum}/7]${C.reset} ${stepTitle}: ${stepDetail}`);
@@ -5858,6 +5861,23 @@ async function cmdUpgrade(args = []) {
     try { installAgentBrowser(true); } catch {}
     pbar.stopPulse();
     pbar.logStep(`Konoha Bridge extension & browser tools verified`);
+
+    // Cross-Platform Global Link Reconciliation: ensure binary is reachable across all detected global bin dirs
+    try {
+      if (!isWin) {
+        const homeDir = os.homedir();
+        const pnpmBinDir = path.join(homeDir, '.local', 'share', 'pnpm');
+        const currentBin = process.argv[1];
+        if (fileExists(pnpmBinDir) && currentBin && fileExists(currentBin)) {
+          const targetLink = path.join(pnpmBinDir, 'konoha');
+          if (!fileExists(targetLink)) {
+            try {
+              fs.symlinkSync(currentBin, targetLink);
+            } catch {}
+          }
+        }
+      }
+    } catch {}
 
     pbar.finish(`Konoha has been successfully upgraded to ${targetTag}!`);
     log(`\n  ⚡ ${C.bold}Installed Version:${C.reset} ${C.green}${targetTag}${C.reset}`);
