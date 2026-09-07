@@ -28,6 +28,34 @@ let isRegenerating = false;
 let __cachedPython = null; // Cache Python detection across loadAgents calls
 let __cachedAgents = null; // Cache loadAgents result
 let __cachedAgentsTs = 0; // File modification timestamp for cache invalidation
+let __cachedDbSkills = null;
+let __cachedDbSkillsTs = 0;
+
+function _getDbSkills() {
+  const dbPath = path.join(HOME, '.konoha', 'skills.db');
+  if (!fs.existsSync(dbPath)) return [];
+  try {
+    const ts = fs.statSync(dbPath).mtimeMs;
+    if (__cachedDbSkills !== null && __cachedDbSkillsTs === ts) {
+      return __cachedDbSkills;
+    }
+    const pythonCmd = _getPythonCmd();
+    const script = `import sqlite3, sys, json
+try:
+    conn = sqlite3.connect(sys.argv[1])
+    rows = conn.execute("SELECT DISTINCT name FROM skills").fetchall()
+    print(json.dumps([r[0] for r in rows]))
+except Exception:
+    print("[]")`;
+    const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
+    if (res.status === 0) {
+      __cachedDbSkills = JSON.parse(res.stdout.trim());
+      __cachedDbSkillsTs = ts;
+      return __cachedDbSkills;
+    }
+  } catch (e) {}
+  return [];
+}
 
 function _getCachedAgents(reloadDefaults = false) {
   if (reloadDefaults) return null;
@@ -93,20 +121,24 @@ function loadAgents(reloadDefaults = false, silent = false) {
   let loadedFromDb = false;
   let loadedFromUser = false;
 
-  try {
-    const pythonCmd = _getPythonCmd();
-    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-    const res = platform.spawnPythonSync(pythonCmd, [dbAgentsScript, 'list-compact'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-    if (res.status === 0) {
-      agents = JSON.parse(res.stdout.trim());
-      loadedFromDb = true;
-    }
-  } catch (e) {}
-
-  if (!loadedFromDb && fs.existsSync(USER_AGENTS_YAML_PATH)) {
+  if (fs.existsSync(USER_AGENTS_YAML_PATH)) {
     try {
       agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf-8'));
-      loadedFromUser = true;
+      if (Array.isArray(agents) && agents.length > 0) {
+        loadedFromUser = true;
+      }
+    } catch (e) {}
+  }
+
+  if (!loadedFromUser) {
+    try {
+      const pythonCmd = _getPythonCmd();
+      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
+      const res = platform.spawnPythonSync(pythonCmd, [dbAgentsScript, 'list'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+      if (res.status === 0) {
+        agents = JSON.parse(res.stdout.trim());
+        loadedFromDb = true;
+      }
     } catch (e) {}
   }
 
@@ -129,24 +161,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
   }
 
   // Query installed skills from SQLite database dynamically
-  let allDbSkills = [];
-  const dbPath = path.join(HOME, '.konoha', 'skills.db');
-  if (fs.existsSync(dbPath)) {
-    try {
-      const pythonCmd = _getPythonCmd();
-      const script = `import sqlite3, sys, json
-try:
-    conn = sqlite3.connect(sys.argv[1])
-    rows = conn.execute("SELECT DISTINCT name FROM skills").fetchall()
-    print(json.dumps([r[0] for r in rows]))
-except Exception:
-    print("[]")`;
-      const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
-      if (res.status === 0) {
-        allDbSkills = JSON.parse(res.stdout.trim());
-      }
-    } catch (e) {}
-  }
+  const allDbSkills = _getDbSkills();
 
   // Dynamically resolve skills for each agent based on SQLite contents
   if (agents.length > 0) {
@@ -242,21 +257,27 @@ except Exception:
         }
 
         // Always ensure instructions use the correct find_skill call for the new default skill
-        if (a.instructions) {
+        if (typeof a.instructions === 'string' && a.instructions.length > 0) {
+          const defInst = typeof defAgent.instructions === 'string' ? defAgent.instructions : '';
           const needsAgentUpgrade = /\b(?:skills-db|konoha)\.find_skill/.test(a.instructions) && !a.instructions.includes('agent=');
-          const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defAgent.instructions.includes('antigravity-cli/brain');
+          const needsContextUpgrade = !a.instructions.includes('antigravity-cli/brain') && defInst.includes('antigravity-cli/brain');
           const needsCompactUpgrade = a.instructions.length > 400 && a.instructions.includes('At the start of your response, output a log line like');
           const needsSkillRoutingUpgrade = !isAlreadyUpgraded && defAgent.skills[0] && !a.instructions.includes(defAgent.skills[0]);
-          const needsReferenceLoadingUpgrade = !a.instructions.includes('exact reference names');
+          const needsReferenceLoadingUpgrade = !a.instructions.includes('exact reference names') && defInst.includes('exact reference names');
           
           if (needsAgentUpgrade || needsContextUpgrade || needsCompactUpgrade || needsSkillRoutingUpgrade || needsReferenceLoadingUpgrade) {
+            a.instructions = defAgent.instructions;
+            changed = true;
+          }
+        } else if (defAgent && typeof defAgent.instructions === 'string' && defAgent.instructions.length > 0) {
+          if (a.instructions !== defAgent.instructions) {
             a.instructions = defAgent.instructions;
             changed = true;
           }
         }
 
         // v1.1.0: Upgrade verbose descriptions to compact format
-        if (a.description && a.description.length > 200) {
+        if (typeof a.description === 'string' && a.description.length > 200 && typeof defAgent.description === 'string') {
           a.description = defAgent.description;
           changed = true;
         }
@@ -264,12 +285,17 @@ except Exception:
           a.icon = defAgent.icon;
           changed = true;
         }
-        if (a.constraints && !a.constraints.includes('semble') && defAgent.constraints && defAgent.constraints.includes('semble')) {
-          a.constraints = defAgent.constraints;
-          changed = true;
-        }
-        // v1.1.6: Enforce semble as default search/grep (no built-in grep/glob)
-        if (a.constraints && defAgent.constraints && defAgent.constraints.includes('NEVER use grep') && !a.constraints.includes('NEVER use grep')) {
+        if (typeof a.constraints === 'string' && typeof defAgent.constraints === 'string') {
+          if (!a.constraints.includes('semble') && defAgent.constraints.includes('semble')) {
+            a.constraints = defAgent.constraints;
+            changed = true;
+          }
+          // v1.1.6: Enforce semble as default search/grep (no built-in grep/glob)
+          if (defAgent.constraints.includes('NEVER use grep') && !a.constraints.includes('NEVER use grep')) {
+            a.constraints = defAgent.constraints;
+            changed = true;
+          }
+        } else if (defAgent.constraints && typeof a.constraints !== 'string') {
           a.constraints = defAgent.constraints;
           changed = true;
         }
@@ -277,7 +303,7 @@ except Exception:
       }
 
       // Sync instructions with skills moved to deployment generators
-      if (a.instructions && a.instructions.includes('Before work: find_skill')) {
+      if (typeof a.instructions === 'string' && a.instructions.includes('Before work: find_skill')) {
         a.instructions = a.instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
         changed = true;
       }

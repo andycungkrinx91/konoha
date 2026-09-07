@@ -148,13 +148,18 @@ function parseYaml(yamlStr) {
         while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
           nextIdx++;
         }
-        let isNextArray = false;
-        if (nextIdx < lines.length && lines[nextIdx].trim().startsWith('-')) {
-          isNextArray = true;
+        if (nextIdx < lines.length) {
+          const nextMatch = lines[nextIdx].match(/^(\s*)/);
+          const nextIndent = nextMatch ? nextMatch[1].length : 0;
+          if (nextIndent > indent) {
+            let isNextArray = lines[nextIdx].trim().startsWith('-');
+            const nextVal = isNextArray ? [] : {};
+            current[key] = nextVal;
+            stack.push({ indent: indent, value: nextVal });
+            continue;
+          }
         }
-        const nextVal = isNextArray ? [] : {};
-        current[key] = nextVal;
-        stack.push({ indent: indent, value: nextVal });
+        current[key] = '';
         continue;
       }
       if (val.startsWith('"') && val.endsWith('"')) {

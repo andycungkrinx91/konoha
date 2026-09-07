@@ -102,8 +102,19 @@ def parse_yaml(yaml_content):
                 else:
                     multiline_indent = indent + 4
             elif not val:
-                list_key = key
-                list_val = []
+                next_line_idx = i + 1
+                while next_line_idx < len(lines) and not lines[next_line_idx].strip():
+                    next_line_idx += 1
+                if next_line_idx < len(lines):
+                    next_line = lines[next_line_idx]
+                    next_indent = len(next_line) - len(next_line.lstrip(' '))
+                    if next_indent > indent and next_line.strip().startswith("- "):
+                        list_key = key
+                        list_val = []
+                    else:
+                        current_agent[key] = ""
+                else:
+                    current_agent[key] = ""
             else:
                 if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
                     val = val[1:-1]

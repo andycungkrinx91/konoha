@@ -3393,7 +3393,7 @@ async function cmdStatus(args = []) {
 
   // Subagents list
   sectionTitle('Subagents (Naruto Ninja Ranks):', NINJA_THEME);
-  const agents = agentManager.loadAgents(true); // Force reload, silent
+  const agents = agentManager.loadAgents(false, true);
   const iconMap = {
     'genin': '🍃',
     'chunin': '📜',
