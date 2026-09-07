@@ -106,10 +106,10 @@ function treeFingerprint(root) {
 }
 
 // Copy srcRoot -> destRoot only when files have actually changed.
-function copySkillsDirFast(srcRoot, destRoot) {
+function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
   if (!fs.existsSync(srcRoot)) return;
   ensureDir(destRoot);
-  const srcFp = treeFingerprint(srcRoot);
+  const srcFp = precomputedSrcFp || treeFingerprint(srcRoot);
   const fpMarker = destRoot + '.fingerprint';
   let destFp = null;
   try { destFp = fs.readFileSync(fpMarker, 'utf-8').trim(); } catch {}

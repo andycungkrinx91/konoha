@@ -845,9 +845,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const deployProject = typeof silentOrOptions === 'object' ? (silentOrOptions.deployProject || false) : false;
   const force = typeof silentOrOptions === 'object' ? (silentOrOptions.force || false) : false;
 
-  const agents = loadAgents(force);
-  if (agents.length === 0) return;
-
   // Skip regeneration when nothing has changed since last deploy.
   // Fingerprint = agents.yaml mtime+size — robust to content edits, no full JSON parse.
   // Stored persistently because the CLI process exits between invocations.
@@ -861,6 +858,9 @@ function regenerateAndDeploy(silentOrOptions = false) {
     try { stored = fs.readFileSync(FINGERPRINT_PATH, 'utf8').trim(); } catch {}
     if (stored === fingerprint) return;
   }
+
+  const agents = loadAgents(force);
+  if (agents.length === 0) return;
 
   const geminiContent = generateGeminiMd(agents);
   const agentsContent = generateAgentsMd(agents);

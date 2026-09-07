@@ -2497,8 +2497,24 @@ function installFileTools(silent = true) {
   return ok;
 }
 
-function ensureAutoSetup() {
-  // --- PERF MARKER ---
+function ensureAutoSetup(force = false) {
+  // --- FAST PATH: check if healthy setup already exists ---
+  const AUTO_SETUP_STATE_PATH = path.join(SKILLS_DB_DIR, '.auto_setup_state.json');
+  if (!force && fileExists(DB_PATH) && fileExists(SERVER_PATH) && fileExists(FILE_TOOLS_MCP_PATH) && fileExists(MCP_CONFIG_PATH)) {
+    try {
+      if (fileExists(AUTO_SETUP_STATE_PATH)) {
+        const state = JSON.parse(fs.readFileSync(AUTO_SETUP_STATE_PATH, 'utf8'));
+        const cliVer = getCliVersion();
+        const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
+        let agentsMtime = 0;
+        try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch {}
+        if (state.version === cliVer && state.agentsMtime === agentsMtime) {
+          return; // Instant exit: already healthy (< 2ms)
+        }
+      }
+    } catch {}
+  }
+
   // 1. Ensure the directories exist
   const dirs = [
     path.join(HOME, '.gemini'),
@@ -2568,7 +2584,7 @@ function ensureAutoSetup() {
         uvxCmd,
         projectRoot: currentCwd,
         deployProject: false,
-        force: true,
+        force: force,
         silent: true
       });
     } catch (e) {
@@ -2585,81 +2601,16 @@ function ensureAutoSetup() {
     // ignore — silent self-heal
   }
 
-  // 6b. Auto-configure detected MCP clients (Cursor / Claude Code)
-  // Detection-based skip; no prompts. Mirrors the cmdInit zero-prompt flow.
-  const autoSetupAgents = (() => {
-    try { return agentManager.loadAgents(false, true); } catch { return []; }
-  })();
-  if (cursorManager.isCursorInstalled()) {
-    try {
-      cursorManager.ensureCursorSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        agents: autoSetupAgents,
-        projectRoot: currentCwd,
-        deployProject: false,
-        silent: true,
-        allowHooks: true,
-        ruleContent: null
-      });
-    } catch (e) {
-      // ignore — silent self-heal
-    }
-  }
-  if (mcpClientsManager.isClaudeCodeInstalled()) {
-    try {
-      mcpClientsManager.ensureClaudeCodeSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        ruleContent: agentManager.generateClaudeCodeMd(autoSetupAgents),
-        silent: true,
-        agents: autoSetupAgents,
-        projectRoot: currentCwd,
-        injectRtk: true,
-        deployProject: false
-      });
-    } catch (e) {
-      // ignore — silent self-heal
-    }
-  }
-  if (opencodeManager.isOpenCodeInstalled()) {
-    try {
-      opencodeManager.ensureOpenCodeSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        silent: true
-      });
-    } catch (e) {
-      // ignore — silent self-heal
-    }
-  }
-  if (mcpClientsManager.isCommandCodeInstalled()) {
-    try {
-      mcpClientsManager.ensureCommandCodeSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        silent: true
-      });
-    } catch (e) {
-      // ignore — silent self-heal
-    }
-  }
-  if (codexManager.isCodexInstalled()) {
-    try {
-      codexManager.ensureCodexSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd,
-        silent: true
-      });
-    } catch (e) {
-      // ignore — silent self-heal
-    }
-  }
+  // Record auto-setup state
+  try {
+    let agentsMtime = 0;
+    try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch {}
+    fs.writeFileSync(AUTO_SETUP_STATE_PATH, JSON.stringify({
+      version: getCliVersion(),
+      agentsMtime,
+      timestamp: Date.now()
+    }), 'utf8');
+  } catch {}
 
   // 7. Silently trigger migration if database file (skills.db) is missing
   if (!fileExists(DB_PATH)) {
@@ -4651,28 +4602,39 @@ async function cmdSavings(args = []) {
   let sembleAllTimePct = 0;
 
   try {
+    let runSemble = null;
+    let sembleCmd = 'semble';
     const uvxCmd = getUvxCommand();
-    let runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings'], {
-      encoding: 'utf-8',
-      timeout: 5000,
-      shell: process.platform === 'win32'
-    });
-    if (runSemble.status !== 0 || runSemble.error) {
-      // Fallback: Try running local/global 'semble' directly if uvx fails (e.g. offline mode or PyPI timeout)
-      let sembleCmd = 'semble';
-      if (uvxCmd !== 'uvx') {
-        const companionSemble = path.join(path.dirname(uvxCmd), 'semble');
-        if (fileExists(companionSemble)) {
-          sembleCmd = companionSemble;
-        }
+    if (uvxCmd !== 'uvx') {
+      const companionSemble = path.join(path.dirname(uvxCmd), 'semble');
+      if (fileExists(companionSemble)) {
+        sembleCmd = companionSemble;
       }
+    }
+    // Fast path: try local/companion 'semble' directly first (avoids PyPI network check)
+    try {
       runSemble = spawnSync(sembleCmd, ['savings'], {
+        encoding: 'utf-8',
+        timeout: 4000,
+        shell: process.platform === 'win32'
+      });
+    } catch {}
+
+    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
+      runSemble = spawnSync(uvxCmd, ['semble', 'savings'], {
         encoding: 'utf-8',
         timeout: 5000,
         shell: process.platform === 'win32'
       });
     }
-    if (runSemble.status !== 0 || runSemble.error) {
+    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
+      runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        shell: process.platform === 'win32'
+      });
+    }
+    if (!runSemble || runSemble.status !== 0 || runSemble.error) {
       throw runSemble.error || new Error(runSemble.stderr || 'Semble savings query failed');
     }
     const sembleOutput = runSemble.stdout;
@@ -5604,6 +5566,16 @@ function getGithubData(url) {
 }
 
 async function getLatestVersion() {
+  const cachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
+  try {
+    if (fileExists(cachePath)) {
+      const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (cached && cached.version && (Date.now() - (cached.timestamp || 0) < 3600000)) {
+        return cached.version;
+      }
+    }
+  } catch {}
+
   const candidateTags = new Set();
   try {
     const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
@@ -5637,6 +5609,9 @@ async function getLatestVersion() {
     .sort((a, b) => semverCompare(b, a));
 
   if (sorted.length > 0) {
+    try {
+      fs.writeFileSync(cachePath, JSON.stringify({ version: sorted[0], timestamp: Date.now() }), 'utf8');
+    } catch {}
     return sorted[0];
   }
   throw new Error('No release or tag found on GitHub');
@@ -7286,8 +7261,8 @@ async function main() {
     await runSplashScreen();
   }
 
-  // Silent auto-setup on every command (except help/uninstall)
-  const skipAutoSetup = ['uninstall', 'help', '--help', '-h', '--version', '-v'].includes(command);
+  // Silent auto-setup on every command (except help/uninstall/version)
+  const skipAutoSetup = ['uninstall', 'help', '--help', '-h', '--version', '-v', 'version'].includes(command);
   if (!skipAutoSetup) {
     try {
       ensureAutoSetup();

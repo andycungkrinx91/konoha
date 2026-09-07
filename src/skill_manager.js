@@ -326,10 +326,11 @@ function syncAllClientSkills(options = {}) {
     targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
   }
 
+  const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);
   const syncedTargets = [];
   for (const target of targetDirs) {
     try {
-      deployUtils.copySkillsDirFast(sourceSkillsDir, target);
+      deployUtils.copySkillsDirFast(sourceSkillsDir, target, sourceFp);
       syncedTargets.push(target);
     } catch (e) {
       // Ignore if directory permissions restrict write

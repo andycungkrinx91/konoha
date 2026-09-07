@@ -16,21 +16,20 @@ def parse_iso_datetime(dt_str):
     """Parse ISO datetime as a timezone-aware local-time value."""
     if not dt_str:
         return None
-    dt_str = dt_str.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(dt_str.strip().replace("Z", "+00:00")).astimezone()
+    except Exception:
+        pass
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
         try:
-            dt = datetime.strptime(dt_str, fmt)
-            if dt.tzinfo is None:
-                dt = dt.astimezone()
-            else:
-                dt = dt.astimezone()
-            return dt
+            dt = datetime.strptime(dt_str.strip().replace("Z", "+00:00"), fmt)
+            return dt.astimezone() if dt.tzinfo else dt.astimezone()
         except ValueError:
             continue
     return None
 
 def calculate_all_model_tokens():
-    """Scan transcript files once to calculate generated content and thought tokens and USD costs for today, 7days, and alltime."""
+    """Scan transcript files once to calculate generated content and thought tokens and USD costs for today, 7days, and alltime with mtime-based caching."""
     brain_dirs = [
         os.path.expanduser("~/.gemini/antigravity-cli/brain"),
         os.path.expanduser("~/.gemini/antigravity-ide/brain")
@@ -40,6 +39,7 @@ def calculate_all_model_tokens():
     now = datetime.now()
     cutoff_today = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
     cutoff_7days = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0).astimezone()
+    cutoff_7days_ts = cutoff_7days.timestamp()
 
     flash_out_rate = 0.30 / 1000000
     pro_out_rate = 5.00 / 1000000
@@ -50,14 +50,40 @@ def calculate_all_model_tokens():
         "all": {"content_chars": 0, "thought_chars": 0, "cost": 0.0},
     }
 
+    cache_file = os.path.expanduser("~/.konoha/transcript_cache.json")
+    cache = {"version": 1, "files": {}}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except Exception:
+            cache = {"version": 1, "files": {}}
+
     all_paths = []
     for pattern in patterns:
         all_paths.extend(glob.glob(pattern, recursive=True))
 
+    cache_updated = False
     for path in all_paths:
         if not os.path.exists(path):
             continue
         try:
+            st = os.stat(path)
+            mtime = st.st_mtime
+            size = st.st_size
+
+            # If file was modified before 7 days ago, it cannot affect today or 7days.
+            # Use cached all-time totals if mtime and size match.
+            if mtime < cutoff_7days_ts:
+                cached_entry = cache.get("files", {}).get(path)
+                if cached_entry and cached_entry.get("mtime") == mtime and cached_entry.get("size") == size:
+                    c_all = cached_entry.get("all", {})
+                    metrics["all"]["content_chars"] += c_all.get("content_chars", 0)
+                    metrics["all"]["thought_chars"] += c_all.get("thought_chars", 0)
+                    metrics["all"]["cost"] += c_all.get("cost", 0.0)
+                    continue
+
+            file_all = {"content_chars": 0, "thought_chars": 0, "cost": 0.0}
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     if not line.strip() or '"source":"MODEL"' not in line:
@@ -87,6 +113,10 @@ def calculate_all_model_tokens():
                             rate = pro_out_rate if is_pro else flash_out_rate
                             cost = total_turn_out_tokens * rate
 
+                            file_all["content_chars"] += content_len
+                            file_all["thought_chars"] += thinking_len
+                            file_all["cost"] += cost
+
                             metrics["all"]["content_chars"] += content_len
                             metrics["all"]["thought_chars"] += thinking_len
                             metrics["all"]["cost"] += cost
@@ -102,6 +132,19 @@ def calculate_all_model_tokens():
                                 metrics["today"]["cost"] += cost
                     except Exception:
                         pass
+
+            if "files" not in cache:
+                cache["files"] = {}
+            cache["files"][path] = {"mtime": mtime, "size": size, "all": file_all}
+            cache_updated = True
+        except Exception:
+            pass
+
+    if cache_updated:
+        try:
+            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache, f)
         except Exception:
             pass
 

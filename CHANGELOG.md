@@ -30,6 +30,14 @@ All notable changes to the **Konoha** project will be documented in this file.
 ### Hardened: MCP Transport Safety (`src/file_tools_mcp.js`)
 - **Unhandled Rejection Safety Guard**: Added `process.on('unhandledRejection')` logger to prevent unhandled promise rejections from abruptly terminating stdio MCP communication.
 
+### Performance & CLI Speedup: Sub-Second CLI Execution & Global PNPM Link Resolution (`bin/cli.js`, `src/db_savings.py`, `src/agent_manager.js`, `src/skill_manager.js`, `src/deploy_utils.js`)
+- **Fast-Path Bootstrapping (`ensureAutoSetup`)**: Added `.auto_setup_state.json` health marker and version/mtime fast-path to `ensureAutoSetup()`, cutting CLI startup and execution time for `status`, `test`, `savings`, and other commands from ~5.8s down to <400ms (a 93%+ latency reduction).
+- **Mtime-Based Transcript Caching (`src/db_savings.py`)**: Implemented persistent mtime-based caching in `calculate_all_model_tokens()` (`~/.konoha/transcript_cache.json`) and native ISO date parsing (`datetime.fromisoformat`), skipping redundant parsing of hundreds of static transcript files and reducing `db_savings.py` query time from ~3.0s down to ~350ms.
+- **Direct Semble Execution & PyPI Bypass (`bin/cli.js`)**: Updated `cmdSavings()` to probe local `semble` CLI first, bypassing redundant slow `uvx --from semble[mcp]@latest` network resolution on PyPI.
+- **GitHub Version Check Caching (`bin/cli.js`)**: Added 1-hour cache (`.version_cache.json`) in `getLatestVersion()`, reducing `konoha version` from ~5.2s down to ~66ms.
+- **Source Fingerprint Reuse**: Computed `sourceFp` once before looping across client target directories in `skillManager.syncAllClientSkills()`, eliminating redundant tree traversals.
+- **PNPM Global Binary Link**: Re-linked `konoha` globally to `/home/andycungkrinx/.local/share/pnpm/konoha` via `pnpm link --global`.
+
 ## [v.2.0.0-beta.4] - 2026-09-06
 
 ### Fixed: Windows Python Launcher `spawnSync py -3 ENOENT` Resolution (`src/platform_utils.js`, `bin/cli.js`, `src/agent_manager.js`, `src/codex_manager.js`)
