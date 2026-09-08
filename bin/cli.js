@@ -50,11 +50,11 @@ const SKILLS_DB_DIR = path.join(HOME, '.konoha');
 const MCP_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'mcp_config.json');
 const GEMINI_MD_PATH = path.join(HOME, '.gemini', 'GEMINI.md');
 const AGENTS_MD_PATH = path.join(HOME, '.agents', 'AGENTS.md');
-const DB_PATH = path.join(SKILLS_DB_DIR, 'skills.db');
-const DB_PY_PATH = path.join(SKILLS_DB_DIR, 'db.py');
-const VECTOR_SEARCH_PY_PATH = path.join(SKILLS_DB_DIR, 'vector_search.py');
-const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.py');
-const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.py');
+const DB_PATH = path.join(SKILLS_DB_DIR, 'konoha.db');
+const DB_PY_PATH = path.join(SKILLS_DB_DIR, 'db.js');
+const VECTOR_SEARCH_PY_PATH = path.join(SKILLS_DB_DIR, 'vector_search.js');
+const SERVER_PATH = path.join(SKILLS_DB_DIR, 'server.js');
+const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
 const MIGRATION_TIMEOUT_MS = 180000; // 3 minutes for FTS5 + neural vector embedding generation
 const FILE_TOOLS_MCP_PATH = path.join(SKILLS_DB_DIR, 'file_tools_mcp.js');
 const FILE_TOOLS_ROUTER_PATH = path.join(SKILLS_DB_DIR, 'file_tools_router.js');
@@ -992,17 +992,19 @@ function checkPython() {
   return platform.detectPython();
 }
 
-function hasCompleteDatabaseSchema(python) {
-  if (!python || !fileExists(DB_PATH)) return false;
-  const script = [
-    'import sqlite3, sys',
-    'conn = sqlite3.connect(sys.argv[1])',
-    'required = {"skills", "skills_fts", "tool_calls", "active_sessions", "agents", "bridges"}',
-    'actual = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type=\\\'table\\\'")}',
-    'raise SystemExit(0 if required.issubset(actual) else 1)'
-  ].join('; ');
+function hasCompleteDatabaseSchema(python = null) {
+  if (!fileExists(DB_PATH)) return false;
   try {
-    return spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 }).status === 0;
+    const Database = require('better-sqlite3');
+    const db = new Database(DB_PATH, { readonly: true });
+    const required = ["skills", "skills_fts", "tool_calls", "active_sessions", "agents", "bridges"];
+    const rows = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+    db.close();
+    const actual = new Set(rows.map(r => r.name));
+    for (const req of required) {
+      if (!actual.has(req)) return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -1014,7 +1016,7 @@ function detectSkillsDirs() {
     if (fileExists(dir)) {
       try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
-        const skillCount = entries.filter(e => 
+        const skillCount = entries.filter(e =>
           (e.isDirectory() && fileExists(path.join(dir, e.name, 'SKILL.md'))) ||
           (e.isFile() && e.name.endsWith('-skill.md'))
         ).length;
@@ -1048,31 +1050,21 @@ function hasCanonicalGeninSkill(skillsDir) {
   return fileExists(path.join(skillsDir, 'genin-skill', 'SKILL.md'));
 }
 
-function verifySkillDatabaseContract(python, requiredSkill = 'genin-skill') {
-  if (!python || !fileExists(DB_PATH)) {
+function verifySkillDatabaseContract(python = null, requiredSkill = 'genin-skill') {
+  if (!fileExists(DB_PATH)) {
     return { ok: false, reason: 'skills database is unavailable' };
   }
-  const script = [
-    'import json, sqlite3, sys',
-    'conn = sqlite3.connect(sys.argv[1])',
-    'required = sys.argv[2]',
-    'has_required = bool(conn.execute("SELECT 1 FROM skills WHERE name = ?", (required,)).fetchone())',
-    'legacy = [row[0] for row in conn.execute("SELECT name FROM skills WHERE name LIKE \'deep-code-explorer%\' OR skill_name = \'deep-code-explorer\'")]',
-    'print(json.dumps({"has_required": has_required, "legacy": legacy}))'
-  ].join('; ');
   try {
-    const result = spawnPythonSync(python, ['-c', script, DB_PATH, requiredSkill], {
-      encoding: 'utf-8', timeout: 5000
-    });
-    if (result.status !== 0) {
-      return { ok: false, reason: (result.stderr || '').trim() || 'skill database query failed' };
-    }
-    const report = JSON.parse((result.stdout || '').trim());
-    if (!report.has_required) {
+    const Database = require('better-sqlite3');
+    const db = new Database(DB_PATH, { readonly: true });
+    const hasRequired = !!db.prepare("SELECT 1 FROM skills WHERE name = ?").get(requiredSkill);
+    const legacy = db.prepare("SELECT name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'").all().map(r => r.name);
+    db.close();
+    if (!hasRequired) {
       return { ok: false, reason: `required skill ${requiredSkill} is not indexed` };
     }
-    if (report.legacy.length > 0) {
-      return { ok: false, reason: `legacy skill rows remain: ${report.legacy.join(', ')}` };
+    if (legacy.length > 0) {
+      return { ok: false, reason: `legacy skill rows remain: ${legacy.join(', ')}` };
     }
     return { ok: true };
   } catch (err) {
@@ -1234,16 +1226,17 @@ async function cmdInit(args, options = {}) {
     }
   });
 
-  if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Python 3 environment...');
-  // 2. Check Python
-  const spinner1 = startSpinner('Checking Python 3 environment...');
-  const python = checkPython();
-  if (!python) {
-    spinner1.error('Python 3 is required but not found.');
-    log('  Install from: https://www.python.org/downloads/');
+  if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Node.js environment...');
+  // 2. Check Node.js
+  const spinner1 = startSpinner('Checking Node.js environment...');
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+  if (majorVersion < 18) {
+    spinner1.error(`Node.js >= 18 is required, found ${nodeVersion}`);
+    log('  Install from: https://nodejs.org/');
     process.exit(1);
   }
-  spinner1.success(`Python 3 found: ${python}`);
+  spinner1.success(`Node.js found: ${nodeVersion} (${process.execPath})`);
 
   // 2b. Ensure uv is installed (dependency for semble and uvx-based MCP tools)
   const spinner1b = startSpinner('Checking uv (Python package manager)...');
@@ -1277,6 +1270,8 @@ async function cmdInit(args, options = {}) {
     if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
   }
 
+  const python = checkPython() || 'node';
+
   // 3. Check for existing installation
   if (fileExists(SERVER_PATH) && hasCompleteDatabaseSchema(python)) {
     warn('Konoha MCP already installed.');
@@ -1289,7 +1284,7 @@ async function cmdInit(args, options = {}) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.py', 'vector_search.py', 'db.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.js', 'vector_search.js', 'db.js', 'migrate.js', 'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js', 'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1416,33 +1411,19 @@ async function cmdInit(args, options = {}) {
     }
   }
 
-  copyFile(path.join(SRC_DIR, 'db.py'), DB_PY_PATH);
-  copyFile(path.join(SRC_DIR, 'vector_search.py'), VECTOR_SEARCH_PY_PATH);
-  copyFile(path.join(SRC_DIR, 'server.py'), SERVER_PATH);
-  copyFile(path.join(SRC_DIR, 'migrate.py'), MIGRATE_PATH);
+  for (const jsFile of [
+    'db.js', 'vector_search.js', 'server.js', 'migrate.js',
+    'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js',
+    'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js'
+  ]) {
+    const s = path.join(SRC_DIR, jsFile);
+    if (fileExists(s)) copyFile(s, path.join(SKILLS_DB_DIR, jsFile));
+  }
 
   const pkgSrc = path.join(__dirname, '..', 'package.json');
   const pkgDest = path.join(SKILLS_DB_DIR, 'package.json');
   if (fileExists(pkgSrc)) {
     copyFile(pkgSrc, pkgDest);
-  }
-
-  const statsScriptSrc = path.join(SRC_DIR, 'db_stats.py');
-  const statsScriptDest = path.join(SKILLS_DB_DIR, 'db_stats.py');
-  if (fileExists(statsScriptSrc)) {
-    copyFile(statsScriptSrc, statsScriptDest);
-  }
-
-  const savingsScriptSrc = path.join(SRC_DIR, 'db_savings.py');
-  const savingsScriptDest = path.join(SKILLS_DB_DIR, 'db_savings.py');
-  if (fileExists(savingsScriptSrc)) {
-    copyFile(savingsScriptSrc, savingsScriptDest);
-  }
-
-  const agentStatsScriptSrc = path.join(SRC_DIR, 'agent_stats.py');
-  const agentStatsScriptDest = path.join(SKILLS_DB_DIR, 'agent_stats.py');
-  if (fileExists(agentStatsScriptSrc)) {
-    copyFile(agentStatsScriptSrc, agentStatsScriptDest);
   }
 
   const promptHookSrc = path.join(SRC_DIR, 'prompt_hook.js');
@@ -1503,7 +1484,7 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
   }
-  const runMigrate = (extraArgs, timeoutMs) => spawnPythonSync(python, [MIGRATE_PATH, ...migrationArgs, ...extraArgs], {
+  const runMigrate = (extraArgs, timeoutMs) => spawnSync(process.execPath, [MIGRATE_PATH, ...migrationArgs, ...extraArgs], {
     encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
   });
   let run = runMigrate([], MIGRATION_TIMEOUT_MS);
@@ -1514,7 +1495,7 @@ async function cmdInit(args, options = {}) {
   if (run.status !== 0) {
     // Final fallback: seed skills only, defer references to a later `konoha migrate`
     const skillsOnlyArgs = migrationArgs.filter(a => a !== '--skip-embeddings');
-    run = spawnPythonSync(python, [MIGRATE_PATH, ...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], {
+    run = spawnSync(process.execPath, [MIGRATE_PATH, ...skillsOnlyArgs, '--skills-only', '--skip-embeddings'], {
       encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
     });
     if (run.status === 0) {
@@ -1533,8 +1514,7 @@ async function cmdInit(args, options = {}) {
   }
   spinnerMigrate.success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
   try {
-    const schemaCheck = spawnPythonSync(python, ['-c', `import sqlite3; c=sqlite3.connect(${JSON.stringify(DB_PATH)}); names={r[0] for r in c.execute("select name from sqlite_master where type='table'")}; missing={'skills','skills_fts','tool_calls','active_sessions','agents','bridges'}-names; raise SystemExit(1 if missing else 0)`], { encoding: 'utf-8', timeout: 5000 });
-    if (schemaCheck.status !== 0) throw new Error('required SQLite schema is incomplete');
+    if (!hasCompleteDatabaseSchema()) throw new Error('required SQLite schema is incomplete');
   } catch (schemaError) {
     error(`SQLite schema verification failed: ${schemaError.message}`);
     process.exit(1);
@@ -2623,13 +2603,28 @@ function ensureAutoSetup(force = false) {
     }
   });
 
-  // 2. Copy the Python server files if missing or outdated
-  const filesToCopy = ['server.py', 'vector_search.py', 'db.py', 'mcp_tool_manifest.json', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+  // 2. Copy the Node.js server and runtime files if missing or outdated
+  const filesToCopy = [
+    'server.js', 'vector_search.js', 'db.js', 'migrate.js',
+    'file_tools_router.js', 'file_tools_launcher.js', 'tools_savings_logger.js',
+    'persona_memory.js', 'circuit_breaker.js', 'search_policy.js',
+    'platform_utils.js', 'deploy_utils.js', 'mcp_tool_manifest.json',
+    'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js',
+    'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'
+  ];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
     if (fileExists(src)) {
       copyIfDifferent(src, dest);
+    }
+  });
+  // Clean up legacy Python files from ~/.konoha/
+  const legacyPyFiles = ['server.py', 'vector_search.py', 'db.py', 'migrate.py', 'db_stats.py', 'db_savings.py', 'db_bridges.py', 'agent_stats.py', 'persona_memory.py', 'circuit_breaker.py'];
+  legacyPyFiles.forEach(f => {
+    const legacyPath = path.join(SKILLS_DB_DIR, f);
+    if (fileExists(legacyPath)) {
+      try { fs.unlinkSync(legacyPath); } catch {}
     }
   });
   installFileTools(true);
@@ -2706,7 +2701,7 @@ function ensureAutoSetup(force = false) {
     }), 'utf8');
   } catch {}
 
-  // 7. Silently trigger migration if database file (skills.db) is missing
+  // 7. Silently trigger migration if database file (konoha.db) is missing
   if (!fileExists(DB_PATH)) {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
@@ -2718,17 +2713,17 @@ function ensureAutoSetup(force = false) {
       if (skills.length > 0) {
         try {
           const bootstrapArgs = [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'];
-          let run = spawnPythonSync(python, [...bootstrapArgs, ...extraArgs], {
+          let run = spawnSync(process.execPath, [...bootstrapArgs, ...extraArgs], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
           if (run.status !== 0) {
-            run = spawnPythonSync(python, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
+            run = spawnSync(process.execPath, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
             });
           }
         } catch (e) {
           try {
-            spawnPythonSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+            spawnSync(process.execPath, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
               encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
             });
           } catch (e2) {}
@@ -2736,7 +2731,7 @@ function ensureAutoSetup(force = false) {
       }
     } else {
       try {
-        spawnPythonSync(python, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
+        spawnSync(process.execPath, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
       } catch (e) {}
@@ -2857,12 +2852,6 @@ async function cmdMigrate(args) {
   syncTemplateSkills();
   header('📊 Re-running Skills Migration');
 
-  const python = checkPython();
-  if (!python) {
-    error('Python 3 is required but not found.');
-    process.exit(1);
-  }
-
   if (!fileExists(MIGRATE_PATH)) {
     error('Migration script not found. Run "konoha init" first.');
     process.exit(1);
@@ -2881,11 +2870,11 @@ async function cmdMigrate(args) {
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      let run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
+      let run = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
         encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
       });
       if (run.status !== 0) {
-        run = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
+        run = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
       }
@@ -2902,11 +2891,11 @@ async function cmdMigrate(args) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        let runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean'], {
+        let runFallback = spawnSync(process.execPath, [MIGRATE_PATH, '--clean'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (runFallback.status !== 0) {
-          runFallback = spawnPythonSync(python, [MIGRATE_PATH, '--clean', '--skills-only', '--skip-embeddings'], {
+          runFallback = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-only', '--skip-embeddings'], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
         }
@@ -2924,11 +2913,11 @@ async function cmdMigrate(args) {
         migrateArgs.push('--skills-dir', dir.path);
       }
       try {
-        let run = spawnPythonSync(python, migrateArgs, {
+        let run = spawnSync(process.execPath, migrateArgs, {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
         });
         if (run.status !== 0) {
-          run = spawnPythonSync(python, [...migrateArgs, '--skills-only', '--skip-embeddings'], {
+          run = spawnSync(process.execPath, [...migrateArgs, '--skills-only', '--skip-embeddings'], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
           });
         }
@@ -2977,12 +2966,6 @@ async function cmdTest(args = []) {
     return;
   }
   header('🧪 Testing Konoha MCP Server');
-
-  const python = checkPython();
-  if (!python) {
-    error('Python 3 is required.');
-    process.exit(1);
-  }
 
   if (!fileExists(SERVER_PATH)) {
     error('Server not installed. Run "konoha init" first.');
@@ -3100,7 +3083,7 @@ async function cmdTest(args = []) {
               env: testEnv,
               cwd: path.join(SRC_DIR, '..')
             })
-          : spawnPythonSync(python, [SERVER_PATH], {
+          : spawnSync(process.execPath, [SERVER_PATH], {
               input,
               encoding: 'utf-8',
               timeout: 30000,
@@ -3175,28 +3158,22 @@ async function cmdTest(args = []) {
     }
   }
 
-  // Dynamically discover and run Python test suites (src/test_*.py)
+  // Run comprehensive JavaScript test suites (tests/run_all.js)
   log('');
-  header('🧪 Running Python Feature Tests (Full QA & Deep Debugging)');
+  header('🧪 Running Full Konoha JavaScript Test Suites');
   try {
-    const srcDir = path.join(__dirname, '..', 'src');
-    if (fs.existsSync(srcDir)) {
-      const files = fs.readdirSync(srcDir);
-      const testFiles = files.filter(f => f.startsWith('test_') && f.endsWith('.py'));
-      for (const tf of testFiles) {
-        const fp = path.join(srcDir, tf);
-        info(`Running test suite: ${tf}...`);
-        const runTest = spawnPythonSync(python, [fp], { stdio: 'inherit' });
-        if (runTest.status !== 0) {
-          error(`${tf}: FAILED`);
-          allPassed = false;
-        } else {
-          success(`${tf}: PASSED`);
-        }
+    const runAllPath = path.join(__dirname, '..', 'tests', 'run_all.js');
+    if (fs.existsSync(runAllPath)) {
+      const runTest = spawnSync(process.execPath, [runAllPath], { stdio: 'inherit' });
+      if (runTest.status !== 0) {
+        error('Full test suite: FAILED');
+        allPassed = false;
+      } else {
+        success('Full test suite: PASSED');
       }
     }
   } catch (e) {
-    error(`Failed scanning or running Python tests: ${e.message}`);
+    error(`Failed running JavaScript test suites: ${e.message}`);
     allPassed = false;
   }
 
@@ -3230,16 +3207,9 @@ async function cmdStatus(args = []) {
   
   header('📋 Konoha MCP Status');
 
-  // Check Python
-  const python = checkPython();
-  let pythonInfo = '';
-  if (python) {
-    try {
-      pythonInfo = execSync(`${python} --version 2>&1`, { encoding: 'utf-8' }).trim();
-    } catch {
-      pythonInfo = 'Found';
-    }
-  }
+  // Check Node.js runtime
+  const nodeVersion = process.version;
+  const nodeInfo = `${nodeVersion} (${process.execPath})`;
 
   // Check files
   const checks = [
@@ -3257,14 +3227,9 @@ async function cmdStatus(args = []) {
   const envRows = [];
   const envRowColors = [];
 
-  // Python Status Row
-  if (python) {
-    envRows.push(['Python 3', 'ACTIVE', '-', pythonInfo]);
-    envRowColors.push(['', '', '', '']);
-  } else {
-    envRows.push(['Python 3', 'MISSING', '-', 'Please install Python 3']);
-    envRowColors.push(['', '', '', '']);
-  }
+  // Node.js Status Row
+  envRows.push(['Node.js', 'ACTIVE', '-', nodeInfo]);
+  envRowColors.push(['', '', '', '']);
 
   // File rows
   checks.forEach(check => {
@@ -3548,42 +3513,31 @@ async function cmdStatus(args = []) {
 
   // Database stats
   sectionTitle('Database Stats:', LEAF_THEME);
-  if (fileExists(DB_PATH) && python) {
-    const statsScript = path.join(SKILLS_DB_DIR, 'db_stats.py');
-    const statsScriptPkg = path.join(SRC_DIR, 'db_stats.py');
-    const scriptToUse = fileExists(statsScript) ? statsScript : fileExists(statsScriptPkg) ? statsScriptPkg : null;
-
-    if (scriptToUse) {
-      try {
-        const output = execSync(
-          `${python} "${scriptToUse}" "${DB_PATH}"`,
-          { encoding: 'utf-8', timeout: 5000 }
-        );
-        const stats = JSON.parse(output.trim());
-        if (stats.error) {
-          log(`    ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);
-        } else {
-          success('SQLite FTS5 database is healthy:');
-          const statRows = [
-            ['Total Entries', String(stats.total)],
-            ['Unique Skills', String(stats.skills)],
-            ['Reference Files', String(stats.refs)],
-            ['Indexed size', `${(stats.bytes / 1024).toFixed(1)} KB`]
-          ];
-          const statHeaders = ['Metric', 'Value'];
-          const statWidths = computeTableWidths(statHeaders, statRows, { minWidths: [16, 12] });
-          drawTable(statHeaders, statWidths, ['left', 'left'], statRows, [], LEAF_THEME, {
-            columnFormatters: [
-              (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
-              (cell) => applyGradient(cell, LEAF_THEME, 0.95)
-            ]
-          });
-        }
-      } catch {
-        log(`    ${C.yellow}⚠${C.reset} Could not read database stats.`);
+  if (fileExists(DB_PATH)) {
+    try {
+      const { getDbStats } = require('../src/db_stats');
+      const stats = getDbStats(DB_PATH);
+      if (stats.error) {
+        log(`    ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);
+      } else {
+        success('SQLite FTS5 database is healthy:');
+        const statRows = [
+          ['Total Entries', String(stats.total)],
+          ['Unique Skills', String(stats.skills)],
+          ['Reference Files', String(stats.refs)],
+          ['Indexed size', `${(stats.bytes / 1024).toFixed(1)} KB`]
+        ];
+        const statHeaders = ['Metric', 'Value'];
+        const statWidths = computeTableWidths(statHeaders, statRows, { minWidths: [16, 12] });
+        drawTable(statHeaders, statWidths, ['left', 'left'], statRows, [], LEAF_THEME, {
+          columnFormatters: [
+            (cell) => applyGradient(cell, CHIDORI_THEME, 0.85),
+            (cell) => applyGradient(cell, LEAF_THEME, 0.95)
+          ]
+        });
       }
-    } else {
-      log(`    ${C.yellow}⚠${C.reset} Stats helper script not found.`);
+    } catch {
+      log(`    ${C.yellow}⚠${C.reset} Could not read database stats.`);
     }
   } else {
     log(`    ${C.yellow}⚠${C.reset} Database not found. Run "konoha init" to build database.`);
@@ -3646,17 +3600,14 @@ async function cmdDoctor(args = []) {
     results.push({ component, status, details });
   };
 
-  // 1. Python 3
-  const python = checkPython();
-  let pythonVersion = 'Python 3';
-  if (!python) {
+  // 1. Node.js Environment
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+  if (majorVersion < 18) {
     hasErrors = true;
-    record('Python 3 Environment', 'FAILED', 'Python 3 is not found in system PATH');
+    record('Node.js Environment', 'FAILED', `Node.js >= 18 is required, found ${nodeVersion}`);
   } else {
-    try {
-      pythonVersion = execSync(`${python} --version 2>&1`, { encoding: 'utf-8' }).trim();
-    } catch {}
-    record('Python 3 Environment', 'ACTIVE', `${pythonVersion} (${python})`);
+    record('Node.js Environment', 'ACTIVE', `${nodeVersion} (${process.execPath})`);
   }
 
   // Helper to check and repair local package files
@@ -3706,28 +3657,28 @@ async function cmdDoctor(args = []) {
   };
 
   // 1b. DB Module
-  checkAndRepairFile('db.py', DB_PY_PATH, 'DB Module (db.py)');
+  checkAndRepairFile('db.js', DB_PY_PATH, 'DB Module (db.js)');
 
   // 1c. Vector Search Module
-  checkAndRepairFile('vector_search.py', VECTOR_SEARCH_PY_PATH, 'Vector Search Module (vector_search.py)');
+  checkAndRepairFile('vector_search.js', VECTOR_SEARCH_PY_PATH, 'Vector Search Module (vector_search.js)');
 
   // 2. Server File
-  checkAndRepairFile('server.py', SERVER_PATH, 'Server File (server.py)');
+  checkAndRepairFile('server.js', SERVER_PATH, 'Server File (server.js)');
 
   // 3. Migration Script
-  checkAndRepairFile('migrate.py', MIGRATE_PATH, 'Migration Script (migrate.py)');
+  checkAndRepairFile('migrate.js', MIGRATE_PATH, 'Migration Script (migrate.js)');
 
   // 4. Stats Helper
-  const statsScriptDest = path.join(SKILLS_DB_DIR, 'db_stats.py');
-  checkAndRepairFile('db_stats.py', statsScriptDest, 'Stats Helper Script');
+  const statsScriptDest = path.join(SKILLS_DB_DIR, 'db_stats.js');
+  checkAndRepairFile('db_stats.js', statsScriptDest, 'Stats Helper Script (db_stats.js)');
 
   // 5. Savings Helper
-  const savingsScriptDest = path.join(SKILLS_DB_DIR, 'db_savings.py');
-  checkAndRepairFile('db_savings.py', savingsScriptDest, 'Savings Helper Script');
+  const savingsScriptDest = path.join(SKILLS_DB_DIR, 'db_savings.js');
+  checkAndRepairFile('db_savings.js', savingsScriptDest, 'Savings Helper Script (db_savings.js)');
 
   // 5b. Agent Stats Helper
-  const agentStatsScriptDest = path.join(SKILLS_DB_DIR, 'agent_stats.py');
-  checkAndRepairFile('agent_stats.py', agentStatsScriptDest, 'Agent Stats Helper Script');
+  const agentStatsScriptDest = path.join(SKILLS_DB_DIR, 'agent_stats.js');
+  checkAndRepairFile('agent_stats.js', agentStatsScriptDest, 'Agent Stats Helper Script (agent_stats.js)');
 
   // 5c. Prompt Hook Script
   const promptHookScriptDest = path.join(SKILLS_DB_DIR, 'prompt_hook.js');
@@ -3755,22 +3706,42 @@ async function cmdDoctor(args = []) {
   }
   deployUtils.writeNodeExecPathRecord();
   deployUtils.writePythonCmdRecord(checkPython());
-  const srcPyDir = path.join(SRC_DIR, 'file_tools');
-  if (fileExists(srcPyDir)) {
+  const srcJsDir = path.join(SRC_DIR, 'file_tools');
+  if (fileExists(srcJsDir)) {
     try {
       ensureDir(FILE_TOOLS_PY_DIR);
-      for (const entry of fs.readdirSync(srcPyDir)) {
-        if (entry === '__pycache__') continue;
-        const srcEntry = path.join(srcPyDir, entry);
+      for (const entry of fs.readdirSync(srcJsDir)) {
+        if (entry === '__pycache__' || !entry.endsWith('.js')) continue;
+        const srcEntry = path.join(srcJsDir, entry);
         if (!fs.statSync(srcEntry).isFile()) continue;
         checkAndRepairFile(
           path.join('file_tools', entry),
           path.join(FILE_TOOLS_PY_DIR, entry),
-          `File Tools Python (${entry})`
+          `File Tools JS (${entry})`
         );
       }
     } catch (e) {
-      record('File Tools Python helpers', 'FAILED', e.message);
+      record('File Tools JS helpers', 'FAILED', e.message);
+      hasErrors = true;
+    }
+  }
+  const srcMcpDir = path.join(SRC_DIR, 'mcp');
+  if (fileExists(srcMcpDir)) {
+    try {
+      const destMcpDir = path.join(SKILLS_DB_DIR, 'mcp');
+      ensureDir(destMcpDir);
+      for (const entry of fs.readdirSync(srcMcpDir)) {
+        if (!entry.endsWith('.js')) continue;
+        const srcEntry = path.join(srcMcpDir, entry);
+        if (!fs.statSync(srcEntry).isFile()) continue;
+        checkAndRepairFile(
+          path.join('mcp', entry),
+          path.join(destMcpDir, entry),
+          `MCP Subsystem (${entry})`
+        );
+      }
+    } catch (e) {
+      record('MCP Subsystem files', 'FAILED', e.message);
       hasErrors = true;
     }
   }
@@ -3811,54 +3782,47 @@ async function cmdDoctor(args = []) {
     }
   }
 
-  // 6. Database File (requires Python)
+  // 6. Database File
   if (fileExists(DB_PATH)) {
-    record('Database File (skills.db)', 'HEALTHY', 'Database file is present');
+    record('Database File (konoha.db)', 'HEALTHY', 'Database file is present');
   } else {
-    if (!python) {
-      record('Database File (skills.db)', 'FAILED', 'Missing; cannot be built because Python 3 is missing');
-      hasErrors = true;
-    } else {
-      // Try to run migration
-      const skillsDirs = detectSkillsDirs();
-      let migrationSuccess = false;
-      
-      if (skillsDirs.length > 0) {
-        for (const s of skillsDirs) {
-          const skills = detectCustomSkills(s.path);
-          if (skills.length === 0) continue;
-          
-          try {
-            const repairArgs = [MIGRATE_PATH, '--skills-dir', s.path, '--skills', ...skills];
-            let run = spawnPythonSync(python, repairArgs, {
-              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
-            });
-            if (run.status !== 0) {
-              run = spawnPythonSync(python, [...repairArgs, '--skills-only', '--skip-embeddings'], {
-                encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 120000
-              });
-            }
-            if (run.status === 0) migrationSuccess = true;
-          } catch {}
-        }
-      }
-      
-      if (!migrationSuccess) {
+    // Try to run migration
+    const runMigrate = (args = [], silent = false) => {
+      return spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
+        encoding: 'utf-8',
+        cwd: SKILLS_DB_DIR,
+        timeout: MIGRATION_TIMEOUT_MS,
+        stdio: silent ? 'pipe' : 'inherit'
+      });
+    };
+    const skillsDirs = detectSkillsDirs();
+    let migrationSuccess = false;
+
+    if (skillsDirs.length > 0) {
+      for (const s of skillsDirs) {
+        const skills = detectCustomSkills(s.path);
+        if (skills.length === 0) continue;
+
         try {
-          const runFallback = spawnPythonSync(python, [MIGRATE_PATH], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
-          });
-          if (runFallback.status === 0) migrationSuccess = true;
+          const run = runMigrate(['--skills-dir', s.path, '--skills', ...skills], true);
+          if (run.status === 0) migrationSuccess = true;
         } catch {}
       }
-      
-      if (migrationSuccess && fileExists(DB_PATH)) {
-        record('Database File (skills.db)', 'REPAIRED', 'Re-created and indexed skills');
-        repairsDone++;
-      } else {
-        record('Database File (skills.db)', 'FAILED', 'Failed to create database via migration script');
-        hasErrors = true;
-      }
+    }
+
+    if (!migrationSuccess) {
+      try {
+        const runFallback = runMigrate([], true);
+        if (runFallback.status === 0) migrationSuccess = true;
+      } catch {}
+    }
+
+    if (migrationSuccess && fileExists(DB_PATH)) {
+      record('Database File (konoha.db)', 'REPAIRED', 'Re-created and indexed skills');
+      repairsDone++;
+    } else {
+      record('Database File (konoha.db)', 'FAILED', 'Failed to create database via migration script');
+      hasErrors = true;
     }
   }
 
@@ -3867,7 +3831,7 @@ async function cmdDoctor(args = []) {
   const expectedSembleArgs = ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'];
   const expectedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
   let mcpHealthy = false;
-  if (fileExists(MCP_CONFIG_PATH) && python) {
+  if (fileExists(MCP_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
       const servers = config.mcpServers || {};
@@ -3886,18 +3850,13 @@ async function cmdDoctor(args = []) {
   if (mcpHealthy) {
     record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
   } else {
-    if (!python) {
-      record('MCP Config (mcp_config.json)', 'FAILED', 'Incomplete registration; missing Python 3');
+    try {
+      registerMcp();
+      record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+      repairsDone++;
+    } catch (e) {
+      record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
       hasErrors = true;
-    } else {
-      try {
-        registerMcp(python);
-        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
-        repairsDone++;
-      } catch (e) {
-        record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
-        hasErrors = true;
-      }
     }
   }
 
@@ -4260,6 +4219,481 @@ async function cmdDoctor(args = []) {
   }
 }
 
+function openUrlInBrowser(targetUrl) {
+  try {
+    const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+    const { spawn } = require('child_process');
+    spawn(openCmd, [targetUrl], { detached: true, stdio: 'ignore' }).unref();
+  } catch (_) {}
+}
+
+function cmdUiHelp() {
+  log(`
+${C.cyan}konoha ui${C.reset} (or ${C.cyan}konoha web${C.reset}) — Manage the local browser-based Web Configuration UI
+
+${C.bold}USAGE${C.reset}
+  konoha ui <subcommand> [options]
+  konoha web <subcommand> [options]
+
+${C.bold}SUBCOMMANDS${C.reset}
+  ${C.cyan}start${C.reset}       Start the Web UI server as a background daemon (default port: 1404)
+  ${C.cyan}stop${C.reset}        Stop the running Web UI server daemon
+  ${C.cyan}restart${C.reset}     Restart the Web UI server
+  ${C.cyan}status${C.reset}      Display current Web UI server status, PID, port, and health
+  ${C.cyan}open${C.reset}        Open http://127.0.0.1:1404 in your default browser
+
+${C.bold}OPTIONS${C.reset}
+  ${C.cyan}--port <num>${C.reset}        Port to listen on (default: 1404)
+  ${C.cyan}--host <ip>${C.reset}         Host to bind on (default: 127.0.0.1)
+  ${C.cyan}--foreground, -f${C.reset}    Run in the foreground instead of background daemon
+  ${C.cyan}--no-open${C.reset}           Do not automatically open default browser
+  ${C.cyan}--token <str>${C.reset}       Specify custom CSRF token
+
+${C.bold}EXAMPLES${C.reset}
+  konoha ui start
+  konoha ui stop
+  konoha ui restart
+  konoha ui status
+  konoha ui start --port 1404 --no-open
+  konoha ui start --foreground
+`);
+}
+
+function cmdWebHelp() {
+  cmdUiHelp();
+}
+
+async function cmdUiDaemon(args = []) {
+  let port = 1404;
+  let host = '127.0.0.1';
+  let token = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) {
+      port = parseInt(args[++i], 10);
+    } else if (args[i].startsWith('--port=')) {
+      port = parseInt(args[i].slice('--port='.length), 10);
+    } else if (args[i] === '--host' && args[i + 1]) {
+      host = args[++i];
+    } else if (args[i].startsWith('--host=')) {
+      host = args[i].slice('--host='.length);
+    } else if (args[i] === '--token' && args[i + 1]) {
+      token = args[++i];
+    }
+  }
+
+  const { startWebServer } = require('../src/web_server');
+  let srv;
+  try {
+    srv = await startWebServer({ port, host, token });
+  } catch (err) {
+    process.exit(1);
+  }
+
+  const shutdown = async () => {
+    if (srv && srv.instance) {
+      await srv.instance.stop();
+    }
+    const pidFile = path.join(SKILLS_DB_DIR, 'ui.pid');
+    try { fs.unlinkSync(pidFile); } catch (_) {}
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
+  await new Promise(() => {});
+}
+
+async function cmdWebForeground(options = {}) {
+  const port = options.port || 1404;
+  const host = options.host || '127.0.0.1';
+  const openBrowser = options.openBrowser !== false;
+  const token = options.token || null;
+
+  const buildHandler = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js');
+  if (!fs.existsSync(buildHandler)) {
+    info('Frontend build not found. Automatically building Konoha Web UI...');
+    await cmdUiBuild();
+  }
+
+  const { startWebServer } = require('../src/web_server');
+  drawLogo();
+  header('🌐 Konoha Web Configuration UI');
+  info(`Starting local web server on http://${host}:${port}/ ...`);
+
+  let srv;
+  try {
+    srv = await startWebServer({ port, host, token });
+  } catch (err) {
+    error(`Failed to start web server: ${err.message}`);
+    process.exit(1);
+  }
+
+  success(`Web UI ready at: http://${host}:${port}/`);
+  info(`CSRF session token active: ${srv.token}`);
+
+  if (openBrowser) {
+    openUrlInBrowser(`http://${host}:${port}/`);
+  }
+
+  log(`\n${C.dim}Press Ctrl+C to stop the Web UI server.${C.reset}\n`);
+
+  await new Promise((resolve) => {
+    process.on('SIGINT', async () => {
+      log(`\n${C.yellow}Shutting down Konoha Web UI...${C.reset}`);
+      if (srv && srv.instance) {
+        await srv.instance.stop();
+      }
+      resolve();
+      process.exit(0);
+    });
+  });
+}
+
+async function cmdUiStart(args = []) {
+  const { spawn } = require('child_process');
+  let port = 1404;
+  let host = '127.0.0.1';
+  let openBrowser = true;
+  let foreground = false;
+  let token = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) {
+      port = parseInt(args[++i], 10);
+    } else if (args[i].startsWith('--port=')) {
+      port = parseInt(args[i].slice('--port='.length), 10);
+    } else if (args[i] === '--host' && args[i + 1]) {
+      host = args[++i];
+    } else if (args[i].startsWith('--host=')) {
+      host = args[i].slice('--host='.length);
+    } else if (args[i] === '--no-open') {
+      openBrowser = false;
+    } else if (args[i] === '--foreground' || args[i] === '-f') {
+      foreground = true;
+    } else if (args[i] === '--token' && args[i + 1]) {
+      token = args[++i];
+    }
+  }
+
+  if (foreground) {
+    return await cmdWebForeground({ port, host, openBrowser, token });
+  }
+
+  header('Starting Konoha Web Configuration UI');
+  const active = await checkPortActive(port);
+  const pidFile = path.join(SKILLS_DB_DIR, 'ui.pid');
+
+  if (active) {
+    let existingPid = null;
+    if (fileExists(pidFile)) {
+      try { existingPid = fs.readFileSync(pidFile, 'utf8').trim(); } catch (_) {}
+    }
+    warn(`Konoha Web UI is already running on http://${host}:${port}/${existingPid ? ` (PID: ${existingPid})` : ''}`);
+    if (openBrowser) {
+      openUrlInBrowser(`http://${host}:${port}/`);
+    }
+    return;
+  }
+
+  const buildHandler = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js');
+  if (!fs.existsSync(buildHandler)) {
+    info('Frontend build not found. Automatically building Konoha Web UI...');
+    await cmdUiBuild();
+  }
+
+  const cliPath = path.join(__dirname, 'cli.js');
+  const daemonArgs = [cliPath, 'ui', 'daemon', `--port=${port}`, `--host=${host}`];
+  if (token) daemonArgs.push(`--token=${token}`);
+
+  const child = spawn(process.execPath || 'node', daemonArgs, {
+    detached: true,
+    stdio: 'ignore',
+    env: Object.assign({}, process.env, { KONOHA_UI_DAEMON: 'true' })
+  });
+
+  child.on('error', (err) => {
+    warn(`Background UI process failed to spawn: ${err && err.message ? err.message : err}`);
+  });
+  child.unref();
+
+  if (child.pid) {
+    try {
+      if (!fs.existsSync(SKILLS_DB_DIR)) {
+        fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
+      }
+      fs.writeFileSync(pidFile, String(child.pid), 'utf8');
+    } catch (e) {
+      warn(`Could not save UI PID file: ${e.message}`);
+    }
+  }
+
+  let started = false;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (await checkPortActive(port)) {
+      started = true;
+      break;
+    }
+  }
+
+  if (started) {
+    success(`Konoha Web UI started successfully in background!`);
+    info(`URL: http://${host}:${port}/  (PID: ${child.pid || 'unknown'})`);
+    info(`To stop: konoha ui stop | To restart: konoha ui restart`);
+    if (openBrowser) {
+      openUrlInBrowser(`http://${host}:${port}/`);
+    }
+  } else {
+    warn(`Background process spawned (PID: ${child.pid}), but port ${port} is not yet responding. Run "konoha ui status" to verify.`);
+  }
+}
+
+async function cmdUiStop() {
+  const { execSync } = require('child_process');
+  header('Stopping Konoha Web Configuration UI');
+  const pidFile = path.join(SKILLS_DB_DIR, 'ui.pid');
+  let killed = false;
+
+  if (fileExists(pidFile)) {
+    try {
+      const pidStr = fs.readFileSync(pidFile, 'utf8').trim();
+      const pid = parseInt(pidStr, 10);
+      if (Number.isFinite(pid) && pid > 0) {
+        try {
+          if (process.platform === 'win32') {
+            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+          } else {
+            process.kill(pid, 'SIGTERM');
+          }
+          killed = true;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    try { fs.unlinkSync(pidFile); } catch (_) {}
+  }
+
+  if (!killed) {
+    if (process.platform !== 'win32') {
+      try {
+        execSync('pkill -f "cli.js ui daemon"', { stdio: 'ignore' });
+        killed = true;
+      } catch (_) {}
+    }
+  }
+
+  await new Promise((r) => setTimeout(r, 400));
+  let stillActive = await checkPortActive(1404);
+  if (stillActive && process.platform !== 'win32') {
+    try {
+      execSync('fuser -k 1404/tcp', { stdio: 'ignore' });
+      await new Promise((r) => setTimeout(r, 400));
+      stillActive = await checkPortActive(1404);
+    } catch (_) {}
+  }
+
+  if (stillActive) {
+    warn('Port 1404 is still active. There may be a foreground process running.');
+  } else {
+    success('Konoha Web UI stopped successfully.');
+  }
+}
+
+async function cmdUiRestart(args = []) {
+  header('Restarting Konoha Web Configuration UI');
+  info('Stopping running instance...');
+  await cmdUiStop();
+  await new Promise((r) => setTimeout(r, 500));
+  info('Starting new instance...');
+  await cmdUiStart(args);
+}
+
+async function cmdUiStatus(args = []) {
+  let port = 1404;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) port = parseInt(args[++i], 10);
+    else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
+  }
+
+  header('Konoha Web Configuration UI Status');
+  const active = await checkPortActive(port);
+  const pidFile = path.join(SKILLS_DB_DIR, 'ui.pid');
+  let pid = null;
+  if (fileExists(pidFile)) {
+    try { pid = fs.readFileSync(pidFile, 'utf8').trim(); } catch (_) {}
+  }
+
+  if (active) {
+    let healthData = null;
+    try {
+      const http = require('http');
+      healthData = await new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${port}/api/v1/health`, { timeout: 1000 }, (res) => {
+          let raw = '';
+          res.on('data', chunk => raw += chunk);
+          res.on('end', () => {
+            try { resolve(JSON.parse(raw)); } catch (_) { resolve(null); }
+          });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+      });
+    } catch (_) {}
+
+    log(`  ${C.green}● RUNNING${C.reset}  Web UI is active on ${C.cyan}http://127.0.0.1:${port}/${C.reset}`);
+    log(`    Process ID:   ${pid || 'External / Foreground'}`);
+    if (healthData) {
+      log(`    Version:      v${healthData.version || '2.0.0-beta.7'}`);
+      log(`    Skills:       ${healthData.skills_count || healthData.skills || 0}`);
+      log(`    Agents:       ${healthData.agents_count || healthData.agents || 7}`);
+      log(`    Uptime:       ${Math.floor(healthData.uptime || 0)}s`);
+    }
+  } else {
+    log(`  ${C.dim}○ STOPPED${C.reset}  Web UI is not currently running.`);
+    log(`    Run ${C.cyan}konoha ui start${C.reset} to launch the UI in the background.`);
+  }
+}
+
+async function cmdUiBuild() {
+  header('Building Konoha Web UI (SvelteKit + Node Adapter)');
+  const { execSync } = require('child_process');
+  const webDir = path.resolve(__dirname, '..', 'apps', 'web');
+  try {
+    const webModules = path.join(webDir, 'node_modules');
+    if (!fs.existsSync(webModules)) {
+      info('Installing apps/web dependencies...');
+      try {
+        execSync('pnpm install', { cwd: webDir, stdio: 'inherit' });
+      } catch (_) {
+        try {
+          execSync('npm install', { cwd: webDir, stdio: 'inherit' });
+        } catch (e) {
+          warn(`Could not install apps/web dependencies: ${e.message}`);
+        }
+      }
+    }
+    info('Running build in apps/web...');
+    try {
+      execSync('pnpm run build', { cwd: webDir, stdio: 'inherit' });
+    } catch (_) {
+      execSync('npm run build', { cwd: webDir, stdio: 'inherit' });
+    }
+    success('Production build completed in apps/web/build/');
+  } catch (err) {
+    error(`Build failed: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdUiPreview(args = []) {
+  header('Previewing Konoha Web UI Production Build');
+  const { spawn } = require('child_process');
+  let port = 1404;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) port = parseInt(args[++i], 10);
+    else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
+  }
+
+  const buildIndex = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'index.js');
+  if (!fs.existsSync(buildIndex)) {
+    warn('Production build not found. Running "konoha ui build" first...');
+    await cmdUiBuild();
+  }
+
+  info(`Starting preview server on port ${port}...`);
+  const child = spawn(process.execPath || 'node', [buildIndex], {
+    env: Object.assign({}, process.env, { PORT: String(port), HOST: '127.0.0.1' }),
+    stdio: 'inherit'
+  });
+
+  process.on('SIGINT', () => {
+    child.kill('SIGTERM');
+    process.exit(0);
+  });
+}
+
+async function cmdUi(args = []) {
+  const subcommand = args[0];
+  const subArgs = args.slice(1);
+
+  if (!subcommand) {
+    await cmdUiStatus(args);
+    return;
+  }
+  if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+    cmdUiHelp();
+    return;
+  }
+
+  switch (subcommand) {
+    case 'start':
+      await cmdUiStart(subArgs);
+      break;
+    case 'stop':
+      await cmdUiStop();
+      break;
+    case 'restart':
+      await cmdUiRestart(subArgs);
+      break;
+    case 'status':
+      await cmdUiStatus(subArgs);
+      break;
+    case 'build':
+      await cmdUiBuild(subArgs);
+      break;
+    case 'preview':
+      await cmdUiPreview(subArgs);
+      break;
+    case 'open':
+      openUrlInBrowser('http://127.0.0.1:1404/');
+      break;
+    case 'daemon':
+      await cmdUiDaemon(subArgs);
+      break;
+    default:
+      if (subcommand.startsWith('-')) {
+        await cmdUiStart(args);
+      } else {
+        error(`Unknown ui subcommand: ${subcommand}`);
+        log(`Run ${C.cyan}konoha ui help${C.reset} for usage.`);
+        process.exit(1);
+      }
+  }
+}
+
+async function cmdWeb(args = []) {
+  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
+    cmdUiHelp();
+    return;
+  }
+  const first = args[0];
+  if (first && ['start', 'stop', 'restart', 'status', 'open', 'daemon'].includes(first)) {
+    return await cmdUi(args);
+  }
+  let port = 1404;
+  let host = '127.0.0.1';
+  let openBrowser = true;
+  let token = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) {
+      port = parseInt(args[++i], 10);
+    } else if (args[i].startsWith('--port=')) {
+      port = parseInt(args[i].slice('--port='.length), 10);
+    } else if (args[i] === '--host' && args[i + 1]) {
+      host = args[++i];
+    } else if (args[i].startsWith('--host=')) {
+      host = args[i].slice('--host='.length);
+    } else if (args[i] === '--no-open') {
+      openBrowser = false;
+    } else if (args[i] === '--token' && args[i + 1]) {
+      token = args[++i];
+    }
+  }
+  await cmdWebForeground({ port, host, openBrowser, token });
+}
+
 function cmdUninstallHelp() {
   log(`
 ${C.cyan}konoha uninstall${C.reset} — Safely remove Konoha MCP server configuration
@@ -4282,11 +4716,12 @@ async function cmdUninstall(args = []) {
   }
   header('🗑️  Uninstalling Konoha MCP');
 
-  // Remove server files (preserving the skills.db database and its metrics)
+  // Remove server files (preserving the konoha.db database and its metrics)
   if (fileExists(SKILLS_DB_DIR)) {
     const files = fs.readdirSync(SKILLS_DB_DIR);
+    const preservedDbs = new Set(['konoha.db', 'konoha.db-journal', 'konoha.db-wal', 'konoha.db-shm', 'skills.db', 'skills.db-journal', 'skills.db-wal', 'skills.db-shm']);
     files.forEach(file => {
-      if (file !== 'skills.db' && file !== 'skills.db-journal' && file !== 'skills.db-wal' && file !== 'skills.db-shm') {
+      if (!preservedDbs.has(file)) {
         const filePath = path.join(SKILLS_DB_DIR, file);
         try {
           if (fs.statSync(filePath).isDirectory()) {
@@ -4297,7 +4732,7 @@ async function cmdUninstall(args = []) {
         } catch (e) {}
       }
     });
-    success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved skills.db)`);
+    success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
   }
 
   // Remove from MCP config
@@ -4411,35 +4846,15 @@ async function cmdAgentStatus() {
   drawLogo();
   header('🥷 Agent Call Statistics');
   
-  // 1. Get python command
-  const python = checkPython();
-  if (!python) {
-    error('Python 3 is required but not found.');
-    process.exit(1);
-  }
-
-  const agentStatsScript = path.join(SKILLS_DB_DIR, 'agent_stats.py');
-  const agentStatsScriptPkg = path.join(SRC_DIR, 'agent_stats.py');
-  const scriptToUse = fileExists(agentStatsScript) ? agentStatsScript : fileExists(agentStatsScriptPkg) ? agentStatsScriptPkg : null;
-
-  if (!scriptToUse) {
-    error('Agent stats helper script not found.');
-    process.exit(1);
-  }
-
   // Load registered subagents (silent: true so we don't trigger regenerateAndDeploy and reprint the deploy banner)
   const agents = agentManager.loadAgents(false, true);
 
   let stats = {};
   if (fileExists(DB_PATH)) {
     try {
-      const run = spawnPythonSync(python, [scriptToUse, DB_PATH], {
-        encoding: 'utf-8',
-        timeout: 5000
-      });
-      if (run.status === 0) {
-        stats = JSON.parse(run.stdout.trim());
-      }
+      const agentStatsModule = require('../src/agent_stats');
+      stats = agentStatsModule.getAgentStats(DB_PATH);
+      if (stats.error) stats = {};
     } catch (e) {
       warn(`Failed to retrieve stats: ${e.message}`);
     }
@@ -4540,30 +4955,12 @@ async function cmdSavings(args = []) {
   
   header('📊 Token Savings Report');
 
-  // 1. Get python command
-  const python = checkPython();
-  if (!python) {
-    error('Python 3 is required but not found.');
-    process.exit(1);
-  }
-
-  const savingsScript = path.join(SKILLS_DB_DIR, 'db_savings.py');
-  const savingsScriptPkg = path.join(SRC_DIR, 'db_savings.py');
-  const scriptToUse = fileExists(savingsScript) ? savingsScript : fileExists(savingsScriptPkg) ? savingsScriptPkg : null;
-
-  if (scriptToUse && fileExists(DB_PATH)) {
+  if (fileExists(DB_PATH)) {
     try {
       log(`\n  ${C.bold}${applyGradient('1. ⚡ Konoha MCP Savings', LEAF_THEME)}${C.reset}`);
 
-      const run = spawnPythonSync(python, [scriptToUse, DB_PATH], {
-        encoding: 'utf-8',
-        timeout: 25000
-      });
-      if (run.status !== 0 || !run.stdout) {
-        throw new Error(run.stderr || (run.error ? run.error.message : 'Savings query failed or timed out'));
-      }
-      const output = run.stdout;
-      const stats = JSON.parse(output.trim());
+      const { getSavingsReport } = require('../src/db_savings');
+      const stats = getSavingsReport(DB_PATH);
 
       const actualBaselineKB = (stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? 550000) / 1024;
       log(`     ${C.dim}Calculated relative to full context index sizing (${actualBaselineKB.toFixed(0)} KB actual baseline)${C.reset}\n`);
@@ -5381,27 +5778,15 @@ async function cmdAgent(args) {
 
         // 2. Try to prune from database tool_calls
         let deletedFromDb = false;
-        const python = checkPython();
-        if (python && fileExists(DB_PATH)) {
-          const agentStatsScript = path.join(SKILLS_DB_DIR, 'agent_stats.py');
-          const agentStatsScriptPkg = path.join(SRC_DIR, 'agent_stats.py');
-          const scriptToUse = fileExists(agentStatsScript) ? agentStatsScript : fileExists(agentStatsScriptPkg) ? agentStatsScriptPkg : null;
-          
-          if (scriptToUse) {
-            try {
-              const run = spawnPythonSync(python, [scriptToUse, DB_PATH, '--prune', name], {
-                encoding: 'utf-8',
-                timeout: 5000
-              });
-              if (run.status === 0) {
-                const res = JSON.parse(run.stdout.trim());
-                if (res.success && res.deleted_count > 0) {
-                  deletedFromDb = true;
-                }
-              }
-            } catch (e) {
-              warn(`Failed to prune database statistics: ${e.message}`);
+        if (fileExists(DB_PATH)) {
+          try {
+            const { pruneAgentStats } = require('../src/agent_stats');
+            const res = pruneAgentStats(name, DB_PATH);
+            if (res && res.success && res.deleted_count > 0) {
+              deletedFromDb = true;
             }
+          } catch (e) {
+            warn(`Failed to prune database statistics: ${e.message}`);
           }
         }
 
@@ -5583,23 +5968,13 @@ async function cmdModels(args) {
     }
     case 'reset': {
       try {
-        const python = checkPython();
-        if (python && fileExists(DB_PATH)) {
-          const script = `
-import sqlite3, sys
-conn = sqlite3.connect(sys.argv[1])
-conn.execute("DELETE FROM tool_calls;")
-conn.commit()
-print("success")
-`.trim();
-          const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 3000 });
-          if (run.status === 0 && run.stdout.trim() === 'success') {
-            success('Successfully cleared local usage logs. Model quotas restored to 100%!');
-          } else {
-            error('Failed to clear local usage logs.');
-          }
+        if (fileExists(DB_PATH)) {
+          const { getDb } = require('../src/db');
+          const conn = getDb(DB_PATH);
+          conn.prepare("DELETE FROM tool_calls;").run();
+          success('Successfully cleared local usage logs. Model quotas restored to 100%!');
         } else {
-          error('SQLite database or python command not found.');
+          error('SQLite database not found.');
         }
       } catch (err) {
         error(`Failed to reset: ${err.message}`);
@@ -5957,7 +6332,7 @@ async function cmdUpgrade(args = []) {
   }
 
   // Stages 3 through 6: Handled via in-process cmdInit with real-time onProgress updates
-  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Python 3, uv, and runtime dependencies...`);
+  pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
 
   try {
     await cmdInit(['--force', '--yes', '--skip-embeddings'], {
@@ -6036,6 +6411,8 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history, persona memories, and database size.
   ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
   ${C.cyan}bridge${C.reset}        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+  ${C.cyan}search, searxng${C.reset} 🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
+  ${C.cyan}ui, web${C.reset}       🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
 ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
@@ -6104,24 +6481,16 @@ async function cmdProject(args) {
     return;
   }
 
-  const python = checkPython();
-  if (!python || !fileExists(DB_PATH)) {
-    error('SQLite database or python command not found.');
+  if (!fileExists(DB_PATH)) {
+    error('SQLite database not found.');
     return;
   }
 
+  const personaMemory = require('../src/persona_memory');
+
   if (sub === 'list') {
-    const script = `
-import sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-db_path = sys.argv[1]
-projs = persona_memory.list_projects(limit=50, db_path=db_path)
-print(json.dumps(projs))
-`.trim();
-    const run = spawnPythonSync(python, ['-c', script, DB_PATH, SRC_DIR], { encoding: 'utf-8', timeout: 5000 });
-    if (run.status === 0) {
-      const projs = JSON.parse(run.stdout.trim());
+    try {
+      const projs = personaMemory.listProjects(50, DB_PATH);
       header('📁 Tracked Project Workspaces in Konoha');
       if (!projs || projs.length === 0) {
         log(`  ${C.dim}No projects tracked yet. Run ${C.cyan}konoha project context${C.dim} in any workspace to register.${C.reset}\n`);
@@ -6135,28 +6504,19 @@ print(json.dumps(projs))
         log('');
       });
       success(`Total: ${projs.length} project workspace(s).`);
-    } else {
-      error(`Failed to list projects: ${run.stderr}`);
+    } catch (e) {
+      error(`Failed to list projects: ${e.message}`);
     }
   } else if (sub === 'context' || sub === 'show') {
     const targetPath = subArgs[0] || process.cwd();
-    const script = `
-import sys, json, os
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-db_path = sys.argv[1]
-target = sys.argv[3]
-profile = persona_memory.get_project_profile(target, db_path=db_path)
-if not profile:
-    p_hash = persona_memory.save_or_update_project(target, db_path=db_path)
-    profile = persona_memory.get_project_profile(p_hash, db_path=db_path)
-mems = persona_memory.list_memories(project_path=target, limit=10, db_path=db_path)
-print(json.dumps({"profile": profile, "memories": mems}))
-`.trim();
-    const run = spawnPythonSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath], { encoding: 'utf-8', timeout: 5000 });
-    if (run.status === 0) {
-      const data = JSON.parse(run.stdout.trim());
-      const p = data.profile || {};
+    try {
+      let profile = personaMemory.getProjectProfile(targetPath, DB_PATH);
+      if (!profile) {
+        const pHash = personaMemory.saveOrUpdateProject(targetPath, '', null, DB_PATH);
+        profile = personaMemory.getProjectProfile(pHash, DB_PATH);
+      }
+      const mems = personaMemory.listMemories({ projectPath: targetPath, limit: 10, dbPath: DB_PATH });
+      const p = profile || {};
       header(`🏢 Project Workspace Context: ${p.project_name || 'Active Project'}`);
       log(`  ${C.bold}Project Path:${C.reset}     ${p.project_path || targetPath}`);
       log(`  ${C.bold}Project Hash:${C.reset}     ${C.cyan}${p.project_hash || 'N/A'}${C.reset}`);
@@ -6167,8 +6527,7 @@ print(json.dumps({"profile": profile, "memories": mems}))
         log(`  ${C.bold}Invariants & Rules:${C.reset}\n     ${p.context_summary}`);
       }
       log('');
-      const mems = data.memories || [];
-      if (mems.length > 0) {
+      if (mems && mems.length > 0) {
         log(`  ${C.bold}Persistent Project Learnings (${mems.length}):${C.reset}`);
         mems.forEach(m => {
           log(`    - ${C.yellow}[${(m.memory_type || 'rule').toUpperCase()}]${C.reset} ${m.content}`);
@@ -6176,8 +6535,8 @@ print(json.dumps({"profile": profile, "memories": mems}))
         log('');
       }
       success('Project context is active and will be auto-injected to subagents.');
-    } else {
-      error(`Failed to get project context: ${run.stderr}`);
+    } catch (e) {
+      error(`Failed to get project context: ${e.message}`);
     }
   } else if (sub === 'memory') {
     const targetPath = subArgs[0] || process.cwd();
@@ -6195,21 +6554,11 @@ print(json.dumps({"profile": profile, "memories": mems}))
       targetPath = subArgs[0];
       summary = subArgs.slice(1).join(' ');
     }
-    const script = `
-import sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-db_path = sys.argv[1]
-target = sys.argv[3]
-summary = sys.argv[4]
-p_hash = persona_memory.save_or_update_project(target, context_summary=summary, db_path=db_path)
-print(p_hash)
-`.trim();
-    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, targetPath, summary], { encoding: 'utf-8', timeout: 5000 });
-    if (run.status === 0) {
-      success(`Saved architectural invariants for project (${run.stdout.trim()}).`);
-    } else {
-      error(`Failed to save project invariants: ${run.stderr}`);
+    try {
+      const pHash = personaMemory.saveOrUpdateProject(targetPath, summary, null, DB_PATH);
+      success(`Saved architectural invariants for project (${pHash}).`);
+    } catch (e) {
+      error(`Failed to save project invariants: ${e.message}`);
     }
   } else if (sub === 'delete') {
     if (subArgs.length === 0) {
@@ -6217,20 +6566,15 @@ print(p_hash)
       return;
     }
     const target = subArgs[0];
-    const script = `
-import sys
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-db_path = sys.argv[1]
-target = sys.argv[3]
-deleted = persona_memory.delete_project(target, db_path=db_path)
-print("true" if deleted else "false")
-`.trim();
-    const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, target], { encoding: 'utf-8', timeout: 5000 });
-    if (run.status === 0 && run.stdout.trim() === 'true') {
-      success(`Deleted project profile: ${target}`);
-    } else {
-      error(`Project profile not found or could not be deleted: ${target}`);
+    try {
+      const deleted = personaMemory.deleteProject(target, true, DB_PATH);
+      if (deleted) {
+        success(`Deleted project profile: ${target}`);
+      } else {
+        error(`Project profile not found or could not be deleted: ${target}`);
+      }
+    } catch (e) {
+      error(`Project profile delete failed: ${e.message}`);
     }
   } else {
     cmdProjectHelp();
@@ -6325,46 +6669,31 @@ async function cmdData(args) {
 }
 
 function loadBridges() {
-  const python = checkPython() || 'python3';
-  const dbScript = fileExists(path.join(SRC_DIR, 'db_bridges.py'))
-    ? path.join(SRC_DIR, 'db_bridges.py')
-    : path.join(SKILLS_DB_DIR, 'db_bridges.py');
   try {
-    const res = spawnSync(python, [dbScript, '--list'], { encoding: 'utf-8' });
-    if (res.status === 0 && res.stdout) {
-      return JSON.parse(res.stdout);
-    }
-  } catch (e) {}
-  return [];
+    const dbBridges = require('../src/db_bridges');
+    return dbBridges.listBridges();
+  } catch (e) {
+    return [];
+  }
 }
 
 function saveBridgeSqlite(action, data) {
-  const python = checkPython() || 'python3';
-  const dbScript = fileExists(path.join(SRC_DIR, 'db_bridges.py'))
-    ? path.join(SRC_DIR, 'db_bridges.py')
-    : path.join(SKILLS_DB_DIR, 'db_bridges.py');
   try {
-    let args;
+    const dbBridges = require('../src/db_bridges');
     if (action === 'upsert') {
-      args = ['--upsert', JSON.stringify(data)];
+      dbBridges.upsertBridge(data);
+      return true;
     } else if (action === 'delete') {
-      args = ['--delete', data];
+      dbBridges.deleteBridge(data);
+      return true;
     } else if (action === 'enable') {
-      args = ['--enable', data];
+      dbBridges.setEnabled(data, true);
+      return true;
     } else if (action === 'disable') {
-      args = ['--disable', data];
-    } else {
-      return false;
+      dbBridges.setEnabled(data, false);
+      return true;
     }
-    const result = spawnSync(python, [dbScript, ...args], { encoding: 'utf-8', timeout: 10000 });
-    if (result.error || result.status !== 0) {
-      return false;
-    }
-    try {
-      return JSON.parse((result.stdout || '').trim()).ok === true;
-    } catch {
-      return false;
-    }
+    return false;
   } catch (e) {
     return false;
   }
@@ -6902,66 +7231,39 @@ async function cmdBridgeCreate(name) {
 
 async function cmdDataView() {
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
-      const script = `
-import sqlite3, os, sys, json
-db_path = sys.argv[1]
-conn = sqlite3.connect(db_path)
-db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+    if (fileExists(DB_PATH)) {
+      const { getDb } = require('../src/db');
+      const conn = getDb(DB_PATH);
+      const dbSize = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+      let skillsCount = 0;
+      try { skillsCount = conn.prepare("SELECT COUNT(*) as c FROM skills").get().c; } catch (_) {}
+      let toolCallsCount = 0;
+      try { toolCallsCount = conn.prepare("SELECT COUNT(*) as c FROM tool_calls").get().c; } catch (_) {}
+      let sessionsCount = 0;
+      try { sessionsCount = conn.prepare("SELECT COUNT(*) as c FROM active_sessions").get().c; } catch (_) {}
+      let freelistSize = 0;
+      try {
+        const pageCount = conn.pragma("page_count", { simple: true });
+        const freelistCount = conn.pragma("freelist_count", { simple: true });
+        const pageSize = conn.pragma("page_size", { simple: true });
+        freelistSize = freelistCount * pageSize;
+      } catch (_) {}
 
-try:
-    skills_count = conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
-except Exception:
-    skills_count = 0
+      const sizeMb = (dbSize / (1024 * 1024)).toFixed(2);
+      const freeMb = (freelistSize / (1024 * 1024)).toFixed(2);
 
-try:
-    tool_calls_count = conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0]
-except Exception:
-    tool_calls_count = 0
-
-try:
-    sessions_count = conn.execute("SELECT COUNT(*) FROM active_sessions").fetchone()[0]
-except Exception:
-    sessions_count = 0
-
-try:
-    page_count = conn.execute("PRAGMA page_count;").fetchone()[0]
-    freelist_count = conn.execute("PRAGMA freelist_count;").fetchone()[0]
-    page_size = conn.execute("PRAGMA page_size;").fetchone()[0]
-    freelist_size = freelist_count * page_size
-except Exception:
-    freelist_size = 0
-
-print(json.dumps({
-    "db_size": db_size,
-    "skills_count": skills_count,
-    "tool_calls_count": tool_calls_count,
-    "sessions_count": sessions_count,
-    "freelist_size": freelist_size
-}))
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 5000 });
-      if (run.status === 0) {
-        const data = JSON.parse(run.stdout.trim());
-        const sizeMb = (data.db_size / (1024 * 1024)).toFixed(2);
-        const freeMb = (data.freelist_size / (1024 * 1024)).toFixed(2);
-        
-        log(`\n${C.cyan}📊 Konoha Database Statistics${C.reset}`);
-        log(`════════════════════════════════════════════════════════════`);
-        log(`  ${C.bold}Database path:${C.reset}  ${DB_PATH}`);
-        log(`  ${C.bold}Disk Size:${C.reset}      ${sizeMb} MB`);
-        log(`  ${C.bold}Indexed Skills:${C.reset} ${data.skills_count} skills`);
-        log(`  ${C.bold}Usage Logs:${C.reset}     ${data.tool_calls_count} records`);
-        log(`  ${C.bold}Active Sessions:${C.reset} ${data.sessions_count} sessions`);
-        log(`  ${C.bold}Prunable Space:${C.reset}  ${freeMb} MB (vacuumable)`);
-        log(`════════════════════════════════════════════════════════════`);
-        log(`Use ${C.cyan}konoha data prune${C.reset} to clear usage logs and shrink database size.\n`);
-      } else {
-        error(`Failed to retrieve database statistics: ${run.stderr}`);
-      }
+      log(`\n${C.cyan}📊 Konoha Database Statistics${C.reset}`);
+      log(`════════════════════════════════════════════════════════════`);
+      log(`  ${C.bold}Database path:${C.reset}  ${DB_PATH}`);
+      log(`  ${C.bold}Disk Size:${C.reset}      ${sizeMb} MB`);
+      log(`  ${C.bold}Indexed Skills:${C.reset} ${skillsCount} skills`);
+      log(`  ${C.bold}Usage Logs:${C.reset}     ${toolCallsCount} records`);
+      log(`  ${C.bold}Active Sessions:${C.reset} ${sessionsCount} sessions`);
+      log(`  ${C.bold}Prunable Space:${C.reset}  ${freeMb} MB (vacuumable)`);
+      log(`════════════════════════════════════════════════════════════`);
+      log(`Use ${C.cyan}konoha data prune${C.reset} to clear usage logs and shrink database size.\n`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to view database statistics: ${err.message}`);
@@ -6970,73 +7272,42 @@ print(json.dumps({
 
 async function cmdDataPrune() {
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
+    if (fileExists(DB_PATH)) {
       info('Pruning database (clearing session history, old usage logs)...');
-      const script = `
-import sqlite3, os, sys, json
-db_path = sys.argv[1]
-conn = sqlite3.connect(db_path)
-size_before = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+      const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+      const { getDb } = require('../src/db');
+      const conn = getDb(DB_PATH);
+      try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) {}
+      try { conn.prepare("DELETE FROM active_sessions;").run(); } catch (_) {}
+      try { conn.pragma("vacuum"); } catch (_) {}
+      const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+      const saved = Math.max(sizeBefore - sizeAfter, 0);
 
-# Prune tables
-try:
-    conn.execute("DELETE FROM tool_calls;")
-except Exception:
-    pass
+      // Prune SearXNG logs and cache files
+      const searxngDir = path.join(HOME, '.konoha', 'searxng');
+      const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
+      let searxngSavedBytes = 0;
+      pruneFiles.forEach(f => {
+        const fp = path.join(searxngDir, f);
+        if (fs.existsSync(fp)) {
+          searxngSavedBytes += fs.statSync(fp).size;
+          try {
+            fs.unlinkSync(fp);
+          } catch {}
+        }
+      });
 
-try:
-    conn.execute("DELETE FROM active_sessions;")
-except Exception:
-    pass
+      const totalSavedBytes = saved + searxngSavedBytes;
+      const sizeBeforeMb = (sizeBefore / (1024 * 1024)).toFixed(2);
+      const sizeAfterMb = (sizeAfter / (1024 * 1024)).toFixed(2);
+      const savedMb = (totalSavedBytes / (1024 * 1024)).toFixed(2);
 
-conn.commit()
-
-# Compress
-try:
-    conn.execute("VACUUM;")
-except Exception:
-    pass
-
-size_after = os.path.getsize(db_path) if os.path.exists(db_path) else 0
-print(json.dumps({
-    "size_before": size_before,
-    "size_after": size_after,
-    "saved": max(size_before - size_after, 0)
-}))
-`.trim();
-      const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
-      if (run.status === 0) {
-        const data = JSON.parse(run.stdout.trim());
-        
-        // Prune SearXNG logs and cache files
-        const searxngDir = path.join(HOME, '.konoha', 'searxng');
-        const pruneFiles = ['search.log', 'instances_cache.json', 'best_instance.json'];
-        let searxngSavedBytes = 0;
-        pruneFiles.forEach(f => {
-          const fp = path.join(searxngDir, f);
-          if (fs.existsSync(fp)) {
-            searxngSavedBytes += fs.statSync(fp).size;
-            try {
-              fs.unlinkSync(fp);
-            } catch {}
-          }
-        });
-
-        const totalSavedBytes = data.saved + searxngSavedBytes;
-        const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);
-        const sizeAfterMb = (data.size_after / (1024 * 1024)).toFixed(2);
-        const savedMb = (totalSavedBytes / (1024 * 1024)).toFixed(2);
-
-        success('Successfully pruned active session mappings, usage logs, and SearXNG logs/caches!');
-        log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
-        log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
-        log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
-      } else {
-        error(`Failed to prune database: ${run.stderr}`);
-      }
+      success('Successfully pruned active session mappings, usage logs, and SearXNG logs/caches!');
+      log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
+      log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
+      log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to prune database: ${err.message}`);
@@ -7045,44 +7316,25 @@ print(json.dumps({
 
 async function cmdDataVacuum() {
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
+    if (fileExists(DB_PATH)) {
       info('Vacuuming database (compressing SQLite files and reclaiming disk space)...');
-      const script = `
-import sqlite3, os, sys, json
-db_path = sys.argv[1]
-conn = sqlite3.connect(db_path)
-size_before = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+      const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+      const { getDb } = require('../src/db');
+      const conn = getDb(DB_PATH);
+      try { conn.pragma("vacuum"); } catch (_) {}
+      const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
+      const saved = Math.max(sizeBefore - sizeAfter, 0);
 
-# Compress
-try:
-    conn.execute("VACUUM;")
-except Exception:
-    pass
+      const sizeBeforeMb = (sizeBefore / (1024 * 1024)).toFixed(2);
+      const sizeAfterMb = (sizeAfter / (1024 * 1024)).toFixed(2);
+      const savedMb = (saved / (1024 * 1024)).toFixed(2);
 
-size_after = os.path.getsize(db_path) if os.path.exists(db_path) else 0
-print(json.dumps({
-    "size_before": size_before,
-    "size_after": size_after,
-    "saved": max(size_before - size_after, 0)
-}))
-`.trim();
-      const run = spawnPythonSync(python, ['-c', script, DB_PATH], { encoding: 'utf-8', timeout: 10000 });
-      if (run.status === 0) {
-        const data = JSON.parse(run.stdout.trim());
-        const sizeBeforeMb = (data.size_before / (1024 * 1024)).toFixed(2);
-        const sizeAfterMb = (data.size_after / (1024 * 1024)).toFixed(2);
-        const savedMb = (data.saved / (1024 * 1024)).toFixed(2);
-
-        success('Successfully vacuumed database!');
-        log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
-        log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
-        log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
-      } else {
-        error(`Failed to vacuum database: ${run.stderr}`);
-      }
+      success('Successfully vacuumed database!');
+      log(`  ${C.bold}Size Before:${C.reset} ${sizeBeforeMb} MB`);
+      log(`  ${C.bold}Size After:${C.reset}  ${sizeAfterMb} MB`);
+      log(`  ${C.bold}Disk Reclaimed:${C.reset} ${C.green}${savedMb} MB${C.reset}`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to vacuum database: ${err.message}`);
@@ -7091,8 +7343,7 @@ print(json.dumps({
 
 async function cmdDataExport() {
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
+    if (fileExists(DB_PATH)) {
       const now = new Date();
       const dd = String(now.getDate()).padStart(2, '0');
       const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -7103,82 +7354,77 @@ async function cmdDataExport() {
 
       info(`Exporting database to Markdown at ${exportPath}...`);
 
-      const script = `
-import sqlite3, sys, os, json
-db_path = sys.argv[1]
-export_path = sys.argv[2]
-conn = sqlite3.connect(db_path)
+      const { getDb } = require('../src/db');
+      const conn = getDb(DB_PATH);
 
-try:
-    skills = conn.execute("SELECT name, skill_name, type, tags, content, byte_size, line_count FROM skills ORDER BY name ASC").fetchall()
-except Exception as e:
-    skills = []
+      let skills = [];
+      try {
+        skills = conn.prepare("SELECT name, skill_name, type, tags, content, byte_size, line_count FROM skills ORDER BY name ASC").all();
+      } catch (_) {}
 
-try:
-    sessions = conn.execute("SELECT client, workspace_root, session_id, last_active_at FROM active_sessions ORDER BY last_active_at DESC").fetchall()
-except Exception:
-    sessions = []
+      let sessions = [];
+      try {
+        sessions = conn.prepare("SELECT client, workspace_root, session_id, last_active_at FROM active_sessions ORDER BY last_active_at DESC").all();
+      } catch (_) {}
 
-try:
-    tool_calls_sum = conn.execute("SELECT COUNT(*), SUM(bytes_saved), SUM(tokens_saved) FROM tool_calls").fetchone()
-except Exception:
-    tool_calls_sum = (0, 0, 0)
+      let toolCallsSum = { count: 0, bytes_saved: 0, tokens_saved: 0 };
+      try {
+        toolCallsSum = conn.prepare("SELECT COUNT(*) as count, COALESCE(SUM(bytes_saved), 0) as bytes_saved, COALESCE(SUM(tokens_saved), 0) as tokens_saved FROM tool_calls").get();
+      } catch (_) {}
 
-with open(export_path, "w", encoding="utf-8") as f:
-    f.write("# 🍃 Konoha Persona & Knowledge Export\\n\\n")
-    f.write(f"Generated Database Dump: {db_path}\\n")
-    f.write("This file contains the structured skills, agent identities, and active sessions database.\\n\\n")
-    
-    f.write("## 👤 Special Agent Village Roster\\n")
-    try:
-        agents_data = conn.execute("SELECT name, icon, model_tier, description FROM agents").fetchall()
-        for name, icon, model_tier, description in agents_data:
-            f.write(f"- **{icon or '👤'} {name}** (Model: {model_tier}): {description}\\n")
-    except Exception:
-        f.write("Failed to load agents configuration from database.\\n")
-    f.write("\\n")
-    
-    f.write("## 📚 Indexed Reference Skills\\n")
-    if not skills:
-        f.write("No skills currently indexed in the SQLite database.\\n")
-    else:
-        for name, skill_name, stype, tags, content, size, lines in skills:
-            f.write(f"### 📦 {name} ({stype})\\n")
-            f.write(f"- **Skill Group**: {skill_name}\\n")
-            f.write(f"- **Tags**: {tags or ''}\\n")
-            f.write(f"- **Size**: {size} bytes ({lines} lines)\\n\\n")
-            f.write("#### Instruction Content:\\n")
-            f.write("\`\`\`markdown\\n")
-            f.write(content.strip() + "\\n")
-            f.write("\`\`\`\\n\\n")
-            f.write("---\\n\\n")
+      let content = `# 🍃 Konoha Persona & Knowledge Export\n\n`;
+      content += `Generated Database Dump: ${DB_PATH}\n`;
+      content += `This file contains the structured skills, agent identities, and active sessions database.\n\n`;
 
-    f.write("## 📊 Active Workspace Sessions\\n")
-    if not sessions:
-        f.write("No active workspace sessions recorded.\\n")
-    else:
-        f.write("| Client | Workspace Root | Session ID | Last Active |\\n")
-        f.write("| --- | --- | --- | --- |\\n")
-        for client, root, sess_id, last_active in sessions:
-            f.write(f"| {client} | {root} | {sess_id} | {last_active} |\\n")
-    f.write("\\n")
-
-    f.write("## 📉 Token Telemetry Summary\\n")
-    calls, bytes_saved, tokens_saved = tool_calls_sum
-    f.write(f"- **Total Tool Invocations**: {calls or 0}\\n")
-    f.write(f"- **Cumulative Bytes Saved**: {bytes_saved or 0} bytes\\n")
-    f.write(f"- **Cumulative Tokens Saved**: {tokens_saved or 0} tokens\\n")
-
-print("success")
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH, exportPath], { encoding: 'utf-8', timeout: 15000 });
-      if (run.status === 0 && run.stdout.trim() === 'success') {
-        success(`Successfully exported database knowledge base to ${exportPath}!`);
-      } else {
-        error(`Failed to export database: ${run.stderr}`);
+      content += `## 👤 Special Agent Village Roster\n`;
+      try {
+        const agentsData = conn.prepare("SELECT name, icon, model_tier, description FROM agents").all();
+        for (const a of agentsData) {
+          content += `- **${a.icon || '👤'} ${a.name}** (Model: ${a.model_tier}): ${a.description}\n`;
+        }
+      } catch (_) {
+        content += `Failed to load agents configuration from database.\n`;
       }
+      content += `\n`;
+
+      content += `## 📚 Indexed Reference Skills\n`;
+      if (!skills || skills.length === 0) {
+        content += `No skills currently indexed in the SQLite database.\n`;
+      } else {
+        for (const s of skills) {
+          content += `### 📦 ${s.name} (${s.type})\n`;
+          content += `- **Skill Group**: ${s.skill_name}\n`;
+          content += `- **Tags**: ${s.tags || ''}\n`;
+          content += `- **Size**: ${s.byte_size} bytes (${s.line_count} lines)\n\n`;
+          content += `#### Instruction Content:\n`;
+          content += `\`\`\`markdown\n`;
+          content += `${(s.content || '').trim()}\n`;
+          content += `\`\`\`\n\n`;
+          content += `---\n\n`;
+        }
+      }
+
+      content += `## 📊 Active Workspace Sessions\n`;
+      if (!sessions || sessions.length === 0) {
+        content += `No active workspace sessions recorded.\n`;
+      } else {
+        content += `| Client | Workspace Root | Session ID | Last Active |\n`;
+        content += `| --- | --- | --- | --- |\n`;
+        for (const sess of sessions) {
+          content += `| ${sess.client} | ${sess.workspace_root} | ${sess.session_id} | ${sess.last_active_at} |\n`;
+        }
+      }
+      content += `\n`;
+
+      content += `## 📉 Token Telemetry Summary\n`;
+      content += `- **Total Tool Invocations**: ${toolCallsSum.count || 0}\n`;
+      content += `- **Cumulative Bytes Saved**: ${toolCallsSum.bytes_saved || 0} bytes\n`;
+      content += `- **Cumulative Tokens Saved**: ${toolCallsSum.tokens_saved || 0} tokens\n`;
+
+      fs.writeFileSync(exportPath, content, 'utf-8');
+      success(`Successfully exported database knowledge base to ${exportPath}!`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to export database: ${err.message}`);
@@ -7187,40 +7433,25 @@ print("success")
 
 async function cmdDataMemory(args) {
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
+    if (fileExists(DB_PATH)) {
       const agentFilter = args[0] || '';
-      const script = `
-import sqlite3, os, sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-
-db_path = sys.argv[1]
-agent_name = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
-mems = persona_memory.list_memories(agent_name=agent_name, limit=50, db_path=db_path)
-print(json.dumps(mems))
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agentFilter], { encoding: 'utf-8', timeout: 5000 });
-      if (run.status === 0) {
-        const mems = JSON.parse(run.stdout.trim());
-        header(`🧠 Konoha Saved Persona Memories ${agentFilter ? `(@${agentFilter})` : ''}`);
-        if (!mems || mems.length === 0) {
-          log(`  ${C.dim}No saved memories found. Use ${C.cyan}konoha data add <agent> <content>${C.dim} to save rules/learnings.${C.reset}\n`);
-          return;
-        }
-        mems.forEach((m, idx) => {
-          const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
-          log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
-          log(`     ${m.content}`);
-          if (m.tags) log(`     ${C.dim}Tags: ${m.tags}${C.reset}`);
-          log('');
-        });
-        success(`Total: ${mems.length} saved memory item(s).`);
-      } else {
-        error(`Failed to list memories: ${run.stderr}`);
+      const personaMemory = require('../src/persona_memory');
+      const mems = personaMemory.listMemories({ agentName: agentFilter || null, limit: 50, dbPath: DB_PATH });
+      header(`🧠 Konoha Saved Persona Memories ${agentFilter ? `(@${agentFilter})` : ''}`);
+      if (!mems || mems.length === 0) {
+        log(`  ${C.dim}No saved memories found. Use ${C.cyan}konoha data add <agent> <content>${C.dim} to save rules/learnings.${C.reset}\n`);
+        return;
       }
+      mems.forEach((m, idx) => {
+        const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
+        log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
+        log(`     ${m.content}`);
+        if (m.tags) log(`     ${C.dim}Tags: ${m.tags}${C.reset}`);
+        log('');
+      });
+      success(`Total: ${mems.length} saved memory item(s).`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to retrieve persona memories: ${err.message}`);
@@ -7254,42 +7485,21 @@ async function cmdDataAdd(args) {
   }
 
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
-      const script = `
-import sqlite3, os, sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-
-db_path = sys.argv[1]
-agent = sys.argv[3]
-content = sys.argv[4]
-title = sys.argv[5]
-mtype = sys.argv[6]
-tags = sys.argv[7]
-imp = int(sys.argv[8])
-
-mem_id = persona_memory.save_memory(
-    agent_name=agent,
-    content=content,
-    title=title,
-    memory_type=mtype,
-    tags=tags,
-    importance=imp,
-    db_path=db_path
-)
-print(json.dumps({"id": mem_id, "agent": agent}))
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agent, content, title, type, tags, String(importance)], { encoding: 'utf-8', timeout: 5000 });
-      if (run.status === 0) {
-        const res = JSON.parse(run.stdout.trim());
-        success(`Saved persona memory for @${res.agent}! (ID: ${res.id})`);
-        log(`  ${C.bold}Content:${C.reset} ${content}\n`);
-      } else {
-        error(`Failed to save persona memory: ${run.stderr}`);
-      }
+    if (fileExists(DB_PATH)) {
+      const personaMemory = require('../src/persona_memory');
+      const memId = personaMemory.saveMemory({
+        agentName: agent,
+        content,
+        title,
+        memoryType: type,
+        tags,
+        importance,
+        dbPath: DB_PATH
+      });
+      success(`Saved persona memory for @${agent}! (ID: ${memId})`);
+      log(`  ${C.bold}Content:${C.reset} ${content}\n`);
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to add persona memory: ${err.message}`);
@@ -7312,38 +7522,26 @@ async function cmdDataSearch(args) {
   }
 
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
-      const script = `
-import sqlite3, os, sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-
-db_path = sys.argv[1]
-agent = sys.argv[3]
-query = sys.argv[4]
-
-mems = persona_memory.query_memories(agent_name=agent, query=query, limit=10, db_path=db_path)
-print(json.dumps(mems))
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, agentFilter, query], { encoding: 'utf-8', timeout: 5000 });
-      if (run.status === 0) {
-        const mems = JSON.parse(run.stdout.trim());
-        header(`🔍 Search Results for "${query}"`);
-        if (!mems || mems.length === 0) {
-          log(`  ${C.dim}No matching memories found.${C.reset}\n`);
-          return;
-        }
-        mems.forEach((m, idx) => {
-          const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
-          log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
-          log(`     ${m.content}\n`);
-        });
-      } else {
-        error(`Failed to search persona memories: ${run.stderr}`);
+    if (fileExists(DB_PATH)) {
+      const personaMemory = require('../src/persona_memory');
+      const mems = personaMemory.queryMemories({
+        agentName: agentFilter,
+        query,
+        limit: 10,
+        dbPath: DB_PATH
+      });
+      header(`🔍 Search Results for "${query}"`);
+      if (!mems || mems.length === 0) {
+        log(`  ${C.dim}No matching memories found.${C.reset}\n`);
+        return;
       }
+      mems.forEach((m, idx) => {
+        const typeBadge = `[${(m.memory_type || 'rule').toUpperCase()}]`;
+        log(`  ${C.cyan}${idx + 1}.${C.reset} ${C.bold}@${m.agent_name}${C.reset} ${C.yellow}${typeBadge}${C.reset} ${C.bold}${m.title || ''}${C.reset} ${C.dim}(ID: ${m.id})${C.reset}`);
+        log(`     ${m.content}\n`);
+      });
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to search persona memories: ${err.message}`);
@@ -7357,34 +7555,153 @@ async function cmdDataDelete(args) {
   }
   const memId = args[0];
   try {
-    const python = checkPython();
-    if (python && fileExists(DB_PATH)) {
-      const script = `
-import sqlite3, os, sys, json
-sys.path.insert(0, sys.argv[2])
-import persona_memory
-
-db_path = sys.argv[1]
-mem_id = sys.argv[3]
-deleted = persona_memory.delete_memory(mem_id, db_path=db_path)
-print(json.dumps({"deleted": deleted, "id": mem_id}))
-`.trim();
-      const run = spawnSync(python, ['-c', script, DB_PATH, SRC_DIR, memId], { encoding: 'utf-8', timeout: 5000 });
-      if (run.status === 0) {
-        const res = JSON.parse(run.stdout.trim());
-        if (res.deleted) {
-          success(`Deleted memory item ID: ${memId}`);
-        } else {
-          warn(`Memory item ID "${memId}" not found.`);
-        }
+    if (fileExists(DB_PATH)) {
+      const personaMemory = require('../src/persona_memory');
+      const deleted = personaMemory.deleteMemory(memId, DB_PATH);
+      if (deleted) {
+        success(`Deleted memory item ID: ${memId}`);
       } else {
-        error(`Failed to delete persona memory: ${run.stderr}`);
+        warn(`Memory item ID "${memId}" not found.`);
       }
     } else {
-      error('SQLite database or python command not found.');
+      error('SQLite database not found.');
     }
   } catch (err) {
     error(`Failed to delete memory: ${err.message}`);
+  }
+}
+
+async function cmdSearch(args = []) {
+  const { runWebSearch } = require('../src/mcp/web_search');
+  const searxngDir = path.join(os.homedir(), '.konoha', 'searxng');
+
+  const first = args[0] || '';
+  if (first === 'status') {
+    header('🔍 SearXNG Multi-Source Search Status');
+    const bestPath = path.join(searxngDir, 'best_instance.json');
+    const instPath = path.join(searxngDir, 'instances_cache.json');
+    const logPath = path.join(searxngDir, 'search.log');
+    let bestInstance = null;
+    let candidatesCount = 0;
+    let logLines = 0;
+
+    if (fs.existsSync(bestPath)) {
+      try { bestInstance = JSON.parse(fs.readFileSync(bestPath, 'utf8')); } catch (_) {}
+    }
+    if (fs.existsSync(instPath)) {
+      try {
+        const insts = JSON.parse(fs.readFileSync(instPath, 'utf8'));
+        candidatesCount = Array.isArray(insts) ? insts.length : 0;
+      } catch (_) {}
+    }
+    if (fs.existsSync(logPath)) {
+      try {
+        const content = fs.readFileSync(logPath, 'utf8');
+        logLines = content.split('\n').filter(Boolean).length;
+      } catch (_) {}
+    }
+
+    const custom = process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL;
+    log(`  ${C.cyan}Search Chain:${C.reset}       SearXNG ➔ DuckDuckGo HTML ➔ Startpage HTML ➔ Wikipedia`);
+    log(`  ${C.cyan}API Key Status:${C.reset}     ${C.green}Zero-API-Key Required${C.reset} (Public HTTPS + Fallbacks)`);
+    log(`  ${C.cyan}Custom Instance:${C.reset}    ${custom ? C.green + custom : C.dim + 'None configured (using dynamic public selector)'}${C.reset}`);
+    log(`  ${C.cyan}Elected Instance:${C.reset}   ${bestInstance ? C.green + bestInstance.url : C.yellow + 'Dynamic resolution on query'}${C.reset}`);
+    log(`  ${C.cyan}Cached Candidates:${C.reset}  ${candidatesCount} instances from searx.space`);
+    log(`  ${C.cyan}Search Log Size:${C.reset}    ${logLines} recorded queries (~/.konoha/searxng/search.log)\n`);
+    log(`  ${C.dim}Tip: Run ${C.cyan}konoha search <query>${C.dim} to perform web search.${C.reset}`);
+    return;
+  }
+
+  if (first === 'prune' || first === 'clear') {
+    header('🧹 Pruning SearXNG Search Cache & Logs');
+    let pruned = 0;
+    const files = ['best_instance.json', 'instances_cache.json', 'search.log'];
+    for (const f of files) {
+      const fp = path.join(searxngDir, f);
+      if (fs.existsSync(fp)) {
+        try { fs.unlinkSync(fp); pruned++; } catch (_) {}
+      }
+    }
+    success(`Pruned ${pruned} SearXNG cache/log files.`);
+    return;
+  }
+
+  let numResults = 5;
+  let searchDepth = 'standard';
+  let jsonOutput = false;
+
+  const queryParts = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--num=')) {
+      numResults = parseInt(a.slice('--num='.length), 10);
+    } else if (a === '--num' && args[i + 1]) {
+      numResults = parseInt(args[++i], 10);
+    } else if (a.startsWith('--depth=')) {
+      searchDepth = a.slice('--depth='.length);
+    } else if (a === '--depth' && args[i + 1]) {
+      searchDepth = args[++i];
+    } else if (a === '--json') {
+      jsonOutput = true;
+    } else if (!a.startsWith('-')) {
+      queryParts.push(a);
+    }
+  }
+  const query = queryParts.join(' ').trim();
+
+  if (!query) {
+    header('🔍 Konoha Multi-Source Web Search');
+    log(`  ${C.yellow}Usage:${C.reset}  konoha search <query> [options]`);
+    log(`  ${C.yellow}        konoha searxng [status|prune]`);
+    log('');
+    log(`  ${C.cyan}Options:${C.reset}`);
+    log(`    --num=<n>         Number of results (default: 5)`);
+    log(`    --depth=<depth>   Search depth: standard | deep (default: standard)`);
+    log(`    --json            Output raw JSON response`);
+    log('');
+    log(`  ${C.cyan}Examples:${C.reset}`);
+    log(`    konoha search "SvelteKit 5 runes tutorial"`);
+    log(`    konoha search "Rust RTK token killer" --num=8`);
+    log(`    konoha searxng status`);
+    log('');
+    return;
+  }
+
+  if (!jsonOutput) {
+    header(`🔍 Searching: "${query}" (depth: ${searchDepth})`);
+    info('Querying zero-API-key search chain (SearXNG ➔ DDG ➔ Startpage ➔ Wikipedia)...');
+  }
+
+  const raw = await runWebSearch(query, numResults, searchDepth, 'cli');
+  let result;
+  try {
+    result = JSON.parse(raw);
+  } catch (_) {
+    result = { status: 'error', message: raw };
+  }
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (result.status !== 'success' || !result.results || result.results.length === 0) {
+    warn('No search results found or query timed out.');
+    if (result.message) log(`  ${C.dim}${result.message}${C.reset}`);
+    return;
+  }
+
+  log(`\n  ${C.green}✓ Found ${result.results.length} results${C.reset} ${C.dim}via ${result.results[0]?.source || 'SearXNG'}${C.reset}\n`);
+
+  for (const item of result.results) {
+    const numBadge = `${C.cyan}[#${item.citation_id}]${C.reset}`;
+    const srcBadge = `${C.magenta}[${item.source || 'Web'}]${C.reset}`;
+    log(`  ${numBadge} ${C.bold}${item.title}${C.reset} ${srcBadge}`);
+    log(`     ${C.blue}${item.url}${C.reset}`);
+    if (item.snippet) {
+      log(`     ${C.dim}${item.snippet.replace(/\n/g, ' ')}${C.reset}`);
+    }
+    log('');
   }
 }
 
@@ -7431,6 +7748,12 @@ async function main() {
       case 'uninstall':
         await cmdUninstall(args);
         break;
+      case 'web':
+        await cmdWeb(args);
+        break;
+      case 'ui':
+        await cmdUi(args);
+        break;
       case 'version':
       case '--version':
       case '-v':
@@ -7451,14 +7774,22 @@ async function main() {
         await cmdModels(args);
         break;
       case 'data':
+      case 'persona':
+      case 'personas':
         await cmdData(args);
         break;
       case 'project':
       case 'projects':
+      case 'context':
         await cmdProject(args);
         break;
       case 'bridge':
         await cmdBridge(args);
+        break;
+      case 'search':
+      case 'searxng':
+      case 'web-search':
+        await cmdSearch(args);
         break;
       case 'help':
       case '--help':

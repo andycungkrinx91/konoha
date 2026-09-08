@@ -17,17 +17,17 @@
 
 | Page | Scope | Markdown owner | Implementation anchors |
 |---|---|---|---|
-| 01 System Architecture | Client, orchestration, MCP (konoha, semble, aislop), persistence, workspace | `docs/ARCHITECTURE.md` | `src/server.py`, `src/db.py`, `src/vector_search.py`, `src/agent_manager.js`, `bin/cli.js` |
-| 02 Runtime Query Lifecycle | Prompt, skill retrieval, code search, delegation, synthesis | `docs/ARCHITECTURE.md` | `src/server.py`, `src/prompt_hook.js` |
-| 03 MCP Tool and Skill Routing | `sannin` routing to tools and ninja agents | `docs/ARCHITECTURE.md` | `src/server.py`, `src/templates/agents.yaml` |
+| 01 System Architecture | Client, orchestration, MCP (konoha, semble, aislop), persistence, workspace | `docs/ARCHITECTURE.md` | `src/server.js`, `src/db.js`, `src/vector_search.js`, `src/agent_manager.js`, `bin/cli.js` |
+| 02 Runtime Query Lifecycle | Prompt, skill retrieval, code search, delegation, synthesis | `docs/ARCHITECTURE.md` | `src/server.js`, `src/prompt_hook.js` |
+| 03 MCP Tool and Skill Routing | `sannin` routing to tools and ninja agents | `docs/ARCHITECTURE.md` | `src/server.js`, `src/templates/agents.yaml` |
 | 04 LLM Bridge Gateway | Bridge selection, provider boundaries, sidecar protocol retries | `docs/LLM-BRIDGE-GATEWAY.md` | `src/bridge/gateway.js`, `src/bridge/sidecar/` |
-| 05 Search Fallback Chain | SearXNG, DuckDuckGo, Startpage, Wikipedia fallback | `docs/SETUP-SEARXNG.md` | `src/server.py:web_search` |
-| 06 Skill Registry Installation | Template/package sync, migration, SQLite & vector retrieval | `docs/ADDING-SKILLS.md` | `src/migrate.py`, `src/db.py`, `src/vector_search.py`, `bin/cli.js`, `src/skill_manager.js` |
-| 07 Token Footprint Comparison | Folder loading versus bounded FTS5 retrieval | `README.md` | `src/server.py`, `src/migrate.py` |
-| 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.py`, `src/agent_manager.js` |
-| 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.py:build_from_source`, `src/server.py:build_from_text` |
-| 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.py`, `src/server.py` |
-| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.py:run_mcp_workflow`, `src/server.py:_workflow_review_approved`, `tests/test_anti_slop_gate.py` |
+| 05 Search Fallback Chain | SearXNG, DuckDuckGo, Startpage, Wikipedia fallback | `docs/SETUP-SEARXNG.md` | `src/server.js:web_search` |
+| 06 Skill Registry Installation | Template/package sync, migration, SQLite & vector retrieval | `docs/ADDING-SKILLS.md` | `src/migrate.js`, `src/db.js`, `src/vector_search.js`, `bin/cli.js`, `src/skill_manager.js` |
+| 07 Token Footprint Comparison | Folder loading versus bounded FTS5 retrieval | `README.md` | `src/server.js`, `src/migrate.js` |
+| 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.js`, `src/agent_manager.js` |
+| 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.js:build_from_source`, `src/server.js:build_from_text` |
+| 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.js`, `src/server.js` |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.js:run_mcp_workflow`, `src/server.js:_workflow_review_approved`, `tests/test_anti_slop_gate.js` |
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, animated braille spinner (startSpinner, TTY-only), in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit` |
 
 ## Source policy

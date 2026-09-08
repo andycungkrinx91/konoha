@@ -48,7 +48,7 @@ const SERVER_VERSION = (() => {
 const devPaths = (() => {
   try { return require("../bin/lib/paths"); } catch(_) { return null; }
 })();
-const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'skills.db');
+const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'konoha.db');
 const DB_BRIDGES_PY_PATH = devPaths ? devPaths.DB_BRIDGES_PY_PATH : path.join(__dirname, 'db_bridges.py');
 
 let router;
@@ -70,8 +70,7 @@ if (installErrors.length) {
 }
 
 const { spawn } = require("child_process");
-const PYTHON_CMD = process.env.PYTHON_CMD || (router && router.getPythonCommand ? router.getPythonCommand().executable : (process.platform === 'win32' ? 'python' : 'python3'));
-const SAVINGS_LOGGER = path.join(__dirname, "tools_savings_logger.py");
+const SAVINGS_LOGGER_JS = path.join(__dirname, "tools_savings_logger.js");
 
 let activeClient = null;
 let _cachedActiveClient = null;
@@ -232,27 +231,20 @@ function getBaselineBytesForTool(toolName, args) {
   return 0;
 }
 
+let _savingsLogger = null;
+function getSavingsLogger() {
+  if (!_savingsLogger) {
+    _savingsLogger = require("./tools_savings_logger");
+  }
+  return _savingsLogger;
+}
+
 function logToolCallSavings(toolName, args, returnedBytes) {
-  // Fire-and-forget: spawn detached so the stdio event loop never stalls.
   try {
     const queryStr = JSON.stringify(args || {}).slice(0, 500);
     const baselineBytes = getBaselineBytesForTool(toolName, args || {});
-    const py = (router && router.getPythonCommand) ? router.getPythonCommand() : { executable: PYTHON_CMD, prefixArgs: [] };
-    const child = spawn(
-      py.executable,
-      [
-        ...py.prefixArgs,
-        SAVINGS_LOGGER,
-        toolName,
-        queryStr,
-        String(returnedBytes),
-        (activeClient || detect_active_client_from_env() || ''),
-        String(baselineBytes || 0)
-      ],
-      { stdio: "ignore", detached: true },
-    );
-    child.on("error", () => {});
-    child.unref();
+    const client = activeClient || detect_active_client_from_env() || '';
+    getSavingsLogger().log(toolName, queryStr, returnedBytes, client, baselineBytes);
   } catch (_) {
     /* router must never break because the logger hiccupped */
   }
@@ -397,44 +389,41 @@ function handleRequest(req) {
 }
 
 function loadBridgesFromMcp() {
-  const { spawnSync } = require("child_process");
-  const fs = require("fs");
-  const os = require("os");
-  const path = require("path");
-  const localBridges = path.join(__dirname, "db_bridges.py");
-  const dbScript = fs.existsSync(localBridges)
-    ? localBridges
-    : DB_BRIDGES_PY_PATH;
-  const python = process.env.PYTHON_CMD || "python3";
-
   try {
-    const res = spawnSync(python, [dbScript, "--list"], { encoding: "utf-8" });
-    if (res.status === 0 && res.stdout) {
-      const existing = JSON.parse(res.stdout);
-      for (const b of existing) {
-        if (!b.targetUrl || b.provider !== "openai") continue;
-        try {
-          const u = new URL(b.targetUrl);
-          const isLoopback = u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "::1";
-          if (u.protocol !== "https:" && !isLoopback) {
-            process.stderr.write(`[mcp ${SERVER_NAME}] bridge "${b.name}" targetUrl must be https:// — refusing to load (got ${u.protocol})\n`);
-            b.disabled = true;
-          }
-        } catch {
+    const db = require("./db");
+    const conn = db.getConnection();
+    const rows = conn.prepare("SELECT name, port, provider, enabled, target_url AS targetUrl, api_key AS apiKey FROM bridges").all();
+    const existing = rows.map(r => ({
+      name: r.name,
+      port: r.port,
+      provider: r.provider,
+      enabled: Boolean(r.enabled),
+      targetUrl: r.targetUrl,
+      apiKey: r.apiKey
+    }));
+    for (const b of existing) {
+      if (!b.targetUrl || b.provider !== "openai") continue;
+      try {
+        const u = new URL(b.targetUrl);
+        const isLoopback = u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "::1";
+        if (u.protocol !== "https:" && !isLoopback) {
+          process.stderr.write(`[mcp ${SERVER_NAME}] bridge "${b.name}" targetUrl must be https:// — refusing to load (got ${u.protocol})\n`);
           b.disabled = true;
         }
+      } catch {
+        b.disabled = true;
       }
-      return existing.map((b) => {
-        if (b.provider === 'antigravity-extension' && !b.targetUrl) {
-          b.targetUrl = 'http://127.0.0.1:1313';
-        }
-        return b;
-      });
     }
+    return existing.map((b) => {
+      if (b.provider === 'antigravity-extension' && !b.targetUrl) {
+        b.targetUrl = 'http://127.0.0.1:1313';
+      }
+      return b;
+    });
   } catch (err) {
     process.stderr.write(`[mcp ${SERVER_NAME}] SQLite bridge load error: ${err.message}\n`);
+    return [];
   }
-  return [];
 }
 
 const activeBridges = new Map();
@@ -645,7 +634,7 @@ function main() {
       });
     }, 5000);
 
-    // Watch skills.db for instant response
+    // Watch konoha.db for instant response
     const fs = require("fs");
     const os = require("os");
     const path = require("path");

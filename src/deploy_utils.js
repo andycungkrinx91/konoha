@@ -202,15 +202,20 @@ function installFileTools(silent = true, pythonCmd = null) {
     "file_tools_router.js",
     "mcp_tool_manifest.json",
     "file_tools_launcher.js",
-    "server.py",
-    "migrate.py",
-    "tools_savings_logger.py",
+    "server.js",
+    "migrate.js",
+    "tools_savings_logger.js",
+    "agent_stats.js",
     "platform_utils.js",
-    "yaml_parser.py",
-    "db_bridges.py",
-    "db_agents.py",
-    "circuit_breaker.py",
-    "persona_memory.py",
+    "db.js",
+    "db_stats.js",
+    "db_savings.js",
+    "db_bridges.js",
+    "db_agents.js",
+    "circuit_breaker.js",
+    "persona_memory.js",
+    "vector_search.js",
+    "yaml_utils.js",
   ].forEach((f) => {
     const src = path.join(SRC_DIR, f);
     const dest = path.join(SKILLS_DB_DIR, f);
@@ -232,9 +237,15 @@ function installFileTools(silent = true, pythonCmd = null) {
   writeNodeExecPathRecord();
   writePythonCmdRecord(pythonCmd);
 
-  const srcPyDir = path.join(SRC_DIR, "file_tools");
-  if (fileExists(srcPyDir)) {
-    copyRecursiveIfDifferent(srcPyDir, FILE_TOOLS_PY_DIR);
+  const srcJsDir = path.join(SRC_DIR, "file_tools");
+  if (fileExists(srcJsDir)) {
+    copyRecursiveIfDifferent(srcJsDir, FILE_TOOLS_PY_DIR);
+  }
+
+  const srcMcpDir = path.join(SRC_DIR, "mcp");
+  const destMcpDir = path.join(SKILLS_DB_DIR, "mcp");
+  if (fileExists(srcMcpDir)) {
+    copyRecursiveIfDifferent(srcMcpDir, destMcpDir);
   }
 
   const srcBridgeDir = path.join(SRC_DIR, "bridge");
@@ -256,6 +267,8 @@ function installFileTools(silent = true, pythonCmd = null) {
               private: true,
               dependencies: {
                 "@bufbuild/protobuf": "^2.11.0",
+                "better-sqlite3": "^13.0.3",
+                "@huggingface/transformers": "^4.2.0"
               },
             },
             null,
@@ -263,7 +276,7 @@ function installFileTools(silent = true, pythonCmd = null) {
           ) + "\n",
         );
       }
-      if (!fileExists(nodeModulesPath)) {
+      if (!fileExists(nodeModulesPath) || !fileExists(path.join(nodeModulesPath, 'better-sqlite3'))) {
         const manager = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
         execFileSync(manager, ["install", "--prod", "--no-frozen-lockfile"], {
           cwd: SKILLS_DB_DIR,

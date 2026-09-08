@@ -121,93 +121,59 @@ console.log('\n[AgentManager Functions]');
 }
 
 // ---------------------------------------------------------------------------
-// Suite: db_agents.py CLI
+// Suite: db_agents.js CLI / Module
 // ---------------------------------------------------------------------------
 
-console.log('\n[db_agents.py CLI]');
+console.log('\n[db_agents.js]');
 {
-  const pythonCmd = (() => {
+  const dbAgentsScript = path.join(__dirname, '../src/db_agents.js');
+  const { execFileSync } = require('child_process');
+
+  test('list returns valid array with agents', function () {
+    const output = execFileSync(process.execPath, [dbAgentsScript, 'list'], {
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+    const agents = JSON.parse(output);
+    assert.ok(Array.isArray(agents));
+    assert.ok(agents.length > 0);
+  });
+
+  test('upsert and list finds the agent', function () {
+    const agentName = 'cli-test-agent-' + Date.now();
+    const agentData = {
+      name: agentName,
+      icon: '🍃',
+      title: 'CLI Test',
+      modelTier: 'test',
+      purpose: 'Test',
+      skills: [],
+      delegateWhen: 'Always',
+      constraints: 'None',
+      workflow: 'Test',
+      description: 'Test',
+      instructions: 'Test',
+      delegationKeywords: 'test',
+      enable_mcp_tools: true,
+    };
+
+    execFileSync(process.execPath, [dbAgentsScript, 'upsert', JSON.stringify(agentData)], {
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+    const output = execFileSync(process.execPath, [dbAgentsScript, 'list'], {
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+    const agents = JSON.parse(output);
+    assert.ok(agents.some((a) => a.name === agentName || a.name === 'mcp_' + agentName || a.name.includes(agentName)));
+
+    // Cleanup
     try {
-      return execSync('which python3 || which python', { encoding: 'utf-8' }).trim();
-    } catch {
-      return null;
-    }
-  })();
-
-  if (!pythonCmd) {
-    console.log('  ⚠ Python not found, skipping CLI tests');
-  } else {
-    const dbAgentsScript = path.join(__dirname, '../src/db_agents.py');
-
-    test('list returns valid JSON with agents', function () {
-      const { execFileSync } = require('child_process');
-      const output = execFileSync(pythonCmd, [dbAgentsScript, 'list'], { maxBuffer: 50 * 1024 * 1024,
-        encoding: 'utf-8',
-        maxBuffer: 50 * 1024 * 1024,
-      });
-      const agents = JSON.parse(output);
-      assert.ok(Array.isArray(agents));
-      assert.ok(agents.length > 0);
-    });
-
-    test('upsert and list finds the agent', function () {
-      const cliTempDir = path.join(__dirname, '.cli_tmp_' + Date.now());
-      try {
-        fs.mkdirSync(cliTempDir, { recursive: true });
-        const agentData = {
-          name: 'cli-test-agent-' + Date.now(),
-          icon: '🐍',
-          title: 'CLI Test',
-          modelTier: 'test',
-          purpose: 'Test',
-          skills: [],
-          delegateWhen: 'Always',
-          constraints: 'None',
-          workflow: 'Test',
-          description: 'Test',
-          instructions: 'Test',
-          delegationKeywords: 'test',
-          enable_mcp_tools: true,
-        };
-        const agentJson = JSON.stringify(agentData);
-
-        const { spawnSync, execFileSync } = require('child_process');
-        const result = spawnSync(pythonCmd, [
-          '-c',
-          `import json,os,sys; `
-          + `sys.path.insert(0, '${path.dirname(dbAgentsScript)}'); `
-          + `from db_agents import upsert_agent; `
-          + `upsert_agent(json.loads(os.environ['AGENT_JSON']))`
-        ], { env: { ...process.env, AGENT_JSON: agentJson }, encoding: 'utf-8', timeout: 30000, maxBuffer: 50 * 1024 * 1024 });
-
-        if (result.status !== 0 || result.error) {
-          console.error('Python execution failed:');
-          console.error('Status:', result.status);
-          console.error('Error:', result.error);
-          console.error('Stderr:', result.stderr);
-          console.error('Stdout:', result.stdout);
-        }
-
-        const output = execFileSync(pythonCmd, [dbAgentsScript, 'list'], { maxBuffer: 50 * 1024 * 1024,
-          encoding: 'utf-8',
-          maxBuffer: 50 * 1024 * 1024,
-        });
-        const agents = JSON.parse(output);
-        assert.ok(agents.some((a) => a.name.startsWith('mcp_') && a.name.includes('cli-test-agent-')) || agents.length > 0);
-
-        // Cleanup
-        const testAgent = agents.find((a) => a.name.startsWith('mcp_cli-test-agent-') || a.name.startsWith('cli-test-agent-'));
-        const name = testAgent ? testAgent.name : null;
-        if (name) {
-          try {
-            execSync(`${pythonCmd} "${dbAgentsScript}" delete ${name}`, { encoding: 'utf-8' });
-          } catch { /* ignore cleanup */ }
-        }
-      } finally {
-        try { fs.rmSync(cliTempDir, { recursive: true, force: true }); } catch { /* ignore */ }
-      }
-    });
-  }
+      execFileSync(process.execPath, [dbAgentsScript, 'delete', agentName], { encoding: 'utf-8' });
+      execFileSync(process.execPath, [dbAgentsScript, 'delete', 'mcp_' + agentName], { encoding: 'utf-8' });
+    } catch { /* ignore cleanup */ }
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -34,9 +34,9 @@ flowchart TB
         SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
-        subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.py)"]
+        subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
             SQLiteDB[("Unified SQLite Skills & Vector DB<br/>~/.konoha/skills.db<br/>(PRAGMA WAL · busy_timeout=5000 · foreign_keys=ON)")]
-            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.py)<br/>• sqlite-vector SIMD / NumPy Fallback<br/>• IBM Granite 97M Multilingual Embedder<br/>• Alibaba GTE Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF)"]
+            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.js)<br/>• Pure Node.js / @xenova/transformers<br/>• IBM Granite 30M Multilingual Embedder<br/>• Alibaba GTE Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF)"]
         end
         
         KonohaMCP <--> PersistenceLayer
@@ -79,22 +79,22 @@ flowchart TB
 
 ---
 
-## 💾 Consolidated Single-Database Access Layer (`src/db.py`)
+## 💾 Consolidated Single-Database Access Layer (`src/db.js`)
 
-All database interactions across the entire Konoha codebase are consolidated under `src/db.py`, ensuring consistent connection setup, unified schema definitions, and eliminating schema drift:
+All database interactions across the entire Konoha codebase are consolidated under `src/db.js`, ensuring consistent connection setup, unified schema definitions, and eliminating schema drift:
 
-1. **Canonical Path Ownership**: `DB_PATH = os.path.expanduser("~/.konoha/skills.db")` is defined exclusively in `src/db.py`.
-2. **Unified Pragmas**: Every connection opened via `db.get_connection()` automatically configures:
-   - `row_factory = sqlite3.Row`
+1. **Canonical Path Ownership**: `DB_PATH = path.join(os.homedir(), ".konoha", "skills.db")` is defined exclusively in `src/db.js`.
+2. **Unified Pragmas**: Every connection opened via `db.getConnection()` automatically configures:
+   - Native `better-sqlite3` database handle
    - `PRAGMA journal_mode=WAL;` (Write-Ahead Logging for high-concurrency read/write)
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setup_schema`)**: Single canonical `executescript()` containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`).
+3. **Unified Schema DDL (`setupSchema`)**: Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`).
 
 ---
 
-## 🧠 Hybrid Vector Search & Multilingual Retrieval (`src/vector_search.py`)
+## 🧠 Hybrid Vector Search & Multilingual Retrieval (`src/vector_search.js`)
 
 Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword matching:
 
@@ -106,7 +106,7 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
    - Pairs query with candidate chunk snippets; scores with sigmoid logit transformation.
 3. **Cross-Platform `sqlite-vector` SIMD Acceleration**:
    - Lazily downloads platform-specific prebuilt binary (`linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, `windows-x64`) to `~/.konoha/vendor/sqlite-vector/`.
-   - Build-time capability detection: if dynamic extension loading is disabled in Python, seamlessly falls back to in-memory NumPy cosine similarity calculation without errors.
+   - Build-time capability detection: if dynamic extension loading is disabled or unsupported in SQLite, seamlessly falls back to in-memory cosine similarity calculation without errors.
 4. **Markdown Heading Chunker**:
    - Chunks documentation by section headers (`#`, `##`, `###`), preserving semantic context boundaries.
    - Max 2,000 characters per chunk with 100-character boundary overlap.
@@ -159,9 +159,9 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Hard pre-gate: `kage` executes `aislop_scan` scoped to all changed files before any confidence percentage is assessed.
    - Requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json`. Missing or non-zero findings mechanically block workflow delivery.
    - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate issues.
-2. **Kage Reviewer 95% Minimum Confidence Gate**:
+2. **Kage Reviewer 97% Minimum Confidence Gate**:
    - Every task is reviewed by `kage` for structural integrity, zero hallucination, and security compliance.
-   - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 95%, delivery is blocked and tasks are re-delegated for remediation.
+   - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 97% (Minimum Required: ≥ 97% across all verification categories), delivery is blocked and tasks are re-delegated for remediation.
 3. **Zero Errors & Zero Warnings**:
    - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
 4. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
@@ -176,7 +176,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - `report_from_agent()` verifies that completion claims contain real command output evidence matching passing markers (`exit code 0`, `0 errors`, `passed`, `succeeded`).
    - Unsubstantiated claims are automatically downgraded to `status: "unverified"`, preventing unverified tasks from silently completing the workflow.
 7. **Episodic Learnings & Memory Hygiene**:
-   - Only learnings from verified tasks (`verified = True`) are persisted to episodic memory in `persona_memory.py`.
+   - Only learnings from verified tasks (`verified = True`) are persisted to episodic memory in `persona_memory.js`.
    - `memory_content_exists()` performs deduplication against the SQLite database, preventing corrupted or hallucinated diagnoses from polluting future prompts.
 8. **Authorized Penetration Testing in Dev/Local Environments**:
    - `anbu` is authorized to conduct penetration testing and vulnerability assessments in dev/local environments (`localhost`, `127.0.0.1`, dev containers, local clusters).
@@ -186,8 +186,8 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Animated Terminal Feedback: `startSpinner()` renders a 10-frame braille spinner (90ms interval) with in-place line redraw (`\r\x1b[2K`) on TTY; automatically falls back to static `›` lines on non-TTY, CI, or `NO_COLOR` environments, with `KONOHA_SPINNERS=0` as an explicit opt-out.
    - Unicode-Accurate Table Widths: `getVisualLength()` implements East Asian Width accounting (CJK ideographs, Hangul, kana, fullwidth forms) plus emoji-presentation BMP symbols that render as 2 columns in modern terminals, and `truncateVisual()` strips ANSI escapes before measuring/cutting — eliminating column overlap in agent/skill/status tables.
    - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 6 MCP client configs, and verifies extension bridges.
-   - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while Windows Python launcher (`py -3`) arguments and normalized path separators (`/`) are preserved across all subprocess handlers.
+   - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 6 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (38 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (39 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).

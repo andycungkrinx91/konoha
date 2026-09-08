@@ -32,27 +32,20 @@ let __cachedDbSkills = null;
 let __cachedDbSkillsTs = 0;
 
 function _getDbSkills() {
-  const dbPath = path.join(HOME, '.konoha', 'skills.db');
+  const { DB_PATH } = require('./db');
+  const dbPath = DB_PATH;
   if (!fs.existsSync(dbPath)) return [];
   try {
     const ts = fs.statSync(dbPath).mtimeMs;
     if (__cachedDbSkills !== null && __cachedDbSkillsTs === ts) {
       return __cachedDbSkills;
     }
-    const pythonCmd = _getPythonCmd();
-    const script = `import sqlite3, sys, json
-try:
-    conn = sqlite3.connect(sys.argv[1])
-    rows = conn.execute("SELECT DISTINCT name FROM skills").fetchall()
-    print(json.dumps([r[0] for r in rows]))
-except Exception:
-    print("[]")`;
-    const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath], { encoding: 'utf8' });
-    if (res.status === 0) {
-      __cachedDbSkills = JSON.parse(res.stdout.trim());
-      __cachedDbSkillsTs = ts;
-      return __cachedDbSkills;
-    }
+    const { getDb } = require('./db');
+    const conn = getDb(dbPath);
+    const rows = conn.prepare("SELECT DISTINCT name FROM skills").all();
+    __cachedDbSkills = rows.map(r => r.name);
+    __cachedDbSkillsTs = ts;
+    return __cachedDbSkills;
   } catch (e) {}
   return [];
 }
@@ -98,17 +91,31 @@ function normalizeLegacySkillName(skill) {
 function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
   if (!allDbSkills || allDbSkills.length === 0) return Array.isArray(configuredSkills) ? configuredSkills : [];
   const allowed = Array.isArray(configuredSkills) ? configuredSkills : [];
-  const resolved = allDbSkills.filter(s => {
-    const base = s.split('/')[0];
-    if (allowed.includes(s) || allowed.includes(base)) return true;
-    return false;
-  });
-  const resolvedBases = new Set(resolved.map(s => s.split('/')[0]));
-  const unresolved = allowed.filter(s => {
-    const base = s.split('/')[0];
-    return !resolvedBases.has(base);
-  });
-  return [...unresolved, ...resolved];
+
+  const result = [];
+  const added = new Set();
+
+  for (const item of allowed) {
+    if (!item) continue;
+    if (allDbSkills.includes(item)) {
+      if (!added.has(item)) {
+        result.push(item);
+        added.add(item);
+      }
+    }
+    for (const s of allDbSkills) {
+      if (s.startsWith(item + '/') && !added.has(s)) {
+        result.push(s);
+        added.add(s);
+      }
+    }
+    if (!allDbSkills.includes(item) && !added.has(item)) {
+      result.push(item);
+      added.add(item);
+    }
+  }
+
+  return result;
 }
 
 // Load agents from SQLite or YAML
@@ -132,11 +139,9 @@ function loadAgents(reloadDefaults = false, silent = false) {
 
   if (!loadedFromUser) {
     try {
-      const pythonCmd = _getPythonCmd();
-      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-      const res = platform.spawnPythonSync(pythonCmd, [dbAgentsScript, 'list'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-      if (res.status === 0) {
-        agents = JSON.parse(res.stdout.trim());
+      const dbAgents = require('./db_agents');
+      agents = dbAgents.listAgents();
+      if (agents && agents.length > 0) {
         loadedFromDb = true;
       }
     } catch (e) {}
@@ -153,12 +158,13 @@ function loadAgents(reloadDefaults = false, silent = false) {
   if (agents.length === 0 && defaults.length > 0) {
     agents = defaults;
     try {
-      const pythonCmd = _getPythonCmd();
-      const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-      // Bulk upsert via a single Python invocation to avoid N process startups
-      platform.spawnPythonSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
+      const dbAgents = require('./db_agents');
+      dbAgents.bulkImportAgents(agents);
     } catch (e) {}
   }
+
+  // Strip any legacy mcp_* agents from being loaded or exposed
+  agents = agents.filter(a => a && a.name && !a.name.startsWith('mcp_'));
 
   // Query installed skills from SQLite database dynamically
   const allDbSkills = _getDbSkills();
@@ -174,6 +180,19 @@ function loadAgents(reloadDefaults = false, silent = false) {
       }
       if (!Array.isArray(configuredSkills)) {
         configuredSkills = [];
+      }
+
+      // Ensure the agent's dedicated default primary skill is always first in priority
+      if (defAgent && defAgent.skills && defAgent.skills.length > 0) {
+        const primaryDefaultSkill = defAgent.skills[0];
+        if (configuredSkills.includes(primaryDefaultSkill)) {
+          configuredSkills = [
+            primaryDefaultSkill,
+            ...configuredSkills.filter(s => s !== primaryDefaultSkill)
+          ];
+        } else {
+          configuredSkills.unshift(primaryDefaultSkill);
+        }
       }
 
       if (allDbSkills.length === 0) {
@@ -357,9 +376,8 @@ function saveAgents(agents) {
 
   // 2. Write to SQLite as source of truth via bulk-import (single transaction)
   try {
-    const pythonCmd = _getPythonCmd();
-    const dbAgentsScript = path.join(__dirname, 'db_agents.py');
-    platform.spawnPythonSync(pythonCmd, [dbAgentsScript, '--bulk-import', JSON.stringify(agents)], { encoding: 'utf8' });
+    const dbAgents = require('./db_agents');
+    dbAgents.bulkImportAgents(agents);
   } catch (e) {}
 
   // 3. Invalidate cache so next loadAgents reads the fresh state
@@ -445,41 +463,38 @@ When the user prompt involves modifying or working within an existing project:
 }
 
 function getSkillDescriptions(skillsList) {
-  const dbPath = path.join(HOME, '.konoha', 'skills.db');
+  const { DB_PATH, getDb } = require('./db');
+  const dbPath = DB_PATH;
   if (!fs.existsSync(dbPath) || !skillsList || skillsList.length === 0) return {};
   try {
-    const platform = require('./platform_utils');
-    const pythonCmd = _getPythonCmd();
-    const script = `import sqlite3, sys, json
-try:
-    conn = sqlite3.connect(sys.argv[1])
-    skills = json.loads(sys.argv[2])
-    res = {}
-    for s in skills:
-        row = conn.execute("SELECT content FROM skills WHERE name = ?", (s,)).fetchone()
-        if row:
-            content = row[0]
-            desc = ""
-            if content.startswith("---"):
-                parts = content.split("---")
-                if len(parts) >= 3:
-                    for line in parts[1].split("\\n"):
-                        if line.strip().startswith("description:"):
-                            desc = line.split("description:")[1].strip()
-                            if desc.startswith('"') and desc.endswith('"'): desc = desc[1:-1]
-                            if desc.startswith("'") and desc.endswith("'"): desc = desc[1:-1]
-                            break
-            if not desc:
-                row_desc = conn.execute("SELECT tags FROM skills WHERE name = ?", (s,)).fetchone()
-                if row_desc: desc = row_desc[0].replace(",", " ")
-            res[s] = desc
-    print(json.dumps(res))
-except Exception:
-    print("{}")`;
-    const res = platform.spawnPythonSync(pythonCmd, ['-c', script, dbPath, JSON.stringify(skillsList)], { encoding: 'utf8' });
-    if (res.status === 0) {
-      return JSON.parse(res.stdout.trim());
+    const conn = getDb(dbPath);
+    const res = {};
+    for (const s of skillsList) {
+      const row = conn.prepare("SELECT content, tags FROM skills WHERE name = ?").get(s);
+      if (row) {
+        let desc = "";
+        const content = row.content || "";
+        if (content.startsWith("---")) {
+          const parts = content.split("---");
+          if (parts.length >= 3) {
+            for (const line of parts[1].split("\n")) {
+              if (line.trim().startsWith("description:")) {
+                desc = line.split("description:")[1].trim();
+                if ((desc.startsWith('"') && desc.endsWith('"')) || (desc.startsWith("'") && desc.endsWith("'"))) {
+                  desc = desc.slice(1, -1);
+                }
+                break;
+              }
+            }
+          }
+        }
+        if (!desc && row.tags) {
+          desc = row.tags.replace(/,/g, " ");
+        }
+        res[s] = desc;
+      }
     }
+    return res;
   } catch (e) {}
   return {};
 }
@@ -510,7 +525,7 @@ function generateGeminiMd(agents) {
 >
 > - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
 > - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
+> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into konoha.db
 > - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
 
 ### Team roster (reference — full instructions in ~/.agents/agents.yaml)
@@ -557,7 +572,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 95% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **95% confidence** is required. If confidence < 95%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
 - **Destructive Command, Git & Secret Guardrails**:
   - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
   - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
@@ -580,7 +595,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
-- **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute the \`mcp_<agentname>\` delegation workflow via the \`konoha\` MCP. ALWAYS use the \`semble\` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
+- **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute subagent delegation via the \`konoha\` MCP. ALWAYS use the \`semble\` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
 - **Forced MCP Usage & Delegation**: ABSOLUTE RULE — all work MUST go through \`konoha\` MCP (skills + bounded file ops) and \`semble\` MCP (codebase search). NEVER call generic \`view_file\`/\`Read\`/\`Grep\`/\`Glob\`/\`run_command\` (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) directly. NEVER use \`semble\` for skills; NEVER use \`konoha\` for codebase search. The main orchestrator MUST delegate all non-trivial tasks to konoha subagents (\`genin\`, \`chunin\`, \`jonin\`, \`anbu\`, \`kage\`, \`tokubetsu-jonin\`) via the Agent tool. The orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates. Trivial tasks (single bounded read/edit on a known file) may be executed directly.
 
 Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\
@@ -609,7 +624,7 @@ function generateClaudeCodeMd(agents) {
 >
 > - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\
 > - **Code search/discovery** → \`semble.search\`, \`semble.find_related\
-> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.find_skills\`, \`konoha.get_skill\`, \`konoha.list_skills\` (all clients call \`find_skills\` and project skills auto-migrate into skills.db)
+> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.find_skills\`, \`konoha.get_skill\`, \`konoha.list_skills\` (all clients call \`find_skills\` and project skills auto-migrate into konoha.db)
 > - **NEVER** call \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`Bash\` with \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
 
 You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (\`konoha\`, \`semble\`).
@@ -647,7 +662,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 - **Tool Boundaries**: Call **\`semble\` MCP** for codebase search. Call **\`konoha\` MCP** for skills and bounded file reads/grep. Never mix them.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill(\'...\')\
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 95% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **95% confidence** is required. If confidence < 95%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
 - **Destructive Command, Git & Secret Guardrails**:
   - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
   - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
@@ -705,7 +720,7 @@ ${dynamicTableRows}
     .replace(/(?<!mcp__konoha__)\bchunin\b(?!-)/g, 'mcp__konoha__chunin')
     .replace(/(?<!mcp__konoha__)\bgenin\b(?!-)/g, 'mcp__konoha__genin')
     .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b(?!-)/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?<!mcp__konoha__)\bmcp_sannin\b(?!-)/g, 'mcp__konoha__mcp_sannin')
+    .replace(/(?<!mcp__konoha__)\bsannin\b(?!-)/g, 'mcp__konoha__sannin')
     .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
     .replace(/(?<!mcp__konoha__)\bget_skill\b/g, 'mcp__konoha__get_skill')
     .replace(/(?<!mcp__konoha__)\blist_skills\b/g, 'mcp__konoha__list_skills')
@@ -800,7 +815,7 @@ ${agentSections}
 ### Safety Guardrails
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 95% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **95% confidence** is required. If confidence < 95%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
 - **Destructive Command, Git & Secret Guardrails**:
   - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
   - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.

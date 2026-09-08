@@ -140,6 +140,15 @@ konoha bridge start             # Start gateway daemon (port 19999)
 konoha bridge stop              # Stop gateway daemon
 ```
 
+### Web UI Bridge Management
+
+In addition to CLI commands, the Konoha Web Dashboard provides visual bridge management at `/bridges`:
+- **Real-Time Gateway Status**: Live telemetry for Bridge Gateway (:19999) and Sidecar (:1313).
+- **Daemon Lifecycle Controls**: One-click Start, Stop, and Restart controls for the Bridge Gateway daemon.
+- **Interactive Served Models Inspector**: Browse all models served by active bridges via `/api/v1/bridges/models`.
+- **Bridge Configuration**: Create, toggle enable/disable, and delete bridges visually with modal confirmations.
+
+
 ## Sidecar Discovery
 
 The gateway supports automatic sidecar discovery for detecting local LLM instances:
@@ -226,14 +235,14 @@ CREATE TABLE bridges (
 
 `antigravity-extension` is an IDE-owned endpoint at `http://127.0.0.1:1313` and is disabled by default when explicitly created. Konoha never starts that extension process; enable it only after Antigravity IDE and the extension are running. No external bridge row is seeded automatically.
 
-### Python CLI: `src/db_bridges.py`
+### Database CLI: `src/db_bridges.js`
 
 ```bash
-python3 src/db_bridges.py --list
-python3 src/db_bridges.py --upsert '{"name":"my-bridge","port":11437,...}'
-python3 src/db_bridges.py --delete my-bridge
-python3 src/db_bridges.py --enable my-bridge
-python3 src/db_bridges.py --disable my-bridge
+node src/db_bridges.js --list
+node src/db_bridges.js --upsert '{"name":"my-bridge","port":11437,...}'
+node src/db_bridges.js --delete my-bridge
+node src/db_bridges.js --enable my-bridge
+node src/db_bridges.js --disable my-bridge
 ```
 
 ## Gateway Source Files

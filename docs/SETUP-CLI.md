@@ -3,19 +3,18 @@
 ## Prerequisites
 
 - Antigravity CLI (`agy`) installed
-- Python 3.8+ installed
-- Node.js 18+ (via nvm, Homebrew, or system package)
+- Node.js 18+ (via nvm, Homebrew, or system package; 100% pure Node.js runtime, zero Python dependency)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ### Cross-Platform Notes
 
-| OS | Python Install | Node.js Install | Notes |
-|----|---------------|-----------------|-------|
-| **Linux (Ubuntu/Debian)** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
-| **Linux (Fedora)** | `sudo dnf install python3` | `curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
-| **macOS** | `brew install python` | `brew install node` or `nvm install node` | Use `python3` |
-| **Windows (WSL)** | Same as Linux | Same as Linux | Recommended: use WSL2 |
-| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Use `python` |
+| OS | Node.js Install | Notes |
+|----|-----------------|-------|
+| **Linux (Ubuntu/Debian)** | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Pure Node.js |
+| **Linux (Fedora)** | `curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo -E bash -` | Pure Node.js |
+| **macOS** | `brew install node` or `nvm install node` | Pure Node.js |
+| **Windows (WSL)** | Same as Linux | Recommended: use WSL2 |
+| **Windows (native)** | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Pure Node.js |
 
 > **nvm PATH Issue (Windows/macOS/Linux):** If `konoha` returns "command not found" after a fresh terminal, your shell hasn't loaded nvm. Run:
 > ```bash
@@ -71,7 +70,7 @@ This installs the MCP server and migrates your skills. The CLI should output:
 ```
 🚀 Konoha Installer
 ──────────────────────────────────────────────
-✓ Python 3 found: python3
+✓ Node.js 18+ found: node
 ✓ Found: ~/.agents/skills/ (5 skills)
 📦 Installing MCP Server
 ✓ Installed: ~/.konoha/file_tools_mcp.js, file_tools_launcher.js, file_tools_router.js
@@ -266,7 +265,7 @@ To verify all components and configurations are operating correctly, you can run
   ```bash
   konoha doctor
   ```
-  Runs a comprehensive health check on the environment, verifying Python installations, global directories, SQLite database status, and MCP config files. It features self-healing to automatically recreate or repair missing configuration files or database tables.
+  Runs a comprehensive health check on the environment, verifying Node.js installations, global directories, SQLite database status, and MCP config files. It features self-healing to automatically recreate or repair missing configuration files or database tables.
 
 ### Checking Version and Upgrading
 

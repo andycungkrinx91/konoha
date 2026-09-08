@@ -18,7 +18,7 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 In the 8-phase Konoha workflow, Sannin serves a dual role:
 
 - **Router (all phases)**: Every time the orchestrator needs to dispatch a subagent, it calls `sannin` which reads `delegate.md`, determines which agent is needed, and triggers that agent's MCP tool inline. This routing happens at every phase boundary.
-- **Review and synthesis**: After `document` completes, the orchestrator dispatches Kage for a blocking review of every persisted task and validation artifact. Only an explicit Kage approval with **minimum 95% confidence** permits Sannin to synthesize the phase outputs into `final_report.md` and advance to `done`. If confidence is < 90% or validation fails, Sannin MUST NOT deliver the result to the user, but instead re-delegates the tasks with Kage's remediation notes.
+- **Review and synthesis**: After `document` completes, the orchestrator dispatches Kage for a blocking review of every persisted task and validation artifact. Only an explicit Kage approval with **minimum 97% confidence** across all verification categories (Minimum Required: ≥ 97%) permits Sannin to synthesize the phase outputs into `final_report.md` and advance to `done`. If confidence is < 97% or validation fails, Sannin MUST NOT deliver the result to the user, but instead re-delegates the tasks with Kage's remediation notes.
 - **Test Directory Discovery & Cleanup Invariant**: Prior to running or adding tests, explore existing test folders (e.g. `tests/`). Never create duplicate test folders. Upon Kage approval, all temporary debug and scratch scripts must be cleaned up before concluding the workflow.
 
 ## The Orchestration Pipeline
@@ -34,7 +34,7 @@ The Konoha maintenance workflow uses six sequential steps:
 
 Structured delegation is the primary path. Legacy task artifacts remain a compatibility fallback.
 
-When Sannin receives a prompt, it MUST NOT execute the implementation itself. Instead, it MUST orchestrate the workflow by delegating to the appropriate subagents via their `mcp_<agentname>` tools. Sannin waits for each agent to report back via `result.md` before proceeding to the next step.
+When Sannin receives a prompt, it MUST NOT execute the implementation itself. Instead, it MUST orchestrate the workflow by delegating to the appropriate subagents via their Konoha MCP tools (e.g. `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu-jonin`, `genin`). Sannin waits for each agent to report back before proceeding to the next step.
 
 ### Step 0: Classify Request Type (ALWAYS EXECUTE FIRST — BEFORE ANY BRANCH)
 
@@ -69,11 +69,11 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 | If the task involves... | Route to |
 |---|---|
 | Codebase exploration, tracing code paths | `@genin` |
-| Architecture decisions, security audits | `@mcp_Kage` |
-| Web research, documentation lookup | `@mcp_Chunin` |
-| UI/frontend development, building websites, e-commerce, Next.js/Svelte UIs | `@mcp_Jonin` (load `jonin-skill` & use `pnpm`) |
-| Backend, bug fixing, DevOps, penetration testing in dev/local environments | `@mcp_Anbu` |
-| Technical writing, documentation | `@mcp_Tokubetsu-Jonin` |
+| Architecture decisions, security audits | `@kage` |
+| Web research, documentation lookup | `@chunin` |
+| UI/frontend development, building websites, e-commerce, Next.js/Svelte UIs | `@jonin` (load `jonin-skill` & use `pnpm`) |
+| Backend, bug fixing, DevOps, penetration testing in dev/local environments | `@anbu` |
+| Technical writing, documentation | `@tokubetsu-jonin` |
 
 ## SOP 1: Task Evaluation
 1. Read the user's task prompt carefully.
@@ -85,7 +85,7 @@ Load the specific reference file using `konoha.get_skill("sannin-skill/<referenc
 ## SOP 2: Conversation Resume & Multi-Turn Delegation
 2. Re-read the latest user prompt or context (using `konoha` MCP `read_file_head`/`read_file_range` if `prompt.md` exists).
 3. Always re-evaluate the target task domain and write a fresh `delegate.md`.
-4. Trigger the target `mcp_<agentname>` workflow tool. NEVER skip subagent delegation when resuming a conversation.
+4. Trigger the target subagent workflow tool. NEVER skip subagent delegation when resuming a conversation.
 
 ## SOP 3: Text-Based & Image Site Build Routing
 1. When prompt requests building/scaffolding a website, web app, e-commerce site, Next.js, or Svelte UI:

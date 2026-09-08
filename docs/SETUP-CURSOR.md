@@ -18,18 +18,17 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 ## Prerequisites
 
 - **Cursor IDE** or **Cursor CLI** installed
-- **Python 3** ≥ 3.8
-- **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
+- **Node.js** ≥ 18 (via nvm, Homebrew, or system package; 100% pure Node.js runtime, zero Python dependency)
 - Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha indexes these in SQLite; Cursor uses Konoha MCP and does not receive a Konoha filesystem mirror
 
 ### Cross-Platform Notes
 
-| OS | Python Install | Node.js Install | Cursor Setup |
-|----|---------------|-----------------|--------------|
-| **Linux** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Standard install |
-| **macOS** | `brew install python` | `brew install node` | Standard install |
-| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) | Standard install |
-| **Windows (WSL)** | Same as Linux | Same as Linux | Run Cursor inside WSL for full integration |
+| OS | Node.js Install | Cursor Setup |
+|----|-----------------|--------------|
+| **Linux** | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Standard install |
+| **macOS** | `brew install node` | Standard install |
+| **Windows (native)** | [nodejs.org](https://nodejs.org/) | Standard install |
+| **Windows (WSL)** | Same as Linux | Run Cursor inside WSL for full integration |
 
 ## Step 1: Install Konoha (Auto-Setup)
 
@@ -119,9 +118,9 @@ Recent Cursor sessions are preferred over stale Antigravity brain folders so cou
 ### Verification scripts
 
 ```bash
-python3 tests/test_cursor_attribution.py   # Cursor one-by-one attribution
-python3 tests/test_agent_attribution.py    # Antigravity one-by-one attribution
-python3 tests/test_claude_attribution.py   # Claude Code one-by-one attribution
+node tests/test_cursor_attribution.js   # Cursor one-by-one attribution
+node tests/test_agent_attribution.js    # Antigravity one-by-one attribution
+node tests/test_claude_attribution.js   # Claude Code one-by-one attribution
 ```
 
 ## Protected Default Subagents
@@ -158,7 +157,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 1. Ensure the calling agent parameter is set properly when invoking MCP tools.
 2. Pass `agent='genin'` (etc.) explicitly in `find_skill` / `get_skill` when possible.
-3. Run `python3 tests/test_cursor_attribution.py` to validate attribution.
+3. Run `node tests/test_cursor_attribution.js` to validate attribution.
 
 ### Missing skill content in Cursor
 
@@ -170,7 +169,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 Konoha supports all configured stacks simultaneously. Agent detection uses transcript activity time — not Antigravity `prompt.md` touch time — so active Cursor sessions are not masked by Antigravity orchestrator prompt updates.
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for shared issues (Python, database, FTS5).
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for shared issues (database, FTS5, MCP).
 
 ## Uninstall Cursor Integration Only
 

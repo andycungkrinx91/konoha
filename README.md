@@ -7,8 +7,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
-[![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB?logo=python&logoColor=white)](README.md)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018-339933?logo=node.js&logoColor=white)](README.md)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2032%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
@@ -20,8 +19,8 @@
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.6 (2026-09-07)](CHANGELOG.md) — TUI table column-overlap fixes, animated CLI spinner, cross-platform path resolution.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.6 — Konoha v2.0.0-beta.6 (2026-09-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.6_2026-09-07.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-08)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 2 Web UI monorepo with full TUI parity, SearXNG search, and IBM Granite ONNX vector search.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-08.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -412,7 +411,7 @@ node bin/cli.js init --yes --force
 
 ### Automatic Dependency & Environment Provisioning
 
-When installing Konoha globally, all required Node.js libraries, Python helper dependencies, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
+When installing Konoha globally, all required Node.js libraries, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
 
 ```bash
 pnpm add --global github:andycungkrinx91/konoha
@@ -420,7 +419,7 @@ konoha init
 ```
 
 Konoha handles all setup steps automatically:
-- 📦 **Node.js dependencies**: Installed via `package.json` (`@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
+- 📦 **Node.js dependencies**: Installed via `package.json` (`better-sqlite3`, `@huggingface/transformers`, `@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/skills.db`.
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
@@ -447,8 +446,7 @@ konoha status
 
 ## 📋 Requirements
 
-- **Node.js** ≥ 18 (via nvm, Homebrew, or system package)
-- **Python 3** ≥ 3.8 (for MCP server, uses standard library only — no external pip packages required)
+- **Node.js** ≥ 18 (via nvm, Homebrew, or system package; pure Node.js runtime, zero Python dependency)
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
 - **Cross-platform**: Linux, macOS, Windows (native and WSL)
 
@@ -473,6 +471,8 @@ Once installed, the following CLI commands are available:
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
+| `konoha ui <subcommand>` | Optional Web UI lifecycle management (`start`, `stop`, `restart`, `status`, `open`) on port 1404 |
+| `konoha web` | Launch the browser-based Web Configuration UI on port 1404 (Svelte 5 + Vite) |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
 | `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `skill`, `delete`, `status`) |
@@ -559,14 +559,13 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── file_tools_mcp.js      ← konoha MCP server (core skill+file ops)
 ├── file_tools_launcher.sh ← Shell wrapper for Cursor CLI sandbox
 ├── file_tools_router.js   ← In-process tool dispatch router
-├── platform_utils.js      ← cross-OS path/Python helpers
+├── platform_utils.js      ← cross-OS path helpers
 ├── .node_exec_path        ← recorded Node path (auto)
-├── .python_cmd            ← recorded Python command (auto)
 ├── konoha-bridge.json     ← live master extension commit/path manifest (Antigravity IDE only)
-├── file_tools/            ← Python streaming helpers (grep, read, search)
+├── server.js              ← Pure Node.js MCP server implementation
+├── migrate.js             ← Pure Node.js migration script
+├── vector_search.js       ← Semantic vector search & embedding engine
 ├── bridge/                ← Proxy Gateway bridge modules
-├── server.py              ← Legacy Python skill worker (kept for backward compat)
-├── migrate.py             ← Migration script
 └── skills.db              ← SQLite FTS5 database (+ `agents`, `bridges` tables)
 
 ~/.cursor/

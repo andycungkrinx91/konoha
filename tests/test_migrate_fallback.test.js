@@ -5,13 +5,12 @@ const path = require('path');
 const os = require('os');
 
 const REPO_ROOT = path.join(__dirname, '..');
-const MIGRATE_PY = path.join(REPO_ROOT, 'src', 'migrate.py');
-const PLATFORM = require('../src/platform_utils');
+const MIGRATE_JS = path.join(REPO_ROOT, 'src', 'migrate.js');
+const { spawnSync } = require('child_process');
 
 function runMigrate(args, env = {}) {
-  const python = PLATFORM.detectPythonOrDefault();
   const fullEnv = { ...process.env, ...env };
-  return PLATFORM.spawnPythonSync(python, [MIGRATE_PY, ...args], {
+  return spawnSync(process.execPath, [MIGRATE_JS, ...args], {
     encoding: 'utf-8',
     cwd: REPO_ROOT,
     timeout: 120000,
@@ -55,10 +54,12 @@ describe('Migrate Progressive Fallback & Deferred Indexing', () => {
     assert.match(out, /References deferred \(--skills-only\): \d+ files skipped/, 'expected deferred-reference output');
     assert.doesNotMatch(out, /✓ references\//, 'references must not be migrated under --skills-only');
 
-    const sqliteCheck = 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); rows={r[0] for r in c.execute("SELECT DISTINCT name FROM skills")}; refs=[r for r in rows if "/" in r]; print(",".join(sorted(refs)))';
-    const check = PLATFORM.spawnPythonSync(PLATFORM.detectPythonOrDefault(), ['-c', sqliteCheck, tmpDbPath], { encoding: 'utf-8', timeout: 10000 });
-    assert.strictEqual(check.status, 0, `sqlite check failed: ${check.stderr}`);
-    assert.strictEqual((check.stdout || '').trim(), '', `no reference rows expected under --skills-only, got: ${check.stdout}`);
+    const Database = require('better-sqlite3');
+    const db = new Database(tmpDbPath);
+    const rows = db.prepare("SELECT DISTINCT name FROM skills").all().map(r => r.name);
+    db.close();
+    const refs = rows.filter(r => r.includes('/'));
+    assert.strictEqual(refs.length, 0, `no reference rows expected under --skills-only, got: ${refs.join(',')}`);
   });
 
   test('2. time budget defers non-required skills and exits 0', () => {

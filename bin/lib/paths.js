@@ -44,10 +44,10 @@ const KONOHA = path.join(HOME, '.konoha');
 const SKILLS_DB_DIR = KONOHA;
 
 /** Main server entry point */
-const SERVER_PATH = path.join(KONOHA, 'server.py');
+const SERVER_PATH = path.join(KONOHA, 'server.js');
 
 /** SQLite database */
-const DB_PATH = path.join(KONOHA, 'skills.db');
+const DB_PATH = path.join(KONOHA, 'konoha.db');
 
 /** Deploy fingerprint */
 const FINGERPRINT_PATH = path.join(KONOHA, '.deploy-fingerprint');

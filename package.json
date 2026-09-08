@@ -1,6 +1,6 @@
 {
   "name": "Konoha",
-  "version": "2.0.0-beta.6",
+  "version": "2.0.0-beta.7",
   "keywords": [
     "antigravity",
     "cursor",
@@ -21,6 +21,7 @@
     "bin/",
     "src/",
     "docs/",
+    "apps/",
     ".agents/",
     ".cursor/",
     ".claude/",
@@ -31,11 +32,16 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "build": "node bin/cli.js ui build",
+    "prepare": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
+    "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
     "test": "node tests/run_all.js",
     "test:mcp": "node tests/test_mcp_protocol.js && node tests/test_mcp_e2e.js",
-    "test:workflow": "python3 tests/test_workflow_gates.py && python3 tests/test_workflow_loop.py",
-    "test:jonin": "python3 tests/test_build_workflows.py && python3 tests/test_taste_skill_jonin.py",
-    "test:docs": "python3 tests/test_docs_currency.py && python3 tests/test_documentation_diagrams.py"
+    "test:workflow": "node tests/test_workflow_gates.js && node tests/test_workflow_loop.js",
+    "test:jonin": "node tests/test_build_workflows.js && node tests/test_taste_skill_jonin.js",
+    "test:docs": "node tests/test_docs_currency.js && node tests/test_documentation_diagrams.js",
+    "build:web": "pnpm --dir apps/web run build",
+    "web": "node bin/cli.js web"
   },
   "os": [
     "linux",
@@ -48,7 +54,9 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
+    "@huggingface/transformers": "^4.2.0",
     "@inquirer/prompts": "^8.5.2",
+    "better-sqlite3": "^13.0.3",
     "chalk": "^4.1.2",
     "figlet": "^1.11.0",
     "gradient-string": "^3.0.0",

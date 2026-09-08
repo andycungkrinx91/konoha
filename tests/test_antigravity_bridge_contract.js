@@ -45,16 +45,16 @@ try {
   fs.rmSync(absentHome, { recursive: true, force: true });
 }
 
-const dbScript = path.join(root, 'src', 'db_bridges.py');
+const dbScript = path.join(root, 'src', 'db_bridges.js');
 const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-bridge-db-'));
 try {
   const env = { ...process.env, HOME: tempHome };
-  const result = spawnSync('python3', [dbScript, 'upsert', JSON.stringify({
+  const result = spawnSync(process.execPath, [dbScript, 'upsert', JSON.stringify({
     name: 'ag-extension',
     provider: 'antigravity-extension',
   })], { cwd: root, env, encoding: 'utf8' });
   assert.strictEqual(result.status, 0, result.stderr);
-  const list = spawnSync('python3', [dbScript, 'list'], { cwd: root, env, encoding: 'utf8' });
+  const list = spawnSync(process.execPath, [dbScript, 'list'], { cwd: root, env, encoding: 'utf8' });
   assert.strictEqual(list.status, 0, list.stderr);
   const bridges = JSON.parse(list.stdout);
   assert.deepStrictEqual(bridges[0], {
@@ -65,20 +65,20 @@ try {
     targetUrl: 'http://127.0.0.1:1313',
   });
 
-  const invalid = spawnSync('python3', [dbScript, 'upsert', JSON.stringify({
+  const invalid = spawnSync(process.execPath, [dbScript, 'upsert', JSON.stringify({
     name: 'bad-extension',
     provider: 'antigravity-extension',
     targetUrl: 'http://example.com:1313',
   })], { cwd: root, env, encoding: 'utf8' });
   assert.notStrictEqual(invalid.status, 0, 'external provider must remain loopback-only');
 
-  const explicitlyEnabled = spawnSync('python3', [dbScript, 'upsert', JSON.stringify({
+  const explicitlyEnabled = spawnSync(process.execPath, [dbScript, 'upsert', JSON.stringify({
     name: 'enabled-extension',
     provider: 'antigravity-extension',
     enabled: true,
   })], { cwd: root, env, encoding: 'utf8' });
   assert.strictEqual(explicitlyEnabled.status, 0, explicitlyEnabled.stderr);
-  const enabledList = JSON.parse(spawnSync('python3', [dbScript, 'list'], { cwd: root, env, encoding: 'utf8' }).stdout);
+  const enabledList = JSON.parse(spawnSync(process.execPath, [dbScript, 'list'], { cwd: root, env, encoding: 'utf8' }).stdout);
   assert.strictEqual(enabledList.find((bridge) => bridge.name === 'enabled-extension').enabled, true);
 } finally {
   fs.rmSync(tempHome, { recursive: true, force: true });

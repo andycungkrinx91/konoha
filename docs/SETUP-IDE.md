@@ -3,18 +3,17 @@
 ## Prerequisites
 
 - Antigravity IDE installed and running
-- Python 3.8+ installed
-- Node.js 18+ (via nvm, Homebrew, or system package)
+- Node.js 18+ (via nvm, Homebrew, or system package; 100% pure Node.js runtime, zero Python dependency)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ### Cross-Platform Notes
 
-| OS | Python Install | Node.js Install | Notes |
-|----|---------------|-----------------|-------|
-| **Linux (Ubuntu/Debian)** | `sudo apt install python3` | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Use `python3` |
-| **macOS** | `brew install python` | `brew install node` or `nvm install node` | Use `python3` |
-| **Windows (WSL)** | Same as Linux | Same as Linux | Recommended: use WSL2 |
-| **Windows (native)** | [python.org/downloads](https://www.python.org/downloads/) — check "Add to PATH" | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Use `python` |
+| OS | Node.js Install | Notes |
+|----|-----------------|-------|
+| **Linux (Ubuntu/Debian)** | `curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -` | Pure Node.js |
+| **macOS** | `brew install node` or `nvm install node` | Pure Node.js |
+| **Windows (WSL)** | Same as Linux | Recommended: use WSL2 |
+| **Windows (native)** | [nodejs.org](https://nodejs.org/) or [nvm-windows](https://github.com/coreybutler/nvm-windows) | Pure Node.js |
 
 ### RTK (Rust Token Killer) — Token-Optimized Shell
 

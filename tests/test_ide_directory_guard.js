@@ -45,18 +45,10 @@ assert.notStrictEqual(
 );
 console.log('  ✓ getWorkspaceRoot never returns an IDE installation directory');
 
-// 3. Test Python _common.py is_ide_installation_dir
-const pyCheck = spawnSync('python3', ['-c', `
-import sys
-sys.path.insert(0, "${path.join(__dirname, '..', 'src', 'file_tools')}")
-import _common
-assert _common.is_ide_installation_dir("C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Antigravity IDE") == True
-assert _common.is_ide_installation_dir("C:\\\\Program Files\\\\Antigravity IDE") == True
-assert _common.is_ide_installation_dir("C:\\\\Users\\\\User\\\\myproject") == False
-print("Python _common.py IDE checks passed")
-`], { encoding: 'utf-8' });
-
-assert.strictEqual(pyCheck.status, 0, `Python check failed: ${pyCheck.stderr}`);
-console.log('  ✓ Python _common.py is_ide_installation_dir verified');
+// 3. Test router.isIdeInstallationDirectory directly
+assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Antigravity IDE"), true);
+assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Program Files\\\\Antigravity IDE"), true);
+assert.strictEqual(router.isIdeInstallationDirectory("C:\\\\Users\\\\User\\\\myproject"), false);
+console.log('  ✓ router.isIdeInstallationDirectory verified');
 
 console.log('All IDE Directory Guard tests passed successfully!');

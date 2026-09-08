@@ -54,17 +54,14 @@ assert.deepStrictEqual(platform.normalizeCommand('py -3'), {
   prefixArgs: ['-3']
 });
 
-const migration = cp.spawnSync(process.platform === 'win32' ? 'python' : 'python3', [
-  path.join(root, 'src', 'migrate.py'),
+const migration = cp.spawnSync(process.execPath, [
+  path.join(root, 'src', 'migrate.js'),
   '--help'
 ], { cwd: root, encoding: 'utf8' });
 assert.equal(migration.status, 0, migration.stderr);
 
-const dbAgents = cp.spawnSync(process.platform === 'win32' ? 'python' : 'python3', [
-  path.join(root, 'src', 'db_agents.py'),
-  '--help'
-], { cwd: root, encoding: 'utf8' });
-assert.equal(dbAgents.status, 0, dbAgents.stderr);
+const agentManager = require('../src/agent_manager');
+assert.ok(agentManager.loadAgents().length > 0, 'loadAgents should return ninja agents');
 
 assert.equal(typeof clients.registerClaudeCodeGlobalMcp, 'function');
 assert.equal(typeof cursor.registerCursorProjectMcp, 'function');

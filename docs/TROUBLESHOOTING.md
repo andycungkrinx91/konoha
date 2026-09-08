@@ -40,22 +40,19 @@ nvm use stable
 
 ---
 
-### ❌ "Python 3 is required but not found"
+### ❌ "Node.js is required but not found or outdated"
 
-The MCP server requires Python 3.8+. To install it:
+Konoha runs on a 100% pure Node.js runtime and requires Node.js 18.0.0+. Python is no longer required or used.
 
-* **Linux (Ubuntu/Debian)**: `sudo apt install python3`
-* **Linux (Fedora)**: `sudo dnf install python3`
-* **macOS**: `brew install python3` or download from the [official Python downloads page](https://www.python.org/downloads/)
-* **Windows**: Download from the [official Python downloads page](https://www.python.org/downloads/) — make sure to check **"Add to PATH"** during installation.
+To install or update Node.js:
+* **Linux/macOS (via nvm)**: `nvm install 20 && nvm use 20`
+* **Windows (via nvm-windows)**: `nvm install 20` and `nvm use 20`
+* Or download the LTS installer from the [official Node.js downloads page](https://nodejs.org/).
 
-To verify your Python installation:
+To verify your Node.js installation:
 ```bash
-python3 --version  # Linux/macOS
-python --version   # Windows
+node --version  # Must be >= 18.0.0
 ```
-
-> **Windows Note:** If you see `Python was not found` even after installing Python, the issue is typically that the Python install directory isn't on PATH. Re-run the Python installer and check "Add Python to PATH", or manually add `C:\Users\<you>\AppData\Local\Programs\Python\Python3X\` and `C:\Users\<you>\AppData\Local\Programs\Python\Python3X\Scripts\` to your system PATH.
 
 ---
 
@@ -281,9 +278,9 @@ Agent attribution when the `agent` MCP parameter is omitted is resolved by `dete
 2. Ensure subagents log `[<Icon> <AgentName>] active` at response start (e.g. `[🍃 Genin] active`, `[🌀 Kage] active`).
 3. Run verification:
    ```bash
-   python3 tests/test_agent_attribution.py
-   python3 tests/test_cursor_attribution.py
-   python3 tests/test_claude_attribution.py
+   node tests/test_agent_attribution.js
+   node tests/test_cursor_attribution.js
+   node tests/test_claude_attribution.js
    ```
 
 Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Calls** — this is expected.
@@ -354,19 +351,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   }
   ```
 
-* **Python command**: Konoha ships a Node launcher (`file_tools_launcher.js`) but still embeds a Python bridge (`db_bridges.py`) for database operations. The installer auto-detects `python` vs `python3` on Windows.
-* **Line endings**: If you get `SyntaxError` when running the Python bridge, convert the CRLF line endings to LF:
-  ```powershell
-  # PowerShell
-  (Get-Content ~/.konoha/db_bridges.py -Raw) -replace "`r`n", "`n" | Set-Content ~/.konoha/db_bridges.py -NoNewline
-  ```
+* **Pure Node.js Runtime**: Konoha runs 100% pure Node.js (`file_tools_launcher.js` / `server.js`) via `better-sqlite3`. No Python installation, Python processes, or Python bridges are needed.
 * **nvm-windows**: Konoha works seamlessly with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>
   pnpm add --global github:andycungkrinx91/konoha
   ```
 * **Antigravity on Windows**: Antigravity IDE/CLI primarily supports macOS and Linux. Windows users should use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) for full integration. Native Windows support is limited.
-* **Cursor on Windows**: Works natively on Windows; ensure `node` and `python` (not `python3`) are on PATH.
+* **Cursor on Windows**: Works natively on Windows; ensure `node` is on PATH.
 * **`konoha upgrade` Freezes or Hangs**:
   - **Symptom**: `konoha upgrade` hangs indefinitely while setting up client extensions.
   - **Reason**: Remote `git clone` or network operations hanging or blocked on Windows without pre-bundled extensions, or child processes waiting on interactive stdin.
@@ -416,6 +408,10 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Running `konoha upgrade` succeeds, but subsequent commands fail with `bash: /home/<user>/.local/share/pnpm/konoha: No such file or directory`.
   - **Reason**: `addPnpm` prematurely ran `pnpm remove --global konoha` which deleted existing global binary symlinks, and passed the invalid `--prefer-online` npm flag to pnpm.
   - **Fix**: Resolved in `v2.0.0-beta.6` by preserving existing binaries during pnpm global installation, removing `--prefer-online`, and introducing automated post-upgrade global symlink reconciliation.
+* **`MCP server connection closed unexpectedly: signal: terminated` during startup / migration (`v2.0.0-beta.7`)**:
+  - **Symptom**: When Antigravity or another MCP host launches `konoha`, the server crashes or closes with `signal: terminated`.
+  - **Reason**: Background skill auto-migration in `src/migrate.js` output status messages (e.g. `✓ references/...`) via `console.log` directly onto `process.stdout`. In MCP stdio mode, `stdout` is strictly reserved for JSON-RPC messages; raw plaintext corrupts the stream and causes host disconnect.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by routing all non-protocol diagnostics and auto-migration logs to `process.stderr` whenever running in MCP server or client mode, keeping `process.stdout` 100% clean for JSON-RPC frames.
 
 ---
 

@@ -25,7 +25,7 @@ async function testAll() {
     }
   }
 
-  const testFile = path.join(__dirname, '../src/server.py');
+  const testFile = path.join(__dirname, '../src/server.js');
   const testDir = path.join(__dirname, '../src');
   const dummyTaskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-mcp-e2e-'));
   fs.writeFileSync(path.join(dummyTaskDir, 'delegate.md'), 'Build an empty svelte site.');

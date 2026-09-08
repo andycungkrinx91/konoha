@@ -139,8 +139,8 @@ konoha doctor --yes
 **Config format (TOML):**
 ```toml
 [mcp_servers.konoha]
-command = "python3"
-args = ["/home/<user>/.konoha/server.py"]
+command = "node"
+args = ["/home/<user>/.konoha/server.js"]
 
 [mcp_servers.semble]
 command = "uvx"

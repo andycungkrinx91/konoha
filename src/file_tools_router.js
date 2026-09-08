@@ -23,6 +23,13 @@ const TOOLS_DIR = TOOL_WORKERS_DIR;
 const PYTHON_CMD_FILE = FILE_TOOLS_PYTHON_CMD_FILE;
 const SCRIPT_TIMEOUT_MS = 60000;
 
+const { readFileRange: readFileRangeWorker } = require('./file_tools/read_file_range');
+const { readFileHead: readFileHeadWorker } = require('./file_tools/read_file_head');
+const { fileInfo: fileInfoWorker } = require('./file_tools/file_info');
+const { tokenEfficientGrep: tokenEfficientGrepWorker } = require('./file_tools/token_efficient_grep');
+const { getFileStructure: getFileStructureWorker } = require('./file_tools/get_file_structure');
+const { findFilesClean: findFilesCleanWorker } = require('./file_tools/find_files_clean');
+
 // Allow paths under the Konoha install directory (~/\.konoha/).
 // This ensures the MCP server can work on workspace-internal paths
 // even when the IDE workspace is something else (e.g. a brain/session dir).
@@ -321,10 +328,11 @@ function readFileRange(args = {}) {
     return { error: 'start_line and end_line are required' };
   }
   const resolved = resolveInputPath(filePath);
-  return runPythonScript('read_file_range.py', {
+  return readFileRangeWorker({
     path: resolved,
     start_line: Number(start_line),
-    end_line: Number(end_line)
+    end_line: Number(end_line),
+    workspace: getWorkspaceRoot()
   });
 }
 
@@ -332,17 +340,17 @@ function readFileHead(args = {}) {
   const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
   const max_lines = args.max_lines !== undefined ? args.max_lines : (args.lines !== undefined ? args.lines : (args.limit !== undefined ? args.limit : args.count));
   const resolved = resolveInputPath(filePath);
-  const payload = { path: resolved };
+  const payload = { path: resolved, workspace: getWorkspaceRoot() };
   if (max_lines !== undefined) {
     payload.max_lines = Number(max_lines);
   }
-  return runPythonScript('read_file_head.py', payload);
+  return readFileHeadWorker(payload);
 }
 
 function fileInfo(args = {}) {
   const filePath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
   const resolved = resolveInputPath(filePath);
-  return runPythonScript('file_info.py', { path: resolved });
+  return fileInfoWorker({ path: resolved, workspace: getWorkspaceRoot() });
 }
 
 function tokenEfficientGrep(args = {}) {
@@ -364,59 +372,55 @@ function tokenEfficientGrep(args = {}) {
       finalGlob = path.basename(resolvedDir);
     }
   } catch (e) {
-    // Ignore error, let Python script handle if missing
+    // Ignore error, let worker handle if missing
   }
 
-  const payload = { pattern, dir: finalDir };
+  const payload = { pattern, dir: finalDir, workspace: getWorkspaceRoot() };
   if (finalGlob) payload.glob = finalGlob;
   const effIgnoreCase = ignore_case !== undefined ? ignore_case : CaseInsensitive;
   if (effIgnoreCase !== undefined) payload.ignore_case = effIgnoreCase;
   if (max_matches !== undefined) payload.max_matches = max_matches;
-  return runPythonScript('token_efficient_grep.py', payload);
+  return tokenEfficientGrepWorker(payload);
 }
 
 function getFileStructure(args = {}) {
   const filePath = args.path || args.file_path || args.filepath || args.dir_path || args.dir || args.DirectoryPath || '.';
   const resolved = resolveInputPath(filePath);
-  return runPythonScript('get_file_structure.py', { path: resolved });
+  return getFileStructureWorker({ path: resolved, workspace: getWorkspaceRoot() });
 }
 
 function findFilesClean(args = {}) {
   const pattern = args.pattern || args.Pattern || '*';
   const dirPath = args.dir || args.path || args.file_path || args.directory || args.dir_path || args.DirectoryPath || '.';
   const resolvedDir = resolveInputPath(dirPath);
-  return runPythonScript('find_files_clean.py', {
+  return findFilesCleanWorker({
     pattern,
-    dir: resolvedDir
+    dir: resolvedDir,
+    workspace: getWorkspaceRoot()
   });
 }
 
-function runPythonSkillTool(toolName, args) {
-  const serverPyPath = path.join(__dirname, 'server.py');
-  if (!fs.existsSync(serverPyPath)) {
-    return { error: `Python server helper not found: ${serverPyPath}` };
+let _serverModule = null;
+function getServerModule() {
+  if (!_serverModule) {
+    _serverModule = require('./server');
   }
-  let result;
+  return _serverModule;
+}
+
+function runNodeSkillTool(toolName, args) {
   try {
-    const timeoutMs = toolName.startsWith('mcp_') ? 600000 : SCRIPT_TIMEOUT_MS; // 10 minutes for subagents
-    const python = getPythonCommand();
-    result = spawnSync(python.executable, [...python.prefixArgs, serverPyPath, '--tool', toolName, JSON.stringify(args || {})], {
-      encoding: 'utf-8',
-      timeout: timeoutMs,
-      maxBuffer: 1024 * 1024 * 1024,
-      env: Object.assign({}, process.env, { KONOHA_SEMANTIC_SEARCH: '1' })
-    });
+    const server = getServerModule();
+    const text = server.executeToolSync(toolName, args);
+    let isError = false;
+    try {
+      const parsed = JSON.parse(text);
+      isError = typeof parsed === 'object' && parsed !== null && parsed.error !== undefined;
+    } catch (_) {}
+    return { text, isError };
   } catch (err) {
-    return { error: err.message || String(err) };
+    return { error: err.message || String(err), text: JSON.stringify({ error: err.message || String(err) }), isError: true };
   }
-  if (result.error) {
-    return { error: result.error.message || String(result.error) };
-  }
-  const stdout = (result.stdout || '').trim();
-  if (result.status !== 0) {
-    return { error: (result.stderr || '').trim() || `Exit code ${result.status}` };
-  }
-  return { text: stdout };
 }
 
 const TOOL_HANDLERS = {
@@ -426,39 +430,39 @@ const TOOL_HANDLERS = {
   token_efficient_grep: tokenEfficientGrep,
   get_file_structure: getFileStructure,
   find_files_clean: findFilesClean,
-  find_skill: (args) => runPythonSkillTool('find_skill', args),
-  find_skills: (args) => runPythonSkillTool('find_skill', args),
-  list_skills: (args) => runPythonSkillTool('list_skills', args),
-  get_skill: (args) => runPythonSkillTool('get_skill', args),
-  optimize_report: (args) => runPythonSkillTool('optimize_report', args),
-  build_with_image_design: (args) => runPythonSkillTool('build_with_image_design', args),
-  build_from_source: (args) => runPythonSkillTool('build_from_source', args),
-  build_from_text: (args) => runPythonSkillTool('build_from_text', args),
-  sannin: (args) => runPythonSkillTool('sannin', args),
-  kage: (args) => runPythonSkillTool('kage', args),
-  jonin: (args) => runPythonSkillTool('jonin', args),
-  anbu: (args) => runPythonSkillTool('anbu', args),
-  chunin: (args) => runPythonSkillTool('chunin', args),
-  tokubetsu_jonin: (args) => runPythonSkillTool('tokubetsu_jonin', args),
-  genin: (args) => runPythonSkillTool('genin', args),
-  delegate_to_sannin: (args) => runPythonSkillTool('delegate_to_sannin', args),
-  delegate_to_kage: (args) => runPythonSkillTool('delegate_to_kage', args),
-  delegate_to_jonin: (args) => runPythonSkillTool('delegate_to_jonin', args),
-  delegate_to_anbu: (args) => runPythonSkillTool('delegate_to_anbu', args),
-  delegate_to_chunin: (args) => runPythonSkillTool('delegate_to_chunin', args),
-  delegate_to_tokubetsu_jonin: (args) => runPythonSkillTool('delegate_to_tokubetsu_jonin', args),
-  delegate_to_genin: (args) => runPythonSkillTool('delegate_to_genin', args),
-  report_from_agent: (args) => runPythonSkillTool('report_from_agent', args),
-  get_project_context: (args) => runPythonSkillTool('get_project_context', args),
-  save_project_context: (args) => runPythonSkillTool('save_project_context', args),
-  query_project_memory: (args) => runPythonSkillTool('query_project_memory', args),
-  web_search: (args) => runPythonSkillTool('web_search', args),
-  migrate_skills: (args) => runPythonSkillTool('migrate_skills', args),
-  save_persona_memory: (args) => runPythonSkillTool('save_persona_memory', args),
-  query_persona_memory: (args) => runPythonSkillTool('query_persona_memory', args),
-  list_persona_memories: (args) => runPythonSkillTool('list_persona_memories', args),
-  delete_persona_memory: (args) => runPythonSkillTool('delete_persona_memory', args),
-  get_resolved_task_dir: (args) => runPythonSkillTool('get_resolved_task_dir', args)
+  find_skill: (args) => runNodeSkillTool('find_skill', args),
+  find_skills: (args) => runNodeSkillTool('find_skill', args),
+  list_skills: (args) => runNodeSkillTool('list_skills', args),
+  get_skill: (args) => runNodeSkillTool('get_skill', args),
+  optimize_report: (args) => runNodeSkillTool('optimize_report', args),
+  build_with_image_design: (args) => runNodeSkillTool('build_with_image_design', args),
+  build_from_source: (args) => runNodeSkillTool('build_from_source', args),
+  build_from_text: (args) => runNodeSkillTool('build_from_text', args),
+  sannin: (args) => runNodeSkillTool('sannin', args),
+  kage: (args) => runNodeSkillTool('kage', args),
+  jonin: (args) => runNodeSkillTool('jonin', args),
+  anbu: (args) => runNodeSkillTool('anbu', args),
+  chunin: (args) => runNodeSkillTool('chunin', args),
+  tokubetsu_jonin: (args) => runNodeSkillTool('tokubetsu_jonin', args),
+  genin: (args) => runNodeSkillTool('genin', args),
+  delegate_to_sannin: (args) => runNodeSkillTool('delegate_to_sannin', args),
+  delegate_to_kage: (args) => runNodeSkillTool('delegate_to_kage', args),
+  delegate_to_jonin: (args) => runNodeSkillTool('delegate_to_jonin', args),
+  delegate_to_anbu: (args) => runNodeSkillTool('delegate_to_anbu', args),
+  delegate_to_chunin: (args) => runNodeSkillTool('delegate_to_chunin', args),
+  delegate_to_tokubetsu_jonin: (args) => runNodeSkillTool('delegate_to_tokubetsu_jonin', args),
+  delegate_to_genin: (args) => runNodeSkillTool('delegate_to_genin', args),
+  report_from_agent: (args) => runNodeSkillTool('report_from_agent', args),
+  get_project_context: (args) => runNodeSkillTool('get_project_context', args),
+  save_project_context: (args) => runNodeSkillTool('save_project_context', args),
+  query_project_memory: (args) => runNodeSkillTool('query_project_memory', args),
+  web_search: (args) => runNodeSkillTool('web_search', args),
+  migrate_skills: (args) => runNodeSkillTool('migrate_skills', args),
+  save_persona_memory: (args) => runNodeSkillTool('save_persona_memory', args),
+  query_persona_memory: (args) => runNodeSkillTool('query_persona_memory', args),
+  list_persona_memories: (args) => runNodeSkillTool('list_persona_memories', args),
+  delete_persona_memory: (args) => runNodeSkillTool('delete_persona_memory', args),
+  get_resolved_task_dir: (args) => runNodeSkillTool('get_resolved_task_dir', args)
 };
 
 function validateSchemaValue(value, schema, key) {
@@ -586,24 +590,8 @@ function validateInstall() {
   if (!fs.existsSync(path.join(__dirname, 'mcp_tool_manifest.json'))) {
     errors.push('mcp_tool_manifest.json missing');
   }
-  for (const runtimeFile of ['server.py', 'migrate.py', 'tools_savings_logger.py']) {
+  for (const runtimeFile of ['server.js', 'migrate.js', 'tools_savings_logger.js', 'db.js', 'vector_search.js']) {
     if (!fs.existsSync(path.join(__dirname, runtimeFile))) errors.push(`${runtimeFile} missing`);
-  }
-  if (!fs.existsSync(TOOLS_DIR)) {
-    errors.push(`file_tools/ directory missing at ${TOOLS_DIR}`);
-  }
-  for (const script of [
-    'read_file_range.py',
-    'read_file_head.py',
-    'file_info.py',
-    'token_efficient_grep.py',
-    'get_file_structure.py',
-    'find_files_clean.py',
-    '_common.py'
-  ]) {
-    if (!fs.existsSync(path.join(TOOLS_DIR, script))) {
-      errors.push(`missing ${script}`);
-    }
   }
   return errors;
 }
@@ -619,6 +607,7 @@ module.exports = {
   listToolSchemas,
   validateInstall,
   TOOL_HANDLERS,
+  normalizeToolArguments,
   validateToolArguments,
   MCP_MANIFEST
 };

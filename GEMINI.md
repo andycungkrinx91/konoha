@@ -17,15 +17,6 @@
 5. **♦ jonin** — 
 6. **♠ anbu** — 
 7. **⬡ tokubetsu-jonin** — 
-8. **✧ mcp_sannin** — 
-9. **⚑ mcp_genin** — 
-10. **◎ mcp_kage** — 
-11. **▫ mcp_chunin** — 
-12. **♦ mcp_jonin** — 
-13. **♠ mcp_anbu** — 
-14. **⬡ mcp_tokubetsu-jonin** — 
-15. **🐍 cli-test-agent-1786884309800** — 
-16. **🐍 cli-test-agent-1786884832585** — 
 
 ### Website build specifications (CRITICAL)
 
@@ -51,7 +42,7 @@ When the user prompt involves modifying or working within an existing project:
 
 All subagents are migrated to MCP tools served by the `konoha` MCP server. Rather than using custom subagent configuration structures or files, delegation is performed directly by calling the corresponding MCP tool.
 
-The official delegation tools are: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `mcp_sannin`, `mcp_genin`, `mcp_kage`, `mcp_chunin`, `mcp_jonin`, `mcp_anbu`, `mcp_tokubetsu-jonin`, `cli-test-agent-1786884309800`, `cli-test-agent-1786884832585`.
+The official delegation tools are: `sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`.
 
 
 ### Auto-Compaction Contract (Token Preservation across all clients)

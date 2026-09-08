@@ -52,10 +52,10 @@
                 <mxCell id="p1-l4" value="Persistence and workspace boundary" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#9a3412;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="40" y="720" width="1520" height="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-db" value="SQLite skills.db (src/db.py)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-db" value="SQLite skills.db (src/db.js)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
                     <mxGeometry x="160" y="50" width="400" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.py)&#10;BM25-ranked index + IBM Granite Embeddings + GTE Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#10;BM25-ranked index + IBM Granite Embeddings + GTE Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
                     <mxGeometry x="680" y="55" width="260" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-code" value="Workspace Files&#10;Source code, docs, tests, task artifacts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;" parent="p1-l4" vertex="1">
@@ -437,7 +437,7 @@
                 <mxCell id="p6-migrate" value="konoha migrate&#10;FTS5 indexing + vector embedding backfill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="640" y="240" width="300" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p6-db" value="SQLite skills.db (src/db.py)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p6-db" value="SQLite skills.db (src/db.js)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="640" y="420" width="300" height="100" as="geometry" />
                 </mxCell>
                 <mxCell id="p6-agent" value="Any Supported Client&#10;Konoha MCP runtime" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
@@ -721,7 +721,7 @@
                 <mxCell id="p12-pbar" value="KonohaProgressBar&#xa;(TTY \r\x1b[2K / Non-TTY safe)&#xa;Elapsed Pulse Ticker&#xa;startSpinner Braille 10f/90ms" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="290" y="140" width="220" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg1" value="Stage 1: Detect PM&#xa;pnpm / npm auto-detect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;" vertex="1" parent="1"><mxGeometry x="60" y="250" width="180" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg2" value="Stage 2: GitHub Release&#xa;Spawn add/install &amp; pulse timer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;" vertex="1" parent="1"><mxGeometry x="290" y="250" width="220" height="60" as="geometry" /></mxCell>
-                <mxCell id="p12-stg3" value="Stage 3: Dependencies&#xa;Python 3, uv, agent-browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;" vertex="1" parent="1"><mxGeometry x="560" y="250" width="200" height="60" as="geometry" /></mxCell>
+                <mxCell id="p12-stg3" value="Stage 3: Dependencies&#xa;Node.js, uv, agent-browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;" vertex="1" parent="1"><mxGeometry x="560" y="250" width="200" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg4" value="Stage 4: MCP Runtime&#xa;Deploy files to ~/.konoha/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="60" y="360" width="180" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg5" value="Stage 5: SQLite FTS5&#xa;Progressive fallback: full → skip-embeddings → skills-only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="290" y="360" width="220" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg6" value="Stage 6: 6 MCP Clients&#xa;Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="560" y="360" width="280" height="60" as="geometry" /></mxCell>

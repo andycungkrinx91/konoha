@@ -2,6 +2,40 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [v2.0.0-beta.7] - 2026-09-08
+
+### Major Milestone: Pure Node.js / JavaScript Single-Runtime Architecture
+- **Complete Elimination of Python 3 Dependency**: Migrated the entire Konoha system from dual-runtime (Node.js + Python 3) to a 100% pure Node.js / JavaScript architecture. Zero Python processes are spawned at runtime, and 0 `.py` files remain in active execution paths.
+- **Pure Node.js MCP Tools & Server**: All 39 MCP tools run entirely in Node.js via `src/server.js`, `src/file_tools_router.js`, and `src/file_tools_mcp.js`. All stdio logging is strictly channeled to STDERR to prevent JSON-RPC stream pollution.
+- **Modular MCP Subsystem Architecture**: Successfully executed `PLAN_REFACTOR.md` by converting `src/server.js` into a thin CommonJS barrel re-exporting 90+ symbols and properties across 9 modular subsystems (`src/mcp/runtime_state.js`, `client_detection.js`, `skills.js`, `build_spec.js`, `workflow.js`, `web_search.js`, `memory_reporting.js`, `tool_dispatch.js`, `protocol.js`).
+- **Elevated Kage Reviewer Minimum Confidence Threshold (≥ 97%)**: Updated the Kage Reviewer confidence gating threshold to `Minimum Required: ≥ 97%` across all verification categories (`src/mcp/workflow.js`, `tests/test_kage_reviewer_workflow.js`, `tests/test_anti_slop_gate.js`, agent contracts, rules, skills, and docs). Delivery is mechanically blocked if overall or category confidence < 97%.
+- **Native ONNX Vector Search & Neural Re-ranking**: Ported IBM Granite Multilingual 30M ONNX neural embeddings (`@xenova/transformers`) and BAAI/bge-reranker-base native re-ranking directly to JavaScript (`src/vector_search.js`), achieving cosine similarity within ±0.0001 of Python reference baselines.
+- **Native Bounded File Tools**: Replaced all Python file tool workers with native Node.js implementations (`src/file_tools/`), providing memory-bounded file head reads, range reads, token-efficient grep, file stats, structure discovery, and workspace directory boundary enforcement.
+- **SQLite Database Consolidation**: Ported all database managers (`src/db.js`, `src/db_agents.js`, `src/db_bridges.js`, `src/db_savings.js`, `src/db_stats.js`, `src/persona_memory.js`) to pure Node.js utilizing `better-sqlite3` with WAL mode and native FTS5 sanitization.
+- **Full Test Suite & Cross-Client Parity**: All 64 JavaScript test suites pass cleanly (100% pass rate) across all 6 supported coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, and Codex).
+
+### Added: SvelteKit 2 + Svelte 5 Web UI Monorepo & Daemon Automation (`apps/web/`, `src/web_server.js`)
+- **Pre-Built Distribution**: Migrated web dashboard to SvelteKit 2 + Svelte 5 with `@sveltejs/adapter-node` / static build in `apps/web/build`. Integrated `prepack` and post-install hooks so fresh `npm` / `pnpm` installations ship with the Web UI pre-built and ready to run immediately.
+- **Full TUI Parity in Web UI**:
+  - **Persona Memory Management (`/persona`, `Persona.svelte`)**: Interactive visual explorer to view, search, filter, add, edit, and delete episodic persona memories matching `konoha persona` TUI commands.
+  - **Project Context Memory Management (`/context`, `Context.svelte`)**: Dedicated project memory inspector allowing users to review and update persistent project tech stack and architectural invariants matching `konoha context` TUI.
+  - **Tool-by-Tool Token Savings Breakdown (`/savings`, `Savings.svelte`)**: Added interactive accordion dropdown detailing exact byte and token reductions categorized by tool operation (`token_efficient_grep`, `read_file_range`, `read_file_head`, `file_info`, `find_files_clean`, `find_skill`, `build_from_text`, `build_from_source`, `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) matching `konoha savings` TUI.
+  - **Full Skills Management (`/skills`, `Skills.svelte`)**: Complete skills lifecycle in the browser: create new skills with custom YAML frontmatter, embed / unembed skills to official ninja subagents with instant SQLite database and `agents.yaml` sync, delete skills safely, and trigger manual FTS5 re-indexing.
+  - **Bridge Gateway Management & Served Models Browser (`/bridges`, `Bridges.svelte`)**: Real-time status monitoring for Bridge Gateway (port 19999) and Bridge sidecar (port 1313), daemon lifecycle controls (Start, Stop, Restart), and active served models inspector via `/api/v1/bridges/models`.
+  - **Integrated SearXNG Web Search (`/search`, `Search.svelte`)**: Dedicated web search interface powered by local SearXNG instance without requiring third-party API keys, plus CLI `konoha search` / `konoha searxng`.
+
+### Enhanced: Pure Light-Mode Gradient Themes & Byakugan 3D Aesthetic (`apps/web/`)
+- **Universal Floating FAB Theme Switcher**: Restored the clean circular floating action button in the bottom-left corner (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) opening the 10-theme selection popup modal, eliminating desktop sidebar clutter and matching mobile navigation.
+- **10 Light-Mode Gradient Themes**: Pure light mode styling across all 10 themes (`imperial-gold`, `nebula-indigo`, `aurora-emerald`, `sunset-amber`, `ocean-sapphire`, `forest-jade`, `volcano-crimson`, `sakura-rose`, `cyber-violet`, `midnight-slate`) with dynamic CSS variable application and localStorage persistence.
+- **Byakugan Glass-Gradient Aesthetic**: Beautiful translucent glassmorphism gradients applied across all cards, headers, navigation menus, and footers.
+- **Accessible High-Contrast Typography**: Enhanced font colors, contrast ratios, and weights ensuring effortless text readability for users of all ages.
+- **3D Interactive Tilt & Hardware Acceleration**: Added 3D perspective hover and tilt animations with hardware-accelerated transforms (`transform: translateZ(0)` / `will-change`) completely eliminating rendering lag in Google Chrome.
+- **SweetAlert2 3D Dialogs**: Integrated animated SweetAlert2 popups with 3D drop-in animations replacing default browser alert and confirm dialogs.
+
+### Fixed: CSRF Token Security & Agent Skill Prioritization
+- **CSRF Token Header Invariant**: Fixed `Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header` bug by ensuring the CSRF token injected into `index.html` is automatically attached to all API mutations (`POST`, `PUT`, `PATCH`, `DELETE`).
+- **Agent Primary Skill Order**: Fixed `getSkillsForAgentFromDb` in `src/agent_manager.js` to preserve the configured order of skills from `~/.agents/agents.yaml`, ensuring ninja agents always keep their dedicated primary skill (`kage-skill`, `jonin-skill`, `anbu-skill`, etc.) at index 0.
+
 ## [v.2.0.0-beta.6] - 2026-09-07
 
 ### Fixed: TUI Table Column Overlap — Accurate Terminal Cell Widths (`bin/cli.js`)

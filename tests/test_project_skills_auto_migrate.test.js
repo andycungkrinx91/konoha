@@ -21,7 +21,7 @@ describe('Project Skills Auto-Migration & Cross-Client Sync', () => {
     }
   });
 
-  test('1. Auto-migrates project-scoped skills into skills.db when discovered in project workspace', () => {
+  test('1. Auto-migrates project-scoped skills into konoha.db when discovered in project workspace', async () => {
     const projectSkillDir = path.join(tmpProjectDir, '.agents', 'skills', 'test-project-ops');
     fs.mkdirSync(path.join(projectSkillDir, 'references'), { recursive: true });
 
@@ -43,53 +43,41 @@ Reference instructions for project ops deployment.
 `;
     fs.writeFileSync(path.join(projectSkillDir, 'references', 'deploy.md'), refMd, 'utf8');
 
-    const pythonScript = `
-import sys, os, json
-# Drop cwd so "import server" resolves to src/server.py, not the tests/server.py shim.
-_src = os.path.abspath(os.path.join(r"${__filename.replace(/\\/g, '/')}", "..", "..", "src"))
-sys.path = [p for p in sys.path if p not in ('', '.', os.getcwd())]
-sys.path.insert(0, _src)
-import server
+    const server = require('../src/server');
+    const migrated = server.autoMigrateProjectSkills(tmpProjectDir);
+    const res = JSON.parse(server.executeToolSync('find_skill', { keyword: 'test-project-ops' }));
+    assert.ok(res.found >= 1, `Expected at least 1 match, got ${JSON.stringify(res)}`);
+    const foundNames = res.results.map(r => r.name);
+    assert.ok(foundNames.includes('test-project-ops'), `Expected test-project-ops in ${JSON.stringify(foundNames)}`);
 
-migrated = server.auto_migrate_project_skills(r"` + tmpProjectDir + `")
-res = json.loads(server.find_skill("test-project-ops"))
-assert res["found"] >= 1, f"Expected at least 1 match, got {res}"
-found_names = [r["name"] for r in res["results"]]
-assert "test-project-ops" in found_names, f"Expected test-project-ops in {found_names}"
+    // Initialize MCP server
+    const initReq = {
+      jsonrpc: '2.0',
+      id: 0,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'test-client' }
+      }
+    };
+    const initResp = await server.handleRequest(initReq);
+    assert.ok(initResp.result, 'Expected result in initResp');
 
-# Initialize MCP server
-init_req = {
-    "jsonrpc": "2.0",
-    "id": 0,
-    "method": "initialize",
-    "params": {
-        "protocolVersion": "2024-11-05",
-        "capabilities": {},
-        "clientInfo": {"name": "test-client"}
-    }
-}
-init_resp = server.handle_request(init_req)
-assert "result" in init_resp
-
-# Test find_skills alias in tools/call
-req = {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-        "name": "find_skills",
-        "arguments": {"keyword": "test-project-ops"}
-    }
-}
-resp = server.handle_request(req)
-assert "result" in resp, f"Expected result in {resp}"
-content = json.loads(resp["result"]["content"][0]["text"])
-assert content["found"] >= 1
-print("PYTHON_OK")
-`;
-    const run = spawnSync('python3', ['-c', pythonScript], { encoding: 'utf8' });
-    assert.strictEqual(run.status, 0, 'Python error: ' + run.stderr);
-    assert.match(run.stdout, /PYTHON_OK/);
+    // Test find_skills alias in tools/call
+    const callReq = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'find_skills',
+        arguments: { keyword: 'test-project-ops' }
+      }
+    };
+    const callResp = await server.handleRequest(callReq);
+    assert.ok(callResp.result, `Expected result in ${JSON.stringify(callResp)}`);
+    const content = JSON.parse(callResp.result.content[0].text);
+    assert.ok(content.found >= 1);
   });
 
   test('2. Synchronizes skills across all supported client directories', () => {
