@@ -19,7 +19,7 @@
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-08)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 2 Web UI monorepo with full TUI parity, SearXNG search, and IBM Granite ONNX vector search.
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-08)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, SearXNG search, and IBM Granite ONNX vector search.
 * **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-08.md)
 
 <details open>
@@ -164,8 +164,8 @@ Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgress
   ✓ Latest Konoha release installed from GitHub via pnpm
   [████████████████░░░░░░░░░░░░]  57%  [Stage 5/7] Skills Index: Seeding subagent skills into SQLite FTS5 database
   ✓ Subagent skills and references seeded to SQLite FTS5
-  [████████████████████░░░░░░░░]  71%  [Stage 6/7] MCP Clients: Configuring Cursor, Claude Code, OpenCode, Command Code, Codex
-  ✓ All 6 agentic IDE/CLI client configurations synchronized
+  [████████████████████░░░░░░░░]  71%  [Stage 6/7] MCP Clients: Configuring Cursor, Claude Code, OpenCode, Command Code, Codex, Pi
+  ✓ All 7 agentic IDE/CLI client configurations synchronized
   [████████████████████████░░░░]  86%  [Stage 7/7] Verifying Konoha Bridge extension and browser CLI...
   ✓ Konoha Bridge extension & browser tools verified
   [████████████████████████████] 100%  Konoha has been successfully upgraded to the latest version!
@@ -276,7 +276,7 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 
 ### 🏢 Persistent Project-Level Context & Memory (Zero Hallucination)
 - **Workspace Stack Profiler**: Automatically detects frameworks (Next.js, SvelteKit, Nuxt 3, Angular), styling engines (Tailwind v4, CSS Modules), and package managers (`pnpm`).
-- **Project-Scoped Memory**: Persists architectural invariants, rules, and episodic learnings per repository workspace in SQLite (`~/.konoha/skills.db`).
+- **Project-Scoped Memory**: Persists architectural invariants, rules, and episodic learnings per repository workspace in SQLite (`~/.konoha/konoha.db`).
 - **Zero Session Amnesia**: Context and invariants are preserved and automatically injected across consecutive sessions.
 - **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
 
@@ -420,7 +420,7 @@ konoha init
 
 Konoha handles all setup steps automatically:
 - 📦 **Node.js dependencies**: Installed via `package.json` (`better-sqlite3`, `@huggingface/transformers`, `@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
-- 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/skills.db`.
+- 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/konoha.db` (legacy `skills.db` is auto-migrated on first open).
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
 
@@ -462,11 +462,11 @@ Once installed, the following CLI commands are available:
 
 | Command | Description |
 |:---|:---|
-| `konoha init` | Full install: server + migration + MCP config + GEMINI.md |
+| `konoha init` | Full install: self-contained CLI runtime (`~/.konoha/bin/cli.js`) + server + migration + MCP config + GEMINI.md + global `konoha` command reconciliation (npm/pnpm/yarn shims on Linux, macOS, and Windows) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.0.0) and check for updates from GitHub |
-| `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless) |
+| `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
@@ -498,18 +498,21 @@ Full platform-specific guides: [SETUP-CLI.md](docs/SETUP-CLI.md), [SETUP-IDE.md]
 
 ### RTK (Rust Token Killer)
 
-If `rtk` is installed on your system (`cargo install rtk`), Konoha auto-deploys RTK rules to all detected supported clients during `konoha init`:
+If `rtk` is installed on your system, Konoha auto-deploys RTK rules to all detected supported clients during `konoha init`:
 
 | Client | RTK Rule Location |
 |--------|-------------------|
 | **Antigravity** | `~/.gemini/antigravity-cli/rules/rtk.md` + `~/.gemini/antigravity-ide/rules/rtk.md` |
 | **Cursor** | `~/.cursor/rules/rtk.mdc` |
 | **Claude Code** | `~/.claude/rules/rtk.md` |
-| **OpenCode** | `~/.config/opencode/rules/rtk.md` |
+| **OpenCode** | `~/.config/opencode/rules/rtk.md` + `~/.config/opencode/plugins/rtk.ts` |
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
 | **Codex** | `~/.codex/rules/rtk.md` |
+| **Pi (pi.dev)** | `~/.pi/agent/extensions/rtk.ts` (official RTK TypeScript extension) |
 
-This instructs agents to prefix all shell commands with `rtk <command>`, reducing token consumption by up to 90% on common operations. If `rtk` is not installed, Konoha skips this step gracefully.
+RTK is **installed automatically** by `konoha init` when missing — no Rust toolchain required. The installer resolves the official [rtk-ai/rtk](https://github.com/rtk-ai/rtk) binary via: cargo (`cargo install --git https://github.com/rtk-ai/rtk`), the official quick-install script (`~/.local/bin`, Linux/macOS), or the prebuilt Windows release. Konoha never uses the plain `cargo install rtk` crates.io package — that name belongs to an unrelated project (Rust Type Kit).
+
+This instructs agents to prefix all shell commands with `rtk <command>`, reducing token consumption by up to 90% on common operations. If RTK cannot be installed (no network, no package manager), Konoha warns and continues without it.
 
 **Automatic Setup:** During `konoha init`, Konoha runs `rtk init -g` globally to install the Claude Code hook automatically — no manual configuration needed. The RTK rule (`~/.claude/rules/rtk.md`) and hook are deployed alongside the MCP server setup.
 
@@ -519,7 +522,7 @@ This instructs agents to prefix all shell commands with `rtk <command>`, reducin
 
 Konoha ships a local **Konoha Bridge Router** on port **`19999`** that multiplexes requests across one or more inner **LLM Bridges**. The optional Antigravity IDE extension is refreshed from the live `master` branch into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and serves `127.0.0.1:1313`; it is never installed on CLI-only hosts. The router forwards requests to a bridge based on the model name prefix `<bridge-name>-<model-name>`, strips inbound `Authorization` / `x-api-key` / `x-konoha-gateway-*` headers, and forwards to `127.0.0.1:<bridge-port>`. Local clients never need to send an API key to the router.
 
-Bridge configuration examples (bridges are registered manually by the user — the `bridges` table starts empty on install and is persisted in `~/.konoha/skills.db` via `src/db_bridges.py`):
+Bridge configuration examples (bridges are registered manually by the user — the `bridges` table starts empty on install and is persisted in `~/.konoha/konoha.db` via `src/db_bridges.js`):
 
 Bridges are registered manually by the user (the tables start empty on install).
 
@@ -891,7 +894,7 @@ The mismatch is reported on stderr (`fuzzy-resolved skill 'x' -> 'y'`) so the or
 
 ### Workspace Hygiene
 
-Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/test_scratch_path.py`.
+Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/mcp/runtime_state.js` and covered by `tests/test_scratch_path.js`.
 
 ### Detailed Before vs After Comparison
 

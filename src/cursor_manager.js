@@ -251,14 +251,23 @@ Full team config: \`~/.agents/AGENTS.md\
 
 function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  // Only register semble when uvx is actually usable
+  const uvxAvailable = (() => {
+    try {
+      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      return res.status === 0;
+    } catch { return false; }
+  })();
   const servers = {
-    semble: {
-      type: 'stdio',
-      command: uvxCmd,
-      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-      autoApprove: ['*', 'search', 'find_related'],
-      auto_approve: true
-    },
+    ...(uvxAvailable ? {
+      semble: {
+        type: 'stdio',
+        command: uvxCmd,
+        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+        autoApprove: ['*', 'search', 'find_related'],
+        auto_approve: true
+      }
+    } : {}),
     aislop: {
       type: 'stdio',
       command: npxCmd,
@@ -353,11 +362,12 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
     uvxCmd || 'uvx'
   );
 
-  // Portable project config — cross-platform JS launcher (node on PATH in Cursor/IDE)
+  // Project config — absolute node path so GUI-launched Cursor (no shell PATH,
+  // nvm/volta installs) can still start the MCP server
   if (servers['konoha']) {
     servers['konoha'] = {
       type: 'stdio',
-      command: 'node',
+      command: process.execPath || 'node',
       args: ['${userHome}/.konoha/file_tools_launcher.js']
     };
   }
@@ -454,10 +464,11 @@ function registerCursorCliPermissions(silent = true) {
   } catch {}
 
   // Also update Cursor settings.json if present or in Cursor User settings
+  // (XDG-style config dirs are POSIX-only — on Windows the APPDATA paths apply)
   const cursorSettingsPaths = [
     path.join(CURSOR_DIR, 'settings.json'),
-    path.join(HOME, '.config', 'Cursor', 'User', 'settings.json'),
-    path.join(HOME, '.config', 'Code', 'User', 'settings.json'),
+    process.platform !== 'win32' ? path.join(HOME, '.config', 'Cursor', 'User', 'settings.json') : null,
+    process.platform !== 'win32' ? path.join(HOME, '.config', 'Code', 'User', 'settings.json') : null,
     process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
     process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Code', 'User', 'settings.json') : null,
     process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null,
@@ -475,8 +486,12 @@ function registerCursorCliPermissions(silent = true) {
       sObj['cursor.mcp.allowAll'] = true;
       sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha', '*'];
       sObj['cursor.agent.autoApprove'] = true;
-      if (!sObj.permissions) sObj.permissions = {};
-      sObj.permissions.allow = grants;
+      if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
+      // Merge Konoha grants into the user's existing allow list — never replace it
+      if (!Array.isArray(sObj.permissions.allow)) sObj.permissions.allow = [];
+      for (const grant of grants) {
+        if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
+      }
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
     } catch {}
   }
@@ -511,11 +526,17 @@ function registerCursorHooks(silent = true, allowHooks = true) {
       if (!config.hooks) config.hooks = {};
       if (!config.version) config.version = 1;
     } catch {
+      // Corrupt file: back it up so the user's other hooks are recoverable
+      try {
+        fs.copyFileSync(CURSOR_HOOKS_GLOBAL, CURSOR_HOOKS_GLOBAL + '.corrupt-' + Date.now());
+        console.warn(`⚠ Existing Cursor hooks.json was invalid JSON — backed up to ${CURSOR_HOOKS_GLOBAL}.corrupt-*`);
+      } catch (_) {}
       config = { version: 1, hooks: {} };
     }
   }
 
-  const bootstrapCmd = `node "${CURSOR_BOOTSTRAP_PATH}"`;
+  // Absolute node path: GUI-launched Cursor may not inherit a shell PATH
+  const bootstrapCmd = `"${process.execPath}" "${CURSOR_BOOTSTRAP_PATH}"`;
   const existing = config.hooks.sessionStart || [];
   const hasBootstrap = existing.some(h => h.command && h.command.includes('cursor_bootstrap.js'));
 

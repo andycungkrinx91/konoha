@@ -3,7 +3,12 @@
     "allow": [
       "Shell(pnpm:*)",
       "Shell(python3 -m pytest tests/test_auto_compaction.py -x -q 2 >& 1)",
-      "Shell(python3 -m pytest tests/test_auto_compaction.py tests/test_workflow_gates.py tests/test_structured_delegation.py -q 2 >& 1)"
+      "Shell(python3 -m pytest tests/test_auto_compaction.py tests/test_workflow_gates.py tests/test_structured_delegation.py -q 2 >& 1)",
+      "Shell(which pi pipi 2>/dev/null; ls ~/.pi 2>/dev/null && echo \"---\" && ls ~/.pi/agent 2>/dev/null; pi --version 2>&1 | head -2; pi --help 2>&1 | head -30)",
+      "Shell(cp:*)",
+      "Shell(node -e  const fs = require('fs'), os = require('os'), path = require('path'), { spawn } = require('child_process'); const HOME = os.homedir(); const configs = { antigravity: { file: path.join(HOME, '.gemini/config/mcp_config.json'), servers: ['konoha','semble','aislop'] }, cursor: { file: path.join(HOME, '.cursor/mcp.json'), servers: ['konoha','semble','aislop'] }, claude: { file: path.join(HOME, '.claude.json'), key: 'mcpServers', servers: ['konoha','semble','aislop'] }, opencode: { file: path.join(HOME, '.config/opencode/opencode.json'), key: 'mcp', servers: ['konoha','semble','aislop'] }, commandcode: { file: path.join(HOME, '.commandcode/mcp.json'), servers: ['konoha','semble','aislop'] }, codex: { file: path.join(HOME, '.codex/config.toml'), toml: true, servers: ['konoha','semble','aislop'] }, pi: { file: path.join(HOME, '.pi/agent/mcp.json'), servers: ['konoha','semble','aislop'] } }; for (const [client, cfg] of Object.entries(configs)) { let found = []; try { if (cfg.toml) { const t = fs.readFileSync(cfg.file, 'utf8'); for (const s of cfg.servers) found.push(s + ':' + (new RegExp('\\\\[mcp_servers\\\\.' + s + '\\\\]').test(t) ? 'YES' : 'NO')); } else { const j = JSON.parse(fs.readFileSync(cfg.file, 'utf8')); const block = j[cfg.key || 'mcpServers'] || {}; for (const s of cfg.servers) found.push(s + ':' + (block[s] ? 'YES' : 'NO')); } } catch (e) { found.push('CONFIG-ERROR: ' + e.message.substring(0, 60)); } console.log(client.padEnd(12), found.join(' ')); } )",
+      "Shell(sed:*)",
+      "Shell(grep:*)"
     ],
     "deny": [],
     "defaultMode": "default"

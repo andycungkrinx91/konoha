@@ -72,11 +72,8 @@ function seedAgents(conn) {
 
     const insertMany = conn.transaction((list) => {
       for (const a of list) {
-        let name = a.name;
+        const name = a.name;
         if (!name) continue;
-        if (!name.startsWith("mcp_")) {
-          name = `mcp_${name}`;
-        }
         const skillsStr = JSON.stringify(a.skills || []);
         stmt.run(
           name,

@@ -29,6 +29,7 @@ const cursorManager = require('../src/cursor_manager');
 const mcpClientsManager = require('../src/mcp_clients_manager');
 const opencodeManager = require('../src/opencode_manager');
 const codexManager = require('../src/codex_manager');
+const piManager = require('../src/pi_manager');
 const deployUtils = require('../src/deploy_utils');
 const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
@@ -1210,6 +1211,7 @@ async function cmdInit(args, options = {}) {
   const openCodeInstalled = opencodeManager.isOpenCodeInstalled();
   const commandCodeInstalled = mcpClientsManager.isCommandCodeInstalled();
   const codexInstalled = codexManager.isCodexInstalled();
+  const piInstalled = piManager.isPiInstalled();
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
   // 1. Ensure the directories exist
@@ -1352,6 +1354,14 @@ async function cmdInit(args, options = {}) {
           silent: true
         });
       }
+      if (piInstalled) {
+        piManager.ensurePiSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
       success('Integrations refreshed.');
       return;
     }
@@ -1432,6 +1442,12 @@ async function cmdInit(args, options = {}) {
     copyFile(promptHookSrc, promptHookDest);
   }
 
+  const reminderSrc = path.join(SRC_DIR, 'workflow_reminder.js');
+  const reminderDest = path.join(SKILLS_DB_DIR, 'workflow_reminder.js');
+  if (fileExists(reminderSrc)) {
+    copyFile(reminderSrc, reminderDest);
+  }
+
   const subagentHookSrc = path.join(SRC_DIR, 'antigravity_subagent_hook.js');
   const subagentHookDest = path.join(SKILLS_DB_DIR, 'antigravity_subagent_hook.js');
   if (fileExists(subagentHookSrc)) {
@@ -1467,6 +1483,23 @@ async function cmdInit(args, options = {}) {
     copyFile(cursorBootstrapSrc, cursorBootstrapDest);
   }
   installFileTools(true);
+
+  // Install the self-contained CLI runtime, then make the global `konoha`
+  // command always resolve to ~/.konoha/bin/cli.js (all platforms, all
+  // package managers — repairs stale npm/pnpm/yarn shims in place)
+  installCliRuntime();
+  const shimReport = reconcileGlobalCommand();
+  const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
+  if (shimsTouched.length > 0) {
+    success(`Global command 'konoha' → ${shimReport.sourceCli}`);
+    shimsTouched.forEach(s => log(`    ↳ shim: ${s}`));
+  } else if (shimReport.ok.length > 0) {
+    info(`Global command 'konoha' already points to ${shimReport.sourceCli}`);
+  }
+  for (const failure of shimReport.failed) {
+    warn(`Could not update shim ${failure.path}: ${failure.error}`);
+  }
+
   spinner3.success('All files installed to ~/.konoha/');
 
   // Install or refresh Konoha Bridge extension for Antigravity IDE
@@ -1548,7 +1581,7 @@ async function cmdInit(args, options = {}) {
   if (rtkResult.ok) {
     rtkSpinner.success(`RTK rules deployed to ${rtkResult.deployed} Antigravity location(s).`);
   } else if (rtkResult.reason === 'rtk-not-installed') {
-    rtkSpinner.warn('RTK not installed on this system — skipping RTK rule deployment. Install: cargo install rtk');
+    rtkSpinner.warn('RTK could not be installed automatically (needs cargo, or network for the official install script). Manual: cargo install --git https://github.com/rtk-ai/rtk');
   } else {
     rtkSpinner.warn(`RTK rule deployment skipped: ${rtkResult.reason}`);
   }
@@ -1636,6 +1669,19 @@ async function cmdInit(args, options = {}) {
     else spinnerCodex.warn(`Codex setup skipped: ${codexSetup.reason || 'unknown error'}`);
   }
 
+  if (piInstalled) {
+    header('🥧 Configuring Pi (pi.dev)');
+    const spinnerPi = startSpinner('Registering Pi MCP servers via pi-mcp-adapter...');
+    const piSetup = piManager.ensurePiSetup({
+      pythonCmd: python,
+      serverPath: SERVER_PATH,
+      uvxCmd: getUvxCommand(),
+      silent: true
+    });
+    if (piSetup.ok) spinnerPi.success('Pi (pi.dev) MCP configured.');
+    else spinnerPi.warn(`Pi setup skipped: ${piSetup.reason || 'unknown error'}`);
+  }
+
   // 11. Summary
   header('✅ Installation Complete!');
 
@@ -1660,6 +1706,9 @@ async function cmdInit(args, options = {}) {
     codexInstalled
       ? `${ok} Codex        ${C.dim}~/.codex/config.toml + RTK${C.reset}`
       : `${skip} Codex        ${C.dim}(not installed)${C.reset}`,
+    piInstalled
+      ? `${ok} Pi (pi.dev)  ${C.dim}~/.pi/agent/mcp.json + pi-mcp-adapter${C.reset}`
+      : `${skip} Pi (pi.dev)  ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
     `Version:     ${C.green}v${getCliVersion()}${C.reset}`,
@@ -1927,7 +1976,9 @@ function installExtensionViaCli(cliName, vsixPath, silent = false) {
   try {
     const isWin = process.platform === 'win32';
     const spawnExe = (isWin && exe.includes(' ') && !exe.startsWith('"')) ? `"${exe}"` : exe;
-    const res = spawnSync(spawnExe, ['--install-extension', vsixPath, '--force'], {
+    // shell:true on Windows joins args verbatim — quote every path argument
+    const vsixArg = (isWin && vsixPath.includes(' ') && !vsixPath.startsWith('"')) ? `"${vsixPath}"` : vsixPath;
+    const res = spawnSync(spawnExe, ['--install-extension', vsixArg, '--force'], {
       encoding: 'utf8',
       timeout: 35000,
       env: process.env,
@@ -1999,16 +2050,19 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
   try {
     if (!vsixPath || !fileExists(vsixPath)) {
       ensureDir(path.dirname(tmpClone));
-      const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, tmpClone], {
+      const cloneIsWin = process.platform === 'win32';
+      const cloneTarget = (cloneIsWin && tmpClone.includes(' ') && !tmpClone.startsWith('"')) ? `"${tmpClone}"` : tmpClone;
+      const cloneRes = spawnSync('git', ['clone', '--branch', KONOHA_BRIDGE_REF, '--depth', '1', KONOHA_BRIDGE_REPO, cloneTarget], {
         encoding: 'utf8',
         timeout: 30000,
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
+        shell: cloneIsWin,
       });
       if (cloneRes.status === 0 && fileExists(tmpClone)) {
-        const commitRes = spawnSync('git', ['-C', tmpClone, 'rev-parse', 'HEAD'], {
+        const cloneTarget2 = (cloneIsWin && tmpClone.includes(' ') && !tmpClone.startsWith('"')) ? `"${tmpClone}"` : tmpClone;
+        const commitRes = spawnSync('git', ['-C', cloneTarget2, 'rev-parse', 'HEAD'], {
           encoding: 'utf8',
-          shell: process.platform === 'win32',
+          shell: cloneIsWin,
         });
         commit = (commitRes.stdout || '').trim() || commit;
 
@@ -2303,6 +2357,12 @@ function registerHooks(silent = false, allowHooks) {
     try {
       config = JSON.parse(fs.readFileSync(HOOKS_CONFIG_PATH, 'utf-8'));
     } catch (e) {
+      // Corrupt file: back it up so the user's other hooks are recoverable,
+      // then rebuild with Konoha's entries only
+      try {
+        fs.copyFileSync(HOOKS_CONFIG_PATH, HOOKS_CONFIG_PATH + '.corrupt-' + Date.now());
+        warn(`Existing hooks.json was invalid JSON — backed up to ${HOOKS_CONFIG_PATH}.corrupt-*`);
+      } catch (_) {}
       config = {};
     }
   }
@@ -2320,15 +2380,15 @@ function registerHooks(silent = false, allowHooks) {
     delete config['konoha-subagent-hook'];
     config['konoha-prompt-hook'] = {
       PreInvocation: [
-        { type: 'command', command: `node "${subagentHookPath}"` },
-        { type: 'command', command: `node "${promptHookPath}"` },
+        { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
+        { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
       ],
     };
     config['konoha-tool-sanitize'] = {
       PreToolUse: [
         {
           matcher: 'define_subagent|invoke_subagent',
-          hooks: [{ type: 'command', command: `node "${sanitizeHookPath}"`, timeout: 10 }],
+          hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
         },
       ],
     };
@@ -2350,15 +2410,15 @@ function registerHooks(silent = false, allowHooks) {
     if (hookExists) {
       config['konoha-prompt-hook'] = {
         PreInvocation: [
-          { type: 'command', command: `node "${subagentHookPath}"` },
-          { type: 'command', command: `node "${promptHookPath}"` },
+          { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
+          { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
         ],
       };
       config['konoha-tool-sanitize'] = {
         PreToolUse: [
           {
             matcher: 'define_subagent|invoke_subagent',
-            hooks: [{ type: 'command', command: `node "${sanitizeHookPath}"`, timeout: 10 }],
+            hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
           },
         ],
       };
@@ -2432,6 +2492,231 @@ function copyRecursiveIfDifferent(src, dest) {
   } else {
     copyIfDifferent(src, dest);
   }
+}
+
+/**
+ * Install the full CLI runtime into ~/.konoha so it is fully self-contained:
+ *   ~/.konoha/bin/cli.js  — the CLI entry (requires ../src/*)
+ *   ~/.konoha/bin/lib/    — CLI helper modules
+ *   ~/.konoha/src/        — full module tree
+ *   ~/.konoha/.agents/skills — packaged skills (for re-running init)
+ * The global `konoha` command shim created by reconcileGlobalCommand()
+ * points here, so the command always uses this stable installed path.
+ * Returns the path to the installed CLI entry.
+ */
+function installCliRuntime() {
+  const cliDest = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
+  const skipNames = new Set(['.ruff_cache', '__pycache__', '.pytest_cache', '.DS_Store']);
+  const copyTree = (src, dest) => {
+    ensureDir(dest);
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || skipNames.has(entry.name)) continue;
+      const s = path.join(src, entry.name);
+      const d = path.join(dest, entry.name);
+      if (entry.isDirectory()) copyTree(s, d);
+      else if (entry.isFile()) copyFile(s, d);
+    }
+  };
+  try {
+    ensureDir(path.join(SKILLS_DB_DIR, 'bin'));
+    copyFile(__filename, cliDest);
+
+    const pkgSrc = path.join(__dirname, '..', 'package.json');
+    if (fileExists(pkgSrc)) {
+      copyFile(pkgSrc, path.join(SKILLS_DB_DIR, 'package.json'));
+    }
+
+    const libSrc = path.join(__dirname, 'lib');
+    if (fileExists(libSrc)) {
+      for (const entry of fs.readdirSync(libSrc, { withFileTypes: true })) {
+        if (entry.isFile()) {
+          ensureDir(path.join(SKILLS_DB_DIR, 'bin', 'lib'));
+          copyFile(path.join(libSrc, entry.name), path.join(SKILLS_DB_DIR, 'bin', 'lib', entry.name));
+        }
+      }
+    }
+
+    if (fileExists(SRC_DIR)) {
+      const destSrc = path.join(SKILLS_DB_DIR, 'src');
+      if (path.resolve(SRC_DIR) !== path.resolve(destSrc)) {
+        copyTree(SRC_DIR, destSrc);
+      }
+    }
+
+    const skillsSrc = path.join(__dirname, '..', '.agents', 'skills');
+    const skillsDest = path.join(SKILLS_DB_DIR, '.agents', 'skills');
+    if (fileExists(skillsSrc) && path.resolve(skillsSrc) !== path.resolve(skillsDest)) {
+      copyTree(skillsSrc, skillsDest);
+    }
+
+    const assetsSrc = path.join(__dirname, '..', 'assets');
+    if (fileExists(assetsSrc)) {
+      for (const entry of fs.readdirSync(assetsSrc, { withFileTypes: true })) {
+        if (entry.isFile() && entry.name.endsWith('.vsix')) {
+          ensureDir(path.join(SKILLS_DB_DIR, 'assets'));
+          copyFile(path.join(assetsSrc, entry.name), path.join(SKILLS_DB_DIR, 'assets', entry.name));
+        }
+      }
+    }
+
+    // Ship the pre-built Web UI so `konoha ui start` / `konoha web` work from
+    // the installed runtime without needing the repository or a rebuild
+    const webBuildSrc = path.join(__dirname, '..', 'apps', 'web', 'build');
+    if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
+      const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
+      fs.rmSync(webBuildDest, { recursive: true, force: true });
+      ensureDir(webBuildDest);
+      for (const entry of fs.readdirSync(webBuildSrc, { withFileTypes: true })) {
+        const s = path.join(webBuildSrc, entry.name);
+        const d = path.join(webBuildDest, entry.name);
+        if (entry.isDirectory()) copyRecursive(s, d);
+        else if (entry.isFile()) copyFile(s, d);
+      }
+      info(`Pre-built Web UI installed to ${webBuildDest}`);
+    }
+
+    // Ensure runtime dependencies for the installed CLI (idempotent, best-effort)
+    const depMarker = path.join(SKILLS_DB_DIR, 'node_modules', 'better-sqlite3');
+    if (!fileExists(depMarker)) {
+      const isWin = process.platform === 'win32';
+      const pmCandidates = [
+        { cmd: isWin ? 'pnpm.cmd' : 'pnpm', args: ['install', '--prod'] },
+        { cmd: isWin ? 'npm.cmd' : 'npm', args: ['install', '--omit=dev', '--no-audit', '--no-fund'] }
+      ];
+      for (const pm of pmCandidates) {
+        try {
+          const res = spawnSync(pm.cmd, pm.args, {
+            cwd: SKILLS_DB_DIR,
+            encoding: 'utf-8',
+            timeout: 300000,
+            stdio: 'ignore',
+            shell: isWin
+          });
+          if (res.status === 0 && fileExists(depMarker)) break;
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    // Non-fatal: the shim will simply keep pointing at the previous install
+  }
+  return cliDest;
+}
+
+/**
+ * Ensure a `konoha` command exists on PATH and always resolves to the
+ * self-contained install at ~/.konoha/bin/cli.js — on every platform and
+ * for every package manager that may have created a shim (npm, pnpm, yarn).
+ *
+ * - Existing shims that point elsewhere (stale npm globals, old links) are
+ *   repointed to ~/.konoha/bin/cli.js.
+ * - Missing shims are created in the standard global bin directories.
+ * - Windows gets konoha.cmd / konoha.ps1 wrappers (no symlinks, no admin).
+ * - Idempotent: re-running init never duplicates or churns shims.
+ */
+function reconcileGlobalCommand() {
+  const report = { updated: [], created: [], ok: [], failed: [], sourceCli: null };
+  const isWin = process.platform === 'win32';
+  const sourceCli = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
+  report.sourceCli = sourceCli;
+  if (!fileExists(sourceCli)) return report;
+
+  const nodeCmd = process.execPath;
+  const homeDir = os.homedir();
+
+  // 1. Discover candidate global bin directories
+  const candidateDirs = new Set();
+  try {
+    const npmCmd = isWin ? 'npm.cmd' : 'npm';
+    const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin });
+    const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
+    if (prefix && fs.existsSync(prefix)) {
+      candidateDirs.add(isWin ? prefix : path.join(prefix, 'bin'));
+    }
+  } catch (_) {}
+  if (isWin) {
+    const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
+    candidateDirs.add(path.join(localAppData, 'pnpm'));
+  } else {
+    candidateDirs.add(path.join(homeDir, '.local', 'share', 'pnpm')); // pnpm default (Linux)
+    candidateDirs.add(path.join(homeDir, 'Library', 'pnpm'));         // pnpm default (macOS)
+    candidateDirs.add(path.join(homeDir, '.local', 'bin'));
+  }
+  // Repoint stale shims found anywhere else on PATH
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    try {
+      const hasShim = fs.existsSync(path.join(dir, isWin ? 'konoha.cmd' : 'konoha'));
+      if (hasShim) candidateDirs.add(dir);
+    } catch (_) {}
+  }
+
+  const readLinkSafe = (p) => {
+    try { return fs.readlinkSync(p); } catch { return null; }
+  };
+
+  // 2. Write or repair the shim in each candidate directory
+  for (const dir of candidateDirs) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const dirMode = fs.statSync(dir).isDirectory() ? null : 'skip';
+      if (dirMode === 'skip') continue;
+    } catch (_) { continue; }
+
+    const mainName = isWin ? 'konoha.cmd' : 'konoha';
+    const shimNames = [mainName];
+    if (isWin) {
+      // Mirror only wrappers that already exist (npm/pnpm create these)
+      if (fs.existsSync(path.join(dir, 'konoha.ps1'))) shimNames.push('konoha.ps1');
+      if (fs.existsSync(path.join(dir, 'konoha'))) shimNames.push('konoha');
+    }
+
+    for (const name of shimNames) {
+      const shimPath = path.join(dir, name);
+      const contents = {
+        'konoha': `#!/bin/sh\nexec "${nodeCmd}" "${sourceCli}" "$@"\n`,
+        'konoha.cmd': `@echo off\r\n"${nodeCmd}" "${sourceCli}" %*\r\n`,
+        'konoha.ps1': `& "${nodeCmd}" "${sourceCli}" @args\n`
+      };
+      const mode = isWin ? undefined : 0o755;
+
+      try {
+        let st = null;
+        try { st = fs.lstatSync(shimPath); } catch (_) {}
+        if (!st) {
+          fs.writeFileSync(shimPath, contents[name], { mode: mode || 0o666 });
+          if (!isWin) { try { fs.chmodSync(shimPath, 0o755); } catch (_) {} }
+          report.created.push(shimPath);
+          continue;
+        }
+        if (st.isSymbolicLink()) {
+          const target = readLinkSafe(shimPath);
+          const resolved = target ? path.resolve(path.dirname(shimPath), target) : null;
+          if (resolved === sourceCli) {
+            report.ok.push(shimPath);
+            continue;
+          }
+          fs.unlinkSync(shimPath);
+          fs.writeFileSync(shimPath, contents[name]);
+          if (!isWin) { try { fs.chmodSync(shimPath, 0o755); } catch (_) {} }
+          report.updated.push(shimPath);
+          continue;
+        }
+        // Regular file (npm Windows wrapper, previous shell shim, ...)
+        const current = fs.readFileSync(shimPath, 'utf8');
+        if (current === contents[name]) {
+          report.ok.push(shimPath);
+          continue;
+        }
+        fs.writeFileSync(shimPath, contents[name]);
+        if (!isWin) { try { fs.chmodSync(shimPath, 0o755); } catch (_) {} }
+        report.updated.push(shimPath);
+      } catch (err) {
+        report.failed.push({ path: shimPath, error: err.message });
+      }
+    }
+  }
+
+  return report;
 }
 
 function syncTemplateSkills() {
@@ -3296,6 +3581,8 @@ async function cmdStatus(args = []) {
   printClientStatus('OpenCode IDE', '~/.config/opencode/opencode.json', openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble, openCodeStatus.configExists, openCodeStatus.installed);
   printClientStatus('Command Code CLI', '~/.commandcode/mcp.json', cmdStatus.mcpKonoha && cmdStatus.mcpSemble, cmdStatus.globalConfig, cmdStatus.installed);
   printClientStatus('Codex IDE / CLI', '~/.codex/config.toml', codexStatus.mcpKonoha && codexStatus.mcpSemble, codexStatus.configExists, codexStatus.installed);
+  const piStatus = piManager.getPiStatus();
+  printClientStatus('Pi (pi.dev)', '~/.pi/agent/mcp.json', piStatus.mcpKonoha && piStatus.adapterInstalled && piStatus.rtkRuleDeployed, piStatus.adapterInstalled, piStatus.installed);
 
   // Antigravity IDE/CLI integrations
   sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
@@ -3322,7 +3609,7 @@ async function cmdStatus(args = []) {
     agyStatus.rtkInstalled,
     agyStatus.rtkInstalled
       ? 'rtk binary available — rules deployed to antigravity-cli/ide'
-      : 'RTK not installed (install: cargo install rtk)',
+      : 'RTK not installed (auto-install failed — manual: cargo install --git https://github.com/rtk-ai/rtk)',
     NINJA_THEME
   );
 
@@ -3364,7 +3651,7 @@ async function cmdStatus(args = []) {
     cursorStatus.rtkInstalled && cursorStatus.rtkRuleDeployed,
     cursorStatus.rtkInstalled
       ? (cursorStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.cursor/rules/' : 'rtk rule not deployed')
-      : 'RTK not installed (install: cargo install rtk)',
+      : 'RTK not installed (auto-install failed — manual: cargo install --git https://github.com/rtk-ai/rtk)',
     NINJA_THEME
   );
   } else {
@@ -3386,7 +3673,7 @@ async function cmdStatus(args = []) {
       claudeStatus.rtkInstalled && claudeStatus.rtkRuleDeployed,
       claudeStatus.rtkInstalled
         ? (claudeStatus.rtkRuleDeployed ? 'rtk rule deployed to ~/.claude/rules/' : 'rtk rule not deployed')
-        : 'RTK not installed (install: cargo install rtk)',
+        : 'RTK not installed (auto-install failed — manual: cargo install --git https://github.com/rtk-ai/rtk)',
       NINJA_THEME
     );
 
@@ -4135,6 +4422,37 @@ async function cmdDoctor(args = []) {
     }
   }
 
+  // 9h. Pi (pi.dev) Configuration
+  if (piManager.isPiInstalled()) {
+    const piStatus = piManager.getPiStatus();
+    const piHealthy = piStatus.mcpKonoha && piStatus.adapterInstalled && piStatus.contractDeployed;
+    if (piHealthy) {
+      record('Pi pi.dev (~/.pi/agent/mcp.json)', 'HEALTHY', 'pi-mcp-adapter + konoha contract deployed; workflow routing active');
+    } else {
+      try {
+        const python = checkPython() || 'python3';
+        piManager.ensurePiSetup({
+          pythonCmd: python,
+          serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+        const repaired = piManager.getPiStatus();
+        if (repaired.mcpKonoha && repaired.adapterInstalled) {
+          record('Pi pi.dev (~/.pi/agent/mcp.json)', 'REPAIRED', repaired.contractDeployed
+            ? 'Registered Konoha MCP servers via pi-mcp-adapter; runtime contract deployed'
+            : 'Registered Konoha MCP servers via pi-mcp-adapter');
+          repairsDone++;
+        } else {
+          record('Pi pi.dev (~/.pi/agent/mcp.json)', 'WARNING', 'Partial Pi setup — run konoha init');
+        }
+      } catch (e) {
+        record('Pi pi.dev (~/.pi/agent/mcp.json)', 'FAILED', `Error: ${e.message}`);
+        hasErrors = true;
+      }
+    }
+  }
+
   // 10. agent-browser CLI check & auto-repair
   let agentBrowserCmd = getAgentBrowserCommand();
   let agentBrowserInstalled = !!agentBrowserCmd;
@@ -4311,7 +4629,7 @@ async function cmdWebForeground(options = {}) {
   const openBrowser = options.openBrowser !== false;
   const token = options.token || null;
 
-  const buildHandler = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js');
+  const buildHandler = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'handler.js');
   if (!fs.existsSync(buildHandler)) {
     info('Frontend build not found. Automatically building Konoha Web UI...');
     await cmdUiBuild();
@@ -4397,7 +4715,7 @@ async function cmdUiStart(args = []) {
     return;
   }
 
-  const buildHandler = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js');
+  const buildHandler = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'handler.js');
   if (!fs.existsSync(buildHandler)) {
     info('Frontend build not found. Automatically building Konoha Web UI...');
     await cmdUiBuild();
@@ -4558,7 +4876,16 @@ async function cmdUiStatus(args = []) {
 async function cmdUiBuild() {
   header('Building Konoha Web UI (SvelteKit + Node Adapter)');
   const { execSync } = require('child_process');
-  const webDir = path.resolve(__dirname, '..', 'apps', 'web');
+  const webDir = deployUtils.resolveWebUiDir({ preferSources: true })
+    || path.resolve(__dirname, '..', 'apps', 'web');
+  const hasSources = fileExists(path.join(webDir, 'package.json'))
+    && fileExists(path.join(webDir, 'src', 'routes'));
+  if (!hasSources) {
+    error(`Web UI sources not found (looked in: ${webDir}).`);
+    info(`The pre-built UI at ${path.join(webDir, 'build')} is served automatically by 'konoha ui start'.`);
+    info(`To rebuild the UI from source, run from the Konoha repository: pnpm --dir apps/web run build`);
+    process.exit(1);
+  }
   try {
     const webModules = path.join(webDir, 'node_modules');
     if (!fs.existsSync(webModules)) {
@@ -4579,6 +4906,16 @@ async function cmdUiBuild() {
     } catch (_) {
       execSync('npm run build', { cwd: webDir, stdio: 'inherit' });
     }
+    // Refresh the installed runtime copy so 'konoha ui start' serves the new build
+    const installedBuild = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
+    if (path.resolve(webDir) !== path.resolve(path.dirname(installedBuild))) {
+      try {
+        fs.rmSync(installedBuild, { recursive: true, force: true });
+        fs.mkdirSync(installedBuild, { recursive: true });
+        fs.cpSync(path.join(webDir, 'build'), installedBuild, { recursive: true });
+        info(`Installed runtime UI refreshed: ${installedBuild}`);
+      } catch (_) {}
+    }
     success('Production build completed in apps/web/build/');
   } catch (err) {
     error(`Build failed: ${err.message}`);
@@ -4595,7 +4932,7 @@ async function cmdUiPreview(args = []) {
     else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
   }
 
-  const buildIndex = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'index.js');
+  const buildIndex = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'index.js');
   if (!fs.existsSync(buildIndex)) {
     warn('Production build not found. Running "konoha ui build" first...');
     await cmdUiBuild();
@@ -4734,6 +5071,105 @@ async function cmdUninstall(args = []) {
     });
     success(`Cleaned server files in: ${SKILLS_DB_DIR} (preserved konoha.db)`);
   }
+
+  // Remove Konoha MCP servers from the Pi (pi.dev) config
+  if (fileExists(piManager.PI_MCP_CONFIG)) {
+    if (piManager.removePiMcp(true)) {
+      success('Removed Konoha MCP servers from Pi (pi.dev) config');
+    } else {
+      warn('Could not update Pi (pi.dev) MCP config');
+    }
+  }
+  piManager.removePiRtkRule(true);
+  piManager.removePiContract(true);
+
+  // Remove Command Code workflow reminder hook
+  const ccSettingsPath = path.join(HOME, '.commandcode', 'settings.json');
+  if (fileExists(ccSettingsPath)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(ccSettingsPath, 'utf-8'));
+      if (cfg.hooks && Array.isArray(cfg.hooks.SessionStart)) {
+        const before = cfg.hooks.SessionStart.length;
+        cfg.hooks.SessionStart = cfg.hooks.SessionStart.filter(
+          (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
+        );
+        if (cfg.hooks.SessionStart.length !== before) {
+          fs.writeFileSync(ccSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
+          success('Removed Konoha workflow reminder from Command Code SessionStart hooks');
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Remove Claude Code workflow reminder hook
+  const claudeSettingsPath = path.join(HOME, '.claude', 'settings.json');
+  if (fileExists(claudeSettingsPath)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(claudeSettingsPath, 'utf-8'));
+      let changed = false;
+      for (const eventName of ['UserPromptSubmit', 'SessionStart']) {
+        if (!cfg.hooks || !Array.isArray(cfg.hooks[eventName])) continue;
+        const before = cfg.hooks[eventName].length;
+        cfg.hooks[eventName] = cfg.hooks[eventName].filter(
+          (e) => !(e.hooks || []).some((h) => h.command && h.command.includes('workflow_reminder'))
+        );
+        if (cfg.hooks[eventName].length === 0) delete cfg.hooks[eventName];
+        if (cfg.hooks[eventName].length !== before) changed = true;
+      }
+      if (changed) {
+        fs.writeFileSync(claudeSettingsPath, JSON.stringify(cfg, null, 2) + '\n');
+        success('Removed Konoha workflow reminder from Claude Code hooks');
+      }
+    } catch (_) {}
+  }
+
+  // Remove global `konoha` command shims that point into ~/.konoha
+  // (shims pointing at an npm/pnpm-managed package are left for that
+  // package manager to manage)
+  try {
+    const isWin = process.platform === 'win32';
+    const homeDir = os.homedir();
+    const shimDirs = new Set();
+    try {
+      const npmCmd = isWin ? 'npm.cmd' : 'npm';
+      const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin });
+      const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
+      if (prefix && fs.existsSync(prefix)) shimDirs.add(isWin ? prefix : path.join(prefix, 'bin'));
+    } catch (_) {}
+    if (isWin) {
+      const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
+      shimDirs.add(path.join(localAppData, 'pnpm'));
+    } else {
+      shimDirs.add(path.join(homeDir, '.local', 'share', 'pnpm'));
+      shimDirs.add(path.join(homeDir, 'Library', 'pnpm'));
+      shimDirs.add(path.join(homeDir, '.local', 'bin'));
+    }
+    const konohaPrefix = SKILLS_DB_DIR + path.sep;
+    for (const dir of shimDirs) {
+      for (const name of ['konoha', 'konoha.cmd', 'konoha.ps1']) {
+        const shimPath = path.join(dir, name);
+        try {
+          if (!fs.existsSync(shimPath) && !fs.lstatSync(shimPath).isSymbolicLink()) continue;
+        } catch (_) { continue; }
+        try {
+          const st = fs.lstatSync(shimPath);
+          if (st.isSymbolicLink()) {
+            const target = path.resolve(dir, fs.readlinkSync(shimPath));
+            if (target === path.join(SKILLS_DB_DIR, 'bin', 'cli.js')) {
+              fs.unlinkSync(shimPath);
+              success(`Removed command shim: ${shimPath}`);
+            }
+          } else {
+            const content = fs.readFileSync(shimPath, 'utf8');
+            if (content.includes(konohaPrefix)) {
+              fs.unlinkSync(shimPath);
+              success(`Removed command shim: ${shimPath}`);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
 
   // Remove from MCP config
   if (fileExists(MCP_CONFIG_PATH)) {
@@ -6353,20 +6789,17 @@ async function cmdUpgrade(args = []) {
     pbar.stopPulse();
     pbar.logStep(`Konoha Bridge extension & browser tools verified`);
 
-    // Cross-Platform Global Link Reconciliation: ensure binary is reachable across all detected global bin dirs
+    // Cross-Platform Global Command Reconciliation: the `konoha` command must
+    // always resolve to the self-contained install at ~/.konoha/bin/cli.js on
+    // every platform (npm/pnpm/yarn shims are repaired or created as needed)
     try {
-      if (!isWin) {
-        const homeDir = os.homedir();
-        const pnpmBinDir = path.join(homeDir, '.local', 'share', 'pnpm');
-        const currentBin = process.argv[1];
-        if (fileExists(pnpmBinDir) && currentBin && fileExists(currentBin)) {
-          const targetLink = path.join(pnpmBinDir, 'konoha');
-          if (!fileExists(targetLink)) {
-            try {
-              fs.symlinkSync(currentBin, targetLink);
-            } catch {}
-          }
-        }
+      const shimReport = reconcileGlobalCommand();
+      const shimsTouched = [...new Set([...shimReport.updated, ...shimReport.created])];
+      if (shimsTouched.length > 0) {
+        pbar.logStep(`Global command 'konoha' → ${shimReport.sourceCli} (${shimsTouched.length} shim(s) repaired)`);
+      }
+      for (const failure of shimReport.failed) {
+        pbar.logStep(`Shim warning: could not update ${failure.path}: ${failure.error}`);
       }
     } catch {}
 
@@ -7279,7 +7712,7 @@ async function cmdDataPrune() {
       const conn = getDb(DB_PATH);
       try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) {}
       try { conn.prepare("DELETE FROM active_sessions;").run(); } catch (_) {}
-      try { conn.pragma("vacuum"); } catch (_) {}
+      try { conn.exec("VACUUM"); } catch (_) {}
       const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
       const saved = Math.max(sizeBefore - sizeAfter, 0);
 
@@ -7321,7 +7754,7 @@ async function cmdDataVacuum() {
       const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
       const { getDb } = require('../src/db');
       const conn = getDb(DB_PATH);
-      try { conn.pragma("vacuum"); } catch (_) {}
+      try { conn.exec("VACUUM"); } catch (_) {}
       const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
       const saved = Math.max(sizeBefore - sizeAfter, 0);
 
@@ -7817,4 +8250,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { syncTemplateSkills };
+module.exports = { syncTemplateSkills, installCliRuntime, reconcileGlobalCommand };

@@ -449,7 +449,9 @@ function refreshRtk(silent = true) {
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
-    const result = spawnSync(cargo, ['install', 'rtk', '--locked', '--force'], {
+    // Install from the official rtk-ai/rtk repo — the plain `cargo install rtk`
+    // crate on crates.io is an unrelated project (Rust Type Kit name collision)
+    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked', '--force'], {
       encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit'
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
@@ -462,30 +464,75 @@ function refreshRtk(silent = true) {
   }
 }
 
+const RTK_INSTALL_SH_URL = 'https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh';
+const RTK_WIN_RELEASE_URL = 'https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-pc-windows-msvc.zip';
+
 function ensureRtkInstalled(silent = true) {
   if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
 
+  const addToPath = () => {
+    const cargoBin = path.join(HOME, '.cargo', 'bin');
+    const localBin = path.join(HOME, '.local', 'bin');
+    process.env.PATH = [cargoBin, localBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
+  };
+
+  // 1. Preferred: cargo from the official repo
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
-    if (available.status !== 0) {
-      return { ok: false, reason: 'cargo-not-installed' };
+    if (available.status === 0) {
+      const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
+        encoding: 'utf-8',
+        timeout: 600000,
+        stdio: silent ? 'ignore' : 'inherit'
+      });
+      if (result.status === 0) {
+        addToPath();
+        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+      }
     }
-    const result = spawnSync(cargo, ['install', 'rtk', '--locked'], {
-      encoding: 'utf-8',
-      timeout: 600000,
-      stdio: silent ? 'ignore' : 'inherit'
-    });
-    if (result.status === 0) {
-      const cargoBin = path.join(HOME, '.cargo', 'bin');
-      const localBin = path.join(HOME, '.local', 'bin');
-      process.env.PATH = [cargoBin, localBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
-      if (isRtkInstalled()) return { ok: true, reason: 'installed' };
-    }
-    return { ok: false, reason: 'rtk-install-failed' };
   } catch (error) {
-    return { ok: false, reason: 'rtk-install-failed', error: error.message };
+    if (!silent) process.stderr.write(`[rtk] cargo install unavailable: ${error.message}\n`);
   }
+
+  // 2. Fallback (Linux/macOS): official quick-install script → ~/.local/bin
+  if (process.platform !== 'win32') {
+    try {
+      const result = spawnSync('sh', ['-c', `curl -fsSL ${RTK_INSTALL_SH_URL} | sh`], {
+        encoding: 'utf-8',
+        timeout: 180000,
+        stdio: silent ? 'ignore' : 'inherit'
+      });
+      if (result.status === 0) {
+        addToPath();
+        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+      }
+    } catch (error) {
+      if (!silent) process.stderr.write(`[rtk] quick-install script failed: ${error.message}\n`);
+    }
+  }
+
+  // 3. Fallback (Windows): prebuilt release zip → %USERPROFILE%\.local\bin
+  if (process.platform === 'win32') {
+    try {
+      const destDir = path.join(HOME, '.local', 'bin');
+      fs.mkdirSync(destDir, { recursive: true });
+      const zipPath = path.join(destDir, 'rtk.zip');
+      const dl = spawnSync('powershell.exe', [
+        '-NoProfile', '-Command',
+        `Invoke-WebRequest -Uri '${RTK_WIN_RELEASE_URL}' -OutFile '${zipPath}' -UseBasicParsing; Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force`
+      ], { encoding: 'utf-8', timeout: 300000, stdio: 'ignore' });
+      try { fs.unlinkSync(zipPath); } catch (_) {}
+      if (dl.status === 0) {
+        addToPath();
+        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+      }
+    } catch (error) {
+      if (!silent) process.stderr.write(`[rtk] Windows prebuilt install failed: ${error.message}\n`);
+    }
+  }
+
+  return { ok: false, reason: 'rtk-install-failed' };
 }
 
 function getAntigravityStatus() {
@@ -496,6 +543,7 @@ function getAntigravityStatus() {
   let mcpConfigExists = fs.existsSync(mcpConfigPath);
   let mcpSkillsDb = false;
   let mcpSemble = false;
+  let mcpAislop = false;
 
   if (mcpConfigExists) {
     try {
@@ -637,6 +685,11 @@ function ensureAntigravityPermissions(silent = true) {
         try {
           settings = JSON.parse(fs.readFileSync(sPath, 'utf8')) || {};
         } catch {
+          // Corrupt file: back it up so the user's settings are recoverable
+          try {
+            fs.copyFileSync(sPath, sPath + '.corrupt-' + Date.now());
+            console.warn(`⚠ ${sPath} was invalid JSON — backed up to ${sPath}.corrupt-*`);
+          } catch (_) {}
           settings = {};
         }
       }

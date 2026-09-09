@@ -22,7 +22,50 @@ const {
   reportFromAgent
 } = require('./memory_reporting');
 
+// Bounded file tools are implemented by src/file_tools_router.js. server.js
+// advertises them in tools/list, so the dispatcher MUST delegate to the router
+// instead of failing with "Unknown tool" (broken pi and server.js clients).
+const FILE_TOOLS = new Set([
+  'read_file_head',
+  'read_file_range',
+  'file_info',
+  'token_efficient_grep',
+  'get_file_structure',
+  'find_files_clean'
+]);
+
+// Workflow artifacts live in the task dir, never in the workspace root —
+// give agents an actionable hint when they look for them in the wrong place.
+const WORKFLOW_FILENAMES = new Set([
+  'prompt.md', 'plan.md', 'result.md', 'delegate.md', 'findings.md',
+  'final_report.md', 'final_docs.md', 'kage_review.json', 'status.json'
+]);
+
+function annotateWorkflowFileHint(text) {
+  try {
+    if (typeof text !== 'string' || !text.includes('"error"')) return text;
+    const parsed = JSON.parse(text);
+    const rawPath = parsed && typeof parsed.error === 'string'
+      ? (parsed.error.match(/File not found: (.+?)(?:$|")/) || [])[1]
+      : null;
+    if (!rawPath) return text;
+    const base = path.basename(rawPath).toLowerCase();
+    if (!WORKFLOW_FILENAMES.has(base)) return text;
+    const taskDir = getResolvedTaskDir(null);
+    parsed.hint = `'${base}' is a workflow artifact and lives in the task directory, not the workspace root. ` +
+      `Current task dir: ${taskDir}. Use get_resolved_task_dir to resolve it, then read files there.`;
+    return JSON.stringify(parsed);
+  } catch (_) {
+    return text;
+  }
+}
+
 function _executeToolInternal(toolName, args, agent) {
+  if (FILE_TOOLS.has(toolName)) {
+    const router = require('../file_tools_router');
+    const { text } = router.dispatchTool(toolName, args || {});
+    return annotateWorkflowFileHint(text);
+  }
   if (toolName === 'find_skill' || toolName === 'find_skills') {
     const keyword = args.keyword || '';
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);

@@ -16,7 +16,7 @@
                 <mxCell id="p1-user" value="End User" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
                     <mxGeometry x="40" y="50" width="180" height="50" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-client" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
+<mxCell id="p1-client" value="Supported Clients&#10;Antigravity CLI / IDE&#10;Claude Code | Cursor | OpenCode | Command Code | Codex | Pi (pi.dev)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontStyle=1;" parent="p1-l1" vertex="1">
                     <mxGeometry x="340" y="40" width="360" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-config" value="Client MCP Configurations&#10;Konoha + Semble + Aislop + optional RTK rules" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#312e81;" parent="p1-l1" vertex="1">
@@ -52,10 +52,10 @@
                 <mxCell id="p1-l4" value="Persistence and workspace boundary" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#9a3412;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="40" y="720" width="1520" height="180" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-db" value="SQLite skills.db (src/db.js)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-db" value="SQLite konoha.db (src/db.js)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
                     <mxGeometry x="160" y="50" width="400" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#10;BM25-ranked index + IBM Granite Embeddings + GTE Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#10;BM25-ranked index + IBM Granite 97M Embeddings + bge-reranker-base Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
                     <mxGeometry x="680" y="55" width="260" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-code" value="Workspace Files&#10;Source code, docs, tests, task artifacts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;" parent="p1-l4" vertex="1">
@@ -437,7 +437,7 @@
                 <mxCell id="p6-migrate" value="konoha migrate&#10;FTS5 indexing + vector embedding backfill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="640" y="240" width="300" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p6-db" value="SQLite skills.db (src/db.js)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p6-db" value="SQLite konoha.db (src/db.js)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="640" y="420" width="300" height="100" as="geometry" />
                 </mxCell>
                 <mxCell id="p6-agent" value="Any Supported Client&#10;Konoha MCP runtime" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
@@ -652,7 +652,7 @@
                 <mxCell id="p10-profiler" value="Project Context Profiler&#10;• Stack Detection (Framework, Styling, PkgMgr)&#10;• Invariants &amp; Episodic Learnings Storage" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="400" y="240" width="320" height="130" as="geometry" />
                 </mxCell>
-                <mxCell id="p10-db" value="SQLite Database (~/.konoha/skills.db)&#10;• projects table (path, hash, name, framework)&#10;• persona_memories table (scoped by project_path)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
+                <mxCell id="p10-db" value="SQLite Database (~/.konoha/konoha.db)&#10;• projects table (path, hash, name, framework)&#10;• persona_memories table (scoped by project_path)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="420" y="470" width="280" height="120" as="geometry" />
                 </mxCell>
                 <mxCell id="p10-compactor" value="2-Prompt Auto-Compaction Engine&#10;• Turn 1: Full context with Taste directives (~1,800 tokens)&#10;• Turn 2+: Compact badge mode (&lt; 450 tokens)&#10;• On-demand skills served via konoha.get_skill&#10;• Permanent memory continuity without hallucination" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" parent="1" vertex="1">
@@ -724,7 +724,7 @@
                 <mxCell id="p12-stg3" value="Stage 3: Dependencies&#xa;Node.js, uv, agent-browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;" vertex="1" parent="1"><mxGeometry x="560" y="250" width="200" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg4" value="Stage 4: MCP Runtime&#xa;Deploy files to ~/.konoha/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="60" y="360" width="180" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg5" value="Stage 5: SQLite FTS5&#xa;Progressive fallback: full → skip-embeddings → skills-only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="290" y="360" width="220" height="60" as="geometry" /></mxCell>
-                <mxCell id="p12-stg6" value="Stage 6: 6 MCP Clients&#xa;Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="560" y="360" width="280" height="60" as="geometry" /></mxCell>
+                <mxCell id="p12-stg6" value="Stage 6: 7 MCP Clients&#xa;Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;" vertex="1" parent="1"><mxGeometry x="560" y="360" width="280" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-stg7" value="Stage 7: Bridge Extension&#xa;Fast-path VSIX &amp; tools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;" vertex="1" parent="1"><mxGeometry x="290" y="470" width="220" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-done" value="100% Upgrade Finalized&#xa;All MCP servers healthy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#15803d;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="470" width="200" height="60" as="geometry" /></mxCell>
                 <mxCell id="p12-e1" edge="1" parent="1" source="p12-start" target="p12-pbar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0284c7;strokeWidth=2;"><mxGeometry relative="1" as="geometry" /></mxCell>

@@ -40,12 +40,24 @@ function checkPython() {
 }
 
 function getUvx() {
+  const isWin = process.platform === 'win32';
   try {
-    spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000 });
+    spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000, shell: isWin });
     return 'uvx';
   } catch {}
-  const local = path.join(HOME, '.local', 'bin', 'uvx');
+  // Windows installs put uvx.exe in %USERPROFILE%\.local\bin
+  const localName = isWin ? 'uvx.exe' : 'uvx';
+  const local = path.join(HOME, '.local', 'bin', localName);
   return fileExists(local) ? local : 'uvx';
+}
+
+function isUvxUsable() {
+  try {
+    const uvx = getUvx();
+    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, shell: process.platform === 'win32' });
+    return r.status === 0;
+  } catch {}
+  return false;
 }
 
 function buildKonohaFilesMcpEntry() {
@@ -55,7 +67,8 @@ function buildKonohaFilesMcpEntry() {
   const target = fs.existsSync(launcherJs) ? launcherJs : mcpJs;
   return {
     type: 'stdio',
-    command: 'node',
+    // Absolute node path: GUI-launched Cursor may not inherit a shell PATH
+    command: process.execPath || 'node',
     args: [target]
   };
 }
@@ -85,14 +98,17 @@ function registerMcp(python) {
   }
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const uvxUsable = isUvxUsable();
   const servers = {
-    semble: {
-      type: 'stdio',
-      command: getUvx(),
-      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-      autoApprove: ['*', 'search', 'find_related'],
-      auto_approve: true
-    },
+    ...(uvxUsable ? {
+      semble: {
+        type: 'stdio',
+        command: getUvx(),
+        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+        autoApprove: ['*', 'search', 'find_related'],
+        auto_approve: true
+      }
+    } : {}),
     aislop: {
       type: 'stdio',
       command: npxCmd,

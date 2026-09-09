@@ -1,7 +1,8 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { useScrollLock } from "#lib/scrollLock.svelte.js";
 
   let bridges = $state([]);
   let status = $state(null);
@@ -140,9 +141,9 @@
 
   let filteredModels = $derived(
     models.filter(m => {
-      const matchesSearch = !modelsSearch || 
-        m.id.toLowerCase().includes(modelsSearch.toLowerCase()) || 
-        m.model_name.toLowerCase().includes(modelsSearch.toLowerCase());
+      const matchesSearch = !modelsSearch ||
+        String(m.id || '').toLowerCase().includes(modelsSearch.toLowerCase()) ||
+        String(m.model_name || '').toLowerCase().includes(modelsSearch.toLowerCase());
       const matchesBridge = selectedBridgeFilter === 'all' || m.bridge === selectedBridgeFilter;
       return matchesSearch && matchesBridge;
     })
@@ -230,12 +231,24 @@
   }
 
   onMount(loadData);
+
+  useScrollLock(showCreateModal);
+  useScrollLock(showModelsModal);
+
+  function handleModalKeydown(e) {
+    if (e.key === 'Escape') {
+      showCreateModal = false;
+      showModelsModal = false;
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -472,10 +485,10 @@
 
   <!-- Create Bridge 3D Glass Modal -->
   {#if showCreateModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}>
       <div
-        class="relative w-full max-w-lg rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
-        style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%); border-color: rgba(226, 232, 240, 0.95); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
+        class="glass-frost-strong relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
+        style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
       >
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-black text-slate-900">Configure New Bridge</h3>
@@ -578,7 +591,7 @@
 
   <!-- Served Models Modal with 3D Glass & Search -->
   {#if showModelsModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm" onclick={(e) => { if (e.target === e.currentTarget) showModelsModal = false; }}>
       <div
         class="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-3xl p-6 border bg-white shadow-2xl overflow-hidden"
         style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"
@@ -660,7 +673,7 @@
             </div>
           {:else}
             <table class="w-full text-left text-xs">
-              <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider sticky top-0 bg-slate-50 z-10">
+              <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
                   <th class="py-3 px-4">Gateway Alias ID</th>
                   <th class="py-3 px-4">Base Model</th>

@@ -13,7 +13,7 @@
     },
     "konoha": {
       "type": "stdio",
-      "command": "node",
+      "command": "/home/andycungkrinx/.nvm/versions/node/v26.5.1/bin/node",
       "args": [
         "${userHome}/.konoha/file_tools_launcher.js"
       ]

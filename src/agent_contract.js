@@ -10,7 +10,8 @@ const CLIENT_LABELS = {
   claude: 'Claude Code',
   opencode: 'OpenCode',
   commandcode: 'Command Code',
-  codex: 'Codex'
+  codex: 'Codex',
+  pi: 'Pi (pi.dev)'
 };
 
 function buildAgentContract(options = {}) {

@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-This review covers the Konoha MCP runtime v2.0.0-beta.7, certifying the transition from a dual-runtime (Node.js + Python 3) system to a **100% pure Node.js / JavaScript single-runtime architecture**. Python 3 has been completely eliminated as an active runtime and dependency across all 39 MCP tools, 16 CLI commands, 7 ninja subagents, and 6 client integrations (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, and Codex).
+This review covers the Konoha MCP runtime v2.0.0-beta.7, certifying the transition from a dual-runtime (Node.js + Python 3) system to a **100% pure Node.js / JavaScript single-runtime architecture**. Python 3 has been completely eliminated as an active runtime and dependency across all 39 MCP tools, 16 CLI commands, 7 ninja subagents, and 7 client integrations (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi/pi.dev).
 
-All neural embedding generation and vector search workflows have been ported to native JavaScript utilizing IBM Granite Multilingual 30M ONNX models with `@xenova/transformers`, achieving cosine similarity within ±0.0001 of baseline with zero subprocess spawning. All bounded file operations, SQLite managers, and cross-client attributions run directly in-process. All 62 JavaScript automated test suites pass on **2026-09-08** with 0 failures — 100% automated test compliance.
+All neural embedding generation and vector search workflows have been ported to native JavaScript utilizing the IBM Granite 97M Multilingual ONNX model (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`) with `@huggingface/transformers`, achieving cosine similarity within ±0.0001 of baseline with zero subprocess spawning. All bounded file operations, SQLite managers, and cross-client attributions run directly in-process. All 64 JavaScript automated test suites pass on **2026-09-08** with 0 failures — 100% automated test compliance.
 
 ---
 
@@ -22,7 +22,7 @@ All neural embedding generation and vector search workflows have been ported to 
 - **Compliance Status**: **PASS** (100% JSON-RPC stream compliance; zero stream corruption).
 
 ### 3. In-Process Neural Embeddings & Vector Search Security (`src/vector_search.js`)
-- **Native ONNX Execution**: Embedded IBM Granite Multilingual 30M ONNX models and BGE reranker run locally and in-process via `@xenova/transformers` with local disk caching under `~/.konoha/models/`.
+- **Native ONNX Execution**: Embedded IBM Granite 97M Multilingual ONNX model (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`) and BGE reranker run locally and in-process via `@huggingface/transformers` with local disk caching under `~/.konoha/models/`.
 - **Privacy & Air-Gap Compliance**: Neural embeddings and semantic similarity searches operate 100% offline without telemetry, third-party network egress, or cloud API dependencies.
 - **Precision Parity**: Cosine similarity verified within ±0.0001 of PyTorch/Python baselines across multilingual benchmark sets.
 - **Compliance Status**: **PASS** (Air-gapped local vector execution; zero network egress).
@@ -39,7 +39,7 @@ All neural embedding generation and vector search workflows have been ported to 
 - **Compliance Status**: **PASS** (SQL injection and FTS syntax injection protected).
 
 ### 6. Cross-Client Compatibility & Attribution Integrity
-- **Multi-Client Support**: Clean synchronization across Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, and Codex.
+- **Multi-Client Support**: Clean synchronization across Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi (pi.dev — MCP servers registered via the `pi-mcp-adapter` extension into the Pi-owned `~/.pi/agent/mcp.json` override; no shared or project MCP configs are modified).
 - **Attribution & Rule Delivery**: Universal RTK wrapper rules and MCP configurations deployed consistently to each client with atomic write and backup mechanics.
 - **Compliance Status**: **PASS** (Cross-client configs deterministic and validated).
 
@@ -55,13 +55,26 @@ All neural embedding generation and vector search workflows have been ported to 
 ### 9. Web UI CSRF Defense & Localhost Isolation (`src/web_server.js`, `apps/web/`)
 - **Strict Localhost Binding**: The web daemon binds exclusively to loopback interface `127.0.0.1:1404` preventing unauthorized external network ingress.
 - **CSRF Token Invariant**: Every state-changing API request (`POST`, `PUT`, `PATCH`, `DELETE`) is guarded by mandatory `X-Konoha-Web-Token` validation matching the session token injected at runtime into the single-page application.
-- **No Plaintext Secret Leaks**: Bridge provider credentials are treated as write-only parameters and never reflected back in API responses or browser DOM.
-- **Compliance Status**: **PASS** (CSRF hardened; zero external network exposure).
+- **No CORS Wildcard (hardened in beta.7)**: All JSON API responses previously emitted `Access-Control-Allow-Origin: *`, which allowed any web page open in the user's browser to read API responses (including the CSRF token) cross-origin. The wildcard has been removed from `sendJson()` and the `OPTIONS` handler — the SvelteKit UI is served same-origin, so no legitimate consumer is affected. Verified live: no `Access-Control-Allow-Origin` header on any endpoint.
+- **No Session Token in Health**: `GET /api/v1/health` no longer returns the session token (verified live); the token is only issued by `GET /api/v1/csrf` and the `SameSite=Strict` session cookie.
+- **No Plaintext Secret Leaks**: Bridge provider credentials are redacted in API responses — `GET /api/v1/bridges` returns `has_key: true/false` instead of the stored `api_key` (`src/web_server.js` list endpoint redaction). Verified live: a bridge created with `api_key` exposes zero occurrences of the secret in the listing.
+- **Compliance Status**: **PASS** (CSRF hardened; CORS wildcard eliminated; zero external network exposure; no credential reflection).
 
 ### 10. Stable LLM Bridge Gateway Protection Invariant (`src/bridge/*`)
 - **Invariant Enforcement**: The Bridge Gateway and sidecar proxies under `src/bridge/` are strictly locked, stable, and protected against unauthorized refactoring or logic alteration.
 - **Boundary Verification**: Verified zero code modifications in `src/bridge/` throughout feature development and release packaging.
 - **Compliance Status**: **PASS** (Core bridge logic untouched and preserved).
+
+### 11. Database Integrity & Connection Hygiene (hardened in beta.7)
+- **FTS Index Synchronization**: The external-content `persona_memories_fts` index is now maintained exclusively by `AFTER INSERT/DELETE/UPDATE` triggers in `src/db.js` (previously, deletes occurred after the content row was gone, silently corrupting search results). Legacy FTS schemas missing `project_hash` are dropped and rebuilt on schema setup. Verified via FTS `integrity-check` and a delete-then-search regression probe.
+- **Connection Lifecycle**: All SQLite connection call sites close in `finally`; the vector-extension registry uses a `WeakSet`, eliminating an unbounded connection/memory leak in long-running MCP servers.
+- **Real VACUUM**: `konoha data prune` / `data vacuum` execute an actual `exec('VACUUM')` (the previous `PRAGMA vacuum` was a no-op).
+- **Compliance Status**: **PASS** (Index integrity verified; no leaked connections; disk reclamation functional).
+
+### 12. JSON-RPC Protocol Error Correlation (hardened in beta.7)
+- **Request-Id Preservation**: Tool-handler crashes inside `tools/call` previously answered with `id: null` "Parse error" frames, leaving well-behaved clients stalled until timeout. Both MCP servers (`src/mcp/protocol.js`, `src/file_tools_mcp.js`) now return the original request `id` with `isError: true`.
+- **Replacement Literalism**: `applyFileEdits` (`src/mcp/memory_reporting.js`) uses function-form `String.replace` so `$&` / `` $` `` / `$'` sequences in agent-provided replacement text are written literally instead of being expanded into edited files.
+- **Compliance Status**: **PASS** (No client hangs; no file corruption from replacement patterns).
 
 ---
 

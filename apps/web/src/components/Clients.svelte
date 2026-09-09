@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
 
   let clients = $state([]);
   let loading = $state(true);
@@ -70,7 +70,7 @@
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -82,17 +82,17 @@
           Multi-Client Integration
         </div>
         <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
-          Coding Clients (6 IDEs & CLIs)
+          Coding Clients (7 IDEs & CLIs)
         </h2>
         <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
-          Auto-inject Konoha MCP tools and RTK output filtering into Antigravity, Cursor, Claude Code, OpenCode, Command Code, and Codex.
+          Auto-inject Konoha MCP tools and RTK output filtering into Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi (pi.dev).
         </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-3 shrink-0">
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
           <div class="text-xs font-bold text-slate-600">Supported Clients</div>
-          <div class="text-xl font-black text-indigo-600">6 Platforms</div>
+          <div class="text-xl font-black text-indigo-600">7 Platforms</div>
         </div>
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
           <div class="text-xs font-bold text-slate-600">Connected</div>
@@ -119,9 +119,9 @@
       </div>
     </div>
   {:else}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="scene-3d grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {#each clients as client}
-        <div class="glass-card-3d flex flex-col justify-between p-6 rounded-3xl border">
+        <div class="glass-card-3d tilt-3d flex flex-col justify-between p-6 rounded-3xl border">
           <div>
             <!-- Client Header -->
             <div class="flex items-center justify-between gap-3 mb-4">

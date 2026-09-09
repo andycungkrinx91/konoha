@@ -4,6 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { spawnSync } = require("child_process");
 const { fileExists, ensureDir, IS_WIN, detectPythonOrDefault } = require("./platform_utils");
 
 const {
@@ -17,6 +18,61 @@ const FILE_TOOLS_LAUNCHER_JS = path.join(
   SKILLS_DB_DIR,
   "file_tools_launcher.js",
 );
+
+/**
+ * Resolves the Konoha Web UI application directory (apps/web) across runtimes:
+ *   1. ~/.konoha/apps/web            — runtime copy installed by installCliRuntime()
+ *   2. <repo>/apps/web               — when running from the konoha repository
+ *   3. <npm global root>/Konoha/apps/web — npm-installed package (last resort)
+ * A candidate qualifies only if it is a real app dir (package.json named
+ * konoha-web, or a build/handler.js production output).
+ * opts.preferSources: prefer a directory with buildable sources (src/routes)
+ * over a build-only copy — used by `konoha ui build`.
+ * Returns null when the UI is unavailable on this machine.
+ */
+function resolveWebUiDir(opts = {}) {
+  const candidates = [
+    path.join(HOME, ".konoha", "apps", "web"),
+    path.resolve(__dirname, "..", "apps", "web")
+  ];
+  try {
+    const isWin = process.platform === "win32";
+    const res = spawnSync(isWin ? "npm.cmd" : "npm", ["root", "-g"], {
+      encoding: "utf-8",
+      timeout: 8000,
+      shell: isWin
+    });
+    const globalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop();
+    if (globalRoot) candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
+  } catch (_) {}
+
+  const qualifying = [];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      let qualifies = false;
+      let hasSources = false;
+      const pkg = path.join(dir, "package.json");
+      if (fs.existsSync(pkg)) {
+        try {
+          if (JSON.parse(fs.readFileSync(pkg, "utf8")).name === "konoha-web") {
+            qualifies = true;
+            hasSources = fs.existsSync(path.join(dir, "src", "routes"));
+          }
+        } catch (_) {}
+      }
+      if (!qualifies && fs.existsSync(path.join(dir, "build", "handler.js"))) qualifies = true;
+      if (qualifies) qualifying.push({ dir, hasSources });
+    } catch (_) {}
+  }
+  if (qualifying.length === 0) return null;
+  if (opts.preferSources) {
+    const withSources = qualifying.find((c) => c.hasSources);
+    if (withSources) return withSources.dir;
+    return null;
+  }
+  return qualifying[0].dir;
+}
 
 function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
@@ -179,7 +235,8 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
 
   return {
     type: "stdio",
-    command: (mode === "cursor" || mode === "global") ? "node" : (process.execPath || "node"),
+    // Absolute node path: GUI-launched IDEs may not inherit a shell PATH
+    command: process.execPath || "node",
     args: [useJsLauncher ? FILE_TOOLS_LAUNCHER_JS : FILE_TOOLS_MCP_PATH],
     env: {
       ACTIVE_CLIENT: clientName,
@@ -277,11 +334,29 @@ function installFileTools(silent = true, pythonCmd = null) {
         );
       }
       if (!fileExists(nodeModulesPath) || !fileExists(path.join(nodeModulesPath, 'better-sqlite3'))) {
-        const manager = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-        execFileSync(manager, ["install", "--prod", "--no-frozen-lockfile"], {
-          cwd: SKILLS_DB_DIR,
-          stdio: "ignore",
-        });
+        const isWin = process.platform === "win32";
+        // .cmd/.bat shims require shell:true since Node >= 18.20.2 (CVE-2024-27980);
+        // fall back to npm when pnpm is unavailable
+        const pmCandidates = [
+          { cmd: isWin ? "pnpm.cmd" : "pnpm", args: ["install", "--prod", "--no-frozen-lockfile"] },
+          { cmd: isWin ? "npm.cmd" : "npm", args: ["install", "--omit=dev", "--no-audit", "--no-fund"] },
+        ];
+        let lastErr = null;
+        for (const pm of pmCandidates) {
+          try {
+            execFileSync(pm.cmd, pm.args, {
+              cwd: SKILLS_DB_DIR,
+              stdio: "ignore",
+              shell: isWin,
+              timeout: 300000,
+            });
+            lastErr = null;
+            break;
+          } catch (pmErr) {
+            lastErr = pmErr;
+          }
+        }
+        if (lastErr) throw lastErr;
       }
     } catch (err) {
       if (!silent) {
@@ -302,6 +377,7 @@ module.exports = {
   FILE_TOOLS_LAUNCHER_JS,
   FILE_TOOLS_LAUNCHER_PATH,
   FILE_TOOLS_NODE_PATH_FILE,
+  resolveWebUiDir,
   FILE_TOOLS_PYTHON_CMD_FILE,
   FILE_TOOLS_PY_DIR,
   fileExists,

@@ -121,7 +121,7 @@ Enter choice [1/2]:
 
 For **OpenAI API Key** (option 1):
 - Prompts: bridge name, port, target URL, API key
-- Stores in `~/.konoha/skills.db` bridges table
+- Stores in `~/.konoha/konoha.db` bridges table
 
 For **OpenAI Compatible** (option 2):
 - Prompts: bridge name, port, target URL (required), API key (optional)
@@ -220,7 +220,7 @@ The gateway sets `Accept-Encoding: identity` on forwarded requests to guarantee 
 
 ## Bridge Schema
 
-### SQLite Database: `~/.konoha/skills.db`
+### SQLite Database: `~/.konoha/konoha.db`
 
 ```sql
 CREATE TABLE bridges (
@@ -263,7 +263,7 @@ node src/db_bridges.js --disable my-bridge
 | `src/bridge/context.js` | Bridge context management (per-bridge state) |
 | `src/bridge/models.js` | Model mapping utilities |
 | `src/bridge/utils.js` | Shared utilities (logging, streaming helpers, readBody) |
-| `src/db_bridges.py` | SQLite bridge CRUD |
+| `src/db_bridges.js` | SQLite bridge CRUD |
 
 ---
 

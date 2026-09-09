@@ -2,9 +2,9 @@
   import '../app.css';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { apiRequest, initToken } from '$lib/api.js';
-  import { uiState } from '$lib/state/uiState.svelte.js';
-  import { themeState } from '$lib/state/themeState.svelte.js';
+  import { apiRequest, initToken } from '#lib/api.js';
+  import { uiState } from '#lib/state/uiState.svelte.js';
+  import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
   import SweetAlertModal from '../components/SweetAlertModal.svelte';
 
@@ -63,7 +63,7 @@
 
 <div class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
   <!-- Desktop Fixed Left Sidebar (Mandatory Jonin Dashboard Invariant) -->
-  <aside class="hidden lg:flex w-64 border-r flex-col justify-between shrink-0 backdrop-blur-xl transition-colors duration-200" style="background: var(--glass-sidebar); border-color: var(--color-border); color: var(--color-text);">
+  <aside class="glass-frost hidden lg:flex w-64 border-r flex-col justify-between shrink-0 transition-colors duration-200" style="background: var(--glass-sidebar), var(--glass-tint); border-color: var(--color-border); color: var(--color-text);">
     <div>
       <!-- Brand Header (Far-Left Logo) -->
       <div class="p-6 border-b flex items-center gap-3" style="border-color: var(--color-border);">
@@ -86,7 +86,7 @@
           {@const isActive = page.url.pathname === item.path || (item.path === '/bridges' && page.url.pathname === '/')}
           <a
             href={item.path}
-            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150"
+            class="nav-depth flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150"
             style="{isActive ? 'color: var(--color-primary); background-color: var(--color-primary-glow); border: 1.5px solid var(--color-primary);' : 'color: var(--color-text-muted);'}"
           >
             <div class="flex items-center gap-3">
@@ -123,7 +123,7 @@
   <!-- Main Content Stage -->
   <main class="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0 transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
     <!-- Top Header: Brand Logo on Far LEFT (Mandatory Invariant) -->
-    <header class="h-14 border-b px-6 flex items-center justify-between shrink-0 backdrop-blur-md transition-colors duration-200" style="background: var(--glass-header); border-color: var(--color-border);">
+    <header class="glass-frost h-14 border-b px-6 flex items-center justify-between shrink-0 transition-colors duration-200" style="background: var(--glass-header), var(--glass-tint); border-color: var(--color-border);">
       <!-- Far-Left Logo & Title -->
       <div class="flex items-center gap-3">
         <div class="lg:hidden flex items-center gap-2">
@@ -149,25 +149,25 @@
       </div>
     </header>
 
-    <!-- Page Body -->
-    <div class="flex-1 overflow-y-auto p-6 lg:p-8 transition-colors duration-200" style="background-color: var(--color-bg);">
+    <!-- Page Body (extra bottom padding clears the mobile dock + theme FAB) -->
+    <div class="flex-1 overflow-y-auto p-6 pb-28 lg:p-8 lg:pb-8 transition-colors duration-200" style="background-color: var(--color-bg);">
       {@render children()}
     </div>
   </main>
 
   <!-- Mobile Navigation Dock (Mandatory Invariant — Zero Hamburger Menu in Header) -->
-  <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-xl border-t flex justify-around py-2 px-2 shadow-2xl transition-colors duration-200" style="background: var(--glass-dock); border-color: var(--color-border);">
+  <nav class="glass-frost lg:hidden fixed bottom-0 inset-x-0 z-40 border-t flex flex-nowrap items-center gap-1 overflow-x-auto scrollbar-none py-2 px-2 shadow-2xl transition-colors duration-200" style="background: var(--glass-dock), var(--glass-tint); border-color: var(--color-border); padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
     {#each navItems as item}
       {@const isActive = page.url.pathname === item.path || (item.path === '/bridges' && page.url.pathname === '/')}
       <a
         href={item.path}
-        class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all"
+        class="nav-depth flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all shrink-0"
         style="{isActive ? 'color: var(--color-primary); background-color: var(--color-primary-glow);' : 'color: var(--color-text-muted);'}"
       >
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
         </svg>
-        <span class="truncate">{item.label}</span>
+        <span class="whitespace-nowrap">{item.label}</span>
       </a>
     {/each}
   </nav>
@@ -178,9 +178,9 @@
   <!-- Global 3D SweetAlert Modal -->
   <SweetAlertModal />
 
-  <!-- Global Notification Toasts -->
+  <!-- Global Notification Toasts (lifted above the mobile dock on small screens) -->
   {#if uiState.notifications.length > 0}
-    <div class="fixed bottom-6 right-6 z-50 space-y-2">
+    <div class="fixed bottom-20 right-5 z-[90] lg:bottom-6 lg:right-6 space-y-2 max-w-[calc(100vw-2.5rem)]">
       {#each uiState.notifications as n (n.id)}
         <div class="px-4 py-3 rounded-xl text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-slate-900/95 text-white border-sky-500/50 flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>

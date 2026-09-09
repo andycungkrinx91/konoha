@@ -1,5 +1,8 @@
 <script>
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { useScrollLock } from "#lib/scrollLock.svelte.js";
+
+  useScrollLock(sweetAlert.isOpen);
 </script>
 
 {#if sweetAlert.isOpen}
@@ -7,7 +10,7 @@
     <!-- 3D Perspective Modal Card -->
     <div
       class="relative w-full max-w-md rounded-3xl p-6 sm:p-8 border shadow-2xl transition-all duration-300 transform scale-100"
-      style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%); border-color: rgba(226, 232, 240, 0.95); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);"
+      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);"
       role="alertdialog"
       aria-modal="true"
     >

@@ -136,17 +136,25 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     enabled: true
   };
 
-  // Semble MCP registration
-  config.mcp['semble'] = {
-    type: 'local',
-    command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-    environment: {
-      ACTIVE_CLIENT: 'opencode',
-      OPENCODE_CLIENT: '1',
-      KONOHA_CLIENT: 'opencode'
-    },
-    enabled: true
-  };
+  // Semble MCP registration — only when uvx is actually usable
+  const uvxAvailable = (() => {
+    try {
+      const res = spawnSync(uvxCmd || 'uvx', ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      return res.status === 0;
+    } catch { return false; }
+  })();
+  if (uvxAvailable) {
+    config.mcp['semble'] = {
+      type: 'local',
+      command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+      environment: {
+        ACTIVE_CLIENT: 'opencode',
+        OPENCODE_CLIENT: '1',
+        KONOHA_CLIENT: 'opencode'
+      },
+      enabled: true
+    };
+  }
 
   // Aislop MCP registration
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -195,32 +203,23 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
   try {
     const agents = loadAgents();
-    const newAgentMap = {};
-
-    // Keep disabled entries with valid descriptions
-    if (config.agent && typeof config.agent === 'object') {
-      for (const [k, v] of Object.entries(config.agent)) {
-        if (k.startsWith('cli-test-') || k.startsWith('mcp_')) continue;
-        if (v && v.disable) {
-          newAgentMap[k] = {
-            description: v.description || `Built-in ${k} agent (disabled)`,
-            disable: true
-          };
-        }
-      }
-    }
+    // Merge into the existing agent map — user-defined agents must survive setup
+    const agentMap = (config.agent && typeof config.agent === 'object') ? config.agent : {};
 
     for (const agent of agents) {
       if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const desc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
-      newAgentMap[agent.name] = {
+      agentMap[agent.name] = {
         description: desc,
         prompt: agent.instructions || `Execute ${agent.name} workflow using konoha and semble MCP tools.`,
         mode: 'subagent'
       };
     }
-    config.agent = newAgentMap;
-    config.instructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+    config.agent = agentMap;
+    // Union with the user's existing instructions — never drop them
+    const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+    const existingInstructions = Array.isArray(config.instructions) ? config.instructions : [];
+    config.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
   } catch {}
 
   writeOpenCodeConfig(config);
@@ -241,7 +240,9 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       delete sObj.autoApprove;
       sObj.autoApproval = true;
       sObj.permissionMode = 'allowAll';
-      sObj.instructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+      const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
+      const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
+      sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
       sObj.permission = {
         read: 'allow',
         edit: 'allow',

@@ -321,9 +321,42 @@ The agent's instructions must be updated. Check the following:
 On Linux/macOS, ensure the files are readable:
 ```bash
 chmod 644 ~/.konoha/file_tools_mcp.js ~/.konoha/file_tools_launcher.js ~/.konoha/file_tools_router.js
-chmod 644 ~/.konoha/db_bridges.py
-chmod 644 ~/.konoha/skills.db
+chmod 644 ~/.konoha/konoha.db
 ```
+
+---
+
+### 🚫 MCP tools/call returns `{"error":"Unknown tool: get_file_structure"}` (or `file_info`, `read_file_head`, ...) (`fixed in v2.0.0-beta.7`)
+
+- **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
+- **Fix**: Two-layer:
+  1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 39 tools.
+- **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
+
+---
+
+### ℹ️ Pi reports `[Skill conflicts] ... ✗ skipped` on startup (`informational — no action needed`)
+
+- **Cause**: Konoha seeds packaged skills into the global `~/.agents/skills/` and auto-migrates them into project `.agents/skills/` directories. Pi loads both and reports the duplicate names.
+- **Behavior**: Pi automatically prefers the **project-local** copy (`✓ auto (project)`) and skips the global one — the effective skill set is correct and complete.
+- **Action**: None. The warnings are informational; do not delete either copy (the global set serves the other 6 clients, the project set serves per-project customization).
+- **Workflow note**: if Pi "executes tasks by itself" instead of using the Konoha workflow, ensure the runtime contract is deployed — `konoha doctor --yes` should show `✔ Pi (pi.dev)`, and `~/.pi/agent/AGENTS.md` must contain the `Konoha Workflow Mandate (Pi)` section (re-run `konoha init --force --yes` to deploy it). The mandate instructs Pi to route through `sannin`/delegate.md phases and use Konoha MCP skill tools instead of the native `/skill:` mirrors.
+
+---
+
+### 🚫 Resumed sessions stop using the Konoha workflow (`fixed in v2.0.0-beta.7`)
+
+- **Cause**: Contracts/rules are injected at session **start**; on `--resume`/`--continue` the existing conversation history dominated and nothing re-engaged the Konoha workflow mechanically.
+- **Fix**: Claude Code now runs the Konoha **workflow reminder** on `UserPromptSubmit` (every prompt, all sessions) and on `SessionStart` with matcher `resume|compact|clear`. Pi/Codex re-read the deployed `AGENTS.md` (contract + Workflow Mandate) on every startup; Cursor's `konoha.mdc` uses `alwaysApply: true`; Antigravity's per-prompt `prompt_hook` maintains append-only session history.
+- **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and confirm `~/.claude/settings.json` contains a `UserPromptSubmit` entry with `workflow_reminder.js`.
+
+---
+
+### 🚫 `File not found: <workspace>/prompt.md` (or `plan.md`, `result.md`, ...) (`improved in v2.0.0-beta.7`)
+
+- **Cause**: Workflow artifacts (`prompt.md`, `plan.md`, `result.md`, `delegate.md`, `findings.md`, `final_report.md`, `kage_review.json`) live in the **task directory** (`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`), never in the workspace root. Agents that guess the workspace path get a plain not-found error.
+- **Fix**: `file_info` / `read_file_*` errors for these filenames now include an actionable `hint` with the resolved task directory path. Use `get_resolved_task_dir` to locate it, then read the artifact there.
 
 ---
 

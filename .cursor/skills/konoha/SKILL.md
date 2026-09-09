@@ -1,6 +1,6 @@
 ---
 name: konoha
-description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 6 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex).
+description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 7 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi/pi.dev).
 ---
 
 # 🍃 Konoha Maintenance & Engineering Skill
@@ -11,13 +11,14 @@ Comprehensive operational guide for maintaining, extending, and debugging the **
 
 ## 🏛️ System Architecture Overview
 
-Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 6 AI coding clients:
+Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 7 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`)
 - **OpenCode** (`~/.config/opencode/opencode.json`)
 - **Command Code** (`~/.commandcode/mcp.json`)
 - **Codex** (`~/.codex/config.toml`, `~/.codex/AGENTS.md`)
+- **Pi (pi.dev)** (`~/.pi/agent/mcp.json` via the `pi-mcp-adapter` extension)
 
 Each client environment is configured with three core MCP servers:
 1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration.
@@ -36,7 +37,7 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 
 ### 2. Floating Bottom-Left 10-Theme Switcher FAB
 - **Placement**: Fixed floating in the bottom-left corner (`fixed bottom-6 left-6 z-50`, like a customer chat/FAB button) on both desktop and mobile viewports.
-- **Pure Light Mode**: 10 curated Light Mode gradient themes (`imperial-gold`, `nebula-indigo`, `aurora-emerald`, `sunset-amber`, `ocean-sapphire`, `forest-jade`, `volcano-crimson`, `sakura-rose`, `cyber-violet`, `midnight-slate`).
+- **Pure Light Mode**: 10 curated Light Mode gradient themes (`byakugan`, `chidori`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`).
 - **SSR Hydration Safety**: Strict `useMounted()` guard before accessing `localStorage` or rendering theme DOM to guarantee **0 hydration mismatch errors**.
 
 ### 3. Archetype-Adaptive Sticky Mobile Bottom Navigation Dock
@@ -103,9 +104,9 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 4. **Rule Synchronization**:
    - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
 5. **Database Migration**:
-   - Run `node bin/cli.js migrate` to re-seed all skills and reference documents into the SQLite FTS5 database (`~/.konoha/skills.db`).
+   - Run `node bin/cli.js migrate` to re-seed all skills and reference documents into the SQLite FTS5 database (`~/.konoha/konoha.db` — legacy `skills.db` is auto-migrated on first open).
 6. **Cross-Client Initialization**:
-   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 6 clients.
+   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 7 clients.
 7. **Automated Verification & Quality Gate**:
    - Ensure `node tests/test_docs_currency.js` and **all discovered tests pass** with 0 failures before release.
 8. **Auto-Compaction & Idle-Reset Invariants**:
@@ -119,16 +120,16 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 10. **Evidence-Based Validation Gate in `report_from_agent`**:
     - `report_from_agent` enforces regex assessment (`_assess_validation_evidence`) checking for real passing command markers (`exit code 0`, `passed`, `0 errors`).
 11. **Zero-AI-Slop Pre-Gate & `aislop` MCP Integration**:
-    - Multi-client registration of `aislop` MCP across all 6 clients (`antigravity`, `cursor`, `claude`, `commandcode`, `opencode`, `codex`).
+    - Multi-client registration of `aislop` MCP across all 7 clients (`antigravity`, `cursor`, `claude`, `commandcode`, `opencode`, `codex`, `pi`).
     - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate slop.
     - Kage Review Pre-Gate & Minimum Confidence Gate: requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json` before confidence scoring, and requires overall and per-category confidence Minimum Required: ≥ 97% to approve workflow delivery.
 12. **Authorized Penetration Testing & Security Diagnostics in Dev/Local Environments**:
     - Anbu is authorized to conduct penetration testing and vulnerability assessments in local/development targets (`localhost`, `127.0.0.1`, dev containers, local clusters).
-    - Workflow review gate utilizes pentest-aware validation (`_is_pentest_task`, `_is_clean_validation`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.
+    - Workflow review gate utilizes pentest-aware validation (`isPentestTask`, `isCleanValidation` in `src/mcp/workflow.js`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.
     - Reports without verifiable evidence are automatically downgraded to `status: "unverified"`.
 11. **Learnings & Memory Hygiene**:
     - Unverified task learnings are never persisted to episodic memory.
-    - `memory_content_exists()` in `src/persona_memory.py` prevents duplicate or corrupted memories from polluting subsequent agent contexts.
+    - `memoryContentExists()` in `src/persona_memory.js` prevents duplicate or corrupted memories from polluting subsequent agent contexts.
 12. **Strict Changelog Preservation Invariant (NEVER REMOVE OLD CHANGELOGS)**:
     - Under NO circumstances should past version entries or historical release notes in `CHANGELOG.md` ever be pruned, truncated, or removed.
     - When updating `CHANGELOG.md`, always prepend the new version section (`## [version] - YYYY-MM-DD`) at the top of the file, permanently preserving the entire historical record back to `## [1.0.0]` without exception.
@@ -140,14 +141,13 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
     - The plural `"permissions"` and root `"autoApprove"` keys are V2 schema properties rejected by OpenCode V1 and must never be generated in `opencode.json` or `settings.json`.
 15. **Windows Workspace Isolation & IDE Installation Directory Guard**:
     - In Windows Antigravity IDE/CLI, child processes inherit the IDE binary folder as `cwd` when `rootUri` is not passed during MCP handshake.
-    - `file_tools_router.js`, `_common.py`, and `server.py` enforce `isIdeInstallationDirectory` / `is_ide_installation_dir`. Any attempt to inspect or scan IDE binary folders (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`, etc.) is strictly forbidden.
+    - `src/file_tools_router.js` and `src/runtime_state.js` enforce `isIdeInstallationDirectory`. Any attempt to inspect or scan IDE binary folders (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`, etc.) is strictly forbidden.
     - `detectWorkspaceRoot()` auto-resolves the active project directory from `WORKSPACE_ROOT`, `KONOHA_WORKSPACE`, session metadata (`last_conversations.json`, `projects.json`), and transcripts, falling back safely to user home instead of IDE program folders.
 16. **Single Database Access Layer & Hybrid Multilingual Vector Search Invariants**:
-    - `src/db.py` is the single canonical source of truth for `DB_PATH`, SQLite WAL mode, foreign keys, busy timeout (`5000ms`), and unified DDL schema (`setup_schema`). Never declare separate local DB paths or duplicate table definitions.
-    - `src/vector_search.py` provides semantic search using IBM Granite 97M Multilingual ONNX (384-dim, CLS pooling, L2 normalization) and Alibaba GTE Multilingual reranker (cross-encoder sigmoid scoring).
-    - `sqlite-vector` extension is lazily downloaded per platform on first run; extension loading failure falls back gracefully to in-memory NumPy cosine scan and FTS5.
-    - Cross-lingual retrieval guarantees that queries in Indonesian or English match English skill docs (97.5% Recall@5).
-    - Hybrid search in `src/server.py:find_skill` is gated behind `KONOHA_SEMANTIC_SEARCH=1` (default-off for zero-config lightweight operation).
+    - `src/db.js` is the single canonical source of truth for `DB_PATH` (`~/.konoha/konoha.db`), SQLite WAL mode, foreign keys, busy timeout (`5000ms`), and unified DDL schema (`setupSchema`). Never declare separate local DB paths or duplicate table definitions.
+    - `src/vector_search.js` provides semantic search using IBM Granite 97M Multilingual ONNX (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`, 384-dim, CLS pooling, L2 normalization) and BAAI/bge-reranker-base reranking, running natively via `@huggingface/transformers`.
+    - The `sqlite-vector` extension is lazily loaded per connection; extension loading failure falls back gracefully to in-process cosine scan and FTS5.
+    - Hybrid search is gated behind `KONOHA_SEMANTIC_SEARCH` (**enabled by default**; set `KONOHA_SEMANTIC_SEARCH=0` to disable for zero-config lightweight operation).
 17. **4-Tier Embedding Feature Deduplication & Cache Architecture**:
     - `chunk_document()` deduplicates Markdown document sections via SHA-256 content hashing of normalized whitespace.
     - `embed_text()` integrates an in-memory dictionary cache (`_EMBED_CACHE`, 4,096 capacity) keyed by text hash, serving precomputed 384-dim embeddings in 0 ms with 0 ONNX compute.
@@ -167,8 +167,8 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
     - `cmdInit(args, options = {})` accepts `onProgress(percent, label, action)` and `onStepComplete(percent, label)` callbacks for granular multi-step progress reporting during both upgrade and initialization.
 21. **Cross-Platform Windows Subprocess & Gateway Isolation Invariants**:
     - `testEnv` isolation: always sanitize `delete testEnv.KONOHA_DAEMON` when running tests or MCP server child processes from `bin/cli.js test` or test scripts so the child process does not attempt to bind the local proxy gateway or conflict on port 20000.
-    - Python launcher resolution: `src/platform_utils.js:findPythonCommand()` preserves `py -3` on Windows as the first candidate before `python3` / `python` while avoiding non-existent `python.exe` binaries or Microsoft Store shims.
-    - Path normalizer & trailing slash hygiene: `src/file_tools_router.js` and `src/file_tools/token_efficient_grep.py` normalize backslashes to forward slashes and strip trailing path separators (`/` and `\`) to prevent Windows command line quoting issues (e.g., `\"` escape corruption).
+    - Legacy Python launcher helpers: `src/platform_utils.js` retains `detectPythonOrDefault()` / `spawnPythonSync()` from the pre-beta.7 dual-runtime era; they remain exported for compatibility but sit on no active execution path (Pure Node.js, rule 33).
+    - Path normalizer & trailing slash hygiene: `src/file_tools_router.js` and `src/file_tools/token_efficient_grep.js` normalize backslashes to forward slashes and strip trailing path separators (`/` and `\`) to prevent Windows command line quoting issues (e.g., `\"` escape corruption).
     - Detached error handlers: `src/file_tools_mcp.js` handles child process spawning errors gracefully with safe `error` and `exit` listeners.
     - Pre-bundled VSIX prioritization: `autoInstallKonohaBridgeExtension` checks for pre-bundled `.vsix` packages in `bin/lib/` before attempting remote `git clone` or network builds, preventing Windows terminal freezes and timeouts.
 22. **`aislop` MCP Client Configuration & Package Resolution Contract**:
@@ -178,36 +178,36 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
 23. **Cross-IDE Auto-Approval & Tool Permissions Matrix**:
     - **Antigravity IDE & CLI**: Configures `~/.gemini/config/mcp_config.json` with `autoApprove: ["*"]` and `auto_approve: true` across `konoha`, `semble`, and `aislop`. Injects `autoApprove: ["*"]`, `permissionMode: "allowAll"`, and explicit tool grants into `settings.json` in `antigravity-cli`, `antigravity-ide`, `config`, and root `~/.gemini`.
     - **Cursor IDE & CLI**: `src/cursor_manager.js` and `src/cursor_bootstrap.js` deploy `autoApprove: ["*"]` and `auto_approve: true` to `~/.cursor/mcp.json`. Injects `cursor.mcp.autoApprove: ["*"]`, `cursor.mcp.allowAll: true`, `cursor.agent.autoApprove: true`, and grants (`Mcp(konoha, *)`, `Mcp(semble, *)`, `Mcp(aislop, *)`) across `~/.cursor/cli-config.json`, `~/.cursor/settings.json`, and cross-platform User settings (`~/.config/Cursor/User/settings.json`, `%APPDATA%/Cursor/User/settings.json`, and macOS Application Support).
-    - **Claude Code & Command Code**: Injects `mcp__konoha__*`, `mcp__semble__*`, and `mcp__aislop__*` into `autoApprove` and `permissions.allow`, with `permissionMode: "bypassPermissions"` (Claude) and `"allowAll"` (Command Code) in `settings.json`.
+    - **Claude Code & Command Code**: Injects `mcp__konoha__*`, `mcp__semble__*`, and `mcp__aislop__*` into `autoApprove` and `permissions.allow`, with `permissionMode: "bypassPermissions"` (Claude) and `"allowAll"` (Command Code) in `settings.json`. A **workflow reminder** hook (`~/.konoha/workflow_reminder.js`) is registered on `UserPromptSubmit` + `SessionStart` (`resume|compact|clear`) for Claude Code, and on Command Code's `SessionStart` (startup/resume/clear — Command Code has no per-prompt event; the reminder emits the `hookSpecificOutput.additionalContext` JSON envelope), re-injecting the Konoha workflow into resumed/compacted sessions where the original contract would be buried in history.
     - **OpenCode & Codex**: OpenCode V1 enforces singular `permission: { read: "allow", edit: "allow", bash: "allow", ... }` and `permissionMode: "allowAll"`. Codex enforces `approval_mode = "auto"` across every tool definition for `konoha`, `semble`, and `aislop` in `~/.codex/config.toml`.
-24. **Cross-Platform Python Execution & Multi-Part Launcher Invariant (`spawnPythonSync` / `normalizeCommand`)**:
-    - Multi-part launcher normalization: When `detectPython()` returns `'py -3'` on Windows, never pass the raw string directly to `child_process.spawnSync` or `spawn`, which treats `'py -3'` as a single binary filename and throws `spawnSync py -3 ENOENT`.
-    - Centralized execution helper: Always use `platform.spawnPythonSync(pythonCmd, args, options)` and `platform.spawnPython(pythonCmd, args, options)` from `src/platform_utils.js`. These helpers automatically normalize the command via `normalizeCommand(command)` into `{ executable, prefixArgs }` and prepend `prefixArgs` to child process arguments.
-    - Full CLI & Agent synchronization: All Python execution sites across `bin/cli.js` (`cmdInit`, `cmdMigrate`, `cmdTest`, `cmdRepair`, `cmdAgents`, `cmdSavings`, `cmdModelsReset`, `cmdProjectContext`, `cmdDataPrune`, `cmdDataVacuum`), `src/agent_manager.js`, and `src/codex_manager.js` adhere to this invariant.
+    - **Pi (pi.dev)**: MCP servers are provided by the `pi-mcp-adapter` extension (`pi install npm:pi-mcp-adapter`); server entries are merged into the Pi-owned global override `~/.pi/agent/mcp.json` (never shared/project configs). Pi's adapter routes all tools through its token-efficient `mcp` proxy by default, aligning with Konoha's token-reduction philosophy; per-tool approval is available via the adapter's `approveTools` glob settings. RTK is deployed via the official integration (`rtk init -g --agent pi`), which installs the `~/.pi/agent/extensions/rtk.ts` TypeScript extension that intercepts tool calls. The Konoha runtime contract + Pi Workflow Mandate are deployed as a managed block in `~/.pi/agent/AGENTS.md` (Pi's global context file) so Pi routes through the sannin workflow instead of free-running; Pi's duplicate-skill startup warnings are expected (global + project mirror resolution, project-first) and resolved via the contract's konoha-MCP-first directive.
+24. **Command Normalization Invariant (`normalizeCommand`)**:
+    - Multi-part launcher normalization: never pass a multi-token command string (e.g. `'py -3'`) directly to `child_process.spawnSync`/`spawn` — it is treated as a single binary filename and throws `ENOENT`.
+    - Centralized normalization: use `normalizeCommand(command)` from `src/platform_utils.js`, which returns `{ executable, prefixArgs }`; prepend `prefixArgs` to child process arguments (this pattern is used by `src/codex_manager.js` for the Codex MCP entry).
+    - Historical note: the dedicated Python helpers (`spawnPythonSync`/`spawnPython`) from the pre-beta.7 dual-runtime era were removed by the Pure Node.js migration (rule 33); normalize any newly added launcher command through `normalizeCommand` instead.
 25. **Skill Embedding & Subagent Management Invariants (`konoha skill <skill> embed <agent>`)**:
     - Dual Syntax Support: Both `konoha skill <skillname> embed <agentname>` and `konoha skill embed <skillname> <agentname>` (as well as `unembed` counterparts) are fully supported.
     - Single-Argument Skill Add: `konoha skill add <skillname>` searches the public skills registry (skills.sh) for `<skillname>` and automatically installs it from its GitHub source repository, or scaffolds a custom local skill directory if offline/not found.
     - Non-Interactive Graceful Mode: `konoha agent skill <agentname>` outputs clean status tables in non-interactive / redirected stdin environments instead of aborting, and supports direct embedding via `konoha agent skill <agentname> <skillname>`.
-    - SQLite & Cache Persistence: Agent skill mutations are persisted directly via `--bulk-import` to SQLite database `~/.konoha/skills.db` and synchronized to `~/.agents/agents.yaml`, with instant cache invalidation ensuring consistent multi-process reads.
+    - SQLite & Cache Persistence: Agent skill mutations are persisted directly via `--bulk-import` to the SQLite database `~/.konoha/konoha.db` and synchronized to `~/.agents/agents.yaml`, with instant cache invalidation ensuring consistent multi-process reads.
 26. **Windows Extended Path (`\\?\`) Normalization & Stdin IPC Transport Invariants**:
-    - Universal Prefix Stripping: `stripWinExtendedPrefix(p)` strips `\\?\UNC\`, `\\?\`, `//?/UNC/`, `//?/`, `\??\UNC\`, and `\??\` across both Node.js and Python runtimes before normalization or path comparison.
-    - Python Drive Letter Boundary Safety: `assert_within_allowed()` in `_common.py` normalizes extended prefixes and falls back to `os.path.relpath()` when `os.path.commonpath()` fails due to drive format differences on Windows NTFS volumes.
-    - Piped Stdin JSON Transport: `runPythonScript()` pipes JSON payloads via child process stdin (`argv[1] = '-'`) with `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`, eliminating Windows CLI quoting mangling under `py.exe`.
+    - Universal Prefix Stripping: `stripWinExtendedPrefix(p)` in `src/platform_utils.js` strips `\\?\UNC\`, `\\?\`, `//?/UNC/`, `//?/`, `\??\UNC\`, and `\??\` before normalization or path comparison (also applied in `src/mcp/runtime_state.js:uriToPath`, which now preserves UNC hosts in `file://server/share` URIs).
+    - Path Boundary Safety: `src/file_tools_router.js` normalizes backslashes to forward slashes and strips trailing path separators (`/` and `\`) to prevent Windows command line quoting issues, and enforces the workspace jail via `assertWithinAllowed`.
     - Documentation Skip Guard: `SKIP_DIR_NAMES` skips `references/`, `.turbo`, `.cache`, `site-packages`, and `third_party` to prevent scanning 4,700+ markdown files during code search.
 27. **Token-Efficient Build Specifications & Savings Telemetry Invariants (83%–98% Target)**:
-    - SOP Previews in Build Tools: `_load_skill_content_for_build()` embeds concise SOP previews (≤400 chars) with on-demand pointers (`konoha.get_skill`) instead of dumping 90 KB raw markdown into `build_from_text` and `build_from_source`, keeping payloads under 16 KB (an 85.2% token reduction saving ~22,000 tokens per build request).
-    - Compact JSON Serialization: Emits compact JSON (`json.dumps(spec)`) without redundant whitespace or multi-line formatting.
+    - SOP Previews in Build Tools: `loadSkillContentForBuild()` in `src/mcp/build_spec.js` embeds concise SOP previews (≤400 chars) with on-demand pointers (`konoha.get_skill`) instead of dumping 90 KB raw markdown into `build_from_text` and `build_from_source`, keeping payloads under 16 KB (an 85.2% token reduction saving ~22,000 tokens per build request).
+    - Compact JSON Serialization: Emits compact JSON (`JSON.stringify(spec)`) without redundant whitespace or multi-line formatting.
     - Telemetry Baselines: `log_tool_call()` credits build tools and subagent delegations (`sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) against the 550KB skill library baseline, with directory baselines for `find_files_clean` (250KB) and `token_efficient_grep` (150KB), ensuring combined retrieval savings reliably report 92%–98%.
 28. **Sub-Second CLI Fast Path & Transcript Caching Invariants**:
-    - Auto-Setup Fast Path: `ensureAutoSetup()` caches verification state in `~/.konoha/.auto_setup_state.json` (version + `agents.yaml` mtime), returning in <2ms on existing healthy installations instead of re-copying files and re-syncing across 6 clients on every command invocation.
-    - Mtime-Based Transcript Caching: `calculate_all_model_tokens()` in `src/db_savings.py` caches all-time token metrics in `~/.konoha/transcript_cache.json` for transcript files older than 7 days, avoiding redundant disk I/O across hundreds of historical session logs and speeding up `konoha savings` from ~3.0s down to ~350ms.
+    - Auto-Setup Fast Path: `ensureAutoSetup()` caches verification state in `~/.konoha/.auto_setup_state.json` (version + `agents.yaml` mtime), returning in <2ms on existing healthy installations instead of re-copying files and re-syncing across 7 clients on every command invocation.
+    - Mtime-Based Transcript Caching: `calculateAllModelTokens()` in `src/db_savings.js` caches all-time token metrics in `~/.konoha/transcript_cache.json` for transcript files older than 7 days, avoiding redundant disk I/O across hundreds of historical session logs and speeding up `konoha savings` from ~3.0s down to ~350ms.
     - Direct Semble Execution: `cmdSavings()` queries local `semble` first, avoiding slow `uvx --from ...@latest` network requests to PyPI.
     - GitHub Release Cache: `getLatestVersion()` caches GitHub tag/release queries in `.version_cache.json` for 1 hour.
 29. **Progressive Migration Fallback Chain & Deferred Reference Indexing Invariants**:
     - Stage 5 Fallback Chain: `cmdInit` Stage 5 escalates through three attempts on migrate failure — (1) full migration, (2) unconditional retry with `--skip-embeddings` (never gated on whether the flag was already present), (3) `--skills-only --skip-embeddings` with a 120s timeout. The SQLite schema verification (`verifySkillDatabaseContract` + `sqlite_master` table check) is the sole completion gate; `process.exit(1)` is reserved for genuine schema failures, never timeouts.
-    - `--skills-only` Migration Mode: `src/migrate.py --skills-only` migrates only `SKILL.md` entries (type='skill'), deferring `references/*.md` and root reference files with explicit `⏭ References deferred: N files skipped` output. Deferred references complete on the next `konoha migrate` or via on-demand indexing.
-    - Migration Time Budget: `KONOHA_MIGRATE_TIME_BUDGET` (default 150s, `0` disables) enforces a `time.monotonic()` budget on the migration loop. Required skills (`--require-skill`, e.g. `genin-skill`) are always sorted first so the budget can never defer them; budget exhaustion defers remaining skills with `⏭ Time budget reached` and exits 0.
-    - Full Coverage: The same escalation applies to the auto-setup bootstrap (missing `skills.db`), `cmdDoctor` database repair, and all three `cmdMigrate` branches. `konoha migrate` never hard-exits on timeout — it warns `Run "konoha migrate" again to finish remaining references.` and exits 0.
+    - `--skills-only` Migration Mode: `src/migrate.js --skills-only` migrates only `SKILL.md` entries (type='skill'), deferring `references/*.md` and root reference files with explicit `⏭ References deferred: N files skipped` output. Deferred references complete on the next `konoha migrate` or via on-demand indexing.
+    - Migration Time Budget: `KONOHA_MIGRATE_TIME_BUDGET` (default 150s, `0` disables) enforces a wall-clock budget (`Date.now()` delta) on the migration loop. Required skills (`--require-skill`, e.g. `genin-skill`) are always sorted first so the budget can never defer them; budget exhaustion defers remaining skills with `⏭ Time budget reached` and exits 0.
+    - Full Coverage: The same escalation applies to the auto-setup bootstrap (missing `konoha.db`), `cmdDoctor` database repair, and all three `cmdMigrate` branches. `konoha migrate` never hard-exits on timeout — it warns `Run "konoha migrate" again to finish remaining references.` and exits 0.
 30. **Foreign-Key-Safe Skill Deletion & Client-Isolated Attribution Testing Invariants**:
     - Dependent-Rows-First Deletion: Any `DELETE FROM skills` (parent) must be preceded by deletion of dependent `skill_chunks` rows (`skill_chunks.skill_name REFERENCES skills(name)` with `PRAGMA foreign_keys=ON` in `src/db.js`). Both `src/migrate.js` and `src/server.js` enforce this at every delete site; never delete parent skill rows without cleaning chunks first, or `auto_migrate_project_skills` transactions abort with `FOREIGN KEY constraint failed`.
     - Attribution Test Isolation: Client-detection tests must set the `ACTIVE_CLIENT` environment override (e.g. `ACTIVE_CLIENT=cursor`) when spawning the deployed server, because `detect_active_client()` inspects the `/proc/<ppid>/cmdline` process hierarchy and classifies the test runner's parent client session as active — excluding the target client's transcripts from scanning.
@@ -222,14 +222,30 @@ When scaffolding or generating websites from text (`konoha.build_from_text`) or 
     - Direct YAML Fast-Path: `loadAgents()` uses in-process YAML parsing instead of expensive child-process spawning (`list-compact`), dropping CLI invocation latency from 7.7s down to 0.28s.
     - Global Binary Protection: `cmdUpgrade` never deletes the global binary before new installation, and executes post-upgrade global symlink reconciliation.
 33. **Pure Node.js Single-Runtime & Protocol Stream Isolation Invariants (v2.0.0-beta.7)**:
-    - 100% Pure Node.js Single-Runtime: Complete elimination of Python 3 runtime and dependencies. All 39 MCP tools, 16 CLI commands, 7 ninja subagents, and 6 client integrations run natively on Node.js (v18–v26). Zero Python processes are spawned at runtime, and zero `.py` files remain in active execution paths.
-    - Native ONNX Embeddings & Vector Search: IBM Granite Multilingual 30M ONNX neural embeddings (`@xenova/transformers`) and BAAI/bge-reranker-base run directly in-process in `src/vector_search.js`, caching models under `~/.konoha/models/` and achieving ±0.0001 cosine similarity parity with PyTorch baselines.
+    - 100% Pure Node.js Single-Runtime: Complete elimination of Python 3 runtime and dependencies. All 39 MCP tools, 16 CLI commands, 7 ninja subagents, and 7 client integrations run natively on Node.js (v18–v26). Zero Python processes are spawned at runtime, and zero `.py` files remain in active execution paths.
+    - Native ONNX Embeddings & Vector Search: IBM Granite 97M Multilingual ONNX neural embeddings (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX` via `@huggingface/transformers`) and BAAI/bge-reranker-base run directly in-process in `src/vector_search.js`, caching models under `~/.konoha/models/` and achieving ±0.0001 cosine similarity parity with PyTorch baselines.
     - Protocol Stream Isolation & Zero STDOUT Pollution: Under MCP stdio mode, `process.stdout` is strictly reserved for JSON-RPC messages (`{"jsonrpc":"2.0",...}`). Any non-JSON text on STDOUT corrupts the protocol stream and causes host disconnects (`signal: terminated`). All diagnostics, background progress indicators, and auto-migration logs (`src/migrate.js`, `src/server.js`) MUST be routed strictly to `process.stderr`.
     - Native Bounded File Tools & SQLite WAL: Bounded file tools in `src/file_tools_router.js` and `src/file_tools/` enforce memory bounds and directory jail confinement natively in JavaScript. All database managers (`src/db.js`, `src/db_agents.js`, `src/db_bridges.js`, `src/db_savings.js`, `src/db_stats.js`, `src/persona_memory.js`) use `better-sqlite3` with Write-Ahead Logging and FTS5 query token sanitization.
-34. **Web UI Full TUI Parity & SvelteKit 2 Monorepo Invariants (v2.0.0-beta.7)**:
-    - SvelteKit 2 + Svelte 5 Monorepo: Frontend is built with `@sveltejs/adapter-node` into `apps/web/build`. Root `package.json` includes `prepack` and postinstall automation so fresh installations ship with a pre-built web application, ready for immediate startup via `konoha web` or background daemon `konoha ui start`.
+34. **Web UI Full TUI Parity & SvelteKit 3 RC Monorepo Invariants (v2.0.0-beta.7)**:
+    - SvelteKit 3 (RC) + Svelte 5 Monorepo: Frontend runs on `@sveltejs/kit` 3.0.0-next.27 + `@sveltejs/vite-plugin-svelte` 7 + `@sveltejs/adapter-node` 6.0.0-next.12 (Vite 8/Rolldown), built into `apps/web/build`. Root `package.json` includes `prepack` and postinstall automation so fresh installations ship with a pre-built web application, ready for immediate startup via `konoha web` or background daemon `konoha ui start`.
+    - SK3 Configuration Location: `svelte.config.js` no longer exists — the adapter and all SvelteKit options are passed directly to the `sveltekit()` Vite plugin in `apps/web/vite.config.js`. The `$lib` alias is replaced by Node subpath imports: `package.json` declares `"imports": { "#lib/*": "./src/lib/*" }` and all imports use `#lib/<file>.js` (extension required).
     - Complete TUI Parity: Visual interfaces for Persona Memory (`/persona`), Project Context Memory (`/context`), Tool-by-Tool Token Savings Breakdown (`/savings`), Full Skills Management (`/skills` — create, embed, unembed, delete, reindex), Bridge Gateway Management (`/bridges` — daemon start/stop/restart, port telemetry, served models inspector), and SearXNG Web Search (`/search`).
-    - Pure Light-Mode Theme Switcher & 3D Aesthetic: Universal floating circular FAB button (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) in bottom-left opening 10 light-mode gradient themes with Byakugan glassmorphism styling, 3D tilt & hover animations, GPU hardware acceleration (`transform: translateZ(0)` / `will-change`) eliminating Chrome rendering lag, accessible high-contrast fonts, and SweetAlert2 3D dialogs.
+    - Pure Light-Mode Theme Switcher & 3D Aesthetic: Universal floating circular FAB button (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) in bottom-left opening 10 light-mode gradient themes with layered glassmorphism (`glass-frost` frosted panels with backdrop blur + saturation, `glass-frost-strong` for modals, `--glass-tint` per-theme primary/accent color-mix layer, specular `::before` sheen on `.glass-card-3d`), 3D tilt & hover animations (`scene-3d` / `tilt-3d` / `rise-3d` utilities), GPU hardware acceleration (`transform: translateZ(0)` / `will-change`) eliminating Chrome rendering lag with full `prefers-reduced-motion` support, accessible high-contrast fonts, and a custom Svelte 5 runes SweetAlert modal (`src/components/SweetAlertModal.svelte`) with body scroll-lock and Escape/backdrop close.
     - CSRF Protection: `X-Konoha-Web-Token` required on state mutations.
 35. **Agent Dedicated Primary Skill Prioritization Invariant (v2.0.0-beta.7)**:
     - `getSkillsForAgentFromDb` in `src/agent_manager.js` strictly preserves the configured skill ordering from `~/.agents/agents.yaml`. Dedicated primary skills (`kage-skill`, `jonin-skill`, `anbu-skill`, etc.) are permanently anchored at index 0, guaranteeing that subagents never lose their core role SOP when custom skills are embedded.
+36. **Web Server Security Posture & Global Command Reconciliation Invariants (v2.0.0-beta.7)**:
+    - No CORS Wildcard: `sendJson()` in `src/web_server.js` never emits `Access-Control-Allow-Origin: *` — the SvelteKit UI is same-origin and any wildcard lets arbitrary web pages read the CSRF token cross-origin. Do not re-add CORS headers without an explicit same-origin allowlist.
+    - Token Hygiene: the session token is served only by `GET /api/v1/csrf` (and the session cookie, `SameSite=Strict`); `/api/v1/health` and other GET responses must never embed it.
+    - Secret Redaction: `GET /api/v1/bridges` returns `has_key` instead of `api_key`/`apiKey`; any new API exposing stored credentials must redact the same way.
+    - Global Command Path: `installCliRuntime()` installs the self-contained CLI at `~/.konoha/bin/cli.js`; `reconcileGlobalCommand()` (called by `init` and `upgrade`) repairs/creates the `konoha` shim across npm prefix bin, `~/.local/share/pnpm` (Linux), `~/Library/pnpm` (macOS), `~/.local/bin`, and any PATH dir with a stale shim — Windows gets `konoha.cmd`/`konoha.ps1` wrappers. `konoha uninstall` removes only shims resolving into `~/.konoha`.
+37. **SQLite FTS Sync & Validation Evidence Invariants (v2.0.0-beta.7)**:
+    - External-Content FTS Sync: `persona_memories_fts` is kept in sync exclusively by the `persona_memories_ai/ad/au` triggers in `src/db.js`; never hand-insert/delete FTS rows in `src/persona_memory.js`, and never delete the content row before the index entry (external-content FTS requires the content row for `'delete'`). Legacy FTS schemas missing the `project_hash` column are dropped and rebuilt by `setupSchema`.
+    - Connection Hygiene: every `db.getConnection()` call site MUST close in `finally` (see `try/finally` pattern across `src/mcp/*.js`, `src/tools_savings_logger.js`, `src/file_tools_mcp.js`); `src/vector_search.js` tracks loaded connections in a `WeakSet`, never a `Set`.
+    - VACUUM Statement: `VACUUM` is SQL, not a pragma — always `conn.exec('VACUUM')` (used by `konoha data prune` / `data vacuum`).
+    - Validation Evidence Parsing: `isCleanValidation()` in `src/mcp/workflow.js` strips zero-count success phrases (`0 errors and 0 warnings`, `exit code 0`, `0 critical vulnerabilities`) before the dirty-word check, so canonical success evidence never blocks delivery while `2 errors` / `build failed` still do.
+    - JSON-RPC Error Correlation: `tools/call` crashes must answer with the original request `id` and `isError: true` in both `src/mcp/protocol.js` and `src/file_tools_mcp.js` — never `id: null` parse errors.
+38. **Client MCP Topology & Manifest/Dispatch Parity Invariants (v2.0.0-beta.7)**:
+    - Client Entry Target: every client's `konoha` MCP entry MUST point at `~/.konoha/file_tools_launcher.js` (which serves ALL 39 tools: bounded file tools + skills + build specs + subagents + workflow + persona memory) — not the orchestrator-only `server.js`. Pi's registration (`src/pi_manager.js`) follows the same topology as Antigravity/Cursor/Claude Code.
+    - Manifest/Dispatch Parity: every tool listed in `server.js`'s `tools/list` MUST be dispatchable. `src/mcp/tool_dispatch.js` delegates the six bounded file tools to `file_tools_router.dispatchTool`; when adding a tool to the manifest, implement it in the dispatcher in the same change. A manifest entry without a dispatch path returns `{"error":"Unknown tool: ..."}` at runtime (verified against Pi).
+    - Workflow Artifact Location: workflow files (`prompt.md`, `plan.md`, `result.md`, `delegate.md`, `findings.md`, `final_report.md`, `kage_review.json`) live ONLY in the task dir (`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`). File-tool not-found errors for these names embed a `hint` with the resolved task dir; never instruct agents to look for them in the workspace root.

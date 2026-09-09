@@ -50,12 +50,13 @@ function applyFileEdits(content) {
     } else if (fs.existsSync(filePath)) {
       const fileContent = fs.readFileSync(filePath, 'utf8');
       if (fileContent.includes(original)) {
-        fs.writeFileSync(filePath, fileContent.replace(original, replacement), 'utf8');
+        // Function replacement: literal insert, immune to $& / $` / $' patterns
+        fs.writeFileSync(filePath, fileContent.replace(original, () => replacement), 'utf8');
       } else {
         const origLf = original.replace(/\r\n/g, '\n');
         const fileLf = fileContent.replace(/\r\n/g, '\n');
         if (fileLf.includes(origLf)) {
-          fs.writeFileSync(filePath, fileLf.replace(origLf, replacement), 'utf8');
+          fs.writeFileSync(filePath, fileLf.replace(origLf, () => replacement), 'utf8');
         }
       }
     }
@@ -356,24 +357,31 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   let skillsList = Array.isArray(skills) ? [...skills] : [];
 
   try {
-    const conn = getDb();
-    let row = conn.prepare(`
-      SELECT name, title, purpose, skills, constraints_text, instructions
-      FROM agents WHERE name = ?
-    `).get(dbAgentName);
-    if (!row) {
-      row = conn.prepare(`
+    let rowConn = null;
+    try {
+      rowConn = getDb();
+      let row = rowConn.prepare(`
         SELECT name, title, purpose, skills, constraints_text, instructions
         FROM agents WHERE name = ?
-      `).get(`mcp_${dbAgentName}`);
-    }
-    if (row) {
-      title = row.title || title;
-      purpose = row.purpose || purpose;
-      agentConstraints = row.constraints_text || agentConstraints;
-      personaInstructions = row.instructions || personaInstructions;
-      if (row.skills && skillsList.length === 0) {
-        try { skillsList = JSON.parse(row.skills); } catch (_) { /* ignore */ }
+      `).get(dbAgentName);
+      if (!row) {
+        row = rowConn.prepare(`
+          SELECT name, title, purpose, skills, constraints_text, instructions
+          FROM agents WHERE name = ?
+        `).get(`mcp_${dbAgentName}`);
+      }
+      if (row) {
+        title = row.title || title;
+        purpose = row.purpose || purpose;
+        agentConstraints = row.constraints_text || agentConstraints;
+        personaInstructions = row.instructions || personaInstructions;
+        if (row.skills && skillsList.length === 0) {
+          try { skillsList = JSON.parse(row.skills); } catch (_) { /* ignore */ }
+        }
+      }
+    } finally {
+      if (rowConn) {
+        try { rowConn.close(); } catch (_) {}
       }
     }
   } catch (e) {
@@ -391,7 +399,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     } catch (_) { /* ignore */ }
   }
 
-  if (dbAgentName.includes('jonin')) {
+  if (dbAgentName === 'jonin') {
     let targetFw = null;
     const combinedText = `${instructions} ${context || ''}`.toLowerCase();
     if (resolvedProjPath && fs.existsSync(resolvedProjPath)) {
@@ -426,11 +434,12 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
 
   const skillsContent = [];
   if (skillsList.length > 0) {
+    let skillConn = null;
     try {
-      const conn = getDb();
+      skillConn = getDb();
       const primarySkill = skillsList[0];
-      const resolved = fuzzyResolveSkill(primarySkill, conn) || primarySkill;
-      const row = conn.prepare('SELECT content, type FROM skills WHERE name = ?').get(resolved);
+      const resolved = fuzzyResolveSkill(primarySkill, skillConn) || primarySkill;
+      const row = skillConn.prepare('SELECT content, type FROM skills WHERE name = ?').get(resolved);
       if (row && row.content) {
         const preview = row.content.substring(0, 250) + (row.content.length > 250 ? '\n...(Use konoha.get_skill for full reference)' : '');
         const label = row.type === 'skill' ? 'Skill' : 'Reference';
@@ -438,6 +447,10 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       }
     } catch (e) {
       process.stderr.write(`[mcp ${agentName}] Error loading skill definitions: ${e.message}\n`);
+    } finally {
+      if (skillConn) {
+        try { skillConn.close(); } catch (_) {}
+      }
     }
   }
 
@@ -470,7 +483,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   }
 
   let tasteSkillBlock = '';
-  if (dbAgentName.includes('jonin')) {
+  if (dbAgentName === 'jonin') {
     const dials = tasteDials || {};
     const varDial = dials.design_variance !== undefined ? dials.design_variance : 8;
     const motDial = dials.motion_intensity !== undefined ? dials.motion_intensity : 7;

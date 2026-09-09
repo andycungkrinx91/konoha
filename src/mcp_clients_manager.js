@@ -38,19 +38,26 @@ function isClaudeCodeInstalled() {
 function isCommandCodeInstalled() {
   return (
     isCommandAvailable('commandcode') ||
-    isCommandAvailable('cmd') ||
     fileExistsCached(path.join(HOME, '.commandcode')) ||
     fileExistsCached(COMMANDCODE_JSON)
   );
 }
 
 
+function resolveRtkRuleTemplate() {
+  const candidates = [
+    path.join(__dirname, '..', '.claude', 'rules', 'rtk.md'),
+    path.join(HOME, '.claude', 'rules', 'rtk.md')
+  ];
+  return candidates.find((p) => fileExists(p)) || null;
+}
+
 function deployCommandCodeRtkRule(silent = true) {
   if (!isRtkInstalled()) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
-  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
-  if (!fileExists(src)) {
+  const src = resolveRtkRuleTemplate();
+  if (!src) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
   const dest = path.join(HOME, '.commandcode', 'rules', 'rtk.md');
@@ -68,11 +75,12 @@ function deployClaudeCodeRtkRule(silent = true) {
   if (!isRtkInstalled()) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
-  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
-  if (!fileExists(src)) {
-    return { ok: false, reason: 'rtk-rule-template-missing' };
-  }
   const dest = path.join(HOME, '.claude', 'rules', 'rtk.md');
+  const src = resolveRtkRuleTemplate();
+  if (!src || src === dest) {
+    // RTK's own `rtk init -g` already manages ~/.claude/rules/rtk.md
+    return { ok: true };
+  }
   try {
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
@@ -114,14 +122,25 @@ function buildStdioMcpServers(options = {}) {
     client = 'cursor'
   } = options;
 
+  // Only register semble when uvx is actually usable — a dead 'uvx' entry
+  // breaks client startup when uv is not installed
+  const uvxAvailable = (() => {
+    try {
+      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      return res.status === 0;
+    } catch { return false; }
+  })();
+
   const servers = {
-    semble: {
-      type: 'stdio',
-      command: uvxCmd,
-      args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-      autoApprove: ['*', 'search', 'find_related'],
-      auto_approve: true
-    },
+    ...(uvxAvailable ? {
+      semble: {
+        type: 'stdio',
+        command: uvxCmd,
+        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+        autoApprove: ['*', 'search', 'find_related'],
+        auto_approve: true
+      }
+    } : {}),
     aislop: {
       type: 'stdio',
       command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
@@ -535,6 +554,7 @@ function ensureClaudeCodeSetup(options = {}) {
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
   registerClaudeCodePermissions(silent);
   registerClaudeCodeNativeBlocker();
+  registerClaudeCodeWorkflowReminder(silent);
   deployClaudeCodeRtkRule(silent);
   initRtkHook(silent);
 
@@ -672,6 +692,8 @@ function ensureCommandCodeSetup(options = {}) {
     return { ok: false, reason: 'commandcode-mcp-registration-failed' };
   }
   registerCommandCodePermissions(silent);
+  registerCommandCodeWorkflowReminder(silent);
+  const nativeBlocker = registerCommandCodeNativeBlocker(silent);
   const rtkRule = deployCommandCodeRtkRule(silent);
   const contractRule = deployCommandCodeRules(silent);
   const status = getCommandCodeStatus();
@@ -682,8 +704,150 @@ function ensureCommandCodeSetup(options = {}) {
     ok: true,
     rtk: status.rtkInstalled ? 'already-installed' : 'rtk-not-installed',
     rtkRule: rtkRule.ok ? 'deployed' : rtkRule.reason,
-    contractRule: contractRule.ok ? 'deployed' : contractRule.reason
+    contractRule: contractRule.ok ? 'deployed' : contractRule.reason,
+    nativeBlocker: nativeBlocker.ok ? 'deployed' : nativeBlocker.reason
   };
+}
+
+/**
+ * Deploys a PreToolUse native-tool blocker for Command Code, mirroring the
+ * Claude Code blocker. Command Code ships 4 native tools (shell_command,
+ * read_file, write_file, edit_file) and `permissions.allow: ["*"]` cannot
+ * express "deny native reads" — agents freely bypass Konoha via read_file.
+ * This writes a Node payload to ~/.local/bin/konoha-native-blocker-cc.js and
+ * registers it as a PreToolUse hook that denies the native read tool and
+ * points the agent at the konoha MCP bounded file tools.
+ *
+ * The hook matcher is ambiguous (doc examples suggest testing against
+ * tool_display_name, but examples are lowercase while display names are
+ * uppercase), so the matcher is OMITTED — the hook fires for every tool call
+ * and the script itself filters on tool_name === "read_file" (exiting 0 with
+ * no output for everything else), guaranteeing the blocker can never be
+ * silently disabled by a matcher mismatch. Output is ONLY the documented
+ * PreToolUse shape (hookSpecificOutput.permissionDecision "deny") — no
+ * top-level `decision` (undocumented for Command Code PreToolUse; an invalid
+ * shape fails validation and the block is silently discarded, exactly like
+ * the Claude Code bug). Hooks initialize on startup only — restart `cmd` to
+ * activate after deployment.
+ */
+function registerCommandCodeNativeBlocker(silent = true) {
+  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+  if (!fileExists(settingsPath)) {
+    return { ok: false, reason: 'commandcode-settings-missing' };
+  }
+  const binDir = path.join(HOME, '.local', 'bin');
+  const blockerJs = path.join(binDir, 'konoha-native-blocker-cc.js');
+  try {
+    fs.mkdirSync(binDir, { recursive: true });
+    const payload = `#!/usr/bin/env node
+// Konoha native-tool blocker for Command Code — denies the native read_file
+// tool so the agent must use the konoha MCP bounded file tools instead.
+const fs = require('fs');
+let raw = '';
+try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
+let input = null;
+try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
+const toolName = input && (input.tool_name || input.tool_display_name);
+// Guard: deny ONLY the native read tool (canonical id read_file / display READ).
+if (toolName !== 'read_file' && toolName !== 'READ') process.exit(0);
+const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+process.stdout.write(JSON.stringify({
+  suppressOutput: false,
+  hookSpecificOutput: {
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'deny',
+    permissionDecisionReason: reason
+  }
+}) + '\\n');
+`;    fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
+  } catch (e) {
+    return { ok: false, reason: 'blocker-write-failed', error: e.message };
+  }
+
+  const blockerCommand = `"${process.execPath}" "${blockerJs}"`;
+  mergeJsonFile(
+    settingsPath,
+    (config) => {
+      if (!config.hooks) config.hooks = {};
+      if (!Array.isArray(config.hooks.PreToolUse)) config.hooks.PreToolUse = [];
+      const existing = config.hooks.PreToolUse.find(
+        (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
+      );
+      if (existing) {
+        const entry = existing.hooks.find((e) => e.command && e.command.includes('konoha-native-blocker-cc'));
+        if (entry.command !== blockerCommand) {
+          entry.command = blockerCommand;
+          return true;
+        }
+        return false;
+      }
+      config.hooks.PreToolUse.push({
+        hooks: [
+          {
+            type: 'command',
+            command: blockerCommand
+          }
+        ]
+      });
+      return true;
+    },
+    silent
+  );
+  return { ok: true, blocker: blockerJs };
+}
+
+/**
+ * Registers the Konoha workflow reminder as a Command Code SessionStart hook
+ * (fires on startup, resume, AND clear). Command Code has no UserPromptSubmit
+ * event; SessionStart `additionalContext` is injected into the first turn, so
+ * resumed/compacted/cleared sessions re-engage the Konoha workflow. Matchers
+ * are ignored on SessionStart — omit it. The reminder script detects
+ * COMMANDCODE_HOOK_EVENT=SessionStart and emits the JSON envelope.
+ */
+function registerCommandCodeWorkflowReminder(silent = true) {
+  const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
+  if (!fileExists(reminderPath)) return;
+  const reminderCommand = `"${process.execPath}" "${reminderPath}"`;
+  const settingsPath = path.join(HOME, '.commandcode', 'settings.json');
+  try {
+    if (!fs.existsSync(path.dirname(settingsPath))) {
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    }
+    let settings = {};
+    if (fs.existsSync(settingsPath)) {
+      try {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) || {};
+      } catch (_) {
+        // Corrupt settings: back up before rebuild
+        try {
+          fs.copyFileSync(settingsPath, settingsPath + '.corrupt-' + Date.now());
+          if (!silent) console.warn(`⚠ ${settingsPath} was invalid JSON — backed up`);
+        } catch (_) {}
+        settings = {};
+      }
+    }
+    if (!settings.hooks) settings.hooks = {};
+    if (!Array.isArray(settings.hooks.SessionStart)) settings.hooks.SessionStart = [];
+
+    const existing = settings.hooks.SessionStart.find(
+      (e) => e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
+    );
+    if (existing) {
+      const h = existing.hooks[0];
+      if (h && h.command !== reminderCommand) {
+        h.command = reminderCommand;
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+      }
+      return;
+    }
+    settings.hooks.SessionStart.push({
+      hooks: [{ type: 'command', command: reminderCommand }]
+    });
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+    if (!silent) console.log('✓ Konoha workflow reminder registered (Command Code SessionStart: startup/resume/clear)');
+  } catch (err) {
+    if (!silent) console.warn(`⚠ Command Code workflow reminder registration failed: ${err.message}`);
+  }
 }
 
 
@@ -703,19 +867,30 @@ function readMcpHealth(config, key = 'mcpServers') {
 
 function registerClaudeCodeNativeBlocker() {
   if (!fileExists(CLAUDE_SETTINGS)) return;
-  const blockerPath = path.join(HOME, ".local", "bin", "konoha-native-blocker");
+  // Cross-platform payload: a Node script (node is guaranteed — Konoha itself
+  // runs on it). A bash script cannot execute as a Claude Code hook on Windows.
+  const binDir = path.join(HOME, ".local", "bin");
+  const blockerJs = path.join(binDir, "konoha-native-blocker.js");
   try {
-    fs.mkdirSync(path.join(HOME, ".local", "bin"), { recursive: true });
-    const scriptContent = `#!/usr/bin/env bash
-# Output JSON rejecting the tool use
-cat << 'JSON'
-{
-  "decision": "reject",
-  "reason": "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools."
-}
-JSON
+    fs.mkdirSync(binDir, { recursive: true });
+    const payload = `#!/usr/bin/env node
+// Konoha native-tool blocker — prints a schema-valid deny decision for Claude Code.
+// Claude Code's PreToolUse output schema only accepts decision "block"|"allow"|"undefined"
+// and/or hookSpecificOutput.permissionDecision "allow"|"deny"|"ask". An invalid value
+// (e.g. "reject") fails JSON validation, the block is DISCARDED, and the native tool runs.
+const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (Read, Glob, Grep, View, ReadFile, ls, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, etc.) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+const decision = {
+  "decision": "block",
+  "reason": reason,
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": reason
+  }
+};
+process.stdout.write(JSON.stringify(decision) + "\\n");
 `;
-    fs.writeFileSync(blockerPath, scriptContent, { mode: 0o755 });
+    fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
   } catch (e) {
     // Ignore permissions errors
   }
@@ -725,30 +900,107 @@ JSON
     (config) => {
       if (!config.hooks) config.hooks = {};
       if (!config.hooks.PreToolUse) config.hooks.PreToolUse = [];
+      let changed = false;
+      // Drop legacy `konoha-hook-wrapper` entries (pre-refactor install): the
+      // wrapper converts RTK output to `{"decision":"modify"}` which is NOT in
+      // Claude Code's schema (allow|block|undefined) and fails JSON validation
+      // on every Bash call. `rtk hook claude` is registered separately.
+      const beforeCount = config.hooks.PreToolUse.length;
+      config.hooks.PreToolUse = config.hooks.PreToolUse.filter(
+        (h) => !((h.hooks || []).some((e) => e.command && e.command.includes("konoha-hook-wrapper")))
+      );
+      if (config.hooks.PreToolUse.length !== beforeCount) changed = true;
       const blockerRegex = "^(Read|Glob|Grep|View|ReadFile|Replace)$";
-      let found = false;
+      const blockerCommand = `"${process.execPath}" "${blockerJs}"`;
       for (const hook of config.hooks.PreToolUse) {
         if (hook.matcher === blockerRegex) {
-          found = true;
-          break;
+          const firstHook = hook.hooks && hook.hooks[0];
+          if (firstHook && firstHook.command && firstHook.command.includes("konoha-native-blocker")) {
+            if (firstHook.command !== blockerCommand) {
+              // Upgrade legacy bash-script entries to the cross-platform command
+              firstHook.command = blockerCommand;
+              changed = true;
+            }
+            return changed;
+          }
         }
       }
-      if (!found) {
-        const blockerPath = path.join(HOME, ".local", "bin", "konoha-native-blocker");
-        config.hooks.PreToolUse.push({
-          matcher: blockerRegex,
-          hooks: [
-            {
-              type: "command",
-              command: blockerPath
-            }
-          ]
-        });
-        return true;
-      }
-      return false;
+      config.hooks.PreToolUse.push({
+        matcher: blockerRegex,
+        hooks: [
+          {
+            type: "command",
+            command: blockerCommand
+          }
+        ]
+      });
+      return true;
     }
   );
+}
+
+/**
+ * Registers the Konoha workflow reminder as a Claude Code UserPromptSubmit
+ * + SessionStart(resume/compact/clear) hook. UserPromptSubmit stdout is added
+ * to the model context on EVERY prompt, so the Konoha workflow stays engaged
+ * in resumed/compacted sessions where the original contract would otherwise
+ * be buried in history or compacted away.
+ */
+function registerClaudeCodeWorkflowReminder(silent = true) {
+  const reminderPath = path.join(HOME, '.konoha', 'workflow_reminder.js');
+  if (!fileExists(reminderPath)) return;
+  const reminderCommand = `"${process.execPath}" "${reminderPath}"`;
+
+  mergeJsonFile(
+    CLAUDE_SETTINGS,
+    (config) => {
+      if (!config.hooks) config.hooks = {};
+      let changed = false;
+
+      // 1. UserPromptSubmit — re-inject the reminder on every prompt
+      if (!config.hooks.UserPromptSubmit) config.hooks.UserPromptSubmit = [];
+      const upsEntry = config.hooks.UserPromptSubmit.find(
+        (e) => e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
+      );
+      if (!upsEntry) {
+        config.hooks.UserPromptSubmit.push({
+          matcher: '',
+          hooks: [{ type: 'command', command: reminderCommand }]
+        });
+        changed = true;
+      } else {
+        const h = upsEntry.hooks.find((h) => h.command && h.command.includes('workflow_reminder'));
+        if (h && h.command !== reminderCommand) {
+          h.command = reminderCommand;
+          changed = true;
+        }
+      }
+
+      // 2. SessionStart (resume | compact | clear) — re-inject after state loss
+      if (!config.hooks.SessionStart) config.hooks.SessionStart = [];
+      const ssMatcher = 'resume|compact|clear';
+      const ssEntry = config.hooks.SessionStart.find(
+        (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder'))
+      );
+      if (!ssEntry) {
+        const stale = config.hooks.SessionStart.find(
+          (e) => e.matcher === ssMatcher && e.hooks && e.hooks.some((h) => h.command && h.command.includes('workflow_reminder') && h.command !== reminderCommand)
+        );
+        if (stale) {
+          stale.hooks.forEach((h) => { if (h.command && h.command.includes('workflow_reminder')) h.command = reminderCommand; });
+          changed = true;
+        } else {
+          config.hooks.SessionStart.push({
+            matcher: ssMatcher,
+            hooks: [{ type: 'command', command: reminderCommand }]
+          });
+          changed = true;
+        }
+      }
+      return changed;
+    }
+  );
+  if (!silent) console.log('✓ Konoha workflow reminder registered (UserPromptSubmit + SessionStart resume/compact/clear)');
 }
 
 function getClaudeCodeStatus() {
@@ -1041,6 +1293,7 @@ function getCommandCodeStatus() {
     status: 'missing',
     rtkInstalled: isRtkInstalled(),
     rtkRuleDeployed: fileExists(path.join(HOME, '.commandcode', 'rules', 'rtk.md')),
+    nativeBlockerDeployed: false,
     permissionsAllowed: false
   };
 
@@ -1071,6 +1324,10 @@ function getCommandCodeStatus() {
           const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
           const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
           status.permissionsAllowed = allow.includes('mcp__konoha__*') && allow.includes('mcp__semble__*') && allow.includes('mcp__aislop__*');
+          const ccHooks = settings.hooks || {};
+          status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
+            (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
+          );
         } catch {}
       }
       if (health.konoha && health.semble && health.aislop) {
@@ -1090,11 +1347,13 @@ module.exports = {
   KONOHA_MCP_NAMES,
   isClaudeCodeInstalled,
   isCommandCodeInstalled,
+  registerClaudeCodeWorkflowReminder,
   isRtkInstalled,
   buildStdioMcpServers,
   registerClaudeCodeGlobalMcp,
   registerCommandCodeGlobalMcp,
   registerCommandCodePermissions,
+  registerCommandCodeNativeBlocker,
   registerClaudeCodePermissions,
   deployClaudeCodeRules,
   deployClaudeCodeRtkRule,

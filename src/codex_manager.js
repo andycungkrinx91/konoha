@@ -168,8 +168,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const MANAGED_SECTION_PATTERNS = [
     /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
     /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
-    /^\[agents(\..*)?\]/i,
-    /^\[features\]/i,
+    // Only strip agent tables Konoha manages — never the user's own agents
+    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)(\..*)?\]/i,
     /^\[model_providers\.heraxles(\..*)?\]/i,
     /^\[profiles\.heraxles(\..*)?\]/i
   ];
@@ -189,6 +189,11 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   let hasModel = false;
   let hasModelProvider = false;
 
+  // [features] is merged, not replaced: Konoha's two keys are stripped here and
+  // re-emitted in the featuresBlock below together with the user's own keys
+  let inFeaturesTable = false;
+  const userFeatureLines = [];
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
     if (
@@ -200,6 +205,14 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
     if (rawLine.startsWith('[')) {
       hasSeenSection = true;
+      if (/^\[features\]/i.test(rawLine)) {
+        // Drop the header here — the merged featuresBlock re-emits it with the
+        // user's keys preserved (see userFeatureLines)
+        inFeaturesTable = true;
+        skippingManagedSection = false;
+        continue;
+      }
+      inFeaturesTable = false;
       const isManaged = MANAGED_SECTION_PATTERNS.some(p => p.test(rawLine));
       if (isManaged) {
         skippingManagedSection = true;
@@ -209,6 +222,14 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
         preservedLines.push(lines[i]);
         continue;
       }
+    }
+
+    if (inFeaturesTable) {
+      if (/^skip_host_skill_discovery\s*=/i.test(rawLine) || /^skill_search\s*=/i.test(rawLine)) {
+        continue;
+      }
+      userFeatureLines.push(lines[i]);
+      continue;
     }
 
     if (skippingManagedSection) {
@@ -276,10 +297,12 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const normPython = normalizeCommand(pythonExecutable);
   const konohaArgs = [...normPython.prefixArgs, serverEntryPoint];
+  // TOML basic strings treat '\' as an escape char — escape all command/arg paths
+  const tomlStr = (v) => `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   const konohaBlock = [
     '[mcp_servers.konoha]',
-    `command = "${normPython.executable}"`,
-    `args = [${konohaArgs.map(a => `"${a.replace(/\\/g, '\\\\')}"`).join(', ')}]`,
+    `command = ${tomlStr(normPython.executable)}`,
+    `args = [${konohaArgs.map(tomlStr).join(', ')}]`,
     'startup_timeout_sec = 30',
     'tool_timeout_sec = 60',
     'default_tools_approval_mode = "auto"',
@@ -292,7 +315,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const sembleBlock = [
     '[mcp_servers.semble]',
-    `command = "${resolvedUvx}"`,
+    `command = ${tomlStr(resolvedUvx)}`,
     'args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]',
     'startup_timeout_sec = 30',
     'tool_timeout_sec = 60',
@@ -301,8 +324,8 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const aislopBlock = [
     '[mcp_servers.aislop]',
-    `command = "${resolvedAislopCmd}"`,
-    `args = [${resolvedAislopArgs.map(a => `"${a}"`).join(', ')}]`,
+    `command = ${tomlStr(resolvedAislopCmd)}`,
+    `args = [${resolvedAislopArgs.map(tomlStr).join(', ')}]`,
     'startup_timeout_sec = 30',
     'tool_timeout_sec = 60',
     'default_tools_approval_mode = "auto"'
@@ -311,18 +334,24 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const featuresBlock = [
     '[features]',
     'skip_host_skill_discovery = true',
-    'skill_search = false'
+    'skill_search = false',
+    ...userFeatureLines
   ].join('\n');
+
+  // Only include semble when uvx is actually usable
+  const uvxAvailable = (() => {
+    try {
+      const res = spawnSync(resolvedUvx, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      return res.status === 0;
+    } catch { return false; }
+  })();
 
   // Notice: Parent table headers MUST precede sub-tables in valid TOML
   const mcpSection = [
     konohaBlock,
     '',
     konohaToolBlocks,
-    '',
-    sembleBlock,
-    '',
-    sembleToolBlocks,
+    ...(uvxAvailable ? ['', sembleBlock, '', sembleToolBlocks] : []),
     '',
     aislopBlock,
     '',
@@ -476,16 +505,14 @@ function deployCodexRtkRule(silent = true) {
     return { ok: false, reason: 'rtk-not-installed' };
   }
 
-  // Attempt RTK init if codex support exists
-  try {
-    spawnSync(rtkCmd, ['init', '-g', '--codex', '--auto-patch', '--trust-filters'], {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit'
-    });
-  } catch {}
+  // Note: rtk init has no codex agent support; the rule is deployed via
+  // copyFileSync below instead of `rtk init`.
 
-  const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
+  let src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
+  const fallback = path.join(HOME, '.claude', 'rules', 'rtk.md');
+  if (!fileExists(src) && fileExists(fallback)) {
+    src = fallback;
+  }
   if (!fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }

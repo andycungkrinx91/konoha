@@ -131,8 +131,9 @@ function contentHash(content) {
 const LAST_CALL_TIMES = new Map();
 
 function logToolCall(toolName, queryStr, returnedContent, agentName = null) {
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     let baselineBytes = 550000;
     try {
       const row = conn.prepare('SELECT SUM(byte_size) as total FROM skills').get();
@@ -174,6 +175,10 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null) {
     `).run(toolName, queryStr, returnedBytes, totalLibraryBytes, bytesSaved, tokensSaved, agentName, clientName);
   } catch (_) {
     // Fail silently to avoid breaking MCP stdio
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) {}
+    }
   }
 }
 
@@ -219,96 +224,99 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false) {
   const normKeyword = normalizeLegacySkillName(keyword);
   const conn = getDb();
   const previewLimit = compact ? COMPACT_PREVIEW_LIMIT : PREVIEW_LIMIT;
-
-  let rows = [];
   try {
-    const vectorSearch = require("../vector_search");
-    if (vectorSearch.isSemanticSearchEnabled()) {
-      const semanticResults = vectorSearch.findSkillSemantic(conn, normKeyword, limit * 2, 25);
-      if (semanticResults && semanticResults.length > 0) {
-        rows = semanticResults;
+    let rows = [];
+    try {
+      const vectorSearch = require("../vector_search");
+      if (vectorSearch.isSemanticSearchEnabled()) {
+        const semanticResults = vectorSearch.findSkillSemantic(conn, normKeyword, limit * 2, 25);
+        if (semanticResults && semanticResults.length > 0) {
+          rows = semanticResults;
+        }
+      }
+    } catch (e) {
+      process.stderr.write(`  [Warning] Semantic search failed: ${e.message}. Falling back to FTS5.\n`);
+    }
+
+    if (!rows || rows.length === 0) {
+      const sanitizedKeyword = sanitizeFts5Query(normKeyword);
+      try {
+        rows = conn.prepare(`
+          SELECT s.name, s.skill_name, s.type, s.tags,
+                 s.content, s.byte_size, s.line_count, s.file_path,
+                 bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
+          FROM skills_fts
+          JOIN skills s ON skills_fts.rowid = s.rowid
+          WHERE skills_fts MATCH ?
+          ORDER BY rank
+          LIMIT 50
+        `).all(sanitizedKeyword);
+      } catch (e) {
+        process.stderr.write(`  [Warning] FTS5 search failed: ${e.message}. Falling back to LIKE search.\n`);
+        rows = [];
       }
     }
-  } catch (e) {
-    process.stderr.write(`  [Warning] Semantic search failed: ${e.message}. Falling back to FTS5.\n`);
-  }
 
-  if (!rows || rows.length === 0) {
-    const sanitizedKeyword = sanitizeFts5Query(normKeyword);
-    try {
+    if (!rows || rows.length === 0) {
+      const words = normKeyword.replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+      const likeKeyword = '%' + words.join('%') + '%';
       rows = conn.prepare(`
-        SELECT s.name, s.skill_name, s.type, s.tags,
-               s.content, s.byte_size, s.line_count, s.file_path,
-               bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-        FROM skills_fts
-        JOIN skills s ON skills_fts.rowid = s.rowid
-        WHERE skills_fts MATCH ?
-        ORDER BY rank
+        SELECT name, skill_name, type, tags,
+               content, byte_size, line_count, file_path,
+               0 AS rank
+        FROM skills
+        WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
+        ORDER BY byte_size ASC
         LIMIT 50
-      `).all(sanitizedKeyword);
-    } catch (e) {
-      process.stderr.write(`  [Warning] FTS5 search failed: ${e.message}. Falling back to LIKE search.\n`);
-      rows = [];
+      `).all(likeKeyword, likeKeyword, likeKeyword);
     }
-  }
 
-  if (!rows || rows.length === 0) {
-    const words = normKeyword.replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-    const likeKeyword = '%' + words.join('%') + '%';
-    rows = conn.prepare(`
-      SELECT name, skill_name, type, tags,
-             content, byte_size, line_count, file_path,
-             0 AS rank
-      FROM skills
-      WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
-      ORDER BY byte_size ASC
-      LIMIT 50
-    `).all(likeKeyword, likeKeyword, likeKeyword);
-  }
-
-  const visibleRows = [];
-  for (const row of rows) {
-    if (isPathVisible(row.file_path)) {
-      visibleRows.push(row);
+    const visibleRows = [];
+    for (const row of rows) {
+      if (isPathVisible(row.file_path)) {
+        visibleRows.push(row);
+      }
+      if (visibleRows.length >= limit) break;
     }
-    if (visibleRows.length >= limit) break;
-  }
 
-  if (visibleRows.length === 0) {
-    process.stderr.write('  → 0 skills found\n');
-    const res = JSON.stringify({
-      found: 0,
-      query: normKeyword,
-      message: `No skills found for '${normKeyword}'. Use list_skills to see available skills.`
-    });
+    if (visibleRows.length === 0) {
+      process.stderr.write('  → 0 skills found\n');
+      const res = JSON.stringify({
+        found: 0,
+        query: normKeyword,
+        message: `No skills found for '${normKeyword}'. Use list_skills to see available skills.`
+      });
+      logToolCall('find_skill', normKeyword, res, agentName);
+      return res;
+    }
+
+    const results = [];
+    process.stderr.write(`  → Found ${visibleRows.length} matching skill/reference entries:\n`);
+    for (const row of visibleRows) {
+      process.stderr.write(`    - ${row.name} (${row.type}, ${row.byte_size} bytes)\n`);
+      const shielded = shieldPromptInjection(row.content || '');
+      const isTruncated = shielded.length > previewLimit;
+      const preview = isTruncated ? shielded.substring(0, previewLimit) : shielded;
+
+      const entry = {
+        name: row.name,
+        type: row.type,
+        content: preview,
+        truncated: isTruncated,
+        hash: contentHash(shielded)
+      };
+      if (isTruncated) {
+        entry.hint = `Use get_skill('${row.name}') for full content`;
+      }
+      results.push(entry);
+    }
+
+    const res = JSON.stringify({ found: results.length, query: normKeyword, results });
     logToolCall('find_skill', normKeyword, res, agentName);
     return res;
+  } finally {
+    conn.close();
   }
-
-  const results = [];
-  process.stderr.write(`  → Found ${visibleRows.length} matching skill/reference entries:\n`);
-  for (const row of visibleRows) {
-    process.stderr.write(`    - ${row.name} (${row.type}, ${row.byte_size} bytes)\n`);
-    const shielded = shieldPromptInjection(row.content || '');
-    const isTruncated = shielded.length > previewLimit;
-    const preview = isTruncated ? shielded.substring(0, previewLimit) : shielded;
-
-    const entry = {
-      name: row.name,
-      type: row.type,
-      content: preview,
-      truncated: isTruncated,
-      hash: contentHash(shielded)
-    };
-    if (isTruncated) {
-      entry.hint = `Use get_skill('${row.name}') for full content`;
-    }
-    results.push(entry);
-  }
-
-  const res = JSON.stringify({ found: results.length, query: normKeyword, results });
-  logToolCall('find_skill', normKeyword, res, agentName);
-  return res;
 }
 
 function listSkills(agentName = null, fields = null) {
@@ -318,34 +326,38 @@ function listSkills(agentName = null, fields = null) {
   } catch (_) { /* ignore */ }
 
   const conn = getDb();
-  const rows = conn.prepare(`
-    SELECT name, skill_name, type, tags, byte_size, line_count, file_path
-    FROM skills
-    ORDER BY skill_name, type DESC, name
-  `).all();
+  try {
+    const rows = conn.prepare(`
+      SELECT name, skill_name, type, tags, byte_size, line_count, file_path
+      FROM skills
+      ORDER BY skill_name, type DESC, name
+    `).all();
 
-  const effFields = (fields && Array.isArray(fields) && fields.length > 0)
-    ? fields
-    : ['name', 'type', 'size'];
+    const effFields = (fields && Array.isArray(fields) && fields.length > 0)
+      ? fields
+      : ['name', 'type', 'size'];
 
-  const skills = [];
-  for (const row of rows) {
-    if (isPathVisible(row.file_path)) {
-      const entry = {};
-      if (effFields.includes('name')) entry.name = row.name;
-      if (effFields.includes('type')) entry.type = row.type;
-      if (effFields.includes('size')) entry.size = row.byte_size;
-      if (effFields.includes('tags')) entry.tags = row.tags;
-      if (effFields.includes('lines')) entry.lines = row.line_count;
-      if (effFields.includes('skill_name')) entry.skill_name = row.skill_name;
-      skills.push(entry);
+    const skills = [];
+    for (const row of rows) {
+      if (isPathVisible(row.file_path)) {
+        const entry = {};
+        if (effFields.includes('name')) entry.name = row.name;
+        if (effFields.includes('type')) entry.type = row.type;
+        if (effFields.includes('size')) entry.size = row.byte_size;
+        if (effFields.includes('tags')) entry.tags = row.tags;
+        if (effFields.includes('lines')) entry.lines = row.line_count;
+        if (effFields.includes('skill_name')) entry.skill_name = row.skill_name;
+        skills.push(entry);
+      }
     }
-  }
 
-  process.stderr.write(`  → Total indexed & visible: ${skills.length} entries\n`);
-  const res = JSON.stringify({ total: skills.length, skills });
-  logToolCall('list_skills', '', res, agentName);
-  return res;
+    process.stderr.write(`  → Total indexed & visible: ${skills.length} entries\n`);
+    const res = JSON.stringify({ total: skills.length, skills });
+    logToolCall('list_skills', '', res, agentName);
+    return res;
+  } finally {
+    conn.close();
+  }
 }
 
 function getSkill(name, agentName = null) {
@@ -356,144 +368,153 @@ function getSkill(name, agentName = null) {
 
   const normName = normalizeLegacySkillName(name);
   const conn = getDb();
-  const row = conn.prepare(`
-    SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
-    FROM skills
-    WHERE name = ?
-  `).get(normName);
+  try {
+    const row = conn.prepare(`
+      SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
+      FROM skills
+      WHERE name = ?
+    `).get(normName);
 
-  if (!row || !isPathVisible(row.file_path)) {
-    process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);
+    if (!row || !isPathVisible(row.file_path)) {
+      process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);
+      const res = JSON.stringify({
+        error: `Skill '${normName}' not found. Use list_skills or find_skill to discover available skills.`
+      });
+      logToolCall('get_skill', normName, res, agentName);
+      return res;
+    }
+
+    process.stderr.write(`  → Retrieved ${row.name} (${row.byte_size} bytes)\n`);
+    const shielded = shieldPromptInjection(row.content || '');
+    let content = shielded;
+    let truncated = false;
+
+    if (content.length > MAX_CONTENT_SIZE) {
+      const truncRes = smartTruncate(content, MAX_CONTENT_SIZE, row.name);
+      content = truncRes.text;
+      truncated = truncRes.truncated;
+    }
+
     const res = JSON.stringify({
-      error: `Skill '${normName}' not found. Use list_skills or find_skill to discover available skills.`
+      name: row.name,
+      type: row.type,
+      content,
+      byte_size: Buffer.byteLength(content, 'utf8'),
+      line_count: (content.match(/\n/g) || []).length + 1,
+      truncated,
+      hash: contentHash(shielded)
     });
     logToolCall('get_skill', normName, res, agentName);
     return res;
+  } finally {
+    conn.close();
   }
-
-  process.stderr.write(`  → Retrieved ${row.name} (${row.byte_size} bytes)\n`);
-  const shielded = shieldPromptInjection(row.content || '');
-  let content = shielded;
-  let truncated = false;
-
-  if (content.length > MAX_CONTENT_SIZE) {
-    const truncRes = smartTruncate(content, MAX_CONTENT_SIZE, row.name);
-    content = truncRes.text;
-    truncated = truncRes.truncated;
-  }
-
-  const res = JSON.stringify({
-    name: row.name,
-    type: row.type,
-    content,
-    byte_size: Buffer.byteLength(content, 'utf8'),
-    line_count: (content.match(/\n/g) || []).length + 1,
-    truncated,
-    hash: contentHash(shielded)
-  });
-  logToolCall('get_skill', normName, res, agentName);
-  return res;
 }
 
 function optimizeReport(keyword = null, agentName = null) {
   process.stderr.write(`[mcp konoha] tool_call: optimize_report(keyword='${keyword}')\n`);
   const conn = getDb();
-  let rows = [];
+  try {
+    let rows = [];
 
-  if (keyword) {
-    const sanitized = sanitizeFts5Query(keyword);
-    try {
-      rows = conn.prepare(`
-        SELECT s.name, s.skill_name, s.type, s.tags,
-               s.content, s.byte_size, s.line_count, s.file_path,
-               bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-        FROM skills_fts
-        JOIN skills s ON skills_fts.rowid = s.rowid
-        WHERE skills_fts MATCH ?
-        ORDER BY rank
-        LIMIT 10
-      `).all(sanitized);
-    } catch (e) {
-      process.stderr.write(`  [Warning] FTS5 optimize_report query failed: ${e.message}. Falling back to LIKE.\n`);
-      rows = [];
-    }
+    if (keyword) {
+      const sanitized = sanitizeFts5Query(keyword);
+      try {
+        rows = conn.prepare(`
+          SELECT s.name, s.skill_name, s.type, s.tags,
+                 s.content, s.byte_size, s.line_count, s.file_path,
+                 bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
+          FROM skills_fts
+          JOIN skills s ON skills_fts.rowid = s.rowid
+          WHERE skills_fts MATCH ?
+          ORDER BY rank
+          LIMIT 10
+        `).all(sanitized);
+      } catch (e) {
+        process.stderr.write(`  [Warning] FTS5 optimize_report query failed: ${e.message}. Falling back to LIKE.\n`);
+        rows = [];
+      }
 
-    if (!rows || rows.length === 0) {
-      const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-      const likeKeyword = '%' + words.join('%') + '%';
+      if (!rows || rows.length === 0) {
+        const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+        const likeKeyword = '%' + words.join('%') + '%';
+        rows = conn.prepare(`
+          SELECT name, skill_name, type, tags,
+                 content, byte_size, line_count, file_path,
+                 0 AS rank
+          FROM skills
+          WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
+          ORDER BY byte_size ASC
+          LIMIT 10
+        `).all(likeKeyword, likeKeyword, likeKeyword);
+      }
+    } else {
       rows = conn.prepare(`
         SELECT name, skill_name, type, tags,
                content, byte_size, line_count, file_path,
                0 AS rank
         FROM skills
-        WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
-        ORDER BY byte_size ASC
-        LIMIT 10
-      `).all(likeKeyword, likeKeyword, likeKeyword);
+        ORDER BY skill_name, type DESC
+        LIMIT 20
+      `).all();
     }
-  } else {
-    rows = conn.prepare(`
-      SELECT name, skill_name, type, tags,
-             content, byte_size, line_count, file_path,
-             0 AS rank
-      FROM skills
-      ORDER BY skill_name, type DESC
-      LIMIT 20
-    `).all();
-  }
 
-  const visibleRows = rows.filter(r => isPathVisible(r.file_path));
-  const reports = [];
+    const visibleRows = rows.filter(r => isPathVisible(r.file_path));
+    const reports = [];
 
-  for (const row of visibleRows) {
-    const content = shieldPromptInjection(row.content || '');
-    const headings = [];
-    const lines = content.split(/\r?\n/);
-    for (const line of lines) {
-      const stripped = line.trim();
-      if (stripped.startsWith('#')) {
-        const h = stripped.replace(/^#+/, '').trim();
-        if (h && h.length > 2) {
-          const level = stripped.length - stripped.replace(/^#+/, '').length;
-          headings.push(`${'  '.repeat(Math.max(0, level - 1))}- ${h}`);
+    for (const row of visibleRows) {
+      const content = shieldPromptInjection(row.content || '');
+      const headings = [];
+      const lines = content.split(/\r?\n/);
+      for (const line of lines) {
+        const stripped = line.trim();
+        if (stripped.startsWith('#')) {
+          const h = stripped.replace(/^#+/, '').trim();
+          if (h && h.length > 2) {
+            const level = stripped.length - stripped.replace(/^#+/, '').length;
+            headings.push(`${'  '.repeat(Math.max(0, level - 1))}- ${h}`);
+          }
         }
       }
-    }
 
-    let summary = '';
-    for (const line of lines) {
-      const stripped = line.trim();
-      if (stripped && !stripped.startsWith('#') && !stripped.startsWith('```') && !stripped.startsWith('|') && !stripped.startsWith('-')) {
-        summary = stripped.substring(0, 200);
-        break;
+      let summary = '';
+      for (const line of lines) {
+        const stripped = line.trim();
+        if (stripped && !stripped.startsWith('#') && !stripped.startsWith('```') && !stripped.startsWith('|') && !stripped.startsWith('-')) {
+          summary = stripped.substring(0, 200);
+          break;
+        }
       }
+
+      const byteSize = Buffer.byteLength(content, 'utf8');
+      reports.push({
+        name: row.name,
+        type: row.type,
+        byte_size: byteSize,
+        estimated_tokens: Math.floor(byteSize / 4),
+        headings: headings.slice(0, 15),
+        summary,
+        hash: contentHash(content)
+      });
     }
 
-    const byteSize = Buffer.byteLength(content, 'utf8');
-    reports.push({
-      name: row.name,
-      type: row.type,
-      byte_size: byteSize,
-      estimated_tokens: Math.floor(byteSize / 4),
-      headings: headings.slice(0, 15),
-      summary,
-      hash: contentHash(content)
+    const res = JSON.stringify({
+      found: reports.length,
+      query: keyword || '(all)',
+      reports
     });
+    logToolCall('optimize_report', keyword || '', res, agentName);
+    return res;
+  } finally {
+    conn.close();
   }
-
-  const res = JSON.stringify({
-    found: reports.length,
-    query: keyword || '(all)',
-    reports
-  });
-  logToolCall('optimize_report', keyword || '', res, agentName);
-  return res;
 }
 
 function getAgentSkills(agentName) {
   if (!agentName) return null;
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     const row = conn.prepare('SELECT skills FROM agents WHERE name = ?').get(agentName);
     if (row && row.skills) {
       try {
@@ -512,6 +533,10 @@ function getAgentSkills(agentName) {
     }
   } catch (e) {
     process.stderr.write(`[mcp konoha] Error reading agent skills: ${e.message}\n`);
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) {}
+    }
   }
   return null;
 }

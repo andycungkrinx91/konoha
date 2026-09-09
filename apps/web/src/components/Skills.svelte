@@ -1,8 +1,9 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
-  import { uiState } from "$lib/state/uiState.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { uiState } from "#lib/state/uiState.svelte.js";
+  import { useScrollLock } from "#lib/scrollLock.svelte.js";
 
   let skills = $state([]);
   let searchQuery = $state("");
@@ -158,15 +159,14 @@
   }
 
   async function deleteSkill(skillName) {
-    const confirmed = await sweetAlert.fire({
+    const confirmed = await sweetAlert.confirm({
       title: `Delete Skill "${skillName}"?`,
       text: "This will remove the skill file from your village and delete its SQLite FTS5 chunk index.",
       icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, Delete It",
-      cancelButtonText: "Cancel"
+      confirmText: "Yes, Delete It",
+      cancelText: "Cancel"
     });
-    if (!confirmed.isConfirmed) return;
+    if (!confirmed) return;
 
     try {
       await api.delete(`/api/v1/skills/${encodeURIComponent(skillName)}`);
@@ -190,7 +190,7 @@
   async function reindexAllSkills() {
     try {
       uiState.addNotification("Re-indexing skills database...", "info");
-      const res = await api.post("/api/v1/skills/reindex", {});
+      await api.post("/api/v1/skills/reindex", {});
       await sweetAlert.fire({
         title: "Migration Complete",
         text: "SQLite FTS5 database successfully re-indexed all skills.",
@@ -215,12 +215,20 @@
   }
 
   onMount(loadSkills);
+
+  useScrollLock(isCreateModalOpen);
+
+  function handleModalKeydown(e) {
+    if (e.key === 'Escape' && isCreateModalOpen) isCreateModalOpen = false;
+  }
 </script>
+
+<svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-6 max-w-7xl mx-auto">
   <!-- Hero Section -->
   <div
-    class="relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-sm transition-all"
+    class="rise-3d relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-sm transition-all"
     style="background: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -342,7 +350,7 @@
             {/if}
 
             <div class="flex items-center justify-between text-[10px] font-mono mt-3 pt-2 border-t" style="border-color: var(--color-border); color: var(--color-text-muted);">
-              <span>{Math.round(s.byte_size / 1024)} KB</span>
+              <span>{s.byte_size ? Math.round(s.byte_size / 1024) : 0} KB</span>
               <span>{s.line_count || 0} lines</span>
             </div>
           </div>

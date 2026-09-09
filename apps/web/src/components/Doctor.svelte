@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
 
   let doctor = $state(null);
   let loading = $state(true);
@@ -46,7 +46,7 @@
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -61,7 +61,7 @@
           Environment Doctor
         </h2>
         <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
-          Automated integrity audit and self-repair for 6 coding IDEs, RTK binaries, SQLite databases, and daemon processes.
+          Automated integrity audit and self-repair for 7 coding IDEs, RTK binaries, SQLite databases, and daemon processes.
         </p>
       </div>
 
@@ -133,9 +133,9 @@
         System Verification Checks
       </h3>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="scene-3d grid grid-cols-1 md:grid-cols-2 gap-4">
         {#each doctor.results || [] as item}
-          <div class="glass-card-3d p-5 rounded-2xl border flex items-start justify-between gap-4">
+          <div class="glass-card-3d tilt-3d p-5 rounded-2xl border flex items-start justify-between gap-4">
             <div class="space-y-1 flex-1">
               <div class="flex items-center gap-2">
                 <span class="text-xs font-black text-slate-900">

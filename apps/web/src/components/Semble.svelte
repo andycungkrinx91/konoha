@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
 
   let status = $state(null);
   let savings = $state(null);
@@ -107,9 +107,9 @@
           <span>Today Savings</span>
           <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono font-bold">99%</span>
         </div>
-        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.today.tokens_saved}</div>
+        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.today?.tokens_saved ?? '—'}</div>
         <div class="text-xs font-semibold text-slate-700 flex items-center justify-between">
-          <span>{savings.today.calls} search queries</span>
+          <span>{savings.today?.calls ?? 0} search queries</span>
           <span class="text-emerald-700 font-bold">Optimal context</span>
         </div>
         <div class="w-full h-1.5 bg-slate-200 rounded-full mt-3 overflow-hidden">
@@ -122,9 +122,9 @@
           <span>Last 7 Days</span>
           <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 font-mono font-bold">99%</span>
         </div>
-        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.last_7_days.tokens_saved}</div>
+        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.last_7_days?.tokens_saved ?? '—'}</div>
         <div class="text-xs font-semibold text-slate-700 flex items-center justify-between">
-          <span>{savings.last_7_days.calls} searches</span>
+          <span>{savings.last_7_days?.calls ?? 0} searches</span>
           <span class="text-sky-700 font-bold">Consistently ~99%</span>
         </div>
         <div class="w-full h-1.5 bg-slate-200 rounded-full mt-3 overflow-hidden">
@@ -135,15 +135,15 @@
       <div class="glass-card-3d p-6 rounded-2xl border">
         <div class="flex items-center justify-between mb-3 text-xs font-bold text-slate-700 uppercase tracking-wider">
           <span>Total Reduction</span>
-          <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300 font-mono font-bold">{savings.total_saved_pct}%</span>
+          <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300 font-mono font-bold">{savings.total_saved_pct ?? 0}%</span>
         </div>
-        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.total_saved}</div>
+        <div class="text-3xl font-black text-slate-900 tracking-tight mb-1">{savings.total_saved ?? '—'}</div>
         <div class="text-xs font-semibold text-slate-700 flex items-center justify-between">
-          <span>{savings.total_calls} total queries</span>
+          <span>{savings.total_calls ?? 0} total queries</span>
           <span class="text-purple-700 font-bold">Net Saved</span>
         </div>
         <div class="w-full h-1.5 bg-slate-200 rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-purple-600 rounded-full" style="width: {savings.total_saved_pct}%"></div>
+          <div class="h-full bg-purple-600 rounded-full" style="width: {savings.total_saved_pct ?? 0}%"></div>
         </div>
       </div>
     </div>
@@ -215,7 +215,7 @@
           {#each searchResults.results || [] as r}
             <div class="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-2 hover:border-purple-300 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="font-mono text-xs font-bold text-purple-700">
+                <span class="font-mono text-xs font-bold text-purple-700 break-all">
                   {r.file_path}
                 </span>
                 <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200">

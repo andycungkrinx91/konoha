@@ -151,6 +151,8 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     );
   } catch (_) {
     // Fail silently
+  } finally {
+    try { conn.close(); } catch (_) {}
   }
 }
 

@@ -66,6 +66,16 @@ function getConnection(dbPath = null, loadVector = true) {
  * trigger, and index for Konoha (including vector search skill_chunks).
  */
 function setupSchema(conn) {
+  // Drop legacy persona_memories_fts schemas that predate the project_hash
+  // column. It is a derived index (external content) and is fully rebuilt at
+  // the end of this function, so dropping loses nothing.
+  try {
+    const legacyFtsCols = conn.prepare("PRAGMA table_info(persona_memories_fts)").all().map(c => c.name);
+    if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
+      conn.exec('DROP TABLE persona_memories_fts');
+    }
+  } catch (_) {}
+
   conn.exec(`
     CREATE TABLE IF NOT EXISTS skills (
         name TEXT PRIMARY KEY,
@@ -207,6 +217,24 @@ function setupSchema(conn) {
         content='persona_memories',
         content_rowid='rowid'
     );
+
+    -- Triggers to keep the external-content FTS index in sync
+    CREATE TRIGGER IF NOT EXISTS persona_memories_ai AFTER INSERT ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persona_memories_ad AFTER DELETE ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persona_memories_au AFTER UPDATE ON persona_memories BEGIN
+        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+    END;
   `);
 
   // Column additions / migration guards for existing databases
@@ -240,6 +268,12 @@ function setupSchema(conn) {
   // Purge any legacy mcp_* agents from authoritative database
   try {
     conn.prepare("DELETE FROM agents WHERE name LIKE 'mcp_%'").run();
+  } catch (_) {}
+
+  // Rebuild the external-content FTS index to repair any corruption left by
+  // earlier versions that synced deletes in the wrong order (content row gone first)
+  try {
+    conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
   } catch (_) {}
 
   return conn;

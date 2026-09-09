@@ -77,6 +77,7 @@ function detectActiveClient() {
       if (activeOverride.includes('opencode')) return 'opencode';
       if (activeOverride.includes('claude')) return 'claudecode';
       if (activeOverride.includes('cursor')) return 'cursor';
+      if (activeOverride.includes('pi.dev') || activeOverride === 'pi' || activeOverride.endsWith('-pi') || activeOverride.includes('pi-')) return 'pi';
       if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'agy';
       if (activeOverride.includes('antigravity') || activeOverride.includes('ide')) return 'antigravity';
     }
@@ -104,7 +105,8 @@ function detectActiveClient() {
       CLAUDE_PROJECTS,
       path.join(HOME, '.codex', 'sessions'),
       path.join(HOME, '.commandcode', 'logs'),
-      path.join(HOME, '.config', 'opencode')
+      path.join(HOME, '.config', 'opencode'),
+      path.join(HOME, '.pi', 'agent', 'sessions')
     ];
     const allFiles = [];
     for (const bDir of brainDirs) {
@@ -130,6 +132,7 @@ function detectActiveClient() {
     });
 
     const mostRecent = allFiles[0];
+    if (mostRecent.includes('.pi') || mostRecent.includes('pi/agent')) return 'pi';
     if (mostRecent.includes('cursor')) return 'cursor';
     if (mostRecent.includes('claude')) return 'claudecode';
     if (mostRecent.includes('codex')) return 'codex';
@@ -307,8 +310,9 @@ function detectActiveAgent() {
       }
 
       if (detected) {
+        let conn = null;
         try {
-          const conn = getDb();
+          conn = getDb();
           conn.prepare(`
             CREATE TABLE IF NOT EXISTS active_sessions (
               client TEXT NOT NULL,
@@ -338,6 +342,10 @@ function detectActiveAgent() {
           }
         } catch (err) {
           process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);
+        } finally {
+          if (conn) {
+            try { conn.close(); } catch (_) {}
+          }
         }
         return detected;
       }
@@ -346,8 +354,9 @@ function detectActiveAgent() {
     }
 
     if (getWorkspaceRoot()) {
+      let conn = null;
       try {
-        const conn = getDb();
+        conn = getDb();
         const row = conn.prepare(`
           SELECT session_id, transcript_path FROM active_sessions
           WHERE client = ? AND workspace_root = ?
@@ -372,7 +381,11 @@ function detectActiveAgent() {
             } catch (_) { /* ignore */ }
           }
         }
-      } catch (_) { /* ignore */ }
+      } catch (_) { /* ignore */ } finally {
+        if (conn) {
+          try { conn.close(); } catch (_) {}
+        }
+      }
     }
 
     process.stderr.write(`[mcp konoha] detect_active_agent: no agent detected, returning ${fallbackAgent}\n`);
@@ -387,14 +400,19 @@ function detectActiveAgent() {
 function getActiveSessionId() {
   const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
   if (convId) return convId;
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     const row = conn.prepare(`
       SELECT session_id FROM active_sessions
       WHERE client = ? AND workspace_root = ?
     `).get(getActiveClient() || 'unknown', getWorkspaceRoot() || 'unknown');
     if (row && row.session_id) return row.session_id;
-  } catch (_) { /* ignore */ }
+  } catch (_) { /* ignore */ } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) {}
+    }
+  }
   return '';
 }
 

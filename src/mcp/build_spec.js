@@ -119,9 +119,19 @@ function resolveBuildSourceDir(sourceDir) {
   }
   const workspace = path.resolve(getWorkspaceRoot() || process.cwd());
   const resolved = path.resolve(path.isAbsolute(raw) ? raw : path.join(workspace, raw));
-  const allowedRoots = [workspace, path.resolve(KONOHA_DIR)];
+  // Resolve symlinks so workspaces mounted through links are not falsely rejected
+  let realResolved = resolved;
+  let realWorkspace = workspace;
+  try { realResolved = fs.realpathSync(resolved); } catch (_) {}
+  try { realWorkspace = fs.realpathSync(workspace); } catch (_) {}
+  const isWinPlatform = process.platform === 'win32';
+  const norm = (p) => isWinPlatform ? p.toLowerCase() : p;
+  const allowedRoots = [norm(realWorkspace), norm(path.resolve(KONOHA_DIR))];
 
-  const isAllowed = allowedRoots.some(root => resolved === root || resolved.startsWith(root + path.sep));
+  const isAllowed = allowedRoots.some(root => {
+    const r = norm(realResolved);
+    return r === root || r.startsWith(root + path.sep);
+  });
   if (!isAllowed) {
     throw new Error(`Source directory outside workspace: ${sourceDir}`);
   }
@@ -280,16 +290,25 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
 
   const allFiles = [];
   try {
+    // Dependency/build output dirs would crowd out actual design assets
+    const SKIP_DIRS = new Set([
+      'node_modules', '.git', 'dist', 'build', 'out', 'coverage',
+      '.next', '.nuxt', '.svelte-kit', '.angular', '__pycache__', '.venv'
+    ]);
     function walkDir(dir) {
-      const entries = fs.readdirSync(dir);
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (allFiles.length >= 100) break;
-        const full = path.join(dir, entry);
-        const st = fs.statSync(full);
+        if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+        const full = path.join(dir, entry.name);
+        let st;
+        try {
+          st = fs.statSync(full);
+        } catch (_) { continue; }
         if (st.isDirectory()) {
           walkDir(full);
         } else if (st.isFile()) {
-          const ext = path.extname(entry).toLowerCase();
+          const ext = path.extname(entry.name).toLowerCase();
           const validExts = new Set([
             '.png', '.jpg', '.jpeg', '.webp', '.svg', '.html', '.xml',
             '.tsx', '.jsx', '.ts', '.js', '.css', '.scss', '.svelte',
@@ -466,8 +485,9 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
   directives.push(`Apply Taste-Skill dials: DESIGN_VARIANCE=${validatedDials.design_variance}/10, MOTION_INTENSITY=${validatedDials.motion_intensity}/10, VISUAL_DENSITY=${validatedDials.visual_density}/10.`);
 
   let skillBlocks = [];
+  let specConn = null;
   try {
-    const conn = getDb();
+    specConn = getDb();
     const fwBase = fwLowerSrc.includes('svelte') ? 'svelte' : (fwLowerSrc.includes('next') || fwLowerSrc.includes('react') ? 'nextjs' : (fwLowerSrc.includes('nuxt') ? 'nuxt' : (fwLowerSrc.includes('angular') ? 'angular' : null)));
     const criticalSkills = [
       fwBase ? `jonin-skill/${fwBase}-ui-expert` : null,
@@ -477,9 +497,13 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
       'jonin-skill/source-fidelity-directives',
       'jonin-skill/taste-skill-frontend-expert'
     ].filter(Boolean);
-    skillBlocks = loadSkillContentForBuild(criticalSkills, conn);
+    skillBlocks = loadSkillContentForBuild(criticalSkills, specConn);
   } catch (e) {
     process.stderr.write(`[mcp konoha] Error loading skill content for build_from_source: ${e.message}\n`);
+  } finally {
+    if (specConn) {
+      try { specConn.close(); } catch (_) {}
+    }
   }
 
   const spec = {
@@ -515,7 +539,6 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
 }
 
 function buildFromText(name, description, framework, agentName = null, tasteDials = null) {
-  const archetype = inferBuildArchetype(description);
   let frameworkSpec, validatedDials;
   try {
     const validated = validateBuildInput(name, description, framework, tasteDials);
@@ -526,6 +549,8 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
     logToolCall('build_from_text', `name=${name}, framework=${framework}`, res, agentName);
     return res;
   }
+  // Infer after validation: description is guaranteed to be a non-empty string here
+  const archetype = inferBuildArchetype(description);
 
   const displayFramework = frameworkSpec.display;
   let agentSkills = null;
@@ -665,8 +690,9 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
   buildDirectives.push("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).");
 
   let skillBlocks = [];
+  let textConn = null;
   try {
-    const conn = getDb();
+    textConn = getDb();
     const fwBase = fwLower.includes('svelte') ? 'svelte' : (fwLower.includes('next') || fwLower.includes('react') ? 'nextjs' : (fwLower.includes('nuxt') ? 'nuxt' : (fwLower.includes('angular') ? 'angular' : null)));
     const criticalSkills = [
       fwBase ? `jonin-skill/${fwBase}-ui-expert` : null,
@@ -675,9 +701,13 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
       'jonin-skill/design-token-manifest',
       'jonin-skill/taste-skill-frontend-expert'
     ].filter(Boolean);
-    skillBlocks = loadSkillContentForBuild(criticalSkills, conn);
+    skillBlocks = loadSkillContentForBuild(criticalSkills, textConn);
   } catch (e) {
     process.stderr.write(`[mcp konoha] Error loading skill content for build_from_text: ${e.message}\n`);
+  } finally {
+    if (textConn) {
+      try { textConn.close(); } catch (_) {}
+    }
   }
 
   const spec = {

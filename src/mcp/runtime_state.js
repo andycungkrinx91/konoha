@@ -75,7 +75,14 @@ function uriToPath(uri) {
   try {
     let p = uri;
     if (p.startsWith("file://")) {
-      p = decodeURIComponent(p.substring(7));
+      try {
+        const url = new URL(p);
+        const decodedPath = decodeURIComponent(url.pathname);
+        // Preserve UNC hosts: file://server/share → \\server\share (Windows)
+        p = url.host ? `//${url.host}${decodedPath}` : decodedPath;
+      } catch (_) {
+        p = decodeURIComponent(p.substring(7));
+      }
     } else if (p.startsWith("file:/")) {
       p = decodeURIComponent(p.substring(5));
     } else {

@@ -87,9 +87,9 @@ Before public release, verify:
 
 | Check | Command | Expected |
 |-------|---------|----------|
+| Full test suite | `node tests/run_all.js` | All 64 suites pass |
 | MCP integration | `konoha test` | All tests pass |
-| Antigravity attribution | `python3 tests/test_agent_attribution.py` | 7/7 PASS |
-| Cursor attribution | `python3 tests/test_cursor_attribution.py` | 8/8 PASS |
+| MCP protocol + e2e | `npm run test:mcp` | All tool calls pass |
 | Environment health | `konoha doctor --yes` | All checks passed |
 | Claude Code MCP (if CLI installed) | `konoha status` | `~/.claude.json` → konoha, semble |
 | Cross-client contract | `node tests/test_cross_client_contract.js` | all supported clients and official agents pass |
@@ -128,7 +128,7 @@ Before public release, verify:
 
 2. **Cross-Platform Support**:
    * Works on Linux, macOS, and Windows (native and WSL).
-   * Auto-detects Python (`python3` on Linux/macOS, `python` on Windows), Node.js paths, and config directories.
+   * Auto-detects Node.js paths (`node`/`npm`/`npx`) and config directories.
    * nvm compatible — works with any Node.js version (v18+).
 
 2. **Unified, Automated Configuration**:
@@ -137,7 +137,7 @@ Before public release, verify:
      * MCP Config: `~/.gemini/config/mcp_config.json` (registers the server across all Antigravity tools)
      * Executables & DB: `~/.konoha/`
      * Global Prompt Instructions: `~/.gemini/GEMINI.md`
-   * Fully cross-platform: auto-detects paths and Python configurations on Windows, macOS, and Linux.
+   * Fully cross-platform: auto-detects paths and Node.js configurations on Windows, macOS, and Linux.
 
 3. **Instantaneous On-Demand Retrieval**:
    * Finding reference documentation is a single-step MCP tool call:

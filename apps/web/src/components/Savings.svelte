@@ -55,7 +55,8 @@
     { name: 'Claude Code', key: 'claudecode', icon: '◎' },
     { name: 'OpenCode', key: 'opencode', icon: '▫' },
     { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
-    { name: 'Codex', key: 'codex', icon: '🤖' }
+    { name: 'Codex', key: 'codex', icon: '🤖' },
+    { name: 'Pi (pi.dev)', key: 'pi', icon: 'π' }
   ];
 
   function getFilteredTools(list) {
@@ -84,7 +85,7 @@
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -483,7 +484,7 @@
                   </tr>
                 {:else}
                   {#each filteredTools as t, idx}
-                    {@const sharePct = totalToolCalls > 0 ? Math.round((t.calls / totalToolCalls) * 100) : 0}
+                    {@const sharePct = totalToolCalls > 0 ? Math.round(((t.calls ?? 0) / totalToolCalls) * 100) : 0}
                     {@const savedTokens = Math.round((t.bytes || 0) / 4)}
                     <tr class="hover:bg-slate-500/5 transition-colors">
                       <td class="py-3 px-3 font-mono text-slate-400 text-center">{idx + 1}.</td>
@@ -493,7 +494,7 @@
                         </span>
                       </td>
                       <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                        {t.calls.toLocaleString()}
+                        {(t.calls ?? 0).toLocaleString()}
                       </td>
                       <td class="py-3 px-4">
                         <div class="flex items-center gap-2">
@@ -514,8 +515,8 @@
                       </td>
                       <td class="py-3 px-4">
                         <div class="flex items-center gap-1.5">
-                          <span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border {t.pct >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : (t.pct > 0 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-300')}">
-                            {t.pct}%
+                          <span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border {(t.pct ?? 0) >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : ((t.pct ?? 0) > 0 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-300')}">
+                            {t.pct ?? 0}%
                           </span>
                         </div>
                       </td>

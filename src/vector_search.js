@@ -20,7 +20,9 @@ const _EMBED_CACHE = new Map();
 let _pipelineExtractor = null;
 let _pipelineReranker = null;
 let _EXTENSION_FAILED_ONCE = false;
-const _LOADED_CONNECTIONS = new Set();
+// WeakSet so closed/dropped connections can be garbage-collected instead of
+// being pinned forever by this registry (memory leak in long-running processes)
+const _LOADED_CONNECTIONS = new WeakSet();
 
 function isSemanticSearchEnabled() {
   const val = (process.env[SEMANTIC_SEARCH_ENV] || "1").trim().toLowerCase();

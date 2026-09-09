@@ -74,8 +74,9 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   let bestScore = 0;
   let bestAgent = null;
 
+  let conn = null;
   try {
-    const conn = getDb();
+    conn = getDb();
     const agents = conn.prepare(`
       SELECT name, delegation_keywords FROM agents
       WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''
@@ -108,7 +109,11 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
         bestAgent = agent.name;
       }
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) { /* ignore */ } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) {}
+    }
+  }
 
   if (!bestAgent) bestAgent = 'kage';
   const writeSignals = ['prd', 'write a prd', 'technical doc', 'write the doc', 'draft the doc', 'write docs', 'author', 'write a spec'];
@@ -154,9 +159,10 @@ function runSannin(prompt = null, taskDir = null) {
     : selectedAgentSuffix;
 
   const agentDescriptions = {};
+  let descConn = null;
   try {
-    const conn = getDb();
-    const rows = conn.prepare('SELECT name, title, purpose FROM agents').all();
+    descConn = getDb();
+    const rows = descConn.prepare('SELECT name, title, purpose FROM agents').all();
     for (const row of rows) {
       const desc = row.purpose || row.title;
       agentDescriptions[row.name] = desc;
@@ -164,9 +170,16 @@ function runSannin(prompt = null, taskDir = null) {
         agentDescriptions[row.name.substring(4)] = desc;
       }
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) { /* ignore */ } finally {
+    if (descConn) {
+      try { descConn.close(); } catch (_) {}
+    }
+  }
 
-  const description = agentDescriptions[selectedAgent] || 'general-purpose delegation';
+  const description = agentDescriptions[selectedAgent]
+    || agentDescriptions[selectedAgent.replace(/_/g, '-')]
+    || agentDescriptions[selectedAgent.replace(/-/g, '_')]
+    || 'general-purpose delegation';
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
     `**Reason**: ${description}\n\n` +
@@ -265,7 +278,16 @@ function isCleanValidation(validationList, isPentest = false, allowEmpty = true)
     return hasCompletion && !hasFatal;
   } else {
     return !validationList.some(item => {
-      const s = String(item).toLowerCase();
+      let s = String(item).toLowerCase();
+      // Strip explicit zero-count success phrases first — canonical evidence
+      // like "0 errors and 0 warnings" or "exit code 0" must count as clean,
+      // while "2 errors" or "build failed" must still count as dirty
+      s = s
+        .replace(/\b0\s+errors?\s*(?:and|&)?\s*(?:0\s+warnings?)?/g, '')
+        .replace(/\b0\s+warnings?/g, '')
+        .replace(/\b0\s+(?:critical\s+)?vulnerabilities\b/g, '')
+        .replace(/\b0\s+unhandled\s+exploits\b/g, '')
+        .replace(/exit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*0\b/g, '');
       return ['error', 'warning', 'fail'].some(w => s.includes(w));
     });
   }
@@ -546,7 +568,7 @@ function runMcpWorkflow(taskDir = null) {
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'research', 'chunin');
     const planContext = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || '';
     const qLine = planContext.split(/\r?\n/).find(l => l.startsWith('research_query:'));
-    const query = qLine ? qLine.split(':', 2)[1].trim() : '';
+    const query = qLine ? qLine.slice('research_query:'.length).trim() : '';
     fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: chunin\npriority: medium\nPhase: Research\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nConduct web research on: ${query || 'the plan requirements'}\n`, 'utf8');
     status.assigned_agent = 'chunin';
     saveWorkflowStatus(resolvedTaskDir, status);

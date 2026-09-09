@@ -56,7 +56,7 @@ konoha web
    │     └── Serves JSON API (/api/v1/*) over existing Konoha core functions
    │
    └── Frontend (apps/web/build/)
-         ├── Built with SvelteKit 2 + Svelte 5 + Vite
+         ├── Built with SvelteKit 3 (RC) + Svelte 5 + Vite 8
          └── 10 Light-Mode Gradient Themes with Byakugan 3D Glassmorphism Aesthetic
 ```
 
@@ -126,10 +126,10 @@ konoha web
 
 ### 8. 🎨 10 Light-Mode Themes & Byakugan 3D Aesthetic
 - Universal floating circular FAB button in the bottom-left corner (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) opening the 10-theme selection popup modal.
-- Pure light-mode gradient palettes (`imperial-gold`, `nebula-indigo`, `aurora-emerald`, `sunset-amber`, `ocean-sapphire`, `forest-jade`, `volcano-crimson`, `sakura-rose`, `cyber-violet`, `midnight-slate`).
+- Pure light-mode gradient palettes (`byakugan`, `chidori`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`) with dynamic CSS variables and localStorage persistence.
 - Byakugan translucent glassmorphism gradients on cards, headers, sidebars, and footers.
-- Hardware-accelerated 3D perspective tilt and hover animations with zero Chrome GPU lag.
-- Accessible high-contrast typography and SweetAlert2 3D dialogs.
+- Hardware-accelerated 3D perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
+- Accessible high-contrast typography and custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.
 
 ### 9. 🩺 Environment Doctor Screen (`Doctor.svelte`)
 - Comprehensive diagnostic checklist of 24+ components (Node.js, SQLite, MCP tools, client configs).
@@ -137,7 +137,7 @@ konoha web
 - "Run Auto-Repair" button at top to automatically resolve any missing or outdated integration templates.
 
 ### 10. 🔌 Coding Clients Screen (`Clients.svelte`)
-- Status indicators for all 6 supported coding clients:
+- Status indicators for all 7 supported coding clients:
   - Antigravity IDE / CLI (`~/.gemini/config/mcp_config.json`)
   - Cursor IDE / CLI (`~/.cursor/mcp.json`)
   - Claude Code CLI (`~/.claude.json`)

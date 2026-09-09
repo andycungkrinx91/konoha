@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
 
   let currentProject = $state(null);
   let projectMemories = $state([]);
@@ -31,6 +31,14 @@
   }
 
   async function saveInvariants() {
+    if (!currentProject?.project_path) {
+      await sweetAlert.fire({
+        title: "No Workspace Detected",
+        text: "Cannot save invariants: the active workspace path was not detected by the Konoha core.",
+        icon: "warning"
+      });
+      return;
+    }
     saving = true;
     try {
       await api.post("/api/v1/projects", {
@@ -87,7 +95,7 @@
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -230,9 +238,9 @@
         <h3 class="text-lg font-black text-slate-900">
           All Registered Workspaces ({allProjects.length})
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="scene-3d grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {#each allProjects as proj}
-            <div class="glass-card-3d rounded-2xl p-5 border flex flex-col justify-between">
+            <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between">
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-bold text-slate-900 truncate">

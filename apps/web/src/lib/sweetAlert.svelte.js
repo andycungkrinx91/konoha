@@ -10,20 +10,38 @@ function createSweetAlertState() {
   let confirmText = $state("OK");
   let cancelText = $state("Cancel");
   let resolvePromise = null;
+  let autoDismissTimer = null;
 
-  function fire({ title: t, text: msg, icon: ic = "info", confirmText: cText = "OK" }) {
+  function clearAutoDismiss() {
+    if (autoDismissTimer) {
+      clearTimeout(autoDismissTimer);
+      autoDismissTimer = null;
+    }
+  }
+
+  function fire({ title: t, text: msg, icon: ic = "info", confirmText: cText = "OK", timer = 0 }) {
+    clearAutoDismiss();
     title = t || "Notification";
     text = msg || "";
     icon = ic;
     showCancel = false;
     confirmText = cText;
     isOpen = true;
-    return new Promise((resolve) => {
+    const promise = new Promise((resolve) => {
       resolvePromise = resolve;
     });
+    if (timer > 0) {
+      autoDismissTimer = setTimeout(() => {
+        if (resolvePromise) resolvePromise(true);
+        resolvePromise = null;
+        isOpen = false;
+      }, timer);
+    }
+    return promise;
   }
 
   function confirm({ title: t, text: msg, icon: ic = "warning", confirmText: cText = "Confirm", cancelText: canText = "Cancel" }) {
+    clearAutoDismiss();
     title = t || "Are you sure?";
     text = msg || "";
     icon = ic;
@@ -37,12 +55,14 @@ function createSweetAlertState() {
   }
 
   function handleConfirm() {
+    clearAutoDismiss();
     isOpen = false;
     if (resolvePromise) resolvePromise(true);
     resolvePromise = null;
   }
 
   function handleCancel() {
+    clearAutoDismiss();
     isOpen = false;
     if (resolvePromise) resolvePromise(false);
     resolvePromise = null;

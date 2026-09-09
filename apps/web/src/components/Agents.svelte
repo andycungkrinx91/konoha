@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
 
   let agents = $state([]);
   let allSkills = $state([]);
@@ -45,8 +45,9 @@
         { embedded: targetState }
       );
       if (targetState) {
+        if (!agent.skills) agent.skills = [];
         if (!agent.skills.includes(skillName)) agent.skills.push(skillName);
-      } else {
+      } else if (agent.skills) {
         agent.skills = agent.skills.filter(s => s !== skillName);
       }
       agents = [...agents];
@@ -65,7 +66,7 @@
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -114,9 +115,9 @@
       </div>
     </div>
   {:else}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="scene-3d grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {#each agents as agent}
-        <div class="glass-card-3d flex flex-col justify-between p-6 rounded-3xl border">
+        <div class="glass-card-3d tilt-3d flex flex-col justify-between p-6 rounded-3xl border">
           <div>
             <!-- Agent Header -->
             <div class="flex items-start justify-between gap-4 mb-4">

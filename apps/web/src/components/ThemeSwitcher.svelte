@@ -1,7 +1,10 @@
 <script>
   import { themeState, THEMES } from '../lib/state/themeState.svelte.js';
+  import { useScrollLock } from '#lib/scrollLock.svelte.js';
 
   let isModalOpen = $state(false);
+
+  useScrollLock(isModalOpen);
 
   function selectTheme(id) {
     themeState.applyTheme(id);
@@ -11,7 +14,13 @@
   function toggleModal() {
     isModalOpen = !isModalOpen;
   }
+
+  function handleModalKeydown(e) {
+    if (e.key === 'Escape' && isModalOpen) isModalOpen = false;
+  }
 </script>
+
+<svelte:window onkeydown={handleModalKeydown} />
 
 <!-- Floating Bottom-Left Theme Switcher Button (FAB) -->
 <div class="fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50">
@@ -80,7 +89,7 @@
             onclick={() => selectTheme(t.id)}
           >
             <div class="relative shrink-0">
-              <span class="w-7 h-7 rounded-xl flex items-center justify-center shadow-md border border-black/10" style="background: linear-gradient(135deg, {t.primary}, {t.accent});">
+              <span class="w-7 h-7 rounded-xl flex items-center justify-center shadow-md border border-black/10" style="background: linear-gradient(135deg, {t.color}, {t.accent});">
                 {#if isCurrent}
                   <span class="w-2 h-2 rounded-full bg-white shadow-sm"></span>
                 {/if}
@@ -90,7 +99,7 @@
               <div class="flex items-center justify-between gap-1">
                 <span class="text-xs font-black truncate" style="color: var(--color-text);">{t.name}</span>
                 {#if isCurrent}
-                  <span class="text-[10px] font-bold px-1.5 py-0.2 rounded-full border text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 shrink-0">Active</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full border text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 shrink-0">Active</span>
                 {/if}
               </div>
               <span class="text-[10px] truncate" style="color: var(--color-text-muted);">{t.description}</span>

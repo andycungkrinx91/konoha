@@ -1,7 +1,8 @@
 <script>
   import { onMount } from 'svelte';
-  import { apiRequest } from '$lib/api.js';
-  import { uiState } from '$lib/state/uiState.svelte.js';
+  import { apiRequest } from '#lib/api.js';
+  import { uiState } from '#lib/state/uiState.svelte.js';
+  import { sweetAlert } from '#lib/sweetAlert.svelte.js';
 
   let query = $state('');
   let searchDepth = $state('standard');
@@ -58,7 +59,7 @@
       });
 
       if (res.status === 'success' && Array.isArray(res.results)) {
-        searchResults = res.results;
+        searchResults = res.results.filter(r => r && r.url);
         searchedQuery = q;
       } else {
         searchResults = [];
@@ -76,17 +77,29 @@
 
   async function clearCache() {
     try {
-      const confirmed = await uiState.confirm(
-        'Clear SearXNG Cache?',
-        'This will invalidate the elected instance and re-discover public candidate instances from searx.space on next search.'
-      );
+      const confirmed = await sweetAlert.confirm({
+        title: 'Clear SearXNG Cache?',
+        text: 'This will invalidate the elected instance and re-discover public candidate instances from searx.space on next search.',
+        icon: 'warning',
+        confirmText: 'Clear Cache',
+        cancelText: 'Cancel'
+      });
       if (!confirmed) return;
 
       await apiRequest('/api/v1/search/clear-cache', { method: 'POST' });
-      uiState.alert('Cache Cleared', 'SearXNG candidate instances will re-resolve on next query.', 'success');
+      await sweetAlert.fire({
+        title: 'Cache Cleared',
+        text: 'SearXNG candidate instances will re-resolve on next query.',
+        icon: 'success',
+        timer: 2000
+      });
       loadStatus();
     } catch (err) {
-      uiState.alert('Error', err.message, 'error');
+      await sweetAlert.fire({
+        title: 'Error',
+        text: err.message,
+        icon: 'error'
+      });
     }
   }
 
@@ -240,7 +253,7 @@
       </div>
 
       <!-- Controls -->
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex flex-wrap items-center gap-2">
         <!-- Depth Selector -->
         <select
           bind:value={searchDepth}
@@ -268,7 +281,7 @@
           type="submit"
           disabled={isLoading || !query.trim()}
           class="px-6 py-3 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
-          style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent)); color: #ffffff;"
+          style="background: linear-gradient(135deg, var(--color-primary, #7c3aed), var(--color-accent, #6366f1)); color: #ffffff;"
         >
           {#if isLoading}
             <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">

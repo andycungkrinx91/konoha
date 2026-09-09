@@ -9,6 +9,7 @@ Konoha registers **konoha**, **semble**, and **aislop** for every supported clie
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
 | **Command Code** | When detected as `cmd` or `commandcode` | `~/.commandcode/mcp.json` → `mcpServers` |
 | **OpenAI Codex** | When detected as `codex` | `~/.codex/config.toml` → `[mcp_servers]`, `sandbox_mode = "danger-full-access"` |
+| **Pi (pi.dev)** | When detected as `pi` or `~/.pi/agent` | `~/.pi/agent/mcp.json` → `mcpServers` (loaded via the `pi-mcp-adapter` extension, auto-added to `~/.pi/agent/settings.json`) |
 
 ### RTK (Rust Token Killer) Auto-Deployment
 
@@ -22,8 +23,11 @@ When the `rtk` binary is available on PATH, Konoha also deploys RTK rule files t
 | **OpenCode** | `~/.config/opencode/rules/rtk.md` |
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
 | **OpenAI Codex** | `~/.codex/rules/rtk.md` |
+| **Pi (pi.dev)** | `~/.pi/agent/extensions/rtk.ts` (official RTK TypeScript extension) |
 
-These rules instruct the agent to prefix all shell commands with `rtk` to minimize token consumption. If `rtk` is not installed, Konoha skips this step gracefully. Check status with `konoha status`.
+RTK is **installed automatically** by `konoha init` when missing — from the official [rtk-ai/rtk](https://github.com/rtk-ai/rtk) repository (cargo `--git`, the official `install.sh` script, or the prebuilt Windows release). The plain crates.io `rtk` crate is an unrelated project and is never used.
+
+These rules instruct the agent to prefix all shell commands with `rtk` to minimize token consumption. If RTK cannot be installed (no network, no package manager), Konoha warns and continues without it. Check status with `konoha status`.
 
 > [!IMPORTANT]
 > **Cross-Platform Config Paths:**
@@ -165,6 +169,47 @@ approval_mode = "auto"
 ```
 
 **Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha`, `semble`, and `aislop`.
+
+---
+
+## Pi / pi.dev (global)
+
+**Detection**: `pi` binary in PATH, or `~/.pi/agent/`.
+
+**Requires**: The `pi-mcp-adapter` extension package. Konoha adds `npm:pi-mcp-adapter` to `~/.pi/agent/settings.json` automatically during setup (existing packages are preserved). Restart Pi after setup so the adapter loads.
+
+**Writes:**
+- `~/.pi/agent/mcp.json` → `mcpServers` (Pi-owned global override; user-configured servers are preserved, and Konoha only merges its own `konoha`, `semble`, and `aislop` entries).
+- `~/.pi/agent/settings.json` → adds `npm:pi-mcp-adapter` to `packages` when missing.
+- `~/.pi/agent/extensions/rtk.ts` → official RTK TypeScript extension (via `rtk init -g --agent pi`, when the `rtk` binary is installed).
+
+**Config format (JSON):**
+```json
+{
+  "mcpServers": {
+    "konoha": {
+      "command": "node",
+      "args": ["/home/<user>/.konoha/server.js"],
+      "env": { "ACTIVE_CLIENT": "pi", "KONOHA_CLIENT": "pi", "KONOHA_SEMANTIC_SEARCH": "1" }
+    },
+    "semble": {
+      "command": "uvx",
+      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
+    },
+    "aislop": {
+      "command": "npx",
+      "args": ["-y", "-p", "aislop", "aislop-mcp"]
+    }
+  }
+}
+```
+
+**Notes:**
+- Pi reads MCP servers lazily through the adapter's single token-efficient `mcp` proxy tool — aligned with Konoha's token-reduction philosophy.
+- Konoha only writes the Pi-owned global override layer; it never touches shared configs (`~/.config/mcp/mcp.json`, `~/.agents/mcp.json`) or project files (`.mcp.json`, `.pi/mcp.json`).
+- `konoha uninstall` removes only the Konoha-owned server entries and leaves the adapter and any user servers intact.
+
+**Verify:** Run `pi list` (should show `pi-mcp-adapter`), inspect `~/.pi/agent/mcp.json`, then run `/mcp` inside a Pi session — should show `konoha`, `semble`, and `aislop`.
 
 ---
 

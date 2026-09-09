@@ -74,8 +74,9 @@ This installs the MCP server and migrates your skills. The CLI should output:
 ✓ Found: ~/.agents/skills/ (5 skills)
 📦 Installing MCP Server
 ✓ Installed: ~/.konoha/file_tools_mcp.js, file_tools_launcher.js, file_tools_router.js
-✓ Database: ~/.konoha/skills.db (created if missing)
+✓ Database: ~/.konoha/konoha.db (created if missing)
 ✓ Migration Complete: skills indexed, FTS5 ready
+✓ Global command 'konoha' → ~/.konoha/bin/cli.js
 ✅ Installation Complete!
 ```
 
@@ -111,7 +112,7 @@ node "$env:USERPROFILE\.konoha\file_tools_launcher.js" <<< '{"jsonrpc":"2.0","id
 konoha test
 ```
 
-Expected: all tests pass (MCP integration + `tests/test_*.py` standalone suites).
+Expected: all tests pass (MCP integration + `tests/test_*.js` standalone suites).
 
 ## Step 4: Test in a Session
 

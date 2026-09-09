@@ -2,6 +2,7 @@
 
 :root {
   --color-primary: #7c3aed;
+  --color-accent: #6366f1;
   --color-primary-glow: rgba(124, 58, 237, 0.12);
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
@@ -11,12 +12,46 @@
   --color-text-muted: #334155;
   --color-card-bg: #ffffff;
   --color-card-border: #e2e8f0;
-  --glass-card: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.82) 100%);
-  --glass-header: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.86) 100%);
-  --glass-sidebar: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.90) 100%);
-  --glass-dock: linear-gradient(0deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.90) 100%);
-  --shadow-3d: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  --shadow-3d-hover: 0 20px 30px -10px rgba(0, 0, 0, 0.09), 0 10px 15px -5px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1);
+  --glass-blur: 20px;
+  --glass-saturate: 160%;
+  --glass-card: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.86) 0%,
+    rgba(255, 255, 255, 0.62) 55%,
+    rgba(255, 255, 255, 0.74) 100%
+  );
+  --glass-header: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(255, 255, 255, 0.65) 100%
+  );
+  --glass-sidebar: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0.72) 100%
+  );
+  --glass-dock: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.7) 100%
+  );
+  --glass-tint: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 7%, transparent) 0%,
+    transparent 45%,
+    color-mix(in srgb, var(--color-accent) 6%, transparent) 100%
+  );
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  --shadow-3d:
+    0 10px 25px -5px rgba(15, 23, 42, 0.08),
+    0 8px 10px -6px rgba(15, 23, 42, 0.04),
+    var(--glass-edge);
+  --shadow-3d-hover:
+    0 24px 48px -12px rgba(15, 23, 42, 0.14),
+    0 12px 20px -8px rgba(15, 23, 42, 0.06),
+    var(--glass-edge);
+  --shadow-glass-inset: var(--glass-highlight);
 }
 
 html.theme-light {
@@ -28,6 +63,7 @@ html.theme-light {
   --color-text-muted: #334155;
   --color-card-bg: #ffffff;
   --color-card-border: #e2e8f0;
+  --color-accent: #6366f1;
 }
 
 body {
@@ -41,7 +77,8 @@ body {
 
 /* 3D Glass & Animation Utilities with Hardware Acceleration to eliminate Chrome lag */
 .glass-card-3d {
-  background: var(--glass-card);
+  position: relative;
+  background: var(--glass-tint), var(--glass-card);
   border: 1px solid var(--color-border, #e2e8f0);
   box-shadow: var(--shadow-3d);
   will-change: transform, box-shadow;
@@ -50,11 +87,46 @@ body {
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
+/* Specular top-edge sheen (pure ::before layer — no extra DOM) */
+.glass-card-3d::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 18%,
+    transparent 40%
+  );
+  pointer-events: none;
+}
+
 .glass-card-3d:hover {
   transform: translateY(-2px) translateZ(0);
   -webkit-transform: translateY(-2px) translateZ(0);
   box-shadow: var(--shadow-3d-hover);
-  border-color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border, #e2e8f0));
+}
+
+/* Frosted panel: true glass with backdrop blur + saturation (sidebar, header, dock) */
+.glass-frost {
+  background: var(--glass-tint), var(--glass-card);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  box-shadow: var(--shadow-3d), var(--glass-highlight);
+}
+
+/* Dense frosted glass for modals and hero panels */
+.glass-frost-strong {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.88) 100%),
+    var(--glass-tint);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  box-shadow: var(--shadow-3d-hover), var(--glass-highlight);
 }
 
 .btn-3d {
@@ -95,4 +167,133 @@ body {
 
 .theme-border {
   border-color: var(--color-border);
+}
+
+/* ─── 3D Scene & Tilt Utilities ─────────────────────────────────────────── */
+
+/* Parent wrapper that gives children a shared 3D perspective field */
+.scene-3d {
+  perspective: 1400px;
+  perspective-origin: 50% 20%;
+}
+
+/* Card that tilts slightly into the scene on hover (GPU-only transforms) */
+.tilt-3d {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform: translateZ(0);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.tilt-3d:hover {
+  transform: rotateX(2.2deg) rotateY(-2.2deg) translateY(-4px) translateZ(10px);
+}
+
+.tilt-3d:active {
+  transform: rotateX(0.6deg) rotateY(-0.6deg) translateY(-1px) translateZ(2px);
+  transition-duration: 0.08s;
+}
+
+/* Entrance: cards rise out of the floor on mount (runs once, GPU-only) */
+@keyframes rise-3d {
+  from {
+    opacity: 0;
+    transform: translateY(16px) translateZ(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+.rise-3d {
+  animation: rise-3d 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.rise-3d-1 { animation-delay: 0.04s; }
+.rise-3d-2 { animation-delay: 0.08s; }
+.rise-3d-3 { animation-delay: 0.12s; }
+
+/* Nav / dock items: subtle press-into-scene depth on hover */
+.nav-depth {
+  transform-style: preserve-3d;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.18s ease, color 0.18s ease;
+}
+
+.nav-depth:hover {
+  transform: translateX(2px) translateZ(4px);
+}
+
+.nav-depth:active {
+  transform: translateX(2px) translateZ(0) scale(0.98);
+  transition-duration: 0.08s;
+}
+
+/* Hide scrollbars on horizontal strips (mobile dock, filter tabs) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Minimal entrance-animation utilities (previously no-op classes) */
+@keyframes konoha-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes konoha-zoom-in-95 {
+  from { opacity: 0; transform: scale(0.95) translateZ(0); }
+  to { opacity: 1; transform: scale(1) translateZ(0); }
+}
+
+.animate-in {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+.animate-in.fade-in {
+  animation-name: konoha-fade-in;
+}
+
+.animate-in.zoom-in-95 {
+  animation-name: konoha-zoom-in-95;
+}
+
+/* Respect users who prefer reduced motion: disable all 3D movement */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card-3d,
+  .glass-card-3d:hover,
+  .btn-3d,
+  .btn-3d:hover,
+  .btn-3d:active,
+  .tilt-3d,
+  .tilt-3d:hover,
+  .tilt-3d:active,
+  .nav-depth,
+  .nav-depth:hover,
+  .nav-depth:active {
+    transform: none;
+    transition: none;
+  }
+
+  .rise-3d,
+  .rise-3d-1,
+  .rise-3d-2,
+  .rise-3d-3 {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

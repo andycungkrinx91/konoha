@@ -369,7 +369,14 @@ function handleRequest(req) {
       `[mcp ${SERVER_NAME}] tool_call: ${toolName}(${JSON.stringify(args)})\n`,
     );
 
-    const { text, isError } = router.dispatchTool(toolName, args);
+    let text, isError;
+    try {
+      ({ text, isError } = router.dispatchTool(toolName, args));
+    } catch (err) {
+      // Answer with the request id so clients can correlate the failure
+      text = JSON.stringify({ error: `Tool execution failed: ${err.message}` });
+      isError = true;
+    }
     const retBytes = Buffer.byteLength(text, "utf8");
     logToolCallSavings(toolName, args, retBytes);
     return {
@@ -389,9 +396,10 @@ function handleRequest(req) {
 }
 
 function loadBridgesFromMcp() {
+  let conn = null;
   try {
     const db = require("./db");
-    const conn = db.getConnection();
+    conn = db.getConnection();
     const rows = conn.prepare("SELECT name, port, provider, enabled, target_url AS targetUrl, api_key AS apiKey FROM bridges").all();
     const existing = rows.map(r => ({
       name: r.name,
@@ -423,6 +431,10 @@ function loadBridgesFromMcp() {
   } catch (err) {
     process.stderr.write(`[mcp ${SERVER_NAME}] SQLite bridge load error: ${err.message}\n`);
     return [];
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) {}
+    }
   }
 }
 

@@ -14,10 +14,14 @@ const agentManager = require('./agent_manager');
 const doctor = require('./doctor');
 const pkg = require('../package.json');
 const sembleManager = require('./semble_manager');
+const deployUtils = require('./deploy_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
-const BUILD_CLIENT_DIR = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'client');
-const DIST_DIR = fs.existsSync(BUILD_CLIENT_DIR) ? BUILD_CLIENT_DIR : path.resolve(__dirname, '..', 'apps', 'web', 'dist');
+// Web UI build resolution works across runtimes (repo, installed ~/.konoha
+// copy, npm global package) via deployUtils.resolveWebUiDir()
+const WEB_UI_DIR = deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web');
+const BUILD_CLIENT_DIR = path.join(WEB_UI_DIR, 'build', 'client');
+const DIST_DIR = fs.existsSync(BUILD_CLIENT_DIR) ? BUILD_CLIENT_DIR : path.join(WEB_UI_DIR, 'dist');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -38,10 +42,9 @@ const MIME_TYPES = {
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization'
+    'Content-Type': 'application/json; charset=utf-8'
+    // No CORS headers: the UI is served same-origin, and a wildcard here lets
+    // any web page read the CSRF token / bridge API keys from a victim browser.
   });
   res.end(JSON.stringify(data));
 }
@@ -119,7 +122,7 @@ function createWebServer(options = {}) {
   async function getSvelteKitHandler() {
     if (svelteKitAttempted) return svelteKitHandler;
     svelteKitAttempted = true;
-    const svelteKitHandlerPath = path.resolve(__dirname, '..', 'apps', 'web', 'build', 'handler.js');
+    const svelteKitHandlerPath = path.join(WEB_UI_DIR, 'build', 'handler.js');
     if (fs.existsSync(svelteKitHandlerPath) && process.env.KONOHA_UI_ROUTER !== 'legacy') {
       try {
         const { pathToFileURL } = require('url');
@@ -137,7 +140,6 @@ function createWebServer(options = {}) {
 
     if (method === 'OPTIONS') {
       res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization'
       });
@@ -174,14 +176,17 @@ function createWebServer(options = {}) {
         agents_count: agentsCount,
         uptime: process.uptime(),
         node: process.version,
-        platform: process.platform,
-        token: sessionToken
+        platform: process.platform
       });
     }
 
     if (method === 'GET' && pathname === '/api/v1/bridges') {
       try {
-        const bridges = dbBridges.listBridges();
+        const bridges = dbBridges.listBridges().map(b => {
+          const { apiKey, ...safeBridge } = b;
+          safeBridge.has_key = !!apiKey;
+          return safeBridge;
+        });
         return sendJson(res, 200, bridges);
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
@@ -823,6 +828,19 @@ function createWebServer(options = {}) {
           name: 'Codex IDE / CLI',
           configPath: '~/.codex/config.toml',
           configured: fs.existsSync(path.join(os.homedir(), '.codex', 'config.toml'))
+        },
+        {
+          id: 'pi',
+          name: 'Pi (pi.dev)',
+          configPath: '~/.pi/agent/mcp.json',
+          configured: (function () {
+            try {
+              const cfg = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.pi', 'agent', 'mcp.json'), 'utf-8'));
+              return !!(cfg && cfg.mcpServers && cfg.mcpServers['konoha']);
+            } catch (_) {
+              return false;
+            }
+          })()
         }
       ];
       return sendJson(res, 200, clientsList);
@@ -836,6 +854,7 @@ function createWebServer(options = {}) {
         if (clientName === 'commandcode') require('./mcp_clients_manager').ensureCommandCodeSetup(true);
         if (clientName === 'opencode') require('./opencode_manager').ensureOpenCodeSetup(true);
         if (clientName === 'codex') require('./codex_manager').ensureCodexSetup(true);
+        if (clientName === 'pi') require('./pi_manager').ensurePiSetup({ silent: true });
         broadcastEvent('clients_updated', { client: clientName, action: 'setup' });
         return sendJson(res, 200, { ok: true, client: clientName });
       } catch (err) {
@@ -850,6 +869,7 @@ function createWebServer(options = {}) {
         if (clientName === 'claude') require('./mcp_clients_manager').removeClaudeCodeConfig(true);
         if (clientName === 'opencode') require('./opencode_manager').removeOpenCodeConfig(true);
         if (clientName === 'codex') require('./codex_manager').removeCodexConfig(true);
+        if (clientName === 'pi') require('./pi_manager').removePiMcp(true);
         broadcastEvent('clients_updated', { client: clientName, action: 'remove' });
         return sendJson(res, 200, { ok: true, client: clientName });
       } catch (err) {
@@ -1019,7 +1039,13 @@ function createWebServer(options = {}) {
         return res.end(html);
       }
       res.writeHead(200, { 'Content-Type': contentType });
-      return fs.createReadStream(filePath).pipe(res);
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', () => {
+        // Read can still fail after the existsSync check (permissions, races);
+        // without this handler the uncaught 'error' would kill the server
+        try { res.end(); } catch (_) {}
+      });
+      return stream.pipe(res);
     }
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

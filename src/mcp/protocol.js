@@ -151,7 +151,21 @@ async function handleRequest(req) {
     const toolName = p.name;
     const args = p.arguments || {};
 
-    const resultText = await executeTool(toolName, args);
+    let resultText;
+    try {
+      resultText = await executeTool(toolName, args);
+    } catch (e) {
+      // Tool crashes must still answer with the request id so clients can
+      // correlate the error instead of hanging until timeout
+      return {
+        jsonrpc: '2.0',
+        id: rid,
+        result: {
+          content: [{ type: 'text', text: JSON.stringify({ error: `Tool execution failed: ${e.message}` }) }],
+          isError: true
+        }
+      };
+    }
     let isError = false;
     try {
       const parsed = JSON.parse(resultText);

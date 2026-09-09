@@ -271,9 +271,6 @@ function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPat
     const deleted = res.changes > 0;
     if (deleteAssociatedMemories) {
       conn.prepare("DELETE FROM persona_memories WHERE project_hash = ?").run(pHash);
-      try {
-        conn.prepare("DELETE FROM persona_memories_fts WHERE project_hash = ?").run(pHash);
-      } catch (_) {}
     }
     return deleted;
   } finally {
@@ -356,13 +353,6 @@ function saveMemory(
       INSERT INTO persona_memories (id, project_hash, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(memId, pHash, cleanAgent, memoryType, finalTitle, content.trim(), tags, importance, now, now);
-
-    try {
-      conn.prepare(`
-        INSERT INTO persona_memories_fts (id, project_hash, agent_name, title, content, tags)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(memId, pHash, cleanAgent, finalTitle, content.trim(), tags);
-    } catch (_) {}
 
     return memId;
   } finally {
@@ -577,13 +567,7 @@ function deleteMemory(memoryId, dbPath = DB_PATH) {
   try {
     initMemoryTables(conn);
     const res = conn.prepare("DELETE FROM persona_memories WHERE id = ?").run(memoryId);
-    const deleted = res.changes > 0;
-    if (deleted) {
-      try {
-        conn.prepare("DELETE FROM persona_memories_fts WHERE id = ?").run(memoryId);
-      } catch (_) {}
-    }
-    return deleted;
+    return res.changes > 0;
   } finally {
     conn.close();
   }

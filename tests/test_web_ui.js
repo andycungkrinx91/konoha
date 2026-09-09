@@ -266,8 +266,9 @@ async function run() {
     // 8. Clients endpoint
     const clients = await request({ hostname: '127.0.0.1', port, path: '/api/v1/clients', method: 'GET' });
     assert.strictEqual(clients.status, 200);
-    assert.strictEqual(clients.data.length, 6);
-    console.log('✓ GET /api/v1/clients passed');
+    assert.strictEqual(clients.data.length, 7);
+    assert.ok(clients.data.some(c => c.id === 'pi' && c.name === 'Pi (pi.dev)'));
+    console.log('✓ GET /api/v1/clients passed (7 clients incl. Pi)');
 
     // 9. Static UI HTML with CSRF injection
     const htmlRes = await request({ hostname: '127.0.0.1', port, path: '/', method: 'GET' });

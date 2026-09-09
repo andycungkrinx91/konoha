@@ -1,7 +1,8 @@
 <script>
   import { onMount } from "svelte";
-  import { api } from "$lib/api.js";
-  import { sweetAlert } from "$lib/sweetAlert.svelte.js";
+  import { api } from "#lib/api.js";
+  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { useScrollLock } from "#lib/scrollLock.svelte.js";
 
   let memories = $state([]);
   let loading = $state(true);
@@ -105,12 +106,20 @@
   }
 
   onMount(loadMemories);
+
+  useScrollLock(isCreateModalOpen);
+
+  function handleModalKeydown(e) {
+    if (e.key === 'Escape' && isCreateModalOpen) isCreateModalOpen = false;
+  }
 </script>
+
+<svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-8 max-w-7xl mx-auto">
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
+    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -202,9 +211,9 @@
     </div>
   {:else}
     <!-- Grid of Memories with 3D Glass Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div class="scene-3d grid grid-cols-1 md:grid-cols-2 gap-5">
       {#each memories as m}
-        <div class="glass-card-3d rounded-2xl p-5 border flex flex-col justify-between">
+        <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between">
           <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
@@ -234,7 +243,7 @@
               </h4>
             {/if}
 
-            <p class="text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">
+            <p class="text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap break-words">
               {m.content}
             </p>
           </div>
@@ -253,10 +262,10 @@
 
 <!-- Add Memory 3D Glass Modal -->
 {#if isCreateModalOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onclick={(e) => { if (e.target === e.currentTarget) isCreateModalOpen = false; }}>
     <div
-      class="relative w-full max-w-lg rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
-      style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%); border-color: rgba(226, 232, 240, 0.95); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
+      class="glass-frost-strong relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
+      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
     >
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-black text-slate-900">Add Persona Memory</h3>

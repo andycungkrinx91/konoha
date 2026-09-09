@@ -26,7 +26,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    User["End User Prompt"] --> Clients["6 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex"]
+    User["End User Prompt"] --> Clients["7 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex · Pi (pi.dev)"]
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
@@ -35,8 +35,8 @@ flowchart TB
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
         subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
-            SQLiteDB[("Unified SQLite Skills & Vector DB<br/>~/.konoha/skills.db<br/>(PRAGMA WAL · busy_timeout=5000 · foreign_keys=ON)")]
-            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.js)<br/>• Pure Node.js / @xenova/transformers<br/>• IBM Granite 30M Multilingual Embedder<br/>• Alibaba GTE Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF)"]
+            SQLiteDB[("Unified SQLite Skills & Vector DB<br/>~/.konoha/konoha.db<br/>(PRAGMA WAL · busy_timeout=5000 · foreign_keys=ON)")]
+            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.js)<br/>• Pure Node.js / @huggingface/transformers<br/>• IBM Granite 97M Multilingual Embedder<br/>• BAAI/bge-reranker-base Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF)"]
         end
         
         KonohaMCP <--> PersistenceLayer
@@ -136,7 +136,7 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
 Konoha features an autonomous multi-archetype generator (`konoha.build_from_text` and `konoha.build_from_source`) that crafts production-grade applications across 4 major frameworks:
 
 1. **Next.js 16 (React 19, Tailwind CSS v4)**
-2. **SvelteKit 2 (Svelte 5 Runes, Tailwind CSS)**
+2. **SvelteKit 2 (Svelte 5 Runes, Tailwind CSS)** — stable scaffold via `pnpm dlx sv create` for generated sites (the Konoha Web UI dashboard itself runs SvelteKit 3 RC)
 3. **Nuxt 3 (Vue 3 Composition API, Tailwind CSS)**
 4. **Angular v19+ (Standalone Components, Signals)**
 
@@ -165,7 +165,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 3. **Zero Errors & Zero Warnings**:
    - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
 4. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
-   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 6 coding clients.
+   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 7 coding clients.
    - Preserves token budget by compacting instruction boilerplate while permanently retaining the primary skill SOP preview (250 chars) so fixing agents never lose their methodology.
    - Bounds instruction truncation to 1200 chars and constraint truncation to 600 chars at sentence boundaries (no mid-sentence chopping).
    - Enforces a 30-minute idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`) preventing cross-session turn accumulation in long-lived MCP server processes.
@@ -185,9 +185,9 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - `KonohaProgressBar` delivers real-time terminal progress reporting (`0%` to `100%`) with shaded block indicators (`██████░░░░`), active elapsed timers, and unreferenced interval tickers (`timer.unref()`) to prevent event-loop stalls.
    - Animated Terminal Feedback: `startSpinner()` renders a 10-frame braille spinner (90ms interval) with in-place line redraw (`\r\x1b[2K`) on TTY; automatically falls back to static `›` lines on non-TTY, CI, or `NO_COLOR` environments, with `KONOHA_SPINNERS=0` as an explicit opt-out.
    - Unicode-Accurate Table Widths: `getVisualLength()` implements East Asian Width accounting (CJK ideographs, Hangul, kana, fullwidth forms) plus emoji-presentation BMP symbols that render as 2 columns in modern terminals, and `truncateVisual()` strips ANSI escapes before measuring/cutting — eliminating column overlap in agent/skill/status tables.
-   - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 6 MCP client configs, and verifies extension bridges.
+   - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 7 MCP client configs, and verifies extension bridges.
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
-   - Zero-Interruption Execution: Automates permission whitelisting across all 6 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex), eliminating manual approval popups for routine reads, searches, and tests.
+   - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
    - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (39 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).

@@ -1,7 +1,11 @@
 # Merge the mcpServers block into ~/.claude.json (global user config).
 # Konoha init does this automatically when the claude CLI is installed.
-# v1.1.6 uses file_tools_launcher.js (the Node-path resolver wrapper) for
+# Uses file_tools_launcher.js (the Node-path resolver wrapper) for
 # cross-platform stability when nvm paths differ between shell and IDE.
+# NOTE: konoha init registers these with the ABSOLUTE node path
+# (`process.execPath`, e.g. /home/<user>/.nvm/versions/node/v26/bin/node)
+# instead of bare `node`, because GUI-launched clients may not inherit a
+# shell PATH. `command: node` below works when node is on PATH.
 mcpServers:
   konoha:
     type: stdio

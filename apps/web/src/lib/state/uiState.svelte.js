@@ -5,6 +5,7 @@ export function createUiState() {
   let activeScreen = $state('bridges');
   let notifications = $state([]);
   let isConnected = $state(false);
+  let nextNotificationId = 1;
 
   return {
     get activeScreen() { return activeScreen; },
@@ -13,7 +14,7 @@ export function createUiState() {
     get isConnected() { return isConnected; },
     set isConnected(val) { isConnected = val; },
     addNotification(text, type = 'info') {
-      const id = Date.now();
+      const id = nextNotificationId++;
       notifications = [...notifications, { id, text, type }];
       setTimeout(() => {
         notifications = notifications.filter(n => n.id !== id);
