@@ -4862,7 +4862,7 @@ async function cmdUiStatus(args = []) {
     log(`  ${C.green}● RUNNING${C.reset}  Web UI is active on ${C.cyan}http://127.0.0.1:${port}/${C.reset}`);
     log(`    Process ID:   ${pid || 'External / Foreground'}`);
     if (healthData) {
-      log(`    Version:      v${healthData.version || '2.0.0-beta.8'}`);
+      log(`    Version:      v${healthData.version || '2.0.0-beta.7'}`);
       log(`    Skills:       ${healthData.skills_count || healthData.skills || 0}`);
       log(`    Agents:       ${healthData.agents_count || healthData.agents || 7}`);
       log(`    Uptime:       ${Math.floor(healthData.uptime || 0)}s`);
