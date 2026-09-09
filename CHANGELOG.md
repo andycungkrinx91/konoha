@@ -2,6 +2,26 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [v2.0.0-beta.8] - 2026-09-09
+
+### Added: Command Code Native-Tool Blocker (PreToolUse Hook)
+
+- **New security enforcement for Command Code**: deployed a native-tool blocker as a `PreToolUse` hook (`~/.local/bin/konoha-native-blocker-cc.js`), mirroring the Claude Code native blocker.
+  - Command Code ships 4 native tools (`shell_command`, `read_file`, `write_file`, `edit_file`); `permissions.allow: ["*"]` cannot deny native reads, so the hook intercepts every tool call.
+  - The hook matcher is deliberately omitted so the hook fires on every tool invocation; the script filters on `tool_name === "read_file"` and exits 0 silently for all other tools.
+  - Deny responses use only the documented `hookSpecificOutput.permissionDecision: "deny"` shape, redirecting agents to the konoha MCP bounded file tools (`read_file_head`, `read_file_range`, `file_info`, `get_file_structure`, `find_files_clean`, `token_efficient_grep`) or the semble MCP for codebase search.
+  - Registered via `registerCommandCodeNativeBlocker()` in `src/mcp_clients_manager.js`; surfaced in `ensureCommandCodeSetup` results as `nativeBlocker: "deployed"`.
+
+### Fixed
+
+- **Command Code blocker payload SyntaxError**: the generated `konoha-native-blocker-cc.js` script contained a literal newline inside a string literal because the payload template emitted a real newline inside the generated string literal instead of the required literal two-character backslash-n sequence (fixed by double-escaping to `\\n` in the source template literal). Fixed at `src/mcp_clients_manager.js` — generated script now passes `node --check` and behaves correctly (deny JSON for `read_file`, silent exit 0 otherwise, graceful exit 0 on non-JSON input).
+- **RTK rule deployment `rtk-rule-template-missing`**: `deployCommandCodeRtkRule` and `deployClaudeCodeRtkRule` resolved a nonexistent template path (`~/.konoha/.claude/rules/rtk.md`). Added `resolveRtkRuleTemplate()` helper that falls back to the authoritative RTK-managed global rule at `~/.claude/rules/rtk.md`, with a same-file copy guard in `deployClaudeCodeRtkRule`.
+- **Codex RTK rule deployment**: `deployCodexRtkRule` in `src/codex_manager.js` now falls back to `~/.claude/rules/rtk.md` when the bundled template is missing, and the invalid `rtk init -g --codex` invocation (no `codex` agent support in RTK) was removed — the rule deploys via a direct copy to `~/.codex/rules/rtk.md`.
+
+### Security Compliance
+
+- Added security and compliance review: `docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.8_2026-09-09.md`.
+
 ## [v2.0.0-beta.7] - 2026-09-08
 
 ### Major Milestone: Pure Node.js / JavaScript Single-Runtime Architecture
