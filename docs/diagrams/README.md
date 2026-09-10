@@ -27,7 +27,7 @@
 | 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.js`, `src/agent_manager.js` |
 | 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.js:build_from_source`, `src/server.js:build_from_text` |
 | 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.js`, `src/server.js` |
-| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.js:run_mcp_workflow`, `src/server.js:_workflow_review_approved`, `tests/test_anti_slop_gate.js` |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 97% Minimum Confidence Gate (≥ 97%), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.js:run_mcp_workflow`, `src/server.js:_workflow_review_approved`, `tests/test_anti_slop_gate.js` |
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, animated braille spinner (startSpinner, TTY-only), in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit` |
 
 ## Source policy

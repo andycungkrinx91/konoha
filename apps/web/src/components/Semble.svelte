@@ -161,9 +161,9 @@
         </p>
       </div>
       {#if status}
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {status.available ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'}">
-          <span class="w-1.5 h-1.5 rounded-full {status.available ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
-          {status.available ? "Engine Online" : "Engine Offline"}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {(status.available ?? status.configured) ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'}">
+          <span class="w-1.5 h-1.5 rounded-full {(status.available ?? status.configured) ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+          {(status.available ?? status.configured) ? "Engine Online" : "Engine Offline"}
         </span>
       {/if}
     </div>

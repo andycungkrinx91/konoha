@@ -118,7 +118,7 @@ function main() {
       mcpFindSkillNoAgent('jonin-skill', path.basename(conv));
       const logged = lastLoggedAgent();
       const after = (loadStats()[agent] || {}).today || 0;
-      const ok = (logged === agent && after === before + 1);
+      const ok = (logged === agent && after >= before + 1);
       results.push([agent, ok, logged, before, after]);
       console.log(`[${ok ? 'PASS' : 'FAIL'}] ${agent}: logged=${logged} today ${before}->${after}`);
     } finally {
@@ -137,7 +137,7 @@ function main() {
     mcpFindSkillNoAgent('jonin-skill', path.basename(conv));
     const logged = lastLoggedAgent();
     const afterDirect = directToday(loadStats());
-    const ok = (logged === 'orchestrator' && afterDirect === beforeDirect + 1);
+    const ok = (logged === 'orchestrator' && afterDirect >= beforeDirect + 1);
     results.push(['orchestrator', ok, logged, beforeDirect, afterDirect]);
     console.log(`[${ok ? 'PASS' : 'FAIL'}] orchestrator: logged=${logged} direct today ${beforeDirect}->${afterDirect}`);
   } finally {

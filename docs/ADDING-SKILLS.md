@@ -36,7 +36,7 @@ flowchart TB
     Registry --> Files["Workspace or Home<br/>.agents/skills/&lt;name&gt;"]
     Templates["src/templates/skills"] --> Files
     Files --> Migrate["konoha migrate<br/>(--clean)"]
-    Migrate --> DB["SQLite skills.db<br/>(skills + skills_fts)"]
+    Migrate --> DB["SQLite konoha.db<br/>(skills + skills_fts)"]
     Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
     DB --> Get["get_skill(canonical name)"]

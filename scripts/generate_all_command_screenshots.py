@@ -207,11 +207,11 @@ commands_data = {
     "assets/konoha-version.png": {
         "title": "konoha version — check version & git updates",
         "cmd": "konoha version",
-        "badge": "RELEASE v2.0.0-beta.6",
+        "badge": "RELEASE v2.0.0-beta.7",
         "lines": [
             "[green]✨ Konoha Version Inspector[/green]",
             "[muted]========================================================================[/muted]",
-            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.6 (cross-client unified)[/cyan]",
+            "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.7 (cross-client unified)[/cyan]",
             "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
             "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
             "  • [bold]Python Runtime[/bold]      : [green]Python 3.11.10[/green]",
@@ -233,7 +233,7 @@ commands_data = {
             "[muted]========================================================================[/muted]",
             "  › Fetching latest release manifest from GitHub...",
             "  › Installing latest package via pnpm...",
-            "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.6[/cyan]",
+            "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.7[/cyan]",
             "",
             "  › Re-syncing SQLite FTS5 database schemas...",
             "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -244,7 +244,7 @@ commands_data = {
             "    [green]✓ Command Code updated[/green]",
             "    [green]✓ Codex IDE / CLI updated[/green]",
             "",
-            "[green]✨ Konoha successfully upgraded to v2.0.0-beta.6! All clients re-synced.[/green]"
+            "[green]✨ Konoha successfully upgraded to v2.0.0-beta.7! All clients re-synced.[/green]"
         ]
     },
     # 7. Savings

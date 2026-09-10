@@ -45,6 +45,7 @@ function detectActiveClient() {
       if (activeOverride.includes('opencode')) return 'opencode';
       if (activeOverride.includes('claude')) return 'claudecode';
       if (activeOverride.includes('cursor')) return 'cursor';
+      if (activeOverride === 'pi') return 'pi';
       if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'agy';
       if (activeOverride.includes('antigravity') || activeOverride.includes('ide')) return 'antigravity';
     }
@@ -61,6 +62,7 @@ function detectActiveClient() {
     if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1') return 'opencode';
     if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1') return 'commandcode';
     if (process.env.CLAUDE_CODE_CHILD_SESSION === '1') return 'claudecode';
+    if (process.env.PI_CODING_AGENT === 'true' || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
 
     const brainDirs = [
       ANTIGRAVITY_IDE_BRAIN,
@@ -69,13 +71,16 @@ function detectActiveClient() {
       CLAUDE_PROJECTS,
       path.join(HOME, '.commandcode', 'projects'),
       path.join(HOME, '.config', 'opencode', 'projects'),
-      path.join(HOME, '.codex', 'sessions')
+      path.join(HOME, '.codex', 'sessions'),
+      path.join(HOME, '.pi', 'agent', 'sessions')
     ];
 
     const allFiles = [];
     for (const bDir of brainDirs) {
       if (!fs.existsSync(bDir) || !fs.statSync(bDir).isDirectory()) continue;
-      if (bDir.includes('cursor')) {
+      if (bDir.includes(path.join('.pi', 'agent', 'sessions'))) {
+        allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl')));
+      } else if (bDir.includes('cursor')) {
         allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl') && f.includes('agent-transcripts')));
       } else if (bDir.includes('claude')) {
         allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl')));
@@ -95,6 +100,7 @@ function detectActiveClient() {
     });
 
     const mostRecent = allFiles[0].toLowerCase();
+    if (mostRecent.includes(path.join('.pi', 'agent', 'sessions'))) return 'pi';
     if (mostRecent.includes('cursor')) return 'cursor';
     if (mostRecent.includes('commandcode')) return 'commandcode';
     if (mostRecent.includes('claudecode') || mostRecent.includes('claude')) return 'claudecode';

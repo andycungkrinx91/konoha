@@ -692,7 +692,7 @@
                 <mxCell id="p11-doc" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="920" y="180" width="190" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
+                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• 97% Minimum Confidence Gate (≥ 97% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
                     <mxGeometry x="680" y="320" width="430" height="190" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-synth" value="7. Synthesize Phase&#10;(Sannin Final Report)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">

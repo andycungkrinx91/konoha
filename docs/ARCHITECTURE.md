@@ -83,7 +83,7 @@ flowchart TB
 
 All database interactions across the entire Konoha codebase are consolidated under `src/db.js`, ensuring consistent connection setup, unified schema definitions, and eliminating schema drift:
 
-1. **Canonical Path Ownership**: `DB_PATH = path.join(os.homedir(), ".konoha", "skills.db")` is defined exclusively in `src/db.js`.
+1. **Canonical Path Ownership**: `DB_PATH = path.join(os.homedir(), ".konoha", "konoha.db")` is defined exclusively in `src/db.js` (with automatic one-time legacy migration from `skills.db`).
 2. **Unified Pragmas**: Every connection opened via `db.getConnection()` automatically configures:
    - Native `better-sqlite3` database handle
    - `PRAGMA journal_mode=WAL;` (Write-Ahead Logging for high-concurrency read/write)

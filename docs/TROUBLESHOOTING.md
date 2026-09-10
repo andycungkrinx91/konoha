@@ -431,8 +431,8 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 * **`Execution error: a.instructions.includes is not a function` in `konoha status` (`v2.0.0-beta.6`)**:
   - **Symptom**: Running `konoha status` fails to list subagents and displays `Subagents (Naruto Ninja Ranks): ✗ Execution error: a.instructions.includes is not a function`.
-  - **Reason**: The lightweight YAML parser in `bin/lib/yaml_utils.js` and `src/db_agents.py` treated unindented following keys (e.g. `instructions:\ntools:`) as empty object dictionaries `{}` or arrays `[]` rather than empty strings `""` when evaluating empty scalar YAML fields.
-  - **Fix**: Resolved in `v2.0.0-beta.6` by fixing empty scalar termination logic in `bin/lib/yaml_utils.js` and `src/db_agents.py`, and adding defensive type guards `(typeof a.instructions === 'string' ? a.instructions : '')` in `src/agent_manager.js`.
+  - **Reason**: The lightweight YAML parser in `bin/lib/yaml_utils.js` and `src/db_agents.js` treated unindented following keys (e.g. `instructions:\ntools:`) as empty object dictionaries `{}` or arrays `[]` rather than empty strings `""` when evaluating empty scalar YAML fields.
+  - **Fix**: Resolved in `v2.0.0-beta.6` by fixing empty scalar termination logic in `bin/lib/yaml_utils.js` and `src/db_agents.js`, and adding defensive type guards `(typeof a.instructions === 'string' ? a.instructions : '')` in `src/agent_manager.js`.
 * **High CLI Latency & Slow Execution on Every `konoha <command>` (`v2.0.0-beta.6`)**:
   - **Symptom**: Commands like `konoha status`, `konoha list`, or `konoha test` take 7–10 seconds to respond even when idle.
   - **Reason**: `needsReferenceLoadingUpgrade()` checked if instructions were non-empty but lacked the check for `'exact reference names'`, causing `sannin` to continuously detect an upgrade needed on every single CLI run. This triggered full multi-client re-deploy loops, repeated SQLite queries, and expensive child-process spawning on every invocation.
@@ -445,6 +445,22 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: When Antigravity or another MCP host launches `konoha`, the server crashes or closes with `signal: terminated`.
   - **Reason**: Background skill auto-migration in `src/migrate.js` output status messages (e.g. `✓ references/...`) via `console.log` directly onto `process.stdout`. In MCP stdio mode, `stdout` is strictly reserved for JSON-RPC messages; raw plaintext corrupts the stream and causes host disconnect.
   - **Fix**: Resolved in `v2.0.0-beta.7` by routing all non-protocol diagnostics and auto-migration logs to `process.stderr` whenever running in MCP server or client mode, keeping `process.stdout` 100% clean for JSON-RPC frames.
+* **`Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header` in Web UI (`v2.0.0-beta.7`)**:
+  - **Symptom**: Saving bridges, embedding skills, or editing persona memories in the Web UI returns HTTP 403 Forbidden.
+  - **Reason**: All state-mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) require the session CSRF token to prevent cross-site request forgery attacks.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by injecting the CSRF token into `index.html` and automatically attaching it via `X-Konoha-Web-Token` on all API mutations.
+* **`ENOENT: no such file or directory` when running `konoha ui start` / `ui build` from installed runtime (`v2.0.0-beta.7`)**:
+  - **Symptom**: Running `konoha ui start` from an arbitrary directory fails with `spawn ENOENT`.
+  - **Reason**: The CLI resolved `apps/web` relative to the installed runtime location (`~/.konoha/bin/cli.js`), pointing to a non-existent `$HOME/apps/web`.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by pre-building the Web UI production distribution (`apps/web/build`), copying it into `~/.konoha/apps/web/build` during `init`, and introducing `resolveWebUiDir()` in `src/deploy_utils.js`.
+* **Pi (pi.dev) free-running multi-step work without sannin router (`v2.0.0-beta.7`)**:
+  - **Symptom**: The Pi coding agent does not route tasks through `sannin` or `delegate.md`.
+  - **Reason**: Pi lacked the Konoha runtime contract and workflow mandate in its global context file.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by deploying the full Konoha runtime contract + Pi Workflow Mandate in `~/.pi/agent/AGENTS.md`.
+* **Workflow Abandoned on Session Resume across coding clients (`v2.0.0-beta.7`)**:
+  - **Symptom**: When resuming an existing conversation with `--resume` or `--continue`, agents bypassed the Konoha workflow.
+  - **Reason**: Contracts are loaded at session start, but session resume lacked a re-engagement trigger.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by registering `src/workflow_reminder.js` as UserPromptSubmit and SessionStart hooks (`resume|compact|clear`) for Claude Code and Command Code.
 
 ---
 
@@ -452,7 +468,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 If the SQLite database becomes corrupted, remove it and rebuild the index:
 ```bash
-rm ~/.konoha/skills.db
+rm ~/.konoha/konoha.db ~/.konoha/skills.db 2>/dev/null
 konoha migrate
 ```
 

@@ -20,6 +20,7 @@ const {
   buildSubagentContract,
   buildMainAgentContract
 } = require('./agent_contract');
+const { buildGuardrailCheckerSource } = require('./guardrails');
 const {
   SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME,
@@ -554,6 +555,7 @@ function ensureClaudeCodeSetup(options = {}) {
   registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent);
   registerClaudeCodePermissions(silent);
   registerClaudeCodeNativeBlocker();
+  registerClaudeCodeBashGuard(silent);
   registerClaudeCodeWorkflowReminder(silent);
   deployClaudeCodeRtkRule(silent);
   initRtkHook(silent);
@@ -710,19 +712,77 @@ function ensureCommandCodeSetup(options = {}) {
 }
 
 /**
+ * Builds the self-contained Command Code blocker payload: denies the native
+ * read_file tool and enforces the shared guardrail policy (destructive
+ * commands, git safety, secret reads, MCP read-bypass) on shell tool calls.
+ * The guardrail checker source is inlined via buildGuardrailCheckerSource()
+ * so the deployed script has no runtime dependency on ~/.konoha/guardrails.js.
+ */
+function buildCommandCodeBlockerSource() {
+  const checkerLiteral = JSON.stringify(buildGuardrailCheckerSource());
+  return `#!/usr/bin/env node
+// Konoha native-tool + bash guard for Command Code — denies the native
+// read_file tool and enforces the shared guardrail policy on shell commands
+// so the agent must use the konoha MCP bounded file tools instead.
+const fs = require('fs');
+const GUARDRAIL_CHECKER_SOURCE = ${checkerLiteral};
+const checkCommandGuardrails = new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();
+let raw = '';
+try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
+let input = null;
+try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
+const toolName = input && (input.tool_name || input.tool_display_name);
+// Guard 1: deny the native read tool (canonical id read_file / display READ).
+if (toolName === 'read_file' || toolName === 'READ') {
+  const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+  process.stdout.write(JSON.stringify({
+    suppressOutput: false,
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: reason
+    }
+  }) + '\\n');
+  process.exit(0);
+}
+// Guard 2: enforce the shared guardrail policy on shell tool calls.
+const SHELL_TOOL_NAMES = ['shell_command', 'ShellCommand', 'bash', 'Bash', 'shell', 'Shell'];
+if (SHELL_TOOL_NAMES.indexOf(toolName) !== -1) {
+  const ti = (input && (input.tool_input || input.input)) || {};
+  const command = [ti.command, ti.cmd, input.command, input.cmd]
+    .find(function (v) { return typeof v === 'string' && v.length > 0; }) || '';
+  if (command) {
+    const violation = checkCommandGuardrails(command);
+    if (violation) {
+      process.stdout.write(JSON.stringify({
+        suppressOutput: false,
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: violation.reason
+        }
+      }) + '\\n');
+    }
+  }
+}
+`;
+}
+
+/**
  * Deploys a PreToolUse native-tool blocker for Command Code, mirroring the
  * Claude Code blocker. Command Code ships 4 native tools (shell_command,
  * read_file, write_file, edit_file) and `permissions.allow: ["*"]` cannot
  * express "deny native reads" — agents freely bypass Konoha via read_file.
  * This writes a Node payload to ~/.local/bin/konoha-native-blocker-cc.js and
- * registers it as a PreToolUse hook that denies the native read tool and
- * points the agent at the konoha MCP bounded file tools.
+ * registers it as a PreToolUse hook that denies the native read tool, enforces
+ * the shared guardrail policy on shell commands, and points the agent at the
+ * konoha MCP bounded file tools.
  *
  * The hook matcher is ambiguous (doc examples suggest testing against
  * tool_display_name, but examples are lowercase while display names are
  * uppercase), so the matcher is OMITTED — the hook fires for every tool call
- * and the script itself filters on tool_name === "read_file" (exiting 0 with
- * no output for everything else), guaranteeing the blocker can never be
+ * and the script itself filters on the tool name (exiting 0 with no output
+ * for everything else), guaranteeing the blocker can never be
  * silently disabled by a matcher mismatch. Output is ONLY the documented
  * PreToolUse shape (hookSpecificOutput.permissionDecision "deny") — no
  * top-level `decision` (undocumented for Command Code PreToolUse; an invalid
@@ -739,27 +799,7 @@ function registerCommandCodeNativeBlocker(silent = true) {
   const blockerJs = path.join(binDir, 'konoha-native-blocker-cc.js');
   try {
     fs.mkdirSync(binDir, { recursive: true });
-    const payload = `#!/usr/bin/env node
-// Konoha native-tool blocker for Command Code — denies the native read_file
-// tool so the agent must use the konoha MCP bounded file tools instead.
-const fs = require('fs');
-let raw = '';
-try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
-let input = null;
-try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
-const toolName = input && (input.tool_name || input.tool_display_name);
-// Guard: deny ONLY the native read tool (canonical id read_file / display READ).
-if (toolName !== 'read_file' && toolName !== 'READ') process.exit(0);
-const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
-process.stdout.write(JSON.stringify({
-  suppressOutput: false,
-  hookSpecificOutput: {
-    hookEventName: 'PreToolUse',
-    permissionDecision: 'deny',
-    permissionDecisionReason: reason
-  }
-}) + '\\n');
-`;    fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
+    const payload = buildCommandCodeBlockerSource();    fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
   } catch (e) {
     return { ok: false, reason: 'blocker-write-failed', error: e.message };
   }
@@ -935,6 +975,106 @@ process.stdout.write(JSON.stringify(decision) + "\\n");
         ]
       });
       return true;
+    }
+  );
+}
+
+/**
+ * Builds the self-contained Claude Code Bash guard payload: reads the
+ * PreToolUse stdin JSON, extracts tool_input.command and runs it through the
+ * shared guardrail checker. Allowed commands exit 0 silently; violations
+ * print a schema-valid deny decision (decision "block" + permissionDecision
+ * "deny"). The checker source is inlined via buildGuardrailCheckerSource()
+ * so the deployed script has no runtime dependency on ~/.konoha/guardrails.js.
+ */
+function buildClaudeCodeBashGuardSource() {
+  const checkerLiteral = JSON.stringify(buildGuardrailCheckerSource());
+  return `#!/usr/bin/env node
+// Konoha Bash guard for Claude Code — enforces the shared guardrail policy
+// (destructive commands, git safety, secret reads, MCP read-bypass) on every
+// Bash tool call. Allowed commands exit 0 with no output; violations print a
+// schema-valid deny decision (decision "block" + permissionDecision "deny").
+const fs = require('fs');
+const GUARDRAIL_CHECKER_SOURCE = ${checkerLiteral};
+const checkCommandGuardrails = new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();
+let raw = '';
+try { raw = fs.readFileSync(0, 'utf-8'); } catch (e) { process.exit(0); }
+let input = null;
+try { input = JSON.parse(raw); } catch (e) { process.exit(0); }
+const toolInput = input && input.tool_input;
+const command = toolInput && typeof toolInput.command === 'string' ? toolInput.command : '';
+if (!command) process.exit(0);
+const violation = checkCommandGuardrails(command);
+if (!violation) process.exit(0);
+const decision = {
+  "decision": "block",
+  "reason": violation.reason,
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": violation.reason
+  }
+};
+process.stdout.write(JSON.stringify(decision) + "\\n");
+`;
+}
+
+/**
+ * Deploys a PreToolUse Bash guard for Claude Code. The native blocker above
+ * blocks native file tools by matcher, but Bash calls could still bypass
+ * Konoha via cat/grep/find or trip the destructive-command and secret-protection
+ * guardrails. This writes a self-contained Node payload to
+ * ~/.local/bin/konoha-bash-guard.js and registers it under the "^Bash$"
+ * matcher in ~/.claude/settings.json (idempotent — stale entries are
+ * repaired in place). Hooks initialize on startup only — restart the Claude
+ * Code CLI to activate after deployment.
+ */
+function registerClaudeCodeBashGuard(silent = true) {
+  if (!fileExists(CLAUDE_SETTINGS)) return;
+  const binDir = path.join(HOME, ".local", "bin");
+  const guardJs = path.join(binDir, "konoha-bash-guard.js");
+  try {
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(guardJs, buildClaudeCodeBashGuardSource(), { mode: 0o755 });
+  } catch (e) {
+    if (!silent) console.warn(`⚠ Claude Code bash guard deployment failed: ${e.message}`);
+    return;
+  }
+
+  const guardRegex = "^Bash$";
+  const guardCommand = `"${process.execPath}" "${guardJs}"`;
+  mergeJsonFile(
+    CLAUDE_SETTINGS,
+    (config) => {
+      if (!config.hooks) config.hooks = {};
+      if (!config.hooks.PreToolUse) config.hooks.PreToolUse = [];
+      let changed = false;
+      // Drop stale konoha-bash-guard entries so legacy command paths are
+      // repaired in place (e.g. after a node executable upgrade).
+      const before = config.hooks.PreToolUse.length;
+      config.hooks.PreToolUse = config.hooks.PreToolUse.filter(
+        (h) => !((h.hooks || []).some((e) => e.command && e.command.includes("konoha-bash-guard")))
+      );
+      if (config.hooks.PreToolUse.length !== before) changed = true;
+      const alreadyPresent =
+        before === config.hooks.PreToolUse.length &&
+        config.hooks.PreToolUse.some(
+          (h) => h.matcher === guardRegex &&
+            (h.hooks || []).some((e) => e.command === guardCommand)
+        );
+      if (!alreadyPresent) {
+        config.hooks.PreToolUse.push({
+          matcher: guardRegex,
+          hooks: [
+            {
+              type: "command",
+              command: guardCommand
+            }
+          ]
+        });
+        changed = true;
+      }
+      return changed;
     }
   );
 }
@@ -1354,6 +1494,9 @@ module.exports = {
   registerCommandCodeGlobalMcp,
   registerCommandCodePermissions,
   registerCommandCodeNativeBlocker,
+  buildCommandCodeBlockerSource,
+  buildClaudeCodeBashGuardSource,
+  registerClaudeCodeBashGuard,
   registerClaudeCodePermissions,
   deployClaudeCodeRules,
   deployClaudeCodeRtkRule,

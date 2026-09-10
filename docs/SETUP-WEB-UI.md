@@ -1,6 +1,6 @@
 # 🌐 Konoha Web Configuration UI Guide
 
-The **Konoha Web Configuration UI** is a local browser-based management dashboard for Konoha, powered by **Svelte 5** and **Vite**, served directly by an embedded lightweight Node.js API server.
+The **Konoha Web Configuration UI** is a local browser-based management dashboard for Konoha, powered by **SvelteKit 3 (RC)** (`@sveltejs/kit` 3.0.0-next.27 + `@sveltejs/adapter-node` 6.0.0-next.12), **Svelte 5**, **Vite 8/Rolldown**, and **Tailwind CSS v4**, served directly by an embedded lightweight Node.js API server.
 
 It provides a modern visual interface for configuration and monitoring tasks that otherwise require interactive terminal wizards (`konoha bridge create`, `konoha agent skill`, `konoha savings`, `konoha doctor`, etc.), **without adding any new business logic** — the UI is a thin visual layer over the exact same functions the CLI and SQLite database already use.
 

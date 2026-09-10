@@ -189,7 +189,7 @@ approval_mode = "auto"
   "mcpServers": {
     "konoha": {
       "command": "node",
-      "args": ["/home/<user>/.konoha/server.js"],
+      "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
       "env": { "ACTIVE_CLIENT": "pi", "KONOHA_CLIENT": "pi", "KONOHA_SEMANTIC_SEARCH": "1" }
     },
     "semble": {

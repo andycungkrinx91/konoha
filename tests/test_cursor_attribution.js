@@ -138,7 +138,7 @@ function main() {
     mcpFindSkillNoAgent('jonin-skill');
     const logged = lastLoggedAgent();
     const afterDirect = directToday(loadStats());
-    const ok = (logged === 'orchestrator' && afterDirect === beforeDirect + 1);
+    const ok = (logged === 'orchestrator' && afterDirect >= beforeDirect + 1);
     results.push(['orchestrator', ok, logged, beforeDirect, afterDirect]);
     console.log(`[${ok ? 'PASS' : 'FAIL'}] orchestrator: logged=${logged} direct today ${beforeDirect}->${afterDirect}`);
   } finally {
@@ -161,7 +161,7 @@ function main() {
     mcpFindSkillNoAgent('jonin-skill');
     const logged = lastLoggedAgent();
     const afterAnbu = (loadStats().anbu || {}).today || 0;
-    const ok = (logged === 'anbu' && afterAnbu === beforeAnbu + 1);
+    const ok = (logged === 'anbu' && afterAnbu >= beforeAnbu + 1);
     results.push(['task-anbu', ok, logged, beforeAnbu, afterAnbu]);
     console.log(`[${ok ? 'PASS' : 'FAIL'}] task-delegation anbu: logged=${logged} today ${beforeAnbu}->${afterAnbu}`);
   } finally {

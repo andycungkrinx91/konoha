@@ -927,7 +927,7 @@ function getCliVersion() {
       } catch {}
     }
   }
-  return '2.0.0-beta.6';
+  return '2.0.0-beta.7';
 }
 
 function drawLogo() {
@@ -1286,7 +1286,7 @@ async function cmdInit(args, options = {}) {
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
       info('Refreshing MCP integrations...');
-      const refreshFiles = ['server.js', 'vector_search.js', 'db.js', 'migrate.js', 'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js', 'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
+      const refreshFiles = ['server.js', 'vector_search.js', 'db.js', 'migrate.js', 'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js', 'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'guardrails.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1475,6 +1475,12 @@ async function cmdInit(args, options = {}) {
   const hookBaseDest = path.join(SKILLS_DB_DIR, 'hook-base.js');
   if (fileExists(hookBaseSrc)) {
     copyFile(hookBaseSrc, hookBaseDest);
+  }
+
+  const guardrailsSrc = path.join(SRC_DIR, 'guardrails.js');
+  const guardrailsDest = path.join(SKILLS_DB_DIR, 'guardrails.js');
+  if (fileExists(guardrailsSrc)) {
+    copyFile(guardrailsSrc, guardrailsDest);
   }
 
   const cursorBootstrapSrc = path.join(SRC_DIR, 'cursor_bootstrap.js');
@@ -2895,7 +2901,7 @@ function ensureAutoSetup(force = false) {
     'persona_memory.js', 'circuit_breaker.js', 'search_policy.js',
     'platform_utils.js', 'deploy_utils.js', 'mcp_tool_manifest.json',
     'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js',
-    'hook-base.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'
+    'hook-base.js', 'guardrails.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js'
   ];
   filesToCopy.forEach(f => {
     const src = path.join(SRC_DIR, f);
@@ -3979,6 +3985,9 @@ async function cmdDoctor(args = []) {
 
   const sanitizeHookScriptDest = path.join(SKILLS_DB_DIR, 'antigravity_tool_sanitize_hook.js');
   checkAndRepairFile('antigravity_tool_sanitize_hook.js', sanitizeHookScriptDest, 'Tool Sanitize Hook (antigravity_tool_sanitize_hook.js)');
+
+  const guardrailsScriptDest = path.join(SKILLS_DB_DIR, 'guardrails.js');
+  checkAndRepairFile('guardrails.js', guardrailsScriptDest, 'Shared Guardrails (guardrails.js)');
 
   // 5d. Token-efficient file tools (konoha-files MCP)
   checkAndRepairFile('file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)');
@@ -5457,7 +5466,8 @@ async function cmdSavings(args = []) {
           { name: 'Claude Code', key: 'claudecode', icon: '◎' },
           { name: 'OpenCode', key: 'opencode', icon: '▫' },
           { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
-          { name: 'Codex', key: 'codex', icon: '🤖' }
+          { name: 'Codex', key: 'codex', icon: '🤖' },
+          { name: 'Pi', key: 'pi', icon: '▲' }
         ];
 
         clients.forEach(client => {
@@ -6571,7 +6581,7 @@ async function cmdVersion(args = []) {
     path.join(SKILLS_DB_DIR, 'package.json'),
     path.join(os.homedir(), '.konoha', 'package.json')
   ];
-  let currentVersion = '2.0.0-beta.6';
+  let currentVersion = '2.0.0-beta.7';
   for (const p of candidatePkgPaths) {
     if (fileExists(p)) {
       try {

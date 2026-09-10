@@ -41,7 +41,7 @@ const SERVER_VERSION = (() => {
       } catch (_) {}
     }
   }
-  return "2.0.0-beta.6";
+  return "2.0.0-beta.7";
 })();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.

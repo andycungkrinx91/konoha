@@ -285,7 +285,7 @@ To keep Konoha updated with the latest optimizations and features, you can check
   3. Global CLI Symlinks & Shell PATH Provisioning
   4. Skill & Agent Registry Sync (idempotent preserve-protection)
   5. Core Configuration & Database Regeneration
-  6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code)
+  6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code, Pi / pi.dev)
   7. Verification, Doctor Diagnostics & Self-Healing
   During execution, it uses interactive `@inquirer/prompts` (or `--yes` / `-y` for headless non-interactive mode) before applying upgrades.
   ```bash

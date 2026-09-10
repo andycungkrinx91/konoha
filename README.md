@@ -5,10 +5,14 @@
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=rocket&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
+[![OpenCode](https://img.shields.io/badge/OpenCode-CLI-10b981)](README.md)
+[![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue)](README.md)
+[![Codex](https://img.shields.io/badge/Codex-CLI-purple)](README.md)
+[![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-2%20%7C%2032%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2039%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
@@ -19,8 +23,8 @@
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-08)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, SearXNG search, and IBM Granite ONNX vector search.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-08.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-09)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, Pi (pi.dev) 7th client integration, hard guardrail enforcement, SearXNG search, and IBM Granite ONNX vector search.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-09)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-09.md)
 
 <details open>
 <summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -785,6 +789,20 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Orchestrator Pipeline (Antigravity)**: User prompt → structured MCP delegation → Konoha subagent → structured result/report. Legacy `prompt.md` → `delegate.md` → `result.md` artifacts are fallback-only and remain isolated outside the project.
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
+
+### Hard Guardrail Enforcement (v2.0.0-beta.7)
+
+The destructive-command, git-safety, secret-protection, and MCP read-bypass guardrails are **enforced at the tool-call level**, not just in prompts. A shared self-contained checker (`src/guardrails.js`, `checkCommandGuardrails(command)`) is deployed flat to `~/.konoha/guardrails.js` and inlined verbatim into every client hook:
+
+| Client | Enforcement mechanism |
+|---|---|
+| **Claude Code** | `~/.local/bin/konoha-bash-guard.js` PreToolUse hook (`^Bash$` matcher) — denies destructive/git/secret/read-bypass commands; `rtk`-prefixed reads pass |
+| **Command Code** | `~/.local/bin/konoha-native-blocker-cc.js` PreToolUse hook — denies the native `read_file` tool **and** guards `shell_command` calls |
+| **Antigravity IDE/CLI** | `~/.konoha/antigravity_tool_sanitize_hook.js` PreToolUse hook — DENY-3 runs the full shared guardrail check on every `run_command` |
+| **Pi (pi.dev)** | `~/.pi/agent/extensions/konoha-blocker.ts` extension — blocks native reads and enforces the guardrails on `bash`/`bash_command` tool calls |
+| **Codex / Cursor / OpenCode** | No blocking-hook capability — prompt-only rules remain |
+
+Blocked command categories: **destructive** (`rm -rf /`, `mkfs`, `dd of=/dev/…`, `DROP DATABASE`, `chmod 777`, recursive `chown`, `curl | sh`), **destructive-git** (`git reset --hard`, `git push --force`, `git clean -f`, `git checkout -- .`, `git rebase -i`), **secrets** (`.env*`, `secrets.yaml`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa`, `credentials` — never `rtk`-exempt), and **read-bypass** (bare `cat`/`grep`/`find`/`rg`/… — retry with `rtk <command>` or use the konoha/semble MCP tools).
 
 ---
 

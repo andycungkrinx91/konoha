@@ -17,6 +17,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
+const { buildGuardrailCheckerSource } = require('./guardrails');
 
 const HOME = os.homedir();
 const PI_AGENT_DIR = path.join(HOME, '.pi', 'agent');
@@ -209,9 +210,15 @@ function removePiRtkRule(silent = true) {
  * extension stays cheap to load.
  */
 function buildPiBlockerExtensionSource() {
+  // Guardrail checker source is embedded as a JSON string literal (double
+  // escaping is handled by JSON.stringify) and evaluated with new Function,
+  // so regex escapes like \b survive verbatim and the extension needs no
+  // runtime dependency on ~/.konoha/guardrails.js.
+  const guardrailSource = JSON.stringify(buildGuardrailCheckerSource());
   return [
     '// Konoha native-tool blocker for Pi (auto-managed by konoha pi_manager).',
-    '// Blocks the native read tool to enforce the konoha MCP bounded file tools.',
+    '// Blocks the native read tool (bounded file tools / semble instead) and',
+    '// enforces the konoha command guardrails on bash tool calls.',
     '// Removal: run konoha uninstall for Pi, or delete this file.',
     'import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";',
     '',
@@ -221,14 +228,37 @@ function buildPiBlockerExtensionSource() {
     '  "(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) " +',
     '  "or the semble MCP (search / find_related) for codebase reading and search instead.";',
     '',
+    'const GUARDRAIL_CHECKER_SOURCE = ' + guardrailSource + ';',
+    'const checkCommandGuardrails: (command: string) => { category: string; reason: string } | null =',
+    '  new Function(GUARDRAIL_CHECKER_SOURCE + "\\nreturn checkCommandGuardrails;")();',
+    '',
     'function isReadToolCallEvent(event: ToolCallEvent): boolean {',
     '  return event.toolName === "read";',
+    '}',
+    '',
+    'function isBashToolCallEvent(event: ToolCallEvent): boolean {',
+    '  return event.toolName === "bash" || event.toolName === "bash_command";',
+    '}',
+    '',
+    'function extractBashCommand(event: ToolCallEvent): string | null {',
+    '  const input = event.input as Record<string, unknown> | undefined;',
+    '  if (!input) return null;',
+    '  if (typeof input.command === "string") return input.command;',
+    '  if (typeof input.cmd === "string") return input.cmd;',
+    '  return null;',
     '}',
     '',
     'export default function konohaBlocker(pi: ExtensionAPI) {',
     '  pi.on("tool_call", (event) => {',
     '    if (isReadToolCallEvent(event)) {',
     '      return { block: true, reason: REASON };',
+    '    }',
+    '    if (isBashToolCallEvent(event)) {',
+    '      const command = extractBashCommand(event);',
+    '      const violation = command ? checkCommandGuardrails(command) : null;',
+    '      if (violation) {',
+    '        return { block: true, reason: violation.reason };',
+    '      }',
     '    }',
     '    return undefined;',
     '  });',
@@ -550,6 +580,7 @@ module.exports = {
   PI_AGENTS_MD,
   PI_RTK_EXTENSION,
   PI_ADAPTER_PACKAGE,
+  buildPiBlockerExtensionSource,
   isPiInstalled,
   ensurePiSetup,
   ensureAdapterPackage,

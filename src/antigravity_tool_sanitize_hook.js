@@ -5,12 +5,22 @@
  * Denies:
  * 1. define_subagent / invoke_subagent (must use MCP tools instead)
  * 2. Native file/search tools (must use konoha/semble MCP instead)
- * 3. Shell commands that bypass MCP file reads (cat/grep/find/...)
+ * 3. Shell commands that violate the shared guardrails (read-bypass,
+ *    destructive commands, git safety, secret protection)
  *
  * Shared stdin/respond helpers live in ./hook-base, which is deployed
- * alongside this script to ~/.konoha/.
+ * alongside this script to ~/.konoha/. The guardrail checker lives in
+ * ./guardrails, also deployed flat to ~/.konoha/.
  */
 const { readStdinJson, respond } = require('./hook-base');
+
+let checkCommandGuardrails = null;
+try {
+  checkCommandGuardrails = require('./guardrails').checkCommandGuardrails;
+} catch (_) {
+  // guardrails.js not deployed yet — the legacy first-word fallback below
+  // still enforces the MCP read-bypass rule.
+}
 
 function extractToolCall(payload) {
   if (!payload) return null;
@@ -58,16 +68,29 @@ async function main() {
       return;
     }
 
-    // DENY 3: Block run_command calls that use shell file-reading/search commands
+    // DENY 3: Enforce the shared guardrail policy on run_command shell calls
+    // (MCP read-bypass, destructive commands, git safety, secret protection).
     if (name === 'run_command') {
       const cmdLine = rawArgs.CommandLine || rawArgs.command || rawArgs.commandLine || '';
       const cmdStr = typeof cmdLine === 'string' ? cmdLine.trim() : '';
-      const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, ''); // basename
-      const FORBIDDEN_SHELL_CMDS = ['cat', 'head', 'tail', 'grep', 'rg', 'find', 'fd', 'ag', 'ack', 'less', 'more', 'bat', 'wc'];
-      if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
+      let violation = null;
+      if (cmdStr && checkCommandGuardrails) {
+        violation = checkCommandGuardrails(cmdStr);
+      } else if (cmdStr) {
+        // Legacy fallback (guardrails.js missing): first-word read-bypass check
+        const firstWord = cmdStr.split(/\s+/)[0].replace(/^.*\//, ''); // basename
+        const FORBIDDEN_SHELL_CMDS = ['cat', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'find', 'fd', 'ag', 'ack', 'less', 'more', 'bat', 'wc', 'zcat'];
+        if (FORBIDDEN_SHELL_CMDS.includes(firstWord)) {
+          violation = {
+            category: 'read-bypass',
+            reason: `Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'semble' MCP (search, find_related) for code search instead of shell commands. Prefix safe read/search commands with 'rtk' to run them anyway.`
+          };
+        }
+      }
+      if (violation) {
         respond({
           decision: 'deny',
-          reason: `Konoha Enforcement: Shell command '${firstWord}' is DISABLED. You MUST use 'konoha' MCP tools (read_file_head, read_file_range, token_efficient_grep, etc.) for file reads and 'semble' MCP (search, find_related) for code search instead of shell commands.`,
+          reason: `Konoha Enforcement (guardrails/${violation.category}): ${violation.reason}`,
         });
         return;
       }

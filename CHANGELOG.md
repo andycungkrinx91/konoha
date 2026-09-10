@@ -2,7 +2,7 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [v2.0.0-beta.7] - 2026-09-08
+## [v2.0.0-beta.7] - 2026-09-09
 
 ### Major Milestone: Pure Node.js / JavaScript Single-Runtime Architecture
 - **Complete Elimination of Python 3 Dependency**: Migrated the entire Konoha system from dual-runtime (Node.js + Python 3) to a 100% pure Node.js / JavaScript architecture. Zero Python processes are spawned at runtime, and 0 `.py` files remain in active execution paths.
@@ -98,6 +98,12 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Overlap & Responsive Fixes**: Toasts lifted above the mobile dock (`bottom-20`, `z-[90]`); the 10-item mobile dock scrolls horizontally; tall modals scroll (`max-h-[90vh]`); body scroll-lock on every modal; Escape/backdrop close; iOS safe-area insets; duplicate sticky-header backgrounds removed.
 - **Client Configurators (all client managers)**: Windows `pnpm.cmd` spawn EINVAL (now `shell:true` + npm fallback); Codex TOML backslash escaping (unparsable config.toml on Windows); Cursor/VS Code `permissions.allow` merge instead of wholesale replacement; Claude Code native-blocker hook rewritten as a cross-platform Node command; Command Code detection no longer matches Windows `cmd.exe`; OpenCode/Codex stop deleting user-defined agents and `[features]` keys; corrupt-JSON configs are backed up (`.corrupt-*`) before rebuild; absolute `process.execPath` in all MCP/hook commands for GUI-launched IDEs; dead `uvx` semble entries skipped; Windows `uvx.exe` fallback path.
 - **Web UI Functional Fixes**: Null-guards for model/savings/persona fields, notification id collisions, dead legacy `App.svelte`/`main.js`/`index.html` removed, working `animate-in` modal transitions.
+
+### Fixed: Pi Savings Attribution & Hard Guardrail Enforcement (2026-09-09)
+- **Pi Savings Attribution**: `detectActiveClient()` in `src/tools_savings_logger.js` had no Pi detection, so Pi (pi.dev) sessions never counted in `konoha savings`. Pi is now detected via `PI_CODING_AGENT=true` / `PI_SESSION_FILE` / `PI_SESSION_ID` env vars (checked first, most specific), `~/.pi/agent/sessions` session-file paths (glob fallback, `.jsonl` only), and an exact-match `pi` override; the `konoha savings` client table gained a `▲ Pi` row.
+- **Shared Guardrail Engine (`src/guardrails.js`)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass guardrails were previously prompt-only — every client's shell/bash tools could bypass them. A new self-contained `checkCommandGuardrails(command)` engine (single source of truth) enforces: destructive commands (`rm -rf` on root/home, `mkfs`, `dd` to devices, `DROP DATABASE`/`TRUNCATE TABLE`, `chmod 777`, recursive `chown`, `curl|sh`), destructive git (`reset --hard`, `push --force` (not `--force-with-lease`), `clean -f`, `checkout -- .`, `rebase -i`), secret file reads (`.env*`, `secrets.yaml/json`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`), and MCP read-bypass (bare `cat`/`head`/`tail`/`grep`/`rg`/`find`/`wc` etc. — `rtk`-prefixed commands and non-first pipe stages are exempt; secrets are never exempt).
+- **Per-Client Hard Enforcement**: Claude Code: new `konoha-bash-guard.js` PreToolUse hook (`^Bash$` matcher) with the inlined checker; Command Code: native blocker extended from `read_file`-only to also guard `shell_command`/`bash`/`shell` tool calls; Antigravity: `antigravity_tool_sanitize_hook.js` DENY-3 upgraded from a first-word blocklist to the full shared guardrail check (with first-word fallback if `guardrails.js` is missing); Pi: `konoha-blocker.ts` extension now enforces the guardrails on `bash`/`bash_command` tool calls in addition to native reads. Codex, Cursor, and OpenCode have no blocking-hook capability and keep the prompt-only rules.
+- **Deployment Coverage**: `guardrails.js` added to the CLI flat-copy lists (`filesToCopy`, `refreshFiles`), the dedicated hook deploy block, and the doctor `checkAndRepairFile` set, so it deploys to `~/.konoha/guardrails.js` for the Antigravity hook's `require('./guardrails')`.
 
 ## [v.2.0.0-beta.6] - 2026-09-07
 

@@ -17,6 +17,19 @@ function getUvxCommand() {
   return isWin ? 'uvx.exe' : 'uvx';
 }
 
+function isUvxUsable(uvxCmd) {
+  try {
+    const res = spawnSync(uvxCmd, ['--version'], {
+      encoding: 'utf-8',
+      timeout: 3000,
+      shell: process.platform === 'win32'
+    });
+    return res.status === 0;
+  } catch (_) {
+    return false;
+  }
+}
+
 function getSembleStatus() {
   const uvxCmd = getUvxCommand();
   const home = os.homedir();
@@ -41,6 +54,7 @@ function getSembleStatus() {
     engine: 'Semantic Code Search (Neural Embedding + Vector Index)',
     command: `${uvxCmd} --from semble[mcp]@latest semble`,
     configured,
+    available: isUvxUsable(uvxCmd),
     features: ['search', 'find_related'],
     reduction_ratio: '98%',
     description: 'Semantic code search engine using ~98% fewer tokens than raw grep and direct file dumping.'
