@@ -59,10 +59,14 @@ konoha init
 
 ### Direct Execution (Zero-Install via pnpm dlx or npx)
 ```bash
-# Run one-shot directly from GitHub without prior installation:
+# 1. Run one-shot directly from GitHub (or: node bin/cli.js init from unzipped release):
 pnpm dlx github:andycungkrinx91/konoha init
 # Or with npx:
 npx github:andycungkrinx91/konoha init
+
+# 2. Re-index skills & synchronize neural vector embeddings:
+konoha migrate --clean --rebuild-embeddings
+# (or simply: konoha embed)
 ```
 
 This installs the MCP server and migrates your skills. The CLI should output:

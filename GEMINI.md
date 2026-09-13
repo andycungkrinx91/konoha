@@ -19,6 +19,8 @@
    - All code changes must achieve 100/100 score on `rtk aislop scan --changes` with 0 errors and 0 warnings before completion.
 5. **Documentation & Changelog Synchronization**:
    - When maintaining Konoha, ensure documentation, diagrams, README, and CHANGELOG are updated in tandem with code changes.
+6. **Token Savings Flow Logic Invariant**:
+   - Under no circumstances modify, refactor, or touch logic, files, or configurations related to token savings telemetry, bounded file tool constraints, or baseline calculation flow logic in Konoha.
 
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.0.0-cross-client-1)

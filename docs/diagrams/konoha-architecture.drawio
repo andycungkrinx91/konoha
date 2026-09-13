@@ -55,7 +55,7 @@
                 <mxCell id="p1-db" value="SQLite konoha.db (src/db.js)&#10;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" parent="p1-l4" vertex="1">
                     <mxGeometry x="160" y="50" width="400" height="90" as="geometry" />
                 </mxCell>
-                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#10;BM25-ranked index + IBM Granite 97M Embeddings + bge-reranker-base Rerank" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
+                <mxCell id="p1-fts" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#10;BM25-ranked index + IBM Granite 97M Embeddings + MS MARCO MiniLM Neural Reranker + RRF" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" parent="p1-l4" vertex="1">
                     <mxGeometry x="680" y="55" width="260" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p1-code" value="Workspace Files&#10;Source code, docs, tests, task artifacts" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;" parent="p1-l4" vertex="1">
@@ -214,19 +214,19 @@
                 <mxCell id="p3-genin" value="genin&#10;genin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="340" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-kage" value="kage&#10;kage-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-kage" value="kage&#10;kage-skill + antislop*" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="450" width="260" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-jonin" value="jonin&#10;jonin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="560" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-anbu" value="anbu&#10;anbu-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-anbu" value="anbu&#10;anbu-skill + i-have-adhd + helm + dockerfile" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="670" width="260" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-chunin" value="chunin&#10;chunin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="1040" y="230" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-toku" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-toku" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + i-have-adhd + pptx" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="1040" y="340" width="290" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-mcp" value="Konoha MCP&#10;find_skill / get_skill / agent tools" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
@@ -437,7 +437,7 @@
                 <mxCell id="p6-package" value="Packaged source&#10;src/templates/skills/ -&gt; .agents/skills/" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="390" y="420" width="340" height="85" as="geometry" />
                 </mxCell>
-                <mxCell id="p6-migrate" value="konoha migrate&#10;FTS5 indexing + vector embedding backfill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p6-migrate" value="konoha migrate&#10;FTS5 + Granite 97M Embeddings + MS MARCO Reranker" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="640" y="240" width="300" height="90" as="geometry" />
                 </mxCell>
                 <mxCell id="p6-db" value="SQLite konoha.db (src/db.js)&#10;skills + skills_fts + skill_chunks" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;;overflow=visible;" parent="1" vertex="1">

@@ -185,6 +185,32 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   return bestAgent;
 }
 
+function detectParallelWorkstreams(prompt = '') {
+  if (!prompt || typeof prompt !== 'string') return [];
+  const p = prompt.toLowerCase();
+  const streams = [];
+
+  const hasBackend = /\b(backend|api|database|postgres|redis|sql|server|endpoint|devops|docker|kubernetes|helm|ci\/cd|pipeline)\b/i.test(p);
+  const hasFrontend = /\b(frontend|ui|component|tailwind|layout|page|css|html|react|vue|svelte|nuxt|angular)\b/i.test(p);
+  const hasDocs = /\b(documentation|readme|docs|runbook|api spec|postmortem|guide|technical doc)\b/i.test(p);
+  const hasResearch = /\b(research|web search|lookup|find evidence|citations|source evaluation)\b/i.test(p);
+
+  if (hasBackend) {
+    streams.push({ agent: 'anbu', domain: 'backend', role: 'Backend API, database & infrastructure deployment' });
+  }
+  if (hasFrontend) {
+    streams.push({ agent: 'jonin', domain: 'frontend', role: 'Frontend UI, components & responsive layout' });
+  }
+  if (hasDocs) {
+    streams.push({ agent: 'tokubetsu-jonin', domain: 'documentation', role: 'Technical documentation, README & runbooks' });
+  }
+  if (hasResearch) {
+    streams.push({ agent: 'chunin', domain: 'research', role: 'Intel research, external docs & evidence synthesis' });
+  }
+
+  return streams;
+}
+
 function runSannin(prompt = null, taskDir = null) {
   const resolvedTaskDir = getResolvedTaskDir(taskDir);
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
@@ -313,6 +339,27 @@ function runSannin(prompt = null, taskDir = null) {
     );
   }
 
+  let buildGuidance = '';
+  if (selectedAgent === 'jonin' || /\b(website|web\s*app|landing\s*page|frontend|storefront|portfolio|dashboard|scaffold.*ui)\b/i.test(effPrompt)) {
+    buildGuidance = (
+      '\n\n### ⚡ Website & UI Scaffolding Notice\n' +
+      '- For text-based builds, call `konoha.build_from_text(name, description, framework)` FIRST to get framework-native directives and mandatory Konoha design invariants (far-left logo, no mobile hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, hero carousel).\n' +
+      '- For mockup builds with images, call `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
+      '- Pass the returned directives into `delegate.md` under constraints before delegating to `jonin`.\n' +
+      '- Jonin implements the complete working website with an inline `README.md` and validates cleanly via framework validation commands. DO NOT delegate to `tokubetsu_jonin` or other subagents unless technical documentation was explicitly requested by the user.'
+    );
+  }
+
+  const parallelWorkstreams = detectParallelWorkstreams(effPrompt);
+  let parallelGuidance = '';
+  if (parallelWorkstreams.length > 1) {
+    parallelGuidance = (
+      '\n\n### ⚡ Parallel Execution Opportunity (Time-Saving)\n' +
+      `- Multi-domain workstreams detected: ${parallelWorkstreams.map(w => `\`${w.agent}\` (${w.domain})`).join(', ')}.\n` +
+      '- For maximum execution time savings, once architectural interfaces are locked in `plan.md`, the orchestrator can dispatch independent workstreams concurrently before merging at the Kage review gate.'
+    );
+  }
+
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
     `**Reason**: ${description}\n\n` +
@@ -323,12 +370,16 @@ function runSannin(prompt = null, taskDir = null) {
     '3. The agent will execute the task and write `result.md` to the same task directory (Write `result.md`).\n' +
     `4. After \`result.md\` exists, call \`sannin\` again with \`task_dir=${resolvedTaskDir}\` to receive the final result.\n\n` +
     `## Original Prompt\n\n${effPrompt}` +
-    advisoryText
+    advisoryText +
+    buildGuidance +
+    parallelGuidance
   );
 
   const res = JSON.stringify({
     status: 'routed',
     selected_agent: selectedAgent,
+    parallel_eligible: parallelWorkstreams.length > 1,
+    parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     phase: 'delegation',
     instructions: instruction,
     task_dir: resolvedTaskDir,

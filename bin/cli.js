@@ -1799,6 +1799,9 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
   }
+  if (args.includes('--rebuild-embeddings')) {
+    migrationArgs.push('--rebuild-embeddings');
+  }
   const runMigrate = (extraArgs, timeoutMs) => spawnSync(process.execPath, [MIGRATE_PATH, ...migrationArgs, ...extraArgs], {
     encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
   });
@@ -2029,10 +2032,11 @@ async function cmdInit(args, options = {}) {
   }
 
   info(`${C.bold}Next steps:${C.reset}`);
-  log(`  1. Restart your agentic IDE/CLI (Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}${codexInstalled ? ', Codex' : ''}) to load MCP servers`);
-  log(`  2. Test execution: ${C.cyan}konoha test${C.reset}`);
-  log(`  3. Check status:   ${C.cyan}konoha status${C.reset}`);
-  log(`  4. Web UI:         ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
+  log(`  1. Re-index & embed: ${C.cyan}konoha embed${C.reset} ${C.dim}(or: konoha migrate --clean --rebuild-embeddings)${C.reset}`);
+  log(`  2. Restart IDE/CLI:  Restart Antigravity, Cursor${claudeInstalled ? ', Claude Code' : ''}${openCodeInstalled ? ', OpenCode' : ''}${commandCodeInstalled ? ', Command Code' : ''}${codexInstalled ? ', Codex' : ''} to load MCP servers`);
+  log(`  3. Test execution:   ${C.cyan}konoha test${C.reset}`);
+  log(`  4. Check status:     ${C.cyan}konoha status${C.reset}`);
+  log(`  5. Web UI:           ${C.cyan}http://127.0.0.1:1404/${C.reset} ${C.dim}(auto-started; konoha ui stop|restart)${C.reset}`);
   log('');
 }
 
@@ -2809,7 +2813,15 @@ function installCliRuntime() {
       const s = path.join(src, entry.name);
       const d = path.join(dest, entry.name);
       if (entry.isDirectory()) copyTree(s, d);
-      else if (entry.isFile()) copyFile(s, d);
+      else if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.readlinkSync(s);
+          if (fs.existsSync(d)) fs.unlinkSync(d);
+          fs.symlinkSync(target, d);
+        } catch (_) {
+          copyFile(s, d);
+        }
+      } else if (entry.isFile()) copyFile(s, d);
     }
   };
   try {
@@ -2850,6 +2862,12 @@ function installCliRuntime() {
         if (entry.isFile() && entry.name.endsWith('.vsix')) {
           ensureDir(path.join(SKILLS_DB_DIR, 'assets'));
           copyFile(path.join(assetsSrc, entry.name), path.join(SKILLS_DB_DIR, 'assets', entry.name));
+        } else if (entry.isDirectory() && entry.name === 'models') {
+          const modelsSrc = path.join(assetsSrc, 'models');
+          const modelsDest = path.join(SKILLS_DB_DIR, 'assets', 'models');
+          if (path.resolve(modelsSrc) !== path.resolve(modelsDest)) {
+            copyTree(modelsSrc, modelsDest);
+          }
         }
       }
     }
@@ -3154,20 +3172,23 @@ function installFileTools(silent = true) {
 function ensureAutoSetup(force = false) {
   // --- FAST PATH: check if healthy setup already exists ---
   const AUTO_SETUP_STATE_PATH = path.join(SKILLS_DB_DIR, '.auto_setup_state.json');
-  if (!force && fileExists(DB_PATH) && fileExists(SERVER_PATH) && fileExists(FILE_TOOLS_MCP_PATH) && fileExists(MCP_CONFIG_PATH)) {
-    try {
-      if (fileExists(AUTO_SETUP_STATE_PATH)) {
-        const state = JSON.parse(fs.readFileSync(AUTO_SETUP_STATE_PATH, 'utf8'));
-        const cliVer = getCliVersion();
-        const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
-        let agentsMtime = 0;
-        try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  let prevVersion = null;
+  try {
+    if (fileExists(AUTO_SETUP_STATE_PATH)) {
+      const state = JSON.parse(fs.readFileSync(AUTO_SETUP_STATE_PATH, 'utf8'));
+      prevVersion = state && state.version ? state.version : null;
+      const cliVer = getCliVersion();
+      const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
+      let agentsMtime = 0;
+      try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      if (!force && fileExists(DB_PATH) && fileExists(SERVER_PATH) && fileExists(FILE_TOOLS_MCP_PATH) && fileExists(MCP_CONFIG_PATH)) {
         if (state.version === cliVer && state.agentsMtime === agentsMtime) {
           return; // Instant exit: already healthy (< 2ms)
         }
       }
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
+    }
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  const versionChanged = prevVersion !== getCliVersion();
 // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
 
   // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
@@ -3225,12 +3246,6 @@ function ensureAutoSetup(force = false) {
   // never act from inside the daemon itself (KONOHA_UI_DAEMON env or self pid
   // in ui.pid) and never from a spawned ui child (fork-loop guard).
   try {
-    let prevVersion = null;
-    try {
-      const prevState = JSON.parse(fs.readFileSync(AUTO_SETUP_STATE_PATH, 'utf8'));
-      prevVersion = prevState && prevState.version ? prevState.version : null;
-    } catch (_) { /* no prior state = fresh install */ }
-    const versionChanged = prevVersion !== getCliVersion();
     const autoStartOptOut = String(process.env.KONOHA_UI_AUTOSTART || '').trim().toLowerCase();
     const daemonSelf = process.env.KONOHA_UI_DAEMON === 'true';
     const spawnGuard = process.env.KONOHA_UI_AUTOSTART_GUARD === '1';
@@ -3263,6 +3278,7 @@ function ensureAutoSetup(force = false) {
   }
 
   // Also copy basic subagent skills to global directory if missing or outdated
+  syncTemplateSkills();
   const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
   copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
@@ -3301,7 +3317,7 @@ function ensureAutoSetup(force = false) {
         uvxCmd,
         projectRoot: currentCwd,
         deployProject: false,
-        force: force,
+        force: force || versionChanged,
         silent: true
       });
     } catch (_) {
@@ -3318,19 +3334,8 @@ function ensureAutoSetup(force = false) {
     // ignore — silent self-heal
   }
 
-  // Record auto-setup state
-  try {
-    let agentsMtime = 0;
-    try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    fs.writeFileSync(AUTO_SETUP_STATE_PATH, JSON.stringify({
-      version: getCliVersion(),
-      agentsMtime,
-      timestamp: Date.now()
-    }), 'utf8');
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-  // 7. Silently trigger migration if database file (konoha.db) is missing
-  if (!fileExists(DB_PATH)) {
+  // 7. Silently trigger migration if database file (konoha.db) is missing or runtime upgraded
+  if (!fileExists(DB_PATH) || versionChanged) {
     if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
       throw new Error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     }
@@ -3365,6 +3370,17 @@ function ensureAutoSetup(force = false) {
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
+
+  // Record auto-setup state
+  try {
+    let agentsMtime = 0;
+    try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    fs.writeFileSync(AUTO_SETUP_STATE_PATH, JSON.stringify({
+      version: getCliVersion(),
+      agentsMtime,
+      timestamp: Date.now()
+    }), 'utf8');
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 function updateGeminiMd(silent = false) {
@@ -3460,19 +3476,25 @@ ${C.cyan}konoha migrate${C.reset} — Re-index skills and rebuild the SQLite FTS
 
 ${C.bold}USAGE${C.reset}
   konoha migrate [options]
+  konoha embed
 
 ${C.bold}OPTIONS${C.reset}
-  ${C.cyan}--skills-dir <dir>${C.reset} Specify a custom directory to scan for skill folders.
-  ${C.cyan}--force${C.reset}            Prune unused/unembedded skills before migration.
+  ${C.cyan}--skills-dir <dir>${C.reset}       Specify a custom directory to scan for skill folders.
+  ${C.cyan}--force${C.reset}                  Prune unused/unembedded skills before migration.
+  ${C.cyan}--clean${C.reset}                  Clean existing database tables before migrating.
+  ${C.cyan}--rebuild-embeddings${C.reset}   Rebuild vector embeddings for all skill chunks.
+  ${C.cyan}--skip-embeddings${C.reset}      Skip generating neural embeddings (FTS5 search only).
 
 ${C.bold}EXAMPLES${C.reset}
   konoha migrate
+  konoha migrate --clean --rebuild-embeddings
+  konoha embed
   konoha migrate --force
   konoha migrate --skills-dir ./my-skills
 `);
 }
 
-async function cmdMigrate(args) {
+async function cmdMigrate(args = []) {
   if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
     cmdMigrateHelp();
     return;
@@ -3486,6 +3508,10 @@ async function cmdMigrate(args) {
   }
 
   const hasForce = args.includes('--force');
+  const hasRebuildEmbeddings = args.includes('--rebuild-embeddings');
+  const hasSkipEmbeddings = args.includes('--skip-embeddings');
+  const timeoutMs = hasRebuildEmbeddings ? Math.max(MIGRATION_TIMEOUT_MS, 300000) : MIGRATION_TIMEOUT_MS;
+
   if (hasForce) {
     info('Pruning unused/unembedded skills to prevent duplicate content...');
     const agents = agentManager.loadAgents();
@@ -3498,12 +3524,15 @@ async function cmdMigrate(args) {
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      let run = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-dir', customDir], {
-        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+      const runArgs = [MIGRATE_PATH, '--clean', '--skills-dir', customDir];
+      if (hasRebuildEmbeddings) runArgs.push('--rebuild-embeddings');
+      if (hasSkipEmbeddings) runArgs.push('--skip-embeddings');
+      let run = spawnSync(process.execPath, runArgs, {
+        encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
       });
       if (run.status !== 0) {
         run = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
         });
       }
       if (run.status !== 0) throw new Error(run.stderr || run.error?.message || 'Migration failed');
@@ -3519,12 +3548,15 @@ async function cmdMigrate(args) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        let runFallback = spawnSync(process.execPath, [MIGRATE_PATH, '--clean'], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+        const fallbackArgs = [MIGRATE_PATH, '--clean'];
+        if (hasRebuildEmbeddings) fallbackArgs.push('--rebuild-embeddings');
+        if (hasSkipEmbeddings) fallbackArgs.push('--skip-embeddings');
+        let runFallback = spawnSync(process.execPath, fallbackArgs, {
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
         });
         if (runFallback.status !== 0) {
           runFallback = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-only', '--skip-embeddings'], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
           });
         }
         if (runFallback.status !== 0) throw new Error(runFallback.stderr || runFallback.error?.message || 'Migration failed');
@@ -3537,16 +3569,18 @@ async function cmdMigrate(args) {
     } else {
       let anySuccess = false;
       const migrateArgs = [MIGRATE_PATH, '--clean'];
+      if (hasRebuildEmbeddings) migrateArgs.push('--rebuild-embeddings');
+      if (hasSkipEmbeddings) migrateArgs.push('--skip-embeddings');
       for (const dir of skillsDirs) {
         migrateArgs.push('--skills-dir', dir.path);
       }
       try {
         let run = spawnSync(process.execPath, migrateArgs, {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
         });
         if (run.status !== 0) {
-          run = spawnSync(process.execPath, [...migrateArgs, '--skills-only', '--skip-embeddings'], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          run = spawnSync(process.execPath, [...migrateArgs.filter(a => a !== '--rebuild-embeddings'), '--skills-only', '--skip-embeddings'], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
           });
         }
         if (run.status === 0) {
@@ -4331,6 +4365,7 @@ async function cmdDoctor(args = []) {
   checkAndRepairFile('file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)');
   checkAndRepairFile('file_tools_launcher.js', path.join(SKILLS_DB_DIR, 'file_tools_launcher.js'), 'File Tools Launcher (file_tools_launcher.js)');
   checkAndRepairFile('platform_utils.js', path.join(SKILLS_DB_DIR, 'platform_utils.js'), 'Platform Utils (platform_utils.js)');
+  checkAndRepairFile('tools_savings_logger.js', path.join(SKILLS_DB_DIR, 'tools_savings_logger.js'), 'Tools Savings Logger (tools_savings_logger.js)');
   checkAndRepairFile('file_tools_launcher.sh', FILE_TOOLS_LAUNCHER_PATH, 'File Tools Launcher (file_tools_launcher.sh)');
   if (fileExists(FILE_TOOLS_LAUNCHER_PATH) && process.platform !== 'win32') {
     try {
@@ -7307,6 +7342,7 @@ ${C.bold}USAGE${C.reset}
 ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}init${C.reset}          🚀 Setup MCP servers, migrate local skills, and configure supported clients.
   ${C.cyan}migrate${C.reset}       🔄 Re-index/migrate your custom skills database (run after editing skills).
+  ${C.cyan}embed${C.reset}         ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
   ${C.cyan}test${C.reset}          🧪 Perform verification tests on the MCP server.
   ${C.cyan}status${C.reset}        🩺 Check installation health, database size, and loaded skills.
   ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
@@ -7334,14 +7370,20 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. Setup everything for the first time:${C.reset}
      pnpm dlx github:andycungkrinx91/konoha init
 
-  ${C.dim}2. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:${C.reset}
+  ${C.dim}2. Re-index skills & synchronize vector embeddings:${C.reset}
+     konoha migrate --clean --rebuild-embeddings  # (or: konoha embed)
+
+  ${C.dim}3. Verify MCP server connection:${C.reset}
+     konoha test
+
+  ${C.dim}4. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:${C.reset}
      konoha skill search golang
 
-  ${C.dim}3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):${C.reset}
+  ${C.dim}5. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):${C.reset}
      konoha agent skill genin
 
-  ${C.dim}4. View how many tokens (and how much context window) you have saved:${C.reset}
-      konoha savings
+  ${C.dim}6. View how many tokens (and how much context window) you have saved:${C.reset}
+     konoha savings
 
   ${C.dim}5. View database disk space and active session size:${C.reset}
      konoha data view
@@ -8945,9 +8987,22 @@ async function main() {
   try {
     switch (command) {
       case 'init':
+      case 'setup':
+      case 'install':
+      case 'reinstall':
+        if (command === 'reinstall' && !args.includes('--force')) {
+          args.push('--force');
+        }
         await cmdInit(args);
         break;
       case 'migrate':
+        await cmdMigrate(args);
+        break;
+      case 'embed':
+      case 'embeddings':
+        if (!args.includes('--rebuild-embeddings')) {
+          args.push('--rebuild-embeddings');
+        }
         await cmdMigrate(args);
         break;
       case 'test':

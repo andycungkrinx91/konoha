@@ -6,8 +6,9 @@
 const fs = require('fs');
 const common = require('./common');
 
-const DEFAULT_LINES = 80;
-const MAX_LINES = 200;
+const DEFAULT_LINES = 50;
+const MAX_LINES = 150;
+const MAX_LINE_CHARS = 1000;
 
 function readFileHead(args = {}) {
   const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
@@ -29,7 +30,6 @@ function readFileHead(args = {}) {
   const allLines = content.split(/\r?\n/);
   const totalLines = allLines.length;
 
-  const MAX_LINE_CHARS = 4000;
   const slice = allLines.slice(0, maxLines);
   const linesOut = slice.map((line, idx) => {
     const lineNo = idx + 1;

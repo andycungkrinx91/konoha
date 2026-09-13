@@ -65,12 +65,15 @@ function stripStalePiMandates(text) {
       continue;
     }
     if (skipping) {
+      if (PI_MANDATE_HEADING_RE.test(line)) {
+        continue;
+      }
       if (line.startsWith('## ') || line.startsWith('<!-- KONOHA-')) {
         skipping = false;
         kept.push(line);
         continue;
       }
-      if (line.trim() === '' || line.startsWith('- ')) continue;
+      if (line.trim() === '' || line.trim().startsWith('- ') || line.trim().startsWith('* ')) continue;
       skipping = false;
       kept.push(line);
       continue;
@@ -92,6 +95,25 @@ function buildPiWorkflowAddendum() {
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the delegate.md phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
+- **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
+  - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
+  - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.
+  - **Everything else** → **BRANCH A** (standard multi-agent workflow above).
+- **BRANCH B: Website Scaffolding Pipeline (SKIP standard pipeline)**:
+  - Call \`konoha.build_from_text(name, description, framework, taste_dials?)\` or \`konoha.build_from_source(name, source_dir, framework, taste_dials?)\` FIRST before writing any code or scaffolding.
+  - Write \`delegate.md\` with the returned directives as constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
+  - Jonin implements the complete working website with an inline \`README.md\` and executes validation commands cleanly. DO NOT delegate to \`tokubetsu-jonin\` or other subagents unless technical documentation was explicitly requested by the user.
+- **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
+  - **Header Logo on Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
+  - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (\`lg:hidden\`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
+  - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (\`lg:hidden\`) with quick one-tap links adapted dynamically to the website archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
+  - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (\`lg:flex\`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (\`lg:hidden\`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
+  - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (\`fixed bottom-6 left-6 z-50\`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
+  - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
+  - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
+  - **Standard Framework Scaffolding via pnpm**: Always use token-safe, non-interactive flags wrapped with rtk: Next.js (\`rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent\`), Nuxt (\`rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false\`), Angular (\`rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true\`), SvelteKit (\`rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm\`). Always install packages with \`rtk pnpm add <packages> --silent\` to suppress verbose installation logs.
+  - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\`), \`"build"\` (\`pnpm run build\`), and \`"start"\` (\`pnpm run start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
+  - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 - **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills; duplicate-skill warnings are automatically filtered by konoha-blocker; prefer the Konoha MCP path.
 - **Code search via Semble**: use \`semble.search\` / \`semble.find_related\` with the absolute repository path — never native grep/glob/find for codebase discovery.
 - **Bounded file tools**: use \`konoha.read_file_head\`, \`read_file_range\`, \`file_info\`, \`get_file_structure\`, \`find_files_clean\`, \`token_efficient_grep\` instead of native read/grep when scanning the repository.
@@ -114,17 +136,18 @@ function buildPiManagedContract() {
  * Deploys the Konoha runtime contract + Pi workflow mandate into
  * ~/.pi/agent/AGENTS.md (Pi's global context file) using managed markers.
  */
-function deployPiContract(silent = true) {
+function deployPiContract(silent = true, targetFile = null) {
   try {
-    ensureDirSafe(PI_AGENT_DIR);
-    const existing = fileExists(PI_AGENTS_MD) ? fs.readFileSync(PI_AGENTS_MD, 'utf-8') : '';
+    const destFile = targetFile || (module.exports && module.exports.PI_AGENTS_MD) || PI_AGENTS_MD;
+    ensureDirSafe(path.dirname(destFile));
+    const existing = fileExists(destFile) ? fs.readFileSync(destFile, 'utf-8') : '';
     const sanitized = stripStalePiMandates(existing);
     const managed = buildManagedContract(sanitized, buildPiManagedContract());
     if (managed === existing) {
       return { ok: true, changed: false };
     }
-    fs.writeFileSync(PI_AGENTS_MD, managed, 'utf-8');
-    if (!silent) process.stderr.write(`✓ Konoha runtime contract deployed to Pi: ${PI_AGENTS_MD}\n`);
+    fs.writeFileSync(destFile, managed, 'utf-8');
+    if (!silent) process.stderr.write(`✓ Konoha runtime contract deployed to Pi: ${destFile}\n`);
     return { ok: true, changed: true };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi contract deployment failed: ${err.message}`);
@@ -674,6 +697,7 @@ module.exports = {
   registerPiMcp,
   deployPiRtkRule,
   deployPiContract,
+  stripStalePiMandates,
   deployPiBlockerExtension,
   removePiBlockerExtension,
   removePiContract,

@@ -66,6 +66,13 @@ function _executeToolInternal(toolName, args, agent) {
   if (FILE_TOOLS.has(toolName)) {
     const router = require('../file_tools_router');
     const { text } = router.dispatchTool(toolName, args || {});
+    try {
+      const retBytes = Buffer.byteLength(text || '', 'utf8');
+      const logger = require('../tools_savings_logger');
+      logger.log(toolName, JSON.stringify(args || {}).slice(0, 500), retBytes);
+    } catch (_) {
+      // Best-effort savings logging
+    }
     return annotateWorkflowFileHint(text);
   }
   if (toolName === 'find_skill' || toolName === 'find_skills') {

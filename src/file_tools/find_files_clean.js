@@ -41,8 +41,9 @@ function findFilesClean(args = {}) {
     throw new Error(`Directory not found: ${rootDir}`);
   }
 
-  const rawLimit = args.limit !== undefined ? args.limit : (args.max_results !== undefined ? args.max_results : (args.maxResults !== undefined ? args.maxResults : 200));
-  const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 200, 1), 1000);
+  const DEFAULT_LIMIT = 50;
+  const rawLimit = args.limit !== undefined ? args.limit : (args.max_results !== undefined ? args.max_results : (args.maxResults !== undefined ? args.maxResults : DEFAULT_LIMIT));
+  const limit = Math.min(Math.max(parseInt(rawLimit, 10) || DEFAULT_LIMIT, 1), 500);
 
   const results = [];
   let truncated = false;

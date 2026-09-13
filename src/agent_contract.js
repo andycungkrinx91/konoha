@@ -44,6 +44,8 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
 - **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
 - **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
+- **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call \`konoha.build_from_text\` FIRST before creating files or scaffolding. Strictly implement the Konoha default design template: (1) Header logo on far LEFT, (2) NO hamburger menu in mobile header (\`lg:hidden\`), (3) Archetype-adaptive fixed bottom Mobile Navigation Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (\`fixed bottom-6 left-6 z-50\`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay), (6) Standard framework scaffolding via pnpm with token-safe non-interactive flags and rtk wrapping, and (7) Zero errors and zero warnings.
+- **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
 ${CONTRACT_END}`;
 }
 

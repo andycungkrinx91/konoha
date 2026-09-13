@@ -135,9 +135,9 @@ Load specific reference files using `konoha.get_skill("jonin-skill/<reference-na
 - **Taste-Skill & Anti-Slop (ALWAYS Enforced)**: `jonin-skill/taste-skill-frontend-expert`
 - **Design Tokens**: `jonin-skill/design-token-manifest`, `jonin-skill/tailwind-design-system`
 - **Build Directives**: `jonin-skill/build-directives-manifest`, `jonin-skill/source-fidelity-directives`
-- **Next.js / React**: `jonin-skill/nextjs-ui-expert`, `jonin-skill/nextjs-code-expert`, `jonin-skill/react-nextjs-patterns`, `jonin-skill/framer-motion-animator`
+- **Next.js / React**: `jonin-skill/nextjs-ui-expert`, `jonin-skill/nextjs-code-expert`, `jonin-skill/react-patterns`, `jonin-skill/react-performance`, `jonin-skill/react-testing`, `jonin-skill/framer-motion-animator`
 - **SvelteKit / Svelte 5**: `jonin-skill/svelte-ui-expert`, `jonin-skill/svelte-code-expert`, `jonin-skill/svelte5-best-practices`
 - **Nuxt 4.3 / Vue**: `jonin-skill/nuxt-ui-expert`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt`
 - **Angular 20+**: `jonin-skill/angular-ui-expert`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`
 - **3D & Framework Assets**: `jonin-skill/spline-interactive`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/vite`, `jonin-skill/owasp-security`
-- **ADHD-Friendly Output (final response shaping)**: `i-have-adhd`
+- **ADHD-Friendly Output (final response shaping)**: `jonin-skill/i-have-adhd` (`i-have-adhd`)

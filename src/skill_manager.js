@@ -102,7 +102,7 @@ function searchRegistry(query) {
   return new Promise((resolve, reject) => {
     const registryBase = process.env.KONOHA_SKILLS_REGISTRY_URL || 'https://skills.sh/api/search';
   const url = `${registryBase}?q=${encodeURIComponent(query)}`;
-    https.get(url, { headers: { 'User-Agent': 'konoha-cli' } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'konoha-cli' }, timeout: 8000 }, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`Failed to contact skills.sh API: ${res.statusCode}`));
         return;
@@ -117,7 +117,11 @@ function searchRegistry(query) {
           reject(new Error('Failed to parse search results JSON'));
         }
       });
-    }).on('error', (err) => {
+    });
+    req.on('timeout', () => {
+      req.destroy(new Error('skills.sh request timed out'));
+    });
+    req.on('error', (err) => {
       reject(err);
     });
   });

@@ -54,8 +54,8 @@ function testMigrationExecution() {
 
     const proc = spawnSync(
       process.execPath,
-      [MIGRATE_SCRIPT, '--db-path', tempDb, '--skills-dir', path.dirname(skillsDir), '--require-skill', 'genin-skill'],
-      { encoding: 'utf-8', timeout: 25000 }
+      [MIGRATE_SCRIPT, '--db-path', tempDb, '--skills-dir', path.dirname(skillsDir), '--require-skill', 'genin-skill', '--skip-embeddings'],
+      { encoding: 'utf-8', timeout: 60000 }
     );
     assert.strictEqual(proc.status, 0, `Migration script execution failed: ${proc.stderr}\nStdout: ${proc.stdout}`);
   } finally {

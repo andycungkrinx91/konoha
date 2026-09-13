@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./helpers/isolate_db');
 
 /**
  * tests/test_project_memory_persistence.js — E2E Unit & Integration tests for Project-Scoped Memory.

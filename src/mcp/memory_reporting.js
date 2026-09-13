@@ -571,7 +571,8 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       tasteSkillBlock = (
         `### 🎨 Taste-Skill Rules (Compacted Turn ${turn}):\n` +
         `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n` +
-        `- SDLC & Anti-Slop: Run aislop_scan (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n`
+        `- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n` +
+        `- SDLC & Anti-Slop: Run rtk aislop scan --changes (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n`
       );
     } else {
       tasteSkillBlock = (
@@ -582,8 +583,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
         '- Layout & Spacing: Cinematic py-24/py-32 section pacing, CSS Grid (grid-cols-12), max-w-[1400px].\n' +
         '- Viewport & Mobile: min-h-[100dvh] safety (no h-screen), sticky bottom dock on mobile (`lg:hidden`).\n' +
         '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), Zero emojis (use Lucide SVG).\n' +
+        '- Mandatory Konoha Design Invariants: (1) Header logo on far LEFT, (2) NO hamburger/toggle button in mobile header (`lg:hidden`), (3) Archetype-adaptive fixed bottom Mobile Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (`fixed bottom-6 left-6 z-50`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay).\n' +
         "- Quality: pnpm exclusively, SPA/multi-page routes, 50-item dataset, zero errors/warnings, 'Build by Konoha' footer.\n" +
-        '- SDLC & Anti-Slop Delivery Gate: Jonin must run `aislop_scan` before delivery to ensure `ai_slop_findings: 0` and `ai_slop_clean: true`. Include real validation commands (e.g. `pnpm run build`, `pnpm run lint`) and anti-slop scan results in report_from_agent validation evidence.\n'
+        '- SDLC & Anti-Slop Delivery Gate: Jonin must run `rtk aislop scan --changes` (or pass specific changed file paths) before delivery to ensure `ai_slop_findings: 0` and `ai_slop_clean: true`. Never run unscoped root scans. Include real validation commands (e.g. `pnpm run build`, `pnpm run lint`) and anti-slop scan results in report_from_agent validation evidence.\n'
       );
     }
   }
@@ -658,7 +660,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '## Execution Protocol\n\n' +
     '1. Execute the task directly as described in TASK INSTRUCTIONS above.\n' +
     '2. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
-    '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (run `aislop_scan` to verify `ai_slop_clean: true` and `ai_slop_findings: 0`).\n' +
+    '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (run `rtk aislop scan --changes` to verify `ai_slop_clean: true` and `ai_slop_findings: 0`).\n' +
     '4. When complete, write your summary to `result.md` in the task directory (or report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response).'
   );
   const instruction = `${systemPrompt}\n\n` + taskTail;

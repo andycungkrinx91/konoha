@@ -23,8 +23,8 @@
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-12)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, Mission Control Grafana-style Dashboard (`/dashboard`), Documentation page (`/docs`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, 3-Mode Search (Local FTS5, Granite 384d Neural Vector, skills.sh Registry), Interactive Vector Chunks Inspector, Native SDLC Governance Layer (DoR, Task registry, anti-slop remediation loop), Pi (pi.dev) 7th client integration, hard guardrail enforcement, SearXNG search, IBM Granite ONNX vector search, and the `i-have-adhd` ADHD-friendly output skill for 5 subagents (genin, jonin, anbu, tokubetsu-jonin, chunin).
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-13c)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-13c.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-13)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, subagent skill & reference consolidation (antislop into kage, i-have-adhd into 5 target agents, helm & docker into anbu, powerpoint into tokubetsu-jonin), standalone source skill deprecation & pruning, neural embedding CPU 100% peak elimination & adaptive duty-cycle throttling (<50% duty, zero thermal spikes), Mission Control Dashboard (`/dashboard`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, Native SDLC Governance Layer, Pi (pi.dev) 7th client integration, and 100% clean test suite (78/78 passing).
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-13d)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-13d.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -304,14 +304,14 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **Zero Session Amnesia**: Context and invariants are preserved and automatically injected across consecutive sessions.
 - **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
 
-### 🧠 Hybrid Vector Search & Multilingual Retrieval (sqlite-vector + IBM Granite + GTE Reranker)
-Konoha integrates hybrid semantic retrieval combining **SQLite-Vector**, **IBM Granite 97M Multilingual (ONNX)**, and **Alibaba GTE Multilingual Cross-Encoder Reranker**:
-- **Cross-Lingual Recall**: Queries in Indonesian (or English) retrieve the relevant English skill documentation with **97.5% Recall@5** and **0.885 MRR@5**.
-- **Reciprocal Rank Fusion (RRF)**: Merges dense vector embeddings with sparse FTS5 BM25 token ranks before cross-encoder reranking.
-- **Zero-Config Default & Opt-in Semantic Search**: By default, Konoha runs zero-config with ultra-fast SQLite FTS5. Semantic search is optionally enabled via `KONOHA_SEMANTIC_SEARCH=1`.
-- **Graceful Fallback**: If extension loading is disabled or models are unavailable, searches fall back to FTS5 / LIKE search without crashing.
-- **Lazy First-Run Download**: Downloads platform-specific prebuilts (`linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) and int8 ONNX weights on first run to keep the base npm package lightweight.
-- **4-Tier Embedding Feature Deduplication**: Markdown heading-aware chunk hashing, in-memory `_EMBED_CACHE` (4,096 entries, 0ms latency), database-level binary blob reuse across skills, and candidate nearest-chunk deduplication.
+### 🧠 Hybrid Vector Search & Multilingual Retrieval (IBM Granite + MS MARCO MiniLM Neural Reranker)
+Konoha integrates hybrid semantic retrieval combining **SQLite FTS5 BM25**, **IBM Granite 97M Multilingual Embeddings (ONNX)**, and **MS MARCO MiniLM Neural Cross-Encoder Reranker**:
+- **Offline Bundled Models**: Both embedding and neural reranker models are pre-bundled directly in `assets/models/` (<100 MB each), enabling 100% offline installs and zero-download instant execution.
+- **Dual-Stage Reranking & RAG Retrieval**: Combines sub-millisecond Reciprocal Rank Fusion (RRF, k=60) for candidate ranking with neural cross-encoder passage reranking (`searchChunksRAG()`) for high-precision RAG context retrieval.
+- **Cross-Lingual Recall**: Queries in multilingual text retrieve the relevant skill documentation with **97.5% Recall@5** and **0.885 MRR@5**.
+- **Zero-Config Default & Opt-in Semantic Search**: By default, Konoha runs zero-config with ultra-fast SQLite FTS5. Semantic search and neural reranking are optionally enabled via `KONOHA_SEMANTIC_SEARCH=1`.
+- **Graceful Fallback**: If models are unavailable or semantic search is toggled off, retrieval falls back to FTS5 / LIKE search without crashing.
+- **4-Tier Embedding Feature Deduplication**: Markdown heading-aware chunk hashing, in-memory `_EMBED_CACHE` (512 entries), database-level binary blob reuse across skills, and candidate nearest-chunk deduplication.
 - **Persistent Persona & Project Memory**: Idempotent memory storage preventing duplicate SQLite rows, zero-hallucination factual extraction, and auto-compact turn-based prompt badges (< 120 tokens on turn >= 2).
 - **Cross-Platform `agent-browser` Lifecycle**: Automated multi-package-manager detection and self-healing doctor auto-repair across Windows (`agent-browser.cmd`), Linux, and macOS.
 
@@ -326,12 +326,12 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 - **Project Knowledge Discovery** — inspect project-local `README.md`, `docs/`, `CONTRIBUTING.md`, `.cursorrules`, `.clauderules`, and canonical project skills (`.agents/skills`, `skills/`) before executing code.
 - **Package Manager Mandate** — ALWAYS use `pnpm` (never standalone `npx` or `npm`) for all JS/TS scaffolding, installs, and builds.
 - **Subagent routing** — match the task domain to a ninja agent:
-  - `@genin` — codebase exploration, codepath tracing
-  - `@kage` — architecture, security, deep analysis
-  - `@chunin` — web research, documentation synthesis
-  - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4
-  - `@anbu` — backend, bug fixing, DevOps, & dev/local penetration testing
-  - `@tokubetsu-jonin` — technical writing, docs, READMEs
+  - `@genin` — codebase exploration, codepath tracing, ADHD-friendly output shaping (`genin-skill/i-have-adhd`)
+  - `@kage` — architecture, security, deep analysis, anti-slop delivery gate (`kage-skill/antislop*`, `kage-skill/drawio-skill`)
+  - `@chunin` — web research, documentation synthesis, citations
+  - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4, React/Next.js best practices (`jonin-skill/react-patterns`, `react-performance`, `react-testing`), ADHD output shaping (`jonin-skill/i-have-adhd`)
+  - `@anbu` — backend development, bug fixing, DevOps & cloud infrastructure, Helm chart scaffolding (`anbu-skill/helm-chart-scaffolding`), multi-stage Dockerfiles (`anbu-skill/multi-stage-dockerfile`), ADHD output shaping (`anbu-skill/i-have-adhd`), & dev/local penetration testing
+  - `@tokubetsu-jonin` — technical writing, docs, runbooks, READMEs
 
 **The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** Trivial edits on a known file may run inline; everything else routes through a subagent.
 
@@ -349,7 +349,6 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 
 <details>
 <summary><b>📐 View Text-Based Mermaid Source Specification</b></summary>
-<br/>
 
 ```mermaid
 ---
@@ -456,13 +455,17 @@ Konoha handles all setup steps automatically:
 Get Konoha up and running in under 2 minutes:
 
 ```bash
-# 1. Initialize on any machine directly from GitHub
+# 1. Initialize on any machine directly from GitHub (or: node bin/cli.js init from unzipped release)
 pnpm dlx github:andycungkrinx91/konoha init
 
-# 2. Verify the MCP server connection works
+# 2. Re-index skills & synchronize vector embeddings (IBM Granite + MS MARCO MiniLM Reranker)
+konoha migrate --clean --rebuild-embeddings
+# (or simply: konoha embed)
+
+# 3. Verify the MCP server connection works
 konoha test
 
-# 3. Check installation status and index database statistics
+# 4. Check installation status and index database statistics
 konoha status
 ```
 
@@ -487,6 +490,8 @@ Once installed, the following CLI commands are available:
 | Command | Description |
 |:---|:---|
 | `konoha init` | Full install: self-contained CLI runtime (`~/.konoha/bin/cli.js`) + server + migration + MCP config + GEMINI.md + global `konoha` command reconciliation (npm/pnpm/yarn shims on Linux, macOS, and Windows) |
+| `konoha migrate` | Re-index/migrate skills database into SQLite FTS5 (supports `--clean`, `--rebuild-embeddings`, `--skip-embeddings`, `--skills-dir`) |
+| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.0.0) and check for updates from GitHub |
@@ -695,17 +700,22 @@ website_ai_detector({ target: "https://example.com" })   → URL mode (headers +
 Search skills by keyword using SQLite FTS5 full-text search with automatic project-scoped skill discovery and migration.
 
 ```
-find_skill("terraform aws")     → anbu-skill references
-find_skill("sveltekit tailwind") → jonin-skill references
-find_skill("code review")       → genin-skill references
+find_skill("anti-slop review")   → kage-skill/antislop references
+find_skill("helm kubernetes")    → anbu-skill/helm-chart-scaffolding references
+find_skill("react patterns")     → jonin-skill/react-patterns references
+find_skill("adhd output")        → genin, anbu, jonin i-have-adhd references
+find_skill("powerpoint")         → tokubetsu-jonin-skill/elite-powerpoint-designer
 ```
 
 #### `get_skill(name)`
 Get full content of a specific skill/reference by exact name.
 
 ```javascript
-get_skill("jonin-skill/svelte-code-expert")
-get_skill("anbu-skill/terraform-aws-modules")
+get_skill("kage-skill/antislop")
+get_skill("anbu-skill/helm-chart-scaffolding")
+get_skill("jonin-skill/react-patterns")
+get_skill("tokubetsu-jonin-skill/elite-powerpoint-designer")
+get_skill("genin-skill/i-have-adhd")
 ```
 
 #### `list_skills()`

@@ -6,7 +6,8 @@
 const fs = require('fs');
 const common = require('./common');
 
-const MAX_SPAN = 500;
+const MAX_SPAN = 250;
+const MAX_LINE_CHARS = 1000;
 
 function readFileRange(args = {}) {
   const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
@@ -37,7 +38,6 @@ function readFileRange(args = {}) {
   const content = fs.readFileSync(filePath, 'utf8');
   const allLines = content.split(/\r?\n/);
 
-  const MAX_LINE_CHARS = 4000;
   const linesOut = [];
   for (let lineNo = startLine; lineNo <= endLine && lineNo <= allLines.length; lineNo++) {
     const line = allLines[lineNo - 1];

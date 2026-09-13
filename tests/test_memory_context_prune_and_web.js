@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./helpers/isolate_db');
 
 /**
  * tests/test_memory_context_prune_and_web.js

@@ -36,7 +36,7 @@ flowchart TB
         
         subgraph PersistenceLayer ["Consolidated Single-DB Access Layer (src/db.js)"]
             SQLiteDB[("Unified SQLite Skills & Vector DB<br/>~/.konoha/konoha.db<br/>(PRAGMA WAL · busy_timeout=5000 · foreign_keys=ON)")]
-            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.js)<br/>• Pure Node.js / @huggingface/transformers<br/>• IBM Granite 97M Multilingual Embedder<br/>• BAAI/bge-reranker-base Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF)"]
+            VectorEngine["Hybrid Semantic Vector Engine (src/vector_search.js)<br/>• Pure Node.js / @huggingface/transformers<br/>• IBM Granite 97M Multilingual Embedder<br/>• MS MARCO MiniLM Neural Cross-Encoder Reranker<br/>• Reciprocal Rank Fusion (RRF, k=60)"]
         end
         
         KonohaMCP <--> PersistenceLayer

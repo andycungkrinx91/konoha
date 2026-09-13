@@ -32,6 +32,7 @@ const CUSTOM_SKILLS = [
   "jonin-skill",
   "kage-skill",
   "konoha",
+  "sannin-skill",
   "tokubetsu-jonin-skill",
 ];
 
@@ -229,6 +230,9 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
     return 0;
   }
 
+  try {
+    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name LIKE ?").run(skillName, `${skillName}/%`);
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillName);
 
   let count = 0;
@@ -275,6 +279,9 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
       const lineCount = (content.match(/\n/g) || []).length + 1;
       const pct = rawSize > 0 ? ((rawSize - byteSize) / rawSize * 100) : 0;
 
+      try {
+        conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(refKey);
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       conn.prepare("DELETE FROM skills WHERE name = ?").run(refKey);
       conn.prepare(
         "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -636,8 +643,8 @@ async function runMigration(options = {}) {
   if (deletedSkills.size) {
     log("\n🗑️  Cleaning up deleted skills from database:");
     for (const sName of Array.from(deletedSkills).sort()) {
+      try { conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(sName); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(sName);
-      conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(sName);
       log(`  ✓ Cleaned up: ${sName}`);
     }
   }

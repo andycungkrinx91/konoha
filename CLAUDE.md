@@ -52,10 +52,10 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (`mcp__konoha__get_file_structure` or `mcp__konoha__find_files_clean`) to discover existing test folders (`tests/`, `test/`, `spec/`). NEVER create duplicate test folders (e.g. creating `test/` when `tests/` exists). If a folder exists, place tests within it.
 - **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 `aislop_scan` (aislop scanner: engine findings must be 0), Step 2 `anti-slop` rule review (load the vendored `antislop` skill via mcp__konoha__get_skill and enforce its Delivery Gate rules) across all changed files and verify `ai_slop_findings = 0`, `ai_slop_clean = true`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering `Verification Category`, `Target`, `Evaluated Result`, `Category Confidence`, and `Status`, followed by the overall confidence verdict).
 - **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
-  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans (`aislop_scan` without target path or `aislop scan` without `--changes` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context.
-  - When invoking `aislop_scan` or executing CLI scans, ALWAYS pass specific changed file paths or use `--changes` to ensure bounded, token-efficient execution.
+  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans. The external MCP tool `aislop_scan` only accepts directory `path` and lacks `--changes` support; calling it on root scans all 3,500+ files and dumps ~14,000 findings into context (~50k tokens). Delivery Zero-AI-Slop gating on changed files MUST ALWAYS be executed via CLI: `rtk aislop scan --changes` (or pass specific changed file paths).
   - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use `get_slop_findings(compact: true)`.
   - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
+  - When maintaining Konoha, use `rtk npm run sync:skills` (`node scripts/sync_skills.js`) to propagate skill edits to all mirror trees automatically, and use `rtk node tests/run_all.js <pattern>` for incremental testing to prevent token burn across 77 suites.
 - **Destructive Command, Git & Secret Guardrails**:
   - NEVER run harmful commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd`, `DROP DATABASE`, `TRUNCATE TABLE`, `chmod 777`, `chown -R`, `curl | bash`, `wget | sh`, unconstrained `sudo`) without explicit permission.
   - NEVER run destructive git commands (`git reset --hard`, `git push --force`, `git clean -fdx`, `git checkout -- .`, `git rebase -i`) without explicit permission.
@@ -72,18 +72,19 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any `git` command. Use semble instead.
 - **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
+- **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
 - **Optimize Thought Tokens**: Keep thoughts concise in thinking processes. Avoid verbose reasoning.
 
 | Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
-| Specialized skill | `sannin-skill` | `mcp__konoha__sannin` (MCP Tool) |
-| Specialized skill | `genin-skill` | `mcp__konoha__genin` (MCP Tool) |
-| Specialized skill | `i-have-adhd` | `mcp__konoha__genin` (MCP Tool) |
-| Specialized skill | `kage-skill` | `mcp__konoha__kage` (MCP Tool) |
-| Specialized skill | `chunin-skill` | `mcp__konoha__chunin` (MCP Tool) |
-| Specialized skill | `jonin-skill` | `mcp__konoha__jonin` (MCP Tool) |
-| Specialized skill | `anbu-skill` | `mcp__konoha__anbu` (MCP Tool) |
-| Specialized skill | `tokubetsu-jonin-skill` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
+| Standard Operating Procedures and router for MCP task triage, subagent selection, and orchestration. | `sannin-skill` | `mcp__konoha__sannin` (MCP Tool) |
+| Standard Operating Procedures for read-only codebase exploration, symbol search, dependency mapping, | `genin-skill` | `mcp__konoha__genin` (MCP Tool) |
+| ADHD-friendly output shaping for subagent responses. Lead with the next action, number multi-step ta | `i-have-adhd` | `mcp__konoha__genin` (MCP Tool) |
+| Standard Operating Procedures for architecture decisions, security audits, deep code analysis, risk  | `kage-skill` | `mcp__konoha__kage` (MCP Tool) |
+| Standard Operating Procedures for web research, documentation lookup, evidence synthesis with citati | `chunin-skill` | `mcp__konoha__chunin` (MCP Tool) |
+| Standard Operating Procedures and router for premium UI development, design match comparison, compon | `jonin-skill` | `mcp__konoha__jonin` (MCP Tool) |
+| Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `mcp__konoha__anbu` (MCP Tool) |
+| Standard Operating Procedures for technical writing, README creation, API specifications, runbooks,  | `tokubetsu-jonin-skill` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-CONTRACT-START -->
@@ -110,6 +111,8 @@ You are the main agent running through Claude Code. This contract is mandatory o
 - **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
 - **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
+- **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call `mcp__konoha__build_from_text` FIRST before creating files or scaffolding. Strictly implement the Konoha default design template: (1) Header logo on far LEFT, (2) NO hamburger menu in mobile header (`lg:hidden`), (3) Archetype-adaptive fixed bottom Mobile Navigation Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (`fixed bottom-6 left-6 z-50`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay), (6) Standard framework scaffolding via pnpm with token-safe non-interactive flags and rtk wrapping, and (7) Zero errors and zero warnings.
+- **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
 <!-- KONOHA-CONTRACT-END -->
 
 <!-- KONOHA-END -->

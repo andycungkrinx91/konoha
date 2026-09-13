@@ -62,6 +62,12 @@ In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: e
 4. **Validation & Verification**: Execute `helm lint` and dry-run template rendering (`helm template test-release ./my-chart --debug`) before any deployment.
 5. **Security Hardening**: Enforce `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, and zero dropped capability omissions.
 
+## SOP 7: Optimized Multi-Stage Dockerfile Engineering
+1. **Multi-Stage Build Pattern**: Separate build environment from runtime image to minimize container size and eliminate build tool attack surfaces.
+2. **Deterministic Layer Caching**: Order instructions from least frequently changed to most frequently changed (package manifests before application source).
+3. **Security Hardening**: Run as an explicit non-root user (`USER nonroot` / `USER 1001`), use minimal base images (Alpine, distroless, scratch), and drop unnecessary Linux capabilities.
+4. **Health Checks & Artifact Cleanliness**: Define explicit container `HEALTHCHECK` and purge package manager caches in the same `RUN` step (`rm -rf /var/cache/apk/*`, `pnpm store prune`).
+
 ## Domain Routing
 
 Based on the user's request, load the specific reference file using `konoha.get_skill("anbu-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
@@ -71,6 +77,7 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | Penetration testing in dev/local environments, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
 | DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
 | Helm charts, Kubernetes packaging, Chart.yaml, values.yaml templating, Helm scaffolding, chart linting | `anbu-skill/helm-chart-scaffolding` |
+| Multi-stage Dockerfiles, optimized container builds, layer caching, Docker security, distroless images | `anbu-skill/multi-stage-dockerfile` |
 | Grafana, Prometheus, monitoring, metrics, observability dashboards | `anbu-skill/prometheus-grafana` |
 | Anthropic Cybersecurity Skills, security log analysis, threat hunting, defensive forensics, analytical hardening | `anbu-skill/anthropic-cybersecurity-skills` |
 | Security auditing, DevSecOps, OWASP, penetration test remediation, defensive hardening | `devsecops-engineer` |
@@ -81,4 +88,4 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | Laravel backend, API development, architecture, testing | `anbu-skill/laravel-specialist` |
 | WordPress backend, CMS development, custom themes/plugins | `anbu-skill/wordpress-pro` |
 | Magento module development, backend architecture, e-commerce API | `anbu-skill/magento-module-developer` |
-| Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |
+| Final response shaping, ADHD-friendly concise output, action-first answers | `anbu-skill/i-have-adhd` (`i-have-adhd`) |

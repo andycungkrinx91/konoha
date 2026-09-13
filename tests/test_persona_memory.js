@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+require('./helpers/isolate_db');
 
 /**
  * tests/test_persona_memory.js — Unit tests for Konoha persona and memory manager.

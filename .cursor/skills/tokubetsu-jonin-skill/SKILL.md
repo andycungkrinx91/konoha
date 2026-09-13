@@ -48,3 +48,4 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | PDF generation, PDF reports, printable professional reports, document styling for export | `tokubetsu-jonin-skill/pdf` |
 | Content writer, technical articles, tutorials, engineering blogs, case studies, whitepapers | `tokubetsu-jonin-skill/technical-article-writer` |
 | Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |
+| Presentations, PowerPoint decks, slide design, keynote templates, pitch decks | `tokubetsu-jonin-skill/elite-powerpoint-designer` |

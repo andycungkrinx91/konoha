@@ -48,7 +48,9 @@ async function run() {
   console.log('✅ ALL PI & UI DAEMON TESTS PASSED!');
 }
 
-run().catch((err) => {
+run().then(() => {
+  process.exit(0);
+}).catch((err) => {
   console.error('Test failed:', err);
   process.exit(1);
 });

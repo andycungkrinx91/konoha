@@ -22,6 +22,7 @@
     "src/",
     "docs/",
     "apps/",
+    "assets/",
     ".agents/",
     ".cursor/",
     ".claude/",
@@ -36,11 +37,13 @@
     "prepare": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
     "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
     "test": "node tests/run_all.js",
+    "test:parallel": "node tests/run_all.js --parallel",
     "test:mcp": "node tests/test_mcp_protocol.js && node tests/test_mcp_e2e.js",
     "test:workflow": "node tests/test_workflow_gates.js && node tests/test_workflow_loop.js",
     "test:jonin": "node tests/test_build_workflows.js && node tests/test_taste_skill_jonin.js",
     "test:docs": "node tests/test_docs_currency.js && node tests/test_documentation_diagrams.js",
     "build:web": "pnpm --dir apps/web run build",
+    "sync:skills": "node scripts/sync_skills.js",
     "web": "node bin/cli.js web"
   },
   "os": [

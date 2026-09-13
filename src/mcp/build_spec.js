@@ -27,7 +27,7 @@ const BUILD_FRAMEWORKS = {
     canonical: 'nextjs',
     display: 'Next.js 16.3',
     aliases: new Set(['next', 'nextjs', 'react']),
-    scaffold_command: 'pnpm create next-app@latest',
+    scaffold_command: 'rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent',
     routing: 'Use Next.js 16 App Router under app/ (strictly Next.js 16.3+, React 19, fully custom-themed Tailwind v4 — NEVER Next.js 15, 14, or hash-based SPA routing).',
     validation: ['pnpm run lint', 'pnpm run build'],
     required_scripts: ['pnpm lint', 'pnpm build', 'pnpm start', 'pnpm dev'],
@@ -38,7 +38,7 @@ const BUILD_FRAMEWORKS = {
     canonical: 'sveltekit',
     display: 'SvelteKit',
     aliases: new Set(['svelte', 'sveltekit']),
-    scaffold_command: 'pnpm dlx sv create <project-name>',
+    scaffold_command: 'rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm',
     routing: 'Use SvelteKit file-based routing under src/routes/ — NEVER hash-based SPA routing.',
     validation: ['pnpm run check', 'pnpm run lint', 'pnpm run build'],
     required_scripts: ['pnpm check', 'pnpm lint', 'pnpm build', 'pnpm start', 'pnpm dev'],
@@ -49,7 +49,7 @@ const BUILD_FRAMEWORKS = {
     canonical: 'nuxt',
     display: 'Nuxt 4.3',
     aliases: new Set(['nuxt', 'nuxt3', 'vue']),
-    scaffold_command: 'pnpm dlx nuxi@latest init <project-name>',
+    scaffold_command: 'rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false',
     routing: 'Use Nuxt 4 file-based routing under app/pages/ and app/layouts/ — NEVER hash-based SPA routing.',
     validation: ['pnpm run lint', 'pnpm run build'],
     required_scripts: ['pnpm lint', 'pnpm build', 'pnpm start', 'pnpm dev'],
@@ -60,7 +60,7 @@ const BUILD_FRAMEWORKS = {
     canonical: 'angular',
     display: 'Angular 20+ Signals',
     aliases: new Set(['angular', 'ng']),
-    scaffold_command: 'pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm',
+    scaffold_command: 'rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true',
     routing: 'Use standalone Angular Router with app.routes.ts — NEVER hash-based SPA routing.',
     validation: ['pnpm run lint', 'pnpm run build'],
     required_scripts: ['pnpm lint', 'pnpm build', 'pnpm start', 'pnpm dev'],
@@ -204,8 +204,8 @@ function loadSkillContentForBuild(skillNames, conn) {
       const row = conn.prepare('SELECT content FROM skills WHERE name = ?').get(resolved);
       if (row && row.content) {
         const raw = row.content.trim();
-        let preview = raw.substring(0, 400).trim();
-        if (raw.length > 400) {
+        let preview = raw.substring(0, 250).trim();
+        if (raw.length > 250) {
           preview += `\n...(Call konoha.get_skill('${resolved}') for full reference manual)`;
         }
         blocks.push({
@@ -398,7 +398,7 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
   }
 
   const detectedSources = [];
-  for (const s of sourcesRaw.slice(0, 30)) {
+  for (const s of sourcesRaw.slice(0, 15)) {
     const fpath = path.join(resolvedSourceDir, s);
     const meta = { filename: s };
     try {
@@ -408,7 +408,7 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
       meta.sha256 = crypto.createHash('sha256').update(rawContent).digest('hex');
       if (st.size <= 50000) {
         const content = rawContent.toString('utf8');
-        meta.content_excerpt = content.substring(0, 4000);
+        meta.content_excerpt = content.substring(0, 300);
         meta.framework_hints = frameworkSourceSignals(s, content);
         meta.has_exports_or_imports = /\b(import|export)\b/.test(content);
         meta.signals = {
@@ -532,8 +532,11 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
   directives.push(`Provide the framework validation scripts: ${frameworkSpec.validation.join(', ')}. All validation must finish with zero errors and zero warnings.`);
   directives.push("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).");
   directives.push(`Apply Taste-Skill dials: DESIGN_VARIANCE=${validatedDials.design_variance}/10, MOTION_INTENSITY=${validatedDials.motion_intensity}/10, VISUAL_DENSITY=${validatedDials.visual_density}/10.`);
-  directives.push('SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run aislop_scan to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery.');
+  directives.push("SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run 'rtk aislop scan --changes' to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery.");
+  directives.push("Token-Safe Dependencies: Install packages with 'rtk pnpm add <packages> --silent' to suppress verbose terminal output and protect token budget.");
   directives.push(...humanBuiltFingerprintDirectives('build_from_source'));
+
+  const uniqueDirectives = Array.from(new Set(directives));
 
   let skillBlocks = [];
   let specConn = null;
@@ -571,11 +574,11 @@ function buildFromSource(name, sourceDir, framework, agentName = null, tasteDial
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
     detected_images: detectedImages,
     detected_sources: detectedSources,
-    directives,
+    directives: uniqueDirectives,
     image_to_code_required: detectedImages.length > 0,
     required_skills: agentSkills,
     skill_load_sequence: agentSkills,
-    delegate_constraints: directives,
+    delegate_constraints: uniqueDirectives,
     absolute_image_paths: absoluteImagePaths,
     forbid_build_from_text: detectedImages.length > 0,
     taste_dials: validatedDials,
@@ -669,7 +672,7 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
 
   const routingDirective = frameworkSpec.routing;
   const scaffoldCommand = frameworkSpec.scaffold_command || '';
-  const installDirective = 'Install and validate dependencies with pnpm, then run every command returned in validation_commands.';
+  const installDirective = 'Install and validate dependencies with pnpm using rtk (e.g. rtk pnpm add <packages> --silent, rtk pnpm install --silent), then run every command returned in validation_commands.';
 
   const buildDirectives = [
     `Build a premium, intentional ${displayFramework} website named '${name}' from this description: '${description}'.`,
@@ -689,11 +692,11 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
     'Hero Banner Carousel Mandate: The homepage hero section MUST implement an interactive hero banner carousel with a minimum of 4 high-definition slides, autoplay (5000ms) with hover pause, previous/next chevron buttons, indicator thumbnails/dots, slide badges, and call-to-action buttons.',
     'Taste-Skill Prettification: Combine Taste-Skill principles (editorial typography, negative space, subtle 3D hover tilt, glassmorphic depth, smooth GPU transitions, zero emoji policy in UI controls) to enrich the visual polish without altering the default Konoha design.',
     "SSR & Hydration Safety Mandate: All interactive client components accessing localStorage, window, or document (ThemeSwitcher, HeroCarousel, MobileDock) MUST use 'use client' and an explicit useMounted() state guard before rendering localStorage-dependent DOM elements to guarantee 0 hydration mismatch errors.",
-    'Essential Dependency Packages: install the framework icon and utility packages during scaffolding to eliminate missing module errors — the Phosphor Icons package per the Human-Built Fingerprint Policy plus clsx only when a class-merge helper is genuinely needed (skip tailwind-merge on builds that do not use Tailwind).',
+    'Essential Dependency Packages: install the framework icon and utility packages during scaffolding using rtk (e.g. rtk pnpm add @phosphor-icons/react clsx --silent) to suppress verbose terminal output and prevent missing module errors.',
     ...humanBuiltFingerprintDirectives('build_from_text'),
     ...frameworkStylingDirectives(displayFramework),
     'Zero Errors & Zero Warnings Mandate: Do not claim completion until every configured framework validation command (pnpm run build, pnpm run lint, pnpm run check for SvelteKit) passes cleanly with 0 errors and 0 warnings.',
-    'SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run aislop_scan to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery.'
+    "SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run 'rtk aislop scan --changes' to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery."
   ];
 
   if (archetype === 'commerce') {
@@ -742,7 +745,8 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
     buildDirectives.push('Application features: infer only the routes and interactions required by the description, adhering strictly to the 4 layout invariants, 10 light-mode themes, and zero errors contract.');
   }
   buildDirectives.push("Mandatory package.json Scripts Invariant: EVERY build across all frameworks (Next.js, SvelteKit, Nuxt, Angular) MUST strictly provide working package.json scripts for 'pnpm lint', 'pnpm build', and 'pnpm start' (plus 'pnpm check' for SvelteKit).");
-  buildDirectives.push('SDLC & Anti-Slop Delivery Gate: Verify Definition-of-Readiness compliance and run aislop_scan to ensure ai_slop_findings: 0 and ai_slop_clean: true before delivery.');
+
+  const uniqueDirectives = Array.from(new Set(buildDirectives));
 
   let skillBlocks = [];
   let textConn = null;
@@ -777,10 +781,10 @@ function buildFromText(name, description, framework, agentName = null, tasteDial
     taste_skill_read: 'Load Taste-Skill v2 once, declare the design read, and explain each dial before implementation.',
     taste_skill_audits: ['em_dash', 'pre_flight', 'section_layout_repetition', 'hero_discipline', 'preservation', 'brand_fidelity', 'zero_ai_slop', 'sdlc_readiness'],
     design_tokens: { perspective: '1200px', tilt_max: '12deg', transition: '300ms', entrance: '500ms', hero_content_entrance: '600ms', hero_autoplay: '6000ms', theme_storage_key: 'konoha-theme' },
-    directives: buildDirectives,
+    directives: uniqueDirectives,
     required_skills: agentSkills,
     skill_load_sequence: agentSkills,
-    delegate_constraints: buildDirectives,
+    delegate_constraints: uniqueDirectives,
     taste_dials: validatedDials,
     scaffold_command: frameworkSpec.scaffold_command || '',
     validation_commands: frameworkSpec.validation,

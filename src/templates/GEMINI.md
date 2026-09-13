@@ -35,6 +35,7 @@ When the user prompt involves modifying or working within an existing project:
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
 4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
+5. **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
 
 ## Auto-Delegation
 

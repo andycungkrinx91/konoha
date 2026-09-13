@@ -44,6 +44,22 @@ function normalizeLegacySkillName(skill) {
   if (skill.startsWith('deep-code-explorer/')) {
     return 'genin-skill/' + skill.substring('deep-code-explorer/'.length);
   }
+  const ALIASES = {
+    'antislop': 'kage-skill/antislop',
+    'antislop-code': 'kage-skill/antislop-code',
+    'antislop-copywriting': 'kage-skill/antislop-copywriting',
+    'antislop-human': 'kage-skill/antislop-human',
+    'antislop-layoutmobile': 'kage-skill/antislop-layoutmobile',
+    'antislop-ui': 'kage-skill/antislop-ui',
+    'helm-chart-scaffolding': 'anbu-skill/helm-chart-scaffolding',
+    'multi-stage-dockerfile': 'anbu-skill/multi-stage-dockerfile',
+    'react-patterns': 'jonin-skill/react-patterns',
+    'react-performance': 'jonin-skill/react-performance',
+    'react-testing': 'jonin-skill/react-testing',
+    'elite-powerpoint-designer': 'tokubetsu-jonin-skill/elite-powerpoint-designer',
+    'i-have-adhd': 'genin-skill/i-have-adhd'
+  };
+  if (ALIASES[skill]) return ALIASES[skill];
   return skill;
 }
 
@@ -369,11 +385,20 @@ function getSkill(name, agentName = null) {
   const normName = normalizeLegacySkillName(name);
   const conn = getDb();
   try {
-    const row = conn.prepare(`
+    let row = conn.prepare(`
       SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
       FROM skills
       WHERE name = ?
     `).get(normName);
+
+    if (!row) {
+      row = conn.prepare(`
+        SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
+        FROM skills
+        WHERE name LIKE ?
+        LIMIT 1
+      `).get(`%/${normName}`);
+    }
 
     if (!row || !isPathVisible(row.file_path)) {
       process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);

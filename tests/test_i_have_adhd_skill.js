@@ -64,15 +64,26 @@ function parseAgentBlocks(yamlPath) {
 async function run() {
   console.log('Running test_i_have_adhd_skill tests...');
 
-  // 1. SKILL.md exists in all four trees and copies are byte-identical
-  const reference = fs.readFileSync(path.join(TREES[0], SKILL_REL));
+  // 1. Embedded i-have-adhd.md exists in all 5 target agent skills across all four trees and copies are byte-identical
+  const expectedAgents = ['genin', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
+  const baseRefPath = path.join(TREES[0], 'genin-skill', 'references', 'i-have-adhd.md');
+  assert.ok(fs.existsSync(baseRefPath), 'genin-skill/references/i-have-adhd.md must exist');
+  const reference = fs.readFileSync(baseRefPath);
+
   for (const tree of TREES) {
-    const p = path.join(tree, SKILL_REL);
-    assert.ok(fs.existsSync(p), `${path.relative(ROOT, p)} must exist`);
-    const buf = fs.readFileSync(p);
-    assert.ok(reference.equals(buf), `${path.relative(ROOT, p)} must be byte-identical to the template copy`);
+    // Ensure standalone directory is removed
+    const standaloneDir = path.join(tree, 'i-have-adhd');
+    assert.ok(!fs.existsSync(standaloneDir), `${path.relative(ROOT, standaloneDir)} standalone skill directory must not exist`);
+
+    for (const agent of expectedAgents) {
+      const p = path.join(tree, `${agent}-skill`, 'references', 'i-have-adhd.md');
+      assert.ok(fs.existsSync(p), `${path.relative(ROOT, p)} must exist`);
+      const buf = fs.readFileSync(p);
+      assert.ok(reference.equals(buf), `${path.relative(ROOT, p)} must be byte-identical to reference copy`);
+    }
   }
-  console.log('✓ i-have-adhd SKILL.md shipped byte-identical in all 4 trees');
+  console.log('✓ i-have-adhd embedded reference shipped byte-identical across all 5 agents in all 4 trees');
+  console.log('✓ Standalone i-have-adhd skill directories cleanly removed across all trees');
 
   const skillContent = reference.toString('utf-8');
 
@@ -89,7 +100,6 @@ async function run() {
 
   // 4. agents.yaml maps i-have-adhd to exactly the 5 target agents
   const blocks = parseAgentBlocks(path.join(ROOT, 'src', 'templates', 'agents.yaml'));
-  const expectedAgents = ['genin', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin'];
   for (const agent of expectedAgents) {
     assert.ok(blocks[agent] && blocks[agent].includes('i-have-adhd'), `agents.yaml: ${agent} must list i-have-adhd`);
   }

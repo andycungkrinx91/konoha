@@ -686,7 +686,7 @@ function createWebServer(options = {}) {
           total_chunks: totalChunks,
           embedded_chunks: totalEmbedded,
           vectorized_skills: skillsCount,
-          reranker: 'Reciprocal Rank Fusion (RRF, k=60) + Cosine Distance'
+          reranker: 'Neural Cross-Encoder (MS MARCO MiniLM) + Reciprocal Rank Fusion (RRF, k=60)'
         });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });

@@ -57,3 +57,9 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | Risk assessment, feature impact analysis | `kage-skill/risk-assessment` |
 | Generating or updating Mermaid architecture diagrams | `kage-skill/mermaid-diagrams` |
 | Professional Draw.io architecture diagrams and XML generation | `kage-skill/drawio-skill` |
+| Anti-slop core filter, code delivery gate review | `kage-skill/antislop` |
+| Code comment hygiene, removing generic AI comments | `kage-skill/antislop-code` |
+| Copywriting, headlines, tone, CTAs, anti-AI text patterns | `kage-skill/antislop-copywriting` |
+| Human accessibility, contrast check, keyboard, focus, states | `kage-skill/antislop-human` |
+| Mobile layout, touch targets, responsive reflow | `kage-skill/antislop-layoutmobile` |
+| UI & visual design, color palettes, motion, components | `kage-skill/antislop-ui` |

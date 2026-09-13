@@ -71,7 +71,28 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     } else if (tool === 'find_files_clean') {
       baseline = Math.max(Number(returnedBytes) || 0, 250000);
     } else if (['read_file_head', 'read_file_range', 'file_info', 'get_file_structure'].includes(tool)) {
-      baseline = Number(returnedBytes) || 0;
+      let resolvedSize = 0;
+      try {
+        let rawTarget = null;
+        if (typeof query === 'string') {
+          try {
+            const parsed = JSON.parse(query);
+            rawTarget = parsed.path || parsed.file_path || parsed.filepath || parsed.dir;
+          } catch (_) {
+            rawTarget = query;
+          }
+        }
+        if (rawTarget) {
+          const checkPath = path.isAbsolute(rawTarget) ? rawTarget : path.resolve(process.cwd(), rawTarget);
+          if (fs.existsSync(checkPath)) {
+            const st = fs.statSync(checkPath);
+            resolvedSize = st.isFile() ? st.size : 100000;
+          }
+        }
+      } catch (_) {
+        // Ignore file stat errors
+      }
+      baseline = Math.max(Number(returnedBytes) || 0, resolvedSize);
     } else if (['find_skill', 'find_skills', 'list_skills', 'optimize_report', 'build_from_text', 'build_from_source', 'build_with_image_design'].includes(tool)) {
       baseline = DEFAULT_BASELINE;
       try {

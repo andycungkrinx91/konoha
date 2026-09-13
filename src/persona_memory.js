@@ -599,10 +599,11 @@ function deleteMemory(memoryId, dbPath = DB_PATH) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const id = (typeof memoryId === 'string' && /^\d+$/.test(memoryId.trim()))
-      ? parseInt(memoryId.trim(), 10)
-      : memoryId;
-    const res = conn.prepare("DELETE FROM persona_memories WHERE id = ?").run(id);
+    const strId = String(memoryId != null ? memoryId : '').trim();
+    const numId = /^\d+$/.test(strId) ? parseInt(strId, 10) : null;
+    const res = numId !== null
+      ? conn.prepare("DELETE FROM persona_memories WHERE id = ? OR id = ?").run(strId, numId)
+      : conn.prepare("DELETE FROM persona_memories WHERE id = ?").run(strId);
     return res.changes > 0;
   } finally {
     conn.close();

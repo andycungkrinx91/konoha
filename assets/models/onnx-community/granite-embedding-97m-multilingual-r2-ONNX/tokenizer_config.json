@@ -1,0 +1,555 @@
+{
+  "added_tokens_decoder": {
+    "179934": {
+      "content": "<|startoftext|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179935": {
+      "content": "<|endoftext|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179936": {
+      "content": "<|reserved_200000|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179937": {
+      "content": "<|reserved_200001|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179938": {
+      "content": "<|return|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179939": {
+      "content": "<|constrain|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179940": {
+      "content": "<|reserved_200004|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179941": {
+      "content": "<|channel|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179942": {
+      "content": "<|start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179943": {
+      "content": "<|end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179944": {
+      "content": "<|message|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179945": {
+      "content": "<|reserved_200009|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179946": {
+      "content": "<|reserved_200010|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179947": {
+      "content": "<|reserved_200011|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179948": {
+      "content": "<|call|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179949": {
+      "content": "<|reserved_200013|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179950": {
+      "content": "<|reserved_200014|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179951": {
+      "content": "<|reserved_200015|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179952": {
+      "content": "<|reserved_200016|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179953": {
+      "content": "<|reserved_200017|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179954": {
+      "content": "<|endofprompt|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179955": {
+      "content": "[MASK]",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "179956": {
+      "content": "<|reserved_200020|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179957": {
+      "content": "<|reserved_200021|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179958": {
+      "content": "<|reserved_200022|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179959": {
+      "content": "<|reserved_200023|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179960": {
+      "content": "<|reserved_200024|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179961": {
+      "content": "<|reserved_200025|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179962": {
+      "content": "<|reserved_200026|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179963": {
+      "content": "<|reserved_200027|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179964": {
+      "content": "<|reserved_200028|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179965": {
+      "content": "<|reserved_200029|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179966": {
+      "content": "<|reserved_200030|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179967": {
+      "content": "<|reserved_200031|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179968": {
+      "content": "<|reserved_200032|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179969": {
+      "content": "<|reserved_200033|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179970": {
+      "content": "<|reserved_200034|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179971": {
+      "content": "<|reserved_200035|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179972": {
+      "content": "<|reserved_200036|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179973": {
+      "content": "<|reserved_200037|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179974": {
+      "content": "<|reserved_200038|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179975": {
+      "content": "<|reserved_200039|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179976": {
+      "content": "<|reserved_200040|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179977": {
+      "content": "<|reserved_200041|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179978": {
+      "content": "<|reserved_200042|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179979": {
+      "content": "<|reserved_200043|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179980": {
+      "content": "<|reserved_200044|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179981": {
+      "content": "<|reserved_200045|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179982": {
+      "content": "<|reserved_200046|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179983": {
+      "content": "<|reserved_200047|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179984": {
+      "content": "<|reserved_200048|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179985": {
+      "content": "<|reserved_200049|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179986": {
+      "content": "<|reserved_200050|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179987": {
+      "content": "<|reserved_200051|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179988": {
+      "content": "<|reserved_200052|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179989": {
+      "content": "<|reserved_200053|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179990": {
+      "content": "<|reserved_200054|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179991": {
+      "content": "<|reserved_200055|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179992": {
+      "content": "<|reserved_200056|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179993": {
+      "content": "<|reserved_200057|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179994": {
+      "content": "<|reserved_200058|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179995": {
+      "content": "<|reserved_200059|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179996": {
+      "content": "<|reserved_200060|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179997": {
+      "content": "<|reserved_200061|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179998": {
+      "content": "<|reserved_200062|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    },
+    "179999": {
+      "content": "<|reserved_200063|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": true,
+      "special": false
+    }
+  },
+  "backend": "tokenizers",
+  "bos_token": "<|startoftext|>",
+  "clean_up_tokenization_spaces": false,
+  "cls_token": "<|startoftext|>",
+  "eos_token": "<|return|>",
+  "extra_special_tokens": {},
+  "is_local": true,
+  "mask_token": "[MASK]",
+  "max_length": 32768,
+  "model_input_names": [
+    "input_ids",
+    "attention_mask"
+  ],
+  "model_max_length": 32768,
+  "pad_to_multiple_of": null,
+  "pad_token": "<|endoftext|>",
+  "pad_token_type_id": 0,
+  "padding_side": "right",
+  "sep_token": "<|return|>",
+  "stride": 0,
+  "tokenizer_class": "PreTrainedTokenizerFast",
+  "truncation_side": "right",
+  "truncation_strategy": "longest_first"
+}

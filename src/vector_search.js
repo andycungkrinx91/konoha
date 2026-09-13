@@ -10,10 +10,11 @@ const crypto = require('crypto');
 
 const SEMANTIC_SEARCH_ENV = "KONOHA_SEMANTIC_SEARCH";
 const EMBED_MODEL_REPO = "onnx-community/granite-embedding-97m-multilingual-r2-ONNX";
+const RERANK_MODEL_REPO = "Xenova/ms-marco-MiniLM-L-6-v2";
 const VECTOR_DIMENSION = 384;
 const SQLITE_VECTOR_VERSION = "1.1.0";
 
-const _MAX_EMBED_CACHE = 4096;
+const _MAX_EMBED_CACHE = 512;
 const _EMBED_CACHE = new Map();
 
 let _pipelineExtractor = null;
@@ -67,16 +68,16 @@ function getPlatformAssetInfo(sys = process.platform, mArch = process.arch) {
 }
 
 function getVendorDir() {
-  const konohaDir = path.normalize(path.join(os.homedir(), '.konoha'));
-  const vendorDir = path.join(konohaDir, 'vendor', 'sqlite-vector');
-  if (!fs.existsSync(vendorDir)) {
-    fs.mkdirSync(vendorDir, { recursive: true });
-// (intentional no-op callback: interface parity with the vector extension API)
+  const custom = process.env.KONOHA_SQLITE_VEC_DIR;
+  if (custom && fs.existsSync(custom)) {
+    return path.resolve(custom);
   }
-  return vendorDir;
+  const home = os.homedir();
+  return path.join(home, ".konoha", "vendor");
 }
 
 function ensureVectorExtension() {
+  if (_EXTENSION_FAILED_ONCE) return null;
   const [assetName, libName] = getPlatformAssetInfo();
   if (!assetName || !libName) return null;
 
@@ -155,74 +156,298 @@ function chunkDocument(content, maxChars = 2000, overlapChars = 100) {
     sections.push(currentLines.join('\n').trim());
   }
 
-  const chunks = [];
+  function splitLongBlock(block, maxLen, overlap) {
+    const pieces = [];
+    let start = 0;
+    while (start < block.length) {
+      const end = start + maxLen;
+      pieces.push(block.substring(start, end));
+      if (end >= block.length) break;
+      start = end - overlap;
+    }
+    return pieces;
+  }
+
+  const rawChunks = [];
   for (const section of sections) {
     if (!section) continue;
     if (section.length <= maxChars) {
-      chunks.push(section);
+      rawChunks.push(section);
     } else {
       const paragraphs = section.split(/\n\s*\n/);
       let currentSub = "";
       for (const p of paragraphs) {
         const pClean = p.trim();
         if (!pClean) continue;
-        if (currentSub.length + pClean.length + 2 <= maxChars) {
+        if (pClean.length > maxChars) {
+          if (currentSub) {
+            rawChunks.push(currentSub);
+            currentSub = "";
+          }
+          rawChunks.push(...splitLongBlock(pClean, maxChars, overlapChars));
+        } else if (currentSub.length + pClean.length + 2 <= maxChars) {
           currentSub = currentSub ? (currentSub + '\n\n' + pClean).trim() : pClean;
         } else {
           if (currentSub) {
-            chunks.push(currentSub);
-            const overlapTail = currentSub.length > overlapChars ? currentSub.slice(-overlapChars) : currentSub;
-            currentSub = overlapTail + '\n\n' + pClean;
-          } else {
-            let start = 0;
-            while (start < pClean.length) {
-              const end = start + maxChars;
-              const subText = pClean.substring(start, end);
-              chunks.push(subText);
-              if (end >= pClean.length) break;
-              start = end - overlapChars;
-            }
-            currentSub = "";
+            rawChunks.push(currentSub);
           }
+          currentSub = pClean;
         }
       }
       if (currentSub) {
-        chunks.push(currentSub);
+        rawChunks.push(currentSub);
       }
     }
   }
 
   const dedupedChunks = [];
   const seenHashes = new Set();
-  for (const chunk of chunks) {
+  for (const chunk of rawChunks) {
     const cClean = chunk.trim();
     if (!cClean) continue;
-    const norm = cClean.split(/\s+/).join(' ');
-    const h = crypto.createHash('sha256').update(norm, 'utf8').digest('hex');
-    if (!seenHashes.has(h)) {
-      seenHashes.add(h);
-      dedupedChunks.push([dedupedChunks.length, cClean]);
+    const finalChunks = cClean.length > maxChars
+      ? splitLongBlock(cClean, maxChars, overlapChars)
+      : [cClean];
+
+    for (const fc of finalChunks) {
+      const norm = fc.split(/\s+/).join(' ');
+      const h = crypto.createHash('sha256').update(norm, 'utf8').digest('hex');
+      if (!seenHashes.has(h)) {
+        seenHashes.add(h);
+        dedupedChunks.push([dedupedChunks.length, fc]);
+      }
     }
   }
 
   return dedupedChunks;
 }
 
+function getBundledModelsDir() {
+  const repoRoot = path.resolve(__dirname, '..');
+  const candidateDirs = [
+    path.join(repoRoot, 'assets', 'models'),
+    path.join(os.homedir(), '.konoha', 'assets', 'models'),
+    path.join(os.homedir(), '.konoha', 'models'),
+    path.join(os.homedir(), '.konoha', 'transformers_cache')
+  ];
+  for (const cDir of candidateDirs) {
+    const modelSub = path.join(cDir, EMBED_MODEL_REPO);
+    const rerankSub = path.join(cDir, RERANK_MODEL_REPO);
+    if ((fs.existsSync(modelSub) && fs.statSync(modelSub).isDirectory()) ||
+        (fs.existsSync(rerankSub) && fs.statSync(rerankSub).isDirectory())) {
+      return cDir;
+    }
+  }
+  return path.join(os.homedir(), '.konoha', 'transformers_cache');
+}
+
 async function getEmbedPipeline() {
   if (_pipelineExtractor) return _pipelineExtractor;
   try {
     const { pipeline, env } = require('@huggingface/transformers');
-    env.cacheDir = path.join(os.homedir(), '.konoha', 'transformers_cache');
-    _pipelineExtractor = await pipeline('feature-extraction', EMBED_MODEL_REPO, {
+    const cacheDir = getBundledModelsDir();
+    env.cacheDir = cacheDir;
+    env.localModelPath = cacheDir;
+    const modelSub = path.join(cacheDir, EMBED_MODEL_REPO);
+    const hasLocalModel = fs.existsSync(modelSub);
+    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '1', 10);
+    if (env.backends?.onnx?.wasm) {
+      env.backends.onnx.wasm.numThreads = onnxThreads;
+    }
+    const pipelineOptions = {
       quantized: true,
-      // aislop-ignore-next-line ai-slop/empty-function (intentional no-op: transformers API requires the key; progress output would pollute MCP stdio)
+      local_files_only: hasLocalModel,
+      session_options: {
+        intraOpNumThreads: onnxThreads,
+        interOpNumThreads: 1,
+        executionMode: 'sequential'
+      },
       // aislop-ignore-next-line ai-slop/empty-function (intentional no-op: transformers API requires the key; progress output would pollute MCP stdio)
       progress_callback: () => { /* intentional no-op: transformers API requires the key; progress output would pollute MCP stdio */ }
-    });
-// (intentional no-op callback: interface parity with the vector extension API)
+    };
+    try {
+      _pipelineExtractor = await pipeline('feature-extraction', EMBED_MODEL_REPO, pipelineOptions);
+    } catch (err) {
+      if (hasLocalModel) {
+        delete pipelineOptions.local_files_only;
+        _pipelineExtractor = await pipeline('feature-extraction', EMBED_MODEL_REPO, pipelineOptions);
+      } else {
+        throw err;
+      }
+    }
+    // Allow initial model graph setup and JIT compiler to settle cleanly
+    await new Promise(resolve => setTimeout(resolve, 100));
     return _pipelineExtractor;
   } catch (_) {
     return null;
+  }
+}
+
+async function getRerankPipeline() {
+  if (_pipelineReranker) return _pipelineReranker;
+  try {
+    const { AutoTokenizer, AutoModelForSequenceClassification, env } = require('@huggingface/transformers');
+    const cacheDir = getBundledModelsDir();
+    env.cacheDir = cacheDir;
+    env.localModelPath = cacheDir;
+    const modelSub = path.join(cacheDir, RERANK_MODEL_REPO);
+    const hasLocalModel = fs.existsSync(modelSub);
+    const onnxThreads = parseInt(process.env.KONOHA_ONNX_THREADS || '1', 10);
+    if (env.backends?.onnx?.wasm) {
+      env.backends.onnx.wasm.numThreads = onnxThreads;
+    }
+    const modelOptions = {
+      quantized: true,
+      local_files_only: hasLocalModel,
+      session_options: {
+        intraOpNumThreads: onnxThreads,
+        interOpNumThreads: 1,
+        executionMode: 'sequential'
+      },
+      // aislop-ignore-next-line ai-slop/empty-function (intentional no-op: transformers API requires the key; progress output would pollute MCP stdio)
+      progress_callback: () => { /* intentional no-op */ }
+    };
+
+    let tokenizer, model;
+    try {
+      tokenizer = await AutoTokenizer.from_pretrained(hasLocalModel ? modelSub : RERANK_MODEL_REPO, {
+        local_files_only: hasLocalModel
+      });
+      model = await AutoModelForSequenceClassification.from_pretrained(hasLocalModel ? modelSub : RERANK_MODEL_REPO, modelOptions);
+    } catch (err) {
+      if (hasLocalModel) {
+        delete modelOptions.local_files_only;
+        tokenizer = await AutoTokenizer.from_pretrained(RERANK_MODEL_REPO);
+        model = await AutoModelForSequenceClassification.from_pretrained(RERANK_MODEL_REPO, modelOptions);
+      } else {
+        throw err;
+      }
+    }
+    _pipelineReranker = { tokenizer, model };
+    return _pipelineReranker;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function rerank(query, documents, options = {}) {
+  if (!query || !documents || !documents.length) return [];
+  const topK = options.topK || documents.length;
+  const docItems = documents.map((doc, idx) => {
+    if (typeof doc === 'string') {
+      return { id: idx, text: doc, original: { text: doc } };
+    }
+    return {
+      id: doc.id !== undefined ? doc.id : idx,
+      text: doc.text || doc.chunk_text || doc.content || '',
+      original: doc
+    };
+  });
+
+  const reranker = await getRerankPipeline();
+  if (!reranker) {
+    return docItems.slice(0, topK).map((item, r) => Object.assign({}, item.original, {
+      rerank_score: 1.0 / (60 + r + 1),
+      rank: r + 1
+    }));
+  }
+
+  const { tokenizer, model } = reranker;
+  const scored = [];
+
+  for (let i = 0; i < docItems.length; i++) {
+    const item = docItems[i];
+    try {
+      const textPair = (item.text || '').slice(0, 1000);
+      const inputs = await tokenizer(query, {
+        text_pair: textPair,
+        padding: true,
+        truncation: true,
+        max_length: 512
+      });
+      const output = await model(inputs);
+      const score = output.logits ? output.logits.data[0] : 0.0;
+      scored.push(Object.assign({}, item.original, {
+        rerank_score: Number(score.toFixed(4)),
+        text: item.text
+      }));
+    } catch (_) {
+      scored.push(Object.assign({}, item.original, {
+        rerank_score: -999.0,
+        text: item.text
+      }));
+    }
+  }
+
+  scored.sort((a, b) => b.rerank_score - a.rerank_score);
+  return scored.slice(0, topK).map((item, r) => Object.assign({}, item, {
+    rank: r + 1
+  }));
+}
+
+async function searchChunksRAG(conn, query, options = {}) {
+  const topK = options.topK || 5;
+  const candidateK = options.candidateK || 25;
+  const useRerank = options.rerank !== false;
+  if (!query || !query.trim()) return [];
+
+  let vecCandidates = [];
+  try {
+    const queryVec = await embedText(query);
+    if (queryVec) {
+      const nearest = scanNearestChunks(conn, queryVec, candidateK);
+      vecCandidates = nearest.map(([skill_name, chunk_index, chunk_text, sim]) => ({
+        skill_name,
+        chunk_index,
+        chunk_text,
+        similarity: sim
+      }));
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  const ftsCandidates = [];
+  try {
+    const cleanQ = query.replace(/[^a-zA-Z0-9_\-\s]/g, ' ').trim();
+    if (cleanQ) {
+      const rows = conn.prepare(`
+        SELECT skill_name, chunk_index, chunk_text
+        FROM skill_chunks
+        WHERE chunk_text LIKE ?
+        LIMIT ?
+      `).all(`%${cleanQ.slice(0, 30)}%`, candidateK);
+      for (const r of rows) {
+        ftsCandidates.push(r);
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  const candidateMap = new Map();
+  for (const c of [...vecCandidates, ...ftsCandidates]) {
+    const key = `${c.skill_name}:${c.chunk_index}`;
+    if (!candidateMap.has(key)) {
+      candidateMap.set(key, c);
+    }
+  }
+
+  const allCandidates = Array.from(candidateMap.values());
+  if (!allCandidates.length) return [];
+
+  if (useRerank) {
+    return await rerank(query, allCandidates, { topK });
+  }
+
+  return allCandidates.slice(0, topK);
+}
+
+async function predownloadAllModels(verbose = false) {
+  try {
+    if (verbose) process.stderr.write("⚡ Pre-caching embedding model (IBM Granite)...\n");
+    await getEmbedPipeline();
+    if (verbose) process.stderr.write("⚡ Pre-caching neural cross-encoder reranker model (MS MARCO)...\n");
+    await getRerankPipeline();
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 
@@ -240,12 +465,18 @@ async function embedText(text) {
     return new Float32Array(VECTOR_DIMENSION);
   }
 
-  const output = await extractor(text, { pooling: 'cls', normalize: true });
-// (intentional no-op callback: interface parity with the vector extension API)
-  const data = output.data;
+  let output;
   const vec = new Float32Array(VECTOR_DIMENSION);
-  for (let i = 0; i < VECTOR_DIMENSION && i < data.length; i++) {
-    vec[i] = data[i];
+  try {
+    output = await extractor(text, { pooling: 'cls', normalize: true });
+    const data = output.data;
+    for (let i = 0; i < VECTOR_DIMENSION && i < data.length; i++) {
+      vec[i] = data[i];
+    }
+  } finally {
+    if (output && typeof output.dispose === 'function') {
+      try { output.dispose(); } catch (_) { /* ignore */ }
+    }
   }
 
   // Normalize
@@ -429,8 +660,17 @@ async function indexSingleSkillChunks(conn, skillName, content) {
     }
 
     if (!blob) {
+      const tInferStart = Date.now();
       const vec = await embedText(chunkText);
       blob = Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
+      const inferMs = Date.now() - tInferStart;
+
+      // Adaptive CPU duty-cycle throttling:
+      // Sleep at least equal to (inferMs * 1.25) + 15ms (or KONOHA_EMBED_PACE_MS) to strictly cap CPU duty cycle to ~40-45%.
+      // This eliminates continuous 100% CPU spikes and keeps CPU temperature cool and system responsive.
+      const envPace = parseInt(process.env.KONOHA_EMBED_PACE_MS || '0', 10);
+      const sleepMs = envPace > 0 ? envPace : Math.max(Math.round(inferMs * 1.25) + 15, 35);
+      await new Promise(resolve => setTimeout(resolve, sleepMs));
     }
     stmt.run(skillName, idx, chunkText, blob);
   }
@@ -443,27 +683,45 @@ async function backfillAllEmbeddings(conn, forceRebuild = false, maxTimeSeconds 
   initVectorTableIfSupported(conn);
   if (forceRebuild) {
     conn.prepare("DELETE FROM skill_chunks").run();
+    _EMBED_CACHE.clear();
   }
 
   const existingIndexed = new Set(
     conn.prepare("SELECT DISTINCT skill_name FROM skill_chunks").all().map(r => r.skill_name)
   );
 
-  const rows = conn.prepare("SELECT name, content, type FROM skills ORDER BY CASE WHEN type = 'skill' THEN 0 ELSE 1 END, name ASC").all();
+  // Sequential streaming: fetch only metadata headers first, not massive markdown contents all at once
+  const skillHeaders = conn.prepare(
+    "SELECT name, type FROM skills ORDER BY CASE WHEN type = 'skill' THEN 0 ELSE 1 END, name ASC"
+  ).all();
+
+  const getContentStmt = conn.prepare("SELECT content FROM skills WHERE name = ?");
+
   let totalChunks = 0;
-  for (const r of rows) {
-    const sName = r.name;
-    const sContent = r.content;
-    const sType = r.type;
+  for (const h of skillHeaders) {
+    const sName = h.name;
+    const sType = h.type;
     if (!forceRebuild && existingIndexed.has(sName)) {
       continue;
     }
     if (sType !== 'skill' && maxTimeSeconds > 0 && ((Date.now() - startTime) / 1000) > maxTimeSeconds) {
       break;
     }
+    const row = getContentStmt.get(sName);
+    const sContent = row ? row.content : null;
     if (sContent) {
       const cnt = await indexSingleSkillChunks(conn, sName, sContent);
       totalChunks += cnt;
+    }
+
+    // Flush in-memory embedding cache between skills to prevent heap accumulation
+    if (_EMBED_CACHE.size > 256) {
+      _EMBED_CACHE.clear();
+    }
+    // Yield CPU between skills with 50ms cooling delay
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (typeof global.gc === 'function' && totalChunks % 100 === 0) {
+      try { global.gc(); } catch (_) { /* ignore */ }
     }
   }
 
@@ -508,5 +766,12 @@ module.exports = {
   backfillAllEmbeddings,
   enableLoadExtensionSafe,
   enable_load_extension_safe: enableLoadExtensionSafe,
+  getRerankPipeline,
+  rerank,
+  searchChunksRAG,
+  predownloadAllModels,
+  getBundledModelsDir,
+  RERANK_MODEL_REPO,
+  EMBED_MODEL_REPO,
   _EMBED_CACHE
 };

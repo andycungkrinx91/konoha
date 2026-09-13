@@ -45,16 +45,17 @@ When the user prompt requests building or scaffolding a website or user interfac
 1. The orchestrator MUST call the MCP tool `konoha.build_from_text`(name, description, framework, taste_dials?) first before writing `delegate.md`.
 2. Do NOT call `ask_question` or prompt the user for design/layout choices or styling frameworks; use the premium template specifications and layout rules returned by `build_from_text` directly.
 3. In `delegate.md`, pass the directives and specifications returned by `build_from_text` directly under constraints and delegate the build to the `jonin` agent.
-4. **Mandatory directives** for text-based builds (already included in `build_from_text` output):
-   - NO dark mode — Light Mode only with premium gradient color theme
-   - Premium 3D effect animations on ALL page components
-   - Footer watermark: `Build by Konoha`
-   - Custom premium error pages (4xx/5xx)
-   - Auto-open browser with `--open` flag
-   - 10-Theme Switcher Popup: Floating bottom-right button with 10 Light Mode gradient themes
-   - Sticky Mobile Bottom Navigation Dock with active theme gradient indicators
-   - Full 6-Page Production Application Architecture (Home 3D Carousel, Catalog with 50 items + Live Search + Multi-filter slider, About, Contact, Location Finder, Auth System) implemented in ONE SHOT
-   - .env safety and CVE-free dependencies
+4. **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
+   - **Header Logo on Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
+   - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (\`lg:hidden\`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
+   - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (\`lg:hidden\`) with quick one-tap links adapted dynamically to the website's archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
+   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (\`lg:flex\`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (\`lg:hidden\`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
+   - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (\`fixed bottom-6 left-6 z-50\`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
+   - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
+   - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
+   - **Standard Framework Scaffolding via pnpm**: Always use token-safe, non-interactive flags wrapped with rtk: Next.js (`rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent`), Nuxt (`rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false`), Angular (`rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true`), SvelteKit (`rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm`). Always install packages with `rtk pnpm add <packages> --silent` to suppress verbose installation logs.
+   - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\`), \`"build"\` (\`pnpm run build\`), and \`"start"\` (\`pnpm run start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
+   - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
 ### Existing project rules — delegate.md rules (CRITICAL)
 
@@ -64,6 +65,7 @@ When the user prompt involves modifying or working within an existing project:
 2. **Do only what is asked**: Execute only the user's specific request. If you have improvement ideas or suggestions, ASK the user first before implementing.
 3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
 4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
+5. **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
 
 ### @self — Task Coordinator & MCP Delegator
 - **Purpose**: Runs as the primary thread (TypeName: "self") to coordinate project execution. It delegates non-trivial implementation tasks exclusively to specialized subagents by calling their respective MCP tools served by the `konoha` MCP server.
@@ -76,7 +78,7 @@ When the user prompt involves modifying or working within an existing project:
   2. If text description only → Call `konoha.build_from_text(name, description, framework, taste_dials?)` FIRST
   3. Write `delegate.md` with the returned directives as constraints
   4. Call `jonin` directly — **SKIP Chunin, Genin, Kage** (premium template directives are lost in the standard pipeline)
-  5. After Jonin completes, call `tokubetsu_jonin` for documentation
+  5. Jonin delivers the complete working site with an inline `README.md` and clean validation evidence. DO NOT delegate to `tokubetsu_jonin` or other subagents unless technical documentation was explicitly requested by the user.
   6. Output final report
 - **Standard Workflow (Branch A — for non-website tasks)**:
   1. **Read User Prompt**: At the start of the session/turn, if a `prompt.md` file exists in the artifact directory, immediately read it to retrieve the complete user request/prompt.
