@@ -21,7 +21,7 @@ All generated Nuxt 3 code must conform to the following baseline visual standard
 5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows and 3D tilts applied to all cards.
 6. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
 7. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting.
-8. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `lucide-vue-next`. Emojis in buttons, navigation, and badges are strictly forbidden.
+8. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `@phosphor-icons/vue` (Phosphor Icons) or hand-exported inline SVGs. Emojis in buttons, navigation, and badges are strictly forbidden.
 9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha`.
 
 ---
@@ -121,7 +121,7 @@ All generated Nuxt 3 code must conform to the following baseline visual standard
 ```vue
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Palette, Check } from 'lucide-vue-next';
+import { PhPalette, PhCheck } from '@phosphor-icons/vue';
 
 const THEMES = [
   { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
@@ -179,7 +179,7 @@ function selectTheme(themeId: string) {
             />
             <span class="text-xs text-zinc-800">{{ t.name }}</span>
           </div>
-          <Check v-if="activeTheme === t.id" class="w-3.5 h-3.5 text-zinc-800" />
+          <PhCheck v-if="activeTheme === t.id" class="w-3.5 h-3.5 text-zinc-800" />
         </button>
       </div>
     </div>
@@ -190,7 +190,7 @@ function selectTheme(themeId: string) {
       class="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md border border-zinc-200/80 shadow-lg flex items-center justify-center text-zinc-800 hover:scale-105 active:scale-95 transition-all"
       style="box-shadow: 0 4px 20px var(--theme-glow)"
     >
-      <Palette class="w-5 h-5" style="color: var(--theme-primary)" />
+      <PhPalette class="w-5 h-5" style="color: var(--theme-primary)" />
     </button>
   </div>
 </template>
@@ -200,7 +200,7 @@ function selectTheme(themeId: string) {
 ```vue
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { ChevronLeft, ChevronRight, Play, Pause, Sparkles } from 'lucide-vue-next';
+import { PhCaretLeft, PhCaretRight, PhPlay, PhPause, PhSparkle } from '@phosphor-icons/vue';
 
 interface Slide {
   id: string | number;
@@ -281,7 +281,7 @@ function handleMouseLeave() {
     <div class="relative z-10 max-w-5xl mx-auto px-8 py-16 w-full flex flex-col justify-between min-h-[460px] md:min-h-[560px]">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-white/10 backdrop-blur-md border border-white/20 text-white mb-6">
-          <Sparkles class="w-3.5 h-3.5" style="color: var(--theme-accent)" />
+          <PhSparkle class="w-3.5 h-3.5" style="color: var(--theme-accent)" />
           <span>{{ slides[current].tag }}</span>
         </div>
         <h1 class="text-4xl md:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1] mb-4">
@@ -321,20 +321,20 @@ function handleMouseLeave() {
             @click="isPlaying = !isPlaying"
             class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all"
           >
-            <Pause v-if="isPlaying" class="w-4 h-4" />
-            <Play v-else class="w-4 h-4" />
+            <PhPause v-if="isPlaying" class="w-4 h-4" />
+            <PhPlay v-else class="w-4 h-4" />
           </button>
           <button
             @click="current = (current - 1 + slides.length) % slides.length"
             class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all"
           >
-            <ChevronLeft class="w-5 h-5" />
+            <PhCaretLeft class="w-5 h-5" />
           </button>
           <button
             @click="current = (current + 1) % slides.length"
             class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all"
           >
-            <ChevronRight class="w-5 h-5" />
+            <PhCaretRight class="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -351,7 +351,7 @@ function handleMouseLeave() {
 - [ ] `ThemeSwitcher.vue` positioned fixed at `bottom-6 left-6` saving to `localStorage`.
 - [ ] `HeroCarousel.vue` with full-width GPU tilt and spec badges.
 - [ ] 50 items dataset catalog with multi-criteria reactive filters and search.
-- [ ] All interactive SVG icons strictly imported from `lucide-vue-next` (zero emojis in UI).
+- [ ] All interactive SVG icons strictly imported from `@phosphor-icons/vue` (zero emojis in UI).
 - [ ] `Build by Konoha` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
@@ -365,7 +365,7 @@ function handleMouseLeave() {
 2. **Current Stable Framework Policy (verified 2026-08-27)**:
    - Resolve package versions from official release pages and the pnpm registry immediately before scaffolding; never treat this document as a permanent `latest` pin.
    - Tested stable baselines: **Next.js 16.3 + React 19**, **SvelteKit 2 stable + Svelte 5** (SvelteKit 3 is release-candidate and must not be selected unless explicitly requested), **Nuxt 4.3 + Vue 3.5**, and **Angular 20+** with standalone components and Signals.
-   - Use Tailwind CSS v4 and the framework-specific Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
+   - Use the framework's mandated styling approach (fully custom-themed Tailwind v4 for Next.js, scoped `<style>` blocks for SvelteKit, hand-written theme for Nuxt, SCSS for Angular) and the framework-specific Phosphor Icons package (`@phosphor-icons/react` / `@phosphor-icons/web` / `@phosphor-icons/vue`) — never a Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
 
 
 ### Pre-Scaffolding Security & CVE Pre-Flight Standards

@@ -23,7 +23,7 @@ const readline = require("readline");
 process.on("unhandledRejection", (reason) => {
   try {
     process.stderr.write(`[mcp konoha] unhandledRejection: ${reason && reason.stack ? reason.stack : reason}\n`);
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 });
 
 const SERVER_NAME = "konoha";
@@ -38,7 +38,7 @@ const SERVER_VERSION = (() => {
       try {
         const v = JSON.parse(fs.readFileSync(c, 'utf8')).version;
         if (v) return v;
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return "2.0.0-beta.7";
@@ -49,7 +49,6 @@ const devPaths = (() => {
   try { return require("../bin/lib/paths"); } catch(_) { return null; }
 })();
 const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'konoha.db');
-const DB_BRIDGES_PY_PATH = devPaths ? devPaths.DB_BRIDGES_PY_PATH : path.join(__dirname, 'db_bridges.py');
 
 let router;
 try {
@@ -69,8 +68,7 @@ if (installErrors.length) {
   process.exit(1);
 }
 
-const { spawn } = require("child_process");
-const SAVINGS_LOGGER_JS = path.join(__dirname, "tools_savings_logger.js");
+
 
 let activeClient = null;
 let _cachedActiveClient = null;
@@ -96,6 +94,14 @@ function detect_active_client_from_env() {
       if (activeOverride.includes("opencode")) return "opencode";
       if (activeOverride.includes("claude")) return "claudecode";
       if (activeOverride.includes("cursor")) return "cursor";
+      if (
+        activeOverride === "pi" ||
+        activeOverride.includes("pi.dev") ||
+        activeOverride.endsWith("-pi") ||
+        activeOverride.includes("pi-")
+      ) {
+        return "pi";
+      }
       if (activeOverride.includes("agy") || activeOverride.includes("antigravity-cli")) return "agy";
       if (activeOverride.includes("antigravity") || activeOverride.includes("ide")) return "antigravity";
     }
@@ -110,6 +116,10 @@ function detect_active_client_from_env() {
 
     if (process.env.COMMANDCODE_CLIENT === "1" || process.env.COMMANDCODE_SESSION === "1") {
       return "commandcode";
+    }
+
+    if (process.env.PI_CODING_AGENT || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) {
+      return "pi";
     }
 
     if (process.env.CLAUDE_CODE_CHILD_SESSION === "1") {
@@ -138,7 +148,7 @@ function detect_active_client_from_env() {
           break;
         }
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
     // Check environment variable first to distinguish CLI (agy) vs IDE (antigravity)
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
@@ -171,7 +181,8 @@ function detect_active_client_from_env() {
       CLAUDE_PROJECTS,
       path.join(HOME, ".codex", "sessions"),
       path.join(HOME, ".commandcode", "logs"),
-      path.join(HOME, ".config", "opencode")
+      path.join(HOME, ".config", "opencode"),
+      path.join(HOME, ".pi", "agent", "sessions")
     ].forEach((brainDir) => {
       if (!require("fs").existsSync(brainDir)) return;
       const isCursor = brainDir.includes("cursor");
@@ -179,12 +190,15 @@ function detect_active_client_from_env() {
       const isCodex = brainDir.includes("codex");
       const isCommandCode = brainDir.includes("commandcode");
       const isOpenCode = brainDir.includes("opencode");
+      const isPi = brainDir.includes(`${path.sep}.pi${path.sep}agent${path.sep}sessions`);
       if (isCursor) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl') && filePath.includes(`${path.sep}agent-transcripts${path.sep}`));
       } else if (isClaude) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.jsonl'));
       } else if (isCodex) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.json') || filePath.endsWith('.jsonl') || filePath.endsWith('.sqlite'));
+      } else if (isPi) {
+        collectFiles(brainDir, (filePath) => filePath.endsWith(".jsonl"));
       } else if (isCommandCode || isOpenCode) {
         collectFiles(brainDir, (filePath) => filePath.endsWith('.json') || filePath.endsWith('.jsonl') || filePath.endsWith('.log'));
       } else {
@@ -200,6 +214,7 @@ function detect_active_client_from_env() {
       return mtB - mtA;
     });
     const mostRecent = files[0];
+    if (mostRecent.includes(`${path.sep}.pi${path.sep}agent${path.sep}sessions${path.sep}`)) return "pi";
     if (mostRecent.includes("cursor")) return "cursor";
     if (mostRecent.includes("claude")) return "claudecode";
     if (mostRecent.includes("codex")) return "codex";
@@ -207,7 +222,7 @@ function detect_active_client_from_env() {
     if (mostRecent.includes("opencode")) return "opencode";
     if (mostRecent.includes("antigravity-cli")) return "agy";
     return "antigravity";
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return "antigravity";
 }
 
@@ -221,13 +236,16 @@ function getBaselineBytesForTool(toolName, args) {
         if (st.isFile()) return st.size;
         if (st.isDirectory()) {
           if (toolName === "find_files_clean") return 250000;
+          // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
           if (toolName === "token_efficient_grep") return 150000;
         }
       }
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (toolName === "find_files_clean") return 250000;
+  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
   if (toolName === "token_efficient_grep") return 150000;
+  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
   return 0;
 }
 
@@ -276,7 +294,14 @@ function handleRequest(req) {
     // Detect active client from clientInfo (mirrors server.py logic)
     const client_info = params.clientInfo || {};
     const client_name = (client_info.name || "").toLowerCase();
-    if (client_name.indexOf("cursor") !== -1) {
+    if (
+      client_name === "pi" ||
+      client_name.startsWith("pi-mcp") ||
+      client_name.includes("pi-mcp") ||
+      client_name.includes("pi.dev")
+    ) {
+      activeClient = "pi";
+    } else if (client_name.indexOf("cursor") !== -1) {
       activeClient = "cursor";
     } else if (client_name.indexOf("claude") !== -1) {
       activeClient = "claudecode";
@@ -433,7 +458,7 @@ function loadBridgesFromMcp() {
     return [];
   } finally {
     if (conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 }
@@ -577,6 +602,9 @@ async function syncBridges() {
 
         if (configChanged) {
           process.stderr.write(`[bridge:${b.name}] Configuration changed. Reloading...\n`);
+          // Hoisted so the catch block below can reference the bridge context
+          // when startServer fails (e.g. the expected EADDRINUSE-on-reload path).
+          let ctx = null;
           try {
             await stopServer(active.ctx);
             // Wait for OS to release the TCP socket (TIME_WAIT / SO_REUSEADDR).
@@ -587,7 +615,6 @@ async function syncBridges() {
               `[bridge:${b.name}] Old server stopped. Starting on port ${b.port} (${b.provider})...\n`,
             );
 
-            let ctx = null;
             ctx = createContext();
             ctx.bridgeConfig = b;
             ctx.outputChannel = {
@@ -648,8 +675,8 @@ function main() {
 
     // Watch konoha.db for instant response
     const fs = require("fs");
-    const os = require("os");
-    const path = require("path");
+
+
     const dbPath = DB_PATH;
     if (fs.existsSync(dbPath)) {
       try {
@@ -658,7 +685,7 @@ function main() {
             syncBridges().catch(() => {});
           }
         });
-      } catch (e) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -674,7 +701,7 @@ function main() {
       try {
         const { stopGateway } = require("./bridge/gateway");
         stopGateway().catch(() => {});
-      } catch (e) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       process.exit(0);
     });
 

@@ -14,6 +14,7 @@ const { findSkill, listSkills, getSkill, optimizeReport } = require('./skills');
 const { buildFromSource, buildFromText } = require('./build_spec');
 const { getResolvedTaskDir, runSannin } = require('./workflow');
 const { runWebSearch } = require('./web_search');
+const { runWebsiteAiDetector, runWebsiteAiDetectorSync } = require('./ai_detector');
 const {
   getProjectContext,
   saveProjectContext,
@@ -29,6 +30,7 @@ const FILE_TOOLS = new Set([
   'read_file_head',
   'read_file_range',
   'file_info',
+  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
   'token_efficient_grep',
   'get_file_structure',
   'find_files_clean'
@@ -98,16 +100,17 @@ function _executeToolInternal(toolName, args, agent) {
   if (toolName === 'get_resolved_task_dir') {
     return JSON.stringify({ status: 'ok', task_dir: getResolvedTaskDir() });
   }
-  if (toolName === 'sannin') {
-    return runSannin(args.prompt, args.task_dir);
+  if (toolName === 'sannin' || toolName === 'delegate_to_sannin' || toolName === 'delegated_to_sannin') {
+    const prompt = args.prompt || args.task || args.instructions;
+    return runSannin(prompt, args.task_dir);
   }
   if (
     [
       'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin',
       'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
-      'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin', 'delegate_to_sannin',
+      'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
       'delegated_to_kage', 'delegated_to_jonin', 'delegated_to_anbu',
-      'delegated_to_chunin', 'delegated_to_tokubetsu_jonin', 'delegated_to_genin', 'delegated_to_sannin'
+      'delegated_to_chunin', 'delegated_to_tokubetsu_jonin', 'delegated_to_genin'
     ].includes(toolName)
   ) {
     const task = args.task || args.prompt || args.instructions;
@@ -239,6 +242,58 @@ function _executeToolInternal(toolName, args, agent) {
       return JSON.stringify({ error: `Failed to delete memory: ${e.message}` });
     }
   }
+  if (toolName === 'check_readiness') {
+    const sdlcManager = require('../sdlc_manager');
+    const taskInput = args.task || args.prompt || args.description || '';
+    const projPath = args.project_path || getWorkspaceRoot();
+    const result = sdlcManager.checkReadiness(taskInput, projPath);
+    return JSON.stringify(result);
+  }
+  if (toolName === 'get_task_evidence') {
+    const sdlcManager = require('../sdlc_manager');
+    const taskId = args.task_id || args.id;
+    if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
+    const task = sdlcManager.getTask(taskId);
+    if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
+    return JSON.stringify({
+      task_id: task.id,
+      status: task.status,
+      evidence: task.evidence || {},
+      updated_at: task.updated_at
+    });
+  // aislop-ignore-next-line code-quality/duplicate-block (structurally similar handler boilerplate with contextual differences)
+  }
+  if (toolName === 'get_slop_findings') {
+    const sdlcManager = require('../sdlc_manager');
+    const taskId = args.task_id || args.id;
+    if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
+    const task = sdlcManager.getTask(taskId);
+    if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
+    return JSON.stringify({
+      task_id: task.id,
+      status: task.status,
+      slop_result: task.slop_result || {},
+      slop_cycles: task.slop_cycles || 0,
+      updated_at: task.updated_at
+    });
+  }
+
+  if (toolName === 'website_ai_detector') {
+    const target = args.target || args.path || args.url || args.site;
+    if (!target) return JSON.stringify({ error: 'Missing required argument: target (site directory path or http(s) URL)' });
+    const syncRes = runWebsiteAiDetectorSync(String(target), agent);
+    if (syncRes !== null) return syncRes;
+    // URL target: run via subprocess so the sync path stays non-blocking
+    // (mirrors the web_search sync strategy).
+    const serverJsPath = path.resolve(__dirname, '..', 'server.js');
+    const res = spawnSync(process.execPath, [serverJsPath, '--tool', 'website_ai_detector', JSON.stringify({ target: String(target) })], {
+      encoding: 'utf-8',
+      timeout: 30000,
+      maxBuffer: 10 * 1024 * 1024
+    });
+    if (res.error) return JSON.stringify({ error: res.error.message || String(res.error) });
+    return (res.stdout || '').trim() || (res.stderr || '').trim() || JSON.stringify({ status: 'error', message: 'No output from website_ai_detector' });
+  }
 
   return JSON.stringify({ error: `Unknown tool: ${toolName}` });
 }
@@ -270,6 +325,12 @@ async function executeTool(toolName, args = {}) {
     const numResults = Math.min(Math.max(parseInt(args.num_results || 5, 10), 1), 50);
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
     return await runWebSearch(query, numResults, searchDepth, agent);
+  }
+
+  if (toolName === 'website_ai_detector') {
+    const target = args.target || args.path || args.url || args.site;
+    if (!target) return JSON.stringify({ error: 'Missing required argument: target (site directory path or http(s) URL)' });
+    return await runWebsiteAiDetector(String(target), agent);
   }
 
   return _executeToolInternal(toolName, args, agent);

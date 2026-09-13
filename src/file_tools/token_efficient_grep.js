@@ -108,7 +108,7 @@ function tokenEfficientGrep(args = {}) {
         }
       }
       if (truncated) break;
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
 
   const lines = matches.slice(0, maxMatches);

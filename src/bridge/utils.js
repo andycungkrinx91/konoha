@@ -1,13 +1,11 @@
 'use strict';
 
-let vscode; try { vscode = require('vscode'); } catch {}
+let vscode; try { vscode = require('vscode'); } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// ─────────────────────────────────────────────
 // Logging
-// ─────────────────────────────────────────────
 
 function log(ctx, msg, isError = false) {
   if (typeof msg === 'object') {
@@ -72,9 +70,7 @@ function verboseLog(ctx, msg, fullContent = null) {
   }
 }
 
-// ─────────────────────────────────────────────
 // Status Bar
-// ─────────────────────────────────────────────
 
 // Konoha gradient brand colors for status bar
 const BRAND_COLORS = {
@@ -130,9 +126,7 @@ function redactPayloadKeys(obj) {
   return out;
 }
 
-// ─────────────────────────────────────────────
 // HTTP Response Helpers
-// ─────────────────────────────────────────────
 
 function setupStreamResponse(res) {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -167,9 +161,7 @@ function readBody(req, maxBytes = 200 * 1024 * 1024) {
   });
 }
 
-// ─────────────────────────────────────────────
 // OpenAI Response Builders
-// ─────────────────────────────────────────────
 
 function buildStreamChunk(id, model, content, finishReason = null) {
   const delta = content !== null ? { role: 'assistant', content } : {};
@@ -193,9 +185,7 @@ function buildCompletion(id, model, content) {
   };
 }
 
-// ─────────────────────────────────────────────
 // Error Parsing Helpers
-// ─────────────────────────────────────────────
 
 /**
  * Extracts a sensible Retry-After value from a sidecar rate limit message.

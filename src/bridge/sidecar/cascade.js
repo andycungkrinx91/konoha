@@ -8,10 +8,8 @@ const { discoverSidecar } = require('./discovery');
 const { makeH2JsonCall, makeH2ProtoCall, makeH2ProtoStreamingCall } = require('./rpc');
 const { encodeProto, decodeProto } = require('./proto');
 
-// ─────────────────────────────────────────────
 // Proto-compatible Metadata builder
 // Matches exa.codeium_common_pb.Metadata
-// ─────────────────────────────────────────────
 
 function buildMetadata(ctx) {
   return {
@@ -23,10 +21,8 @@ function buildMetadata(ctx) {
   };
 }
 
-// ─────────────────────────────────────────────
 // Cascade Conversations
 // StartCascade → SendUserCascadeMessage → poll GetCascadeTrajectory
-// ─────────────────────────────────────────────
 
 function getConversationKey(messages, workspaceDir) {
   const userMsgs = messages.filter((m) => m.role === 'user').map((m) => extractText(m.content));
@@ -79,7 +75,7 @@ async function callSidecarChat(
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
 
-    // --- CONVERSATION MULTIPLEXING ---
+    // CONVERSATION MULTIPLEXING
     if (ctx.cascadePromises.has(convKey)) {
       vlog(`  ♻️ Awaiting concurrent cascade creation for conv: ${convKey.replace(/\n/g, '')}...`);
       cascadeId = await ctx.cascadePromises.get(convKey);

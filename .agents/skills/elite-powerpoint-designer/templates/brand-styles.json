@@ -1,0 +1,351 @@
+{
+  "version": "1.0",
+  "description": "World-class brand design systems for elite presentations",
+  "brands": {
+    "tech-keynote": {
+      "name": "Tech Keynote",
+      "inspiration": "Apple, Tesla, Premium Tech",
+      "colors": {
+        "primary": [0, 0, 0],
+        "secondary": [255, 255, 255],
+        "accent": [0, 113, 227],
+        "background": [255, 255, 255],
+        "text_primary": [0, 0, 0],
+        "text_secondary": [142, 142, 147]
+      },
+      "typography": {
+        "title_font": "SF Pro Display",
+        "title_fallback": "Helvetica Neue",
+        "body_font": "SF Pro Text",
+        "body_fallback": "Helvetica",
+        "title_size": 72,
+        "subtitle_size": 44,
+        "body_size": 32,
+        "caption_size": 20,
+        "title_weight": "bold",
+        "body_weight": "regular"
+      },
+      "spacing": {
+        "gutter": 120,
+        "title_margin": 80,
+        "section_spacing": 60,
+        "paragraph_spacing": 32,
+        "element_padding": 30
+      },
+      "effects": {
+        "shadows": "subtle",
+        "gradients": false,
+        "overlays": "minimal"
+      },
+      "animations": {
+        "transitions": ["Push", "Fade"],
+        "duration": 0.6,
+        "style": "smooth",
+        "max_per_slide": 2
+      },
+      "layout": {
+        "alignment": "center",
+        "whitespace": "maximum",
+        "focal_point": "single"
+      }
+    },
+    "corporate-professional": {
+      "name": "Corporate Professional",
+      "inspiration": "Microsoft, IBM, Enterprise",
+      "colors": {
+        "primary": [0, 51, 102],
+        "secondary": [0, 120, 212],
+        "accent": [0, 120, 212],
+        "background": [243, 242, 241],
+        "text_primary": [50, 49, 48],
+        "text_secondary": [96, 94, 92]
+      },
+      "typography": {
+        "title_font": "Segoe UI",
+        "title_fallback": "Arial",
+        "body_font": "Segoe UI",
+        "body_fallback": "Arial",
+        "title_size": 64,
+        "subtitle_size": 36,
+        "body_size": 28,
+        "caption_size": 18,
+        "title_weight": "semibold",
+        "body_weight": "regular"
+      },
+      "spacing": {
+        "gutter": 100,
+        "title_margin": 60,
+        "section_spacing": 48,
+        "paragraph_spacing": 28,
+        "element_padding": 24
+      },
+      "effects": {
+        "shadows": "moderate",
+        "gradients": "subtle",
+        "overlays": "professional"
+      },
+      "animations": {
+        "transitions": ["Morph", "Fade"],
+        "duration": 0.8,
+        "style": "professional",
+        "max_per_slide": 3
+      },
+      "layout": {
+        "alignment": "left",
+        "whitespace": "balanced",
+        "focal_point": "grid"
+      }
+    },
+    "creative-bold": {
+      "name": "Creative Bold",
+      "inspiration": "Google, Airbnb, Design Forward",
+      "colors": {
+        "primary": [234, 67, 53],
+        "secondary": [66, 133, 244],
+        "accent": [251, 188, 5],
+        "background": [255, 255, 255],
+        "text_primary": [32, 33, 36],
+        "text_secondary": [95, 99, 104]
+      },
+      "typography": {
+        "title_font": "Product Sans",
+        "title_fallback": "Montserrat",
+        "body_font": "Google Sans",
+        "body_fallback": "Open Sans",
+        "title_size": 76,
+        "subtitle_size": 40,
+        "body_size": 30,
+        "caption_size": 20,
+        "title_weight": "bold",
+        "body_weight": "regular"
+      },
+      "spacing": {
+        "gutter": 80,
+        "title_margin": 64,
+        "section_spacing": 52,
+        "paragraph_spacing": 30,
+        "element_padding": 28
+      },
+      "effects": {
+        "shadows": "bold",
+        "gradients": "vibrant",
+        "overlays": "creative"
+      },
+      "animations": {
+        "transitions": ["Zoom", "Reveal", "Push"],
+        "duration": 0.5,
+        "style": "energetic",
+        "max_per_slide": 4
+      },
+      "layout": {
+        "alignment": "dynamic",
+        "whitespace": "playful",
+        "focal_point": "asymmetric"
+      }
+    },
+    "financial-elite": {
+      "name": "Financial Elite",
+      "inspiration": "Goldman Sachs, McKinsey, Premium Financial",
+      "colors": {
+        "primary": [44, 62, 80],
+        "secondary": [212, 175, 55],
+        "accent": [212, 175, 55],
+        "background": [255, 255, 255],
+        "text_primary": [44, 62, 80],
+        "text_secondary": [127, 140, 141]
+      },
+      "typography": {
+        "title_font": "Garamond",
+        "title_fallback": "Georgia",
+        "body_font": "Garamond",
+        "body_fallback": "Georgia",
+        "title_size": 60,
+        "subtitle_size": 36,
+        "body_size": 26,
+        "caption_size": 18,
+        "title_weight": "semibold",
+        "body_weight": "regular"
+      },
+      "spacing": {
+        "gutter": 110,
+        "title_margin": 70,
+        "section_spacing": 50,
+        "paragraph_spacing": 26,
+        "element_padding": 26
+      },
+      "effects": {
+        "shadows": "minimal",
+        "gradients": false,
+        "overlays": "sophisticated"
+      },
+      "animations": {
+        "transitions": ["Fade"],
+        "duration": 0.4,
+        "style": "subtle",
+        "max_per_slide": 1
+      },
+      "layout": {
+        "alignment": "center",
+        "whitespace": "traditional",
+        "focal_point": "centered"
+      }
+    },
+    "startup-pitch": {
+      "name": "Startup Pitch",
+      "inspiration": "Y Combinator, 500 Startups, Venture Capital",
+      "colors": {
+        "primary": [0, 0, 0],
+        "secondary": [99, 102, 241],
+        "accent": [99, 102, 241],
+        "background": [255, 255, 255],
+        "text_primary": [17, 24, 39],
+        "text_secondary": [107, 114, 128]
+      },
+      "typography": {
+        "title_font": "Inter",
+        "title_fallback": "Roboto",
+        "body_font": "Inter",
+        "body_fallback": "Roboto",
+        "title_size": 68,
+        "subtitle_size": 38,
+        "body_size": 28,
+        "caption_size": 18,
+        "title_weight": "bold",
+        "body_weight": "medium"
+      },
+      "spacing": {
+        "gutter": 90,
+        "title_margin": 56,
+        "section_spacing": 44,
+        "paragraph_spacing": 26,
+        "element_padding": 22
+      },
+      "effects": {
+        "shadows": "sharp",
+        "gradients": "accent",
+        "overlays": "data-focused"
+      },
+      "animations": {
+        "transitions": ["Push", "Fade"],
+        "duration": 0.3,
+        "style": "quick",
+        "max_per_slide": 2
+      },
+      "layout": {
+        "alignment": "left",
+        "whitespace": "efficient",
+        "focal_point": "metric-driven"
+      }
+    }
+  },
+  "animation_guidelines": {
+    "tier_1_safe": {
+      "effects": ["Fade", "Push", "Morph"],
+      "use_case": "Primary transitions, can be used liberally",
+      "duration_range": [0.4, 0.8]
+    },
+    "tier_2_special": {
+      "effects": ["Zoom", "Reveal", "Wipe"],
+      "use_case": "Special moments, product reveals, section breaks",
+      "duration_range": [0.5, 0.6]
+    },
+    "tier_3_avoid": {
+      "effects": ["Ferris Wheel", "Curtains", "Dissolve", "Origami", "Page Curl"],
+      "use_case": "Never use - unprofessional"
+    },
+    "entrance_animations": {
+      "text": {
+        "effect": "Fade In",
+        "duration": 0.4,
+        "delay_between_bullets": 0.3
+      },
+      "images": {
+        "effect": "Wipe",
+        "direction": "From Bottom",
+        "duration": 0.6
+      },
+      "charts": {
+        "effect": "Grow & Turn",
+        "duration": 0.8
+      }
+    },
+    "emphasis_animations": {
+      "metrics": {
+        "effect": "Pulse",
+        "duration": 0.8,
+        "repeat": "once"
+      },
+      "callouts": {
+        "effect": "Grow",
+        "scale": 1.1,
+        "duration": 0.6
+      }
+    }
+  },
+  "typography_hierarchy": {
+    "hero_title": {
+      "size_range": [72, 96],
+      "weight": "bold",
+      "line_height": 1.1,
+      "letter_spacing": -0.02
+    },
+    "section_title": {
+      "size_range": [54, 72],
+      "weight": "semibold",
+      "line_height": 1.2,
+      "letter_spacing": -0.01
+    },
+    "slide_title": {
+      "size_range": [44, 54],
+      "weight": "semibold",
+      "line_height": 1.3,
+      "letter_spacing": 0
+    },
+    "body_large": {
+      "size_range": [32, 36],
+      "weight": "regular",
+      "line_height": 1.4,
+      "letter_spacing": 0
+    },
+    "body": {
+      "size_range": [24, 28],
+      "weight": "regular",
+      "line_height": 1.5,
+      "letter_spacing": 0
+    },
+    "caption": {
+      "size_range": [18, 20],
+      "weight": "light",
+      "line_height": 1.6,
+      "letter_spacing": 0.01
+    }
+  },
+  "best_practices": {
+    "color_usage": {
+      "max_colors_per_slide": 4,
+      "contrast_ratio_text": 4.5,
+      "accent_usage": "Highlights, CTAs, data points only",
+      "background_rule": "Always high contrast with text"
+    },
+    "typography": {
+      "max_font_families": 2,
+      "max_font_sizes_per_deck": 4,
+      "title_max_lines": 2,
+      "body_max_lines": 6,
+      "bullet_max_items": 5
+    },
+    "spacing": {
+      "min_margin_from_edge": 80,
+      "title_to_content_gap": 60,
+      "between_elements": 40,
+      "bullet_spacing": 24
+    },
+    "images": {
+      "min_resolution": "1920x1080",
+      "preferred_resolution": "3840x2160",
+      "aspect_ratio": "16:9",
+      "overlay_opacity": 0.2,
+      "quality": "High (>85%)"
+    }
+  }
+}

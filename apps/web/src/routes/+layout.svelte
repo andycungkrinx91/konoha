@@ -13,6 +13,7 @@
   let health = $state({ status: 'checking', port: 1404, version: '2.0.0-beta.7' });
 
   const navItems = [
+    { id: 'dashboard', path: '/dashboard', label: 'Dashboard', iconSvg: 'M3 3v7h7M21 21v-7h-7M3 10a9 9 0 0115-5.7L21 8M21 14a9 9 0 01-15 5.7L3 16' },
     { id: 'bridges', path: '/bridges', label: 'Bridges', iconSvg: 'M8 9l4-4 4 4m0 6l-4 4-4-4' },
     { id: 'savings', path: '/savings', label: 'Savings', iconSvg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { id: 'search', path: '/search', label: 'Web Search', iconSvg: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', badge: 'SearXNG' },
@@ -21,8 +22,11 @@
     { id: 'context', path: '/context', label: 'Context', iconSvg: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
     { id: 'agents', path: '/agents', label: 'Agents', iconSvg: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { id: 'skills', path: '/skills', label: 'Skills', iconSvg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+    { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', iconSvg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
     { id: 'doctor', path: '/doctor', label: 'Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-    { id: 'clients', path: '/clients', label: 'Clients', iconSvg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' }
+    { id: 'clients', path: '/clients', label: 'Clients', iconSvg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+    { id: 'detector', path: '/detector', label: 'AI Detector', iconSvg: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c.5.633 1.2 1 2 1s1.5-.367 2-1m2-3a2 2 0 100-4 2 2 0 000 4z' },
+    { id: 'docs', path: '/docs', label: 'Documentation', iconSvg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' }
   ];
 
   async function checkHealth() {
@@ -67,10 +71,8 @@
     <div>
       <!-- Brand Header (Far-Left Logo) -->
       <div class="p-6 border-b flex items-center gap-3" style="border-color: var(--color-border);">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary);">
-          <svg class="w-5 h-5" style="color: var(--color-primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg border bg-white" style="border-color: var(--color-primary);">
+          <img src="/fox_kyubi_192.png" alt="Konoha Kyubi logo" class="w-full h-full object-cover" width="40" height="40" loading="eager" />
         </div>
         <div>
           <h1 class="text-base font-extrabold tracking-tight flex items-center gap-2" style="color: var(--color-text);">
@@ -83,7 +85,7 @@
       <!-- Navigation -->
       <nav class="p-3 space-y-1">
         {#each navItems as item}
-          {@const isActive = page.url.pathname === item.path || (item.path === '/bridges' && page.url.pathname === '/')}
+          {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
           <a
             href={item.path}
             class="nav-depth flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150"
@@ -127,13 +129,13 @@
       <!-- Far-Left Logo & Title -->
       <div class="flex items-center gap-3">
         <div class="lg:hidden flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">K</span>
+          <img src="/fox_kyubi_64.png" alt="Konoha" class="w-7 h-7 rounded-lg border object-cover bg-white" style="border-color: var(--color-primary);" width="28" height="28" loading="eager" />
           <span class="text-sm font-bold tracking-tight" style="color: var(--color-text);">Konoha</span>
         </div>
         <div class="hidden sm:flex items-center gap-2 text-xs">
           <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">Dashboard</span>
           <span style="color: var(--color-border);">/</span>
-          <span class="font-semibold capitalize" style="color: var(--color-primary);">{page.url.pathname.replace('/', '') || 'bridges'}</span>
+          <span class="font-semibold capitalize" style="color: var(--color-primary);">{page.url.pathname.replace('/', '') || 'dashboard'}</span>
         </div>
       </div>
 
@@ -158,7 +160,7 @@
   <!-- Mobile Navigation Dock (Mandatory Invariant — Zero Hamburger Menu in Header) -->
   <nav class="glass-frost lg:hidden fixed bottom-0 inset-x-0 z-40 border-t flex flex-nowrap items-center gap-1 overflow-x-auto scrollbar-none py-2 px-2 shadow-2xl transition-colors duration-200" style="background: var(--glass-dock), var(--glass-tint); border-color: var(--color-border); padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
     {#each navItems as item}
-      {@const isActive = page.url.pathname === item.path || (item.path === '/bridges' && page.url.pathname === '/')}
+      {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
       <a
         href={item.path}
         class="nav-depth flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all shrink-0"

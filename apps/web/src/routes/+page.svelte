@@ -1,5 +1,3 @@
 <script>
-  import Bridges from '../components/Bridges.svelte';
+  // Root route redirects to /dashboard via +page.js
 </script>
-
-<Bridges />

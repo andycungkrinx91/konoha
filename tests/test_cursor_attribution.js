@@ -5,11 +5,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+require('./helpers/isolate_db');
 const db = require('../src/db');
 const agentStats = require('../src/agent_stats');
 
 const SERVER = path.join(os.homedir(), '.konoha', 'server.js');
-const DB = path.join(os.homedir(), '.konoha', 'konoha.db');
+const DB = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
 const PROJECTS = path.join(os.homedir(), '.cursor', 'projects');
 
 const REGISTERED = new Set(['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin']);
@@ -67,6 +68,7 @@ function mcpFindSkillNoAgent(keyword) {
   const env = Object.assign({}, process.env);
   delete env.ANTIGRAVITY_CONVERSATION_ID;
   env.ACTIVE_CLIENT = 'cursor';
+  env.KONOHA_DB_PATH = DB;
 
   const payload = JSON.stringify(reqInit) + '\n' + JSON.stringify(reqCall) + '\n';
   const proc = spawnSync(process.execPath, [SERVER], {

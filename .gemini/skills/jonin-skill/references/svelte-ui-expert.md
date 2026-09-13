@@ -20,7 +20,8 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 - **Adaptive Routes**: Maps quick one-tap links to Dashboard (Overview, Analytics, Servers, Alerts, Themes), Portfolio (Home, Projects, Skills, Contact, Themes), SaaS, and Commerce.
 
 ### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include required packages: `lucide-svelte`, `clsx`, `tailwind-merge`.
+- Scaffolding MUST include `@phosphor-icons/web` (load its CSS once in the global stylesheet: `@import '@phosphor-icons/web/regular'; @import '@phosphor-icons/web/bold';`) — NEVER `lucide-svelte` or any Lucide package (AI-scaffold fingerprint).
+- **Styling adaptation note (PLAN_HUMAN_BUILT)**: SvelteKit builds style with scoped `<style>` blocks plus one hand-written global stylesheet — treat any Tailwind utility classes in the blueprints below as layout specifications to translate into scoped CSS, never as a reason to install Tailwind. Never install `tailwindcss`, `shadcn-svelte`, or Skeleton.
 - Do not claim completion until `pnpm run check`, `pnpm run build`, and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.
 
 ---
@@ -32,15 +33,15 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 ```svelte
 <script lang="ts">
   import { page } from '$app/stores';
-  import { LayoutDashboard, Server, BarChart3, Users, Settings, ShieldCheck } from 'lucide-svelte';
+  // Icons via @phosphor-icons/web CSS classes (loaded in the global stylesheet).
 
   export let brandName = 'Konoha Infra';
   export let items = [
-    { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Nodes & Clusters', href: '/dashboard/nodes', icon: Server, badge: '12 Active' },
-    { label: 'Telemetry', href: '/dashboard/analytics', icon: BarChart3 },
-    { label: 'Team Access', href: '/dashboard/users', icon: Users },
-    { label: 'Settings', href: '/dashboard/settings', icon: Settings }
+    { label: 'Overview', href: '/dashboard', icon: 'ph-squares-four' },
+    { label: 'Nodes & Clusters', href: '/dashboard/nodes', icon: 'ph-hard-drives', badge: '12 Active' },
+    { label: 'Telemetry', href: '/dashboard/analytics', icon: 'ph-chart-bar' },
+    { label: 'Team Access', href: '/dashboard/users', icon: 'ph-users' },
+    { label: 'Settings', href: '/dashboard/settings', icon: 'ph-gear' }
   ];
 </script>
 
@@ -54,14 +55,13 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 
   <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
     {#each items as item}
-      {@const Icon = item.icon}
       {@const isActive = $page.url.pathname === item.href}
       <a
         href={item.href}
         class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all {isActive ? 'bg-[var(--theme-secondary)] text-[var(--theme-primary)] font-semibold shadow-xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}"
       >
         <div class="flex items-center gap-3">
-          <svelte:component this={Icon} class="h-5 w-5 {isActive ? 'text-[var(--theme-primary)]' : 'text-gray-500'}" />
+          <i class="ph {item.icon}" aria-hidden="true" style="font-size:1.25rem; color: {isActive ? 'var(--theme-primary)' : '#6b7280'}"></i>
           <span>{item.label}</span>
         </div>
         {#if item.badge}
@@ -97,7 +97,7 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
 ```svelte
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Palette, Check, X } from 'lucide-svelte';
+  // Icons via @phosphor-icons/web CSS classes (loaded in the global stylesheet).
 
   const THEMES = [
     { id: 'imperial-gold', name: 'Imperial Gold', primary: '#d97706' },
@@ -137,7 +137,7 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
     aria-label="Open theme switcher"
     class="fixed bottom-6 left-6 z-50 flex h-13 w-13 items-center justify-center rounded-full bg-[var(--theme-primary)] text-white shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200 border-2 border-white/80 cursor-pointer"
   >
-    <Palette class="h-6 w-6" />
+    <i class="ph ph-palette" aria-hidden="true" style="font-size:1.5rem"></i>
   </button>
 
   {#if isOpen}
@@ -145,11 +145,11 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
       <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-[var(--theme-border)]">
         <div class="flex items-center justify-between pb-3 border-b border-gray-100">
           <div class="flex items-center gap-2">
-            <Palette class="h-5 w-5 text-[var(--theme-primary)]" />
+            <i class="ph ph-palette" aria-hidden="true" style="font-size:1.25rem; color: var(--theme-primary)"></i>
             <h3 class="font-semibold text-gray-900 text-sm">Light Mode Themes</h3>
           </div>
           <button onclick={() => (isOpen = false)} class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 text-gray-600">
-            <X class="h-4 w-4" />
+            <i class="ph ph-x" aria-hidden="true" style="font-size:1rem"></i>
           </button>
         </div>
 
@@ -162,7 +162,7 @@ Canonical design system directives and production blueprints for **SvelteKit 2 &
             >
               <span class="h-4 w-4 rounded-full border border-black/10 shrink-0 flex items-center justify-center" style:background-color={theme.primary}>
                 {#if isActive}
-                  <Check class="h-2.5 w-2.5 text-white stroke-[3]" />
+                  <i class="ph ph-bold ph-check" aria-hidden="true" style="font-size:0.625rem; color:#fff"></i>
                 {/if}
               </span>
               <span class="truncate">{theme.name}</span>

@@ -1,3 +1,6 @@
+// DB isolation: keep test writes out of the production ~/.konoha/konoha.db
+require('./helpers/isolate_db');
+
 const path = require('path');
 const os = require('os');
 const router = require(path.join(__dirname, '..', 'src', 'file_tools_router.js'));

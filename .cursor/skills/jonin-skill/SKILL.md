@@ -40,7 +40,7 @@ When prompt requests building a website/app from text description (no mockup ima
    - **Cinematic Negative Space**: Generous vertical section pacing (`py-20`, `py-24`, or `py-32`) and subtle dividers (`border-black/5` or `border-stone-200`).
    - **Asymmetric & Bento Grids**: Intentional CSS Grid compositions.
    - **Polished Micro-Interactions**: Smooth cubic-bezier transitions, subtle hover scale/lift, and glassmorphic depth.
-   - **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and controls. Use crisp vector SVG icons (Lucide).
+   - **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and controls. Use crisp vector SVG icons (Phosphor Icons — never Lucide, which is an AI-scaffold fingerprint).
 4. **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated project MUST always define working scripts in `package.json` for `"dev"`, `"lint"` (`pnpm run lint`), `"build"` (`pnpm run build`), and `"start"` (`pnpm run start`) (plus `"check"` for SvelteKit). Executing `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operational with 0 errors.
 4. **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run check` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
@@ -60,7 +60,7 @@ When modifying, prettifying, or building individual UI components in existing pr
 3. **Cinematic Negative Space**: Replace cramped padding with generous vertical section pacing (`py-20`, `py-24`, or `py-32`) and subtle dividers (`border-black/5` or `border-white/10`).
 4. **Asymmetric & Bento Grids**: Convert repetitive flexbox percentage rows into intentional CSS Grid (`grid-cols-12`, bento grids).
 5. **Polished Micro-Interactions**: Apply smooth cubic-bezier transitions, subtle GPU perspective hover tilt, and glassmorphic surface depth.
-6. **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and navigation. Use crisp vector SVG icons (Lucide, Radix, Phosphor).
+6. **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and navigation. Use crisp vector SVG icons (Phosphor or Radix — never Lucide, which is an AI-scaffold fingerprint).
 7. **Preserve Logic & Architecture**: Never alter existing backend APIs, state stores, routes, or business logic not explicitly requested by the user.
 
 ---
@@ -74,6 +74,9 @@ All official framework references must implement the same visual behavior using 
 - Implement the same ten light-mode themes, semantic CSS variables, glass surface, theme persistence key, and mobile dock across Angular, Next.js, Nuxt, and SvelteKit.
 - Provide accessible keyboard/focus states and reduced-motion fallbacks; 3D effects must never be required to operate the interface.
 - Every generated project must expose `pnpm run lint` and `pnpm run build`; SvelteKit must also expose `pnpm run check`. Completion requires zero errors and zero warnings.
+- **SDLC Definition-of-Readiness (DoR) Gate**: Jonin validates project DoR requirements, ensuring no unresolved placeholders and that all referenced components and file paths align with framework contracts before implementation.
+- **Zero-AI-Slop Delivery Gate (TWO-STEP, TARGET 100%)**: Jonin runs the full two-step review on all changed and newly created frontend/UI files before reporting completion — **Step 1 `aislop_scan`** (aislop scanner: engine findings must be 0), **Step 2 `anti-slop`** rule review (load the `antislop` skill via konoha.get_skill and enforce its UI/design rules and Delivery Gate). Must verify `ai_slop_clean: true`, `ai_slop_findings: 0`, and a perfect 100/100 aislop scan score — the workflow synthesis gate mechanically blocks delivery below it. No generic purple-to-blue AI gradients, no placeholder cards, and no synthetic filler comments.
+- **Validation Evidence & Attestation**: Report verified validation evidence via `report_from_agent` containing the clean output of framework validation commands (`pnpm run build`, `pnpm run lint`, `pnpm run check`) and anti-slop scan results (`0 errors`, `0 warnings`, `0 ai-slop findings`).
 - `build_from_text` applies the default premium theme and 3D system. `build_from_source` preserves source fidelity and adds only non-structural, reduced-motion-safe enhancements.
 - Both MCP build tools return specifications only. Jonin creates or updates files and runs the returned framework-native `pnpm` validation commands.
 - Supported framework contracts are Next.js, Nuxt 3, SvelteKit, and Angular. Taste-Skill dials are validated numbers from 1 to 10.
@@ -117,7 +120,7 @@ Jonin integrates **Taste-Skill** (Leonxlnx/taste-skill) principles to deliver el
 2. **Cinematic Chapter Spacing**: Enforce generous vertical section pacing (**`py-24`, `py-32`, or `py-48`**) with distinct subtle dividers (`border-black/5` or `border-white/10`).
 3. **CSS Grid Architecture**: Implement strict CSS Grid (`grid-cols-12`, bento grids, asymmetric splits) instead of fragile flexbox percentage math. Bounded container width: `max-w-[1400px] mx-auto`.
 4. **Mobile Viewport Stability**: Never use `h-screen` for hero sections. Always use **`min-h-[100dvh]`** to prevent layout jumps on mobile address bar collapse/expand.
-5. **Zero-Emoji Policy in UI**: Emojis are strictly banned from UI buttons, navigation, and badges. Use crisp vector icons (Lucide, Radix, Phosphor).
+5. **Zero-Emoji Policy in UI**: Emojis are strictly banned from UI buttons, navigation, and badges. Use crisp vector icons (Phosphor or Radix — never Lucide, which is an AI-scaffold fingerprint).
 6. **Leaf-Component Client Isolation**: Place `'use client'` strictly on interactive micro-components; keep layout frames server-rendered.
 7. **Taste Dials Support**:
    - `DESIGN_VARIANCE` (1–10, default 8): Controls layout asymmetry and novelty.
@@ -137,3 +140,4 @@ Load specific reference files using `konoha.get_skill("jonin-skill/<reference-na
 - **Nuxt 4.3 / Vue**: `jonin-skill/nuxt-ui-expert`, `jonin-skill/nuxt-code-expert`, `jonin-skill/nuxt`
 - **Angular 20+**: `jonin-skill/angular-ui-expert`, `jonin-skill/angular-code-expert`, `jonin-skill/angular-developer`
 - **3D & Framework Assets**: `jonin-skill/spline-interactive`, `jonin-skill/tailwind-v4-shadcn`, `jonin-skill/vite`, `jonin-skill/owasp-security`
+- **ADHD-Friendly Output (final response shaping)**: `i-have-adhd`

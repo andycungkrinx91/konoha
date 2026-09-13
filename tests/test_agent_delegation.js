@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// DB isolation: keep test writes out of the production ~/.konoha/konoha.db
+require('./helpers/isolate_db');
+// Sannin keyword-routing reads agents.delegation_keywords — seed the defaults.
+require('./helpers/seed_agents');
+
 'use strict';
 
 const assert = require('assert');
@@ -8,7 +13,7 @@ const path = require('path');
 const db = require('../src/db');
 const server = require('../src/server');
 
-const DB_PATH = path.join(os.homedir(), '.konoha', 'konoha.db');
+const DB_PATH = process.env.KONOHA_DB_PATH || path.join(os.homedir(), '.konoha', 'konoha.db');
 
 function setupTask(taskRoot, name, promptText = null, delegateText = null) {
   const d = path.join(taskRoot, name);

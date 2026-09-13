@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// DB isolation: keep test writes out of the production ~/.konoha/konoha.db
+require('./helpers/isolate_db');
+
 'use strict';
 
 const assert = require('assert');

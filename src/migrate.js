@@ -8,7 +8,6 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 const db = require('./db');
 
 let yamlUtils;
@@ -191,9 +190,6 @@ function optimizeContent(content) {
   return res.trim();
 }
 
-function contentMd5(content) {
-  return crypto.createHash('md5').update(content, 'utf8').digest('hex').substring(0, 12);
-}
 
 function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DIR) {
   // Check if skillName is a flat file
@@ -207,7 +203,7 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
 
     try {
       conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)").run(skillNameClean, skillNameClean);
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillNameClean);
 
     const rawContent = fs.readFileSync(filePath, 'utf8');
@@ -233,9 +229,6 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
     return 0;
   }
 
-  try {
-    conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ? OR skill_name IN (SELECT name FROM skills WHERE skill_name = ?)").run(skillName, skillName);
-  } catch (_) {}
   conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(skillName);
 
   let count = 0;
@@ -282,7 +275,6 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
       const lineCount = (content.match(/\n/g) || []).length + 1;
       const pct = rawSize > 0 ? ((rawSize - byteSize) / rawSize * 100) : 0;
 
-      conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(refKey);
       conn.prepare("DELETE FROM skills WHERE name = ?").run(refKey);
       conn.prepare(
         "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -318,7 +310,6 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
       const lineCount = (content.match(/\n/g) || []).length + 1;
       const pct = rawSize > 0 ? ((rawSize - byteSize) / rawSize * 100) : 0;
 
-      conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(refKey);
       conn.prepare("DELETE FROM skills WHERE name = ?").run(refKey);
       conn.prepare(
         "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -348,7 +339,6 @@ function migrateSingleSkill(skillName, skillsDir = SKILLS_DIR, conn = null) {
 }
 
 function migrate_skills(args = {}) {
-  const force = !!args.force;
   let skills = args.skills;
   let skillsDir = args.skills_dir || SKILLS_DIR;
   if (typeof skills === 'string') {
@@ -489,9 +479,22 @@ function autoDetectSkills(skillsDir) {
 }
 
 async function runMigration(options = {}) {
-  if (options.skillsDir) {
-    SKILLS_DIR = path.resolve(options.skillsDir);
-  } else {
+  const detectedSkillsDirs = [];
+  if (options.skillsDirs && options.skillsDirs.length) {
+    for (const d of options.skillsDirs) {
+      const resolved = path.resolve(d);
+      if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory() && !detectedSkillsDirs.includes(resolved)) {
+        detectedSkillsDirs.push(resolved);
+      }
+    }
+  } else if (options.skillsDir) {
+    const resolved = path.resolve(options.skillsDir);
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+      detectedSkillsDirs.push(resolved);
+    }
+  }
+
+  if (detectedSkillsDirs.length === 0) {
     const defaultDir = path.normalize(path.join(os.homedir(), ".agents", "skills"));
     let hasSkills = false;
     if (fs.existsSync(defaultDir) && fs.statSync(defaultDir).isDirectory()) {
@@ -501,39 +504,58 @@ async function runMigration(options = {}) {
           const p = path.join(defaultDir, d);
           return fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, "SKILL.md"));
         });
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
 
     if (!hasSkills) {
       const localDir = path.resolve(process.cwd(), ".agents", "skills");
       if (fs.existsSync(localDir) && fs.statSync(localDir).isDirectory()) {
-        SKILLS_DIR = localDir;
+        detectedSkillsDirs.push(localDir);
       } else {
-        SKILLS_DIR = defaultDir;
+        detectedSkillsDirs.push(defaultDir);
       }
     } else {
-      SKILLS_DIR = defaultDir;
+      detectedSkillsDirs.push(defaultDir);
     }
   }
+
+  SKILLS_DIR = detectedSkillsDirs[0];
 
   if (options.dbPath) {
     DB_PATH = path.resolve(options.dbPath);
   }
 
+  const skillsMap = new Map();
+  for (const dir of detectedSkillsDirs) {
+    const detected = autoDetectSkills(dir);
+    for (const s of detected) {
+      skillsMap.set(s, dir);
+    }
+  }
+
   let skillsToMigrate = [];
   if (options.skills && options.skills.length) {
-    skillsToMigrate = options.skills;
+    for (const s of options.skills) {
+      const dir = skillsMap.get(s) || SKILLS_DIR;
+      skillsToMigrate.push({ name: s, dir });
+    }
   } else {
-    const detected = autoDetectSkills(SKILLS_DIR);
-    skillsToMigrate = detected.length ? detected : CUSTOM_SKILLS;
+    for (const [s, dir] of skillsMap.entries()) {
+      skillsToMigrate.push({ name: s, dir });
+    }
+    if (skillsToMigrate.length === 0) {
+      for (const s of CUSTOM_SKILLS) {
+        skillsToMigrate.push({ name: s, dir: SKILLS_DIR });
+      }
+    }
   }
 
   const requiredSet = new Set(options.requireSkill || []);
   skillsToMigrate.sort((a, b) => {
-    const aReq = requiredSet.has(a) ? 0 : 1;
-    const bReq = requiredSet.has(b) ? 0 : 1;
+    const aReq = requiredSet.has(a.name) ? 0 : 1;
+    const bReq = requiredSet.has(b.name) ? 0 : 1;
     if (aReq !== bReq) return aReq - bReq;
-    return a.localeCompare(b);
+    return a.name.localeCompare(b.name);
   });
 
   let timeBudget = 150.0;
@@ -546,32 +568,35 @@ async function runMigration(options = {}) {
   let deferredSkills = 0;
 
   log("🚀 Skills Migration to SQLite FTS5 (v1.1.0 — Enhanced Optimization)");
-  log(`   Source: ${SKILLS_DIR}`);
+  log(`   Source: ${detectedSkillsDirs.join(', ')}`);
   log(`   Target: ${DB_PATH}`);
-  log(`   Skills: ${skillsToMigrate.join(', ')}\n`);
+  log(`   Skills: ${skillsToMigrate.map(s => s.name).join(', ')}\n`);
 
   const dbDir = path.dirname(DB_PATH);
   if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
   const conn = setupDb(DB_PATH);
+  conn.pragma('foreign_keys = OFF');
   seedAgents(conn);
 
   if (options.clean) {
     log("🧹 Purging existing skills from database...");
-    try {
-      conn.prepare("DELETE FROM skill_chunks").run();
-    } catch (_) {}
+    if (options.rebuildEmbeddings) {
+      try {
+        conn.prepare("DELETE FROM skill_chunks").run();
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
     conn.prepare("DELETE FROM skills").run();
   }
 
   let total = 0;
-  for (const skillName of skillsToMigrate) {
-    if (!requiredSet.has(skillName) && timeBudget > 0 && ((Date.now() - startTime) / 1000) > timeBudget) {
+  for (const item of skillsToMigrate) {
+    if (!requiredSet.has(item.name) && timeBudget > 0 && ((Date.now() - startTime) / 1000) > timeBudget) {
       deferredSkills += 1;
       continue;
     }
-    log(`\n📦 Migrating: ${skillName}`);
-    const count = migrateSkill(conn, skillName, options.skillsOnly);
+    log(`\n📦 Migrating: ${item.name}`);
+    const count = migrateSkill(conn, item.name, options.skillsOnly, item.dir);
     total += count;
   }
 
@@ -612,6 +637,7 @@ async function runMigration(options = {}) {
     log("\n🗑️  Cleaning up deleted skills from database:");
     for (const sName of Array.from(deletedSkills).sort()) {
       conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(sName);
+      conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(sName);
       log(`  ✓ Cleaned up: ${sName}`);
     }
   }
@@ -634,7 +660,7 @@ async function runMigration(options = {}) {
     if (vectorSearch.isSemanticSearchEnabled) {
       semanticEnabled = vectorSearch.isSemanticSearchEnabled();
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const shouldEmbed = !options.skipEmbeddings && (semanticEnabled || options.rebuildEmbeddings);
   if (shouldEmbed) {
@@ -646,7 +672,8 @@ async function runMigration(options = {}) {
           await vectorSearch.predownloadAllModels(false);
         }
         log("⚡ Synchronizing vector embeddings (IBM Granite Multilingual)...");
-        const chunksIndexed = await vectorSearch.backfillAllEmbeddings(conn, options.rebuildEmbeddings);
+        const forceRebuild = !!options.rebuildEmbeddings;
+        const chunksIndexed = await vectorSearch.backfillAllEmbeddings(conn, forceRebuild, timeBudget || 180.0);
         log(`   Vector index synchronized: ${chunksIndexed} chunks processed.`);
       }
     } catch (e) {
@@ -655,6 +682,7 @@ async function runMigration(options = {}) {
   }
 
   printSummary(conn);
+  conn.pragma('foreign_keys = ON');
   conn.close();
   log(`\n✅ Migration complete! ${total} entries indexed.`);
 }
@@ -678,6 +706,7 @@ async function main() {
   }
   const options = {
     skillsDir: null,
+    skillsDirs: [],
     skills: [],
     dbPath: null,
     clean: false,
@@ -690,7 +719,11 @@ async function main() {
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--skills-dir' && i + 1 < args.length) {
-      options.skillsDir = args[++i];
+      const dirPath = args[++i];
+      if (!options.skillsDirs.includes(dirPath)) {
+        options.skillsDirs.push(dirPath);
+      }
+      options.skillsDir = dirPath;
     } else if (a === '--skills') {
       while (i + 1 < args.length && !args[i + 1].startsWith('--')) {
         options.skills.push(args[++i]);

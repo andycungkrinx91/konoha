@@ -57,9 +57,16 @@ flowchart TB
 ## 📋 Step-by-Step Guide
 
 ### Step 1: Find a Skill on skills.sh
-Browse the [skills.sh registry](https://www.skills.sh/) or locate a repository containing compatible agent skills. For this example, we will use the `prd-creator` skill from the `ralph-loop` repository.
+Browse the [skills.sh registry](https://www.skills.sh/) or search directly from Konoha:
+- **Web UI**: Open the Skills page (`http://127.0.0.1:1404/skills`), toggle the search bar to `🌐 skills.sh Registry`, and type your query (e.g. `react`, `docker`, `prd`).
+- **CLI**: Run `konoha skill search <query>` to view interactive rankings, install counts, and GitHub sources.
 
 ### Step 2: Install the Skill
+
+#### Option A: 1-Click Install from Web UI
+On the Web UI Skills page in `🌐 skills.sh Registry` mode, click the **1-Click Install** button on any skill card. Konoha automatically runs non-interactive installation (`-y --agent '*'`), copies the skill to your project or global directory, normalizes repository URLs, and indexes both SQLite FTS5 and IBM Granite 384d vector embeddings.
+
+#### Option B: Terminal CLI (`konoha skill add`)
 Run the native `konoha skill add` command in your terminal, specifying the repository URL and the target skill name:
 
 ```bash
@@ -70,7 +77,7 @@ konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 > * **If run inside a Git repository/project workspace**: The skill will be installed locally in `./.agents/skills/prd-creator`.
 > * **If run outside a repository**: The skill will be installed globally in `~/.agents/skills/prd-creator`.
 >
-> `konoha` supports both locations out of the box and automatically triggers database migration upon adding.
+> `konoha` supports both locations out of the box and automatically triggers multi-directory database migration upon adding.
 >
 > **Cross-platform paths:**
 > - `~/.agents/skills/` = `C:\Users\<you>\.agents\skills\` on Windows
@@ -140,3 +147,12 @@ konoha agent skill kage
 
 ### Step 6: Start Using the Skill
 Your agent team is now ready to use the skill on-demand. When you prompt the agent with a task related to the new skill, the subagents will call `find_skill` or `get_skill` to retrieve the guidelines dynamically, avoiding start-up context bloat.
+
+### Reference Example: A Shipped Cross-Agent Skill (`i-have-adhd`)
+
+The built-in `i-have-adhd` skill (adapted from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), MIT) shows the full cross-agent pattern used by first-party skills:
+
+1. Content lives in `src/templates/skills/i-have-adhd/SKILL.md` and ships byte-identical across `src/templates/skills/`, `.agents/skills/`, `.cursor/skills/`, and `.gemini/skills/`.
+2. Agent mapping is declared once in `src/templates/agents.yaml` (`skills:` lists) and mirrored into the `src/templates/AGENTS.md` / `GEMINI.md` routing tables — it is embedded into exactly five agents (genin, jonin, anbu, tokubetsu-jonin, chunin) while sannin (router) and kage (reviewer) stay out of scope.
+3. Each of the five agent skills carries a Domain-Routing row pointing to `i-have-adhd`, so the agents load it via `konoha.get_skill("i-have-adhd")` when shaping final responses.
+4. The contract is enforced by `tests/test_i_have_adhd_skill.js` (4-tree byte parity, exact 5-agent mapping, all 10 output rules present).

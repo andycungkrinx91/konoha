@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2039%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2042%20Tools-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
@@ -23,15 +23,24 @@
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-09)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, Pi (pi.dev) 7th client integration, hard guardrail enforcement, SearXNG search, and IBM Granite ONNX vector search.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-09)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-09.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-12)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, Mission Control Grafana-style Dashboard (`/dashboard`), Documentation page (`/docs`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, 3-Mode Search (Local FTS5, Granite 384d Neural Vector, skills.sh Registry), Interactive Vector Chunks Inspector, Native SDLC Governance Layer (DoR, Task registry, anti-slop remediation loop), Pi (pi.dev) 7th client integration, hard guardrail enforcement, SearXNG search, IBM Granite ONNX vector search, and the `i-have-adhd` ADHD-friendly output skill for 5 subagents (genin, jonin, anbu, tokubetsu-jonin, chunin).
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-13c)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-13c.md)
 
 <details open>
-<summary><b>🎬 Flagship Demo: All 16 Commands in Action (<code>demo.gif</code>)</b></summary>
+<summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
 <br>
 
 <p align="center">
   <img src="assets/demo.gif" alt="Konoha Core & Subagent Commands Demo" width="100%">
+</p>
+</details>
+
+<details open>
+<summary><b>🌐 Flagship Frontend Demo: SvelteKit 3 Web UI & 10 Gradient Themes (<code>demo-web.gif</code>)</b></summary>
+<br>
+
+<p align="center">
+  <img src="assets/demo-web.gif" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
 </p>
 </details>
 
@@ -54,7 +63,7 @@
 </details>
 
 <details>
-<summary><b>🥷 Real Coding Agent Client Demos (6 Clients)</b></summary>
+<summary><b>🥷 Real Coding Agent Client Demos (7 Clients)</b></summary>
 <br>
 
 <details>
@@ -91,6 +100,12 @@
 <summary><b>⚡ Cursor Agent Prompting & Delegation (<code>demo-cursor.gif</code>)</b></summary>
 <br>
 <img src="assets/demo-cursor.gif" alt="Cursor Agent Demo" width="100%">
+</details>
+
+<details>
+<summary><b>🥧 Pi Coding Agent (pi.dev) Prompting & Delegation (<code>demo-pi.gif</code>)</b></summary>
+<br>
+<img src="assets/demo-pi.gif" alt="Pi Coding Agent Demo" width="100%">
 </details>
 
 </details>
@@ -206,9 +221,9 @@ Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive f
 </details>
 
 <details>
-<summary><b>🤖 Bridge-Served Models & Telemetry (<code>konoha models</code>)</b></summary>
+<summary><b>🌉 Bridge-Served Models (<code>konoha bridge models</code>) & Subagent Model Config (<code>konoha agent models config</code>)</b></summary>
 <br>
-<img src="assets/konoha-models.png" alt="konoha models" width="100%">
+<img src="assets/konoha-models.png" alt="konoha bridge models" width="100%">
 </details>
 
 <details>
@@ -224,6 +239,7 @@ Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive f
 ## 📖 Setup & Usage Guides
 
 * [Konoha Bridge Router Guide](docs/LLM-BRIDGE-GATEWAY.md)
+* [Web Configuration UI Guide](docs/SETUP-WEB-UI.md)
 * [Antigravity IDE Setup Guide](docs/SETUP-IDE.md)
 * [Antigravity CLI Setup Guide](docs/SETUP-CLI.md)
 * [Cursor IDE & CLI Setup Guide](docs/SETUP-CURSOR.md)
@@ -278,6 +294,10 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **Zero-Emoji Policy**: Pure SVG vector iconography (Lucide, Radix, Phosphor); zero emojis in production UI.
 - **Configurable Taste Dials**: `DESIGN_VARIANCE` (1-10), `MOTION_INTENSITY` (1-10), `VISUAL_DENSITY` (1-10).
 
+<p align="center">
+  <img src="assets/konoha-jonin-flow.gif" alt="Jonin Premium UI Build Pipeline" width="100%" />
+</p>
+
 ### 🏢 Persistent Project-Level Context & Memory (Zero Hallucination)
 - **Workspace Stack Profiler**: Automatically detects frameworks (Next.js, SvelteKit, Nuxt 3, Angular), styling engines (Tailwind v4, CSS Modules), and package managers (`pnpm`).
 - **Project-Scoped Memory**: Persists architectural invariants, rules, and episodic learnings per repository workspace in SQLite (`~/.konoha/konoha.db`).
@@ -285,11 +305,11 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
 
 ### 🧠 Hybrid Vector Search & Multilingual Retrieval (sqlite-vector + IBM Granite + GTE Reranker)
-Konoha integrates state-of-the-art hybrid semantic retrieval combining **SQLite-Vector**, **IBM Granite 97M Multilingual (ONNX)**, and **Alibaba GTE Multilingual Cross-Encoder Reranker**:
+Konoha integrates hybrid semantic retrieval combining **SQLite-Vector**, **IBM Granite 97M Multilingual (ONNX)**, and **Alibaba GTE Multilingual Cross-Encoder Reranker**:
 - **Cross-Lingual Recall**: Queries in Indonesian (or English) retrieve the relevant English skill documentation with **97.5% Recall@5** and **0.885 MRR@5**.
 - **Reciprocal Rank Fusion (RRF)**: Merges dense vector embeddings with sparse FTS5 BM25 token ranks before cross-encoder reranking.
 - **Zero-Config Default & Opt-in Semantic Search**: By default, Konoha runs zero-config with ultra-fast SQLite FTS5. Semantic search is optionally enabled via `KONOHA_SEMANTIC_SEARCH=1`.
-- **Graceful Fallback**: If extension loading is disabled or models are unavailable, searches fall back to FTS5 / LIKE search seamlessly without crashing.
+- **Graceful Fallback**: If extension loading is disabled or models are unavailable, searches fall back to FTS5 / LIKE search without crashing.
 - **Lazy First-Run Download**: Downloads platform-specific prebuilts (`linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `win32-x64`) and int8 ONNX weights on first run to keep the base npm package lightweight.
 - **4-Tier Embedding Feature Deduplication**: Markdown heading-aware chunk hashing, in-memory `_EMBED_CACHE` (4,096 entries, 0ms latency), database-level binary blob reuse across skills, and candidate nearest-chunk deduplication.
 - **Persistent Persona & Project Memory**: Idempotent memory storage preventing duplicate SQLite rows, zero-hallucination factual extraction, and auto-compact turn-based prompt badges (< 120 tokens on turn >= 2).
@@ -474,19 +494,39 @@ Once installed, the following CLI commands are available:
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
+| `konoha detect-ai <path-or-url>` | Website AI-fingerprint detector (anonymiz.com-style): scans a site directory or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
 | `konoha doctor` | Diagnose environment health and automatically repair missing files |
 | `konoha ui <subcommand>` | Optional Web UI lifecycle management (`start`, `stop`, `restart`, `status`, `open`) on port 1404 |
 | `konoha web` | Launch the browser-based Web Configuration UI on port 1404 (Svelte 5 + Vite) |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
 | `konoha skill <subcommand>` | Manage custom skills (`list`, `search`, `add`, `remove`) |
-| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `skill`, `delete`, `status`) |
-| `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `create`, `delete`, `enable`, `disable`) |
+| `konoha agent <subcommand>` | Manage subagent configurations (`list`, `create`, `skill`, `models`, `delete`, `status`) |
+| `konoha agent models config` | Interactively pick a bridge-served model for a subagent (TUI; or `--model <id>` / `--model inherit` non-interactive) |
+| `konoha task <subcommand>` | SDLC task governance (`list`, `show <id>`, `slop <id>`) with persistent SQLite audit trails |
+| `konoha project set dor-mode <advisory\|enforced>` | Configure project Definition-of-Readiness gate mode |
+| `konoha project set review-mode <self\|cross-provider>` | Configure project review independence mode |
+| `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `models`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
+## 🏛️ Native SDLC Governance Layer
+
+Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDLC) Governance Layer** that operates natively without heavy external orchestration engines or external attestation frameworks:
+
+<p align="center">
+  <img src="assets/konoha-kage-gate.gif" alt="Kage Final Review Gate" width="100%" />
+</p>
+
+- **Definition-of-Readiness (DoR) Gate**: Validates task substance, absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain alignment before dispatch. Configurable per project (`dor_mode: advisory` or `dor_mode: enforced`).
+- **Cross-Provider Review Independence**: Detects when implementing subagents (`anbu`, `jonin`) and the reviewing subagent (`kage`) are served by different underlying LLM models/bridges, ensuring unbiased second-opinion evaluation.
+- **Two-Step Anti-Slop Delivery Gate**: Step 1 `aislop_scan` (aislop scanner code hygiene) → Step 2 `anti-slop` rule review via the vendored `antislop` skill family ([miqdadbadjuber/anti-slop](https://github.com/miqdadbadjuber/anti-slop)), with a mandatory final Delivery Gate verification (`ai_slop_clean: true` and `ai_slop_findings: 0`).
+- **Autonomous Kage → Anbu Remediation Loop**: Automatically converts anti-slop findings into actionable fix directives for `anbu`, re-verifying upon completion and bounded by the delegation-depth circuit breaker (`slop_cycles > 7`).
+- **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Every task's DoR check, review mode, validation evidence, and anti-slop findings are permanently saved in SQLite WAL mode. Queryable via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`).
+- **Web UI SDLC Tasks Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness sandbox tester, task evidence & anti-slop audit modal, and live governance mode toggles (`/api/v1/sdlc/*`).
+- **Web UI skills.sh Registry & Vector Chunks Inspector (`/skills`)**: 3-mode search toggle (`🔤 Local FTS5`, `⚡ Neural Vector`, `🌐 skills.sh Registry`), 1-click installation from `skills.sh` with non-interactive execution (`-y --agent '*'`), automated multi-directory migration, and dedicated vector chunks inspection modal with 384d Float32 vector samples.
 
 ## 🛰️ Cross-Platform Install
 
-Konoha works seamlessly on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
+Konoha runs on Linux, macOS, and Windows (native and WSL). Install commands are the same across all platforms:
 
 ```bash
 pnpm add --global github:andycungkrinx91/konoha
@@ -632,7 +672,7 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 38 tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, and subagent delegation workflows:
+The unified `konoha` server exposes 43 tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, and subagent delegation workflows:
 
 #### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
@@ -642,6 +682,14 @@ Executes the specified subagent inline with structured task context, dynamic ski
 
 #### `web_search(query, num_results?, search_depth?)`
 Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.
+
+#### `website_ai_detector(target)`
+Website AI-fingerprint detector (anonymiz.com-style). Scans a site directory or http(s) URL for generator meta tags, Lucide icon packages, shadcn/ui component shapes, Vercel/Netlify hosting signals, AI-tool attribution comments, scaffold boilerplate, and generic template asset names. Returns a 0-100 score with evidence-backed findings — **0-20 = Human-Built** (the PLAN_HUMAN_BUILT.md target band). Also available as `konoha detect-ai <target> [--json]` and in the Web UI at `/detector`.
+
+```
+website_ai_detector({ target: "./my-portfolio" })        → score, label, findings
+website_ai_detector({ target: "https://example.com" })   → URL mode (headers + HTML)
+```
 
 #### `find_skill(keyword, limit?)` (alias: `find_skills`)
 Search skills by keyword using SQLite FTS5 full-text search with automatic project-scoped skill discovery and migration.
@@ -714,6 +762,8 @@ The `aislop` server (`scanaislop/aislop`) provides zero-AI-slop and code hygiene
 
 The installer updates your configuration to define a cohesive, specialized team of **7 Naruto-ranked subagents**. Each agent represents a level of ninja hierarchy with clear responsibilities and tool access; the host client controls model selection:
 
+> **🧠 ADHD-Friendly Output (`i-have-adhd`)**: genin, chunin, jonin, anbu, and tokubetsu-jonin shape their final responses with the [`i-have-adhd`](https://github.com/ayghri/i-have-adhd) skill — action first, numbered steps, one concrete next action, no preamble or closers. Sannin (router) and Kage (reviewer) keep their delivery-gate output contracts.
+
 ### 1. 🍃 Genin (Junior Scout)
 * **Operational Role**: Codebase Reconnaissance & Scout
 * **Model**: Selected by the host client; Konoha does not inject model fields
@@ -721,6 +771,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Fast, read-only code exploration.
   - Traces codepaths, maps dependencies, and analyzes repository structure.
   - *Constraint*: Must never write or modify files on the filesystem.
+  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
 * **Skills-DB Keyword**: `code exploration tracing` (invokes scout-level heuristics on startup).
 
 ### 2. 📜 Chunin (Journeyman Intel Gatherer)
@@ -731,6 +782,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Leverages semantic search (`semble`) to discover codebase context before executing web searches.
   - Batches parallel queries and ranks search results by credibility, freshness, and relevance.
   - Compiles comprehensive, citation-backed notes with full reference URLs.
+  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
 * **Skills-DB Keyword**: `websearch deep research` (loads intel gathering methodologies).
 
 ### 3. 🛡️ Jonin (Elite Builder)
@@ -741,6 +793,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Enforces design tokens, custom typography, smooth gradients, and glassmorphism.
   - Performs design match comparisons using the `agent-browser` CLI.
   - Enforces the **Zero-Error Guarantee & Verification Loop** (running local installs, Svelte/Next syncs, check/lint diagnostics, and production builds to guarantee zero compilation errors/warnings before completion).
+  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
 * **Skills-DB Keyword**: `sveltekit tailwind nextjs components` (fetches design standards).
 
 ### 4. 👥 Anbu (Special Black Ops)
@@ -752,6 +805,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Implements defensive cybersecurity forensics, threat hunting, OWASP remediation, and authorized penetration testing in dev/local environments (`anthropic-cybersecurity-skills`).
   - Provisions infrastructure (Terraform, Kubernetes, Helm) and manages secure CI/CD pipelines.
   - Formulates AI prompt engineering strategies (`prompt-engineer`) and creates/maintains agent skills (`skill-creator`).
+  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
 * **Skills-DB Keyword**: `terraform aws kubernetes helm ci-cd security kafka redis prompt` (loads backend and defense recipes).
 
 ### 5. 🎯 Tokubetsu-jonin (Specialized Scribe)
@@ -762,6 +816,7 @@ The installer updates your configuration to define a cohesive, specialized team 
   - Produces printable professional PDF reports and styled documentation exports (`pdf`).
   - Drafts incident postmortems, root cause analyses (RCA), and project retrospectives (`postmortem-writer`).
   - Writes technical blog articles, whitepapers, engineering tutorials, and content (`technical-article-writer`).
+  - Shapes final responses with ADHD-friendly output (`i-have-adhd`): action-first answers, numbered steps, one concrete next action.
 * **Skills-DB Keyword**: `documentation README API runbook postmortem pdf report article` (retrieves writing standards).
 
 ### 6. 🌀 Kage (Village Leader)

@@ -5,9 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// ─────────────────────────────────────────────
 // Text Extraction
-// ─────────────────────────────────────────────
 
 /** Extract text from OpenAI message content (handles both string and content-parts array).
  *  Skips image_url parts — those are handled separately by extractImages(). */
@@ -48,9 +46,7 @@ function extractText(content) {
   return String(content || '');
 }
 
-// ─────────────────────────────────────────────
 // Image Extraction
-// ─────────────────────────────────────────────
 
 /**
  * Extract images from OpenAI message content-parts array.

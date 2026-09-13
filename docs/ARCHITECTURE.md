@@ -30,7 +30,7 @@ flowchart TB
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
-        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search)"]
+        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search · website_ai_detector)"]
         SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
@@ -74,8 +74,13 @@ flowchart TB
 | **Skill Discovery & Loading** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient skill ingestion. |
 | **Autonomous Website Builders** | `build_from_text`, `build_from_source`, `build_with_image_design` | Side-effect-free structured specifications for multi-archetype website generation. |
 | **Intel & Web Search** | `web_search` | Real-time web evidence gathering and documentation lookups. |
+| **Website AI Detection** | `website_ai_detector` | anonymiz.com-style AI-fingerprint scanner (generator tags, Lucide, shadcn shapes, Vercel/Netlify, attribution comments) scoring sites 0-100; 0-20 = Human-Built (PLAN_HUMAN_BUILT). CLI: `konoha detect-ai`; Web UI: `/detector`. |
 | **Specialist Delegation Subagents** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin` (or `tokubetsu-jonin`), `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
 | **Bounded File Operations** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
+
+### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
+
+Agent-to-skill mapping is declared in `src/templates/agents.yaml` and surfaced through the `AGENTS.md` / `GEMINI.md` routing tables. The `i-have-adhd` skill (from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), MIT) is embedded into exactly five agents — **genin, jonin, anbu, tokubetsu-jonin, chunin** — and shapes their final responses (action first, numbered steps, one concrete next action, no preamble/closers). **Sannin (router) and Kage (reviewer) deliberately do not load it**; their output formats are governed by the routing SOP and the delivery-gate contract. Parity and scoping are enforced by `tests/test_i_have_adhd_skill.js`.
 
 ---
 
@@ -106,7 +111,7 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
    - Pairs query with candidate chunk snippets; scores with sigmoid logit transformation.
 3. **Cross-Platform `sqlite-vector` SIMD Acceleration**:
    - Lazily downloads platform-specific prebuilt binary (`linux-x64`, `linux-arm64`, `darwin-arm64`, `darwin-x64`, `windows-x64`) to `~/.konoha/vendor/sqlite-vector/`.
-   - Build-time capability detection: if dynamic extension loading is disabled or unsupported in SQLite, seamlessly falls back to in-memory cosine similarity calculation without errors.
+   - Build-time capability detection: if dynamic extension loading is disabled or unsupported in SQLite, falls back to in-memory cosine similarity calculation without errors.
 4. **Markdown Heading Chunker**:
    - Chunks documentation by section headers (`#`, `##`, `###`), preserving semantic context boundaries.
    - Max 2,000 characters per chunk with 100-character boundary overlap.
@@ -189,5 +194,12 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (39 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (43 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
+11. **Native SDLC Governance Layer & Quality Gates**:
+   - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
+   - **Cross-Provider Independent Review**: Automatically detects model and bridge independence between implementing agents (e.g. `anbu`, `jonin`) and the reviewer (`kage`), ensuring objective, cross-provider second-opinion audits when multi-model bridges are active.
+   - **Two-Step Anti-Slop Delivery Gate**: Enforces mandatory zero-AI-slop compliance (`ai_slop_clean: true` and `ai_slop_findings: 0`) prior to final delivery — Step 1 `aislop_scan` (aislop scanner), Step 2 `anti-slop` rule review via the vendored `antislop` skill family (https://github.com/miqdadbadjuber/anti-slop).
+   - **Autonomous Kage → Anbu Remediation Loop**: Automatically converts anti-slop findings into high-priority remediation tasks for `anbu`, re-evaluating upon completion. The loop is strictly bounded by Konoha's delegation-depth circuit breaker (`slop_cycles > 7`) to prevent infinite recursion.
+   - **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Persists structured task state, DoR results, validation evidence, and slop audit history in SQLite WAL mode (`~/.konoha/konoha.db`). Managed via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`).
+   - **Web UI Governance Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness tester, task detail & audit evidence modal, and real-time project governance configuration (`/api/v1/sdlc/*`).

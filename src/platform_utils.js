@@ -120,7 +120,7 @@ function detectPython() {
       if (res.status === 0 && version.includes('Python 3')) {
         return candidate.args.length > 0 ? `${candidate.command} ${candidate.args.join(' ')}` : candidate.command;
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return null;
 }
@@ -143,7 +143,7 @@ function normalizeCommand(command) {
   if (trimmed.startsWith('[')) {
     try {
       return normalizeCommand(JSON.parse(trimmed));
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (fileExistsCached(trimmed)) {
     return { executable: trimmed, prefixArgs: [] };
@@ -182,7 +182,7 @@ function getUvCommand() {
   try {
     const result = spawnSync('uv', ['--version'], { stdio: 'ignore' });
     if (result.status === 0) return 'uv';
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const home = os.homedir();
   const localPaths = IS_WIN
@@ -203,7 +203,7 @@ function getUvCommand() {
         const result = spawnSync(p, ['--version'], { stdio: 'ignore' });
         if (result.status !== 0) throw new Error('uv probe failed');
         return p;
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return 'uv';
@@ -273,7 +273,7 @@ function getRtkCommand() {
   try {
     const result = spawnSync('rtk', ['--version'], { encoding: 'utf-8', timeout: 5000 });
     if (result.status === 0) return 'rtk';
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const home = os.homedir();
   const localPaths = IS_WIN
@@ -295,7 +295,7 @@ function getRtkCommand() {
       try {
         const result = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 5000 });
         if (result.status === 0) return p;
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return null;

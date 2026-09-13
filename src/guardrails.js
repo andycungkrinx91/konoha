@@ -64,7 +64,7 @@ function checkCommandGuardrails(command) {
     '(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, ' +
     'token_efficient_grep) or the semble MCP (search / find_related) instead.';
 
-  // ---- Layer 1: whole-command regex scans --------------------------------
+  // Layer 1: whole-command regex scans
   var wholeCommandPatterns = [
     { category: 'destructive', pattern: /\bmkfs(\.\w+)?\b/, reason: REASON_DESTRUCTIVE },
     { category: 'destructive', pattern: /\bdd\b[^|;&]*\bof=\s*\/dev\//, reason: REASON_DESTRUCTIVE },
@@ -85,7 +85,7 @@ function checkCommandGuardrails(command) {
     }
   }
 
-  // ---- Layer 2: segment / stage tokenization ------------------------------
+  // Layer 2: segment / stage tokenization
   var READ_BYPASS_BINARIES = [
     'cat', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'find', 'fd',
     'ag', 'ack', 'less', 'more', 'bat', 'wc', 'zcat'
@@ -101,11 +101,11 @@ function checkCommandGuardrails(command) {
 
   function isSecretPathToken(token) {
     var base = stripQuotes(token).replace(/^.*\//, '');
-    if (/^\.env/.test(base)) return true;
+    if (base.startsWith(".env")) return true;
     if (/^secrets\.(ya?ml|json)$/.test(base)) return true;
     if (/\.(tfvars|pem|key)$/.test(base)) return true;
-    if (/^id_rsa/.test(base)) return true;
-    if (/^credentials/.test(base)) return true;
+    if (base.startsWith("id_rsa")) return true;
+    if (base.startsWith("credentials")) return true;
     return false;
   }
 

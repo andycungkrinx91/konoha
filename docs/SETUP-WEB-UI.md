@@ -4,6 +4,10 @@ The **Konoha Web Configuration UI** is a local browser-based management dashboar
 
 It provides a modern visual interface for configuration and monitoring tasks that otherwise require interactive terminal wizards (`konoha bridge create`, `konoha agent skill`, `konoha savings`, `konoha doctor`, etc.), **without adding any new business logic** — the UI is a thin visual layer over the exact same functions the CLI and SQLite database already use.
 
+<p align="center">
+  <img src="../assets/demo-web.gif" alt="Konoha SvelteKit 3 Web Configuration UI Demo" width="100%">
+</p>
+
 ---
 
 ## 🚀 Quick Start (Optional Web UI)
@@ -50,7 +54,7 @@ konoha web
    │
    ├── Embedded API Server (src/web_server.js)
    │     ├── Bound to 127.0.0.1:1404 (Localhost only)
-   │     ├── Injects CSRF meta tag into index.html
+   │     ├── Serves session token via HttpOnly cookie; exposes CSRF token via GET /api/v1/csrf
    │     ├── Requires X-Konoha-Web-Token on POST / PATCH / DELETE
    │     ├── Realtime updates via Server-Sent Events (/api/v1/events)
    │     └── Serves JSON API (/api/v1/*) over existing Konoha core functions
@@ -90,7 +94,15 @@ konoha web
 - Interactive embedded skill checkboxes: toggling instantly syncs `~/.agents/agents.yaml` and `konoha.db`. Primary dedicated skills (`kage-skill`, `jonin-skill`, etc.) are strictly preserved at priority index 0.
 
 ### 3. 📚 Skills Management Screen (`Skills.svelte`)
-- Real-time instant search across all SQLite FTS5 indexed skills and references.
+- **3-Mode Search Switcher**:
+  - `🔤 Local FTS5`: Instant full-text search with BM25 ranking across all local skills and references.
+  - `⚡ Neural Vector`: 384-dimensional cosine similarity semantic search powered by IBM Granite Multilingual ONNX embeddings.
+  - `🌐 skills.sh Registry`: Real-time global query against `skills.sh/api/skills` with exact parity to `konoha skill search <query>`, displaying rank, install count, GitHub author/repo source, and descriptions.
+- **1-Click Skill Installation**:
+  - Install any skill from `skills.sh` or Git repositories directly from the UI (`POST /api/v1/skills/install`) with non-interactive piped execution, automatic GitHub URL normalization, and instant SQLite FTS5 + Granite vector embedding migration.
+- **Interactive Vector & Chunks Inspector**:
+  - Skill detail modal includes a dedicated **Vector Embeddings & Chunks** tab displaying 384-dim Float32 vector samples (`vector_sample`), chunk index, and tokenized chunk text.
+  - Vector status badge showing model (`IBM Granite Multilingual 384-dim`), indexed chunks, and RRF reranking metrics.
 - Create new skills directly in the browser with custom name, description, tags, and YAML frontmatter.
 - Embed / Unembed skills to official ninja subagents with one click.
 - Safe skill deletion with cascading foreign-key protection for chunk tables.
@@ -144,7 +156,17 @@ konoha web
   - OpenCode IDE (`~/.config/opencode/opencode.json`)
   - Command Code CLI (`~/.commandcode/mcp.json`)
   - Codex IDE / CLI (`~/.codex/config.toml`)
+  - Pi (pi.dev) CLI (`~/.pi/agent/mcp.json`)
 - One-click Setup and Disconnect buttons.
+
+### 11. 📋 SDLC Tasks & Governance Screen (`Tasks.svelte`)
+- Full visual dashboard for the Native SDLC Governance Layer (`/tasks`):
+  - **Task Registry & Audit Trail**: Real-time listing of recorded tasks from the `sdlc_tasks` SQLite WAL table (`GET /api/v1/sdlc/tasks`), showing task status (`pending`, `in_progress`, `completed`, `blocked`), target files, implementing and reviewer subagents, and timestamps.
+  - **Task Detail & Evidence Modal**: Inspect granular task evidence (`GET /api/v1/sdlc/tasks/:id`), including full Definition-of-Readiness (DoR) diagnostics, validation output, and anti-slop audit history.
+  - **Interactive Definition-of-Readiness (DoR) Tester**: Test any task string and project path interactively (`POST /api/v1/sdlc/check-readiness`) to evaluate substance, keyword alignment, file existence, and placeholder detection before dispatch.
+  - **Governance Configuration Toggles**: Manage project-level governance modes (`GET/PATCH /api/v1/sdlc/config`):
+    - *DoR Mode*: Toggle between `advisory` (diagnostic warnings only) and `enforced` (strict dispatch blocking).
+    - *Review Independence Mode*: Configure cross-provider second-opinion enforcement (`independent`, `same_bridge`, `relaxed`).
 
 ---
 

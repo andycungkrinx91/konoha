@@ -26,7 +26,7 @@ async function getLastUserInput(transcriptPath) {
         } else if (record && (record.type === 'PLANNER_RESPONSE' || record.source === 'MODEL')) {
           hasResponseAfterInput = true;
         }
-      } catch (e) {
+      } catch (_) {
         // ignore parsing errors for corrupted or partial lines
       }
     });

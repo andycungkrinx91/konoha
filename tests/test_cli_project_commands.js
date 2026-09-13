@@ -18,12 +18,18 @@ function stripAnsi(text) {
   return text.replace(/\x1b\[[0-9;]*[mGKF]/g, '');
 }
 
+let activeTestDbPath = null;
+
 function runCli(args) {
   try {
+    const env = { ...process.env };
+    if (activeTestDbPath) env.KONOHA_DB_PATH = activeTestDbPath;
     const stdout = execFileSync('node', [CLI_JS, ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30000
     });
     return { status: 0, stdout, stderr: '' };
   } catch (err) {
@@ -38,6 +44,16 @@ function runCli(args) {
 async function run() {
   console.log('Running test_cli_project_commands tests...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli_proj_'));
+  const testDbPath = path.join(tmpDir, 'test_konoha.db');
+  activeTestDbPath = testDbPath;
+  const personaMemory = require('../src/persona_memory');
+  const db = require('../src/db');
+  personaMemory.DB_PATH = testDbPath;
+  db.DB_PATH = testDbPath;
+  const conn = db.getConnection(testDbPath);
+  db.setupSchema(conn);
+  conn.close();
+
   const projectDir = path.join(tmpDir, 'ecommerce_test_repo');
   fs.mkdirSync(projectDir, { recursive: true });
 
@@ -69,18 +85,58 @@ async function run() {
     assert.ok(stripAnsi(resList.stdout).includes('my-ecommerce-project'));
     console.log('✓ Project add and list command passed');
 
-    // 3. project memory and delete
+    // 3. project memory, memory delete, and project prune
+    const personaMemory = require('../src/persona_memory');
+    const memId = personaMemory.saveMemory({
+      agentName: 'jonin',
+      content: 'CLI Test Project Learning',
+      projectPath: projectDir,
+      dbPath: testDbPath
+    });
+    assert.ok(memId, 'Saved memory should return ID');
+
     const resMem = runCli(['project', 'memory', projectDir]);
     assert.strictEqual(resMem.status, 0, `Error: ${resMem.stderr}`);
+    assert.ok(stripAnsi(resMem.stdout).includes('CLI Test Project Learning'));
 
+    // Test delete-memory 1 by 1
+    const resDelMem = runCli(['project', 'delete-memory', String(memId)]);
+    assert.strictEqual(resDelMem.status, 0, `Error: ${resDelMem.stderr}`);
+    assert.ok(stripAnsi(resDelMem.stdout).includes(`Deleted memory item ID: ${memId}`));
+
+    // Add another memory and test prune
+    personaMemory.saveMemory({
+      agentName: 'anbu',
+      content: 'Prune Test Learning',
+      projectPath: projectDir,
+      dbPath: testDbPath
+    });
+
+    const resPrune = runCli(['project', 'prune', projectDir, '--invariants']);
+    assert.strictEqual(resPrune.status, 0, `Error: ${resPrune.stderr}`);
+    assert.ok(stripAnsi(resPrune.stdout).includes('Pruned'));
+    assert.ok(stripAnsi(resPrune.stdout).includes('Architectural invariants cleared'));
+
+    // 4. project delete and prune-all
     const resDel = runCli(['project', 'delete', projectDir]);
     assert.strictEqual(resDel.status, 0, `Error: ${resDel.stderr}`);
     assert.ok(stripAnsi(resDel.stdout).includes('Deleted project profile'));
-    console.log('✓ Project memory and delete command passed');
+
+    const resPruneAll = runCli(['project', 'prune-all']);
+    assert.strictEqual(resPruneAll.status, 0, `Error: ${resPruneAll.stderr}`);
+    assert.ok(stripAnsi(resPruneAll.stdout).includes('Pruned all registered workspace profiles'));
+    console.log('✓ Project memory, delete-memory, prune, and delete commands passed');
 
     console.log('\nAll test_cli_project_commands tests passed!');
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    const personaMemory = require('../src/persona_memory');
+    const db = require('../src/db');
+    activeTestDbPath = null;
+    personaMemory.DB_PATH = null;
+    db.DB_PATH = null;
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch (_) {}
   }
 }
 

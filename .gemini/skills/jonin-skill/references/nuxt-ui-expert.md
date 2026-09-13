@@ -20,5 +20,5 @@ Canonical design system directives and production blueprints for **Nuxt 3 (`app.
 - **Adaptive Routes**: Maps quick one-tap links to Dashboard (Overview, Analytics, Servers, Alerts, Themes), Portfolio (Home, Projects, Skills, Contact, Themes), SaaS, and Commerce.
 
 ### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include required packages: `lucide-vue-next`, `clsx`, `tailwind-merge`.
+- Scaffolding MUST include the framework's Phosphor Icons package (`@phosphor-icons/vue`) or hand-exported inline SVG icon components — NEVER `lucide-vue-next` or any Lucide package (AI-scaffold fingerprint). Include `clsx`/`tailwind-merge` only when the build actually uses a custom Tailwind theme; prefer hand-written CSS/SCSS modules.
 - Do not claim completion until `pnpm run build` and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.

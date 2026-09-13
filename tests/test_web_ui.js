@@ -270,13 +270,17 @@ async function run() {
     assert.ok(clients.data.some(c => c.id === 'pi' && c.name === 'Pi (pi.dev)'));
     console.log('✓ GET /api/v1/clients passed (7 clients incl. Pi)');
 
-    // 9. Static UI HTML with CSRF injection
-    const htmlRes = await request({ hostname: '127.0.0.1', port, path: '/', method: 'GET' });
+    // 9. Static UI HTML — CSRF token must NOT be rendered into the page source
+    //    (HttpOnly cookie + GET /api/v1/csrf are the only delivery channels).
+    //    The root route 307-redirects to /dashboard; the served page must stay clean.
+    const rootRes = await request({ hostname: '127.0.0.1', port, path: '/', method: 'GET' });
+    assert.strictEqual(rootRes.status, 307, 'root must redirect to the dashboard');
+    const htmlRes = await request({ hostname: '127.0.0.1', port, path: '/dashboard', method: 'GET' });
     assert.strictEqual(htmlRes.status, 200);
     assert.ok(typeof htmlRes.data === 'string');
-    assert.ok(htmlRes.data.includes('konoha-web-token'));
-    assert.ok(htmlRes.data.includes(token));
-    console.log('✓ Static SPA serving & CSRF token injection passed');
+    assert.ok(!htmlRes.data.includes(token), 'session token must not appear in HTML body');
+    assert.ok(!/<meta[^>]+konoha-web-token/.test(htmlRes.data), 'konoha-web-token meta tag must not be injected');
+    console.log('✓ Static SPA serving (dashboard redirect) without CSRF token leakage passed');
 
   } finally {
     await srv.instance.stop();
@@ -291,7 +295,7 @@ async function run() {
   const statusOut = execSync(`node "${cliPath}" ui status --port=1405`, { stdio: 'pipe' }).toString();
   assert.ok(statusOut.includes('RUNNING') || statusOut.includes('1405'), 'UI status must report running');
 
-  execSync(`node "${cliPath}" ui stop`, { stdio: 'pipe' });
+  execSync(`node "${cliPath}" ui stop --port=1405`, { stdio: 'pipe' });
   const stoppedOut = execSync(`node "${cliPath}" ui status --port=1405`, { stdio: 'pipe' }).toString();
   assert.ok(stoppedOut.includes('STOPPED'), 'UI status must report stopped');
   console.log('✓ CLI ui start/status/stop commands passed');

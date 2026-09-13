@@ -9,7 +9,7 @@
 | **Server Components** | Default; fetch data, render static layout | No `"use client"`. Runs only on server. |
 | **Client Components** | Interactive UI, state, hooks, browser APIs | Add `"use client"` at the top. |
 | **Server Actions** | Handle form submissions/mutations | Add `"use server"` at the top of file or action. |
-| **lucide-react** | SVG icon usage | Styled using theme variables and tailwind. |
+| **@phosphor-icons/react** | SVG icon usage | Styled using theme variables and tailwind. NEVER lucide-react (AI-scaffold fingerprint). |
 
 ```tsx
 // app/shop/page.tsx (Server Component)
@@ -79,7 +79,7 @@ When creating `package.json` for a fresh Next.js 16 project:
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "lucide-react": "^1.16.0",
+    "@phosphor-icons/react": "^2.1.7",
     "motion": "^12.4.0",
     "next": "^16.3.3",
     "react": "^19.0.0",
@@ -256,7 +256,7 @@ All generated Next.js code must conform to the following baseline visual standar
 7. **Custom Styled SVG/CSS Logo**: Active inline SVG utilizing the active theme gradient (`stroke="url(#theme-gradient)"`) paired with gradient typography matching the actual project name.
 8. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
 9. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting.
-10. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `lucide-react`. Emojis in buttons, navigation, and badges are strictly forbidden.
+10. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `@phosphor-icons/react` (or hand-exported inline SVGs). Emojis in buttons, navigation, and badges are strictly forbidden.
 11. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha`.
 
 ---
@@ -357,7 +357,7 @@ All generated Next.js code must conform to the following baseline visual standar
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Palette, Check } from 'lucide-react';
+import { Palette, Check } from '@phosphor-icons/react/dist/ssr';
 
 const THEMES = [
   { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
@@ -436,7 +436,7 @@ export function ThemeSwitcher() {
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Play, Pause, Sparkles } from 'lucide-react';
+import { CaretLeft, CaretRight, Play, Pause, Sparkle } from '@phosphor-icons/react/dist/ssr';
 
 export interface SlideItem {
   id: string | number;
@@ -503,7 +503,7 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
       <div className="relative z-10 max-w-5xl mx-auto px-8 py-16 w-full flex flex-col justify-between min-h-[460px] md:min-h-[560px]">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-white/10 backdrop-blur-md border border-white/20 text-white mb-6">
-            <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--theme-accent)' }} />
+            <Sparkle className="w-3.5 h-3.5" style={{ color: 'var(--theme-accent)' }} />
             <span>{slide.tag}</span>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1] mb-4">
@@ -555,14 +555,14 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
               aria-label="Previous slide"
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <CaretLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => setCurrent((prev) => (prev + 1) % slides.length)}
               aria-label="Next slide"
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all"
             >
-              <ChevronRight className="w-5 h-5" />
+              <CaretRight className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -580,7 +580,7 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
 - [ ] `ThemeSwitcher.tsx` positioned fixed at `bottom-6 left-6` saving to `localStorage`.
 - [ ] `HeroCarousel.tsx` with full-width GPU tilt and spec badges.
 - [ ] 50 items dataset catalog with multi-criteria reactive filters and search.
-- [ ] All interactive SVG icons strictly imported from `lucide-react` (zero emojis in UI).
+- [ ] All interactive SVG icons strictly imported from `@phosphor-icons/react` (zero emojis in UI).
 - [ ] `Build by Konoha` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
@@ -609,7 +609,7 @@ export function HeroCarousel({ slides }: { slides: SlideItem[] }) {
 2. **Current Stable Framework Policy (verified 2026-08-27)**:
    - Resolve package versions from official release pages and the pnpm registry immediately before scaffolding; never treat this document as a permanent `latest` pin.
    - Tested stable baselines: **Next.js 16.3 + React 19**, **SvelteKit 2 stable + Svelte 5** (SvelteKit 3 is release-candidate and must not be selected unless explicitly requested), **Nuxt 4.3 + Vue 3.5**, and **Angular 20+** with standalone components and Signals.
-   - Use Tailwind CSS v4 and the framework-specific Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
+   - Use the framework's mandated styling approach (fully custom-themed Tailwind v4 for Next.js, scoped `<style>` blocks for SvelteKit, hand-written theme for Nuxt, SCSS for Angular) and the framework-specific Phosphor Icons package (`@phosphor-icons/react` / `@phosphor-icons/web` / `@phosphor-icons/vue`) — never a Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
 
 
 ### Pre-Scaffolding Security & CVE Pre-Flight Standards

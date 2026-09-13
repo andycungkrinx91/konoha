@@ -22,7 +22,9 @@ const { autoMigrateProjectSkills } = require('./skills');
 const { executeTool } = require('./tool_dispatch');
 
 const ANTIGRAVITY_CLI = path.join(GEMINI_DIR, 'antigravity-cli');
+const ANTIGRAVITY_IDE = path.join(GEMINI_DIR, 'antigravity-ide');
 const ANTIGRAVITY_CLI_BRAIN = path.join(ANTIGRAVITY_CLI, 'brain');
+const ANTIGRAVITY_IDE_BRAIN = path.join(ANTIGRAVITY_IDE, 'brain');
 
 function getServerVersion() {
   const candidates = [
@@ -83,12 +85,14 @@ async function handleRequest(req) {
     else if (clientName.includes('antigravity-cli') || clientName.includes('agy')) detectedClient = 'agy';
     else if (clientName.includes('antigravity') || clientName.includes('ide')) {
       const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+      const isCli = (process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy');
       if (convId) {
-        if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli')) detectedClient = 'agy';
+        if (isCli) detectedClient = 'agy';
         else if (fs.existsSync(path.join(ANTIGRAVITY_CLI_BRAIN, convId))) detectedClient = 'agy';
-        else detectedClient = 'antigravity';
+        else if (fs.existsSync(path.join(ANTIGRAVITY_IDE_BRAIN, convId))) detectedClient = 'antigravity';
+        else detectedClient = 'agy';
       } else {
-        detectedClient = 'antigravity';
+        detectedClient = isCli ? 'agy' : 'antigravity';
       }
     } else {
       detectedClient = detectActiveClient();

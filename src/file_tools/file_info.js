@@ -28,7 +28,7 @@ function fileInfo(args = {}) {
   if (isText && stat.size <= 5000000) {
     try {
       lineCount = countLines(filePath);
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
 
   return {

@@ -2,7 +2,7 @@
   import { sweetAlert } from "#lib/sweetAlert.svelte.js";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
 
-  useScrollLock(sweetAlert.isOpen);
+  useScrollLock(() => sweetAlert.isOpen);
 </script>
 
 {#if sweetAlert.isOpen}

@@ -17,9 +17,7 @@ const VALUE_TO_MODEL_ENUM = {
   342: 'MODEL_OPENAI_GPT_OSS_120B_MEDIUM', // GPT-OSS 120B
 };
 
-// ─────────────────────────────────────────────
 // Anthropic → OpenAI message conversion
-// ─────────────────────────────────────────────
 
 /**
  * Convert Anthropic-format messages to OpenAI-format messages.
@@ -129,9 +127,7 @@ function extractAnthropicText(content) {
   return '';
 }
 
-// ─────────────────────────────────────────────
 // Anthropic SSE response builders
-// ─────────────────────────────────────────────
 
 function buildAnthropicMessage(id, model) {
   return {
@@ -150,9 +146,7 @@ function writeAnthropicEvent(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-// ─────────────────────────────────────────────
 // POST /v1/messages
-// ─────────────────────────────────────────────
 
 async function handleAnthropicMessages(ctx, req, res) {
   const body = await readBody(req);
@@ -396,11 +390,9 @@ async function handleAnthropicMessages(ctx, req, res) {
   }
 }
 
-// ─────────────────────────────────────────────
 // POST /v1/messages/count_tokens  (mock)
 // Claude CLI and Cherry Studio send this before every conversation.
 // Return a plausible mock so they don't abort.
-// ─────────────────────────────────────────────
 
 async function handleCountTokens(ctx, req, res) {
   // Consume the body so the socket stays clean
@@ -413,10 +405,8 @@ async function handleCountTokens(ctx, req, res) {
   sendJson(res, 200, { input_tokens: 0 });
 }
 
-// ─────────────────────────────────────────────
 // Anthropic format adapter for OpenAI provider
 // Converts Anthropic → OpenAI → callRawInference → Anthropic response
-// ─────────────────────────────────────────────
 
 async function handleAnthropicToOpenAi(ctx, req, res, isStream, payload, msgId) {
   let openAiMessages = anthropicMessagesToOpenAi(payload.system, payload.messages || []);

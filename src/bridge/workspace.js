@@ -6,11 +6,9 @@ const path = require('path');
 const { log } = require('./utils');
 const { extractText } = require('./images');
 
-// ─────────────────────────────────────────────
 // Workspace Detection
 // Resolves the workspace directory from the request
 // payload, headers, or VS Code workspace folders.
-// ─────────────────────────────────────────────
 
 /**
  * Resolve the workspace directory and file URI from the request context.

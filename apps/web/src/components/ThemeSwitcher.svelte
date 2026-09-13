@@ -4,7 +4,7 @@
 
   let isModalOpen = $state(false);
 
-  useScrollLock(isModalOpen);
+  useScrollLock(() => isModalOpen);
 
   function selectTheme(id) {
     themeState.applyTheme(id);

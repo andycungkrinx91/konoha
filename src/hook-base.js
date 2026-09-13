@@ -104,11 +104,12 @@ function isConfirmedSelf(transcriptPath) {
         if (row.source === 'MODEL') {
           if (/\[(?:🍃|🌀|📜|🛡️|👥|🎯)?\s*(?:Genin|Kage|Chunin|Jonin|Anbu|Tokubetsu-jonin)\]\s*active/i.test(content)) return false;
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
     }
 
     return true;
   } catch {
+    console.error('[hook-base] guard probe failed — failing open (non-fatal)');
     return false;
   }
 }

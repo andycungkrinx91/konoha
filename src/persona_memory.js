@@ -51,7 +51,7 @@ function detectProjectStack(workspacePath) {
   let canonical = path.resolve(workspacePath);
   try {
     canonical = fs.realpathSync(canonical);
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   stackInfo.project_name = path.basename(canonical);
 
@@ -123,7 +123,7 @@ function detectProjectStack(workspacePath) {
       } else if ('unocss' in allDeps) {
         stackInfo.styling = "UnoCSS";
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Python stack detection
@@ -137,7 +137,7 @@ function detectProjectStack(workspacePath) {
           if (content.includes("fastapi")) stackInfo.framework = "FastAPI";
           else if (content.includes("django")) stackInfo.framework = "Django";
           else if (content.includes("flask")) stackInfo.framework = "Flask";
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
   }
@@ -158,7 +158,7 @@ function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null,
   let canonical = path.resolve(trimmed);
   try {
     if (fs.existsSync(canonical)) canonical = fs.realpathSync(canonical);
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const pHash = computeProjectHash(canonical);
   const now = new Date().toISOString();
@@ -172,8 +172,10 @@ function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null,
   try {
     initMemoryTables(conn);
     const existing = conn.prepare("SELECT * FROM projects WHERE project_hash = ?").get(pHash);
+    const trimmedSummary = (contextSummary && typeof contextSummary === 'string') ? contextSummary.trim() : '';
+    const safeSummary = trimmedSummary.length > 1000 ? trimmedSummary.substring(0, 1000) : trimmedSummary;
     if (existing) {
-      const newSummary = (contextSummary && contextSummary.trim()) ? contextSummary.trim() : existing.context_summary;
+      const newSummary = safeSummary || existing.context_summary;
       conn.prepare(`
         UPDATE projects
         SET project_path = ?, project_name = ?, framework = ?, styling = ?, package_manager = ?,
@@ -201,7 +203,7 @@ function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null,
         detected.framework || "Unknown",
         detected.styling || "Standard CSS",
         detected.package_manager || "pnpm",
-        (contextSummary || "").trim(),
+        safeSummary,
         JSON.stringify(detected),
         now,
         now
@@ -231,7 +233,7 @@ function getProjectProfile(projectPathOrHash, dbPath = DB_PATH) {
       const res = Object.assign({}, row);
       try {
         res.tech_stack = JSON.parse(res.tech_stack || "{}");
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       return res;
     }
     return null;
@@ -241,6 +243,10 @@ function getProjectProfile(projectPathOrHash, dbPath = DB_PATH) {
 }
 
 function listProjects(limit = 50, dbPath = DB_PATH) {
+  if (typeof limit === 'string' && (limit.includes('/') || limit.includes('\\') || limit.endsWith('.db'))) {
+    dbPath = limit;
+    limit = 50;
+  }
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
@@ -249,7 +255,7 @@ function listProjects(limit = 50, dbPath = DB_PATH) {
       const d = Object.assign({}, r);
       try {
         d.tech_stack = JSON.parse(d.tech_stack || "{}");
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       return d;
     });
   } finally {
@@ -273,6 +279,30 @@ function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPat
       conn.prepare("DELETE FROM persona_memories WHERE project_hash = ?").run(pHash);
     }
     return deleted;
+  } finally {
+    conn.close();
+  }
+}
+
+function pruneAllProjects(options = {}, dbPath = DB_PATH) {
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    let sql = "DELETE FROM projects WHERE 1=1";
+    const params = [];
+    if (options.keepCurrent && options.currentHash) {
+      sql += " AND project_hash != ?";
+      params.push(options.currentHash);
+    }
+    const res = conn.prepare(sql).run(...params);
+    if (options.deleteAssociatedMemories !== false) {
+      if (options.keepCurrent && options.currentHash) {
+        conn.prepare("DELETE FROM persona_memories WHERE project_hash != ? AND project_hash != ''").run(options.currentHash);
+      } else {
+        conn.prepare("DELETE FROM persona_memories WHERE project_hash IS NOT NULL AND project_hash != ''").run();
+      }
+    }
+    return { deleted: res.changes };
   } finally {
     conn.close();
   }
@@ -306,6 +336,9 @@ function saveMemory(
     throw new Error("Memory content cannot be empty.");
   }
 
+  const trimmedContent = content.trim();
+  const safeContent = trimmedContent.length > 1000 ? trimmedContent.substring(0, 1000) : trimmedContent;
+
   let cleanAgent = (agentName || "").toLowerCase().trim();
   if (cleanAgent.startsWith("mcp_")) {
     cleanAgent = cleanAgent.substring(4);
@@ -318,12 +351,12 @@ function saveMemory(
     pHash = computeProjectHash(projectPath);
     try {
       saveOrUpdateProject(projectPath, "", null, dbPath);
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   let finalTitle = title;
   if (!finalTitle) {
-    const firstLine = content.trim().split('\n')[0].replace(/^[#*\-\s]+/, '').trim();
+    const firstLine = safeContent.split('\n')[0].replace(/^[#*\-\s]+/, '').trim();
     finalTitle = firstLine ? firstLine.substring(0, 60) : `${cleanAgent} memory`;
   }
 
@@ -337,7 +370,7 @@ function saveMemory(
       SELECT id FROM persona_memories
       WHERE agent_name = ? AND content = ? AND project_hash = ?
       LIMIT 1
-    `).get(cleanAgent, content.trim(), pHash);
+    `).get(cleanAgent, safeContent, pHash);
 
     if (existing) {
       const existingId = existing.id;
@@ -352,7 +385,7 @@ function saveMemory(
     conn.prepare(`
       INSERT INTO persona_memories (id, project_hash, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(memId, pHash, cleanAgent, memoryType, finalTitle, content.trim(), tags, importance, now, now);
+    `).run(memId, pHash, cleanAgent, memoryType, finalTitle, safeContent, tags, importance, now, now);
 
     return memId;
   } finally {
@@ -471,7 +504,7 @@ function queryMemories(
           if (rows && rows.length) {
             return rows;
           }
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
 
@@ -566,8 +599,95 @@ function deleteMemory(memoryId, dbPath = DB_PATH) {
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const res = conn.prepare("DELETE FROM persona_memories WHERE id = ?").run(memoryId);
+    const id = (typeof memoryId === 'string' && /^\d+$/.test(memoryId.trim()))
+      ? parseInt(memoryId.trim(), 10)
+      : memoryId;
+    const res = conn.prepare("DELETE FROM persona_memories WHERE id = ?").run(id);
     return res.changes > 0;
+  } finally {
+    conn.close();
+  }
+}
+
+function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = DB_PATH) {
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    let pHash = "";
+    if (projectPathOrHash) {
+      const trimmed = String(projectPathOrHash).trim();
+      pHash = (trimmed.length === 12 && /^[a-f0-9]+$/i.test(trimmed))
+        ? trimmed.toLowerCase()
+        : computeProjectHash(trimmed);
+    }
+    if (!pHash) return { deleted: 0, project_hash: "" };
+
+    let sql = "DELETE FROM persona_memories WHERE project_hash = ?";
+    const params = [pHash];
+
+    if (options.olderThanDays && Number(options.olderThanDays) > 0) {
+      sql += " AND created_at < datetime('now', '-' || ? || ' days')";
+      params.push(Math.floor(Number(options.olderThanDays)));
+    }
+    if (options.minImportance && Number(options.minImportance) > 0) {
+      sql += " AND importance <= ?";
+      params.push(Math.floor(Number(options.minImportance)));
+    }
+    if (options.memoryType) {
+      sql += " AND memory_type = ?";
+      params.push(String(options.memoryType).trim().toLowerCase());
+    }
+
+    const res = conn.prepare(sql).run(...params);
+    let invariantsCleared = false;
+    if (options.clearInvariants || options.all) {
+      conn.prepare("UPDATE projects SET context_summary = '' WHERE project_hash = ?").run(pHash);
+      invariantsCleared = true;
+    }
+    return { deleted: res.changes, project_hash: pHash, invariants_cleared: invariantsCleared };
+  } finally {
+    conn.close();
+  }
+}
+
+function pruneMemories(options = {}, dbPath = DB_PATH) {
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    let sql = "DELETE FROM persona_memories WHERE 1=1";
+    const params = [];
+
+    if (options.projectPath || options.projectHash) {
+      let pHash = options.projectHash;
+      if (!pHash && options.projectPath) {
+        pHash = computeProjectHash(options.projectPath);
+      }
+      if (pHash) {
+        sql += " AND project_hash = ?";
+        params.push(pHash);
+      }
+    }
+    if (options.agentName) {
+      let clean = String(options.agentName).toLowerCase().trim();
+      if (clean.startsWith("mcp_")) clean = clean.substring(4);
+      sql += " AND agent_name = ?";
+      params.push(clean);
+    }
+    if (options.olderThanDays && Number(options.olderThanDays) > 0) {
+      sql += " AND created_at < datetime('now', '-' || ? || ' days')";
+      params.push(Math.floor(Number(options.olderThanDays)));
+    }
+    if (options.minImportance && Number(options.minImportance) > 0) {
+      sql += " AND importance <= ?";
+      params.push(Math.floor(Number(options.minImportance)));
+    }
+    if (options.memoryType) {
+      sql += " AND memory_type = ?";
+      params.push(String(options.memoryType).trim().toLowerCase());
+    }
+
+    const res = conn.prepare(sql).run(...params);
+    return { deleted: res.changes };
   } finally {
     conn.close();
   }
@@ -710,6 +830,12 @@ module.exports = {
   list_memories: listMemories,
   deleteMemory,
   delete_memory: deleteMemory,
+  pruneProjectMemories,
+  prune_project_memories: pruneProjectMemories,
+  pruneAllProjects,
+  prune_all_projects: pruneAllProjects,
+  pruneMemories,
+  prune_memories: pruneMemories,
   countMemories,
   count_memories: countMemories,
   formatMemoriesForPrompt,

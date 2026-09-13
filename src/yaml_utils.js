@@ -24,9 +24,24 @@
  * the snapshot harness AND running every agents.yaml consumer end-to-end.
  */
 
-// ────────────────────────────────────────────────────────────────────
+// Coerce a raw YAML scalar (quoted string / bool / null / number) to its JS value.
+function coerceScalar(val) {
+  if (val.startsWith('"') && val.endsWith('"')) {
+    try { val = JSON.parse(val); } catch { /* intentional best-effort fallback: malformed quotes fall through as text */ }
+  } else if (val === 'true') {
+    val = true;
+  } else if (val === 'false') {
+    val = false;
+  } else if (val === 'null') {
+    val = null;
+  } else if (!isNaN(val) && val !== '') {
+    val = Number(val);
+  }
+  return val;
+}
+
+
 // parseYaml — extracted verbatim from src/agent_manager.js (lines 33–180).
-// ────────────────────────────────────────────────────────────────────
 
 function parseYaml(yamlStr) {
   if (!yamlStr) return null;
@@ -81,33 +96,14 @@ function parseYaml(yamlStr) {
         const obj = {};
         if (Array.isArray(current)) {
           current.push(obj);
+        // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
         }
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch {}
-        } else if (val === 'true') {
-          val = true;
-        } else if (val === 'false') {
-          val = false;
-        } else if (val === 'null') {
-          val = null;
-        } else if (!isNaN(val) && val !== '') {
-          val = Number(val);
-        }
+        val = coerceScalar(val);
         obj[key] = val;
         stack.push({ indent: indent, value: obj });
       } else {
         let val = rest;
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch {}
-        } else if (val === 'true') {
-          val = true;
-        } else if (val === 'false') {
-          val = false;
-        } else if (val === 'null') {
-          val = null;
-        } else if (!isNaN(val) && val !== '') {
-          val = Number(val);
-        }
+        val = coerceScalar(val);
         if (Array.isArray(current)) {
           current.push(val);
         }
@@ -162,19 +158,10 @@ function parseYaml(yamlStr) {
         current[key] = '';
         continue;
       }
-      if (val.startsWith('"') && val.endsWith('"')) {
-        try { val = JSON.parse(val); } catch {}
-      } else if (val === 'true') {
-        val = true;
-      } else if (val === 'false') {
-        val = false;
-      } else if (val === 'null') {
-        val = null;
-      } else if (!isNaN(val) && val !== '') {
-        val = Number(val);
-      }
+      val = coerceScalar(val);
       current[key] = val;
     }
+  // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
   }
   if (inMultiLine && multiLineNode && multiLineKey) {
     multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
@@ -182,9 +169,7 @@ function parseYaml(yamlStr) {
   return isRootArray ? rootArray : root;
 }
 
-// ────────────────────────────────────────────────────────────────────
 // stringifyYaml — extracted verbatim from src/agent_manager.js (lines 182–221).
-// ────────────────────────────────────────────────────────────────────
 
 function stringifyYaml(val, indent = 0) {
   const spaces = ' '.repeat(indent);

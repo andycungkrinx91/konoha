@@ -151,7 +151,7 @@ function deployAgentsToDir(agents, baseDir) {
         }
       }
     }
-  } catch (err) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   let deployed = 0;
   for (const agent of agents) {
@@ -165,7 +165,7 @@ function deployAgentsToDir(agents, baseDir) {
         fs.writeFileSync(agentPath, payload, 'utf8');
         deployed += 1;
       }
-    } catch (err) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return { deployed, dir: baseDir };
 }
@@ -211,7 +211,7 @@ function removeAntigravityAgents() {
       if (fs.existsSync(agentDir)) {
         try {
           fs.rmSync(agentDir, { recursive: true, force: true });
-        } catch {}
+        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
   }
@@ -225,7 +225,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
       let entries = [];
       try {
         entries = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       if (Array.isArray(entries)) {
         entries = entries.filter(e => {
           const id = e?.identifier?.id?.toLowerCase();
@@ -294,7 +294,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         if (modified) {
           fs.writeFileSync(obsoletePath, JSON.stringify(obsolete) + '\n');
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
     return { ok: true };
   } catch (err) {
@@ -313,7 +313,7 @@ function deployAntigravityRtkRule(silent = true) {
       timeout: 10000,
       stdio: silent ? 'ignore' : 'inherit'
     });
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const src = path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
   if (!fs.existsSync(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
@@ -332,19 +332,19 @@ function deployAntigravityRtkRule(silent = true) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(src, dest);
       deployed++;
-    } catch (e) {
+    } catch (_) {
       // ignore
     }
   }
 
   if (!silent && deployed > 0) {
-    console.log(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)`);
+    process.stderr.write(`  ✓ Deployed RTK rule to ${deployed} Antigravity location(s)\n`);
   }
 
   return { ok: deployed > 0, deployed };
 }
 
-function ensureAntigravityMcpSchemas(agents) {
+function ensureAntigravityMcpSchemas(_) {
   const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
   if (!fs.existsSync(schemaDir)) {
     fs.mkdirSync(schemaDir, { recursive: true });
@@ -438,7 +438,7 @@ function ensureAntigravityMcpSchemas(agents) {
           fs.writeFileSync(path.join(schemaDir, 'find_skills.json'), JSON.stringify(tool, null, 2) + '\n', 'utf8');
         }
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
@@ -475,6 +475,7 @@ function ensureRtkInstalled(silent = true) {
     const localBin = path.join(HOME, '.local', 'bin');
     process.env.PATH = [cargoBin, localBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
   };
+  addToPath();
 
   // 1. Preferred: cargo from the official repo
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
@@ -522,7 +523,7 @@ function ensureRtkInstalled(silent = true) {
         '-NoProfile', '-Command',
         `Invoke-WebRequest -Uri '${RTK_WIN_RELEASE_URL}' -OutFile '${zipPath}' -UseBasicParsing; Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force`
       ], { encoding: 'utf-8', timeout: 300000, stdio: 'ignore' });
-      try { fs.unlinkSync(zipPath); } catch (_) {}
+      try { fs.unlinkSync(zipPath); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       if (dl.status === 0) {
         addToPath();
         if (isRtkInstalled()) return { ok: true, reason: 'installed' };
@@ -553,7 +554,7 @@ function getAntigravityStatus() {
         mcpSemble = !!config.mcpServers.semble;
         mcpAislop = !!config.mcpServers.aislop;
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   let hooksExists = fs.existsSync(hooksPath);
@@ -562,7 +563,7 @@ function getAntigravityStatus() {
     try {
       const content = fs.readFileSync(hooksPath, 'utf8');
       hasHooks = content.includes('antigravity_subagent_hook.js') || content.includes('antigravity_tool_sanitize_hook.js');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   let agentsCount = 0;
@@ -574,14 +575,14 @@ function getAntigravityStatus() {
         const p = path.join(ANTIGRAVITY_AGENTS_GLOBAL, f);
         return fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, 'agent.json'));
       }).length;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   let schemasCount = 0;
   if (fs.existsSync(schemaDir)) {
     try {
       schemasCount = fs.readdirSync(schemaDir).filter(f => f.endsWith('.json')).length;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return {
@@ -689,7 +690,7 @@ function ensureAntigravityPermissions(silent = true) {
           try {
             fs.copyFileSync(sPath, sPath + '.corrupt-' + Date.now());
             console.warn(`⚠ ${sPath} was invalid JSON — backed up to ${sPath}.corrupt-*`);
-          } catch (_) {}
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           settings = {};
         }
       }
@@ -730,7 +731,7 @@ function ensureAntigravityPermissions(silent = true) {
         fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
         updatedCount++;
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Also ensure mcp_config.json files have autoApprove: ['*']
@@ -762,12 +763,12 @@ function ensureAntigravityPermissions(silent = true) {
             fs.writeFileSync(mPath, JSON.stringify(mConfig, null, 2) + '\n', 'utf8');
           }
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
   if (!silent && updatedCount > 0) {
-    console.log(`  ✓ Antigravity auto-approvals and permissions configured in ${updatedCount} settings file(s)`);
+    process.stderr.write(`  ✓ Antigravity auto-approvals and permissions configured in ${updatedCount} settings file(s)\n`);
   }
   return { ok: true, updatedCount };
 }

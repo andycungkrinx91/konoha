@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// DB isolation: keep test writes out of the production ~/.konoha/konoha.db
+require('./helpers/isolate_db');
+// Sannin keyword-routing reads agents.delegation_keywords — seed the defaults.
+require('./helpers/seed_agents');
+
 'use strict';
 
 const assert = require('assert');

@@ -6,9 +6,7 @@ const { MODEL_MAP, DEFAULT_MODEL_KEY } = require('../models');
 const { discoverSidecar } = require('../sidecar/discovery');
 const { makeH2JsonCall, makeConnectRpcCallOnPort } = require('../sidecar/rpc');
 
-// ─────────────────────────────────────────────
 // Debug & Diagnostics
-// ─────────────────────────────────────────────
 
 async function handleDebug(ctx, req, res) {
   const result = { sidecar: {}, interceptedAuth: {}, lm: {}, chatAPI: {} };

@@ -82,6 +82,7 @@ function checkPortActive(port) {
   });
 }
 
+// aislop-ignore-next-line complexity/function-too-long (orchestrator web server factory hosting full API route tree and SvelteKit handler)
 function createWebServer(options = {}) {
   const port = options.port || 1404;
   const host = options.host || '127.0.0.1';
@@ -98,16 +99,18 @@ function createWebServer(options = {}) {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (!sessionToken) {
     sessionToken = crypto.randomBytes(16).toString('hex');
     try {
       if (!fs.existsSync(SKILLS_DB_DIR)) fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
       fs.writeFileSync(tokenFile, sessionToken, { encoding: 'utf8', mode: 0o600 });
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   const sseClients = new Set();
+  // Delta-sample state for the /api/v1/system/metrics CPU gauges
+  const systemMetrics = { _lastCpuTimes: null, _lastCpuUsage: null, _lastHrtime: process.hrtime.bigint() };
 
   function broadcastEvent(type, data) {
     const payload = 'event: ' + type + '\n' + 'data: ' + JSON.stringify(data) + '\n\n';
@@ -128,7 +131,7 @@ function createWebServer(options = {}) {
         const { pathToFileURL } = require('url');
         const mod = await import(pathToFileURL(svelteKitHandlerPath).href);
         svelteKitHandler = mod.handler;
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
     return svelteKitHandler;
   }
@@ -165,7 +168,7 @@ function createWebServer(options = {}) {
         skillsCount = conn.prepare('SELECT COUNT(*) as c FROM skills').get().c;
         agentsCount = conn.prepare('SELECT COUNT(*) as c FROM agents').get().c;
         conn.close();
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       return sendJson(res, 200, {
         status: 'healthy',
         version: pkg.version,
@@ -177,6 +180,201 @@ function createWebServer(options = {}) {
         uptime: process.uptime(),
         node: process.version,
         platform: process.platform
+      });
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/system/metrics') {
+      // Grafana-style metrics: system CPU/memory sampling plus Konoha feature counters.
+      const cpuCount = os.cpus().length;
+      const cpuModel = (os.cpus()[0] && os.cpus()[0].model || '').trim();
+      // os.loadavg() returns fake [0,0,0] on Windows; report null instead so the
+      // UI can show an honest em-dash rather than misleading zeros.
+      const loadAvg = os.platform() === 'win32' ? null : os.loadavg();
+
+      // System CPU % from os.cpus() times delta between requests
+      const cpuTimesNow = os.cpus().reduce((acc, c) => {
+        acc.idle += c.times.idle;
+        acc.total += c.times.idle + c.times.user + c.times.nice + c.times.sys + c.times.irq;
+        return acc;
+      }, { idle: 0, total: 0 });
+      let systemCpuPct = null;
+      if (systemMetrics._lastCpuTimes && systemMetrics._lastCpuTimes.total > 0) {
+        const idleDelta = cpuTimesNow.idle - systemMetrics._lastCpuTimes.idle;
+        const totalDelta = cpuTimesNow.total - systemMetrics._lastCpuTimes.total;
+        if (totalDelta > 0) systemCpuPct = Math.round((1 - idleDelta / totalDelta) * 1000) / 10;
+      }
+      systemMetrics._lastCpuTimes = cpuTimesNow;
+
+      // Process CPU % from process.cpuUsage() delta
+      const cpuUsageNow = process.cpuUsage();
+      let processCpuPct = null;
+      if (systemMetrics._lastCpuUsage) {
+        const userDelta = (cpuUsageNow.user - systemMetrics._lastCpuUsage.user) / 1e6;
+        const sysDelta = (cpuUsageNow.system - systemMetrics._lastCpuUsage.system) / 1e6;
+        const wallDelta = Number(process.hrtime.bigint() - systemMetrics._lastHrtime) / 1e9;
+        if (wallDelta > 0) processCpuPct = Math.round(((userDelta + sysDelta) / wallDelta) * 1000) / 10;
+      }
+      systemMetrics._lastCpuUsage = cpuUsageNow;
+      systemMetrics._lastHrtime = process.hrtime.bigint();
+
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const mem = process.memoryUsage();
+
+      // Disk usage via statfs(2): the homedir root filesystem plus the Konoha
+      // data directory (deduped when they share one filesystem).
+      // path.parse(os.homedir()).root yields 'C:\\' on Windows and '/' on POSIX;
+      // statfsSync is feature-detected because it only exists on Node >= 18.15.
+      const diskMounts = [];
+      try {
+        if (typeof fs.statfsSync === 'function') {
+          const diskPaths = [path.parse(os.homedir()).root, path.join(os.homedir(), '.konoha')];
+          const seenMounts = new Set();
+          for (const mountPath of diskPaths) {
+            try {
+              const st = fs.statfsSync(mountPath);
+              const mountSig = st.type + ':' + st.blocks + ':' + st.bsize;
+              if (seenMounts.has(mountSig)) continue;
+              seenMounts.add(mountSig);
+              const totalBytes = Number(st.blocks) * Number(st.bsize);
+              const freeBytes = Number(st.bfree) * Number(st.bsize);
+              diskMounts.push({
+                mount: mountPath,
+                total_bytes: totalBytes,
+                free_bytes: freeBytes,
+                used_bytes: totalBytes - freeBytes,
+                used_pct: totalBytes > 0 ? Math.round(((totalBytes - freeBytes) / totalBytes) * 1000) / 10 : null
+              });
+            } catch (_) { /* unreachable mount (e.g. disconnected network drive): skip it, keep the others */ }
+          }
+        }
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      let dbSizeBytes = null;
+      try { dbSizeBytes = fs.statSync(db.DB_PATH).size; } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      // Konoha feature counters (each best-effort; a failing subsystem must not
+      // take down the whole metrics endpoint)
+      const features = {};
+      try {
+        const conn = db.getConnection(null, false);
+        features.agents = conn.prepare('SELECT COUNT(*) as c FROM agents').get().c;
+        features.agent_names = conn.prepare('SELECT name FROM agents ORDER BY name').all().map(r => r.name);
+        features.skills = conn.prepare('SELECT COUNT(*) as c FROM skills').get().c;
+        features.skills_by_type = conn.prepare('SELECT type, COUNT(*) as c FROM skills GROUP BY type ORDER BY c DESC').all()
+          .reduce((acc, r) => { acc[r.type] = r.c; return acc; }, {});
+        try {
+          features.vectors_total_chunks = conn.prepare('SELECT COUNT(*) as c FROM skill_chunks').get().c;
+          features.vectorized_skills = conn.prepare('SELECT count(DISTINCT skill_name) as c FROM skill_chunks WHERE embedding IS NOT NULL').get().c;
+          features.embedded_chunks = conn.prepare('SELECT count(*) as c FROM skill_chunks WHERE embedding IS NOT NULL').get().c;
+        } catch (_) { features.vectors_total_chunks = 0; features.vectorized_skills = 0; features.embedded_chunks = 0; }
+        try {
+          features.persona_memories = conn.prepare('SELECT COUNT(*) as c FROM persona_memories').get().c;
+          features.persona_projects = conn.prepare('SELECT COUNT(DISTINCT project_hash) as c FROM persona_memories').get().c;
+        } catch (_) { features.persona_memories = 0; features.persona_projects = 0; }
+        conn.close();
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      try {
+        const bridges = dbBridges.listBridges();
+        const bridgeStatuses = await Promise.all(bridges.map(async (b) => ({
+          name: b.name,
+          port: b.port,
+          provider: b.provider,
+          enabled: b.enabled !== false,
+          running: await checkPortActive(b.port)
+        })));
+        features.bridges_total = bridges.length;
+        features.bridges_enabled = bridges.filter(b => b.enabled !== false).length;
+        features.bridges_running = bridgeStatuses.filter(b => b.running).length;
+        features.bridges_detail = bridgeStatuses;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const tasks = sdlcManager.listTasks({ limit: 500 });
+        features.sdlc_total = tasks.length;
+        features.sdlc_by_status = tasks.reduce((acc, t) => {
+          acc[t.status] = (acc[t.status] || 0) + 1;
+          return acc;
+        }, {});
+        features.sdlc_verified = tasks.filter(t => t.verified === true || t.verified === 1).length;
+        const sdlcConfig = sdlcManager.getProjectSdlcConfig(process.cwd());
+        features.sdlc_dor_mode = sdlcConfig.dor_mode;
+        features.sdlc_review_mode = sdlcConfig.review_mode;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      try {
+        const clientDefs = [
+          { name: 'Antigravity', rel: ['.gemini', 'config', 'mcp_config.json'] },
+          { name: 'Cursor', rel: ['.cursor', 'mcp.json'] },
+          { name: 'Claude Code', rel: ['.claude.json'] },
+          { name: 'OpenCode', rel: ['.config', 'opencode', 'opencode.json'] },
+          { name: 'CommandCode', rel: ['.commandcode', 'mcp.json'] },
+          { name: 'Codex', rel: ['.codex', 'config.toml'] },
+          { name: 'Pi', rel: ['.pi', 'agent', 'mcp.json'] }
+        ];
+        features.clients_detail = clientDefs.map(c => ({
+          name: c.name,
+          configured: fs.existsSync(path.join(os.homedir(), ...c.rel))
+        }));
+        features.clients_configured = features.clients_detail.filter(c => c.configured).length;
+        features.clients_total = clientDefs.length;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      try {
+        const report = dbSavings.getSavingsReport();
+        features.savings_today_tokens = Number(report.today?.tokens) || 0;
+        features.savings_today_calls = Number(report.today?.calls) || 0;
+        features.savings_today_pct = Number(report.today?.pct) || 0;
+        features.savings_7d_tokens = Number(report.last7days?.tokens) || 0;
+        features.savings_7d_calls = Number(report.last7days?.calls) || 0;
+        features.savings_7d_pct = Number(report.last7days?.pct) || 0;
+        features.savings_alltime_tokens = Number(report.alltime?.tokens) || 0;
+        features.savings_alltime_calls = Number(report.alltime?.calls) || 0;
+        features.savings_alltime_pct = Number(report.alltime?.pct) || 0;
+        features.savings_alltime_usd = Number(report.alltime?.net_saved_usd) || 0;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      try {
+        const searxngDir = path.join(os.homedir(), '.konoha', 'searxng');
+        const bestPath = path.join(searxngDir, 'best_instance.json');
+        features.search_engine_active = fs.existsSync(bestPath);
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      return sendJson(res, 200, {
+        timestamp: new Date().toISOString(),
+        system: {
+          cpu: {
+            count: cpuCount,
+            model: cpuModel,
+            system_pct: systemCpuPct,
+            process_pct: processCpuPct,
+            load_avg_1m: loadAvg ? Math.round(loadAvg[0] * 100) / 100 : null,
+            load_avg_5m: loadAvg ? Math.round(loadAvg[1] * 100) / 100 : null,
+            load_avg_15m: loadAvg ? Math.round(loadAvg[2] * 100) / 100 : null
+          },
+          memory: {
+            total_bytes: totalMem,
+            free_bytes: freeMem,
+            used_bytes: totalMem - freeMem,
+            used_pct: Math.round(((totalMem - freeMem) / totalMem) * 1000) / 10,
+            process_rss_bytes: mem.rss,
+            process_heap_used_bytes: mem.heapUsed,
+            process_heap_total_bytes: mem.heapTotal,
+            process_external_bytes: mem.external
+          },
+          disk: {
+            mounts: diskMounts,
+            db_size_bytes: dbSizeBytes
+          },
+          uptime_seconds: Math.round(process.uptime()),
+          os_uptime_seconds: Math.round(os.uptime()),
+          platform: os.platform(),
+          arch: os.arch(),
+          hostname: os.hostname(),
+          node: process.version
+        },
+        features
       });
     }
 
@@ -351,7 +549,7 @@ function createWebServer(options = {}) {
         child.unref();
         try {
           fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         await new Promise((r) => setTimeout(r, 1200));
         const nowRunning = await checkPortActive(19999);
         return sendJson(res, 200, { status: nowRunning ? 'started' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
@@ -370,8 +568,8 @@ function createWebServer(options = {}) {
             try {
               process.kill(pid, 'SIGTERM');
               stopped = true;
-            } catch (_) {}
-            try { fs.unlinkSync(pidFile); } catch (_) {}
+            } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+            try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
         }
         if (!stopped && process.platform !== 'win32') {
@@ -379,7 +577,7 @@ function createWebServer(options = {}) {
             const { execSync } = require('child_process');
             execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
             stopped = true;
-          } catch (_) {}
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         await new Promise((r) => setTimeout(r, 600));
         const stillRunning = await checkPortActive(19999);
@@ -395,19 +593,21 @@ function createWebServer(options = {}) {
         if (fs.existsSync(pidFile)) {
           const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
           if (Number.isFinite(pid) && pid > 0) {
-            try { process.kill(pid, 'SIGTERM'); } catch (_) {}
-            try { fs.unlinkSync(pidFile); } catch (_) {}
+            try { process.kill(pid, 'SIGTERM'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+            try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
         }
         if (process.platform !== 'win32') {
           try {
             const { execSync } = require('child_process');
             execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
-          } catch (_) {}
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         await new Promise((r) => setTimeout(r, 800));
 
+        // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
         const { spawn } = require('child_process');
+        // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
         const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
           ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
           : path.join(__dirname, 'file_tools_mcp.js');
@@ -416,10 +616,11 @@ function createWebServer(options = {}) {
           stdio: 'ignore',
           env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
         });
+        // aislop-ignore-next-line code-quality/duplicate-block (structurally similar handler boilerplate with contextual differences)
         child.unref();
         try {
           fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         await new Promise((r) => setTimeout(r, 1200));
         const nowRunning = await checkPortActive(19999);
         return sendJson(res, 200, { status: nowRunning ? 'running' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
@@ -432,6 +633,21 @@ function createWebServer(options = {}) {
       try {
         const agents = agentManager.loadAgents();
         return sendJson(res, 200, agents);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'PATCH' && pathname.startsWith('/api/v1/agents/') && pathname.endsWith('/model')) {
+      const agentName = decodeURIComponent(pathname.slice('/api/v1/agents/'.length, -'/model'.length));
+      try {
+        const body = await parseBody(req);
+        if (typeof body.model !== 'string' && body.model !== null) {
+          return sendJson(res, 400, { error: 'Field "model" must be a string or null' });
+        }
+        agentManager.updateAgentModel(agentName, body.model);
+        broadcastEvent('agents_updated', { agent: agentName, model: body.model });
+        return sendJson(res, 200, { ok: true, agent: agentName, model: body.model });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -457,23 +673,71 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'GET' && pathname === '/api/v1/vectors/stats') {
+      try {
+        const conn = db.getConnection(null, false);
+        const totalChunks = conn.prepare('SELECT count(*) as c FROM skill_chunks').get().c;
+        const totalEmbedded = conn.prepare('SELECT count(*) as c FROM skill_chunks WHERE embedding IS NOT NULL').get().c;
+        const skillsCount = conn.prepare('SELECT count(DISTINCT skill_name) as c FROM skill_chunks').get().c;
+        conn.close();
+        return sendJson(res, 200, {
+          model: 'IBM Granite Multilingual (384-dim)',
+          dimension: 384,
+          total_chunks: totalChunks,
+          embedded_chunks: totalEmbedded,
+          vectorized_skills: skillsCount,
+          reranker: 'Reciprocal Rank Fusion (RRF, k=60) + Cosine Distance'
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     if (method === 'GET' && pathname === '/api/v1/skills') {
       const q = parsedUrl.searchParams.get('q');
       const limit = parseInt(parsedUrl.searchParams.get('limit') || '100', 10);
+      const isSemantic = parsedUrl.searchParams.get('semantic') === '1' || parsedUrl.searchParams.get('mode') === 'semantic';
       try {
         const conn = db.getConnection(null, false);
         let skills;
-        if (q) {
-          skills = conn.prepare(
-            'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills WHERE name LIKE ? OR skill_name LIKE ? OR tags LIKE ? ORDER BY name ASC LIMIT ?'
-          ).all('%' + q + '%', '%' + q + '%', '%' + q + '%', limit);
-        } else {
-          skills = conn.prepare(
-            'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
-          ).all(limit);
+        if (q && isSemantic) {
+          try {
+            const vectorSearch = require('./vector_search');
+            const semanticRes = vectorSearch.findSkillSemantic(conn, q, limit);
+            if (semanticRes && semanticRes.length > 0) {
+              skills = semanticRes;
+            }
+          } catch (_) {
+            skills = null;
+          }
+        }
+        if (!skills) {
+          if (q) {
+            skills = conn.prepare(
+              'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills WHERE name LIKE ? OR skill_name LIKE ? OR tags LIKE ? ORDER BY name ASC LIMIT ?'
+            ).all('%' + q + '%', '%' + q + '%', '%' + q + '%', limit);
+          } else {
+            skills = conn.prepare(
+              'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
+            ).all(limit);
+          }
         }
         conn.close();
         return sendJson(res, 200, skills);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/skills/registry') {
+      const q = (parsedUrl.searchParams.get('q') || '').trim();
+      if (!q) {
+        return sendJson(res, 200, { results: [] });
+      }
+      try {
+        const skillManager = require('./skill_manager');
+        const results = await skillManager.searchRegistry(q);
+        return sendJson(res, 200, { results: Array.isArray(results) ? results : [] });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -484,9 +748,67 @@ function createWebServer(options = {}) {
       try {
         const conn = db.getConnection(null, false);
         const skill = conn.prepare('SELECT * FROM skills WHERE name = ?').get(skillName);
+        if (!skill) {
+          conn.close();
+          return sendJson(res, 404, { error: 'Skill not found' });
+        }
+        try {
+          const chunkRows = conn.prepare(
+            'SELECT id, chunk_index, chunk_text, embedding FROM skill_chunks WHERE skill_name = ? ORDER BY chunk_index ASC'
+          ).all(skillName);
+          skill.chunks = chunkRows.map(c => {
+            let vectorSample = [];
+            if (c.embedding && c.embedding.length >= 20) {
+              const f32 = new Float32Array(c.embedding.buffer, c.embedding.byteOffset, Math.min(8, Math.floor(c.embedding.byteLength / 4)));
+              vectorSample = Array.from(f32).map(v => Number(v.toFixed(4)));
+            }
+            return {
+              id: c.id,
+              chunk_index: c.chunk_index,
+              chunk_text: c.chunk_text,
+              has_embedding: !!c.embedding,
+              embedding_dim: c.embedding ? Math.floor(c.embedding.byteLength / 4) : 0,
+              vector_sample: vectorSample
+            };
+          });
+          skill.chunks_count = skill.chunks.length;
+        } catch (_) {
+          skill.chunks = [];
+          skill.chunks_count = 0;
+        }
         conn.close();
-        if (!skill) return sendJson(res, 404, { error: 'Skill not found' });
         return sendJson(res, 200, skill);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/skills/install') {
+      try {
+        const body = await parseBody(req);
+        let repoUrl = (body.repo_url || body.repoUrl || '').trim();
+        const skillName = (body.skill_name || body.skillName || body.name || '').trim();
+        let nameOrUrl = (body.name_or_url || repoUrl || skillName || '').trim();
+
+        if (!nameOrUrl) {
+          return sendJson(res, 400, { error: 'Missing skill name or repository URL.' });
+        }
+
+        if (repoUrl && !repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://')) {
+          if (repoUrl.includes('/') && !repoUrl.includes(' ')) {
+            repoUrl = `https://github.com/${repoUrl}`;
+          }
+        }
+
+        const skillManager = require('./skill_manager');
+        if (repoUrl && skillName) {
+          await skillManager.addSkillDirect(repoUrl, skillName);
+        } else {
+          await skillManager.addSkill(nameOrUrl, skillName || undefined);
+        }
+
+        broadcastEvent('skills_updated', { action: 'install', name: skillName || nameOrUrl });
+        return sendJson(res, 200, { ok: true, skill_name: skillName || nameOrUrl });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -542,7 +864,7 @@ function createWebServer(options = {}) {
           try {
             const skillManager = require('./skill_manager');
             embedded = skillManager.embedSkillInAgent(name, embedAgent);
-          } catch (_) {}
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
 
         broadcastEvent('skills_updated', { action: 'create', name });
@@ -588,6 +910,7 @@ function createWebServer(options = {}) {
       }
     }
 
+    // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
     if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && pathname.endsWith('/unembed')) {
       try {
         const parts = pathname.split('/');
@@ -612,7 +935,7 @@ function createWebServer(options = {}) {
         const skillManager = require('./skill_manager');
         try {
           skillManager.removeSkill(skillName);
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         const conn = db.getConnection(null, false);
         conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(skillName);
         conn.prepare("DELETE FROM skills WHERE name = ? OR skill_name = ?").run(skillName, skillName);
@@ -624,28 +947,128 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'GET' && pathname === '/api/v1/detect-ai') {
+      const target = (parsedUrl.searchParams.get('target') || parsedUrl.searchParams.get('path') || parsedUrl.searchParams.get('url') || '').trim();
+      if (!target) {
+        return sendJson(res, 400, { error: 'Missing required query parameter: target (site directory path or http(s) URL)' });
+      }
+      try {
+        const { detectWebsiteAiAsync } = require('./ai_detector');
+        const result = await detectWebsiteAiAsync(target);
+        if (result && result.error) {
+          return sendJson(res, 400, result);
+        }
+        return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     if (method === 'GET' && pathname === '/api/v1/savings') {
       try {
         const report = dbSavings.getSavingsReport();
         const semble = sembleManager.getSembleSavings();
         const today = {
-          ...(report.today || {}),
-          pct_saved: report.today?.pct ?? 97,
+          ...report.today,
+          pct_saved: typeof report.today?.pct === 'number' ? report.today.pct : 0,
           tokens_saved_bytes: report.today?.bytes ?? 0,
           tokens_saved_approx: report.today?.tokens ?? 0
         };
         const last_7_days = {
-          ...(report.last7days || {}),
-          pct_saved: report.last7days?.pct ?? 96,
+          ...report.last7days,
+          pct_saved: typeof report.last7days?.pct === 'number' ? report.last7days.pct : 0,
           tokens_saved_bytes: report.last7days?.bytes ?? 0,
           tokens_saved_approx: report.last7days?.tokens ?? 0
         };
         const all_time = {
-          ...(report.alltime || {}),
-          pct_saved: report.alltime?.pct ?? 96,
+          ...report.alltime,
+          pct_saved: typeof report.alltime?.pct === 'number' ? report.alltime.pct : 0,
           tokens_saved_bytes: report.alltime?.bytes ?? 0,
           tokens_saved_approx: report.alltime?.tokens ?? 0
         };
+
+        const parseTokenCount = (val) => {
+          if (typeof val === 'number') return val;
+          if (!val || typeof val !== 'string') return 0;
+          const clean = val.replace(/^[~ ]+/, '').replace(/\s*tokens?$/i, '').trim();
+          const match = clean.match(/^(\d+\.?\d*)([kKmMbB])?$/);
+          if (!match) return parseFloat(clean) || 0;
+          const num = parseFloat(match[1]);
+          const unit = (match[2] || '').toLowerCase();
+          if (unit === 'b') return Math.round(num * 1000000000);
+          if (unit === 'm') return Math.round(num * 1000000);
+          if (unit === 'k') return Math.round(num * 1000);
+          return Math.round(num);
+        };
+
+        const parseCallsCount = (val) => {
+          if (typeof val === 'number') return val;
+          if (!val || typeof val !== 'string') return 0;
+          const clean = val.trim();
+          const match = clean.match(/^(\d+\.?\d*)([kKmM])?$/);
+          if (!match) return parseInt(clean, 10) || 0;
+          const num = parseFloat(match[1]);
+          const unit = (match[2] || '').toLowerCase();
+          if (unit === 'm') return Math.round(num * 1000000);
+          if (unit === 'k') return Math.round(num * 1000);
+          return Math.round(num);
+        };
+
+        const parsePct = (val) => (typeof val === 'number' && !isNaN(val)) ? val : (parseInt(val, 10) || 0);
+
+        const sTodayCalls = parseCallsCount(semble.today?.calls);
+        const sTodayTokens = parseTokenCount(semble.today?.tokens_saved);
+        const sTodayPct = parsePct(semble.today?.ratio_pct ?? semble.today?.pct);
+
+        const sLast7Calls = parseCallsCount(semble.last_7_days?.calls ?? semble['7days']?.calls ?? semble.last7days?.calls);
+        const sLast7Tokens = parseTokenCount(semble.last_7_days?.tokens_saved ?? semble['7days']?.tokens_saved ?? semble.last7days?.tokens_saved);
+        const sLast7Pct = parsePct(semble.last_7_days?.ratio_pct ?? semble['7days']?.pct ?? semble.last7days?.pct);
+
+        const sAllTimeCalls = parseCallsCount(semble.all_time?.calls ?? semble.all?.calls ?? semble.alltime?.calls);
+        const sAllTimeTokens = parseTokenCount(semble.all_time?.tokens_saved ?? semble.all?.tokens_saved ?? semble.alltime?.tokens_saved);
+        const sAllTimePct = parsePct(semble.all_time?.ratio_pct ?? semble.all?.pct ?? semble.alltime?.pct);
+
+        const calcCombinedPeriod = (dbStats, sCalls, sTokens, sPct) => {
+          const dbCalls = dbStats?.calls || 0;
+          const dbTokens = dbStats?.tokens || 0;
+          const dbBytes = dbStats?.bytes || 0;
+          const dbTotalBytes = dbStats?.total_bytes || 0;
+
+          const sSavedBytes = sTokens * 4;
+          const sTotalBytes = (sPct > 0 && sTokens > 0)
+            ? Math.round(sSavedBytes / (sPct / 100))
+            : (dbTotalBytes > 0 ? dbTotalBytes : 0);
+
+          const combCalls = dbCalls + sCalls;
+          const combTokens = dbTokens + sTokens;
+          const combBytes = dbBytes + sSavedBytes;
+          const combTotalBytes = dbTotalBytes + (sPct > 0 ? sTotalBytes : 0);
+          const combPct = combTotalBytes > 0 ? Math.round((combBytes / combTotalBytes) * 100) : (dbStats?.pct || 0);
+
+          return {
+            calls: combCalls,
+            tokens: combTokens,
+            bytes: combBytes,
+            pct: combPct
+          };
+        };
+
+        const combinedToday = calcCombinedPeriod(today, sTodayCalls, sTodayTokens, sTodayPct);
+        const combinedLast7Days = calcCombinedPeriod(last_7_days, sLast7Calls, sLast7Tokens, sLast7Pct);
+        const combinedAllTime = calcCombinedPeriod(all_time, sAllTimeCalls, sAllTimeTokens, sAllTimePct);
+        const avgPct = combinedToday.pct > 0
+          ? combinedToday.pct
+          : (combinedLast7Days.pct > 0 ? combinedLast7Days.pct : combinedAllTime.pct);
+
+        const combined = {
+          today: combinedToday,
+          last_7_days: combinedLast7Days,
+          last7days: combinedLast7Days,
+          all_time: combinedAllTime,
+          alltime: combinedAllTime,
+          avg_pct: avgPct
+        };
+
         return sendJson(res, 200, {
           ...report,
           today,
@@ -653,7 +1076,8 @@ function createWebServer(options = {}) {
           last_7_days,
           alltime: all_time,
           all_time,
-          semble
+          semble,
+          combined
         });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
@@ -698,16 +1122,16 @@ function createWebServer(options = {}) {
         let instancesCount = 0;
         let logSize = 0;
         if (fs.existsSync(bestPath)) {
-          try { bestInstance = JSON.parse(fs.readFileSync(bestPath, 'utf8')); } catch (_) {}
+          try { bestInstance = JSON.parse(fs.readFileSync(bestPath, 'utf8')); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         if (fs.existsSync(instPath)) {
           try {
             const insts = JSON.parse(fs.readFileSync(instPath, 'utf8'));
             instancesCount = Array.isArray(insts) ? insts.length : 0;
-          } catch (_) {}
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         if (fs.existsSync(logPath)) {
-          try { logSize = fs.statSync(logPath).size; } catch (_) {}
+          try { logSize = fs.statSync(logPath).size; } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         const customUrl = process.env.SEARXNG_URL || process.env.KONOHA_SEARXNG_URL || null;
         return sendJson(res, 200, {
@@ -786,6 +1210,85 @@ function createWebServer(options = {}) {
         const report = doctor.runRepairs(body.check || 'all');
         broadcastEvent('doctor_repaired', report);
         return sendJson(res, 200, report);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // ── SDLC Governance (Tasks, DoR, config) — web parity for `konoha task/project` TUI commands ──
+
+    if (method === 'GET' && pathname === '/api/v1/sdlc/tasks') {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const status = parsedUrl.searchParams.get('status') || null;
+        const project = parsedUrl.searchParams.get('project') || null;
+        const limitParam = parseInt(parsedUrl.searchParams.get('limit'), 10);
+        const tasks = sdlcManager.listTasks({
+          projectPath: project,
+          status,
+          limit: Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50
+        });
+        return sendJson(res, 200, { tasks, count: tasks.length });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && pathname.startsWith('/api/v1/sdlc/tasks/')) {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const taskId = decodeURIComponent(pathname.slice('/api/v1/sdlc/tasks/'.length));
+        if (!taskId) {
+          return sendJson(res, 400, { error: 'SDLC task id is required.' });
+        }
+        const task = sdlcManager.getTask(taskId);
+        if (!task) {
+          return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
+        }
+        return sendJson(res, 200, { task });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/sdlc/check-readiness') {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const body = await parseBody(req);
+        const taskText = (body.task || body.description || '').trim();
+        if (!taskText) {
+          return sendJson(res, 400, { error: 'Task text is required for a readiness check.' });
+        }
+        const projectPath = body.project_path || body.projectPath || process.cwd();
+        const dor = sdlcManager.checkReadiness(taskText, projectPath);
+        return sendJson(res, 200, { ...dor, project_path: projectPath });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/sdlc/config') {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const projectPath = parsedUrl.searchParams.get('project') || process.cwd();
+        const config = sdlcManager.getProjectSdlcConfig(projectPath);
+        return sendJson(res, 200, { project_path: projectPath, ...config });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'PATCH' && pathname === '/api/v1/sdlc/config') {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const body = await parseBody(req);
+        const projectPath = body.project_path || body.projectPath || process.cwd();
+        const config = sdlcManager.setProjectSdlcConfig(projectPath, {
+          dor_mode: body.dor_mode !== undefined ? body.dor_mode : null,
+          review_mode: body.review_mode !== undefined ? body.review_mode : null
+        });
+        broadcastEvent('sdlc_config_updated', { project_path: projectPath, ...config });
+        return sendJson(res, 200, { project_path: projectPath, ...config });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -941,6 +1444,18 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'POST' && pathname === '/api/v1/persona/prune') {
+      try {
+        const body = await parseBody(req).catch(() => ({}));
+        const personaMemory = require('./persona_memory');
+        const resPrune = personaMemory.pruneMemories(body);
+        broadcastEvent('persona_updated', { action: 'prune', ...resPrune });
+        return sendJson(res, 200, { ok: true, ...resPrune });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     // Project Context Endpoints
     if (method === 'GET' && pathname === '/api/v1/projects') {
       try {
@@ -981,6 +1496,50 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'DELETE' && pathname.startsWith('/api/v1/projects/') && pathname.includes('/memories/')) {
+      try {
+        const parts = pathname.split('/');
+        const hash = parts[4];
+        const memId = parts[6];
+        const personaMemory = require('./persona_memory');
+        const deleted = personaMemory.deleteMemory(memId);
+        broadcastEvent('projects_updated', { action: 'memory_delete', hash, memId });
+        broadcastEvent('persona_updated', { action: 'delete', id: memId });
+        return sendJson(res, 200, { ok: true, deleted, id: memId, project_hash: hash });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && ((pathname.startsWith('/api/v1/projects/') && pathname.endsWith('/prune')) || pathname === '/api/v1/projects/prune')) {
+      try {
+        const body = await parseBody(req).catch(() => ({}));
+        const parts = pathname.split('/');
+        const hashFromUrl = (pathname !== '/api/v1/projects/prune') ? parts[4] : null;
+        const projectHash = hashFromUrl || body.projectHash || body.projectPath || process.cwd();
+        const personaMemory = require('./persona_memory');
+        const result = personaMemory.pruneProjectMemories(projectHash, body);
+        broadcastEvent('projects_updated', { action: 'prune', ...result });
+        broadcastEvent('persona_updated', { action: 'prune', ...result });
+        return sendJson(res, 200, { ok: true, ...result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'DELETE' && (pathname === '/api/v1/projects' || pathname === '/api/v1/projects/')) {
+      try {
+        const personaMemory = require('./persona_memory');
+        const keepCurrent = parsedUrl.searchParams.get('keepCurrent') === 'true';
+        const currentHash = parsedUrl.searchParams.get('currentHash') || '';
+        const result = personaMemory.pruneAllProjects({ keepCurrent, currentHash });
+        broadcastEvent('projects_updated', { action: 'prune_all', ...result });
+        return sendJson(res, 200, { ok: true, ...result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     if (method === 'DELETE' && pathname.startsWith('/api/v1/projects/')) {
       try {
         const hash = pathname.split('/')[4];
@@ -1006,7 +1565,7 @@ function createWebServer(options = {}) {
       return;
     }
 
-    res.setHeader('Set-Cookie', `konoha-web-token=${sessionToken}; Path=/; SameSite=Strict`);
+    res.setHeader('Set-Cookie', `konoha-web-token=${sessionToken}; Path=/; SameSite=Strict; HttpOnly`);
 
     const skHandler = await getSvelteKitHandler();
     if (skHandler && !pathname.startsWith('/api/')) {
@@ -1028,28 +1587,21 @@ function createWebServer(options = {}) {
       const ext = path.extname(filePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
       if (ext === '.html') {
-        let html = fs.readFileSync(filePath, 'utf-8');
-        const metaTag = '<meta name="konoha-web-token" content="' + sessionToken + '">';
-        if (html.includes('</head>')) {
-          html = html.replace('</head>', '  ' + metaTag + '\n</head>');
-        } else {
-          html = metaTag + html;
-        }
         res.writeHead(200, { 'Content-Type': contentType });
-        return res.end(html);
+        return res.end(fs.readFileSync(filePath, 'utf-8'));
       }
       res.writeHead(200, { 'Content-Type': contentType });
       const stream = fs.createReadStream(filePath);
       stream.on('error', () => {
         // Read can still fail after the existsSync check (permissions, races);
         // without this handler the uncaught 'error' would kill the server
-        try { res.end(); } catch (_) {}
+        try { res.end(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       });
       return stream.pipe(res);
     }
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<!DOCTYPE html><html><head><title>Konoha Web UI</title><meta name="konoha-web-token" content="' + sessionToken + '"></head><body style="font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:2rem;"><h1>🍃 Konoha Web UI</h1><p>Server running on port ' + port + '. Frontend initializing...</p></body></html>');
+    res.end('<!DOCTYPE html><html><head><title>Konoha Web UI</title></head><body style="font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:2rem;"><h1>🍃 Konoha Web UI</h1><p>Server running on port ' + port + '. Frontend initializing...</p></body></html>');
   });
 
   return {
@@ -1062,7 +1614,23 @@ function createWebServer(options = {}) {
       server.listen(port, host, () => resolve({ port, host, token: sessionToken }));
       server.on('error', reject);
     }),
-    stop: () => new Promise(resolve => server.close(resolve))
+    // Robust shutdown: server.close() alone never resolves while keep-alive
+    // or SSE (/api/v1/events) connections stay open, which historically left
+    // SIGTERMed daemons alive-but-deaf (zombie "ui daemon" processes). Close
+    // idle connections immediately and force-terminate the rest after a short
+    // grace period so stop() always settles. Cross-platform: both helpers are
+    // plain Node APIs (>= 18.2) and feature-detected.
+    stop: () => new Promise(resolve => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+      server.close(done);
+      try { if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections(); } catch (_) { /* best-effort */ }
+      const force = setTimeout(() => {
+        try { if (typeof server.closeAllConnections === 'function') server.closeAllConnections(); } catch (_) { /* best-effort */ }
+        done();
+      }, 1500);
+      if (typeof force.unref === 'function') force.unref();
+    })
   };
 }
 

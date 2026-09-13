@@ -232,8 +232,8 @@
 
   onMount(loadData);
 
-  useScrollLock(showCreateModal);
-  useScrollLock(showModelsModal);
+  useScrollLock(() => showCreateModal);
+  useScrollLock(() => showModelsModal);
 
   function handleModalKeydown(e) {
     if (e.key === 'Escape') {
@@ -485,7 +485,12 @@
 
   <!-- Create Bridge 3D Glass Modal -->
   {#if showCreateModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}>
+    <div
+      role="presentation"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+      onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}
+      onkeydown={(e) => { if (e.key === 'Escape') showCreateModal = false; }}
+    >
       <div
         class="glass-frost-strong relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
         style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
@@ -591,7 +596,12 @@
 
   <!-- Served Models Modal with 3D Glass & Search -->
   {#if showModelsModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm" onclick={(e) => { if (e.target === e.currentTarget) showModelsModal = false; }}>
+    <div
+      role="presentation"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
+      onclick={(e) => { if (e.target === e.currentTarget) showModelsModal = false; }}
+      onkeydown={(e) => { if (e.key === 'Escape') showModelsModal = false; }}
+    >
       <div
         class="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-3xl p-6 border bg-white shadow-2xl overflow-hidden"
         style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"

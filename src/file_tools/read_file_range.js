@@ -37,10 +37,12 @@ function readFileRange(args = {}) {
   const content = fs.readFileSync(filePath, 'utf8');
   const allLines = content.split(/\r?\n/);
 
+  const MAX_LINE_CHARS = 4000;
   const linesOut = [];
   for (let lineNo = startLine; lineNo <= endLine && lineNo <= allLines.length; lineNo++) {
     const line = allLines[lineNo - 1];
-    linesOut.push(`${String(lineNo).padStart(6, ' ')}|${line}`);
+    const safeLine = line.length > MAX_LINE_CHARS ? line.substring(0, MAX_LINE_CHARS) + `... [line truncated from ${line.length} chars]` : line;
+    linesOut.push(`${String(lineNo).padStart(6, ' ')}|${safeLine}`);
   }
 
   return {

@@ -81,3 +81,4 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | Laravel backend, API development, architecture, testing | `anbu-skill/laravel-specialist` |
 | WordPress backend, CMS development, custom themes/plugins | `anbu-skill/wordpress-pro` |
 | Magento module development, backend architecture, e-commerce API | `anbu-skill/magento-module-developer` |
+| Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |

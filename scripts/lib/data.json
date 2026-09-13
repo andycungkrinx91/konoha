@@ -1,0 +1,1993 @@
+{
+ "command_screenshots": {
+  "WIDTH": 860,
+  "HEIGHT": 520,
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "BG_COLOR": [
+   15,
+   23,
+   42
+  ],
+  "HEADER_BG": [
+   30,
+   41,
+   59
+  ],
+  "BORDER_COLOR": [
+   51,
+   65,
+   85
+  ],
+  "TEXT_COLOR": [
+   248,
+   250,
+   252
+  ],
+  "MUTED_COLOR": [
+   148,
+   163,
+   184
+  ],
+  "GREEN": [
+   34,
+   197,
+   94
+  ],
+  "CYAN": [
+   56,
+   189,
+   248
+  ],
+  "AMBER": [
+   251,
+   191,
+   36
+  ],
+  "PURPLE": [
+   192,
+   132,
+   252
+  ],
+  "RED": [
+   239,
+   68,
+   68
+  ],
+  "DOT_RED": [
+   239,
+   68,
+   68
+  ],
+  "DOT_YELLOW": [
+   245,
+   158,
+   11
+  ],
+  "DOT_GREEN": [
+   34,
+   197,
+   94
+  ],
+  "commands_data": {
+   "assets/konoha-init.png": {
+    "title": "konoha init — setup mcp server & clients",
+    "cmd": "konoha init --yes",
+    "badge": "6-CLIENT INITIALIZATION",
+    "lines": [
+     "[green]🚀 Konoha Installer — MCP Tools Orchestrator[/green]",
+     "[muted]========================================================================[/muted]",
+     "  › Checking Python 3 environment... [green]✓ Found python3[/green]",
+     "  › Installing MCP Server files to [cyan]~/.konoha/[/cyan]... [green]✓ OK[/green]",
+     "  › Seeding skills to SQLite FTS5 database... [green]✓ OK (48 records)[/green]",
+     "",
+     "[bold]Configuring 6 Supported AI Coding Clients:[/bold]",
+     "  [green]✓ Antigravity IDE/CLI[/green] : ~/.gemini/config/mcp_config.json + prompt hook",
+     "  [green]✓ Cursor IDE / CLI [/green] : ~/.cursor/mcp.json + subagents + RTK rules",
+     "  [green]✓ Claude Code      [/green] : ~/.claude.json + double-underscore MCP tools",
+     "  [green]✓ OpenCode IDE     [/green] : ~/.config/opencode/opencode.json + RTK rules",
+     "  [green]✓ Command Code     [/green] : ~/.commandcode/mcp.json + permissions",
+     "  [green]✓ Codex IDE / CLI  [/green] : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK rules",
+     "",
+     "  › Checking RTK (Rust Token Killer)... [green]✓ Rules deployed to 4 locations[/green]",
+     "[green]✅ Installation Complete! All 6 clients successfully configured.[/green]"
+    ]
+   },
+   "assets/konoha-migrate.png": {
+    "title": "konoha migrate — re-index skills database",
+    "cmd": "konoha migrate",
+    "badge": "SQLITE FTS5 RE-INDEXER",
+    "lines": [
+     "[green]🔄 Konoha Skills Database Migration[/green]",
+     "[muted]========================================================================[/muted]",
+     "  › Scanning directories for skill folders (SKILL.md, references/)...",
+     "    ⚡ Found: /home/user/.agents/skills (8 skills)",
+     "    ⚡ Found: ./data/konoha/.agents/skills (8 skills)",
+     "",
+     "  › Parsing markdown metadata & extracting reference chunks...",
+     "    [cyan]• sannin-skill[/cyan]          (1 skill, 2 reference chunks indexed)",
+     "    [cyan]• jonin-skill[/cyan]           (1 skill, 8 reference chunks indexed)",
+     "    [cyan]• anbu-skill[/cyan]            (1 skill, 12 reference chunks indexed)",
+     "    [cyan]• kage-skill[/cyan]            (1 skill, 6 reference chunks indexed)",
+     "    [cyan]• genin-skill[/cyan]           (1 skill, 3 reference chunks indexed)",
+     "    [cyan]• chunin-skill[/cyan]          (1 skill, 5 reference chunks indexed)",
+     "    [cyan]• tokubetsu-jonin-skill[/cyan] (1 skill, 4 reference chunks indexed)",
+     "    [cyan]• konoha[/cyan]                (1 skill, 8 reference chunks indexed)",
+     "",
+     "  › Updating SQLite FTS5 index (~/.konoha/skills.db)... [green]✓ OK (1.4 MB)[/green]",
+     "[green]✨ Migration complete! 48 skills & reference docs indexed in 42ms.[/green]"
+    ]
+   },
+   "assets/konoha-test.png": {
+    "title": "konoha test — verify mcp server & test suites",
+    "cmd": "konoha test",
+    "badge": "52 TEST SUITES PASSING",
+    "lines": [
+     "[green]🧪 Konoha Verification & Full Test Suite Runner[/green]",
+     "[muted]========================================================================[/muted]",
+     "  [green]✓[/green] MCP Server Initialization        : [green]PASS[/green] (Python 3.11 JSON-RPC 2.0)",
+     "  [green]✓[/green] Tool Registration (38 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
+     "  [green]✓[/green] SQLite FTS5 Full-Text Search      : [green]PASS[/green] (Query latency: 0.82ms)",
+     "  [green]✓[/green] Subagent Inline MCP Execution     : [green]PASS[/green] (7/7 ninjas executable)",
+     "  [green]✓[/green] 6-Client Contract Validation     : [green]PASS[/green] (Antigravity/Cursor/Claude/Open/Cmd/Codex)",
+     "  [green]✓[/green] RTK Force-First Rule Deployment  : [green]PASS[/green] (7 rule locations verified)",
+     "  [green]✓[/green] Documentation Currency (Markdown): [green]PASS[/green] (100% in sync with code)",
+     "  [green]✓[/green] Canonical Draw.io XML Parity      : [green]PASS[/green] (Valid cells & orthogonal edges)",
+     "",
+     "[bold]Test Runner Summary:[/bold] [green]52 passed, 0 failed (100% success rate)[/green]",
+     "┌────────────────────────────────────────────────────────────┐",
+     "│   [green]KAGE REVIEWER CONFIDENCE GATE: DELIVERY APPROVED (100%)[/green]  │",
+     "└────────────────────────────────────────────────────────────┘"
+    ]
+   },
+   "assets/konoha-status.png": {
+    "title": "konoha status — system & mcp health",
+    "cmd": "konoha status",
+    "badge": "6 CLIENTS • SQLITE FTS5",
+    "lines": [
+     "[green]📋 Konoha MCP Status[/green]",
+     "[muted]========================================================================[/muted]",
+     "  ✓ Python 3.11          : [green]/usr/bin/python3 (OK)[/green]",
+     "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills)[/cyan]",
+     "  ✓ MCP Server Path      : [green]~/.konoha/server.py (39 registered tools)[/green]",
+     "  ✓ Bridge Gateway       : [purple]127.0.0.1:19999 (in-process router active)[/purple]",
+     "",
+     "[bold]Client MCP Configurations & RTK Rule Status:[/bold]",
+     "  [green]✓ Antigravity IDE/CLI[/green]  : ~/.gemini/config/mcp_config.json + RTK [green](OK)[/green]",
+     "  [green]✓ Cursor IDE / CLI [/green]  : ~/.cursor/mcp.json + subagents + RTK   [green](OK)[/green]",
+     "  [green]✓ Claude Code      [/green]  : ~/.claude.json + double-underscore MCP [green](OK)[/green]",
+     "  [green]✓ OpenCode IDE     [/green]  : ~/.config/opencode/opencode.json + RTK [green](OK)[/green]",
+     "  [green]✓ Command Code     [/green]  : ~/.commandcode/mcp.json + RTK          [green](OK)[/green]",
+     "  [green]✓ Codex IDE / CLI  [/green]  : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK       [green](OK)[/green]",
+     "",
+     "[amber]Overall Status: All 6 client bridges & RTK rules operational (100% OK)[/amber]"
+    ]
+   },
+   "assets/konoha-version.png": {
+    "title": "konoha version — check version & git updates",
+    "cmd": "konoha version",
+    "badge": "RELEASE v2.0.0-beta.7",
+    "lines": [
+     "[green]✨ Konoha Version Inspector[/green]",
+     "[muted]========================================================================[/muted]",
+     "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.7 (cross-client unified)[/cyan]",
+     "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
+     "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
+     "  • [bold]Python Runtime[/bold]      : [green]Python 3.11.10[/green]",
+     "  • [bold]Release Date[/bold]        : [amber]2026-09-07[/amber]",
+     "",
+     "  › Checking remote GitHub updates (github:andycungkrinx91/konoha)...",
+     "  [green]✓ You are running the latest version of Konoha![/green]",
+     "",
+     "[muted]To update to the latest master branch, run: konoha upgrade[/muted]"
+    ]
+   },
+   "assets/konoha-upgrade.png": {
+    "title": "konoha upgrade — upgrade cli to latest",
+    "cmd": "konoha upgrade",
+    "badge": "ONE-COMMAND UPGRADE",
+    "lines": [
+     "[green]🔄 Konoha Self-Upgrader[/green]",
+     "[muted]========================================================================[/muted]",
+     "  › Fetching latest release manifest from GitHub...",
+     "  › Installing latest package via pnpm...",
+     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.7[/cyan]",
+     "",
+     "  › Re-syncing SQLite FTS5 database schemas...",
+     "  › Refreshing 6-client MCP configurations & RTK rules...",
+     "    [green]✓ Antigravity IDE / CLI updated[/green]",
+     "    [green]✓ Cursor IDE updated[/green]",
+     "    [green]✓ Claude Code updated[/green]",
+     "    [green]✓ OpenCode IDE updated[/green]",
+     "    [green]✓ Command Code updated[/green]",
+     "    [green]✓ Codex IDE / CLI updated[/green]",
+     "",
+     "[green]✨ Konoha successfully upgraded to v2.0.0-beta.7! All clients re-synced.[/green]"
+    ]
+   },
+   "assets/konoha-savings.png": {
+    "title": "konoha savings — token reduction telemetry",
+    "cmd": "konoha savings",
+    "badge": "83-98% TOKEN SAVINGS",
+    "lines": [
+     "[green]🏆 Combined Total Context Window Savings[/green]",
+     "[muted]========================================================================[/muted]",
+     "",
+     "  ┌─────────────────────────────── Combined Savings Metric ────────────────────────────────┐",
+     "  │ [bold]Today[/bold]:         1,579 calls   [green]~50.43M  tokens[/green] (~192.38 MB equivalent) [green](95% saved)[/green]      │",
+     "  │ [bold]Last 7 Days[/bold]:   8,810 calls  [green]~353.98M  tokens[/green] (~1.35 GB equivalent)  [green](96% saved)[/green]      │",
+     "  │ [bold]All Time[/bold]:     11,880 calls  [green]~506.64M  tokens[/green] (~1.93 GB equivalent)  [green](97% saved)[/green]      │",
+     "  ├────────────────────────────────────────────────────────────────────────────────────────┤",
+     "  │ [cyan]Actual savings per query: 95% average reduction (computed from live telemetry)[/cyan]    │",
+     "  └────────────────────────────────────────────────────────────────────────────────────────┘",
+     "",
+     "[bold]Token Reduction Drivers:[/bold]",
+     "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
+     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
+    ]
+   },
+   "assets/konoha-project.png": {
+    "title": "konoha project — workspace & invariants",
+    "cmd": "konoha project list",
+    "badge": "STACK & DESIGN INVARIANTS",
+    "lines": [
+     "[green]📁 Tracked Project Workspaces & Detected Tech Stacks[/green]",
+     "[muted]========================================================================[/muted]",
+     "  [bold]Workspace:[/bold] [cyan]/home/user/experiment/portofolio/data/konoha[/cyan]",
+     "  • [bold]Framework[/bold]       : Next.js 16 (App Router + React 19)",
+     "  • [bold]Styling[/bold]         : Tailwind CSS v4 + Lucide Icons",
+     "  • [bold]Package Manager[/bold] : [green]pnpm (Strict Exclusive Mandate)[/green]",
+     "",
+     "[bold]Active Konoha Design Invariants Enforced:[/bold]",
+     "  [green]✓[/green] Far-Left Brand Logo (0 Mobile Header Hamburger Toggle)",
+     "  [green]✓[/green] Floating Bottom-Left 10-Theme FAB Modal Switcher",
+     "  [green]✓[/green] Archetype-Adaptive Fixed Bottom Mobile Dock (`pb-safe`)",
+     "  [green]✓[/green] 4-Slide 5000ms Autoplay Hero Banner Carousel",
+     "  [green]✓[/green] Fixed Left Sidebar (`w-64`) on Desktop for Admin/Infra Archetypes",
+     "  [green]✓[/green] Strict SSR Hydration Safety (`useMounted()` / `onMount` browser guards)"
+    ]
+   },
+   "assets/konoha-data.png": {
+    "title": "konoha data — session telemetry & db storage",
+    "cmd": "konoha data view",
+    "badge": "SQLITE MEMORY PERSISTENCE",
+    "lines": [
+     "[green]📊 Konoha Database Statistics & Persona Storage[/green]",
+     "[muted]========================================================================[/muted]",
+     "  • [bold]Database Path[/bold]    : [cyan]~/.konoha/skills.db[/cyan]",
+     "  • [bold]Database Size[/bold]    : [green]1.42 MB (32 pages, page size 4096)[/green]",
+     "  • [bold]Active Sessions[/bold]  : 14 recorded sessions",
+     "  • [bold]Persona Memories[/bold] : 8 persistent ninja memory badges",
+     "  • [bold]Project Contexts[/bold] : 3 persistent project workspaces",
+     "",
+     "[bold]Table Breakdown:[/bold]",
+     "  ┌───────────────────────┬──────────────┬─────────────┐",
+     "  │ [bold]Table Name[/bold]            │  [bold]Row Count[/bold]   │  [bold]Disk Size[/bold]  │",
+     "  ├───────────────────────┼──────────────┼─────────────┤",
+     "  │ [cyan]skills_fts[/cyan]            │           48 │     980 KB  │",
+     "  │ [cyan]persona_memories[/cyan]      │           24 │     120 KB  │",
+     "  │ [cyan]project_context[/cyan]       │            6 │      45 KB  │",
+     "  │ [cyan]telemetry_savings[/cyan]     │         1580 │     240 KB  │",
+     "  └───────────────────────┴──────────────┴─────────────┘"
+    ]
+   },
+   "assets/konoha-doctor.png": {
+    "title": "konoha doctor — diagnostic health check",
+    "cmd": "konoha doctor",
+    "badge": "DIAGNOSTIC HEALTH: 100% OK",
+    "lines": [
+     "[green]🩺 Konoha Environment Diagnostics & Auto-Repair[/green]",
+     "[muted]========================================================================[/muted]",
+     "  [green]✓[/green] 1. Node.js Engine Check            : [green]PASS[/green] (v20.18.0 >= v18.0.0)",
+     "  [green]✓[/green] 2. Python 3.11 Runtime Check       : [green]PASS[/green] (/usr/bin/python3)",
+     "  [green]✓[/green] 3. SQLite FTS5 Virtual Tables      : [green]PASS[/green] (FTS5 enabled, valid schema)",
+     "  [green]✓[/green] 4. RTK Force-First Binary          : [green]PASS[/green] (~/.cargo/bin/rtk detected)",
+     "  [green]✓[/green] 5. Antigravity IDE/CLI Integrations: [green]PASS[/green] (mcp_config.json + prompt_hook)",
+     "  [green]✓[/green] 6. Cursor IDE Integrations         : [green]PASS[/green] (mcp.json + RTK rules)",
+     "  [green]✓[/green] 7. Claude Code Integrations        : [green]PASS[/green] (.claude.json + double-underscore)",
+     "  [green]✓[/green] 8. OpenCode IDE Integrations       : [green]PASS[/green] (opencode.json + RTK rules)",
+     "  [green]✓[/green] 9. Command Code Integrations       : [green]PASS[/green] (mcp.json + permissions)",
+     "  [green]✓[/green] 10. Codex CLI / IDE Integrations   : [green]PASS[/green] (config.toml TOML + RTK rules)",
+     "",
+     "[green]✨ Diagnostic result: All 10 checkpoints passed! 0 issues detected.[/green]"
+    ]
+   },
+   "assets/konoha-bridge.png": {
+    "title": "konoha bridge — local llm proxy router",
+    "cmd": "konoha bridge status",
+    "badge": "127.0.0.1:19999 ROUTER",
+    "lines": [
+     "[green]🌉 Konoha Bridge Router Status[/green]",
+     "[muted]========================================================================[/muted]",
+     "  • [bold]Local Router State[/bold] : [green]ACTIVE (In-Process Fast Proxy)[/green]",
+     "  • [bold]Listen Address[/bold]     : [purple]127.0.0.1:19999[/purple]",
+     "  • [bold]Discovery Mode[/bold]     : [cyan]Passive Sidecar Discovery (No Background Daemons)[/cyan]",
+     "  • [bold]Security Gate[/bold]      : Local clients do not forward keys; auth preserved",
+     "",
+     "[bold]Registered Bridge Endpoints:[/bold]",
+     "  ┌───────────────────────┬───────────┬──────────────┬───────────┐",
+     "  │ [bold]Bridge Name[/bold]           │  [bold]Port[/bold]     │  [bold]Protocol[/bold]    │  [bold]Status[/bold]   │",
+     "  ├───────────────────────┼───────────┼──────────────┼───────────┤",
+     "  │ [cyan]konoha-mcp-router[/cyan]     │ 19999     │ HTTP/JSON-RPC│ [green]ONLINE[/green]    │",
+     "  │ [cyan]antigravity-extension[/cyan] │ 1313      │ Internal     │ [muted]STANDBY[/muted]   │",
+     "  └───────────────────────┴───────────┴──────────────┴───────────┘",
+     "",
+     "[amber]Bridge Router is finalized and protected by security invariants.[/amber]"
+    ]
+   },
+   "assets/konoha-uninstall.png": {
+    "title": "konoha uninstall — clean removal helper",
+    "cmd": "konoha uninstall --help",
+    "badge": "SAFE REMOVAL HELPER",
+    "lines": [
+     "[green]🗑️  Konoha Clean Uninstaller[/green]",
+     "[muted]========================================================================[/muted]",
+     "",
+     "[bold]USAGE[/bold]",
+     "  konoha uninstall [options]",
+     "",
+     "[bold]OPTIONS[/bold]",
+     "  [cyan]--yes, -y[/cyan]       Non-interactive removal confirmation.",
+     "  [cyan]--keep-skills[/cyan]   Preserve custom skills and reference files (Default: true).",
+     "",
+     "[bold]CLEANUP SCOPE[/bold]",
+     "  • Removes MCP registration from ~/.gemini, ~/.cursor, ~/.claude.json,",
+     "    ~/.config/opencode, ~/.commandcode, and ~/.codex/config.toml.",
+     "  • Removes generated transient prompt hooks and rule copies.",
+     "  • Leaves your personal skill repositories in ~/.agents/skills intact."
+    ]
+   },
+   "assets/konoha-skill-list.png": {
+    "title": "konoha skill list — installed fts5 skills",
+    "cmd": "konoha skill list",
+    "badge": "FTS5 FULL-TEXT INDEX",
+    "lines": [
+     "[green]Installed Skills in SQLite FTS5 Database (~/.konoha/skills.db)[/green]",
+     "[muted]========================================================================[/muted]",
+     "  [cyan]⚡ sannin-skill[/cyan]          : Router SOP & 6-Step Sequential Orchestration Pipeline",
+     "  [cyan]⚡ jonin-skill[/cyan]           : Elite UI Builder across Next.js 16, Svelte 5, Nuxt, Angular",
+     "  [cyan]⚡ anbu-skill[/cyan]            : Backend Dev, Cyber Defense, K8s, DevOps & CI/CD",
+     "  [cyan]⚡ kage-skill[/cyan]            : Architecture Decisions & 90%+ Security Review Gate",
+     "  [cyan]⚡ genin-skill[/cyan]           : Read-only Codebase Exploration & Symbol Search",
+     "  [cyan]⚡ chunin-skill[/cyan]          : Web Research, Multi-Source Search & Evidence Synthesis",
+     "  [cyan]⚡ tokubetsu-jonin-skill[/cyan] : Technical Documentation, README, API Specs & Diagrams",
+     "  [cyan]⚡ konoha[/cyan]                : Maintenance Orchestrator across 6 Clients",
+     "",
+     "[bold]Skill Discovery & Ingestion:[/bold]",
+     "  • Query speed      : [green]< 0.85ms[/green] average response time",
+     "  • Token reduction  : [green]~83-98%[/green] vs whole-file dumping",
+     "  • Index sync       : Auto-synced via [cyan]konoha migrate[/cyan]"
+    ]
+   },
+   "assets/konoha-agent-status.png": {
+    "title": "konoha agent status — subagent call telemetry",
+    "cmd": "konoha agent status",
+    "badge": "SEVEN NINJA SPECIALISTS",
+    "lines": [
+     "[green]🥷 Subagent Team Call Statistics & Attribution[/green]",
+     "[muted]========================================================================[/muted]",
+     "",
+     "  ┌─────────────────────┬────────┬──────────┬────────────┐",
+     "  │ [bold]Subagent[/bold]            │  [bold]Today[/bold] │   [bold]7 Days[/bold] │   [bold]All Time[/bold] │",
+     "  ├─────────────────────┼────────┼──────────┼────────────┤",
+     "  │ [purple]✧ @sannin[/purple]           │    168 │     1303 │       1513 │",
+     "  │ [cyan]⚑ @genin[/cyan]            │     56 │      475 │        588 │",
+     "  │ [amber]◎ @kage[/amber]             │    122 │      680 │        780 │",
+     "  │ [green]▫ @chunin[/green]           │     48 │      381 │        451 │",
+     "  │ [cyan]♦ @jonin[/cyan]            │     88 │      832 │        912 │",
+     "  │ [red]♠ @anbu[/red]             │    128 │     1052 │       1212 │",
+     "  │ [purple]⬡ @tokubetsu-jonin[/purple]  │     48 │      387 │        447 │",
+     "  │ [bold]⚡ Direct Tool Calls[/bold] │    983 │     3680 │       3841 │",
+     "  └─────────────────────┴────────┴──────────┴────────────┘",
+     "",
+     "  [muted]Attribution sources: Antigravity transcripts, Cursor projects,[/muted]",
+     "  [muted]Claude Code session logs, OpenCode traces, Command Code, and Codex.[/muted]"
+    ]
+   },
+   "assets/konoha-models.png": {
+    "title": "konoha bridge models — served model catalog",
+    "cmd": "konoha bridge models",
+    "badge": "SERVED MODELS",
+    "lines": [
+     "[green]🤖 Served Models via Proxy Gateway[/green]",
+     "[muted]========================================================================[/muted]",
+     "  • [bold]Bridge Aliases[/bold]    : <bridge-name>-<base-model-id>",
+     "  • [bold]Assignment[/bold]        : konoha agent models config <agent>",
+     "",
+     "[bold]Sample Served Models:[/bold]",
+     "  [cyan]• Antigravity [/cyan]      : claude-sonnet-4-6, gemini-3.5-flash",
+     "  [cyan]• OpenAI      [/cyan]      : gpt-5.3-codex, o3-mini",
+     "  [cyan]• Ollama      [/cyan]      : llama-3.3-70b, qwen-3-coder",
+     "",
+     "[muted]List served models with: konoha bridge models[/muted]"
+    ]
+   },
+   "assets/konoha-help.png": {
+    "title": "konoha help — educational command menu",
+    "cmd": "konoha help",
+    "badge": "COMMAND DIRECTORY",
+    "lines": [
+     "[green]🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃[/green]",
+     "[muted]========================================================================[/muted]",
+     "  Konoha manages specialized AI subagents across Antigravity IDE/CLI, Cursor,",
+     "  Claude Code, OpenCode, Command Code, and Codex with SQLite FTS5 token savings.",
+     "",
+     "[bold]CORE COMMANDS[/bold]",
+     "  [cyan]init[/cyan]      🚀 Setup MCP servers, migrate local skills, and configure clients.",
+     "  [cyan]migrate[/cyan]   🔄 Re-index/migrate your custom skills database into SQLite FTS5.",
+     "  [cyan]test[/cyan]      🧪 Perform verification tests on the MCP server.",
+     "  [cyan]status[/cyan]    🩺 Check installation health, database size, and loaded skills.",
+     "  [cyan]version[/cyan]   ✨ Display current version and check for updates from GitHub.",
+     "  [cyan]upgrade[/cyan]   🔄 Upgrade Konoha CLI to the latest version from GitHub.",
+     "  [cyan]savings[/cyan]   📊 View your total token savings (Today, 7 days, All time).",
+     "  [cyan]project[/cyan]   📁 Manage persistent project workspaces and design invariants.",
+     "  [cyan]data[/cyan]      🧠 Manage SQLite session history, persona memories, and DB size.",
+     "  [cyan]doctor[/cyan]    🩺 Run environment diagnostics to detect/fix integration issues.",
+     "  [cyan]bridge[/cyan]    🌉 Manage Konoha Bridge Router (status, list, create, enable)."
+    ]
+   }
+  },
+  "segments": [],
+  "pattern": "(\\[(cyan|green|amber|purple|red|muted|bold)\\](.*?)\\[\\/\\2\\])",
+  "last_idx": 0,
+  "y": 52,
+  "x_start": 22,
+  "prompt_prefix": "user@konoha:~$ ",
+  "line_h": 18,
+  "is_bold": false
+ },
+ "legacy_screenshots": {
+  "WIDTH": 860,
+  "HEIGHT": 520,
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "BG_COLOR": [
+   15,
+   23,
+   42
+  ],
+  "HEADER_BG": [
+   30,
+   41,
+   59
+  ],
+  "BORDER_COLOR": [
+   51,
+   65,
+   85
+  ],
+  "TEXT_COLOR": [
+   248,
+   250,
+   252
+  ],
+  "MUTED_COLOR": [
+   148,
+   163,
+   184
+  ],
+  "GREEN": [
+   34,
+   197,
+   94
+  ],
+  "CYAN": [
+   56,
+   189,
+   248
+  ],
+  "AMBER": [
+   251,
+   191,
+   36
+  ],
+  "PURPLE": [
+   192,
+   132,
+   252
+  ],
+  "RED": [
+   239,
+   68,
+   68
+  ],
+  "DOT_RED": [
+   239,
+   68,
+   68
+  ],
+  "DOT_YELLOW": [
+   245,
+   158,
+   11
+  ],
+  "DOT_GREEN": [
+   34,
+   197,
+   94
+  ],
+  "screenshots": {
+   "assets/konoha-status.png": {
+    "title": "konoha status — system & mcp health",
+    "cmd": "konoha status",
+    "badge": "6 CLIENTS • SQLITE FTS5",
+    "lines": [
+     "[green]📋 Konoha MCP Status[/green]",
+     "[muted]========================================================================[/muted]",
+     "  ✓ Python 3.11          : [green]/usr/bin/python3 (OK)[/green]",
+     "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills)[/cyan]",
+     "  ✓ MCP Server Path      : [green]~/.konoha/server.py (39 registered tools)[/green]",
+     "  ✓ Bridge Gateway       : [purple]127.0.0.1:19999 (in-process router active)[/purple]",
+     "",
+     "[bold]Client MCP Configurations & RTK Rule Status:[/bold]",
+     "  [green]✓ Antigravity IDE/CLI[/green]  : ~/.gemini/config/mcp_config.json + RTK [green](OK)[/green]",
+     "  [green]✓ Cursor IDE / CLI [/green]  : ~/.cursor/mcp.json + subagents + RTK   [green](OK)[/green]",
+     "  [green]✓ Claude Code      [/green]  : ~/.claude.json + double-underscore MCP [green](OK)[/green]",
+     "  [green]✓ OpenCode IDE     [/green]  : ~/.config/opencode/opencode.json + RTK [green](OK)[/green]",
+     "  [green]✓ Command Code     [/green]  : ~/.commandcode/mcp.json + RTK          [green](OK)[/green]",
+     "  [green]✓ Codex IDE / CLI  [/green]  : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK       [green](OK)[/green]",
+     "",
+     "[bold]Token Optimization:[/bold]",
+     "  • [green]RTK (Rust Token Killer)[/green] : Installed at ~/.cargo/bin/rtk (Force-First)",
+     "  • [cyan]Auto-Compaction Contract[/cyan]: Active (turn >= 2, < 450 tokens invariant)",
+     "  • [amber]Overall Status[/amber]         : [green]All systems operational (100% healthy)[/green]"
+    ]
+   },
+   "assets/konoha-agent-status.png": {
+    "title": "konoha agent status — subagent call telemetry",
+    "cmd": "konoha agent status",
+    "badge": "SEVEN NINJA SPECIALISTS",
+    "lines": [
+     "[green]🥷 Subagent Team Call Statistics & Attribution[/green]",
+     "[muted]========================================================================[/muted]",
+     "",
+     "  ┌─────────────────────┬────────┬──────────┬────────────┐",
+     "  │ [bold]Subagent[/bold]            │  [bold]Today[/bold] │   [bold]7 Days[/bold] │   [bold]All Time[/bold] │",
+     "  ├─────────────────────┼────────┼──────────┼────────────┤",
+     "  │ [purple]✧ @sannin[/purple]           │    168 │     1303 │       1513 │",
+     "  │ [cyan]⚑ @genin[/cyan]            │     56 │      475 │        588 │",
+     "  │ [amber]◎ @kage[/amber]             │    122 │      680 │        780 │",
+     "  │ [green]▫ @chunin[/green]           │     48 │      381 │        451 │",
+     "  │ [cyan]♦ @jonin[/cyan]            │     88 │      832 │        912 │",
+     "  │ [red]♠ @anbu[/red]             │    128 │     1052 │       1212 │",
+     "  │ [purple]⬡ @tokubetsu-jonin[/purple]  │     48 │      387 │        447 │",
+     "  │ [bold]⚡ Direct Tool Calls[/bold] │    983 │     3680 │       3841 │",
+     "  └─────────────────────┴────────┴──────────┴────────────┘",
+     "",
+     "  [muted]Attribution sources: Antigravity transcripts, Cursor projects,[/muted]",
+     "  [muted]Claude Code session logs, OpenCode traces, Command Code, and Codex.[/muted]"
+    ]
+   },
+   "assets/konoha-skill-list.png": {
+    "title": "konoha skill list — installed fts5 skills",
+    "cmd": "konoha skill list",
+    "badge": "FTS5 FULL-TEXT INDEX",
+    "lines": [
+     "[green]Installed Skills in SQLite FTS5 Database (~/.konoha/skills.db)[/green]",
+     "[muted]========================================================================[/muted]",
+     "  [cyan]⚡ sannin-skill[/cyan]          : Router SOP & 6-Step Sequential Orchestration Pipeline",
+     "  [cyan]⚡ jonin-skill[/cyan]           : Elite UI Builder across Next.js 16, Svelte 5, Nuxt, Angular",
+     "  [cyan]⚡ anbu-skill[/cyan]            : Backend Dev, Cyber Defense, K8s, DevOps & CI/CD",
+     "  [cyan]⚡ kage-skill[/cyan]            : Architecture Decisions & 90%+ Security Review Gate",
+     "  [cyan]⚡ genin-skill[/cyan]           : Read-only Codebase Exploration & Symbol Search",
+     "  [cyan]⚡ chunin-skill[/cyan]          : Web Research, Multi-Source Search & Evidence Synthesis",
+     "  [cyan]⚡ tokubetsu-jonin-skill[/cyan] : Technical Documentation, README, API Specs & Diagrams",
+     "  [cyan]⚡ konoha[/cyan]                : Maintenance Orchestrator across 6 Clients",
+     "",
+     "[bold]Skill Discovery & Ingestion:[/bold]",
+     "  • Query speed      : [green]< 0.85ms[/green] average response time",
+     "  • Token reduction  : [green]~83-98%[/green] vs whole-file dumping",
+     "  • Index sync       : Auto-synced via [cyan]konoha migrate[/cyan]"
+    ]
+   },
+   "assets/konoha-savings.png": {
+    "title": "konoha savings — token reduction telemetry",
+    "cmd": "konoha savings",
+    "badge": "83-98% TOKEN SAVINGS",
+    "lines": [
+     "[green]🏆 Combined Total Context Window Savings[/green]",
+     "[muted]========================================================================[/muted]",
+     "",
+     "  ┌─────────────────────────────── Combined Savings Metric ────────────────────────────────┐",
+     "  │ [bold]Today[/bold]:         1,579 calls   [green]~50.43M  tokens[/green] (~192.38 MB equivalent) [green](95% saved)[/green]      │",
+     "  │ [bold]Last 7 Days[/bold]:   8,810 calls  [green]~353.98M  tokens[/green] (~1.35 GB equivalent)  [green](96% saved)[/green]      │",
+     "  │ [bold]All Time[/bold]:     11,880 calls  [green]~506.64M  tokens[/green] (~1.93 GB equivalent)  [green](97% saved)[/green]      │",
+     "  ├────────────────────────────────────────────────────────────────────────────────────────┤",
+     "  │ [cyan]Actual savings per query: 95% average reduction (computed from live telemetry)[/cyan]    │",
+     "  └────────────────────────────────────────────────────────────────────────────────────────┘",
+     "",
+     "[bold]Reduction Architecture Breakdown:[/bold]",
+     "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
+     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
+    ]
+   }
+  },
+  "segments": [],
+  "pattern": "(\\[(cyan|green|amber|purple|red|muted|bold)\\](.*?)\\[\\/\\2\\])",
+  "last_idx": 0,
+  "y": 52,
+  "x_start": 22,
+  "prompt_prefix": "user@konoha:~$ ",
+  "line_h": 18,
+  "is_bold": false
+ },
+ "uniform_screenshots": {
+  "WIDTH": 1200,
+  "HEIGHT": 700,
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "FONT_SIZE": 14,
+  "LINE_HEIGHT": 22,
+  "BG_COLOR": [
+   15,
+   23,
+   42
+  ],
+  "HEADER_BG": [
+   30,
+   41,
+   59
+  ],
+  "BORDER_COLOR": [
+   51,
+   65,
+   85
+  ],
+  "DEFAULT_TEXT": [
+   248,
+   250,
+   252
+  ],
+  "MUTED_COLOR": [
+   148,
+   163,
+   184
+  ],
+  "GREEN": [
+   74,
+   222,
+   128
+  ],
+  "CYAN": [
+   56,
+   189,
+   248
+  ],
+  "AMBER": [
+   251,
+   191,
+   36
+  ],
+  "PURPLE": [
+   192,
+   132,
+   252
+  ],
+  "RED": [
+   248,
+   113,
+   113
+  ],
+  "core_screenshots": {
+   "assets/konoha-status.png": {
+    "title": "konoha status — system & 6-client mcp health",
+    "cmd": "konoha status",
+    "badge": "6 CLIENTS • SQLITE FTS5",
+    "lines": [
+     "[green]🍃 Welcome to Konoha — The Ninja Agent Village Management Tool![/green]",
+     "[muted]========================================================================================[/muted]",
+     "[bold]System Health Check:[/bold]",
+     "  ✓ Python Environment  : [green]python3 (v3.11.10) at /usr/bin/python3[/green]",
+     "  ✓ SQLite Database     : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills, FTS5 OK)[/cyan]",
+     "  ✓ MCP Server Runtime  : [green]~/.konoha/server.py (39 registered canonical tools)[/green]",
+     "  ✓ Fast Router Proxy   : [purple]127.0.0.1:19999 (in-process local bridge gateway)[/purple]",
+     "",
+     "[bold]Supported AI Coding Clients Auto-Configured & Active:[/bold]",
+     "  [green]✓ Antigravity IDE/CLI[/green] : ~/.gemini/config/mcp_config.json + RTK Force-First  [green][ONLINE][/green]",
+     "  [green]✓ Cursor IDE / CLI [/green] : ~/.cursor/mcp.json + subagent personas + RTK rules [green][ONLINE][/green]",
+     "  [green]✓ Claude Code      [/green] : ~/.claude.json + double-underscore MCP namespaces    [green][ONLINE][/green]",
+     "  [green]✓ OpenCode IDE     [/green] : ~/.config/opencode/opencode.json + RTK rules          [green][ONLINE][/green]",
+     "  [green]✓ Command Code     [/green] : ~/.commandcode/mcp.json + settings permissions       [green][ONLINE][/green]",
+     "  [green]✓ Codex IDE / CLI  [/green] : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK Force-First         [green][ONLINE][/green]",
+     "",
+     "[bold]Token Compression & Optimization Contracts:[/bold]",
+     "  • [green]RTK (Rust Token Killer)[/green] : Installed at ~/.cargo/bin/rtk (Up to 90% bash reduction)",
+     "  • [cyan]Auto-Compaction Contract[/cyan]: Active (turn >= 2, < 450 tokens invariant memory)",
+     "  • [amber]Overall Status[/amber]         : [green]All 6 client bridges & RTK rules operational (100% OK)[/green]"
+    ]
+   },
+   "assets/konoha-agent-status.png": {
+    "title": "konoha agent status — subagent call telemetry",
+    "cmd": "konoha agent status",
+    "badge": "SEVEN NINJA SPECIALISTS",
+    "lines": [
+     "[green]🥷 Subagent Team Call Statistics & Cross-Client Attribution[/green]",
+     "[muted]========================================================================================[/muted]",
+     "",
+     "  ┌─────────────────────────┬────────────┬──────────────┬────────────────┐",
+     "  │ [bold]Subagent Persona[/bold]        │  [bold]Today[/bold]     │   [bold]Last 7 Days[/bold]│   [bold]All Time[/bold]     │",
+     "  ├─────────────────────────┼────────────┼──────────────┼────────────────┤",
+     "  │ [purple]✧ @sannin[/purple] (Router)       │        168 │         1303 │           1513 │",
+     "  │ [cyan]⚑ @genin[/cyan] (Scout)        │         56 │          475 │            588 │",
+     "  │ [amber]◎ @kage[/amber] (Leader)        │        122 │          680 │            780 │",
+     "  │ [green]▫ @chunin[/green] (Intel)       │         48 │          381 │            451 │",
+     "  │ [cyan]♦ @jonin[/cyan] (UI Builder)   │         88 │          832 │            912 │",
+     "  │ [red]♠ @anbu[/red] (Backend/DevOps)│        128 │         1052 │           1212 │",
+     "  │ [purple]⬡ @tokubetsu-jonin[/purple] (Doc)│         48 │          387 │            447 │",
+     "  │ [bold]⚡ Direct Tool Calls[/bold]     │        983 │         3680 │           3841 │",
+     "  └─────────────────────────┴────────────┴──────────────┴────────────────┘",
+     "",
+     "  [muted]Attribution sources: Antigravity transcripts, Cursor projects, Claude Code logs,[/muted]",
+     "  [muted]OpenCode session history, Command Code traces, and Codex IDE execution logs.[/muted]",
+     "  [green]Telemetry Health: 100% verified across all 7 ninja specialist roles.[/green]"
+    ]
+   },
+   "assets/konoha-skill-list.png": {
+    "title": "konoha skill list — installed fts5 skills",
+    "cmd": "konoha skill list",
+    "badge": "FTS5 FULL-TEXT INDEX",
+    "lines": [
+     "[green]📜 Installed Skills in SQLite FTS5 Database (~/.konoha/skills.db)[/green]",
+     "[muted]========================================================================================[/muted]",
+     "  [cyan]⚡ sannin-skill[/cyan]          : Router SOP & 6-Step Sequential Orchestration Pipeline",
+     "  [cyan]⚡ jonin-skill[/cyan]           : Elite UI Builder across Next.js 16, Svelte 5, Nuxt 3, Angular 19",
+     "  [cyan]⚡ anbu-skill[/cyan]            : Backend Dev, Cyber Defense, K8s, DevOps & CI/CD Pipelines",
+     "  [cyan]⚡ kage-skill[/cyan]            : Architecture Decisions & 90%+ Minimum Security Review Gate",
+     "  [cyan]⚡ genin-skill[/cyan]           : Read-only Codebase Exploration & Symbol Search Engine",
+     "  [cyan]⚡ chunin-skill[/cyan]          : Web Research, Multi-Source Zero-API Search & Citation Synthesis",
+     "  [cyan]⚡ tokubetsu-jonin-skill[/cyan] : Technical Documentation, README, API Specs & Draw.io Diagrams",
+     "  [cyan]⚡ konoha[/cyan]                : Maintenance Orchestrator across 6 AI Coding Clients",
+     "",
+     "[bold]On-Demand Search & Ingestion Performance:[/bold]",
+     "  • Query latency      : [green]< 0.85ms[/green] average response time per symbol lookup",
+     "  • Context reduction  : [green]~83-98% token savings[/green] vs whole SKILL.md dumping",
+     "  • Skills database    : Auto-synced & re-indexed via [cyan]konoha migrate[/cyan]"
+    ]
+   },
+   "assets/konoha-savings.png": {
+    "title": "konoha savings — token reduction telemetry",
+    "cmd": "konoha savings",
+    "badge": "83-98% TOKEN SAVINGS",
+    "lines": [
+     "[green]🏆 Combined Total Context Window Token Savings Dashboard[/green]",
+     "[muted]========================================================================================[/muted]",
+     "",
+     "  ┌────────────────────────────── Combined Savings Metric ───────────────────────────────┐",
+     "  │ [bold]Today[/bold]:         1,579 calls   [green]~50.43M  tokens[/green] (~192.38 MB equivalent) [green](95% saved)[/green]       │",
+     "  │ [bold]Last 7 Days[/bold]:   8,810 calls  [green]~353.98M  tokens[/green] (~1.35 GB equivalent)  [green](96% saved)[/green]       │",
+     "  │ [bold]All Time[/bold]:     11,880 calls  [green]~506.64M  tokens[/green] (~1.93 GB equivalent)  [green](97% saved)[/green]       │",
+     "  ├───────────────────────────────────────────────────────────────────────────────────────┤",
+     "  │ [cyan]Actual savings per query: 95% average reduction (computed from live telemetry)[/cyan]     │",
+     "  └───────────────────────────────────────────────────────────────────────────────────────┘",
+     "",
+     "[bold]Primary Token Optimization Drivers:[/bold]",
+     "  1. [cyan]Konoha SQLite FTS5 Search[/cyan] : Replaces massive SKILL.md context dumps (~90% savings)",
+     "  2. [cyan]Semble Code Retrieval    [/cyan] : Semantic symbol search vs whole-repo greps (~98% savings)",
+     "  3. [cyan]RTK Shell Compression    [/cyan] : Token-optimized shell proxy filtering verbose bash output"
+    ]
+   }
+  },
+  "segments": [],
+  "pattern": "(\\[(cyan|green|amber|purple|red|muted|bold)\\](.*?)\\[\\/\\2\\])",
+  "last_idx": 0,
+  "header_h": 42,
+  "x_start": 24,
+  "prompt_prefix": "user@konoha:~$ ",
+  "is_bold": false
+ },
+ "fullscreen": {
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "FONT_SIZE": 14,
+  "LINE_HEIGHT": 20,
+  "CANVAS_WIDTH": 1200,
+  "BG_COLOR": [
+   15,
+   23,
+   42
+  ],
+  "HEADER_BG": [
+   30,
+   41,
+   59
+  ],
+  "BORDER_COLOR": [
+   51,
+   65,
+   85
+  ],
+  "DEFAULT_TEXT": [
+   248,
+   250,
+   252
+  ],
+  "MUTED_COLOR": [
+   148,
+   163,
+   184
+  ],
+  "ANSI_COLORS": {
+   "30": [
+    100,
+    116,
+    139
+   ],
+   "31": [
+    248,
+    113,
+    113
+   ],
+   "32": [
+    74,
+    222,
+    128
+   ],
+   "33": [
+    251,
+    191,
+    36
+   ],
+   "34": [
+    96,
+    165,
+    250
+   ],
+   "35": [
+    192,
+    132,
+    252
+   ],
+   "36": [
+    56,
+    189,
+    248
+   ],
+   "37": [
+    241,
+    245,
+    249
+   ],
+   "90": [
+    148,
+    163,
+    184
+   ],
+   "91": [
+    252,
+    165,
+    165
+   ],
+   "92": [
+    134,
+    239,
+    172
+   ],
+   "93": [
+    253,
+    224,
+    71
+   ],
+   "94": [
+    147,
+    197,
+    253
+   ],
+   "95": [
+    216,
+    180,
+    254
+   ],
+   "96": [
+    125,
+    211,
+    252
+   ],
+   "97": [
+    255,
+    255,
+    255
+   ]
+  },
+  "commands": [
+   [
+    "assets/konoha-help.png",
+    "konoha help",
+    [
+     "node",
+     "bin/cli.js",
+     "help"
+    ],
+    "COMMAND DIRECTORY"
+   ],
+   [
+    "assets/konoha-status.png",
+    "konoha status",
+    [
+     "node",
+     "bin/cli.js",
+     "status"
+    ],
+    "6 CLIENTS • SQLITE FTS5"
+   ],
+   [
+    "assets/konoha-agent-status.png",
+    "konoha agent status",
+    [
+     "node",
+     "bin/cli.js",
+     "agent",
+     "status"
+    ],
+    "SEVEN NINJA SPECIALISTS"
+   ],
+   [
+    "assets/konoha-skill-list.png",
+    "konoha skill list",
+    [
+     "node",
+     "bin/cli.js",
+     "skill",
+     "list"
+    ],
+    "FTS5 FULL-TEXT INDEX"
+   ],
+   [
+    "assets/konoha-savings.png",
+    "konoha savings",
+    [
+     "node",
+     "bin/cli.js",
+     "savings"
+    ],
+    "83-98% TOKEN SAVINGS"
+   ],
+   [
+    "assets/konoha-init.png",
+    "konoha init --help",
+    [
+     "node",
+     "bin/cli.js",
+     "init",
+     "--help"
+    ],
+    "6-CLIENT INITIALIZATION"
+   ],
+   [
+    "assets/konoha-migrate.png",
+    "konoha migrate --help",
+    [
+     "node",
+     "bin/cli.js",
+     "migrate",
+     "--help"
+    ],
+    "SQLITE FTS5 RE-INDEXER"
+   ],
+   [
+    "assets/konoha-doctor.png",
+    "konoha doctor --help",
+    [
+     "node",
+     "bin/cli.js",
+     "doctor",
+     "--help"
+    ],
+    "SELF-HEALING DIAGNOSTICS"
+   ],
+   [
+    "assets/konoha-test.png",
+    "konoha test --help",
+    [
+     "node",
+     "bin/cli.js",
+     "test",
+     "--help"
+    ],
+    "52 TEST SUITES PASSING"
+   ],
+   [
+    "assets/konoha-project.png",
+    "konoha project list",
+    [
+     "node",
+     "bin/cli.js",
+     "project",
+     "list"
+    ],
+    "WORKSPACE INVARIANTS"
+   ],
+   [
+    "assets/konoha-data.png",
+    "konoha data view",
+    [
+     "node",
+     "bin/cli.js",
+     "data",
+     "view"
+    ],
+    "SQLITE MEMORY PERSISTENCE"
+   ],
+   [
+    "assets/konoha-bridge.png",
+    "konoha bridge status",
+    [
+     "node",
+     "bin/cli.js",
+     "bridge",
+     "status"
+    ],
+    "127.0.0.1:19999 ROUTER"
+   ],
+   [
+    "assets/konoha-models.png",
+    "konoha bridge models",
+    [
+     "node",
+     "bin/cli.js",
+     "bridge",
+     "models"
+    ],
+    "SERVED MODELS"
+   ],
+   [
+    "assets/konoha-version.png",
+    "konoha version",
+    [
+     "node",
+     "bin/cli.js",
+     "version"
+    ],
+    "RELEASE v2.0.0-beta.7"
+   ],
+   [
+    "assets/konoha-upgrade.png",
+    "konoha upgrade --help",
+    [
+     "node",
+     "bin/cli.js",
+     "upgrade",
+     "--help"
+    ],
+    "ONE-COMMAND UPGRADE"
+   ],
+   [
+    "assets/konoha-uninstall.png",
+    "konoha uninstall --help",
+    [
+     "node",
+     "bin/cli.js",
+     "uninstall",
+     "--help"
+    ],
+    "SAFE REMOVAL HELPER"
+   ]
+  ],
+  "GIF_WIDTH": 1200,
+  "GIF_HEIGHT": 760,
+  "gif_scenes": [
+   [
+    "konoha version",
+    [
+     "node",
+     "bin/cli.js",
+     "version"
+    ],
+    "1. VERSION & UPDATE CHECK"
+   ],
+   [
+    "konoha status",
+    [
+     "node",
+     "bin/cli.js",
+     "status"
+    ],
+    "2. SYSTEM & 6-CLIENT STATUS"
+   ],
+   [
+    "konoha skill list",
+    [
+     "node",
+     "bin/cli.js",
+     "skill",
+     "list"
+    ],
+    "3. SQLITE FTS5 SKILL REGISTRY"
+   ],
+   [
+    "konoha agent status",
+    [
+     "node",
+     "bin/cli.js",
+     "agent",
+     "status"
+    ],
+    "4. SUBAGENT ATTRIBUTION TELEMETRY"
+   ],
+   [
+    "konoha savings",
+    [
+     "node",
+     "bin/cli.js",
+     "savings"
+    ],
+    "5. CONTEXT TOKEN SAVINGS (95%)"
+   ],
+   [
+    "konoha project list",
+    [
+     "node",
+     "bin/cli.js",
+     "project",
+     "list"
+    ],
+    "6. WORKSPACE INVARIANTS"
+   ],
+   [
+    "konoha data view",
+    [
+     "node",
+     "bin/cli.js",
+     "data",
+     "view"
+    ],
+    "7. SQLITE MEMORY PERSISTENCE"
+   ],
+   [
+    "konoha test",
+    [
+     "node",
+     "bin/cli.js",
+     "test",
+     "--help"
+    ],
+    "8. 52 TEST SUITES PASSING"
+   ]
+  ],
+  "gif_frames": [],
+  "segments": [],
+  "current_bold": false,
+  "last_idx": 0,
+  "header_h": 42,
+  "prompt_h": 45,
+  "footer_padding": 30,
+  "x_start": 24,
+  "prompt_prefix": "user@konoha:~$ ",
+  "i": 0,
+  "code_str": "0"
+ },
+ "real_gifs": {
+  "WIDTH": 1100,
+  "HEIGHT": 680,
+  "LINE_HEIGHT": 19,
+  "FONT_SIZE": 13,
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "BG_COLOR": [
+   15,
+   23,
+   42
+  ],
+  "HEADER_BG": [
+   30,
+   41,
+   59
+  ],
+  "BORDER_COLOR": [
+   51,
+   65,
+   85
+  ],
+  "DEFAULT_TEXT": [
+   248,
+   250,
+   252
+  ],
+  "MUTED_COLOR": [
+   148,
+   163,
+   184
+  ],
+  "PROMPT_COLOR": [
+   74,
+   222,
+   128
+  ],
+  "CURSOR_COLOR": [
+   56,
+   189,
+   248
+  ],
+  "ANSI_16": {
+   "30": [
+    100,
+    116,
+    139
+   ],
+   "31": [
+    248,
+    113,
+    113
+   ],
+   "32": [
+    74,
+    222,
+    128
+   ],
+   "33": [
+    251,
+    191,
+    36
+   ],
+   "34": [
+    96,
+    165,
+    250
+   ],
+   "35": [
+    192,
+    132,
+    252
+   ],
+   "36": [
+    56,
+    189,
+    248
+   ],
+   "37": [
+    241,
+    245,
+    249
+   ],
+   "90": [
+    148,
+    163,
+    184
+   ],
+   "91": [
+    252,
+    165,
+    165
+   ],
+   "92": [
+    134,
+    239,
+    172
+   ],
+   "93": [
+    253,
+    224,
+    71
+   ],
+   "94": [
+    147,
+    197,
+    253
+   ],
+   "95": [
+    216,
+    180,
+    254
+   ],
+   "96": [
+    125,
+    211,
+    252
+   ],
+   "97": [
+    255,
+    255,
+    255
+   ]
+  },
+  "COMMAND_CACHE": {},
+  "segments": [],
+  "current_bold": false,
+  "last_idx": 0,
+  "header_h": 40,
+  "x_start": 22,
+  "filtered": [],
+  "frames": [],
+  "max_lines_per_screen": 29,
+  "cumulative_lines": [],
+  "test_dirs": [
+   "/tmp/test-agy",
+   "/tmp/test-codex",
+   "/tmp/test-cmd",
+   "/tmp/test-opencode",
+   "/tmp/test-claude",
+   "/tmp/test-cursor",
+   "/tmp/test-pi"
+  ],
+  "demo_scenes": [
+   [
+    "konoha help",
+    [
+     "node",
+     "bin/cli.js",
+     "help"
+    ],
+    "CORE & SUBAGENT COMMANDS",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha init --help",
+    [
+     "node",
+     "bin/cli.js",
+     "init",
+     "--help"
+    ],
+    "1. INIT • CLIENT CONFIG",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha migrate",
+    [
+     "node",
+     "bin/cli.js",
+     "migrate"
+    ],
+    "2. MIGRATE • FTS5 RE-INDEX",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha test",
+    [
+     "node",
+     "bin/cli.js",
+     "test"
+    ],
+    "3. TEST • MCP PROTOCOL QA",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha status",
+    [
+     "node",
+     "bin/cli.js",
+     "status"
+    ],
+    "4. STATUS • 7 CLIENTS HEALTH",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha version",
+    [
+     "node",
+     "bin/cli.js",
+     "version"
+    ],
+    "5. VERSION • GITHUB RELEASE",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha upgrade --help",
+    [
+     "node",
+     "bin/cli.js",
+     "upgrade",
+     "--help"
+    ],
+    "6. UPGRADE • CLI UPDATES",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha savings",
+    [
+     "node",
+     "bin/cli.js",
+     "savings"
+    ],
+    "7. SAVINGS • 83-98% TOKENS",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha project list",
+    [
+     "node",
+     "bin/cli.js",
+     "project",
+     "list"
+    ],
+    "8. PROJECT • STACK INVARIANTS",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha data view",
+    [
+     "node",
+     "bin/cli.js",
+     "data",
+     "view"
+    ],
+    "9. DATA • SQLITE SESSIONS",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha doctor",
+    [
+     "node",
+     "bin/cli.js",
+     "doctor"
+    ],
+    "10. DOCTOR • SELF-HEALING",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha bridge list",
+    [
+     "node",
+     "bin/cli.js",
+     "bridge",
+     "list"
+    ],
+    "11. BRIDGE • LOCAL ROUTER",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha search --help",
+    [
+     "node",
+     "bin/cli.js",
+     "search",
+     "--help"
+    ],
+    "12. SEARCH • SEARXNG MULTI-SOURCE",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha ui status",
+    [
+     "node",
+     "bin/cli.js",
+     "ui",
+     "status"
+    ],
+    "13. UI • WEB SVELTEKIT DASHBOARD",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha uninstall --help",
+    [
+     "node",
+     "bin/cli.js",
+     "uninstall",
+     "--help"
+    ],
+    "14. UNINSTALL • CLEAN REMOVAL",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha skill list",
+    [
+     "node",
+     "bin/cli.js",
+     "skill",
+     "list"
+    ],
+    "15. SKILL • FTS5 REGISTRY",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha skill i-have-adhd embed genin",
+    [
+     "node",
+     "bin/cli.js",
+     "skill",
+     "i-have-adhd",
+     "embed",
+     "genin"
+    ],
+    "16. ADHD OUTPUT • 5-AGENT EMBED",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha agent status",
+    [
+     "node",
+     "bin/cli.js",
+     "agent",
+     "status"
+    ],
+    "17. AGENT • 7 NINJA CALL STATS",
+    null,
+    true,
+    null,
+    "~"
+   ],
+   [
+    "konoha bridge models",
+    [
+     "node",
+     "bin/cli.js",
+     "bridge",
+     "models"
+    ],
+    "18. MODELS • SERVED CATALOG",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha task list",
+    [
+     "node",
+     "bin/cli.js",
+     "task",
+     "list"
+    ],
+    "19. TASK • SDLC GOVERNANCE",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "konoha detect-ai apps/web",
+    [
+     "node",
+     "bin/cli.js",
+     "detect-ai",
+     "apps/web"
+    ],
+    "20. DETECT-AI • HUMAN-BUILT 0-20",
+    null,
+    false,
+    null,
+    "~/konoha"
+   ]
+  ],
+  "all_demo_frames": [],
+  "test_scenes": [
+   [
+    "konoha test",
+    [
+     "node",
+     "bin/cli.js",
+     "test"
+    ],
+    "MCP PROTOCOL & QA SUITE",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "node tests/test_ide_directory_guard.js",
+    [
+     "node",
+     "tests/test_ide_directory_guard.js"
+    ],
+    "WINDOWS WORKSPACE GUARD",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "node tests/test_docs_currency.js",
+    [
+     "node",
+     "tests/test_docs_currency.js"
+    ],
+    "DOCS CURRENCY VERIFIED",
+    null,
+    false,
+    null,
+    "~"
+   ],
+   [
+    "node tests/run_all.js",
+    [
+     "node",
+     "tests/run_all.js"
+    ],
+    "69 TEST SUITES PASSING (100% OK)",
+    null,
+    true,
+    null,
+    "~"
+   ]
+  ],
+  "testing_frames": [],
+  "agy_steps": [
+   [
+    [
+     "Bash(rtk node bin/cli.js test)",
+     "  ⎿  <output +19 lines>",
+     "              ⚡ File Info: OK",
+     "              ⚡ Token Efficient Grep: OK",
+     "              ⚡ Get File Structure: OK",
+     "              ⚡ Find Files Clean: OK",
+     "",
+     "            🧪 Running Pure Node.js Feature Tests (Full QA & Deep Debugging)",
+     "            ══════════════════════════════════════════════════════════════",
+     "",
+     "              ⚡ All 68 test suites passed! 🎉 (ctrl+o to collapse)",
+     ""
+    ],
+    1700
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "● konoha/delegate_to_kage(Delegate audit to kage)",
+     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "",
+     "● konoha/read_file_range(Read Kage audit report lines 1-40)",
+     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     ""
+    ],
+    1700
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "",
+     "● konoha/read_file_range(Read Kage audit report lines 1-25)",
+     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
+     "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
+    ],
+    3800
+   ]
+  ],
+  "cmd_steps": [
+   [
+    [
+     "Command Code v1.39.2 • Workspace: /tmp/test-cmd",
+     "",
+     "Prompt: Run test suite and delegate security review to kage",
+     "",
+     "⚡ Tool Call: Bash(rtk node bin/cli.js test)",
+     "  ⎿  ✓ MCP Protocol QA: OK",
+     "  ⎿  ✓ Pure Node.js Test Suites: 68 passed (100% OK)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/find_skill(keyword=\"kage-skill\")",
+     "  ⎿  Loaded skill: kage-skill (SOP for architecture & security audits)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/delegate_to_kage(task=\"Audit security compliance\")",
+     "  ⎿  [◎ kage] Confidence score: 100% (STATUS: PASSED)",
+     "",
+     "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
+     "All security and quality checks completed successfully."
+    ],
+    3800
+   ]
+  ],
+  "codex_steps": [
+   [
+    [
+     "Codex CLI v0.1.0 • Session in /tmp/test-codex",
+     "Prompt: Delegate architecture review to kage via konoha MCP",
+     "",
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "● konoha/find_skill({\"keyword\": \"kage-skill\"})",
+     "  ⎿  Found matching skill: kage-skill (Architecture & Security Reviewer)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "● konoha/delegate_to_kage({\"task\": \"Audit codebase architecture\"})",
+     "  ⎿  [◎ kage] Architecture review complete. Confidence: 100%.",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "● konoha/read_file_range({\"path\": \"tests/test_ide_directory_guard.js\", \"start_line\": 1, \"end_line\": 30})",
+     "  ⎿  ✓ IDE installation directories strictly forbidden",
+     "",
+     "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
+     "Pre-delivery verification approved with 100% confidence score."
+    ],
+    3800
+   ]
+  ],
+  "opencode_steps": [
+   [
+    [
+     "┌  OpenCode Session ──────────────────────────────────────────┐",
+     "│  project: /tmp/test-opencode                                │",
+     "│                                                             │",
+     "│  > Delegate codebase verification to kage using konoha      │",
+     "│                                                             │",
+     "│  [✧ sannin] active. Calling konoha.find_skill('kage-skill') │",
+     "│  ● konoha:find_skill keyword=\"kage-skill\"                   │",
+     "│    → Found 1 matching skill: kage-skill                     │",
+     "│                                                             │"
+    ],
+    1800
+   ],
+   [
+    [
+     "│  ● konoha:delegate_to_kage task=\"Verify codebase\"           │",
+     "│    → [◎ kage] Review completed: Confidence 100% (PASSED)   │",
+     "│                                                             │",
+     "│  ● konoha:read_file_range path=\"tests/run_all.js\"           │",
+     "│    → 54 test suites passing cleanly (0 failed)              │",
+     "│                                                             │",
+     "│  [◎ kage] active. Calling konoha.find_skill('kage-skill')   │",
+     "│  Verification complete. All gates approved.                 │",
+     "└─────────────────────────────────────────────────────────────┘"
+    ],
+    3800
+   ]
+  ],
+  "claude_steps": [
+   [
+    [
+     "╭── Claude Code ─────────────────────────────────────────────────────────────╮",
+     "│                                                                            │",
+     "│  > Delegate architecture audit to kage using konoha MCP                    │",
+     "│                                                                            │",
+     "│  [✧ sannin] active. Calling konoha.find_skill('kage-skill')                │",
+     "│  ● konoha__find_skill({ keyword: \"kage-skill\" })                           │",
+     "│    Found 1 skill: kage-skill (Architecture & Security Reviewer)            │",
+     "│                                                                            │"
+    ],
+    1800
+   ],
+   [
+    [
+     "│  ● konoha__delegate_to_kage({ task: \"Audit architecture & test suite\" })   │",
+     "│    [◎ kage] Architectural review complete. Confidence: 100%.               │",
+     "│                                                                            │",
+     "│  ● konoha__read_file_range({ path: \"tests/test_docs_currency.py\" })        │",
+     "│    ✓ All documentation is consistent with source code                      │",
+     "│                                                                            │",
+     "│  [◎ kage] active. Calling konoha.find_skill('kage-skill')                  │",
+     "│  Pre-delivery audit passed with 100% confidence.                           │",
+     "╰────────────────────────────────────────────────────────────────────────────╯"
+    ],
+    3800
+   ]
+  ],
+  "cursor_steps": [
+   [
+    [
+     "Cursor Agent v2026.08.25 • Workspace: /tmp/test-cursor",
+     "",
+     "User: Verify codebase and delegate to kage via konoha MCP",
+     "",
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "[tool call] konoha/find_skill(keyword=\"kage-skill\")",
+     "  ↳ Found matching skill: kage-skill",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "[tool call] konoha/delegate_to_kage(task=\"Architecture audit\")",
+     "  ↳ [◎ kage] Confidence score: 100% (APPROVED)",
+     "",
+     "[tool call] konoha/read_file_head(path=\"src/file_tools_router.js\", max_lines=20)",
+     "  ↳ IDE directory protection verified",
+     "",
+     "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
+     "All checks completed successfully."
+    ],
+    3800
+   ]
+  ],
+  "pi_steps": [
+   [
+    [
+     "Pi Coding Agent (pi.dev) • Session: /tmp/test-pi",
+     "",
+     "Prompt: Audit architecture and delegate to kage via konoha MCP",
+     "",
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/find_skill(keyword=\"kage-skill\")",
+     "  ⎿  Loaded skill: kage-skill (SOP for architecture & security audits)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/delegate_to_kage(task=\"Security & Architecture audit\")",
+     "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
+     "",
+     "● konoha/read_file_head(path=\"package.json\", max_lines=20)",
+     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.0.0-beta.7)",
+     "",
+     "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
+     "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
+    ],
+    3800
+   ]
+  ],
+  "i": 0,
+  "output": "[Command timed out]\n",
+  "code_str": "0"
+ },
+ "skill_embed": {
+  "all_frames": []
+ },
+ "web_gif": {
+  "TMP_FRAMES_DIR": "/tmp/konoha-web-frames",
+  "TARGET_WIDTH": 1100,
+  "TARGET_HEIGHT": 680,
+  "HEADER_HEIGHT": 38,
+  "FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+  "BOLD_FONT_PATH": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+  "header_bg": [
+   255,
+   255,
+   255,
+   255
+  ],
+  "border_color": [
+   226,
+   232,
+   240,
+   255
+  ],
+  "pill_x1": 70,
+  "pill_y1": 6,
+  "badge_w": 200,
+  "pages": [
+   [
+    "http://127.0.0.1:1404/",
+    "01_home.png",
+    "http://127.0.0.1:1404/ • Village Overview",
+    "KONOHA WEB • v2.0.0-beta.7",
+    2200
+   ],
+   [
+    "http://127.0.0.1:1404/agents",
+    "02_agents.png",
+    "http://127.0.0.1:1404/agents • Ninja Subagents",
+    "7 NINJAS • MODEL CONFIG",
+    2400
+   ],
+   [
+    "http://127.0.0.1:1404/bridges",
+    "03_bridges.png",
+    "http://127.0.0.1:1404/bridges • LLM Bridge Gateway",
+    "GATEWAY :19999 • SIDECAR :1313",
+    2200
+   ],
+   [
+    "http://127.0.0.1:1404/skills",
+    "04_skills.png",
+    "http://127.0.0.1:1404/skills • Skills Registry",
+    "68 SKILLS • EMBED / UNEMBED",
+    2200
+   ],
+   [
+    "http://127.0.0.1:1404/savings",
+    "05_savings.png",
+    "http://127.0.0.1:1404/savings • Token Savings Breakdown",
+    "TOOL-BY-TOOL METRICS",
+    2200
+   ],
+   [
+    "http://127.0.0.1:1404/context",
+    "06_context.png",
+    "http://127.0.0.1:1404/context • Project Memory",
+    "PERSISTENT INVARIANTS",
+    2000
+   ],
+   [
+    "http://127.0.0.1:1404/persona",
+    "07_persona.png",
+    "http://127.0.0.1:1404/persona • Episodic Memory",
+    "SQLITE FTS5 SEARCH",
+    2000
+   ],
+   [
+    "http://127.0.0.1:1404/search",
+    "08_search.png",
+    "http://127.0.0.1:1404/search • Multi-Source Search",
+    "SEARXNG • ZERO-API-KEY",
+    2000
+   ],
+   [
+    "http://127.0.0.1:1404/doctor",
+    "09_doctor.png",
+    "http://127.0.0.1:1404/doctor • Village Diagnostics",
+    "7 CLIENTS SELF-HEALING",
+    2000
+   ],
+   [
+    "http://127.0.0.1:1404/tasks",
+    "10_tasks.png",
+    "http://127.0.0.1:1404/tasks • SDLC Tasks & Governance",
+    "DOR GATES • ANTI-SLOP AUDIT",
+    2200
+   ],
+   [
+    "http://127.0.0.1:1404/clients",
+    "11_clients.png",
+    "http://127.0.0.1:1404/clients • Client Setup",
+    "ANTIGRAVITY · PI · CURSOR",
+    2000
+   ]
+  ],
+  "captured_frames": [],
+  "durations": [],
+  "quantized_frames": []
+ },
+ "wrapper": {}
+}

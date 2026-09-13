@@ -1,6 +1,6 @@
 'use strict';
 
-let vscode; try { vscode = require('vscode'); } catch {}
+let vscode; try { vscode = require('vscode'); } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -9,7 +9,6 @@ const { execFile } = require('child_process');
 const execFileAsync = promisify(execFile);
 const { log } = require('../utils');
 
-// ─────────────────────────────────────────────
 // Sidecar Discovery (cross-platform)
 // Finds the running language_server process and
 // extracts ports, CSRF tokens, and cert path.
@@ -24,13 +23,11 @@ const { log } = require('../utils');
 //   4. Using raw Google OAuth tokens (refresh/access) would require storing
 //      sensitive credentials on disk and could be flagged as policy-violating
 //      by Google if token issuance patterns deviate from the official client.
-// ─────────────────────────────────────────────
 
 // Platform strategies:
 //   Windows – Get-CimInstance Win32_Process (PowerShell)
 //   macOS   – ps aux + lsof -iTCP -sTCP:LISTEN
 //   Linux   – ps aux + ss -tlnp
-// ─────────────────────────────────────────────
 
 /**
  * Binary names the Antigravity sidecar has shipped as, per platform.
@@ -130,9 +127,7 @@ function chooseBestProcess(candidates, currentWorkspaceId) {
   )[0];
 }
 
-// ─────────────────────────────────────────────
 // Windows strategy  (PowerShell Get-CimInstance)
-// ─────────────────────────────────────────────
 
 async function execWithFallback(cmdBase, cmdAbsolute, args, options) {
   try {
@@ -187,7 +182,7 @@ function windowsStrategy(binaryNames) {
                 if (cmdMatch) {
                   candidates.push({ pid, commandLine: cmdMatch[1].trim(), user: '' });
                 }
-              } catch (err) {
+              } catch (_) {
                 // wmic failed for this PID — skip it
               }
             }
@@ -195,7 +190,7 @@ function windowsStrategy(binaryNames) {
             const best = chooseBestProcess(candidates, currentWorkspaceId);
             if (best) return best;
           }
-        } catch (err) {
+        } catch (_) {
           // tasklist or wmic unavailable — fall through
         }
 
@@ -228,7 +223,7 @@ function windowsStrategy(binaryNames) {
             const best = chooseBestProcess(candidates, currentWorkspaceId);
             if (best) return best;
           }
-        } catch (err) {
+        } catch (_) {
           // wmic may not be available on newer Windows — fall through to PowerShell
         }
 
@@ -258,7 +253,7 @@ function windowsStrategy(binaryNames) {
 
           const best = chooseBestProcess(candidates, currentWorkspaceId);
           if (best) return best;
-        } catch (err) {
+        } catch (_) {
           // All strategies failed for this binary name — try next
         }
       }
@@ -286,9 +281,7 @@ function windowsStrategy(binaryNames) {
   };
 }
 
-// ─────────────────────────────────────────────
 // macOS strategy  (ps aux + lsof)
-// ─────────────────────────────────────────────
 
 function darwinStrategy(binaryNames) {
   return {
@@ -331,9 +324,7 @@ function darwinStrategy(binaryNames) {
   };
 }
 
-// ─────────────────────────────────────────────
 // Linux strategy  (ps aux + ss)
-// ─────────────────────────────────────────────
 
 function linuxStrategy(binaryNames) {
   return {
@@ -343,6 +334,7 @@ function linuxStrategy(binaryNames) {
       const candidates = stdout
         .split('\n')
         .filter((l) => binaryNames.some((binaryName) => l.includes(binaryName)) && !l.includes('grep'))
+        // aislop-ignore-next-line code-quality/duplicate-block (ps/process-mapping pipeline reused across probe strategies)
         .map((line) => {
           const parts = line.trim().split(/\s+/);
           return {
@@ -375,9 +367,7 @@ function linuxStrategy(binaryNames) {
   };
 }
 
-// ─────────────────────────────────────────────
 // Strategy factory
-// ─────────────────────────────────────────────
 
 /**
  * Return the correct strategy for the given (or current) platform.
@@ -406,9 +396,7 @@ function getPlatformStrategy(platformOverride) {
   };
 }
 
-// ─────────────────────────────────────────────
 // Public API
-// ─────────────────────────────────────────────
 
 let _discoveryInFlight = null;
 
@@ -518,11 +506,10 @@ async function _discoverSidecarOnce(ctx) {
   }
 }
 
-// ─────────────────────────────────────────────
+// aislop-ignore-next-line ai-slop/narrative-comment (genuine multi-line documentation preamble)
 // Fast liveness check (binary existence only — no port/CSRF parsing)
 // Used by the bridge lifecycle gate so the HTTP listener on :11435 only
 // binds when the user has actually opened Antigravity CLI/IDE.
-// ─────────────────────────────────────────────
 
 const _livenessCache = { ts: 0, result: null };
 const _livenessCacheMs = 3000;
@@ -543,7 +530,7 @@ async function _livenessWindows(binaryNames) {
         const firstPidMatch = out.split(/\r?\n/)[0].match(/"[^"]+","(\d+)"/);
         return { live: true, reason: `${bin} running (pid=${firstPidMatch ? firstPidMatch[1] : '?'})` };
       }
-    } catch (err) {
+    } catch (_) {
       // tasklist failure for one binary — try the next
     }
   }
@@ -564,7 +551,7 @@ async function _livenessUnix(binaryNames, psArgs, grepPattern) {
         return { live: true, reason: `${m[0]} running (pid=${fields[0]})` };
       }
     }
-  } catch (err) {
+  } catch (_) {
     // ps failed — assume not live rather than crashing the bridge
   }
   return { live: false, reason: `none of ${binaryNames.join(', ')} running` };

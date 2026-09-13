@@ -7,14 +7,12 @@ const {
   sendJson,
   setupStreamResponse,
   readBody,
-  buildCompletion,
+  
 } = require('../utils');
 const { extractText, extractAllImages } = require('../images');
 const { sanitizeRequest } = require('../sanitize');
 
-// ─────────────────────────────────────────────
 // POST /v1/chat/completions
-// ─────────────────────────────────────────────
 
 async function handleChatCompletions(ctx, req, res) {
   const body = await readBody(req);
@@ -34,7 +32,7 @@ async function handleChatCompletions(ctx, req, res) {
 
   // Safeguard: detect [object Object] serialization corruption
   const userTexts = messages.filter((m) => m.role === 'user').map((m) => extractText(m.content));
-  const allCorrupted = userTexts.length > 0 && userTexts.every((t) => /^\[object Object\]/.test(t));
+  const allCorrupted = userTexts.length > 0 && userTexts.every((t) => t.startsWith('[object Object]'));
   if (allCorrupted) {
     log(ctx, `⚠️ [object Object] DETECTED — upstream caller is not serializing messages properly!`, true);
     return sendJson(res, 400, {
@@ -56,7 +54,7 @@ async function handleOpenAiDirect(ctx, req, res, isStream, messages, completionI
   let images = [];
   try {
     images = await extractAllImages(ctx, messages);
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
   if (isStream) {
     return streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images);
@@ -108,7 +106,7 @@ async function handleOpenAiDirect(ctx, req, res, isStream, messages, completionI
   }
 }
 
-function streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images) {
+function streamOpenAiDirect(ctx, req, res, messages, completionId, tools, _) {
   setupStreamResponse(res);
 
   const bridgeConfig = ctx.bridgeConfig || {};

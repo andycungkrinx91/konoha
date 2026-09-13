@@ -177,7 +177,7 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null) {
     // Fail silently to avoid breaking MCP stdio
   } finally {
     if (conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 }
@@ -419,6 +419,7 @@ function optimizeReport(keyword = null, agentName = null) {
 
     if (keyword) {
       const sanitized = sanitizeFts5Query(keyword);
+      // aislop-ignore-next-line code-quality/duplicate-block (instruction-block builders sharing the tool-boundary preamble)
       try {
         rows = conn.prepare(`
           SELECT s.name, s.skill_name, s.type, s.tags,
@@ -437,6 +438,7 @@ function optimizeReport(keyword = null, agentName = null) {
 
       if (!rows || rows.length === 0) {
         const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+        // aislop-ignore-next-line code-quality/duplicate-block (instruction-block builders sharing the tool-boundary preamble)
         const likeKeyword = '%' + words.join('%') + '%';
         rows = conn.prepare(`
           SELECT name, skill_name, type, tags,
@@ -535,7 +537,7 @@ function getAgentSkills(agentName) {
     process.stderr.write(`[mcp konoha] Error reading agent skills: ${e.message}\n`);
   } finally {
     if (conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return null;

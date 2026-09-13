@@ -4,7 +4,7 @@
  * Replaces db_stats.py with pure Node.js better-sqlite3.
  */
 
-const path = require('path');
+
 const db = require('./db');
 
 function getDbStats(dbPath = null) {

@@ -11,30 +11,8 @@ const { getDb, DB_PATH } = require('./db');
 
 const HOME = os.homedir();
 const DEFAULT_BASELINE = 550000; // ~140k tokens — matches server.py/server.js fallback
-
 const ANTIGRAVITY_CLI_BRAIN = path.join(HOME, '.gemini', 'antigravity-cli', 'brain');
 const ANTIGRAVITY_IDE_BRAIN = path.join(HOME, '.gemini', 'antigravity-ide', 'brain');
-const CURSOR_PROJECTS = path.join(HOME, '.cursor', 'projects');
-const CLAUDE_PROJECTS = path.join(HOME, '.claude', 'projects');
-
-function globFiles(baseDir, matchPattern) {
-  const results = [];
-  if (!fs.existsSync(baseDir)) return results;
-  function walk(current) {
-    let entries = [];
-    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch (_) { return; }
-    for (const ent of entries) {
-      const full = path.join(current, ent.name);
-      if (ent.isDirectory()) {
-        walk(full);
-      } else if (ent.isFile() && matchPattern(full)) {
-        results.push(full);
-      }
-    }
-  }
-  walk(baseDir);
-  return results;
-}
 
 function detectActiveClient() {
   try {
@@ -52,11 +30,12 @@ function detectActiveClient() {
 
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
     if (convId) {
+      if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy')) return 'agy';
       const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
       if (fs.existsSync(cliDir) && fs.statSync(cliDir).isDirectory()) return 'agy';
       const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
       if (fs.existsSync(ideDir) && fs.statSync(ideDir).isDirectory()) return 'antigravity';
-      return 'antigravity';
+      return 'agy';
     }
 
     if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1') return 'opencode';
@@ -64,50 +43,16 @@ function detectActiveClient() {
     if (process.env.CLAUDE_CODE_CHILD_SESSION === '1') return 'claudecode';
     if (process.env.PI_CODING_AGENT === 'true' || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
 
-    const brainDirs = [
-      ANTIGRAVITY_IDE_BRAIN,
-      ANTIGRAVITY_CLI_BRAIN,
-      CURSOR_PROJECTS,
-      CLAUDE_PROJECTS,
-      path.join(HOME, '.commandcode', 'projects'),
-      path.join(HOME, '.config', 'opencode', 'projects'),
-      path.join(HOME, '.codex', 'sessions'),
-      path.join(HOME, '.pi', 'agent', 'sessions')
-    ];
-
-    const allFiles = [];
-    for (const bDir of brainDirs) {
-      if (!fs.existsSync(bDir) || !fs.statSync(bDir).isDirectory()) continue;
-      if (bDir.includes(path.join('.pi', 'agent', 'sessions'))) {
-        allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl')));
-      } else if (bDir.includes('cursor')) {
-        allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl') && f.includes('agent-transcripts')));
-      } else if (bDir.includes('claude')) {
-        allFiles.push(...globFiles(bDir, (f) => f.endsWith('.jsonl')));
-      } else {
-        allFiles.push(...globFiles(bDir, (f) => f.endsWith('prompt.md') || f.endsWith('transcript.jsonl')));
-      }
-    }
-
-    if (!allFiles.length) return 'antigravity';
-
-    allFiles.sort((a, b) => {
-      try {
-        return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
-      } catch (_) {
-        return 0;
-      }
-    });
-
-    const mostRecent = allFiles[0].toLowerCase();
-    if (mostRecent.includes(path.join('.pi', 'agent', 'sessions'))) return 'pi';
-    if (mostRecent.includes('cursor')) return 'cursor';
-    if (mostRecent.includes('commandcode')) return 'commandcode';
-    if (mostRecent.includes('claudecode') || mostRecent.includes('claude')) return 'claudecode';
-    if (mostRecent.includes('antigravity-cli') || mostRecent.includes('agy')) return 'agy';
-    return 'antigravity';
+    // No hard session signal: attribute HONESTLY instead of guessing.
+    // The previous filesystem heuristic (glob every client's session dirs,
+    // pick the most-recently-modified file) misattributed thousands of calls
+    // made by CLI commands, test harnesses and scripts to whatever client
+    // happened to have a fresh session file — corrupting the per-provider
+    // breakdown in `konoha savings`. Provider rows must only contain calls
+    // from sessions with a verified client signal.
+    return 'unattributed';
   } catch (_) {
-    return 'antigravity';
+    return 'unattributed';
   }
 }
 
@@ -120,6 +65,7 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     let baseline = 0;
     if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
       baseline = Number(baselineBytes);
+    // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
     } else if (tool === 'token_efficient_grep') {
       baseline = Math.max(Number(returnedBytes) || 0, 150000);
     } else if (tool === 'find_files_clean') {
@@ -131,7 +77,7 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
       try {
         const row = conn.prepare('SELECT SUM(byte_size) as total FROM skills').get();
         if (row && row.total) baseline = Number(row.total);
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     } else if (tool === 'get_skill') {
       baseline = Number(returnedBytes) || 0;
     } else {
@@ -158,7 +104,7 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
   } catch (_) {
     // Fail silently
   } finally {
-    try { conn.close(); } catch (_) {}
+    try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 

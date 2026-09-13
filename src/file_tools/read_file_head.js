@@ -29,10 +29,12 @@ function readFileHead(args = {}) {
   const allLines = content.split(/\r?\n/);
   const totalLines = allLines.length;
 
+  const MAX_LINE_CHARS = 4000;
   const slice = allLines.slice(0, maxLines);
   const linesOut = slice.map((line, idx) => {
     const lineNo = idx + 1;
-    return `${String(lineNo).padStart(6, ' ')}|${line}`;
+    const safeLine = line.length > MAX_LINE_CHARS ? line.substring(0, MAX_LINE_CHARS) + `... [line truncated from ${line.length} chars]` : line;
+    return `${String(lineNo).padStart(6, ' ')}|${safeLine}`;
   });
 
   const truncated = totalLines > maxLines;

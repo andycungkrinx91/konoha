@@ -8,8 +8,14 @@ const path = require('path');
 const os = require('os');
 const Database = require('better-sqlite3');
 
-// Single canonical declaration of DB_PATH
-let currentDbPath = path.normalize(path.join(os.homedir(), '.konoha', 'konoha.db'));
+// Single canonical declaration of DB_PATH.
+// KONOHA_DB_PATH env override (set by the test runner / test suites) isolates
+// test runs from the production database — without it, SDLC/workflow tests
+// wrote hundreds of junk task rows into ~/.konoha/konoha.db, flooding the
+// web UI /tasks dashboard.
+let currentDbPath = process.env.KONOHA_DB_PATH
+  ? path.normalize(process.env.KONOHA_DB_PATH)
+  : path.normalize(path.join(os.homedir(), '.konoha', 'konoha.db'));
 
 /**
  * Opens connection, sets PRAGMA journal_mode=WAL, foreign_keys=ON, busy_timeout=5000,
@@ -29,12 +35,12 @@ function getConnection(dbPath = null, loadVector = true) {
       try {
         fs.copyFileSync(legacyPath, targetPath);
         if (fs.existsSync(legacyPath + '-wal')) {
-          try { fs.copyFileSync(legacyPath + '-wal', targetPath + '-wal'); } catch (_) {}
+          try { fs.copyFileSync(legacyPath + '-wal', targetPath + '-wal'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
         if (fs.existsSync(legacyPath + '-shm')) {
-          try { fs.copyFileSync(legacyPath + '-shm', targetPath + '-shm'); } catch (_) {}
+          try { fs.copyFileSync(legacyPath + '-shm', targetPath + '-shm'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -74,7 +80,7 @@ function setupSchema(conn) {
     if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
       conn.exec('DROP TABLE persona_memories_fts');
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   conn.exec(`
     CREATE TABLE IF NOT EXISTS skills (
@@ -155,6 +161,7 @@ function setupSchema(conn) {
         name TEXT PRIMARY KEY,
         icon TEXT,
         title TEXT,
+        model TEXT,
         model_tier TEXT,
         purpose TEXT,
         skills TEXT,
@@ -188,6 +195,23 @@ function setupSchema(conn) {
         package_manager TEXT DEFAULT 'pnpm',
         context_summary TEXT DEFAULT '',
         tech_stack TEXT DEFAULT '{}',
+        dor_mode TEXT DEFAULT 'advisory',
+        review_mode TEXT DEFAULT 'self',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    -- SDLC tasks table (Native Medium-Weight Governance Layer)
+    CREATE TABLE IF NOT EXISTS sdlc_tasks (
+        id TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        dor_result TEXT DEFAULT '{}',
+        review_mode TEXT DEFAULT 'self',
+        evidence TEXT DEFAULT '{}',
+        slop_result TEXT DEFAULT '{}',
+        slop_cycles INTEGER DEFAULT 0,
+        project_path TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -242,6 +266,9 @@ function setupSchema(conn) {
     "ALTER TABLE tool_calls ADD COLUMN agent TEXT;",
     "ALTER TABLE tool_calls ADD COLUMN client TEXT;",
     "ALTER TABLE persona_memories ADD COLUMN project_hash TEXT DEFAULT '';",
+    "ALTER TABLE agents ADD COLUMN model TEXT;",
+    "ALTER TABLE projects ADD COLUMN dor_mode TEXT DEFAULT 'advisory';",
+    "ALTER TABLE projects ADD COLUMN review_mode TEXT DEFAULT 'self';",
   ];
   for (const sql of colSqls) {
     try {
@@ -263,18 +290,32 @@ function setupSchema(conn) {
     CREATE INDEX IF NOT EXISTS idx_mem_agent ON persona_memories(agent_name);
     CREATE INDEX IF NOT EXISTS idx_mem_type ON persona_memories(memory_type);
     CREATE INDEX IF NOT EXISTS idx_mem_project ON persona_memories(project_hash);
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status ON sdlc_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_project ON sdlc_tasks(project_path);
   `);
 
   // Purge any legacy mcp_* agents from authoritative database
   try {
     conn.prepare("DELETE FROM agents WHERE name LIKE 'mcp_%'").run();
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Rebuild the external-content FTS index to repair any corruption left by
   // earlier versions that synced deletes in the wrong order (content row gone first)
   try {
     conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  // Drop legacy agents columns that predate the canonical schema and are no
+  // longer referenced by any code path (claude_model, cursor_model). Keeps
+  // long-lived databases structurally identical to fresh installs.
+  try {
+    const agentCols = new Set(conn.prepare('PRAGMA table_info(agents)').all().map(c => c.name));
+    for (const legacy of ['claude_model', 'cursor_model']) {
+      if (agentCols.has(legacy)) {
+        conn.prepare(`ALTER TABLE agents DROP COLUMN ${legacy}`).run();
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   return conn;
 }

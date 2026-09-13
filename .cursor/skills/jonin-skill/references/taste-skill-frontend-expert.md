@@ -23,7 +23,7 @@ flowchart TD
         T1["3D Animation & Spring Physics (Motion 12 / Svelte transitions)"]
         T2["Editorial Prettifier & Typographic Scale Contrast (Geist / Cabinet Grotesk)"]
         T3["Cinematic Section Spacing (py-24 / py-32 / py-48) & 12-col Bento"]
-        T4["Anti-Slop Discipline (Zero emojis, 100dvh, Lucide vector icons)"]
+        T4["Anti-Slop Discipline (Zero emojis, 100dvh, Phosphor vector icons)"]
         T5["Leaf-Component Client Isolation ('use client' strictly on micro-leaves)"]
     end
 
@@ -95,7 +95,7 @@ Taste-Skill enriches the Konoha foundation with 3 core pillars:
   - Hairline structural borders (`border-[var(--theme-border)]`).
 
 ### C. Strict Anti-Slop Enforcement
-- **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and headings. Always use crisp vector icons from `lucide-react` / `lucide-svelte` / `lucide-vue-next`.
+- **Zero-Emoji Policy**: Emojis are strictly banned from UI buttons, badges, and headings. Always use crisp vector icons from Phosphor Icons (`@phosphor-icons/react` / `@phosphor-icons/web` / `@phosphor-icons/vue`) or hand-exported inline SVGs — never a Lucide package (AI-scaffold fingerprint).
 - **No Generic AI Gradients**: Avoid generic `from-purple-600 to-indigo-600` AI-slop gradients. Use semantic theme tokens (`var(--theme-accent)`) and subtle radial mesh glares.
 - **Mobile Viewport Stability**:
   - Full-viewport sections must use **`min-h-[100dvh]`** (never `h-screen` which jumps on mobile address bar collapse).
@@ -134,5 +134,5 @@ Before claiming any UI task complete, verify against this checklist:
 - [ ] **Taste-Skill Typography**: Distinctive font stack (Geist/Cabinet Grotesk) with tight tracking and scale contrast.
 - [ ] **Taste-Skill Spacing**: Cinematic chapter rhythm (`py-24` / `py-32` / `py-48`) and 12-column asymmetric bento grids.
 - [ ] **Taste-Skill 3D & Motion**: Spring physics, 3D hover perspective tilt, tactile `active:scale-[0.98]`, reduced-motion fallbacks.
-- [ ] **Anti-Slop Discipline**: Zero emojis in UI controls (Lucide SVGs only), safe `min-h-[100dvh]`, leaf-component client isolation.
+- [ ] **Anti-Slop Discipline**: Zero emojis in UI controls (Phosphor SVGs only — never Lucide), safe `min-h-[100dvh]`, leaf-component client isolation.
 - [ ] **Validation**: `pnpm run lint` and `pnpm run build` pass with 0 errors and 0 warnings.

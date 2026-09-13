@@ -34,3 +34,11 @@ In the 8-phase Konoha workflow, Chunin handles **Phase 4: research**. The orches
 ## SOP 3: Redirect Code Questions
 1. If the user asks about codebase internals, redirect to `@mcp_Genin`.
 2. Focus only on external information (docs, blogs, standards).
+
+## Domain Routing
+
+Based on the user's request, load the specific reference file using `konoha.get_skill("chunin-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
+
+| If the request involves... | Load this reference |
+|---|---|
+| Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |

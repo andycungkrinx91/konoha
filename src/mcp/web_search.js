@@ -162,7 +162,8 @@ async function querySearxng(instanceUrl, q, num) {
 }
 
 async function queryDuckDuckGo(q, num) {
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
+  const ddgBase = process.env.KONOHA_DUCKDUCKGO_URL || 'https://html.duckduckgo.com/html/';
+  const url = `${ddgBase}?q=${encodeURIComponent(q)}`;
   try {
     const resp = await fetchWithTimeout(url, {
       headers: {
@@ -187,7 +188,7 @@ async function queryDuckDuckGo(q, num) {
         let snippet = '';
         if (snippetM) snippet = snippetM[1].replace(/<[^>]+>/g, '').trim();
         try {
-          const parsed = new URL(rawUrl, 'https://duckduckgo.com');
+          const parsed = new URL(rawUrl, process.env.KONOHA_DUCKDUCKGO_URL || 'https://duckduckgo.com');
           rawUrl = parsed.searchParams.get('uddg') || rawUrl;
         } catch (_) { /* ignore */ }
         results.push({
@@ -210,7 +211,8 @@ async function queryWikipedia(q, num) {
     for (let i = 0; i < Math.min(3, terms.length); i++) {
       const term = terms.slice(0, terms.length - i).join(' ');
       if (term.trim().length < 3) continue;
-      const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(term)}&limit=${num}&format=json`;
+      const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';
+  const url = `${wikiBase}?action=opensearch&search=${encodeURIComponent(term)}&limit=${num}&format=json`;
       const resp = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, 5000);
       const data = await resp.json();
       if (Array.isArray(data) && data.length >= 4 && Array.isArray(data[1])) {

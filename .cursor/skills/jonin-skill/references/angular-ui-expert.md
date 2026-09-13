@@ -20,5 +20,6 @@ Canonical design system directives and production blueprints for **Angular v19+ 
 - **Adaptive Routes**: Maps quick one-tap links to Dashboard (Overview, Analytics, Servers, Alerts, Themes), Portfolio (Home, Projects, Skills, Contact, Themes), SaaS, and Commerce.
 
 ### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include required packages: `lucide-angular`, `clsx`, `tailwind-merge`.
+- Scaffolding MUST include `@phosphor-icons/web` (load its CSS once in `styles.scss`: `@import '@phosphor-icons/web/regular'; @import '@phosphor-icons/web/bold';`) — NEVER `lucide-angular` or any Lucide package (AI-scaffold fingerprint). Styling uses hand-written SCSS (component-scoped stylesheets + global `styles.scss`), never Tailwind.
+- **Styling adaptation note (PLAN_HUMAN_BUILT)**: treat any Tailwind utility classes in the blueprints below as layout specifications to translate into hand-written SCSS, never as a reason to install Tailwind.
 - Do not claim completion until `pnpm run build` and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.

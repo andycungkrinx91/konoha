@@ -6,9 +6,9 @@
  */
 
 const http = require('http');
-const { spawnSync, execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
-const os = require('os');
+
 const Module = require('module');
 
 // Hook 'vscode' module resolution for bridge compatibility
@@ -21,7 +21,7 @@ Module._resolveFilename = function (request, parent, isMain, options) {
   return originalResolveFilename.call(this, request, parent, isMain, options);
 };
 
-// ─── Database helpers ────────────────────────────────────────────────────────
+// Database helpers
 
 function runBridgeDb(args) {
   const bridgeScript = path.join(__dirname, '..', 'db_bridges.py');
@@ -47,7 +47,7 @@ function setEnabled(name, enabled) {
   return runBridgeDb(enabled ? ['--enable', name] : ['--disable', name]);
 }
 
-// ─── Next available port finder ──────────────────────────────────────────────
+// Next available port finder
 
 const PORT_BASE = 11435;
 const _bridgeProcesses = new Map(); // name -> { ctx, server, config }
@@ -63,39 +63,9 @@ function _isPortFree(port) {
   });
 }
 
-async function findFreePort(base) {
-  for (let offset = 0; offset < 50; offset++) {
-    const port = base + offset;
-    if (await _isPortFree(port)) return port;
-  }
-  throw new Error('No free port found near ' + base);
-}
 
-// ─── Start a single bridge server ────────────────────────────────────────────
+// Start a single bridge server
 
-function createContext(config) {
-  return {
-    sessionId: 'cli-' + Date.now(),
-    bridgeConfig: config,
-    server: null,
-    sidecarInfo: null,
-    sidecarInfoTimestamp: 0,
-    lastResponseTimestamp: 0,
-    MIN_REQUEST_INTERVAL_MS: 200,
-    lastUserMessageHash: '',
-    lastUserMessageTimestamp: 0,
-    DEDUP_WINDOW_MS: 1000,
-    isWorkspaceSwitching: false,
-    activeCascades: new Map(),
-    cascadePromises: new Map(),
-    // VSCode-style output channel (CLI uses stderr)
-    outputChannel: {
-      appendLine: (msg) => process.stderr.write(`[bridge:${config.name}] ${msg}\n`),
-      show: () => {},
-      dispose: () => {},
-    },
-  };
-}
 
 async function startBridge(config) {
   const port = config.port || 11435;
@@ -108,7 +78,7 @@ async function startBridge(config) {
     }
   }
   const { createContext: _ctx } = require('./context');
-  const { startServer, stopServer } = require('./server');
+  const { startServer } = require('./server');
   const ctx = _ctx();
   ctx.bridgeConfig = config;
   ctx.outputChannel = {
@@ -136,7 +106,12 @@ async function stopBridge(name) {
   const entry = _bridgeProcesses.get(name);
   if (!entry) return { name, status: 'stopped' };
   try {
-    if (entry.ctx) await stopServer(entry.ctx);
+    if (entry.ctx) {
+      // Lazy-require (same pattern as startBridge): stopServer lives in
+      // ./server, which must not be loaded at module-import time.
+      const { stopServer } = require('./server');
+      await stopServer(entry.ctx);
+    }
     _bridgeProcesses.delete(name);
     process.stderr.write(`[bridge:${name}] ⏹️  Stopped\n`);
     return { name, status: 'stopped' };
@@ -151,7 +126,7 @@ async function stopAllBridges() {
   await Promise.all(names.map(n => stopBridge(n)));
 }
 
-// ─── Gateway management ──────────────────────────────────────────────────────
+// Gateway management
 
 let _gatewayServer = null;
 let _gatewayActiveBridges = null;
@@ -190,7 +165,7 @@ async function stopGateway() {
   return { port: GATEWAY_PORT, status: 'stopped' };
 }
 
-// ─── CLI status / models ─────────────────────────────────────────────────────
+// CLI status / models
 
 function isGatewayRunning() {
   return _gatewayServer !== null;
@@ -209,7 +184,7 @@ async function fetchGatewayModels() {
   return res.json();
 }
 
-// ─── Init from DB on module load ─────────────────────────────────────────────
+// Init from DB on module load
 
 async function initFromDb() {
   const bridges = listBridges().filter(b => b.enabled);

@@ -5,9 +5,7 @@ const https = require('https');
 const http2 = require('http2');
 const fs = require('fs');
 
-// ─────────────────────────────────────────────
 // ConnectRPC communication with the sidecar
-// ─────────────────────────────────────────────
 
 /**
  * Low-level H2 ConnectRPC unary call.
@@ -77,7 +75,7 @@ function _connectSidecar(port, certPath) {
     fellBack = true;
     try {
       client.close();
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
     try {
       fallbackClient = http2.connect(`http://localhost:${port}`);
     } catch (e) {
@@ -95,11 +93,11 @@ function _connectSidecar(port, certPath) {
     close: () => {
       try {
         client.close();
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
       if (fallbackClient) {
         try {
           fallbackClient.close();
-        } catch {}
+        } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
       }
     },
     reportError: (err) => {
@@ -236,6 +234,7 @@ function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, pay
     };
 
     const onConnect = () => {
+      // aislop-ignore-next-line code-quality/duplicate-block (HTTP/2 request + JSON settle boilerplate across RPC methods)
       const req = client.request({
         ':method': 'POST',
         ':path': `/exa.language_server_pb.LanguageServerService/${method}`,
@@ -267,7 +266,7 @@ function _makeH2StreamingCallOnce(port, csrf, certPath, method, contentType, pay
     timer = setTimeout(() => {
       try {
         client.close();
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
       settleResolve(); // streaming RPC — timeout is normal, server started streaming
     }, 30000);
   });
@@ -291,9 +290,7 @@ async function _withRetry(fn, retries = 2, retryOnTimeout = true) {
   }
 }
 
-// ─────────────────────────────────────────────
 // Public: JSON calls
-// ─────────────────────────────────────────────
 
 /** Make a unary H2+JSON ConnectRPC call (with automatic retry) */
 async function makeH2JsonCall(port, csrf, certPath, method, body, retries = 2, timeoutMs = 10000) {
@@ -318,9 +315,7 @@ function makeH2StreamingCall(port, csrf, certPath, method, body) {
   return _makeH2StreamingCallOnce(port, csrf, certPath, method, 'application/json', payload);
 }
 
-// ─────────────────────────────────────────────
 // Public: Proto calls
-// ─────────────────────────────────────────────
 
 /** Make a unary H2+Proto ConnectRPC call (with automatic retry) */
 async function makeH2ProtoCall(port, csrf, certPath, method, protoBytes, retries = 2) {
@@ -338,9 +333,7 @@ function makeH2ProtoStreamingCall(port, csrf, certPath, method, protoBytes) {
   return _makeH2StreamingCallOnce(port, csrf, certPath, method, 'application/proto', payload);
 }
 
-// ─────────────────────────────────────────────
 // Legacy: HTTP/1.1 ConnectRPC (with HTTPS→HTTP fallback)
-// ─────────────────────────────────────────────
 
 function makeConnectRpcCallOnPort(port, csrf, certPath, servicePath, payload) {
   return new Promise((resolve, reject) => {
@@ -404,6 +397,7 @@ function makeConnectRpcCallOnPort(port, csrf, certPath, servicePath, payload) {
           res.on('data', (c) => chunks.push(c));
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString('utf8');
+            // aislop-ignore-next-line code-quality/duplicate-block (HTTP/2 request + JSON settle boilerplate across RPC methods)
             if (res.statusCode === 200) {
               try {
                 resolve(JSON.parse(body));

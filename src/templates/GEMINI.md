@@ -73,12 +73,12 @@ The main agent ONLY delegates to the defined ninja agents (`genin`, `kage`, `chu
 
 | Embedded Skills | Agent TypeName |
 |-----------|----------|
-| `genin-skill` | `genin` |
+| `genin-skill`, `i-have-adhd` | `genin` |
 | `devsecops-engineer`, `genin-skill`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
-| `websearch-deep` | `chunin` |
-| `agent-browser`, `modern-full-stack` | `jonin` |
-| `devsecops-engineer`, `agent-browser` | `anbu` |
-| `documentation` | `tokubetsu-jonin` |
+| `websearch-deep`, `i-have-adhd` | `chunin` |
+| `agent-browser`, `modern-full-stack`, `i-have-adhd` | `jonin` |
+| `devsecops-engineer`, `agent-browser`, `i-have-adhd` | `anbu` |
+| `documentation`, `i-have-adhd` | `tokubetsu-jonin` |
 | Simple/trivial tasks | Delegate to the matching agent if skill is embedded. Otherwise, route to the closest matching agent (e.g. framework/maintenance to @kage). |
 
 For complex multi-domain tasks, invoke multiple agents in parallel.

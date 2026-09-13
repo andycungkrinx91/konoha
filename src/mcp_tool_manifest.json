@@ -233,8 +233,53 @@
           },
           "path": {
             "type": "string"
+          },
+          "limit": {
+            "type": "number",
+            "integer": true,
+            "minimum": 1,
+            "maximum": 1000
           }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "website_ai_detector",
+      "description": "Scan a website (directory path or URL) for AI-generation fingerprints (generator meta tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify hosting, attribution comments, template assets) and return a 0-100 score with evidence-backed findings. 0-20 = Human-Built.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Site directory path or http(s) URL to scan"
+          },
+          "path": {
+            "type": "string",
+            "description": "Alias for target: site directory path"
+          },
+          "url": {
+            "type": "string",
+            "description": "Alias for target: http(s) URL"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "target"
+            ]
+          },
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "url"
+            ]
+          }
+        ],
         "additionalProperties": false
       }
     },
@@ -1256,6 +1301,61 @@
         },
         "required": [
           "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "check_readiness",
+      "description": "Definition-of-Readiness (DoR) check on a task prompt before dispatch.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "Task description or prompt to assess."
+          },
+          "project_path": {
+            "type": "string",
+            "description": "Optional path to the project workspace."
+          }
+        },
+        "required": [
+          "task"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_task_evidence",
+      "description": "Retrieve persisted validation and attestation evidence for an SDLC task.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "ID of the SDLC task."
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_slop_findings",
+      "description": "Retrieve persisted anti-slop scan findings and Delivery Gate report for an SDLC task.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "ID of the SDLC task."
+          }
+        },
+        "required": [
+          "task_id"
         ],
         "additionalProperties": false
       }

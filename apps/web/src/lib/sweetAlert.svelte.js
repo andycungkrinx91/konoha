@@ -19,8 +19,18 @@ function createSweetAlertState() {
     }
   }
 
+  function settlePendingResolve() {
+    // A new modal replacing a pending one must settle the old promise (as
+    // cancelled), otherwise the caller's `await` hangs forever.
+    if (resolvePromise) {
+      resolvePromise(false);
+      resolvePromise = null;
+    }
+  }
+
   function fire({ title: t, text: msg, icon: ic = "info", confirmText: cText = "OK", timer = 0 }) {
     clearAutoDismiss();
+    settlePendingResolve();
     title = t || "Notification";
     text = msg || "";
     icon = ic;
@@ -42,6 +52,7 @@ function createSweetAlertState() {
 
   function confirm({ title: t, text: msg, icon: ic = "warning", confirmText: cText = "Confirm", cancelText: canText = "Cancel" }) {
     clearAutoDismiss();
+    settlePendingResolve();
     title = t || "Are you sure?";
     text = msg || "";
     icon = ic;

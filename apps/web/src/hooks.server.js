@@ -1,11 +1,8 @@
+// SvelteKit server hook — pass-through.
+// The CSRF session token is delivered exclusively via the HttpOnly cookie set by
+// the Node web server (src/web_server.js). It must NEVER be rendered into HTML
+// (no meta tag injection) so it stays out of page source, caches, and DOM dumps.
+// The SPA obtains it for mutating requests via GET /api/v1/csrf (same-origin).
 export async function handle({ event, resolve }) {
-  const token = event.cookies.get('konoha-web-token') || '';
-  return resolve(event, {
-    transformPageChunk: ({ html }) => {
-      if (token && html.includes('</head>')) {
-        return html.replace('</head>', `  <meta name="konoha-web-token" content="${token}">\n</head>`);
-      }
-      return html;
-    }
-  });
+  return resolve(event);
 }

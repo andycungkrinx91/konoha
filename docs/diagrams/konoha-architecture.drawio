@@ -208,22 +208,25 @@
                 <mxCell id="p3-buildsource" value="build_from_source" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="230" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-genin" value="genin&#10;genin-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-aidetect" value="website_ai_detector&#10;AI-fingerprint scan (0-100)&#10;0-20 = Human-Built | CLI: konoha detect-ai" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0d9488;;overflow=visible;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="340" width="260" height="70" as="geometry" />
+                </mxCell>
+                <mxCell id="p3-genin" value="genin&#10;genin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="340" width="260" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-kage" value="kage&#10;kage-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="450" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-jonin" value="jonin&#10;jonin-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-jonin" value="jonin&#10;jonin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="560" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-anbu" value="anbu&#10;anbu-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-anbu" value="anbu&#10;anbu-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="700" y="670" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-chunin" value="chunin&#10;chunin-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-chunin" value="chunin&#10;chunin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="1040" y="230" width="260" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p3-toku" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
+                <mxCell id="p3-toku" value="tokubetsu-jonin&#10;tokubetsu-jonin-skill + i-have-adhd" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" parent="1" vertex="1">
                     <mxGeometry x="1040" y="340" width="290" height="80" as="geometry" />
                 </mxCell>
                 <mxCell id="p3-mcp" value="Konoha MCP&#10;find_skill / get_skill / agent tools" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" parent="1" vertex="1">
@@ -677,7 +680,7 @@
                 <mxCell id="p11-title" value="11 Konoha 8-Phase Orchestration Pipeline &amp; Kage Reviewer Gate" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" parent="1" vertex="1">
                     <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-route" value="1. Route Phase&#10;(Prompt Analysis)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
+                <mxCell id="p11-route" value="1. Route Phase&#10;(Prompt Analysis &amp; DoR Gate)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="50" y="180" width="150" height="70" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-explore" value="2. Explore Phase&#10;(Genin: Read-only Scout)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" parent="1" vertex="1">
@@ -692,7 +695,7 @@
                 <mxCell id="p11-doc" value="5. Document Phase&#10;(Tokubetsu: Docs &amp; Specs)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" parent="1" vertex="1">
                     <mxGeometry x="920" y="180" width="190" height="70" as="geometry" />
                 </mxCell>
-                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• 97% Minimum Confidence Gate (≥ 97% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Rollback Plan Verification&#10;• Writes kage_review.json" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
+                <mxCell id="p11-review" value="6. Review Phase (MANDATORY GATE)&#10;Kage Reviewer Gate:&#10;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#10;• Kage → Anbu Anti-Slop Remediation Loop&#10;• Cross-Provider Review Independence&#10;• 97% Minimum Confidence Gate (≥ 97% required)&#10;• 100% Task Verification in status.json&#10;• Clean Validation Evidence (0 errors/warnings)&#10;• Security Audit &amp; CVE Check&#10;• Writes kage_review.json &amp; sdlc_tasks" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" parent="1" vertex="1">
                     <mxGeometry x="680" y="320" width="430" height="190" as="geometry" />
                 </mxCell>
                 <mxCell id="p11-synth" value="7. Synthesize Phase&#10;(Sannin Final Report)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" parent="1" vertex="1">

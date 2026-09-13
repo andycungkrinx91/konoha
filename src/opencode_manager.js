@@ -18,20 +18,20 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const {
-  HOME,
+  
   OPENCODE_DIR,
   OPENCODE_CONFIG,
   OPENCODE_LEGACY_DIR,
   OPENCODE_LEGACY_CONFIG,
-  FILE_TOOLS_LAUNCHER_PATH,
+  
   FILE_TOOLS_MCP_PATH,
   SKILLS_DB_DIR,
-  KONOHA,
+  
   SERVER_PATH
 } = require('../bin/lib/paths');
 
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
-const { buildMainAgentContract, buildManagedContract, generateGenericSubagentMd } = require('./agent_contract');
+const { buildMainAgentContract, generateGenericSubagentMd } = require('./agent_contract');
 const { loadAgents, generateAgentsMd } = require('./agent_manager');
 
 /**
@@ -42,18 +42,18 @@ function installOhMyOpenCodeSlim(silent = true) {
   const hasSlim = isCommandAvailable('oh-my-opencode-slim');
   if (hasSlim) {
     if (!silent) {
-      console.log('  ✓ oh-my-opencode-slim is available, using existing installation');
+      process.stderr.write('  ✓ oh-my-opencode-slim is available, using existing installation\n');
     }
     return { ok: true, reason: 'already-installed' };
   }
 
   if (!silent) {
-    console.log('  ⚠ oh-my-opencode-slim is not installed; continuing without optional integration');
+    process.stderr.write('  ⚠ oh-my-opencode-slim is not installed; continuing without optional integration\n');
   }
   return { ok: false, reason: 'not-available' };
 }
 
-// ─── OpenCode Detection ───────────────────────────────────────────────────────
+// OpenCode Detection
 
 function isOpenCodeInstalled() {
   return (
@@ -67,7 +67,7 @@ function isOpenCodeInstalled() {
 
 // isRtkInstalled is imported from platform_utils
 
-// ─── Config Helpers ───────────────────────────────────────────────────────────
+// Config Helpers
 
 function getOpenCodeConfigPath() {
   if (fileExists(OPENCODE_CONFIG)) return OPENCODE_CONFIG;
@@ -87,19 +87,9 @@ function writeOpenCodeConfig(config) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
-function readOpenCodeInstructions() {
-  const instructionPath = path.join(OPENCODE_DIR, 'AGENTS.md');
-  if (!fileExists(instructionPath)) return '';
-  return fs.readFileSync(instructionPath, 'utf-8');
-}
 
-function writeOpenCodeInstructions(content) {
-  const instructionPath = path.join(OPENCODE_DIR, 'AGENTS.md');
-  ensureDir(path.dirname(instructionPath));
-  fs.writeFileSync(instructionPath, content, 'utf-8');
-}
 
-// ─── MCP Server Registration ─────────────────────────────────────────────────
+// MCP Server Registration
 
 function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   let config;
@@ -220,7 +210,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
     const existingInstructions = Array.isArray(config.instructions) ? config.instructions : [];
     config.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   writeOpenCodeConfig(config);
 
@@ -234,7 +224,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       ensureDir(path.dirname(sPath));
       let sObj = {};
       if (fileExists(sPath)) {
-        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch {}
+        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
       delete sObj.permissions;
       delete sObj.autoApprove;
@@ -261,7 +251,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
         skill: 'allow'
       };
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // If legacy config exists or legacy directory exists, sync it too
@@ -269,11 +259,11 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     try {
       ensureDir(OPENCODE_LEGACY_DIR);
       fs.writeFileSync(OPENCODE_LEGACY_CONFIG, JSON.stringify(config, null, 2) + '\n');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (!silent) {
-    console.log('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)');
+    process.stderr.write('  ✓ OpenCode MCP servers configured (konoha, semble, aislop)\n');
   }
 
   return { ok: true };
@@ -283,7 +273,7 @@ function deployOpenCodeRules(silent = true) {
   let agents = [];
   try {
     agents = loadAgents();
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const fullInstructions = generateAgentsMd(agents, 'opencode');
 
@@ -298,7 +288,7 @@ function deployOpenCodeRules(silent = true) {
       ensureDir(path.dirname(dest));
       fs.writeFileSync(dest, fullInstructions, 'utf-8');
       deployed++;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Deploy rules/konoha.md
@@ -310,7 +300,7 @@ function deployOpenCodeRules(silent = true) {
     try {
       ensureDir(path.dirname(rDest));
       fs.writeFileSync(rDest, buildMainAgentContract('opencode') + '\n', 'utf8');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Deploy subagents to ~/.config/opencode/agents/ and ~/.opencode/agents/
@@ -326,10 +316,10 @@ function deployOpenCodeRules(silent = true) {
         const subagentMd = generateGenericSubagentMd(agent, 'opencode');
         fs.writeFileSync(path.join(aDir, `${agent.name}.md`), subagentMd, 'utf8');
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  if (!silent && deployed > 0) console.log(`  ✓ Deployed Konoha instructions & agents to OpenCode`);
+  if (!silent && deployed > 0) process.stderr.write(`  ✓ Deployed Konoha instructions & agents to OpenCode\n`);
   return { ok: deployed > 0 };
 }
 
@@ -342,9 +332,10 @@ function deployOpenCodeRtkRule(silent = true) {
     spawnSync(rtkCmd, ['init', '-g', '--opencode', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit'
+      stdio: silent ? 'ignore' : 'inherit',
+      shell: process.platform === 'win32'
     });
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
   if (!fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
@@ -361,14 +352,14 @@ function deployOpenCodeRtkRule(silent = true) {
       ensureDir(path.dirname(dest));
       fs.copyFileSync(src, dest);
       deployed++;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  if (!silent && deployed > 0) console.log(`  ✓ Deployed RTK rule to OpenCode`);
+  if (!silent && deployed > 0) process.stderr.write(`  ✓ Deployed RTK rule to OpenCode\n`);
   return { ok: deployed > 0 };
 }
 
-// ─── Status Checking ──────────────────────────────────────────────────────────
+// Status Checking
 
 function getOpenCodeStatus() {
   const status = {
@@ -386,13 +377,13 @@ function getOpenCodeStatus() {
       status.mcpKonoha = !!(config.mcp && config.mcp['konoha']);
       status.mcpSemble = !!(config.mcp && config.mcp['semble']);
       status.mcpAislop = !!(config.mcp && config.mcp['aislop']);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return status;
 }
 
-// ─── Cleanup ──────────────────────────────────────────────────────────────────
+// Cleanup
 
 function removeOpenCodeConfig(silent = true) {
   if (!fileExists(OPENCODE_CONFIG) && !fileExists(OPENCODE_LEGACY_CONFIG)) {
@@ -414,12 +405,12 @@ function removeOpenCodeConfig(silent = true) {
     writeOpenCodeConfig(config);
 
     if (!silent) {
-      console.log('  ✓ Removed Konoha config from OpenCode');
+      process.stderr.write('  ✓ Removed Konoha config from OpenCode\n');
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
-// ─── Main Setup Function ──────────────────────────────────────────────────────
+// Main Setup Function
 
 function ensureOpenCodeSetup(options = {}) {
   const {

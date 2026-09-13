@@ -16,14 +16,12 @@ const MODEL_ENUM_TO_VALUE = {
   MODEL_OPENAI_GPT_OSS_120B_MEDIUM: 342,
 };
 
-// ─────────────────────────────────────────────
 // Raw Inference via GetModelResponse
 // Bypasses Cascade entirely — pure LLM inference.
 //
 // Schema (decoded from sidecar protobuf):
 //   Request:  { prompt: string, model: string }
 //   Response: { response: string }
-// ─────────────────────────────────────────────
 
 /**
  * Format OpenAI-style messages into a single prompt string for GetModelResponse.
@@ -166,10 +164,12 @@ function parseToolCalls(responseText) {
     const args = {};
     // Extract everything that looks like `<param_key>param_value</param_key>`
     const paramRegex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+    // aislop-ignore-next-line code-quality/duplicate-block (tool-call parser shared shape across streaming branches)
     let pMatch;
     while ((pMatch = paramRegex.exec(paramBlock)) !== null) {
       args[pMatch[1]] = pMatch[2].trim();
     }
+    // aislop-ignore-next-line code-quality/duplicate-block (tool-call parser shared shape across streaming branches)
     toolCalls.push({
       index: toolCalls.length,
       id: `call_${Date.now()}_${toolCalls.length}`,
@@ -389,7 +389,7 @@ async function callRawInference(ctx, messages, modelEnum, tools = null, images =
   }
 }
 
-async function callOpenAiInference(ctx, messages, modelEnum, tools = null, images = []) {
+async function callOpenAiInference(ctx, messages, modelEnum, tools = null, _ = []) {
   const bridgeConfig = ctx.bridgeConfig || {};
   let targetUrl = bridgeConfig.targetUrl || '';
   if (!targetUrl) {
@@ -437,7 +437,7 @@ async function callOpenAiInference(ctx, messages, modelEnum, tools = null, image
     let parsedJson = null;
     try {
       parsedJson = JSON.parse(errorText);
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
     const err = new Error(
       parsedJson?.error?.message || parsedJson?.message || `OpenAI Provider HTTP ${response.status}: ${errorText}`

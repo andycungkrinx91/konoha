@@ -49,6 +49,7 @@ Load only the smallest relevant reference set. All reference names use the canon
 | Commands, code, config, YAML/JSON, filenames, skill metadata | `genin-skill/character-hygiene` |
 | Secrets, credentials, tokens, keys, logs, auth configuration | `genin-skill/secret-safety` |
 | Security-sensitive, destructive, production, or risky work | `genin-skill/guardrails` |
+| Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |
 
 Load guardrail references only when the task triggers them. Never load all references by default.
 

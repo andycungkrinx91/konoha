@@ -47,3 +47,4 @@ Based on the user's request, load the specific reference file using `konoha.get_
 | Postmortems, incident reports, root cause analysis (RCA), project retrospectives | `tokubetsu-jonin-skill/postmortem-writer` |
 | PDF generation, PDF reports, printable professional reports, document styling for export | `tokubetsu-jonin-skill/pdf` |
 | Content writer, technical articles, tutorials, engineering blogs, case studies, whitepapers | `tokubetsu-jonin-skill/technical-article-writer` |
+| Final response shaping, ADHD-friendly concise output, action-first answers | `i-have-adhd` |

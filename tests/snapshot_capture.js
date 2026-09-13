@@ -60,7 +60,6 @@ const CLI_CMDS = [
   ['status', ['status']],
   ['skill_help', ['skill']],
   ['agent_help', ['agent']],
-  ['models_help', ['models']],
   ['data_help', ['data']],
   ['bridge_status', ['bridge', 'status']],
   ['bridge_list', ['bridge', 'list']],

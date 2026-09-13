@@ -15,10 +15,8 @@ const VALUE_TO_MODEL_ENUM = {
   342: 'MODEL_OPENAI_GPT_OSS_120B_MEDIUM', // GPT-OSS 120B
 };
 
-// ─────────────────────────────────────────────
 // Gemini → OpenAI message conversion
 // Gemini uses `contents[].parts[].text`
-// ─────────────────────────────────────────────
 
 /**
  * Convert Gemini-format `contents` to OpenAI-format messages.
@@ -75,9 +73,7 @@ function geminiToolsToOpenAi(tools) {
   return openAiTools.length > 0 ? openAiTools : null;
 }
 
-// ─────────────────────────────────────────────
 // Gemini response builders
-// ─────────────────────────────────────────────
 
 function buildGeminiDelta(text, modelKey) {
   return {
@@ -154,10 +150,8 @@ async function streamGeminiResponse(res, text, modelKey) {
   res.end();
 }
 
-// ─────────────────────────────────────────────
 // POST /v1beta/models/:model:generateContent
 // POST /v1beta/models/:model:streamGenerateContent
-// ─────────────────────────────────────────────
 
 async function handleGeminiGenerateContent(ctx, req, res, modelFromPath) {
   const body = await readBody(req);
@@ -326,10 +320,8 @@ function parseGeminiPath(pathname) {
   return { model, isStream };
 }
 
-// ─────────────────────────────────────────────
 // Gemini format adapter for OpenAI provider
 // Converts Gemini → OpenAI → callRawInference → Gemini response
-// ─────────────────────────────────────────────
 
 async function handleGeminiToOpenAi(ctx, req, res, isStream, payload, modelFromPath) {
   let openAiMessages = geminiContentsToOpenAi(

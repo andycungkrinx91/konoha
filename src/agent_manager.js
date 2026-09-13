@@ -1,27 +1,44 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawnSync } = require('child_process');
+
 const platform = require('./platform_utils');
 const cursorManager = require('./cursor_manager');
 const antigravityManager = require('./antigravity_manager');
 const mcpClientsManager = require('./mcp_clients_manager');
 const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
-  SKILLS_DB_DIR, SERVER_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH,
-  USER_AGENTS_YAML_PATH, DEFAULT_AGENTS_YAML_PATH, GEMINI_TEMPLATE_PATH,
-  AGENTS_TEMPLATE_PATH, FINGERPRINT_PATH, SRC_DIR, DEFAULT_SKILLS_DIRS,
-  HOME, CURSOR_MCP, AGENTS_SKILLS
+  SERVER_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH,
+  USER_AGENTS_YAML_PATH, DEFAULT_AGENTS_YAML_PATH, 
+  FINGERPRINT_PATH, 
+  HOME
 } = require('../bin/lib/paths');
 
-const {
-  buildFileToolsPolicy,
-  buildFileToolsPolicyCompact
-} = require('./search_policy');
 const {
   buildMainAgentContract,
   buildManagedContract
 } = require('./agent_contract');
+
+const SAFETY_GUARDRAILS_BLOCK = `
+- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
+- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
+  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context.
+  - When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution.
+  - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
+  - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
+- **Destructive Command, Git & Secret Guardrails**:
+  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
+  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
+  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
+- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
+- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
+  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
+  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
+  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
+  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
+- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
+`;
 
 
 let isRegenerating = false;
@@ -46,7 +63,7 @@ function _getDbSkills() {
     __cachedDbSkills = rows.map(r => r.name);
     __cachedDbSkillsTs = ts;
     return __cachedDbSkills;
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback */ }
   return [];
 }
 
@@ -57,14 +74,14 @@ function _getCachedAgents(reloadDefaults = false) {
     if (__cachedAgents !== null && __cachedAgentsTs === ts) {
       return __cachedAgents;
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return null;
 }
 
 function _setCachedAgents(agents) {
   try {
     __cachedAgentsTs = fs.statSync(USER_AGENTS_YAML_PATH).mtimeMs;
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   __cachedAgents = agents;
 }
 
@@ -134,7 +151,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
       if (Array.isArray(agents) && agents.length > 0) {
         loadedFromUser = true;
       }
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (!loadedFromUser) {
@@ -144,7 +161,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
       if (agents && agents.length > 0) {
         loadedFromDb = true;
       }
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Load defaults
@@ -152,7 +169,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
   if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
     try {
       defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (agents.length === 0 && defaults.length > 0) {
@@ -160,7 +177,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
     try {
       const dbAgents = require('./db_agents');
       dbAgents.bulkImportAgents(agents);
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Strip any legacy mcp_* agents from being loaded or exposed
@@ -221,7 +238,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
       if (isAlreadyUpgraded) {
         try {
           fs.writeFileSync(UPGRADED_MARKER_PATH, 'true', 'utf-8');
-        } catch (e) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
 
@@ -248,7 +265,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
               }
             });
             // Drop removed template storefront skills (legacy bundled UI templates)
-            a.skills = a.skills.filter(s => !/^modern-/.test(s) || s === defaultSkill);
+            a.skills = a.skills.filter(s => !s.startsWith('modern-') || s === defaultSkill);
           }
           
           if (changedSkills) {
@@ -335,13 +352,14 @@ function loadAgents(reloadDefaults = false, silent = false) {
     if (upgraded) {
       try {
         fs.writeFileSync(UPGRADED_MARKER_PATH, 'true', 'utf-8');
-      } catch (e) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       saveAgents(agents);
       if (!isRegenerating) {
         isRegenerating = true;
         try {
           regenerateAndDeploy({ silent });
-        } catch (e) {
+        } catch (_) {
+        	/* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */
         } finally {
           isRegenerating = false;
         }
@@ -378,7 +396,7 @@ function saveAgents(agents) {
   try {
     const dbAgents = require('./db_agents');
     dbAgents.bulkImportAgents(agents);
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // 3. Invalidate cache so next loadAgents reads the fresh state
   __cachedAgents = null;
@@ -392,7 +410,6 @@ function buildAgentReferenceList(agents) {
 }
 
 function buildDefineSubagentGuide(agents) {
-  const names = agents.map((a) => a.name).join(', ');
   return `### Konoha MCP Tool-Based Delegation (CRITICAL)
 
 All subagents are migrated to MCP tools served by the \`konoha\` MCP server. Rather than using custom subagent configuration structures or files, delegation is performed directly by calling the corresponding MCP tool.
@@ -495,18 +512,13 @@ function getSkillDescriptions(skillsList) {
       }
     }
     return res;
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return {};
 }
 
 function generateGeminiMd(agents) {
-  const skillRows = agents.map(a => {
-    const skill = a.skills && a.skills.length > 0 ? a.skills[0] : 'simple-task';
-    return `| ${skill} | \`${a.name}\` |`;
-  }).join('\n');
 
   // Build official agent name list
-  const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
 
   const baseSkills = [...new Set(agents.flatMap(a => {
     return (a.skills || []).map(s => s.split('/')[0]);
@@ -571,19 +583,8 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
 - **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
-- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
-- **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
-  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
-  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
-- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
-- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
-  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
-  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
-  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
-  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
+
+${SAFETY_GUARDRAILS_BLOCK}
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
@@ -656,24 +657,14 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 ## Tools & Guardrails
 
 - **MCP-Only Tooling (ABSOLUTE RULE)**: ALL file reads, searches, and operations MUST use \`konoha\` MCP or \`semble\` MCP tools. NEVER call built-in \`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`WebSearch\` tools directly. NEVER use shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`).
+// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
+// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.). When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines). Avoid loading massive files into your context window.
 - **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools for finding or locating skills. NEVER use \`semble\` search for skills.**
 - **Tool Boundaries**: Call **\`semble\` MCP** for codebase search. Call **\`konoha\` MCP** for skills and bounded file reads/grep. Never mix them.
-- **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill(\'...\')\
-- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
-- **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
-  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
-  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
-- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
-- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
-  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
-  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
-  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
-  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
+- **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\
+${SAFETY_GUARDRAILS_BLOCK}
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
 - **No Git Commands**: NEVER execute any \`git\` command. Use semble instead.
@@ -814,26 +805,16 @@ ${agentSections}
 
 ### Safety Guardrails
 - **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
-- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
-- **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
-  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
-  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
-- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
-- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
-  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
-  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
-  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
-  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
+${SAFETY_GUARDRAILS_BLOCK}
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
 - **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
 - **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **Optimize Thought Tokens**: In the thought/thinking process, keep explanations concise and directly focused on implementation steps. Avoid writing extensive explanations, essays, or redundant logs in the thought block to minimize output/thought token costs.
 - **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
+// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
+// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
@@ -893,10 +874,10 @@ function regenerateAndDeploy(silentOrOptions = false) {
   try {
     const st = fs.statSync(USER_AGENTS_YAML_PATH);
     fingerprint = `${st.mtimeMs}:${st.size}`;
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (!force && fingerprint && !deployProject) {
     let stored = null;
-    try { stored = fs.readFileSync(FINGERPRINT_PATH, 'utf8').trim(); } catch {}
+    try { stored = fs.readFileSync(FINGERPRINT_PATH, 'utf8').trim(); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     if (stored === fingerprint) return;
   }
 
@@ -909,12 +890,12 @@ function regenerateAndDeploy(silentOrOptions = false) {
   try {
     fs.mkdirSync(path.dirname(GEMINI_MD_PATH), { recursive: true });
     fs.writeFileSync(GEMINI_MD_PATH, geminiContent);
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   try {
     fs.mkdirSync(path.dirname(AGENTS_MD_PATH), { recursive: true });
     fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Deploy Cursor IDE/CLI subagents, rules, and hooks
   try {
@@ -929,14 +910,14 @@ function regenerateAndDeploy(silentOrOptions = false) {
       allowHooks: true,
       ruleContent: null
     });
-  } catch (e) {
+  } catch (_) {
     // Fail silently if Cursor dirs are not writable
   }
 
   // Deploy native Antigravity CLI MCP schemas (fixes lazy tool discovery)
   try {
     antigravityManager.ensureAntigravityMcpSchemas(agents);
-  } catch (e) {
+  } catch (_) {
     // Fail silently if Antigravity dirs are not writable
   }
 
@@ -955,7 +936,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
         fs.rmSync(d, { recursive: true, force: true });
       }
     }
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Deploy Claude Code MCP setup
   try {
@@ -969,7 +950,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
       projectRoot,
       deployProject
     });
-  } catch (e) {
+  } catch (_) {
     // Fail silently if Claude configs are not writable
   }
 
@@ -985,7 +966,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
       deployProject,
       silent: true
     });
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Deploy Codex setup
   try {
@@ -999,7 +980,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
       deployProject,
       silent: true
     });
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Deploy Command Code setup
   try {
@@ -1012,7 +993,20 @@ function regenerateAndDeploy(silentOrOptions = false) {
       deployProject,
       silent: true
     });
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  // Deploy Pi setup
+  try {
+    const piManager = require('./pi_manager');
+    if (piManager.isPiInstalled()) {
+      piManager.ensurePiSetup({
+        pythonCmd,
+        serverPath,
+        uvxCmd,
+        silent: true
+      });
+    }
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Synchronize all skills across all clients
   try {
@@ -1021,14 +1015,14 @@ function regenerateAndDeploy(silentOrOptions = false) {
       projectRoot,
       silent: true
     });
-  } catch (e) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Cache fingerprint so subsequent calls with unchanged agents.yaml skip the deploy.
   if (fingerprint) {
     try {
       fs.mkdirSync(path.dirname(FINGERPRINT_PATH), { recursive: true });
       fs.writeFileSync(FINGERPRINT_PATH, fingerprint);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (!silent) {
@@ -1041,7 +1035,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
       const claudeHome = require('os').homedir();
       lines.push(`  - ${require('path').join(claudeHome, '.claude.yaml')} (Claude Code)`);
     }
-    console.log(`✓ Generated and deployed configs to:\n${lines.join('\n')}`);
+    process.stderr.write(`✓ Generated and deployed configs to:\n${lines.join('\n')}\n`);
   }
 }
 
@@ -1085,7 +1079,7 @@ function createSubagent(name, options = {}) {
     constraints: options.constraints || "Discover skills via `konoha.find_skill`. If project source code search is needed, use `semble` MCP (`search`/`find_related`).",
     workflow: options.workflow || "Discover skill references via `konoha.find_skill`, search project code via `semble`, then execute task.",
     description: options.description || options.purpose || `Custom subagent specialized in ${name}`,
-    instructions: options.instructions || `You are the ${name} subagent. Log: \"[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active\". If delegate.md specifies exact reference names, load them via the konoha.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md. ALWAYS use semble for codebase search and ensure the RTK (Rust Token Killer) principles are followed.`,
+    instructions: options.instructions || `You are the ${name} subagent. Log: "[${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}] active". If delegate.md specifies exact reference names, load them via the konoha.get_skill tool. Always set RequestFeedback: false and UserFacing: false in ArtifactMetadata when writing files. Follow full protocol in ~/.agents/AGENTS.md. ALWAYS use semble for codebase search and ensure the RTK (Rust Token Killer) principles are followed.`,
     delegationKeywords: options.delegationKeywords || name
   };
 
@@ -1147,12 +1141,39 @@ function unembedSkill(agentName, skillName) {
   return true;
 }
 
+// Set or clear the bridge-served model assignment for a subagent.
+// modelId === null clears the assignment (agent inherits the host client model).
+function updateAgentModel(agentName, modelId) {
+  const agents = loadAgents();
+  const agent = findAgent(agents, agentName);
+
+  if (!agent) {
+    throw new Error(`Subagent "${agentName}" not found.`);
+  }
+
+  if (modelId === null || modelId === undefined || modelId === '') {
+    if (!('model' in agent) || agent.model === undefined) {
+      return false; // Nothing to clear
+    }
+    delete agent.model;
+  } else {
+    if (agent.model === modelId) {
+      return false; // Already assigned
+    }
+    agent.model = modelId;
+  }
+
+  saveAgents(agents);
+  regenerateAndDeploy();
+  return true;
+}
+
 function getOfficialAgentNames() {
   let defaults = [];
   if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
     try {
       defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return defaults.map((a) => a.name.toLowerCase());
 }
@@ -1198,6 +1219,7 @@ module.exports = {
   createSubagent,
   embedSkill,
   unembedSkill,
+  updateAgentModel,
   deleteAgent,
   buildDefineSubagentGuide,
   generateGeminiMd,

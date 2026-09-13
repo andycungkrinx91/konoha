@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const {
   buildSembleSearchPolicy,
   buildSembleSearchPolicyCompact,
@@ -7,12 +8,12 @@ const {
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 const deployUtils = require('./deploy_utils');
-const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
+
 const {
   HOME,
   CURSOR_DIR, CURSOR_MCP_GLOBAL, CURSOR_MCP_LEGACY, CURSOR_AGENTS_GLOBAL, CURSOR_SKILLS_GLOBAL, AGENTS_SKILLS,
   CURSOR_HOOKS_GLOBAL, CURSOR_CLI_CONFIG, SKILLS_DB_DIR,
-  SERVER_PATH, FILE_TOOLS_MCP_PATH, CURSOR_BOOTSTRAP_PATH, SRC_DIR
+  SERVER_PATH, CURSOR_BOOTSTRAP_PATH, SRC_DIR
 } = require('../bin/lib/paths');
 
 const PROJECT_CURSOR_DIR = '.cursor';
@@ -40,9 +41,10 @@ function deployCursorRtkRule(silent = true) {
     spawnSync(rtkCmd, ['init', '-g', '--agent', 'cursor', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit'
+      stdio: silent ? 'ignore' : 'inherit',
+      shell: process.platform === 'win32'
     });
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (!fileExists(CURSOR_RTK_RULE_SRC)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
@@ -51,7 +53,7 @@ function deployCursorRtkRule(silent = true) {
   const dest = path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc');
   try {
     fs.copyFileSync(CURSOR_RTK_RULE_SRC, dest);
-    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
+    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
@@ -228,7 +230,12 @@ ${buildFileToolsPolicy()}
 - **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the Zero-AI-Slop scan (\`aislop_scan\`) across all changed files and verify \`ai_slop_findings = 0\` and \`ai_slop_clean = true\`. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
+  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context.
+  - When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution.
+  - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
+  - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
 - **Destructive Command, Git & Secret Guardrails**:
   - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
   - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
@@ -297,7 +304,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   const backupPath = CURSOR_MCP_GLOBAL + '.back';
   if (fileExists(CURSOR_MCP_GLOBAL) && !fileExists(backupPath)) {
     fs.copyFileSync(CURSOR_MCP_GLOBAL, backupPath);
-    if (!silent) console.log(`  \u2713 Backed up ${path.basename(CURSOR_MCP_GLOBAL)} \u2192 ${path.basename(backupPath)}`);
+    if (!silent) process.stderr.write(`  \u2713 Backed up ${path.basename(CURSOR_MCP_GLOBAL)} \u2192 ${path.basename(backupPath)}\n`);
   }
 
   let config = { mcpServers: {} };
@@ -323,14 +330,14 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   const servers = buildMcpServers(pythonCmd, serverPath, uvxCmd || 'uvx');
   Object.assign(config.mcpServers, servers);
   fs.writeFileSync(CURSOR_MCP_GLOBAL, JSON.stringify(config, null, 2) + '\n');
-  if (!silent) console.log(`\u2713 Merged Konoha MCP servers into ${CURSOR_MCP_GLOBAL}`);
+  if (!silent) process.stderr.write(`\u2713 Merged Konoha MCP servers into ${CURSOR_MCP_GLOBAL}\n`);
   return true;
 }
 
 function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
-  const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
+  const { parseYaml } = require('../bin/lib/yaml_utils');
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
   const mcpPath = path.join(cursorDir, 'mcp.json');
   const legacyMcpPath = path.join(cursorDir, 'mcp.yaml');
@@ -388,7 +395,7 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
   if (updated || !fileExists(mcpPath)) {
     fs.writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n');
     if (!silent) {
-      console.log(`✓ Registered project MCP config: ${mcpPath}`);
+      process.stderr.write(`✓ Registered project MCP config: ${mcpPath}\n`);
     }
   }
   return true;
@@ -459,9 +466,9 @@ function registerCursorCliPermissions(silent = true) {
   try {
     fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
     if (updated && !silent) {
-      console.log(`✓ Cursor CLI permissions updated: ${CURSOR_CLI_CONFIG}`);
+      process.stderr.write(`✓ Cursor CLI permissions updated: ${CURSOR_CLI_CONFIG}\n`);
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Also update Cursor settings.json if present or in Cursor User settings
   // (XDG-style config dirs are POSIX-only — on Windows the APPDATA paths apply)
@@ -480,7 +487,7 @@ function registerCursorCliPermissions(silent = true) {
       ensureDir(path.dirname(sPath));
       let sObj = {};
       if (fileExists(sPath)) {
-        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch {}
+        try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
       sObj['cursor.mcp.autoApprove'] = ['*'];
       sObj['cursor.mcp.allowAll'] = true;
@@ -493,7 +500,7 @@ function registerCursorCliPermissions(silent = true) {
         if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
       }
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return true;
@@ -513,7 +520,7 @@ function registerCursorHooks(silent = true, allowHooks = true) {
         }
         fs.writeFileSync(CURSOR_HOOKS_GLOBAL, JSON.stringify(config, null, 2) + '\n');
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     return false;
   }
 
@@ -530,7 +537,7 @@ function registerCursorHooks(silent = true, allowHooks = true) {
       try {
         fs.copyFileSync(CURSOR_HOOKS_GLOBAL, CURSOR_HOOKS_GLOBAL + '.corrupt-' + Date.now());
         console.warn(`⚠ Existing Cursor hooks.json was invalid JSON — backed up to ${CURSOR_HOOKS_GLOBAL}.corrupt-*`);
-      } catch (_) {}
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       config = { version: 1, hooks: {} };
     }
   }
@@ -547,7 +554,7 @@ function registerCursorHooks(silent = true, allowHooks = true) {
     ];
     fs.writeFileSync(CURSOR_HOOKS_GLOBAL, JSON.stringify(config, null, 2) + '\n');
     if (!silent) {
-      console.log(`✓ Registered Cursor sessionStart hook: ${CURSOR_HOOKS_GLOBAL}`);
+      process.stderr.write(`✓ Registered Cursor sessionStart hook: ${CURSOR_HOOKS_GLOBAL}\n`);
     }
   }
   return true;
@@ -562,7 +569,7 @@ function deployCursorGlobalRule(agents, silent = true) {
     if (!fileExists(rulePath) || fs.readFileSync(rulePath, 'utf8') !== content) {
       fs.writeFileSync(rulePath, content, 'utf8');
     }
-    if (!silent) console.log(`✓ Deployed global Cursor rule: ${rulePath}`);
+    if (!silent) process.stderr.write(`✓ Deployed global Cursor rule: ${rulePath}\n`);
     return true;
   } catch {
     return false;
@@ -581,12 +588,12 @@ function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = n
   fs.writeFileSync(rulePath, generateCursorRule(agents, ruleContent));
 
   if (!silent) {
-    console.log(`✓ Deployed project Cursor config to ${cursorDir}`);
+    process.stderr.write(`✓ Deployed project Cursor config to ${cursorDir}\n`);
   }
   return true;
 }
 
-function copyCursorHelperScripts(silent = true) {
+function copyCursorHelperScripts(_ = true) {
   const scripts = ['cursor_bootstrap.js'];
   ensureDir(SKILLS_DB_DIR);
   let copied = 0;
@@ -601,7 +608,7 @@ function copyCursorHelperScripts(silent = true) {
           fs.writeFileSync(dest, srcContent);
           copied++;
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return copied > 0;
@@ -637,7 +644,7 @@ function ensureCursorSetup(options = {}) {
     const root = projectRoot || process.cwd();
     try {
       registerCursorProjectMcp(root, pythonCmd, serverPath, uvxCmd, silent);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   deployUtils.syncCursorSkillsFromAgents({ projectRoot, deployProject, silent });
@@ -647,7 +654,7 @@ function ensureCursorSetup(options = {}) {
       const root = projectRoot || process.cwd();
       try {
         deployProjectCursor(root, agents, silent, ruleContent);
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -670,9 +677,9 @@ function removeCursorConfig(silent = true) {
       }
       if (updated) {
         fs.writeFileSync(CURSOR_MCP_GLOBAL, JSON.stringify(config, null, 2) + '\n');
-        if (!silent) console.log('✓ Removed Konoha MCP servers from ~/.cursor/mcp.json');
+        if (!silent) process.stderr.write('✓ Removed Konoha MCP servers from ~/.cursor/mcp.json\n');
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Remove global subagents
@@ -682,7 +689,7 @@ function removeCursorConfig(silent = true) {
     if (fileExists(p)) {
       try {
         fs.unlinkSync(p);
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -723,10 +730,10 @@ function removeCursorConfig(silent = true) {
         if (filtered.length !== initialLength) {
           config.permissions.allow = filtered;
           fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
-          if (!silent) console.log('✓ Removed Konoha permissions from ~/.cursor/cli-config.json');
+          if (!silent) process.stderr.write('✓ Removed Konoha permissions from ~/.cursor/cli-config.json\n');
         }
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Remove sessionStart bootstrap hook
@@ -757,19 +764,19 @@ function getCursorStatus() {
       status.mcpSkillsDb = !!(config.mcpServers && config.mcpServers['konoha']);
       status.mcpSemble = !!(config.mcpServers && config.mcpServers['semble']);
       status.mcpKonoha = !!(config.mcpServers && config.mcpServers['konoha']);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (fileExists(CURSOR_AGENTS_GLOBAL)) {
     try {
       status.subagentsGlobal = fs.readdirSync(CURSOR_AGENTS_GLOBAL).filter(f => f.endsWith('.md')).length;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (fileExists(AGENTS_SKILLS)) {
     try {
       status.skillsGlobal = deployUtils.listSkillEntries(AGENTS_SKILLS).length;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (fileExists(CURSOR_CLI_CONFIG)) {
@@ -777,7 +784,7 @@ function getCursorStatus() {
       const config = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
       const allows = (config.permissions && Array.isArray(config.permissions.allow)) ? config.permissions.allow : [];
       status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (fileExists(CURSOR_HOOKS_GLOBAL)) {
@@ -785,21 +792,20 @@ function getCursorStatus() {
       const config = JSON.parse(fs.readFileSync(CURSOR_HOOKS_GLOBAL, 'utf-8'));
       const hooks = (config.hooks && config.hooks.sessionStart) || [];
       status.hooks = hooks.some(h => h.command && h.command.includes('cursor_bootstrap.js'));
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   const cwd = process.cwd();
   const projectMcp = path.join(cwd, PROJECT_CURSOR_DIR, 'mcp.json');
   const projectRule = path.join(cwd, PROJECT_CURSOR_DIR, 'rules', 'konoha.mdc');
   const projectAgents = path.join(cwd, PROJECT_CURSOR_DIR, 'agents');
-  const projectSkills = null; // No-op: filesystem mirroring is disabled
 
   status.projectMcp = fileExists(projectMcp);
   status.projectRule = fileExists(projectRule);
   if (fileExists(projectAgents)) {
     try {
       status.projectAgents = fs.readdirSync(projectAgents).filter(f => f.endsWith('.md')).length;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   // No-op: filesystem mirroring is disabled. Skills are loaded from SQLite DB at runtime.
   status.skillsProject = 0;

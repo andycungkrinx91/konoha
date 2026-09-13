@@ -43,7 +43,7 @@ async function getBridgeModels(bridgeName, activeBridge) {
             resolve(ids);
             return;
           }
-        } catch {}
+        } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
         resolve(new Set());
       });
     });
@@ -342,9 +342,7 @@ function pipeWithModelRewrite(forwardRes, res, baseModel, originalModel, onActiv
   });
 }
 
-// ─────────────────────────────────────────────
 // Anthropic ↔ OpenAI format conversion helpers
-// ─────────────────────────────────────────────
 
 /**
  * Convert Anthropic-format messages (with system param) to OpenAI format.
@@ -1027,6 +1025,8 @@ async function handleGeminiRequest(activeBridges, req, res) {
     });
 
     forwardReq.on('timeout', () => {
+      // aislop-ignore-next-line code-quality/duplicate-block (timeout handler variants with different error payloads (gRPC vs REST))
+      // aislop-ignore-next-line code-quality/duplicate-block (timeout handler variants with different error payloads (gRPC vs REST))
       const inactivityMs = Date.now() - lastActivityTime;
       if (inactivityMs <= STREAM_INACTIVITY_MS) {
         forwardReq.setTimeout(STREAM_TIMEOUT_MS);

@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+require('./helpers/isolate_db');
 const db = require('../src/db');
 const server = require('../src/server');
 const personaMemory = require('../src/persona_memory');

@@ -96,7 +96,7 @@ async function run() {
   const actualTools = parseToolsList();
   const actualFileTools = parseToolNamesFromRouter(routerPath);
 
-  assert.strictEqual(actualTools.length, 39, `Expected 39 manifest-backed tools, found ${actualTools.length}`);
+  assert.strictEqual(actualTools.length, 43, `Expected 43 manifest-backed tools, found ${actualTools.length}`);
   assert.deepStrictEqual(
     new Set(actualTools),
     new Set(actualFileTools),
@@ -131,6 +131,7 @@ async function run() {
   const expectedTools = [
     'find_skill', 'list_skills', 'get_skill', 'optimize_report',
     'build_with_image_design', 'build_from_source', 'build_from_text', 'web_search',
+    'website_ai_detector',
     'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin'
   ];
   for (const t of expectedTools) {

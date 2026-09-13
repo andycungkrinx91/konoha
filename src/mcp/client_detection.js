@@ -14,7 +14,6 @@ const personaMemory = require("../persona_memory");
 const {
   getWorkspaceRoot,
   getActiveClient,
-  HOME,
   KONOHA_DIR,
   GEMINI_DIR,
   CURSOR_DIR,
@@ -90,58 +89,20 @@ function detectActiveClient() {
     // Check environment variable for Antigravity
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
     if (convId) {
-      if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli')) return 'agy';
+      if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy')) return 'agy';
       const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
       if (fs.existsSync(cliDir) && fs.statSync(cliDir).isDirectory()) return 'agy';
       const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
       if (fs.existsSync(ideDir) && fs.statSync(ideDir).isDirectory()) return 'antigravity';
-      return 'antigravity';
+      return 'agy';
     }
 
-    const brainDirs = [
-      ANTIGRAVITY_IDE_BRAIN,
-      ANTIGRAVITY_CLI_BRAIN,
-      CURSOR_PROJECTS,
-      CLAUDE_PROJECTS,
-      path.join(HOME, '.codex', 'sessions'),
-      path.join(HOME, '.commandcode', 'logs'),
-      path.join(HOME, '.config', 'opencode'),
-      path.join(HOME, '.pi', 'agent', 'sessions')
-    ];
-    const allFiles = [];
-    for (const bDir of brainDirs) {
-      if (!fs.existsSync(bDir)) continue;
-      if (bDir.includes('cursor')) {
-        allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
-      } else if (bDir.includes('claude')) {
-        allFiles.push(...globSync(path.join(bDir, '*.jsonl')));
-      } else {
-        allFiles.push(...globSync(path.join(bDir, 'prompt.md')));
-        allFiles.push(...globSync(path.join(bDir, 'transcript.jsonl')));
-      }
-    }
-
-    if (allFiles.length === 0) return 'antigravity';
-
-    allFiles.sort((a, b) => {
-      try {
-        return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
-      } catch (_) {
-        return 0;
-      }
-    });
-
-    const mostRecent = allFiles[0];
-    if (mostRecent.includes('.pi') || mostRecent.includes('pi/agent')) return 'pi';
-    if (mostRecent.includes('cursor')) return 'cursor';
-    if (mostRecent.includes('claude')) return 'claudecode';
-    if (mostRecent.includes('codex')) return 'codex';
-    if (mostRecent.includes('commandcode')) return 'commandcode';
-    if (mostRecent.includes('opencode')) return 'opencode';
-    if (mostRecent.includes('antigravity-cli')) return 'agy';
-    return 'antigravity';
+    // No hard session signal: attribute HONESTLY instead of guessing from
+    // filesystem mtimes (the old heuristic misattributed calls across clients
+    // and corrupted the per-provider savings breakdown).
+    return 'unattributed';
   } catch (_) {
-    return 'antigravity';
+    return 'unattributed';
   }
 }
 
@@ -344,7 +305,7 @@ function detectActiveAgent() {
           process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);
         } finally {
           if (conn) {
-            try { conn.close(); } catch (_) {}
+            try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
         }
         return detected;
@@ -383,7 +344,7 @@ function detectActiveAgent() {
         }
       } catch (_) { /* ignore */ } finally {
         if (conn) {
-          try { conn.close(); } catch (_) {}
+          try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
       }
     }
@@ -410,7 +371,7 @@ function getActiveSessionId() {
     if (row && row.session_id) return row.session_id;
   } catch (_) { /* ignore */ } finally {
     if (conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return '';

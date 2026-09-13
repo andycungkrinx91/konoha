@@ -21,7 +21,7 @@ All generated Angular code must conform to the following baseline visual standar
 5. **3D GPU Card Hover & Glows**: Radial mouse-tracking glows and 3D tilts applied to all cards.
 6. **Sticky Top Header & Mobile Dock**: Header with glassmorphic blur and instant search bar; sticky glassmorphic mobile bottom dock (`md:hidden fixed bottom-0 left-0 right-0 z-[999]`) with active theme gradient tab highlighting.
 7. **50-Item Production Dataset & Reactive Filter**: Populate catalog with 50 realistic items, complete with multi-criteria reactive search, category pills, price range sliders, and multi-option sorting using Angular `computed()`.
-8. **Zero-Emoji Policy in UI**: Clean vector SVG icons strictly from `lucide-angular`. Emojis in buttons, navigation, and badges are strictly forbidden.
+8. **Zero-Emoji Policy in UI**: Clean vector icons strictly from `@phosphor-icons/web` CSS classes (or hand-exported inline SVGs). Emojis in buttons, navigation, and badges are strictly forbidden.
 9. **Footer Watermark**: Mandatory footer watermark: `Build by Konoha`.
 
 ---
@@ -121,7 +121,7 @@ All generated Angular code must conform to the following baseline visual standar
 ```typescript
 import { Component, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Palette, Check } from 'lucide-angular';
+// Icons: @phosphor-icons/web CSS classes (loaded once in styles.scss) — no icon module imports needed.
 
 interface Theme {
   id: string;
@@ -133,7 +133,7 @@ interface Theme {
 @Component({
   selector: 'app-theme-switcher',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule],
   template: `
     <div class="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-[1000] flex flex-col items-start">
       @if (isOpen()) {
@@ -156,7 +156,7 @@ interface Theme {
                   <span class="text-xs text-zinc-800">{{ t.name }}</span>
                 </div>
                 @if (activeTheme() === t.id) {
-                  <lucide-icon [img]="CheckIcon" class="w-3.5 h-3.5 text-zinc-800"></lucide-icon>
+                  <i class="ph ph-check" aria-hidden="true" style="font-size:0.875rem;color:#3f3f46"></i>
                 }
               </button>
             }
@@ -169,15 +169,12 @@ interface Theme {
         class="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md border border-zinc-200/80 shadow-lg flex items-center justify-center text-zinc-800 hover:scale-105 active:scale-95 transition-all"
         style="box-shadow: 0 4px 20px var(--theme-glow)"
       >
-        <lucide-icon [img]="PaletteIcon" class="w-5 h-5" style="color: var(--theme-primary)"></lucide-icon>
+        <i class="ph ph-palette" aria-hidden="true" style="font-size:1.25rem;color:var(--theme-primary)"></i>
       </button>
     </div>
   `
 })
 export class ThemeSwitcherComponent implements OnInit {
-  readonly PaletteIcon = Palette;
-  readonly CheckIcon = Check;
-
   themes: Theme[] = [
     { id: 'nebula', name: 'Nebula', primary: '#4f46e5', accent: '#06b6d4' },
     { id: 'aurora', name: 'Aurora', primary: '#059669', accent: '#10b981' },
@@ -216,7 +213,7 @@ export class ThemeSwitcherComponent implements OnInit {
 - [ ] `ThemeSwitcherComponent` positioned fixed at `bottom-6 left-6` saving to `localStorage`.
 - [ ] `HeroCarouselComponent` with full-width GPU tilt and spec badges.
 - [ ] 50 items dataset catalog with multi-criteria reactive filters using `computed()`.
-- [ ] All interactive SVG icons strictly imported from `lucide-angular` (zero emojis in UI).
+- [ ] All interactive icons rendered via `@phosphor-icons/web` CSS classes or inline SVGs (zero emojis in UI).
 - [ ] `Build by Konoha` watermark included in footer.
 - [ ] `pnpm run lint` and `pnpm run build` finish with 0 errors and 0 warnings.
 
@@ -230,7 +227,7 @@ export class ThemeSwitcherComponent implements OnInit {
 2. **Current Stable Framework Policy (verified 2026-08-27)**:
    - Resolve package versions from official release pages and the pnpm registry immediately before scaffolding; never treat this document as a permanent `latest` pin.
    - Tested stable baselines: **Next.js 16.3 + React 19**, **SvelteKit 2 stable + Svelte 5** (SvelteKit 3 is release-candidate and must not be selected unless explicitly requested), **Nuxt 4.3 + Vue 3.5**, and **Angular 20+** with standalone components and Signals.
-   - Use Tailwind CSS v4 and the framework-specific Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
+   - Use the framework's mandated styling approach (fully custom-themed Tailwind v4 for Next.js, scoped `<style>` blocks for SvelteKit, hand-written theme for Nuxt, SCSS for Angular) and the framework-specific Phosphor Icons package (`@phosphor-icons/react` / `@phosphor-icons/web` / `@phosphor-icons/vue`) — never a Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
 
 
 ### Pre-Scaffolding Security & CVE Pre-Flight Standards

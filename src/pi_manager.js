@@ -32,6 +32,53 @@ const PI_RTK_EXTENSION = path.join(PI_AGENT_DIR, 'extensions', 'rtk.ts');
 const PI_BLOCKER_EXTENSION = path.join(PI_AGENT_DIR, 'extensions', 'konoha-blocker.ts');
 const RTK_BLOCK_START = '<!-- KONOHA-RTK-START -->';
 const RTK_BLOCK_END = '<!-- KONOHA-RTK-END -->';
+const CONTRACT_END_MARKER = '<!-- KONOHA-CONTRACT-END -->';
+const PI_MANDATE_HEADING_RE = /^## Konoha Workflow Mandate \(Pi\)/;
+
+/**
+ * Strips every '## Konoha Workflow Mandate (Pi)' section from the file body.
+ * Legacy deploys appended the addendum AFTER the managed markers, so each
+ * redeploy left the previous copy behind — production showed 166 stale
+ * copies (~410KB) burning ~100K tokens in every Pi session. The canonical
+ * addendum now lives INSIDE the managed block, so any heading found in the
+ * raw body is stale duplication and must be removed.
+ */
+function stripStalePiMandates(text) {
+  let out = String(text || '');
+  // Fast path: remove exact copies of the current addendum text (the format
+  // legacy deploys appended after the markers).
+  const exact = buildPiWorkflowAddendum();
+  let prev = null;
+  while (prev !== out) {
+    prev = out;
+    out = out.split(exact).join('');
+  }
+  // Fallback for legacy-format variants: drop each mandate section, where a
+  // section ends at the next heading, marker, or the first line that is not
+  // mandate-shaped (blank or a '- ' bullet) — user prose survives.
+  const lines = out.split('\n');
+  const kept = [];
+  let skipping = false;
+  for (const line of lines) {
+    if (PI_MANDATE_HEADING_RE.test(line)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (line.startsWith('## ') || line.startsWith('<!-- KONOHA-')) {
+        skipping = false;
+        kept.push(line);
+        continue;
+      }
+      if (line.trim() === '' || line.startsWith('- ')) continue;
+      skipping = false;
+      kept.push(line);
+      continue;
+    }
+    kept.push(line);
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n');
+}
 
 /**
  * Pi-specific workflow mandate: without this, Pi only sees its native
@@ -45,12 +92,22 @@ function buildPiWorkflowAddendum() {
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the delegate.md phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
-- **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills — the duplicate-skill warnings at startup are expected and always resolved project-first; prefer the Konoha MCP path.
+- **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills; duplicate-skill warnings are automatically filtered by konoha-blocker; prefer the Konoha MCP path.
 - **Code search via Semble**: use \`semble.search\` / \`semble.find_related\` with the absolute repository path — never native grep/glob/find for codebase discovery.
 - **Bounded file tools**: use \`konoha.read_file_head\`, \`read_file_range\`, \`file_info\`, \`get_file_structure\`, \`find_files_clean\`, \`token_efficient_grep\` instead of native read/grep when scanning the repository.
 - **Workflow artifacts** (\`prompt.md\`, \`plan.md\`, \`result.md\`, \`delegate.md\`, \`findings.md\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 97\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
+- **Review token hygiene & strict changed-files scoping (NEVER BURN TOKENS)**: Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context. When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution. NEVER dump raw full-repo scan output into conversation context; summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`. Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
 `;
+}
+
+function buildPiManagedContract() {
+  // The addendum is inserted BEFORE the closing marker so the entire block
+  // (contract + Pi mandate) is managed: redeployment replaces it atomically
+  // instead of appending a fresh copy outside the markers.
+  const base = buildMainAgentContract('pi');
+  const idx = base.lastIndexOf(CONTRACT_END_MARKER);
+  return base.slice(0, idx) + buildPiWorkflowAddendum() + '\n' + base.slice(idx);
 }
 
 /**
@@ -61,12 +118,13 @@ function deployPiContract(silent = true) {
   try {
     ensureDirSafe(PI_AGENT_DIR);
     const existing = fileExists(PI_AGENTS_MD) ? fs.readFileSync(PI_AGENTS_MD, 'utf-8') : '';
-    const managed = buildManagedContract(existing, buildMainAgentContract('pi') + buildPiWorkflowAddendum());
+    const sanitized = stripStalePiMandates(existing);
+    const managed = buildManagedContract(sanitized, buildPiManagedContract());
     if (managed === existing) {
       return { ok: true, changed: false };
     }
     fs.writeFileSync(PI_AGENTS_MD, managed, 'utf-8');
-    if (!silent) console.log(`✓ Konoha runtime contract deployed to Pi: ${PI_AGENTS_MD}`);
+    if (!silent) process.stderr.write(`✓ Konoha runtime contract deployed to Pi: ${PI_AGENTS_MD}\n`);
     return { ok: true, changed: true };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi contract deployment failed: ${err.message}`);
@@ -92,7 +150,7 @@ function removePiContract(silent = true) {
     } else {
       fs.unlinkSync(PI_AGENTS_MD);
     }
-    if (!silent) console.log(`✓ Konoha contract removed from Pi global context`);
+    if (!silent) process.stderr.write(`✓ Konoha contract removed from Pi global context\n`);
     return true;
   } catch (err) {
     if (!silent) console.warn(`⚠ Could not remove Pi contract: ${err.message}`);
@@ -125,7 +183,8 @@ function deployPiRtkRule(silent = true) {
     ensureDirSafe(PI_AGENT_DIR);
     const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--auto-patch'], {
       encoding: 'utf-8',
-      timeout: 30000
+      timeout: 30000,
+      shell: process.platform === 'win32'
     });
     if (res.status !== 0) {
       const detail = ((res.stderr || '') + (res.stdout || '')).trim().split('\n').pop();
@@ -133,7 +192,7 @@ function deployPiRtkRule(silent = true) {
       return { ok: false, reason: 'pi-rtk-init-failed', error: detail };
     }
     cleanupLegacyRtkAgentsBlock();
-    if (!silent) console.log(`✓ RTK Pi extension installed: ${PI_RTK_EXTENSION}`);
+    if (!silent) process.stderr.write(`✓ RTK Pi extension installed: ${PI_RTK_EXTENSION}\n`);
     return { ok: true, changed: true, path: PI_RTK_EXTENSION };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi RTK deployment failed: ${err.message}`);
@@ -156,7 +215,7 @@ function cleanupLegacyRtkAgentsBlock() {
     } else {
       fs.unlinkSync(PI_AGENTS_MD);
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 /**
@@ -170,14 +229,14 @@ function removePiRtkRule(silent = true) {
       const rtkCmd = getRtkCommandSafe();
       if (rtkCmd) {
         const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'pi', '--uninstall'], {
-          encoding: 'utf-8', timeout: 30000
+          encoding: 'utf-8', timeout: 30000, shell: process.platform === 'win32'
         });
         if (res.status === 0) removed = true;
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (fileExists(PI_RTK_EXTENSION)) {
-    try { fs.unlinkSync(PI_RTK_EXTENSION); removed = true; } catch (_) {}
+    try { fs.unlinkSync(PI_RTK_EXTENSION); removed = true; } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (fileExists(PI_AGENTS_MD)) {
     try {
@@ -195,9 +254,9 @@ function removePiRtkRule(silent = true) {
         }
         removed = true;
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  if (removed && !silent) console.log(`✓ RTK artifacts removed from Pi`);
+  if (removed && !silent) process.stderr.write(`✓ RTK artifacts removed from Pi\n`);
   return true;
 }
 
@@ -221,6 +280,34 @@ function buildPiBlockerExtensionSource() {
     '// enforces the konoha command guardrails on bash tool calls.',
     '// Removal: run konoha uninstall for Pi, or delete this file.',
     'import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";',
+    'import { DefaultResourceLoader } from "@earendil-works/pi-coding-agent";',
+    '',
+    '// Silence duplicate/collision skill diagnostics between global and project skill mirrors',
+    'try {',
+    '  if (typeof DefaultResourceLoader !== "undefined" && DefaultResourceLoader && DefaultResourceLoader.prototype) {',
+    '    const proto = DefaultResourceLoader.prototype as any;',
+    '    const origGetSkills = proto.getSkills;',
+    '    if (typeof origGetSkills === "function") {',
+    '      proto.getSkills = function () {',
+    '        const res = origGetSkills.apply(this, arguments);',
+    '        if (res && Array.isArray(res.diagnostics)) {',
+    '          res.diagnostics = res.diagnostics.filter((d: any) => d && d.type !== "collision");',
+    '        }',
+    '        return res;',
+    '      };',
+    '    }',
+    '    const origUpdateSkills = proto.updateSkillsFromPaths;',
+    '    if (typeof origUpdateSkills === "function") {',
+    '      proto.updateSkillsFromPaths = function () {',
+    '        const res = origUpdateSkills.apply(this, arguments);',
+    '        if (Array.isArray(this.skillDiagnostics)) {',
+    '          this.skillDiagnostics = this.skillDiagnostics.filter((d: any) => d && d.type !== "collision");',
+    '        }',
+    '        return res;',
+    '      };',
+    '    }',
+    '  }',
+    '} catch (_) { /* best-effort monkeypatch: failure here must never crash the extension */ }',
     '',
     'const REASON =',
     '  "MANDATORY RULE VIOLATION: Using the built-in/native read tool is STRICTLY FORBIDDEN! " +',
@@ -283,7 +370,7 @@ function deployPiBlockerExtension(silent = true) {
       return { ok: true, changed: false, path: PI_BLOCKER_EXTENSION };
     }
     fs.writeFileSync(PI_BLOCKER_EXTENSION, source, 'utf-8');
-    if (!silent) console.log(`✓ Konoha native-tool blocker extension deployed to Pi: ${PI_BLOCKER_EXTENSION}`);
+    if (!silent) process.stderr.write(`✓ Konoha native-tool blocker extension deployed to Pi: ${PI_BLOCKER_EXTENSION}\n`);
     return { ok: true, changed: true, path: PI_BLOCKER_EXTENSION };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi blocker extension deployment failed: ${err.message}`);
@@ -298,7 +385,7 @@ function removePiBlockerExtension(silent = true) {
   if (!fileExists(PI_BLOCKER_EXTENSION)) return true;
   try {
     fs.unlinkSync(PI_BLOCKER_EXTENSION);
-    if (!silent) console.log(`✓ Konoha blocker extension removed from Pi`);
+    if (!silent) process.stderr.write(`✓ Konoha blocker extension removed from Pi\n`);
     return true;
   } catch (err) {
     if (!silent) console.warn(`⚠ Could not remove Pi blocker extension: ${err.message}`);
@@ -349,7 +436,7 @@ function ensureAdapterPackage(silent = true) {
       if (!silent) {
         console.warn(`⚠ ${PI_SETTINGS} was invalid JSON — backed up to ${PI_SETTINGS}.corrupt-*`);
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     return { ok: false, reason: 'pi-settings-corrupt' };
   }
   if (!Array.isArray(settings.packages)) settings.packages = [];
@@ -363,7 +450,7 @@ function ensureAdapterPackage(silent = true) {
   settings.packages.push(PI_ADAPTER_PACKAGE);
   try {
     fs.writeFileSync(PI_SETTINGS, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
-    if (!silent) console.log(`  ✓ pi-mcp-adapter added to Pi packages (${PI_SETTINGS})`);
+    if (!silent) process.stderr.write(`  ✓ pi-mcp-adapter added to Pi packages (${PI_SETTINGS})\n`);
     return { ok: true, changed: true };
   } catch (err) {
     return { ok: false, reason: 'pi-settings-write-failed', error: err.message };
@@ -387,7 +474,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
         try {
           fs.copyFileSync(PI_MCP_CONFIG, PI_MCP_CONFIG + '.corrupt-' + Date.now());
           if (!silent) console.warn(`⚠ ${PI_MCP_CONFIG} was invalid JSON — backed up to ${PI_MCP_CONFIG}.corrupt-*`);
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         config = {};
       }
     }
@@ -426,7 +513,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     };
 
     fs.writeFileSync(PI_MCP_CONFIG, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-    if (!silent) console.log(`✓ Pi MCP servers registered: ${PI_MCP_CONFIG}`);
+    if (!silent) process.stderr.write(`✓ Pi MCP servers registered: ${PI_MCP_CONFIG}\n`);
     return { ok: true };
   } catch (err) {
     if (!silent) console.warn(`⚠ Pi MCP registration failed: ${err.message}`);
@@ -451,7 +538,7 @@ function removePiMcp(silent = true) {
   }
   try {
     fs.writeFileSync(PI_MCP_CONFIG, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-    if (removed && !silent) console.log(`✓ Konoha MCP servers removed from Pi config: ${PI_MCP_CONFIG}`);
+    if (removed && !silent) process.stderr.write(`✓ Konoha MCP servers removed from Pi config: ${PI_MCP_CONFIG}\n`);
     return true;
   } catch (err) {
     if (!silent) console.warn(`⚠ Could not update Pi MCP config: ${err.message}`);
@@ -543,7 +630,7 @@ function getPiStatus() {
     try {
       const agents = fs.readFileSync(PI_AGENTS_MD, 'utf-8');
       rtkRuleDeployed = agents.includes(RTK_BLOCK_START);
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (fileExists(PI_BLOCKER_EXTENSION)) {
     blockerDeployed = true;
@@ -551,7 +638,7 @@ function getPiStatus() {
   if (fileExists(PI_AGENTS_MD)) {
     try {
       contractDeployed = fs.readFileSync(PI_AGENTS_MD, 'utf-8').includes('<!-- KONOHA-CONTRACT-START -->');
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return {
     installed,
@@ -570,7 +657,7 @@ function getPiStatus() {
 function ensureDirSafe(dir) {
   try {
     fs.mkdirSync(dir, { recursive: true });
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 module.exports = {

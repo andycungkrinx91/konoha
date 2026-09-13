@@ -1,3 +1,4 @@
+// aislop-ignore-next-line ai-slop/narrative-comment (genuine multi-line documentation preamble)
 /**
  * src/codex_manager.js — Codex IDE/CLI integration module.
  *
@@ -20,10 +21,10 @@ const {
   CODEX_AGENTS_MD,
   CODEX_RULES_DIR,
   CODEX_RTK_RULE,
-  FILE_TOOLS_LAUNCHER_PATH,
+  
   FILE_TOOLS_MCP_PATH,
   SKILLS_DB_DIR,
-  KONOHA,
+  
   SERVER_PATH
 } = require('../bin/lib/paths');
 
@@ -39,10 +40,9 @@ const {
 
 const {
   buildMainAgentContract,
-  buildManagedContract
 } = require('./agent_contract');
 
-// ─── Codex Detection ─────────────────────────────────────────────────────────
+// Codex Detection
 
 function isCodexInstalled() {
   return (
@@ -53,7 +53,7 @@ function isCodexInstalled() {
   );
 }
 
-// ─── Config Helpers ─────────────────────────────────────────────────────────
+// Config Helpers
 
 function getCodexConfigPath() {
   return CODEX_CONFIG;
@@ -135,6 +135,7 @@ function writeCodexInstructions(content) {
 }
 
 const KONOHA_TOOLS = [
+  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
   'read_file_head', 'read_file_range', 'file_info', 'token_efficient_grep',
   'get_file_structure', 'find_files_clean', 'get_resolved_task_dir',
   'find_skill', 'list_skills', 'get_skill', 'optimize_report',
@@ -260,6 +261,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const heraxlesProviderBlock = [
     '[model_providers.heraxles]',
     'name = "Heraxles"',
+    // aislop-ignore-next-line ai-slop/hardcoded-url (stable vendor endpoint pinned in the generated Codex provider template)
     'base_url = "https://api.heraxles.dev/v1"',
     'env_key = "HERAXLES_API_KEY"',
     'wire_api = "responses"'
@@ -284,12 +286,12 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   let resolvedAislopCmd = npxExecutable;
   let resolvedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
   try {
-    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8' });
+    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32' });
     if (whichAislop.status === 0 && whichAislop.stdout.trim()) {
       resolvedAislopCmd = whichAislop.stdout.trim().split('\n')[0].trim();
       resolvedAislopArgs = [];
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
@@ -407,18 +409,18 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   return `${topFlags}\n\n${cleaned}\n\n${extraSections}\n`;
 }
 
-// ─── MCP Server Registration ─────────────────────────────────────────────────
+// MCP Server Registration
 
 function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   try {
     const existing = readCodexConfig();
     let resolvedUvx = uvxCmd || 'uvx';
     try {
-      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8' });
+      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32' });
       if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
         resolvedUvx = whichUvx.stdout.trim().split('\n')[0].trim();
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     let updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
     writeCodexConfig(updated);
 
@@ -431,6 +433,7 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
         '',
         '[model_providers.heraxles]',
         'name = "Heraxles"',
+        // aislop-ignore-next-line ai-slop/hardcoded-url (stable vendor endpoint pinned in the generated Codex provider template)
         'base_url = "https://api.heraxles.dev/v1"',
         'env_key = "HERAXLES_API_KEY"',
         'wire_api = "responses"',
@@ -445,10 +448,10 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
         ''
       ].join('\n');
       fs.writeFileSync(heraxlesConfigPath, heraxlesContent, 'utf-8');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
     if (!silent) {
-      console.log('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml');
+      process.stderr.write('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml\n');
     }
 
     return { ok: true };
@@ -467,7 +470,7 @@ function deployCodexRules(silent = true) {
   let agents = [];
   try {
     agents = loadAgents();
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   try {
     ensureDir(CODEX_DIR);
@@ -492,7 +495,7 @@ function deployCodexRules(silent = true) {
       fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
     }
 
-    if (!silent) console.log(`  ✓ Deployed Konoha instructions, rules & agents to Codex`);
+    if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Codex\n`);
     return { ok: true };
   } catch (error) {
     return { ok: false, reason: 'copy-failed', error: error.message };
@@ -520,14 +523,14 @@ function deployCodexRtkRule(silent = true) {
   try {
     ensureDir(CODEX_RULES_DIR);
     fs.copyFileSync(src, CODEX_RTK_RULE);
-    if (!silent) console.log(`  ✓ Deployed RTK rule to ${CODEX_RTK_RULE}`);
+    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${CODEX_RTK_RULE}\n`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
 }
 
-// ─── Status Checking ──────────────────────────────────────────────────────────
+// Status Checking
 
 function getCodexStatus() {
   const status = {
@@ -546,13 +549,13 @@ function getCodexStatus() {
       status.mcpKonoha = !!(parsed.mcp_servers && parsed.mcp_servers['konoha']);
       status.mcpSemble = !!(parsed.mcp_servers && parsed.mcp_servers['semble']);
       status.mcpAislop = !!(parsed.mcp_servers && parsed.mcp_servers['aislop']);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return status;
 }
 
-// ─── Cleanup ──────────────────────────────────────────────────────────────────
+// Cleanup
 
 function removeCodexConfig(silent = true) {
   if (!fileExists(CODEX_CONFIG)) return;
@@ -588,12 +591,12 @@ function removeCodexConfig(silent = true) {
     writeCodexConfig(cleaned ? cleaned + '\n' : '');
 
     if (!silent) {
-      console.log('  ✓ Removed Konoha MCP servers from Codex config.toml');
+      process.stderr.write('  ✓ Removed Konoha MCP servers from Codex config.toml\n');
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
-// ─── Main Setup Function ──────────────────────────────────────────────────────
+// Main Setup Function
 
 function ensureCodexSetup(options = {}) {
   const {

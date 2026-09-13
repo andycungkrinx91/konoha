@@ -1,0 +1,28 @@
+{
+  "name": "Konoha Web UI",
+  "short_name": "Konoha",
+  "description": "Multi-agent orchestration dashboard for the Konoha LLM proxy gateway.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#FF6B1A",
+  "icons": [
+    {
+      "src": "/fox_kyubi_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/fox_kyubi_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

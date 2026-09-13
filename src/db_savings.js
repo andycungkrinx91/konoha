@@ -61,7 +61,7 @@ function calculateAllModelTokens() {
           allPaths.push(tPath);
         }
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   let cacheUpdated = false;
@@ -136,13 +136,13 @@ function calculateAllModelTokens() {
               metrics.today.cost += cost;
             }
           }
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
 
       if (!cache.files) cache.files = {};
       cache.files[filePath] = { mtime, size, all: fileAll };
       cacheUpdated = true;
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (cacheUpdated) {
@@ -150,7 +150,7 @@ function calculateAllModelTokens() {
       const dir = path.dirname(cacheFile);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(cacheFile, JSON.stringify(cache), 'utf-8');
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return {
@@ -224,7 +224,7 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     if (baselineRow && baselineRow.b) {
       libraryBaselineBytes = baselineRow.b;
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const query = `
     SELECT
@@ -251,6 +251,10 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     opencode: { calls: 0, bytes: 0, tokens: 0 },
     commandcode: { calls: 0, bytes: 0, tokens: 0 },
     codex: { calls: 0, bytes: 0, tokens: 0 },
+    pi: { calls: 0, bytes: 0, tokens: 0 },
+    // Calls with no verified client session signal (honest attribution):
+    // displayed as "Unattributed" instead of being hidden or labeled "Unknown".
+    unattributed: { calls: 0, bytes: 0, tokens: 0 },
   };
 
   const queryClient = `
@@ -269,7 +273,7 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     for (const rC of rowsClient) {
       let cName = (rC.c_name || "").toLowerCase();
       if (!(cName in byClient)) {
-        cName = "unknown";
+        cName = "unattributed";
       }
       if (!byClient[cName]) {
         byClient[cName] = { calls: 0, bytes: 0, tokens: 0 };
@@ -278,7 +282,7 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
       byClient[cName].bytes += rC.bytes;
       byClient[cName].tokens += rC.tokens;
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   return {
     calls: row.calls,
@@ -307,7 +311,7 @@ function sanitizeLegacyRecords(conn) {
       WHERE tool NOT IN ('find_skill', 'list_skills')
         AND total_library_bytes >= 400000
     `).run();
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 function getSavingsReport(dbPath = null) {

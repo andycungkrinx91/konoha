@@ -48,9 +48,9 @@ function cleanStaleSessionAgents(base) {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       if (official.has(entry.name)) continue;
-      try { fs.rmSync(path.join(base, entry.name), { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(path.join(base, entry.name), { recursive: true, force: true }); } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 }
 
 function loadAgentsFromGlobalDir() {
@@ -70,7 +70,7 @@ function loadAgentsFromGlobalDir() {
         seen.add(d.name.toLowerCase());
         agents.push({ name: json.name || d.name });
       }
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
   return agents;
 }
@@ -81,7 +81,7 @@ function loadAgents() {
       const agents = parseYaml(fs.readFileSync(USER_AGENTS_YAML, 'utf-8'));
       if (Array.isArray(agents) && agents.length > 0) return agents;
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return loadAgentsFromGlobalDir();
 }
 
@@ -102,7 +102,7 @@ function deploySessionAgents(agents, brainDir) {
         skills: agent.skills || [],
       });
       fs.writeFileSync(path.join(destDir, 'agent.json'), JSON.stringify(payload, null, 2) + '\n', 'utf-8');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
 }
 

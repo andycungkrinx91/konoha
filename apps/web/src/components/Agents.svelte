@@ -5,6 +5,7 @@
 
   let agents = $state([]);
   let allSkills = $state([]);
+  let bridgeModels = $state([]);
   let loading = $state(true);
   let error = $state("");
 
@@ -30,6 +31,12 @@
         else if (s.name) set.add(s.name.split("/")[0]);
       });
       allSkills = Array.from(set).sort();
+      try {
+        const modelsRes = await api.get("/api/v1/bridges/models");
+        bridgeModels = modelsRes.models || [];
+      } catch (_) {
+        bridgeModels = [];
+      }
     } catch (err) {
       error = err.message;
     } finally {
@@ -54,6 +61,28 @@
     } catch (err) {
       await sweetAlert.fire({
         title: "Toggle Failed",
+        text: err.message,
+        icon: "error"
+      });
+    }
+  }
+
+  async function setAgentModel(agent, modelId) {
+    const target = modelId === "" ? null : modelId;
+    try {
+      await api.patch(
+        "/api/v1/agents/" + encodeURIComponent(agent.name) + "/model",
+        { model: target }
+      );
+      if (target) {
+        agent.model = target;
+      } else {
+        delete agent.model;
+      }
+      agents = [...agents];
+    } catch (err) {
+      await sweetAlert.fire({
+        title: "Model Assignment Failed",
         text: err.message,
         icon: "error"
       });
@@ -141,9 +170,41 @@
               </span>
             </div>
 
-            <p class="text-xs font-semibold text-slate-700 mb-6 leading-relaxed">
+            <p class="text-xs font-semibold text-slate-700 mb-4 leading-relaxed">
               {agent.description}
             </p>
+
+            <!-- Model Assignment Section (bridge-served models) -->
+            <div class="space-y-2 mb-6">
+              <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span>Model Assignment</span>
+                {#if agent.model}
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    assigned
+                  </span>
+                {:else}
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                    inherit
+                  </span>
+                {/if}
+              </div>
+              {#if bridgeModels.length > 0}
+                <select
+                  value={agent.model || ""}
+                  onchange={(e) => setAgentModel(agent, e.currentTarget.value)}
+                  class="w-full p-2 rounded-xl border border-slate-200 bg-white/70 text-xs font-mono font-bold text-slate-700 cursor-pointer focus:ring-purple-500 focus:border-purple-400"
+                >
+                  <option value="">⤺ Inherit (host client default)</option>
+                  {#each bridgeModels as m}
+                    <option value={m.id}>{m.id}</option>
+                  {/each}
+                </select>
+              {:else}
+                <p class="p-2 rounded-xl border border-dashed border-slate-200 bg-white/50 text-[11px] font-semibold text-slate-500">
+                  {agent.model || "inherit"} — no bridge-served models available. Start a bridge in the Bridges page to pick models.
+                </p>
+              {/if}
+            </div>
 
             <!-- Embedded Skills Section -->
             <div class="space-y-3 pt-4 border-t border-slate-200">

@@ -28,6 +28,8 @@ license: MIT
 ---
 # Tailwind v4 + shadcn/ui Production Stack
 
+> **PLAN_HUMAN_BUILT.md usage restriction**: shadcn/ui component API shapes (Button/Card/Dialog primitives with shadcn prop signatures, `components/ui/` directories) are an AI-scaffold fingerprint. Use this reference ONLY for Tailwind v4 theming techniques (`@theme inline`, CSS variable architecture, dark-mode mechanics, plugin setup) — never copy the shadcn component API or `components/ui` structure into a Konoha build. Icons are Phosphor (`@phosphor-icons/react`), never Lucide.
+
 **Production-tested**: WordPress Auditor (https://wordpress-auditor.webfonts.workers.dev)
 **Last Updated**: 2025-12-04
 **Status**: Production Ready ✅
@@ -436,7 +438,7 @@ For detailed patterns and component composition examples, load `references/tailw
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.3.1",
     "@radix-ui/react-*": "latest",
-    "lucide-react": "^0.554.0",
+    "@phosphor-icons/react": "^2.1.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -56,7 +56,9 @@
     { name: 'OpenCode', key: 'opencode', icon: '▫' },
     { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
     { name: 'Codex', key: 'codex', icon: '🤖' },
-    { name: 'Pi (pi.dev)', key: 'pi', icon: 'π' }
+    { name: 'Pi (pi.dev)', key: 'pi', icon: 'π' },
+    // Honest-attribution bucket: calls with no verified client session signal.
+    { name: 'Unattributed', key: 'unattributed', icon: '◇' }
   ];
 
   function getFilteredTools(list) {
@@ -137,6 +139,21 @@
     {@const totalToolCalls = toolList.reduce((sum, item) => sum + (item.calls || 0), 0)}
     {@const filteredTools = getFilteredTools(toolList)}
     {@const semble = savings.semble || {}}
+    {@const combined = savings.combined || {}}
+    {@const combToday = combined.today || { calls: today.calls || 0, tokens: today.tokens || today.tokens_saved_approx || 0, bytes: today.bytes || today.tokens_saved_bytes || 0, pct: today.pct_saved ?? today.pct ?? 0 }}
+    {@const combLast7 = combined.last_7_days || combined.last7days || { calls: last7Days.calls || 0, tokens: last7Days.tokens || last7Days.tokens_saved_approx || 0, bytes: last7Days.bytes || last7Days.tokens_saved_bytes || 0, pct: last7Days.pct_saved ?? last7Days.pct ?? 0 }}
+    {@const combAllTime = combined.all_time || combined.alltime || { calls: allTime.calls || 0, tokens: allTime.tokens || allTime.tokens_saved_approx || 0, bytes: allTime.bytes || allTime.tokens_saved_bytes || 0, pct: allTime.pct_saved ?? allTime.pct ?? 0 }}
+    {@const providerRows = (() => {
+      const meta = Object.fromEntries(CLIENTS.map((c) => [c.key, c]));
+      const keys = new Set([
+        ...Object.keys(today.by_client || {}),
+        ...Object.keys(last7Days.by_client || {}),
+        ...Object.keys(allTime.by_client || {})
+      ]);
+      return [...keys]
+        .map((key) => ({ key, ...(meta[key] || { name: key, icon: '•' }) }))
+        .sort((a, b) => ((allTime.by_client?.[b.key]?.calls || 0) - (allTime.by_client?.[a.key]?.calls || 0)));
+    })()}
 
     <!-- Combined Total Savings Banner (TUI Parity) -->
     <div
@@ -155,30 +172,30 @@
         <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
           <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Today</div>
           <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(today.tokens || today.tokens_saved_approx || 0)} <span class="text-xs font-bold text-slate-600">tokens</span>
+            ~{formatTokens(combToday.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
           </div>
           <div class="text-xs font-semibold text-slate-700">
-            {today.calls || 0} calls • {formatBytes(today.bytes || today.tokens_saved_bytes || 0)} equiv ({today.pct || today.pct_saved || 97}%)
+            {combToday.calls} calls • {formatBytes(combToday.bytes)} equiv ({combToday.pct}%)
           </div>
         </div>
 
         <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
           <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Last 7 Days</div>
           <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(last7Days.tokens || last7Days.tokens_saved_approx || 0)} <span class="text-xs font-bold text-slate-600">tokens</span>
+            ~{formatTokens(combLast7.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
           </div>
           <div class="text-xs font-semibold text-slate-700">
-            {last7Days.calls || 0} calls • {formatBytes(last7Days.bytes || last7Days.tokens_saved_bytes || 0)} equiv ({last7Days.pct || last7Days.pct_saved || 96}%)
+            {combLast7.calls} calls • {formatBytes(combLast7.bytes)} equiv ({combLast7.pct}%)
           </div>
         </div>
 
         <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
           <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">All Time</div>
           <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(allTime.tokens || allTime.tokens_saved_approx || 0)} <span class="text-xs font-bold text-slate-600">tokens</span>
+            ~{formatTokens(combAllTime.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
           </div>
           <div class="text-xs font-semibold text-slate-700">
-            {allTime.calls || 0} calls • {formatBytes(allTime.bytes || allTime.tokens_saved_bytes || 0)} equiv ({allTime.pct || allTime.pct_saved || 96}%)
+            {combAllTime.calls} calls • {formatBytes(combAllTime.bytes)} equiv ({combAllTime.pct}%)
           </div>
         </div>
       </div>
@@ -187,7 +204,7 @@
         <span class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>Actual savings per query:</span>
-          <strong class="text-emerald-700 font-black">97% average reduction per query</strong>
+          <span>{combined.avg_pct ?? combAllTime.pct ?? 0}% average reduction per query</span>
         </span>
         <span class="text-[11px] font-mono text-slate-500">Computed live from SQLite telemetry</span>
       </div>
@@ -278,8 +295,8 @@
                 <td class="py-3 px-4 font-mono">{formatBytes(today.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(today.pct || 97)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{today.pct || 97}%</span>
+                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(today.pct_saved ?? today.pct ?? 0)}]</span>
+                    <span class="font-mono text-xs font-bold text-emerald-700">{today.pct_saved ?? today.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(today.tokens || 0)}</td>
@@ -291,8 +308,8 @@
                 <td class="py-3 px-4 font-mono">{formatBytes(last7Days.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(last7Days.pct || 96)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{last7Days.pct || 96}%</span>
+                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(last7Days.pct_saved ?? last7Days.pct ?? 0)}]</span>
+                    <span class="font-mono text-xs font-bold text-emerald-700">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(last7Days.tokens || 0)}</td>
@@ -304,8 +321,8 @@
                 <td class="py-3 px-4 font-mono">{formatBytes(allTime.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(allTime.pct || 96)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{allTime.pct || 96}%</span>
+                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(allTime.pct_saved ?? allTime.pct ?? 0)}]</span>
+                    <span class="font-mono text-xs font-bold text-emerald-700">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(allTime.tokens || 0)}</td>
@@ -320,7 +337,7 @@
       <div class="glass-card-3d p-6 rounded-3xl border space-y-4">
         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
           <span>Client Provider Breakdown (Invocations & Tokens)</span>
-          <span class="text-[11px] font-normal text-slate-500">7 Connected Coding Platforms</span>
+          <span class="text-[11px] font-normal text-slate-500">{providerRows.filter((c) => c.key !== 'unattributed').length} Connected Coding Platform{providerRows.filter((c) => c.key !== 'unattributed').length === 1 ? '' : 's'}</span>
         </h4>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs" style="color: var(--color-text);">
@@ -333,7 +350,7 @@
               </tr>
             </thead>
             <tbody class="divide-y font-semibold" style="border-color: var(--color-border);">
-              {#each CLIENTS as c}
+              {#each providerRows as c}
                 {@const todayC = (today.by_client && today.by_client[c.key]) || { calls: 0, tokens: 0 }}
                 {@const last7C = (last7Days.by_client && last7Days.by_client[c.key]) || { calls: 0, tokens: 0 }}
                 {@const alltimeC = (allTime.by_client && allTime.by_client[c.key]) || { calls: 0, tokens: 0 }}
@@ -541,7 +558,7 @@
             <p class="text-xs font-semibold text-slate-600">Replaces massive repository file scans with on-demand neural embeddings</p>
           </div>
           <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-            {semble.total_saved_pct || 98}% Efficiency
+            {semble.total_saved_pct ?? 0}% Efficiency
           </span>
         </div>
 
@@ -549,36 +566,36 @@
           <div class="glass-card-3d p-6 rounded-2xl border transition-all">
             <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
               <span>Today</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">{semble.today?.ratio_pct ?? 99}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">{semble.today?.ratio_pct ?? 0}%</span>
             </div>
             <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.today?.tokens_saved ?? '—'}</div>
             <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
               <span>{semble.today?.calls ?? 0} searches</span>
-              <span class="text-emerald-700 font-bold">{semble.today?.ratio_pct ?? 99}% saved</span>
+              <span class="text-emerald-700 font-bold">{semble.today?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
 
           <div class="glass-card-3d p-6 rounded-2xl border transition-all">
             <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
               <span>Last 7 Days</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">{semble.last_7_days?.ratio_pct ?? 99}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">{semble.last_7_days?.ratio_pct ?? 0}%</span>
             </div>
             <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.last_7_days?.tokens_saved ?? '—'}</div>
             <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
               <span>{semble.last_7_days?.calls ?? 0} searches</span>
-              <span class="text-sky-700 font-bold">{semble.last_7_days?.ratio_pct ?? 99}% saved</span>
+              <span class="text-sky-700 font-bold">{semble.last_7_days?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
 
           <div class="glass-card-3d p-6 rounded-2xl border transition-all">
             <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
               <span>All Time Total</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">{semble.all_time?.ratio_pct ?? 98}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">{semble.all_time?.ratio_pct ?? 0}%</span>
             </div>
             <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.all_time?.tokens_saved ?? '—'}</div>
             <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
               <span>{semble.all_time?.calls ?? 0} searches</span>
-              <span class="text-purple-700 font-bold">{semble.all_time?.ratio_pct ?? 98}% saved</span>
+              <span class="text-purple-700 font-bold">{semble.all_time?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
         </div>

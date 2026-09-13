@@ -9,7 +9,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "node build/index.js",
+    "start": "node build/index.js",
+    "check": "svelte-kit sync && svelte-check --threshold error",
+    "lint": "svelte-kit sync && svelte-check --threshold error"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "6.0.0-next.12",
@@ -17,6 +20,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "svelte": "^5.57.0",
+    "svelte-check": "^4.3.2",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"
   }

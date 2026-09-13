@@ -40,6 +40,68 @@ function readFileSafe(filePath) {
   return null;
 }
 
+// ── 100% AI-Slop Gate (mechanical enforcement) ─────────────────────────────
+// When the project has a quality-gate config (.aislop/config.yml), the review
+// phase MUST end with a perfect 100/100 aislop scan (zero findings of ANY
+// severity) before the workflow may synthesize. The gate result is cached in
+// the workflow status so every sannin call in the review phase re-checks the
+// cached verdict instead of re-scanning. Skipped only in hermetic test runs
+// (KONOHA_DB_PATH isolation), where scan targets are throwaway temp dirs.
+const AISLOP_GATE_TIMEOUT_MS = 180000;
+
+function runAislopGate(projectPath, status) {
+  if (process.env.KONOHA_DB_PATH) return { enforced: false, reason: 'test isolation' };
+  if (!fs.existsSync(path.join(projectPath, '.aislop', 'config.yml'))) {
+    return { enforced: false, reason: 'no quality-gate config' };
+  }
+  if (status && status.aislop_gate && status.aislop_gate.ok) return status.aislop_gate;
+  let result;
+  try {
+    const { spawnSync } = require('child_process');
+    const isWin = process.platform === 'win32';
+    let scanArgs = ['-y', 'aislop', 'scan', '--json'];
+    if (status && Array.isArray(status.changed_files) && status.changed_files.length > 0) {
+      scanArgs.push(...status.changed_files);
+    } else {
+      // Scope to changed files to prevent massive multi-megabyte full-repo token burns
+      scanArgs.push('--changes');
+    }
+    const npxCmd = isWin ? 'npx.cmd' : 'npx';
+    let res = spawnSync(npxCmd, scanArgs, {
+      cwd: projectPath,
+      encoding: 'utf8',
+      timeout: AISLOP_GATE_TIMEOUT_MS,
+      shell: isWin,
+    });
+    // Fail closed if --changes cannot run (e.g. non-git directory): never fall
+    // back to an unscoped full-repo scan — that violates the strict changed-files
+    // token-hygiene mandate.
+    if (res.status !== 0 && (res.stderr || '').includes('git')) {
+      if (status) status.aislop_gate = { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
+      return status ? status.aislop_gate : { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
+    }
+    const out = (res.stdout || '');
+    const jsonStart = out.indexOf('{');
+    if (jsonStart === -1) {
+      result = { enforced: true, ok: false, reason: 'aislop scanner unavailable' };
+    } else {
+      const parsed = JSON.parse(out.slice(jsonStart));
+      const findings = (parsed.diagnostics || []).length;
+      result = {
+        enforced: true,
+        ok: parsed.score === 100 && findings === 0,
+        score: parsed.score,
+        findings,
+        label: parsed.label || null,
+      };
+    }
+  } catch (e) {
+    result = { enforced: true, ok: false, reason: 'gate error: ' + e.message };
+  }
+  if (status) status.aislop_gate = result;
+  return result;
+}
+
 function loadWorkflowStatus(taskDir) {
   const statusPath = path.join(taskDir, 'status.json');
   if (fs.existsSync(statusPath)) {
@@ -111,7 +173,7 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
     }
   } catch (_) { /* ignore */ } finally {
     if (conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -127,10 +189,38 @@ function runSannin(prompt = null, taskDir = null) {
   const resolvedTaskDir = getResolvedTaskDir(taskDir);
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
 
+  // Stale-state guard: task directories are reused across prompts (the default
+  // resolver returns the most-recently-modified dir). If a NEW prompt is supplied
+  // and it differs from the stored prompt.md, any existing result.md / status.json
+  // / delegate.md artifacts belong to a PREVIOUS task and must never be returned
+  // or reused. Without this guard, sannin instantly "completes" every new task
+  // with the previous task's result, which makes the workflow appear to never run.
+  const promptPath = path.join(resolvedTaskDir, 'prompt.md');
+  const storedPrompt = readFileSafe(promptPath);
+  const normalizedPrompt = (s) => (s || '').replace(/\r\n/g, '\n').trim();
   const resultPath = path.join(resolvedTaskDir, 'result.md');
+  const isNewTaskInReusedDir =
+    prompt !== null &&
+    (storedPrompt === null || normalizedPrompt(prompt) !== normalizedPrompt(storedPrompt));
+
+  if (isNewTaskInReusedDir) {
+    const staleArtifacts = [
+      'result.md', 'status.json', 'delegate.md', 'plan.md',
+      'findings.md', 'kage_review.json', 'final_docs.md',
+    ];
+    for (const f of staleArtifacts) {
+      try { fs.rmSync(path.join(resolvedTaskDir, f), { force: true }); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
+  }
+
   if (fs.existsSync(resultPath)) {
     try {
       const result = fs.readFileSync(resultPath, 'utf8').trim();
+      const taskId = path.basename(resolvedTaskDir);
+      try {
+        const sdlcManager = require('../sdlc_manager');
+        sdlcManager.updateTask(taskId, { status: 'completed' });
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       const res = JSON.stringify({ status: 'completed', phase: 'result', result, task_dir: resolvedTaskDir });
       logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
       return res;
@@ -141,7 +231,6 @@ function runSannin(prompt = null, taskDir = null) {
 
   let effPrompt = prompt;
   if (!effPrompt) {
-    const promptPath = path.join(resolvedTaskDir, 'prompt.md');
     if (fs.existsSync(promptPath)) {
       try {
         effPrompt = fs.readFileSync(promptPath, 'utf8').trim();
@@ -151,6 +240,40 @@ function runSannin(prompt = null, taskDir = null) {
     } else {
       return JSON.stringify({ status: 'error', message: 'No prompt provided and prompt.md not found in task directory.' });
     }
+  } else {
+    try {
+      fs.writeFileSync(path.join(resolvedTaskDir, 'prompt.md'), effPrompt, 'utf8');
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+
+  const sdlcManager = require('../sdlc_manager');
+  const { getWorkspaceRoot } = require('./runtime_state');
+  const projectPath = getWorkspaceRoot() || process.cwd();
+  const sdlcConfig = sdlcManager.getProjectSdlcConfig(projectPath);
+  const dorResult = sdlcManager.checkReadiness(effPrompt, projectPath);
+  const taskId = path.basename(resolvedTaskDir);
+
+  try {
+    sdlcManager.createTask({
+      id: taskId,
+      description: effPrompt,
+      status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
+      dor_result: dorResult,
+      project_path: projectPath
+    });
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
+    const res = JSON.stringify({
+      status: 'blocked',
+      phase: 'dor',
+      message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.',
+      missing: dorResult.missing,
+      dor_result: dorResult,
+      task_dir: resolvedTaskDir
+    });
+    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+    return res;
   }
 
   const selectedAgentSuffix = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
@@ -172,7 +295,7 @@ function runSannin(prompt = null, taskDir = null) {
     }
   } catch (_) { /* ignore */ } finally {
     if (descConn) {
-      try { descConn.close(); } catch (_) {}
+      try { descConn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -180,6 +303,16 @@ function runSannin(prompt = null, taskDir = null) {
     || agentDescriptions[selectedAgent.replace(/_/g, '-')]
     || agentDescriptions[selectedAgent.replace(/-/g, '_')]
     || 'general-purpose delegation';
+
+  let advisoryText = '';
+  if (!dorResult.ready && dorResult.missing && dorResult.missing.length > 0) {
+    advisoryText = (
+      '\n\n### ⚠️ Definition-of-Readiness (DoR) Advisory Hints\n' +
+      dorResult.missing.map(m => `- ${m}`).join('\n') +
+      '\n*Note: Advisory mode — subagent should clarify or resolve these open questions during execution.*'
+    );
+  }
+
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
     `**Reason**: ${description}\n\n` +
@@ -189,7 +322,8 @@ function runSannin(prompt = null, taskDir = null) {
     `2. Call \`${selectedAgent}\` with \`task_dir=${resolvedTaskDir}\` — it will read delegate.md and prepare the task for execution.\n` +
     '3. The agent will execute the task and write `result.md` to the same task directory (Write `result.md`).\n' +
     `4. After \`result.md\` exists, call \`sannin\` again with \`task_dir=${resolvedTaskDir}\` to receive the final result.\n\n` +
-    `## Original Prompt\n\n${effPrompt}`
+    `## Original Prompt\n\n${effPrompt}` +
+    advisoryText
   );
 
   const res = JSON.stringify({
@@ -197,7 +331,8 @@ function runSannin(prompt = null, taskDir = null) {
     selected_agent: selectedAgent,
     phase: 'delegation',
     instructions: instruction,
-    task_dir: resolvedTaskDir
+    task_dir: resolvedTaskDir,
+    dor_result: dorResult
   });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
   return res;
@@ -378,13 +513,35 @@ function workflowReviewApproved(taskDir, status) {
         aiSlopFindings === 0
       );
 
-      const tasksMatch = verifiedTasks.size === expectedTasks.size && Array.from(expectedTasks).every(id => verifiedTasks.has(id));
+      status.review = review;
+      // Native SDLC Governance: Evaluate anti-slop Delivery Gate & Independence
+      try {
+        const sdlcManager = require('../sdlc_manager');
+        const slopGate = sdlcManager.evaluateAntiSlopDeliveryGate(review);
+        status.slop_result = slopGate;
+        const rootTaskId = path.basename(taskDir || '');
+        if (rootTaskId) {
+          sdlcManager.recordSlopResult(rootTaskId, slopGate, status.slop_cycles || 0);
+        }
+        for (const t of tasks) {
+          const implAgent = t.agent || 'anbu';
+          const independence = sdlcManager.detectReviewIndependence(implAgent, 'kage');
+          sdlcManager.updateTask(t.id, { review_mode: independence.reviewMode });
+          sdlcManager.recordSlopResult(t.id, slopGate, status.slop_cycles || 0);
+        }
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+      for (const t of tasks) {
+        if (t.id && t.id.startsWith('slop-fix-') && aiSlopPass) {
+          verifiedTasks.add(t.id);
+        }
+      }
+
+      const tasksMatch = Array.from(expectedTasks).every(id => verifiedTasks.has(id));
 
       if (review.approved === true && cleanValidation && tasksMatch && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
-        status.review = review;
         return true;
       }
-      status.review = review;
       return false;
     } catch (_) {
       return false;
@@ -502,6 +659,17 @@ function runMcpWorkflow(taskDir = null) {
         if (status.tasks.length === 0) {
           status.tasks = [{ id: 'task-1', agent: 'anbu', task: 'Execute the approved implementation plan.', status: 'pending', result: '', validation: [] }];
         }
+        try {
+          const sdlcManager = require('../sdlc_manager');
+          for (const t of status.tasks) {
+            sdlcManager.createTask({
+              id: t.id,
+              description: t.task,
+              status: 'in_progress',
+              project_path: resolvedTaskDir
+            });
+          }
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         status.pending_executors = status.tasks.map(t => t.id);
         status.completed_executors = [];
         status.phase = 'execute';
@@ -534,12 +702,100 @@ function runMcpWorkflow(taskDir = null) {
       } else {
         const reviewObj = status.review || {};
         let reason = '';
-        if (!(reviewObj.ai_slop_clean === true && reviewObj.ai_slop_findings === 0)) {
+        const isSlopFail = !(reviewObj.ai_slop_clean === true && reviewObj.ai_slop_findings === 0);
+        if (isSlopFail) {
           reason = 'Zero-AI-Slop gate failed or was not executed (ai_slop_findings must be 0 and ai_slop_clean must be true).';
         } else {
           reason = 'Kage review did not approve all completed tasks.';
         }
-        status.review = { approved: false, reason };
+        status.review = {
+          ...reviewObj,
+          approved: false,
+          reason,
+          findings: reviewObj.findings || []
+        };
+
+        // SDLC Remediation loop: active by default (remediation_loop === false
+        // opts out), bounded by the delegation-depth circuit breaker. Only fires
+        // when the Delivery Gate actually reported findings; a review that never
+        // ran the gate (missing ai_slop fields) stays blocked for re-review.
+        const slopFindingsCount = typeof reviewObj.ai_slop_findings === 'number'
+          ? reviewObj.ai_slop_findings
+          : (Array.isArray(reviewObj.findings) ? reviewObj.findings.length : 0);
+        const hasSlopFindings = slopFindingsCount > 0;
+        if (isSlopFail && hasSlopFindings && status.remediation_loop !== false) {
+          status.slop_cycles = (status.slop_cycles || 0) + 1;
+          if (status.slop_cycles > 7) {
+            status.status = 'blocked';
+            saveWorkflowStatus(resolvedTaskDir, status);
+            return JSON.stringify({
+              status: 'blocked',
+              phase: 'review',
+              message: `Delegation depth circuit breaker tripped (> 7 slop remediation cycles). Slop findings: ${reason}`,
+              slop_cycles: status.slop_cycles,
+              findings: reviewObj.findings || []
+            });
+          }
+
+          const sdlcManager = require('../sdlc_manager');
+          const fixTaskText = sdlcManager.generateSlopFixTask(status.slop_result || { findings: reviewObj.findings });
+          const fixTaskId = `slop-fix-${status.slop_cycles}`;
+
+          // Determine remediation agent (jonin vs anbu) based on findings and tasks
+          let remediationAgent = 'anbu';
+          const executedAgents = Object.values(status.executed || {}).map(e => e.agent).filter(Boolean);
+          const taskAgents = (status.tasks || []).map(t => t.agent).filter(Boolean);
+          const findingsText = (reviewObj.findings || []).map(f => typeof f === 'string' ? f : (f.description || f.rule || '')).join(' ').toLowerCase();
+          const isUiRelated = /ui|css|frontend|style|tailwind|component|html|layout|vue|svelte|react|next|angular|design/i.test(findingsText);
+
+          if (isUiRelated && (executedAgents.includes('jonin') || taskAgents.includes('jonin'))) {
+            remediationAgent = 'jonin';
+          } else if (executedAgents.length > 0) {
+            const lastExecuted = executedAgents[executedAgents.length - 1];
+            remediationAgent = lastExecuted || 'anbu';
+          } else if (taskAgents.length > 0) {
+            remediationAgent = taskAgents[0];
+          }
+
+          const remediationTask = {
+            id: fixTaskId,
+            agent: remediationAgent,
+            task: fixTaskText,
+            status: 'pending',
+            result: '',
+            validation: []
+          };
+          try {
+            sdlcManager.createTask({
+              id: fixTaskId,
+              description: fixTaskText,
+              status: 'in_progress',
+              project_path: resolvedTaskDir
+            });
+          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+          status.tasks = status.tasks || [];
+          status.tasks.push(remediationTask);
+          status.pending_executors = [fixTaskId];
+          status.phase = 'execute';
+          status.assigned_agent = remediationAgent;
+          saveWorkflowStatus(resolvedTaskDir, status);
+
+          const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', remediationAgent, fixTaskId, fixTaskText);
+          const agentUpper = remediationAgent.charAt(0).toUpperCase() + remediationAgent.slice(1);
+          fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${remediationAgent}\npriority: high\nPhase: Remediation (Anti-Slop Cycle ${status.slop_cycles})\ndispatch_id: ${dispatch.id}\n\n## TASK\n\n${fixTaskText}\n\n## REMEDIATION GATE (TWO-STEP, TARGET 100%)\n\nFix every finding, then re-run the full two-step review: Step 1 \`aislop_scan\` (aislop scanner) → Step 2 \`anti-slop\` rule review. The synthesis gate mechanically requires a perfect 100/100 scan (zero findings of any severity).\n`, 'utf8');
+
+          return JSON.stringify({
+            status: 'remediation',
+            phase: 'execute',
+            agent: remediationAgent,
+            dispatch_id: dispatch.id,
+            task_dir: resolvedTaskDir,
+            slop_cycles: status.slop_cycles,
+            message: `Anti-slop Delivery Gate reported findings. Dispatched remediation task to ${agentUpper} (cycle ${status.slop_cycles}).`
+          });
+        }
+
         saveWorkflowStatus(resolvedTaskDir, status);
         return JSON.stringify({ status: 'blocked', phase: 'review', message: `Kage review must approve every completed task before delivery: ${reason}` });
       }
@@ -578,14 +834,22 @@ function runMcpWorkflow(taskDir = null) {
   if (phase === 'execute') {
     const nextTask = (status.tasks || []).find(t => t.status !== 'completed');
     if (!nextTask) {
-      status.phase = 'document';
-      status.assigned_agent = 'tokubetsu-jonin';
-      status.current_dispatch = null;
-      saveWorkflowStatus(resolvedTaskDir, status);
-      phase = 'document';
+      if (status.slop_cycles && status.slop_cycles > 0) {
+        status.phase = 'review';
+        status.assigned_agent = 'kage';
+        status.current_dispatch = null;
+        saveWorkflowStatus(resolvedTaskDir, status);
+        phase = 'review';
+      } else {
+        status.phase = 'document';
+        status.assigned_agent = 'tokubetsu-jonin';
+        status.current_dispatch = null;
+        saveWorkflowStatus(resolvedTaskDir, status);
+        phase = 'document';
+      }
     } else {
       const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', nextTask.agent, nextTask.id, nextTask.task);
-      fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${nextTask.agent}\npriority: high\nPhase: Execute\ndispatch_id: ${dispatch.id}\ntask_id: ${nextTask.id}\n\n## TASK\n\n${nextTask.task}\n\nWrite result.md and validation evidence for this task.\n`, 'utf8');
+      fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${nextTask.agent}\npriority: high\nPhase: Execute\ndispatch_id: ${dispatch.id}\ntask_id: ${nextTask.id}\n\n## TASK\n\n${nextTask.task}\n\n## DELIVERY GATE (TWO-STEP, TARGET 100%)\n\nBefore writing result.md: Step 1 run \`aislop_scan\` (aislop scanner) on all changed files — zero findings required. Step 2 run the \`anti-slop\` rule review (load the \`antislop\` skill via konoha.get_skill) and fix violations. The kage review + workflow synthesis mechanically enforce a perfect 100/100 scan — delivery is blocked below it.\n\nWrite result.md and validation evidence for this task.\n`, 'utf8');
       status.assigned_agent = nextTask.agent;
       saveWorkflowStatus(resolvedTaskDir, status);
       return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
@@ -609,11 +873,20 @@ function runMcpWorkflow(taskDir = null) {
   }
 
   if (phase === 'review') {
+    // 100% AI-Slop Gate: mechanically scan the project before kage review completes.
+    const { getWorkspaceRoot: _gwr } = require('./runtime_state');
+    const gateProject = _gwr() || process.cwd();
+    const gate = runAislopGate(gateProject, status);
+    if (!status.aislop_gate) status.aislop_gate = gate;
+    saveWorkflowStatus(resolvedTaskDir, status);
+    const gateTarget = gate.enforced
+      ? 'The mechanical gate requires a 100/100 aislop scan (zero findings of any severity) before synthesis.'
+      : 'Run the two-step review (Step 1 aislop_scan, Step 2 anti-slop rules) and verify 0 findings.';
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'review', 'kage');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: critical\nPhase: Review\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented, and run aislop_scan to verify 0 ai-slop findings. Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_reviewed, ai_slop_findings, ai_slop_clean, and findings fields, then write result.md.\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: critical\nPhase: Review\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 anti-slop rule review (antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_reviewed, ai_slop_findings, ai_slop_clean, and findings fields, then write result.md.\n`, 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'review', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+    return JSON.stringify({ status: 'ready', phase: 'review', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, aislop_gate: gate });
   }
 
   if (phase === 'synthesize') {
@@ -626,6 +899,21 @@ function runMcpWorkflow(taskDir = null) {
         msg = 'Kage approval is required before synthesis.';
       }
       return JSON.stringify({ status: 'blocked', phase: 'review', message: msg });
+    }
+
+    // 100% AI-Slop Gate (mechanical): synthesis is BLOCKED unless the project
+    // scan is a perfect 100/100 with zero findings of any severity.
+    const { getWorkspaceRoot: _gwrSynth } = require('./runtime_state');
+    const gateSynth = runAislopGate(_gwrSynth() || process.cwd(), status);
+    if (gateSynth.enforced && !gateSynth.ok) {
+      const res = JSON.stringify({
+        status: 'blocked',
+        phase: 'review',
+        message: `100% AI-Slop gate failed: aislop scan score ${gateSynth.score ?? 'n/a'}/${gateSynth.findings ?? 'n/a'} findings (target: 100/100, 0 findings). Re-run the two-step review (Step 1 aislop_scan, Step 2 anti-slop rules), fix all findings via the anbu remediation loop, then re-approve.`,
+        aislop_gate: gateSynth,
+      });
+      logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+      return res;
     }
 
     const prompt = readFileSafe(path.join(resolvedTaskDir, 'prompt.md')) || '';
@@ -642,6 +930,7 @@ function runMcpWorkflow(taskDir = null) {
     function taskEvidenceOk(t) {
       if (t.verified === false) return false;
       if (t.verified === true) return true;
+      if (t.id && t.id.startsWith('slop-fix-') && aiSlopOk) return true;
       const isPentest = isPentestTask(t);
       if (isCleanValidation(t.validation || [], isPentest)) return true;
       if (reviewData.approved === true && (reviewData.verified_task_ids || []).includes(t.id)) return true;
@@ -721,6 +1010,11 @@ function runMcpWorkflow(taskDir = null) {
     status.history.push({ phase: 'synthesize', agent: 'sannin' });
     saveWorkflowStatus(resolvedTaskDir, status);
     cleanupTransientScratchFiles(resolvedTaskDir);
+    try {
+      const rootId = path.basename(resolvedTaskDir);
+      const sdlcManager = require('../sdlc_manager');
+      sdlcManager.updateTask(rootId, { status: 'completed' });
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     return JSON.stringify({ status: 'completed', phase: 'done', final_report_path: reportPath });
   }
 
@@ -730,6 +1024,7 @@ function runMcpWorkflow(taskDir = null) {
 module.exports = {
   getResolvedTaskDir,
   readFileSafe,
+  runAislopGate,
   loadWorkflowStatus,
   saveWorkflowStatus,
   routeByKeywordsWithPrompt,

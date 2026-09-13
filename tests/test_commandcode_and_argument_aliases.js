@@ -97,7 +97,6 @@ async function run() {
     ['upgrade', '--help'],
     ['skill', '--help'],
     ['agent', '--help'],
-    ['models', '--help'],
     ['data', '--help'],
     ['project', '--help'],
     ['bridge', '--help'],

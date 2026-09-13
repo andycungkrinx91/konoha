@@ -20,17 +20,33 @@
     importance: 1
   });
 
-  const agents = [
-    { id: "", name: "All Agents" },
-    { id: "jonin", name: "@jonin" },
-    { id: "anbu", name: "@anbu" },
-    { id: "kage", name: "@kage" },
-    { id: "chunin", name: "@chunin" },
-    { id: "genin", name: "@genin" },
-    { id: "sannin", name: "@sannin" },
-    { id: "tokubetsu-jonin", name: "@tokubetsu-jonin" },
-    { id: "global", name: "@global" }
+  const fallbackAgents = [
+    { id: "", name: "All Agents", title: "" },
+    { id: "jonin", name: "@jonin", title: "UI & Frontend" },
+    { id: "anbu", name: "@anbu", title: "Backend & DevOps" },
+    { id: "kage", name: "@kage", title: "Architecture & Audit" },
+    { id: "chunin", name: "@chunin", title: "Research" },
+    { id: "genin", name: "@genin", title: "Code Review" },
+    { id: "sannin", name: "@sannin", title: "Router" },
+    { id: "tokubetsu-jonin", name: "@tokubetsu-jonin", title: "Docs" },
+    { id: "global", name: "@global", title: "All Agents" }
   ];
+  let agents = $state(fallbackAgents);
+
+  async function loadAgents() {
+    try {
+      const rows = await api.get("/api/v1/agents");
+      if (Array.isArray(rows) && rows.length) {
+        const ids = new Set(rows.map(a => a.name));
+        const list = rows.map(a => ({ id: a.name, name: "@" + a.name, title: a.title || "" }));
+        if (!ids.has("global")) list.push({ id: "global", name: "@global", title: "All Agents" });
+        if (!ids.has(newMemory.agentName)) list.push({ id: newMemory.agentName, name: "@" + newMemory.agentName, title: "" });
+        agents = [{ id: "", name: "All Agents", title: "" }, ...list];
+      }
+    } catch (_) {
+      // keep fallback list
+    }
+  }
 
   async function loadMemories() {
     loading = true;
@@ -105,9 +121,47 @@
     }
   }
 
-  onMount(loadMemories);
+  async function pruneAllMemories() {
+    if (!memories || memories.length === 0) {
+      await sweetAlert.fire({
+        title: "No Memories",
+        text: "There are no persona memories to prune.",
+        icon: "info"
+      });
+      return;
+    }
 
-  useScrollLock(isCreateModalOpen);
+    const scopeText = selectedAgent ? `for @${selectedAgent}` : "across all agents";
+    const confirmed = await sweetAlert.confirm({
+      title: "Prune Persona Memories?",
+      text: `Are you sure you want to prune persona memories ${scopeText}?`,
+      icon: "warning",
+      confirmText: "Prune",
+      cancelText: "Cancel"
+    });
+    if (!confirmed) return;
+
+    try {
+      const payload = selectedAgent ? { agentName: selectedAgent } : {};
+      const res = await api.post("/api/v1/persona/prune", payload);
+      await sweetAlert.fire({
+        title: "Memories Pruned",
+        text: `Successfully pruned ${res.deleted || 0} memory item(s).`,
+        icon: "success"
+      });
+      await loadMemories();
+    } catch (err) {
+      await sweetAlert.fire({
+        title: "Prune Failed",
+        text: err.message,
+        icon: "error"
+      });
+    }
+  }
+
+  onMount(() => { loadAgents(); loadMemories(); });
+
+  useScrollLock(() => isCreateModalOpen);
 
   function handleModalKeydown(e) {
     if (e.key === 'Escape' && isCreateModalOpen) isCreateModalOpen = false;
@@ -139,6 +193,18 @@
       </div>
 
       <div class="flex items-center gap-3 shrink-0">
+        <button
+          type="button"
+          onclick={pruneAllMemories}
+          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
+          title="Prune episodic memories"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Prune Memories</span>
+        </button>
+
         <button
           type="button"
           onclick={() => { isCreateModalOpen = true; }}
@@ -262,7 +328,12 @@
 
 <!-- Add Memory 3D Glass Modal -->
 {#if isCreateModalOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onclick={(e) => { if (e.target === e.currentTarget) isCreateModalOpen = false; }}>
+  <div
+    role="presentation"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+    onclick={(e) => { if (e.target === e.currentTarget) isCreateModalOpen = false; }}
+    onkeydown={(e) => { if (e.key === 'Escape') isCreateModalOpen = false; }}
+  >
     <div
       class="glass-frost-strong relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
       style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
@@ -290,14 +361,9 @@
               bind:value={newMemory.agentName}
               class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
             >
-              <option value="jonin">@jonin (UI & Frontend)</option>
-              <option value="anbu">@anbu (Backend & DevOps)</option>
-              <option value="kage">@kage (Architecture & Audit)</option>
-              <option value="chunin">@chunin (Research)</option>
-              <option value="genin">@genin (Code Review)</option>
-              <option value="sannin">@sannin (Router)</option>
-              <option value="tokubetsu-jonin">@tokubetsu-jonin (Docs)</option>
-              <option value="global">@global (All Agents)</option>
+              {#each agents.filter(ag => ag.id) as ag}
+                <option value={ag.id}>{ag.name}{ag.title ? ` (${ag.title})` : ""}</option>
+              {/each}
             </select>
           </div>
 

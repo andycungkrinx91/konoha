@@ -25,7 +25,7 @@ Canonical design system directives and production blueprints for **Next.js 16.3 
   - *Company Profile*: Home, About, Services, Case Studies, Contact, Themes
 
 ### 4. Zero Errors & Zero Warnings Quality Gate
-- Scaffolding MUST include required packages: `lucide-react`, `clsx`, `tailwind-merge`.
+- Scaffolding MUST include the framework's Phosphor Icons package (`@phosphor-icons/react`) or hand-exported inline SVG icon components — NEVER `lucide-react` (AI-scaffold fingerprint). Include `clsx` and `tailwind-merge` only when the build actually uses Tailwind utility merging.
 - Do not claim completion until `pnpm run build` and `pnpm run lint` pass cleanly with **0 errors and 0 warnings**.
 
 ---
@@ -166,7 +166,7 @@ body {
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Palette, Check, X } from 'lucide-react';
+import { Palette, Check, X } from '@phosphor-icons/react/dist/ssr';
 
 export const THEMES = [
   { id: 'imperial-gold', name: 'Imperial Gold', primary: '#d97706', bg: '#fffdfa' },
@@ -275,7 +275,7 @@ export function ThemeSwitcher() {
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Server, BarChart3, Users, Settings, Bell, Search, ShieldCheck } from 'lucide-react';
+import { SquaresFour, HardDrives, ChartBar, Users, Gear, Bell, MagnifyingGlass, ShieldCheck } from '@phosphor-icons/react/dist/ssr';
 
 export interface SidebarItem {
   label: string;
@@ -355,7 +355,7 @@ export function DashboardHeader({ title }: { title: string }) {
 
       <div className="flex items-center gap-3">
         <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search resources, nodes, users..."
@@ -380,7 +380,7 @@ export function DashboardHeader({ title }: { title: string }) {
 'use client';
 
 import React from 'react';
-import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
+import { TrendUp, TrendDown, ArrowUpRight } from '@phosphor-icons/react/dist/ssr';
 
 export interface MetricCardProps {
   label: string;
@@ -400,7 +400,7 @@ export function MetricCard({ label, value, trend, isPositive, subtext }: MetricC
             isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
           }`}
         >
-          {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+          {isPositive ? <TrendUp className="h-3 w-3" /> : <TrendDown className="h-3 w-3" />}
           {trend}
         </span>
       </div>
@@ -460,7 +460,7 @@ export function SvgAreaChart({ title, points }: { title: string; points: number[
 'use client';
 
 import React, { useState } from 'react';
-import { ExternalLink, Github, ArrowRight, Code2, Sparkles } from 'lucide-react';
+import { ExternalLink, GithubLogo, ArrowRight, Code, Sparkle } from '@phosphor-icons/react/dist/ssr';
 import Link from 'next/link';
 
 export interface Project {
@@ -477,7 +477,7 @@ export function PortfolioHero({ name, role, bio }: { name: string; role: string;
   return (
     <section className="py-16 md:py-24 text-center max-w-4xl mx-auto px-4">
       <div className="inline-flex items-center gap-2 rounded-full border border-[var(--theme-border)] bg-[var(--theme-secondary)] px-4 py-1.5 text-xs font-semibold text-[var(--theme-primary)] mb-6">
-        <Sparkles className="h-3.5 w-3.5" />
+        <Sparkle className="h-3.5 w-3.5" />
         <span>Available for Strategic Projects & Architecture</span>
       </div>
       <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-tight">
@@ -550,7 +550,7 @@ export function ProjectsBento({ projects }: { projects: Project[] }) {
                 </span>
                 <div className="flex items-center gap-2">
                   <a href={proj.githubUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-800">
-                    <Github className="h-4 w-4" />
+                    <GithubLogo className="h-4 w-4" />
                   </a>
                   <a href={proj.demoUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-800">
                     <ExternalLink className="h-4 w-4" />

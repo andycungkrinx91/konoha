@@ -36,7 +36,7 @@ function autoMigrateJsonIfNeeded(conn) {
       if (Array.isArray(data)) {
         bridgesToInsert = data;
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (!bridgesToInsert.length) {
@@ -178,7 +178,7 @@ function main() {
           return;
         }
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     console.log(JSON.stringify(listBridges()));
   } else if (cmd === '--upsert' || cmd === 'upsert') {
     if (args.length < 2) process.exit(1);

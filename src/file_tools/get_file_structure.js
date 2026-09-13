@@ -7,9 +7,6 @@ const fs = require('fs');
 const path = require('path');
 const common = require('./common');
 
-const JS_TS_SIGNATURE_RE = /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s+(\w+)|class\s+(\w+)|const\s+(\w+)\s*=\s*(?:async\s*)?\(|(?:interface|type)\s+(\w+))/gm;
-const GENERIC_DEF_RE = /^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|class|struct|enum|interface|type)\s+(\w+)/gm;
-const PYTHON_DEF_RE = /^\s*(?:async\s+)?def\s+([a-zA-Z0-9_]+)\s*\((.*?)\)|^\s*class\s+([a-zA-Z0-9_]+)(?:\((.*?)\))?:/gm;
 
 function structureFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');

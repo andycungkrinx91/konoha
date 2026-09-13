@@ -5,6 +5,7 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+require('./helpers/isolate_db');
 const skillManager = require('../src/skill_manager');
 const agentManager = require('../src/agent_manager');
 

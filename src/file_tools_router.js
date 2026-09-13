@@ -4,7 +4,6 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawnSync } = require('child_process');
 const platform = require('./platform_utils');
 const MCP_MANIFEST = require('./mcp_tool_manifest.json');
 
@@ -12,16 +11,7 @@ const MCP_MANIFEST = require('./mcp_tool_manifest.json');
 const devPaths = (() => {
   try { return require('../bin/lib/paths'); } catch(_) { return null; }
 })();
-const TOOL_WORKERS_DIR = devPaths
-  ? devPaths.TOOL_WORKERS_DIR
-  : path.join(__dirname, 'file_tools');
-const FILE_TOOLS_PYTHON_CMD_FILE = devPaths
-  ? devPaths.FILE_TOOLS_PYTHON_CMD_FILE
-  : path.join(__dirname, '.python_cmd');
 
-const TOOLS_DIR = TOOL_WORKERS_DIR;
-const PYTHON_CMD_FILE = FILE_TOOLS_PYTHON_CMD_FILE;
-const SCRIPT_TIMEOUT_MS = 60000;
 
 const { readFileRange: readFileRangeWorker } = require('./file_tools/read_file_range');
 const { readFileHead: readFileHeadWorker } = require('./file_tools/read_file_head');
@@ -48,18 +38,6 @@ const DEV_PROJECT_ROOT_NORM = devPaths
 
 let workspaceRoot = null;
 
-function getPythonCommand() {
-  if (process.env.KONOHA_PYTHON) {
-    return platform.normalizeCommand(process.env.KONOHA_PYTHON);
-  }
-  if (fs.existsSync(PYTHON_CMD_FILE)) {
-    const recorded = fs.readFileSync(PYTHON_CMD_FILE, 'utf8').trim();
-    if (recorded) {
-      return platform.normalizeCommand(recorded);
-    }
-  }
-  return platform.normalizeCommand(platform.detectPythonOrDefault());
-}
 
 function isIdeInstallationDirectory(dirPath) {
   if (!dirPath || typeof dirPath !== 'string') return false;
@@ -87,7 +65,7 @@ function isIdeInstallationDirectory(dirPath) {
       }) || (entries.includes('resources.pak') && entries.includes('v8_context_snapshot.bin'));
       if (isIde) return true;
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return false;
 }
 
@@ -119,7 +97,7 @@ function detectWorkspaceRoot() {
             return p;
           }
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -220,6 +198,7 @@ function assertWithinAllowed(resolvedPath) {
     path.join(HOME, '.codex'),
     path.join(HOME, '.agents'),
     path.join(HOME, '.claude.json'),
+    path.join(HOME, '.pi'),
   ].map(d => platform.normPath(d));
   for (const p of SCRATCH_PREFIXES) {
     if (pathNorm === p || pathNorm.startsWith(p + path.sep) || pathNorm.startsWith(p + '/')) {
@@ -247,65 +226,6 @@ function assertWithinAllowed(resolvedPath) {
   throw new Error(`Path outside workspace: ${resolvedPath}`);
 }
 
-function runPythonScript(scriptName, args) {
-  const scriptPath = path.join(TOOLS_DIR, scriptName);
-  if (!fs.existsSync(scriptPath)) {
-    return { error: `Python helper not found: ${scriptPath}. Run konoha doctor --yes.` };
-  }
-
-  const payload = {
-    ...args,
-    workspace: getWorkspaceRoot()
-  };
-  // Dev-mode repo root is an extra allowed root for the Python workers.
-  if (DEV_PROJECT_ROOT_NORM) {
-    payload.dev_root = DEV_PROJECT_ROOT_NORM;
-  }
-  for (const k of ['dir', 'path', 'file_path', 'filepath', 'workspace']) {
-    if (typeof payload[k] === 'string' && payload[k].length > 3) {
-      payload[k] = payload[k].replace(/[/\\]+$/, '');
-    }
-  }
-
-  let result;
-  try {
-    const python = getPythonCommand();
-    const jsonPayload = JSON.stringify(payload);
-    result = spawnSync(python.executable, [...python.prefixArgs, scriptPath, '-'], {
-      input: jsonPayload,
-      encoding: 'utf-8',
-      timeout: SCRIPT_TIMEOUT_MS,
-      maxBuffer: 1024 * 1024 * 1024,
-      env: Object.assign({}, process.env, {
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1'
-      })
-    });
-  } catch (err) {
-    return { error: err.message || String(err) };
-  }
-
-  if (result.error) {
-    return { error: result.error.message || String(result.error) };
-  }
-
-  const stdout = (result.stdout || '').trim();
-  const stderr = (result.stderr || '').trim();
-
-  if (!stdout) {
-    return { error: stderr || `Python script exited with code ${result.status}` };
-  }
-
-  try {
-    const parsed = JSON.parse(stdout);
-    if (parsed.error) {
-      return { error: parsed.error };
-    }
-    return parsed;
-  } catch {
-    return { text: stdout, stderr: stderr || undefined };
-  }
-}
 
 function formatToolResult(data) {
   if (data.error) {
@@ -371,7 +291,7 @@ function tokenEfficientGrep(args = {}) {
       // Only search this specific file
       finalGlob = path.basename(resolvedDir);
     }
-  } catch (e) {
+  } catch (_) {
     // Ignore error, let worker handle if missing
   }
 
@@ -391,13 +311,15 @@ function getFileStructure(args = {}) {
 
 function findFilesClean(args = {}) {
   const pattern = args.pattern || args.Pattern || '*';
-  const dirPath = args.dir || args.path || args.file_path || args.directory || args.dir_path || args.DirectoryPath || '.';
+  const dirPath = args.dir || args.path || args.file_path || args.directory || args.dir_path || args.DirectoryPath || args.root_dir || args.rootDir || '.';
   const resolvedDir = resolveInputPath(dirPath);
-  return findFilesCleanWorker({
+  const payload = {
     pattern,
     dir: resolvedDir,
     workspace: getWorkspaceRoot()
-  });
+  };
+  if (args.limit !== undefined) payload.limit = args.limit;
+  return findFilesCleanWorker(payload);
 }
 
 let _serverModule = null;
@@ -416,7 +338,7 @@ function runNodeSkillTool(toolName, args) {
     try {
       const parsed = JSON.parse(text);
       isError = typeof parsed === 'object' && parsed !== null && parsed.error !== undefined;
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     return { text, isError };
   } catch (err) {
     return { error: err.message || String(err), text: JSON.stringify({ error: err.message || String(err) }), isError: true };
@@ -462,7 +384,11 @@ const TOOL_HANDLERS = {
   query_persona_memory: (args) => runNodeSkillTool('query_persona_memory', args),
   list_persona_memories: (args) => runNodeSkillTool('list_persona_memories', args),
   delete_persona_memory: (args) => runNodeSkillTool('delete_persona_memory', args),
-  get_resolved_task_dir: (args) => runNodeSkillTool('get_resolved_task_dir', args)
+  get_resolved_task_dir: (args) => runNodeSkillTool('get_resolved_task_dir', args),
+  check_readiness: (args) => runNodeSkillTool('check_readiness', args),
+  get_task_evidence: (args) => runNodeSkillTool('get_task_evidence', args),
+  get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
+  website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args)
 };
 
 function validateSchemaValue(value, schema, key) {
@@ -498,7 +424,7 @@ const TOOL_SPECIFIC_ALIASES = {
   file_info: { FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
   token_efficient_grep: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', Glob: 'glob', file_glob: 'glob', CaseInsensitive: 'ignore_case' },
   get_file_structure: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir' },
-  find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern' },
+  find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', root_dir: 'dir', rootDir: 'dir', max_results: 'limit', maxResults: 'limit' },
 };
 
 const GLOBAL_ALIASES = {
@@ -578,8 +504,16 @@ function dispatchTool(name, rawArgs) {
   }
 }
 
+// Deprecated compatibility aliases — hidden from tools/list to slim the
+// per-session schema payload; dispatch paths remain functional for direct calls.
+const DEPRECATED_TOOL_ALIASES = new Set([
+  'delegate_to_sannin', 'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
+  'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
+  'build_with_image_design',
+]);
+
 function listToolSchemas() {
-  return MCP_MANIFEST.tools;
+  return MCP_MANIFEST.tools.filter((t) => !DEPRECATED_TOOL_ALIASES.has(t.name));
 }
 
 function validateInstall() {

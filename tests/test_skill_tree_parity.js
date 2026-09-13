@@ -15,6 +15,17 @@ const DEPLOYED = path.join(ROOT, '.agents', 'skills');
 const ALLOWED_DEPLOYED_ONLY = new Set(['anbu-skill/devops-engineer.md']);
 const ALLOWED_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.py', '.js']);
 
+// Skills installed from external sources (konoha skill add) are tracked in
+// skills-lock.json and intentionally exist only in the deployed tree.
+function lockedSkillRoots() {
+  try {
+    const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'skills-lock.json'), 'utf-8'));
+    return new Set(Object.keys(lock.skills || {}));
+  } catch (_) {
+    return new Set();
+  }
+}
+
 function getFiles(baseDir) {
   const results = [];
   function walk(currentDir) {
@@ -44,8 +55,12 @@ async function run() {
   const deployedFiles = getFiles(DEPLOYED);
 
   // 1. Check difference sets
+  const lockedRoots = lockedSkillRoots();
   const extraDeployed = new Set([...deployedFiles].filter(x => !sourceFiles.has(x)));
-  assert.deepStrictEqual([...extraDeployed].sort(), [...ALLOWED_DEPLOYED_ONLY].sort());
+  const unexpectedDeployed = [...extraDeployed].filter(
+    x => !ALLOWED_DEPLOYED_ONLY.has(x) && !lockedRoots.has(x.split('/')[0])
+  );
+  assert.deepStrictEqual(unexpectedDeployed.sort(), []);
 
   const missingDeployed = new Set([...sourceFiles].filter(x => !deployedFiles.has(x)));
   assert.deepStrictEqual([...missingDeployed], []);

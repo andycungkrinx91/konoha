@@ -1,12 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const {
   fileExists,
   fileExistsCached,
-  clearFileStatCache,
+  
   ensureDir,
   isCommandAvailable,
   getRtkCommand,
@@ -22,7 +22,7 @@ const {
 } = require('./agent_contract');
 const { buildGuardrailCheckerSource } = require('./guardrails');
 const {
-  SKILLS_DB_DIR, SERVER_PATH, FILE_TOOLS_MCP_PATH,
+  SERVER_PATH, FILE_TOOLS_MCP_PATH,
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME,
 } = require('../bin/lib/paths');
 
@@ -65,7 +65,7 @@ function deployCommandCodeRtkRule(silent = true) {
   try {
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
-    if (!silent) console.log('  ✓ Deployed RTK rule to ' + dest);
+    if (!silent) process.stderr.write(String('  ✓ Deployed RTK rule to ' + dest) + '\n');
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
@@ -85,7 +85,7 @@ function deployClaudeCodeRtkRule(silent = true) {
   try {
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
-    if (!silent) console.log(`  ✓ Deployed RTK rule to ${dest}`);
+    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
@@ -101,10 +101,11 @@ function initRtkHook(silent = true) {
     const res = spawnSync(rtkCmd, ['init', '-g', '--agent', 'claude', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit'
+      stdio: silent ? 'ignore' : 'inherit',
+      shell: process.platform === 'win32'
     });
     if (res.status === 0) {
-      if (!silent) console.log('  ✓ RTK hook initialized globally for Claude Code');
+      if (!silent) process.stderr.write('  ✓ RTK hook initialized globally for Claude Code\n');
       return { ok: true };
     }
     return { ok: true };
@@ -116,10 +117,10 @@ function initRtkHook(silent = true) {
 
 function buildStdioMcpServers(options = {}) {
   const {
-    pythonCmd = 'python3',
-    serverPath = SERVER_PATH,
+    pythonCmd: _pythonCmd = 'python3',
+    serverPath: _serverPath = SERVER_PATH,
     uvxCmd = 'uvx',
-    nodeCmd = process.execPath || 'node',
+    nodeCmd: _nodeCmd = process.execPath || 'node',
     client = 'cursor'
   } = options;
 
@@ -173,7 +174,7 @@ function mergeJsonFile(filePath, mutator, silent = true) {
       ensureDir(path.dirname(filePath));
       fs.writeFileSync(filePath, isJson ? JSON.stringify(config, null, 2) + '\n' : stringifyYaml(config) + '\n');
       if (!silent) {
-        console.log(`✓ Created ${filePath}`);
+        process.stderr.write(`✓ Created ${filePath}\n`);
       }
     }
     return updated;
@@ -188,7 +189,7 @@ function mergeJsonFile(filePath, mutator, silent = true) {
       ensureDir(path.dirname(filePath));
       fs.writeFileSync(filePath, isJson ? JSON.stringify(config, null, 2) + '\n' : stringifyYaml(config) + '\n');
       if (!silent) {
-        console.log(`✓ Updated ${filePath}`);
+        process.stderr.write(`✓ Updated ${filePath}\n`);
       }
     }
     return updated;
@@ -213,7 +214,7 @@ function backupFile(filePath, silent = true) {
   const backPath = filePath + '.back';
   if (fileExists(filePath) && !fileExists(backPath)) {
     fs.copyFileSync(filePath, backPath);
-    if (!silent) console.log(`  ✓ Backed up ${path.basename(filePath)} → ${path.basename(backPath)}`);
+    if (!silent) process.stderr.write(`  ✓ Backed up ${path.basename(filePath)} → ${path.basename(backPath)}\n`);
   }
 }
 
@@ -241,7 +242,7 @@ function registerClaudeCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tru
   const tempFile = CLAUDE_JSON + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(existingConfig, null, 2) + '\n');
   fs.renameSync(tempFile, CLAUDE_JSON);
-  if (!silent) console.log(`  ✓ ${path.basename(CLAUDE_JSON)} merged with Konoha MCP servers`);
+  if (!silent) process.stderr.write(`  ✓ ${path.basename(CLAUDE_JSON)} merged with Konoha MCP servers\n`);
   return true;
 }
 
@@ -272,7 +273,7 @@ function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tr
   const tempFile = COMMANDCODE_JSON + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(existingConfig, null, 2) + '\n');
   fs.renameSync(tempFile, COMMANDCODE_JSON);
-  if (!silent) console.log(`  ✓ ${path.basename(COMMANDCODE_JSON)} updated with Konoha MCP servers`);
+  if (!silent) process.stderr.write(`  ✓ ${path.basename(COMMANDCODE_JSON)} updated with Konoha MCP servers\n`);
   return true;
 }
 
@@ -500,7 +501,7 @@ function deployCommandCodeRules(silent = true) {
   let agents = [];
   try {
     agents = loadAgents();
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const agentsMd = path.join(HOME, '.commandcode', 'AGENTS.md');
   const ruleDest = path.join(HOME, '.commandcode', 'rules', 'konoha.md');
@@ -523,7 +524,7 @@ function deployCommandCodeRules(silent = true) {
       fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
     }
 
-    if (!silent) console.log(`  ✓ Deployed Konoha instructions, rules & agents to Command Code`);
+    if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Command Code\n`);
     return { ok: true };
   } catch (error) {
     return { ok: false, reason: 'copy-failed', error: error.message };
@@ -583,7 +584,7 @@ function ensureClaudeCodeSetup(options = {}) {
           fs.unlinkSync(path.join(claudeAgentsDir, file));
         }
       }
-    } catch (e) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
 
@@ -591,7 +592,7 @@ function ensureClaudeCodeSetup(options = {}) {
   if (deployProject && projectRoot) {
     try {
       deployProjectClaudeMd(projectRoot, agents, silent, ruleContent);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return { ok: true };
@@ -632,7 +633,7 @@ function registerCommandCodePermissions(silent = true) {
       }
       config.permissions.allow = allow;
 
-      const autoApproveGrants = [
+      const _autoApproveGrants = [
         'mcp__konoha__*',
         'mcp__semble__*',
         'mcp__aislop__*',
@@ -862,7 +863,7 @@ function registerCommandCodeWorkflowReminder(silent = true) {
         try {
           fs.copyFileSync(settingsPath, settingsPath + '.corrupt-' + Date.now());
           if (!silent) console.warn(`⚠ ${settingsPath} was invalid JSON — backed up`);
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         settings = {};
       }
     }
@@ -884,7 +885,7 @@ function registerCommandCodeWorkflowReminder(silent = true) {
       hooks: [{ type: 'command', command: reminderCommand }]
     });
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-    if (!silent) console.log('✓ Konoha workflow reminder registered (Command Code SessionStart: startup/resume/clear)');
+    if (!silent) process.stderr.write('✓ Konoha workflow reminder registered (Command Code SessionStart: startup/resume/clear)\n');
   } catch (err) {
     if (!silent) console.warn(`⚠ Command Code workflow reminder registration failed: ${err.message}`);
   }
@@ -931,7 +932,7 @@ const decision = {
 process.stdout.write(JSON.stringify(decision) + "\\n");
 `;
     fs.writeFileSync(blockerJs, payload, { mode: 0o755 });
-  } catch (e) {
+  } catch (_) {
     // Ignore permissions errors
   }
 
@@ -1140,7 +1141,7 @@ function registerClaudeCodeWorkflowReminder(silent = true) {
       return changed;
     }
   );
-  if (!silent) console.log('✓ Konoha workflow reminder registered (UserPromptSubmit + SessionStart resume/compact/clear)');
+  if (!silent) process.stderr.write('✓ Konoha workflow reminder registered (UserPromptSubmit + SessionStart resume/compact/clear)\n');
 }
 
 function getClaudeCodeStatus() {
@@ -1161,7 +1162,7 @@ function getClaudeCodeStatus() {
       let config = {};
       try {
         config = JSON.parse(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
-      } catch (e) {
+      } catch (_) {
         const { parseYaml } = require('./agent_manager');
         config = parseYaml(fs.readFileSync(CLAUDE_JSON, 'utf-8'));
       }
@@ -1170,7 +1171,7 @@ function getClaudeCodeStatus() {
       status.mcpSemble = health.semble;
       status.mcpAislop = health.aislop;
       status.mcpSkillsDb = health.skillsDb;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   if (fileExists(CLAUDE_SETTINGS)) {
@@ -1178,7 +1179,7 @@ function getClaudeCodeStatus() {
       let settings = {};
       try {
         settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
-      } catch (e) {
+      } catch (_) {
         const { parseYaml } = require('./agent_manager');
         settings = parseYaml(fs.readFileSync(CLAUDE_SETTINGS, 'utf-8'));
       }
@@ -1188,7 +1189,7 @@ function getClaudeCodeStatus() {
         allowed.includes('mcp__konoha__*') &&
         allowed.includes('mcp__semble__*') &&
         allowed.includes('mcp__aislop__*');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
@@ -1228,23 +1229,19 @@ function deployClaudeCodeRules(ruleContent, silent = true) {
   if (fileExists(CLAUDE_MD)) {
     try {
       existing = fs.readFileSync(CLAUDE_MD, 'utf-8');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  // Strip existing Konoha rules if present
-  let cleanContent = existing;
-  const startIndex = existing.indexOf(startMarker);
-  const endIndex = existing.indexOf(endMarker);
-  if (startIndex !== -1 && endIndex !== -1) {
-    cleanContent = existing.slice(0, startIndex) + existing.slice(endIndex + endMarker.length);
-  }
+  // Strip ALL existing Konoha managed blocks (a first-block-only strip let the
+  // file grow unboundedly across deploys — observed 27 blocks / 295MB).
+  const cleanContent = existing.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n');
 
   const finalContent = cleanContent.trim() + '\n' + wrapper;
 
   try {
     fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
     if (!silent) {
-      console.log(`✓ Deployed Konoha instructions to ${CLAUDE_MD}`);
+      process.stderr.write(`✓ Deployed Konoha instructions to ${CLAUDE_MD}\n`);
     }
     return true;
   } catch {
@@ -1267,34 +1264,29 @@ function deployProjectClaudeMd(projectRoot, _agents, silent = true, ruleContent 
   if (fileExists(CLAUDE_MD)) {
     try {
       existing = fs.readFileSync(CLAUDE_MD, 'utf-8');
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  // Strip existing Konoha rules if present
-  let cleanContent = existing;
-  const startIndex = existing.indexOf(startMarker);
-  const endIndex = existing.indexOf(endMarker);
-  if (startIndex !== -1 && endIndex !== -1) {
-    cleanContent = existing.slice(0, startIndex) + existing.slice(endIndex + endMarker.length);
-  }
+  // Strip ALL existing Konoha managed blocks (see deployClaudeCodeRules).
+  const cleanContent = existing.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n');
 
   const finalContent = cleanContent.trim() + '\n' + wrapper;
 
   // Only write if content would actually change
-  let hadExistingBlock = (startIndex !== -1 && endIndex !== -1);
+  const hadExistingBlock = /<!-- KONOHA-START -->/.test(existing);
   if (!hadExistingBlock && fileExists(CLAUDE_MD)) {
     try {
       const currentFile = fs.readFileSync(CLAUDE_MD, 'utf-8');
       if (currentFile === finalContent) {
         return false; // Nothing changed
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   try {
     fs.writeFileSync(CLAUDE_MD, finalContent, 'utf-8');
     if (!silent) {
-      console.log(`✓ Deployed Konoha instructions to ${CLAUDE_MD}`);
+      process.stderr.write(`✓ Deployed Konoha instructions to ${CLAUDE_MD}\n`);
     }
     return true;
   } catch {
@@ -1310,19 +1302,15 @@ function removeProjectClaudeMd(projectRoot, silent = true) {
 
   try {
     const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
-    const startMarker = '\n<!-- KONOHA-START -->\n';
-    const endMarker = '\n<!-- KONOHA-END -->\n';
-    const startIndex = content.indexOf(startMarker);
-    const endIndex = content.indexOf(endMarker);
-    if (startIndex !== -1 && endIndex !== -1) {
-      const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
+    if (/<!-- KONOHA-START -->/.test(content)) {
+      const cleanContent = content.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n');
       fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
       if (!silent) {
-        console.log(`✓ Removed Konoha instructions from ${CLAUDE_MD}`);
+        process.stderr.write(`✓ Removed Konoha instructions from ${CLAUDE_MD}\n`);
       }
       return true;
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return false;
 }
 
@@ -1336,7 +1324,7 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
         (config) => removeKonohaFromMcpBlock(config.mcpServers),
         silent
       );
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (fileExists(CLAUDE_SETTINGS)) {
     try {
@@ -1356,18 +1344,19 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
         },
         silent
       );
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Remove per-project CLAUDE.md if specified
   if (removeProject && projectRoot) {
     try {
       removeProjectClaudeMd(projectRoot, silent);
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
   if (fileExists(CLAUDE_MD)) {
+    // aislop-ignore-next-line code-quality/duplicate-block (client-config emission blocks per client format)
     try {
       const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
       const startMarker = '\n<!-- KONOHA-START -->\n';
@@ -1378,10 +1367,10 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
         const cleanContent = content.slice(0, startIndex) + content.slice(endIndex + endMarker.length);
         fs.writeFileSync(CLAUDE_MD, cleanContent.trim() + '\n', 'utf-8');
         if (!silent) {
-          console.log(`✓ Removed Konoha instructions from ${CLAUDE_MD}`);
+          process.stderr.write(`✓ Removed Konoha instructions from ${CLAUDE_MD}\n`);
         }
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   // Remove Claude Code subagents
@@ -1393,7 +1382,7 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
     if (fileExists(p)) {
       try {
         fs.unlinkSync(p);
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -1408,7 +1397,7 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
           fs.copyFileSync(srcPath, destPath);
           fs.unlinkSync(srcPath);
           if (!silent) {
-            console.log(`✓ Restored original agent: ${file}`);
+            process.stderr.write(`✓ Restored original agent: ${file}\n`);
           }
         }
       });
@@ -1447,7 +1436,7 @@ function getCommandCodeStatus() {
       let config = {};
       try {
         config = JSON.parse(fs.readFileSync(COMMANDCODE_JSON, 'utf-8'));
-      } catch (e) {
+      } catch (_) {
         const { parseYaml } = require('./agent_manager');
         config = parseYaml(fs.readFileSync(COMMANDCODE_JSON, 'utf-8'));
       }
@@ -1468,12 +1457,12 @@ function getCommandCodeStatus() {
           status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
             (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
           );
-        } catch {}
+        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
       if (health.konoha && health.semble && health.aislop) {
         status.status = 'ok';
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return status;

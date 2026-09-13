@@ -18,7 +18,7 @@ All web application builds execute in two complementary layers:
 2. **Layer 2: Taste-Skill Enrichment (Polish, 3D & Anti-Slop)**:
    - **3D Animation & Sensory Dynamics**: Motion 12 spring physics, 3D card tilt (`perspective(1200px)`), dynamic hover sheen, `hover:-translate-y-1`, and tactile `active:scale-[0.98]`.
    - **Prettifier & Editorial Typography**: Distinctive fonts (Geist, Cabinet Grotesk, Clash Display), tight tracking, scale contrast (`text-6xl`-`text-8xl` vs micro badges), cinematic section spacing (`py-24`, `py-32`, `py-48`), and 12-column asymmetric bento layouts.
-   - **Anti-Slop Discipline**: Zero emojis in UI (Lucide vector icons only), viewport-safe `min-h-[100dvh]`, sticky mobile bottom dock, and leaf-component client isolation (`'use client'` strictly on micro-interactions).
+   - **Anti-Slop Discipline**: Zero emojis in UI (Phosphor vector icons only — never Lucide), viewport-safe `min-h-[100dvh]`, sticky mobile bottom dock, and leaf-component client isolation (`'use client'` strictly on micro-interactions).
 
 ## Shared requirements
 
@@ -76,7 +76,7 @@ Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operationa
      -  / : Complete transactional shopping bag flow.
 
 3. **Iconography Standard**:
-   - Strictly use official Lucide icon libraries (, , , ).
+   - Strictly use Phosphor Icons (`@phosphor-icons/react` for Next.js, `@phosphor-icons/web` for SvelteKit/Nuxt/Angular CSS-class icons, `@phosphor-icons/vue` for Nuxt component icons) or hand-exported inline SVG icon components. NEVER install or import any Lucide package (`lucide-react`, `lucide-svelte`, `lucide-vue-next`, `lucide-angular`) — Lucide is a named AI-scaffold fingerprint (PLAN_HUMAN_BUILT.md).
    - NEVER use emojis as icons. Wrap icons in styled, rounded glassmorphic containers with subtle borders and hover micro-animations.
 
 4. **Branding & Favicon Standard**:
@@ -118,7 +118,7 @@ Running `pnpm lint`, `pnpm build`, and `pnpm start` must all be fully operationa
 2. **Current Stable Framework Policy (verified 2026-08-27)**:
    - Resolve package versions from official release pages and the pnpm registry immediately before scaffolding; never treat this document as a permanent `latest` pin.
    - Tested stable baselines: **Next.js 16.3 + React 19**, **SvelteKit 2 stable + Svelte 5** (SvelteKit 3 is release-candidate and must not be selected unless explicitly requested), **Nuxt 4.3 + Vue 3.5**, and **Angular 20+** with standalone components and Signals.
-   - Use Tailwind CSS v4 and the framework-specific Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
+   - Use the framework's mandated styling approach (fully custom-themed Tailwind v4 for Next.js, scoped `<style>` blocks for SvelteKit, hand-written theme for Nuxt, SCSS for Angular) and the framework-specific Phosphor Icons package (`@phosphor-icons/react` / `@phosphor-icons/web` / `@phosphor-icons/vue`) — never a Lucide package. Commit the generated `pnpm-lock.yaml`, run `pnpm audit --audit-level=high`, and run every framework validation command before completion.
 
 
 ### Pre-Scaffolding CVE & Security Verification Protocol (CRITICAL)

@@ -3,7 +3,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
+
 const { spawnSync } = require("child_process");
 const { fileExists, ensureDir, IS_WIN, detectPythonOrDefault } = require("./platform_utils");
 
@@ -44,7 +44,7 @@ function resolveWebUiDir(opts = {}) {
     });
     const globalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop();
     if (globalRoot) candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const qualifying = [];
   for (const dir of candidates) {
@@ -59,11 +59,11 @@ function resolveWebUiDir(opts = {}) {
             qualifies = true;
             hasSources = fs.existsSync(path.join(dir, "src", "routes"));
           }
-        } catch (_) {}
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
       if (!qualifies && fs.existsSync(path.join(dir, "build", "handler.js"))) qualifies = true;
       if (qualifies) qualifying.push({ dir, hasSources });
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (qualifying.length === 0) return null;
   if (opts.preferSources) {
@@ -95,7 +95,7 @@ function copyIfDifferent(src, dest) {
     try {
       copyFile(src, dest);
       return true;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return false;
 }
@@ -131,7 +131,7 @@ function listSkillEntries(skillsDir) {
         entries.push(entry.name);
       }
     }
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return entries;
 }
 
@@ -155,7 +155,7 @@ function treeFingerprint(root) {
         const st = fs.statSync(p);
         if (entry.isDirectory()) { stack.push(p); }
         else { count++; totalSize += st.size; if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs; }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return `${maxMtime.toFixed(0)}:${count}:${totalSize}`;
@@ -168,7 +168,7 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
   const srcFp = precomputedSrcFp || treeFingerprint(srcRoot);
   const fpMarker = destRoot + '.fingerprint';
   let destFp = null;
-  try { destFp = fs.readFileSync(fpMarker, 'utf-8').trim(); } catch {}
+  try { destFp = fs.readFileSync(fpMarker, 'utf-8').trim(); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (srcFp === destFp) return;
 
   const walk = (dir) => {
@@ -189,14 +189,14 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
     }
   };
   walk(srcRoot);
-  try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch {}
+  try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
-function mirrorSkillsDirectory(srcDir, destDir) {
+function mirrorSkillsDirectory(_, _) {
   return 0;
 }
 
-function syncCursorSkillsFromAgents(options = {}) {
+function syncCursorSkillsFromAgents(_ = {}) {
   return 0;
 }
 
@@ -204,7 +204,7 @@ function writeNodeExecPathRecord() {
   try {
     const nodePath = process.execPath || "node";
     fs.writeFileSync(FILE_TOOLS_NODE_PATH_FILE, `${nodePath}\n`);
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 function writePythonCmdRecord(pythonCmd) {
@@ -214,7 +214,7 @@ function writePythonCmdRecord(pythonCmd) {
       FILE_TOOLS_PYTHON_CMD_FILE,
       `${Array.isArray(cmd) ? JSON.stringify(cmd) : cmd}\n`,
     );
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 /**
@@ -248,9 +248,7 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
   };
 }
 
-function buildKonohaMcpEntry(mode = "execPath") {
-  return buildKonohaFilesMcpEntry(mode);
-}
+
 
 function installFileTools(silent = true, pythonCmd = null) {
   ensureDir(SKILLS_DB_DIR);
@@ -281,13 +279,28 @@ function installFileTools(silent = true, pythonCmd = null) {
     }
   });
 
+  // Root-mirror EVERY root-level src/*.js module into the runtime directory.
+  // The installed mcp/ subsystem resolves shared modules via relative requires
+  // like require('../sdlc_manager'), which point at the runtime ROOT — not at
+  // runtime src/. The hardcoded list above inevitably misses modules added
+  // later (e.g. sdlc_manager.js), crashing ALL subagent MCP tools
+  // (sannin/jonin/anbu/kage/…) after every deploy — the "workflow never runs"
+  // regression. This dynamic pass keeps the root mirror complete.
+  try {
+    for (const entry of fs.readdirSync(SRC_DIR, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.js')) {
+        copyIfDifferent(path.join(SRC_DIR, entry.name), path.join(SKILLS_DB_DIR, entry.name));
+      }
+    }
+  } catch (_) { /* non-fatal */ }
+
   const launcherShSrc = path.join(SRC_DIR, "file_tools_launcher.sh");
   if (fileExists(launcherShSrc)) {
     copyIfDifferent(launcherShSrc, FILE_TOOLS_LAUNCHER_PATH);
     if (!IS_WIN) {
       try {
         fs.chmodSync(FILE_TOOLS_LAUNCHER_PATH, 0o755);
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
 
@@ -390,7 +403,6 @@ module.exports = {
   writeNodeExecPathRecord,
   writePythonCmdRecord,
   buildKonohaFilesMcpEntry,
-  buildKonohaMcpEntry,
   treeFingerprint,
   copySkillsDirFast,
   installFileTools,

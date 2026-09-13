@@ -3,11 +3,11 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const https = require('https');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 
 function validateInputs(repoUrl, skillName) {
-  const skillNameRegex = /^[a-zA-Z0-9_-]+$/;
+  const skillNameRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!skillNameRegex.test(skillName)) {
     throw new Error('Invalid skill name. Only alphanumeric characters, dashes, and underscores are allowed.');
   }
@@ -18,19 +18,19 @@ function validateInputs(repoUrl, skillName) {
 
 const HOME = os.homedir();
 const {
-  AGENTS_SKILLS, AGENTS, GEMINI, ANTIGRAVITY_CLI
+  AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
 } = require('../bin/lib/paths');
 
 let currentCwd = HOME;
 try {
   currentCwd = process.cwd();
-} catch (e) {
+} catch (_) {
   if (process.env.PWD) {
     try {
       if (fs.existsSync(process.env.PWD)) {
         currentCwd = process.env.PWD;
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
@@ -66,7 +66,7 @@ function listInstalledSkills() {
             try {
               const realPath = fs.realpathSync(path.join(dir, entry.name));
               isDir = fs.statSync(realPath).isDirectory();
-            } catch (e) {}
+            } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
           if (isDir) {
             const skillMd = path.join(dir, entry.name, 'SKILL.md');
@@ -78,7 +78,7 @@ function listInstalledSkills() {
                 if (descMatch && descMatch[1]) {
                   description = descMatch[1].trim();
                 }
-              } catch {}
+              } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
               
               // Prevent duplicates if found in multiple paths, prioritize workspace/cwd
               if (!installed[entry.name] || dir.startsWith(currentCwd)) {
@@ -91,7 +91,7 @@ function listInstalledSkills() {
             }
           }
         }
-      } catch {}
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
   return Object.values(installed);
@@ -100,7 +100,8 @@ function listInstalledSkills() {
 // Search skills on skills.sh registry API
 function searchRegistry(query) {
   return new Promise((resolve, reject) => {
-    const url = `https://skills.sh/api/search?q=${encodeURIComponent(query)}`;
+    const registryBase = process.env.KONOHA_SKILLS_REGISTRY_URL || 'https://skills.sh/api/search';
+  const url = `${registryBase}?q=${encodeURIComponent(query)}`;
     https.get(url, { headers: { 'User-Agent': 'konoha-cli' } }, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`Failed to contact skills.sh API: ${res.statusCode}`));
@@ -112,7 +113,7 @@ function searchRegistry(query) {
         try {
           const payload = JSON.parse(data);
           resolve(payload.isDuplicate ? [] : (payload.skills || payload.results || payload));
-        } catch (e) {
+        } catch (_) {
           reject(new Error('Failed to parse search results JSON'));
         }
       });
@@ -130,7 +131,7 @@ function removeSkill(name) {
     throw new Error(`Skill "${name}" is not installed.`);
   }
 
-  console.log(`🗑️  Removing skill folder: ${target.path}`);
+  process.stderr.write(`🗑️  Removing skill folder: ${target.path}\n`);
   fs.rmSync(target.path, { recursive: true, force: true });
 
   const cursorPaths = [
@@ -139,7 +140,7 @@ function removeSkill(name) {
   ];
   for (const cursorPath of cursorPaths) {
     if (fileExists(cursorPath)) {
-      console.log(`🗑️  Removing Cursor mirror: ${cursorPath}`);
+      process.stderr.write(`🗑️  Removing Cursor mirror: ${cursorPath}\n`);
       fs.rmSync(cursorPath, { recursive: true, force: true });
     }
   }
@@ -148,26 +149,26 @@ function removeSkill(name) {
 
 // Interactive search and install using readline
 function runInteractiveSearch(query) {
-  console.log(`🔍 Searching skills.sh for "${query}"...`);
+  process.stderr.write(`🔍 Searching skills.sh for "${query}"...\n`);
   searchRegistry(query)
     .then((results) => {
       if (!results || results.length === 0) {
-        console.log('❌ No skills found matching that query.');
+        process.stderr.write('❌ No skills found matching that query.\n');
         return;
       }
 
-      console.log('\nResults from skills.sh:');
-      console.log('────────────────────────────────────────────────────────────');
+      process.stderr.write('\nResults from skills.sh:\n');
+      process.stderr.write('────────────────────────────────────────────────────────────\n');
       
       const limitedResults = results.slice(0, 15); // Show top 15
       limitedResults.forEach((item, index) => {
         console.log(`[${index + 1}] ${item.skillId || item.name} (${item.installs || 0} installs)`);
-        console.log(`    Source: github.com/${item.source}`);
+        process.stderr.write(`    Source: github.com/${item.source}\n`);
       });
-      console.log('────────────────────────────────────────────────────────────');
+      process.stderr.write('────────────────────────────────────────────────────────────\n');
 
       if (!process.stdin || !process.stdin.isTTY) {
-        console.log('❌ Interactive search requires a TTY terminal.');
+        process.stderr.write('❌ Interactive search requires a TTY terminal.\n');
         return;
       }
 
@@ -180,7 +181,7 @@ function runInteractiveSearch(query) {
         rl.close();
         const num = parseInt(answer.trim(), 10);
         if (isNaN(num) || num < 1 || num > limitedResults.length) {
-          console.log('❌ Installation cancelled.');
+          process.stderr.write('❌ Installation cancelled.\n');
           return;
         }
 
@@ -195,16 +196,17 @@ function runInteractiveSearch(query) {
           return;
         }
 
-        console.log(`\n📦 Installing "${skillName}" from ${repoUrl}...`);
+        process.stderr.write(`\n📦 Installing "${skillName}" from ${repoUrl}...\n`);
         try {
-          const runCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-          const run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit', shell: false });
+          const isWin = process.platform === 'win32';
+          const runCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+          const run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin });
           if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
-          console.log(`\n✓ Skill "${skillName}" installed successfully!`);
+          process.stderr.write(`\n✓ Skill "${skillName}" installed successfully!\n`);
 
-          console.log('\n🔄 Re-indexing SQLite database...');
+          process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
           const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-          const migrate = spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: false });
+          const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { stdio: 'inherit', shell: isWin });
           if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
         } catch (err) {
           console.error(`❌ Installation failed: ${err.message}`);
@@ -218,19 +220,38 @@ function runInteractiveSearch(query) {
 
 // Add skill directly from a repository URL
 function addSkillDirect(repoUrl, skillName) {
-  validateInputs(repoUrl, skillName);
-  console.log(`📦 Installing "${skillName}" from ${repoUrl}...`);
-  const runCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName], { stdio: 'inherit', shell: false });
-  if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
-  console.log(`\n✓ Skill "${skillName}" installed successfully!`);
+  let normalizedRepo = (repoUrl || '').trim();
+  if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://')) {
+    if (normalizedRepo.includes('/') && !normalizedRepo.includes(' ')) {
+      normalizedRepo = `https://github.com/${normalizedRepo}`;
+    }
+  }
+  validateInputs(normalizedRepo, skillName);
+  process.stderr.write(`📦 Installing "${skillName}" from ${normalizedRepo}...\n`);
+  const isWin = process.platform === 'win32';
+  const runCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+  const run = spawnSync(runCmd, ['dlx', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: isWin
+  });
+  if (run.status !== 0) {
+    const errorMsg = (run.stderr && run.stderr.toString().trim()) || (run.stdout && run.stdout.toString().trim()) || `Process exited with status ${run.status}`;
+    throw new Error(errorMsg);
+  }
+  process.stderr.write(`\n✓ Skill "${skillName}" installed successfully!\n`);
 
   syncAllClientSkills({ projectRoot: currentCwd, silent: false });
 
-  console.log('\n🔄 Re-indexing SQLite database...');
+  process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  const migrate = spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: false });
-  if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
+  const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: isWin
+  });
+  if (migrate.status !== 0) {
+    const migrateErr = (migrate.stderr && migrate.stderr.toString().trim()) || (migrate.stdout && migrate.stdout.toString().trim()) || `Skill migration exited with status ${migrate.status}`;
+    throw new Error(migrateErr);
+  }
 }
 
 // Add skill either by name (lookup from registry or scaffold local) or direct repo URL
@@ -245,17 +266,17 @@ async function addSkill(nameOrUrl, optionalName) {
   }
 
   const skillName = nameOrUrl;
-  console.log(`🔍 Checking skills registry for "${skillName}"...`);
+  process.stderr.write(`🔍 Checking skills registry for "${skillName}"...\n`);
   try {
     const results = await searchRegistry(skillName);
     const found = results && results.find(item => (item.skillId === skillName || item.name === skillName));
     if (found && found.source) {
       const repoUrl = `https://github.com/${found.source}`;
-      console.log(`📦 Found skill in registry: ${repoUrl}`);
+      process.stderr.write(`📦 Found skill in registry: ${repoUrl}\n`);
       return addSkillDirect(repoUrl, skillName);
     }
   } catch (err) {
-    console.log(`⚠️  Registry search skipped: ${err.message}`);
+    process.stderr.write(`⚠️  Registry search skipped: ${err.message}\n`);
   }
 
   // If not found in registry or search failed, create custom local skill
@@ -273,16 +294,16 @@ description: Custom skill for ${skillName}
 Standard Operating Procedures and guidelines for ${skillName}.
 `;
     fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content, 'utf8');
-    console.log(`\n✓ Skill "${skillName}" created successfully at ${targetDir}`);
+    process.stderr.write(`\n✓ Skill "${skillName}" created successfully at ${targetDir}\n`);
     deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: currentCwd, silent: false });
 
-    console.log('\n🔄 Re-indexing SQLite database...');
+    process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
     const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-    const migrate = spawnSync('node', [cliPath, 'migrate'], { stdio: 'inherit', shell: false });
+    const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32' });
     if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
     return targetDir;
   } else {
-    console.log(`✓ Skill "${skillName}" is already installed locally.`);
+    process.stderr.write(`✓ Skill "${skillName}" is already installed locally.\n`);
     return targetDir;
   }
 }
@@ -332,13 +353,13 @@ function syncAllClientSkills(options = {}) {
     try {
       deployUtils.copySkillsDirFast(sourceSkillsDir, target, sourceFp);
       syncedTargets.push(target);
-    } catch (e) {
+    } catch (_) {
       // Ignore if directory permissions restrict write
     }
   }
 
   if (!silent) {
-    console.log(`✓ Synchronized all skills across ${syncedTargets.length} client directories.`);
+    process.stderr.write(`✓ Synchronized all skills across ${syncedTargets.length} client directories.\n`);
   }
 
   return { synced: syncedTargets.length, targets: syncedTargets };
@@ -363,11 +384,11 @@ function autoMigrateProjectSkills(projectRoot) {
   let totalMigrated = 0;
   for (const dir of foundDirs) {
     try {
-      const run = spawnSync('node', [cliPath, 'migrate', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8' });
+      const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32' });
       if (run.status === 0) {
         totalMigrated++;
       }
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   return { migrated: totalMigrated, dirs: foundDirs };
 }

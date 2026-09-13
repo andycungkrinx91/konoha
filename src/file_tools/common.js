@@ -69,7 +69,7 @@ function isIdeInstallationDir(dirPath) {
       ].includes(e)) || (entries.includes('resources.pak') && entries.includes('v8_context_snapshot.bin'));
       if (hasIdeBin) return true;
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return false;
 }
 
@@ -136,6 +136,7 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     path.join(homeDir, '.codex'),
     path.join(homeDir, '.agents'),
     path.join(homeDir, '.claude.json'),
+    path.join(homeDir, '.pi'),
   ];
   for (const p of scratchPrefixes) {
     const pNorm = norm(p);

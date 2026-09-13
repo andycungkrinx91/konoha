@@ -1,21 +1,11 @@
-// Client API helper with CSRF token support
+// Client API helper with CSRF token support.
+// Token delivery: HttpOnly cookie (server-set) + GET /api/v1/csrf (same-origin).
+// Never read from HTML meta tags or document.cookie — the token must not be
+// present in page source, and the cookie is HttpOnly by design.
 let memoryToken = '';
 
 function getToken() {
-  if (memoryToken) return memoryToken;
-  if (typeof document !== 'undefined') {
-    const meta = document.querySelector('meta[name="konoha-web-token"]');
-    if (meta && meta.getAttribute('content')) {
-      memoryToken = meta.getAttribute('content');
-      return memoryToken;
-    }
-    const match = document.cookie.match(/konoha-web-token=([^;]+)/);
-    if (match) {
-      memoryToken = decodeURIComponent(match[1]);
-      return memoryToken;
-    }
-  }
-  return '';
+  return memoryToken;
 }
 
 export async function initToken() {
@@ -30,7 +20,7 @@ export async function initToken() {
       }
     }
   } catch (_) {
-    // Ignore CSRF fetch errors and fallback to cookie/storage
+    // CSRF fetch failed — leave token empty; request will fail with 403 and retry
   }
   return getToken();
 }

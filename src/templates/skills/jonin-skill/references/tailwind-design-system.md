@@ -134,7 +134,7 @@ Token names automatically create utility classes (e.g., `--color-brand` becomes 
 Never deliver flat, basic designs. Use premium aesthetics:
 
 1. **Gradients over Solid Colors**: Always prefer the gradient variants (`bg-[image:var(--gradient-primary)]`, `text-transparent bg-clip-text bg-[image:var(--gradient-primary)]`) for primary buttons, heroic text, and active states.
-2. **Icons**: ALWAYS use `@lucide/svelte` (or `lucide-react` for Next.js). **Crucially, all icons MUST use the active theme's gradient color.** Do not use flat colors. To achieve this, define an SVG `<linearGradient>` using the theme's CSS variables (`var(--color-primary)`, `var(--color-accent)`) and apply it via `stroke="url(#theme-gradient)"`, or use Tailwind CSS masking (`mask-image`). Do not hallucinate raw SVGs.
+2. **Icons**: ALWAYS use Phosphor Icons (`@phosphor-icons/react` for Next.js, `@phosphor-icons/web` CSS classes for SvelteKit/Nuxt/Angular) — never a Lucide package (AI-scaffold fingerprint). **Crucially, all icons MUST use the active theme's gradient color.** Do not use flat colors. To achieve this, define an SVG `<linearGradient>` using the theme's CSS variables (`var(--color-primary)`, `var(--color-accent)`) and apply it via `stroke="url(#theme-gradient)"`, or use Tailwind CSS masking (`mask-image`). Do not hallucinate raw SVGs.
    ```css
    @theme {
      --gradient-primary: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);

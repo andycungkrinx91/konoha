@@ -13,7 +13,7 @@ function getUvxCommand() {
     if (res.status === 0) {
       return isWin ? 'uvx.exe' : 'uvx';
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return isWin ? 'uvx.exe' : 'uvx';
 }
 
@@ -46,7 +46,7 @@ function getSembleStatus() {
       const content = fs.readFileSync(antigravityMcp, 'utf-8');
       if (content.includes('semble')) configured = true;
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
   return {
     name: 'Semble MCP',
@@ -90,21 +90,18 @@ function getSembleSavings() {
         stdout = res.stdout;
         break;
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
 
   const result = {
     available: !!stdout,
-    total_saved: '117.7M tokens',
-    total_saved_pct: 98,
-    total_calls: '2.4k',
-    today: { calls: 17, tokens_saved: '~955.6k tokens', ratio_pct: 99 },
-    last_7_days: { calls: 180, tokens_saved: '~10.5M tokens', ratio_pct: 99 },
-    all_time: { calls: 2400, tokens_saved: '~117.7M tokens', ratio_pct: 98 },
-    call_types: [
-      { name: 'search', calls: '2.4k', share_pct: 99 },
-      { name: 'find_related', calls: '15', share_pct: 1 }
-    ]
+    total_saved: '0 tokens',
+    total_saved_pct: 0,
+    total_calls: '0',
+    today: { calls: 0, tokens_saved: '0 tokens', ratio_pct: 0 },
+    last_7_days: { calls: 0, tokens_saved: '0 tokens', ratio_pct: 0 },
+    all_time: { calls: 0, tokens_saved: '0 tokens', ratio_pct: 0 },
+    call_types: []
   };
 
   if (!stdout) {
@@ -115,20 +112,53 @@ function getSembleSavings() {
     const lines = stdout.split('\n');
     for (const line of lines) {
       const clean = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
-      if (/Today\s+(\d+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i.test(clean)) {
-        const m = clean.match(/Today\s+(\d+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i);
-        result.today = { calls: parseInt(m[1], 10), tokens_saved: `~${m[2]} tokens`, ratio_pct: parseInt(m[3], 10) };
+      if (!clean) continue;
+
+      if (/Total saved:\s*~?([0-9.kKmM]+)\s+tokens(?:\s*\((\d+)%\))?/i.test(clean)) {
+        const m = clean.match(/Total saved:\s*~?([0-9.kKmM]+)\s+tokens(?:\s*\((\d+)%\))?/i);
+        result.total_saved = `${m[1]} tokens`;
+        if (m[2]) result.total_saved_pct = parseInt(m[2], 10);
       }
-      if (/Last 7 days\s+(\d+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i.test(clean)) {
-        const m = clean.match(/Last 7 days\s+(\d+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i);
-        result.last_7_days = { calls: parseInt(m[1], 10), tokens_saved: `~${m[2]} tokens`, ratio_pct: parseInt(m[3], 10) };
+      if (/Total calls:\s*([0-9.kKmM]+)/i.test(clean)) {
+        const m = clean.match(/Total calls:\s*([0-9.kKmM]+)/i);
+        result.total_calls = m[1];
       }
-      if (/All time\s+([0-9.kKmM]+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i.test(clean)) {
-        const m = clean.match(/All time\s+([0-9.kKmM]+)\s+~?([0-9.kKmM]+)\s+tokens.*?(\d+)%/i);
-        result.all_time = { calls: m[1], tokens_saved: `~${m[2]} tokens`, ratio_pct: parseInt(m[3], 10) };
+      if (/Efficiency:\s*.*?\s*(\d+)%/i.test(clean)) {
+        const m = clean.match(/Efficiency:\s*.*?\s*(\d+)%/i);
+        result.total_saved_pct = parseInt(m[1], 10);
+      }
+
+      const semMatch = clean.match(/^(Today|Last\s+7\s+days|All\s+time)\s+(\d+\.?\d*)([kKmM]?)(?:\s+(?:calls|searches?))?\s+(?:~?)(\d+\.?\d*)([kKmM]?)\s+tokens(?:\s+\((\d+)%\))?(?:.*?(\d+)%)?/i);
+      if (semMatch) {
+        const period = semMatch[1];
+        const rawCalls = parseFloat(semMatch[2]);
+        const callUnit = (semMatch[3] || '').toLowerCase();
+        const explicitPct = parseInt(semMatch[6], 10);
+        const trailingPct = parseInt(semMatch[7], 10);
+        const pct = explicitPct || trailingPct || 0;
+
+        const calls = callUnit === 'm' ? Math.round(rawCalls * 1000000) : (callUnit === 'k' ? Math.round(rawCalls * 1000) : Math.round(rawCalls));
+        const tokenFormatted = `~${semMatch[4]}${semMatch[5] || ''} tokens`;
+
+        if (period.startsWith('Today')) {
+          result.today = { calls, tokens_saved: tokenFormatted, ratio_pct: pct };
+        } else if (period.startsWith('Last')) {
+          result.last_7_days = { calls, tokens_saved: tokenFormatted, ratio_pct: pct };
+        } else {
+          result.all_time = { calls, tokens_saved: tokenFormatted, ratio_pct: pct };
+        }
+      }
+
+      const callTypeMatch = clean.match(/^\d+\.\s+(\w+)\s+([0-9.kKmM]+)\s+.*?\s+(\d+)%/i);
+      if (callTypeMatch) {
+        result.call_types.push({
+          name: callTypeMatch[1],
+          calls: callTypeMatch[2],
+          share_pct: parseInt(callTypeMatch[3], 10)
+        });
       }
     }
-  } catch (_) {}
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
   cachedSembleSavings = result;
   lastSembleSavingsFetch = Date.now();

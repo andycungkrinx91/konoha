@@ -43,10 +43,10 @@ function autoMigrateYamlToDb(conn) {
       if (Array.isArray(data)) {
         const stmt = conn.prepare(`
           INSERT OR REPLACE INTO agents (
-            name, icon, title, purpose, skills, delegate_when,
+            name, icon, title, model, purpose, skills, delegate_when,
             constraints_text, workflow, description, instructions, delegation_keywords,
             enable_mcp_tools
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const a of data) {
@@ -57,6 +57,7 @@ function autoMigrateYamlToDb(conn) {
             name,
             a.icon || null,
             a.title || null,
+            a.model || null,
             a.purpose || null,
             skillsStr,
             a.delegateWhen || a.delegate_when || null,
@@ -69,13 +70,13 @@ function autoMigrateYamlToDb(conn) {
           );
         }
       }
-    } catch (_) {}
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
 function syncDbToYaml(conn) {
   const rows = conn.prepare(`
-    SELECT name, icon, title, purpose, skills, delegate_when,
+    SELECT name, icon, title, model, purpose, skills, delegate_when,
            constraints_text, workflow, description, instructions, delegation_keywords,
            enable_mcp_tools
     FROM agents
@@ -95,6 +96,7 @@ function syncDbToYaml(conn) {
       name: r.name,
       icon: r.icon,
       title: r.title,
+      model: r.model || undefined,
       purpose: r.purpose,
       skills,
       delegateWhen: r.delegate_when,
@@ -119,7 +121,7 @@ function listAgents(dbPath = null) {
   try {
     autoMigrateYamlToDb(conn);
     const rows = conn.prepare(`
-      SELECT name, icon, title, purpose, skills, delegate_when,
+      SELECT name, icon, title, model, purpose, skills, delegate_when,
              constraints_text, workflow, description, instructions, delegation_keywords,
              enable_mcp_tools
       FROM agents
@@ -136,9 +138,11 @@ function listAgents(dbPath = null) {
       }
 
       result.push({
+        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
         name: r.name,
         icon: r.icon,
         title: r.title,
+        model: r.model || undefined,
         purpose: r.purpose,
         skills,
         delegateWhen: r.delegate_when,
@@ -168,14 +172,15 @@ function upsertAgent(agentDict, dbPath = null) {
     const skillsStr = JSON.stringify(agentDict.skills || []);
     conn.prepare(`
       INSERT OR REPLACE INTO agents (
-        name, icon, title, purpose, skills, delegate_when,
+        name, icon, title, model, purpose, skills, delegate_when,
         constraints_text, workflow, description, instructions, delegation_keywords,
         enable_mcp_tools
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       name,
       agentDict.icon || null,
       agentDict.title || null,
+      agentDict.model || null,
       agentDict.purpose || null,
       skillsStr,
       agentDict.delegateWhen || agentDict.delegate_when || null,
@@ -223,20 +228,22 @@ function importYamlToDb(dbPath = null) {
       conn.prepare("DELETE FROM agents").run();
       const stmt = conn.prepare(`
         INSERT OR REPLACE INTO agents (
-          name, icon, title, purpose, skills, delegate_when,
+          name, icon, title, model, purpose, skills, delegate_when,
           constraints_text, workflow, description, instructions, delegation_keywords,
           enable_mcp_tools
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       for (const a of data) {
         const name = a.name;
         if (!name) continue;
+        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
         const skillsStr = JSON.stringify(a.skills || []);
         stmt.run(
           name,
           a.icon || null,
           a.title || null,
+          a.model || null,
           a.purpose || null,
           skillsStr,
           a.delegateWhen || a.delegate_when || null,
@@ -259,14 +266,15 @@ function bulkImportAgents(agentsList, dbPath = null) {
   try {
     const stmt = conn.prepare(`
       INSERT OR REPLACE INTO agents (
-        name, icon, title, purpose, skills, delegate_when,
+        name, icon, title, model, purpose, skills, delegate_when,
         constraints_text, workflow, description, instructions, delegation_keywords,
         enable_mcp_tools
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = conn.transaction((list) => {
       for (const a of list) {
+        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
         const name = a.name;
         if (!name || name.startsWith('mcp_')) continue;
         const skillsStr = JSON.stringify(a.skills || []);
@@ -274,6 +282,7 @@ function bulkImportAgents(agentsList, dbPath = null) {
           name,
           a.icon || null,
           a.title || null,
+          a.model || null,
           a.purpose || null,
           skillsStr,
           a.delegateWhen || a.delegate_when || null,

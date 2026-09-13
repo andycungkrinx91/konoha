@@ -164,7 +164,7 @@ function assessValidationEvidence(validation) {
   };
 }
 
-function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, filesModified = null, learnings = null, projectPath = null, taskDir = null, dispatchId = null, validation = null) {
+function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, filesModified = null, learnings = null, projectPath = null, taskDir = null, dispatchId = null, validation = null, taskId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   let workflowStatus = null;
 
@@ -246,6 +246,29 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     learnings_saved_count: savedIds.length,
     project_path: pPath
   };
+
+  const effTaskId = taskId || (workflowStatus && workflowStatus.current_dispatch ? workflowStatus.current_dispatch.task_id : null) || (taskDir ? path.basename(taskDir) : null) || 'task_active';
+
+  try {
+    const sdlcManager = require('../sdlc_manager');
+    const evidenceData = {
+      verified,
+      verification_reason: verificationReason,
+      validation: validation || [],
+      agent: cleanAgent,
+      status: finalStatus,
+      summary,
+      files_created: filesCreated || [],
+      files_modified: filesModified || [],
+      recorded_at: new Date().toISOString()
+    };
+    sdlcManager.recordEvidence(effTaskId, evidenceData);
+    result.task_id = effTaskId;
+    result.evidence = evidenceData;
+  } catch (_) {
+    // Non-fatal if sdlc recording fails
+  }
+
   if (!verified) {
     result.verification_reason = verificationReason;
     result.remediation = (
@@ -266,12 +289,26 @@ function getProjectContext(projectPath = null) {
     const pHash = personaMemory.saveOrUpdateProject(pPath);
     profile = personaMemory.getProjectProfile(pHash);
   }
-  const mems = personaMemory.listMemories({ projectPath: pPath, limit: 20 });
+  const mems = personaMemory.listMemories({ projectPath: pPath, limit: 5 });
+  const boundedMems = (mems || []).map(m => ({
+    id: m.id,
+    agent_name: m.agent_name,
+    memory_type: m.memory_type,
+    title: m.title,
+    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
+    updated_at: m.updated_at
+  }));
+  const safeProfile = profile ? {
+    ...profile,
+    context_summary: profile.context_summary && profile.context_summary.length > 500
+      ? profile.context_summary.substring(0, 500) + '...'
+      : profile.context_summary
+  } : null;
   return JSON.stringify({
     status: 'ok',
     project_path: pPath,
-    profile,
-    memories: mems
+    profile: safeProfile,
+    memories: boundedMems
   });
 }
 
@@ -285,20 +322,29 @@ function saveProjectContext(projectPath = null, contextSummary = '', techStack =
   });
 }
 
-function queryProjectMemory(query = '', projectPath = null, agentName = null, memoryType = null, limit = 10) {
+function queryProjectMemory(query = '', projectPath = null, agentName = null, memoryType = null, limit = 5) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const effLimit = Math.min(Math.max(parseInt(limit, 10) || 5, 1), 10);
   const mems = personaMemory.queryMemories({
     agentName,
     query,
     memoryType,
     projectPath: pPath,
-    limit
+    limit: effLimit
   });
+  const boundedMems = (mems || []).map(m => ({
+    id: m.id,
+    agent_name: m.agent_name,
+    memory_type: m.memory_type,
+    title: m.title,
+    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
+    updated_at: m.updated_at
+  }));
   return JSON.stringify({
     status: 'ok',
     project_path: pPath,
-    count: mems.length,
-    memories: mems
+    count: boundedMems.length,
+    memories: boundedMems
   });
 }
 
@@ -318,9 +364,29 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   const turn = getAndIncrementSessionTurn(sessionKey);
   const isAutoCompact = (turn >= 2);
 
+  const sdlcManager = require('../sdlc_manager');
+  const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
+  let dorResult = null;
+  if (task && typeof task === 'string' && task.trim()) {
+    dorResult = sdlcManager.checkReadiness(task, resolvedProjPath);
+    if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
+      return JSON.stringify({
+        status: 'blocked',
+        phase: 'dor',
+        message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address missing items.',
+        missing: dorResult.missing,
+        dor_result: dorResult
+      });
+    }
+  }
+
   let instructions = '';
   if (task && typeof task === 'string' && task.trim()) {
     instructions = task.trim();
+    if (dorResult && !dorResult.ready && dorResult.missing.length > 0) {
+      instructions += `\n\n### ⚠️ Definition-of-Readiness (DoR) Advisory Hints:\n` +
+        dorResult.missing.map(m => `- ${m}`).join('\n');
+    }
     if (context && typeof context === 'string' && context.trim()) {
       instructions += `\n\n### Context & Relevant Code Paths:\n${context.trim()}`;
     }
@@ -342,6 +408,19 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       instructions = delegateContent;
     } catch (e) {
       return JSON.stringify({ status: 'error', message: `Failed to read delegate.md: ${e.message}` });
+    }
+  }
+
+  if (!dorResult && instructions && typeof instructions === 'string' && instructions.trim()) {
+    dorResult = sdlcManager.checkReadiness(instructions, resolvedProjPath);
+    if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
+      return JSON.stringify({
+        status: 'blocked',
+        phase: 'dor',
+        message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address missing items.',
+        missing: dorResult.missing,
+        dor_result: dorResult
+      });
     }
   }
 
@@ -381,7 +460,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       }
     } finally {
       if (rowConn) {
-        try { rowConn.close(); } catch (_) {}
+        try { rowConn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
   } catch (e) {
@@ -449,7 +528,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       process.stderr.write(`[mcp ${agentName}] Error loading skill definitions: ${e.message}\n`);
     } finally {
       if (skillConn) {
-        try { skillConn.close(); } catch (_) {}
+        try { skillConn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
     }
   }
@@ -491,7 +570,8 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     if (isAutoCompact) {
       tasteSkillBlock = (
         `### 🎨 Taste-Skill Rules (Compacted Turn ${turn}):\n` +
-        `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n`
+        `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n` +
+        `- SDLC & Anti-Slop: Run aislop_scan (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n`
       );
     } else {
       tasteSkillBlock = (
@@ -502,7 +582,8 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
         '- Layout & Spacing: Cinematic py-24/py-32 section pacing, CSS Grid (grid-cols-12), max-w-[1400px].\n' +
         '- Viewport & Mobile: min-h-[100dvh] safety (no h-screen), sticky bottom dock on mobile (`lg:hidden`).\n' +
         '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), Zero emojis (use Lucide SVG).\n' +
-        "- Quality: pnpm exclusively, SPA/multi-page routes, 50-item dataset, zero errors/warnings, 'Build by Konoha' footer.\n"
+        "- Quality: pnpm exclusively, SPA/multi-page routes, 50-item dataset, zero errors/warnings, 'Build by Konoha' footer.\n" +
+        '- SDLC & Anti-Slop Delivery Gate: Jonin must run `aislop_scan` before delivery to ensure `ai_slop_findings: 0` and `ai_slop_clean: true`. Include real validation commands (e.g. `pnpm run build`, `pnpm run lint`) and anti-slop scan results in report_from_agent validation evidence.\n'
       );
     }
   }
@@ -522,6 +603,11 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       `Instructions: ${truncateAtBoundary(personaInstructions, 1200)}\n` +
       `Constraints: ${truncateAtBoundary(agentConstraints, 600)}\n\n`
     );
+    // P4: cap the persona/context portion (never the MCP block, skills, or task instructions)
+    const MAX_PERSONA_BYTES = 1400;
+    if (systemPrompt.length > MAX_PERSONA_BYTES) {
+      systemPrompt = truncateAtBoundary(systemPrompt, MAX_PERSONA_BYTES) + '\n';
+    }
     if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
     if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
     systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
@@ -564,14 +650,18 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     );
   }
 
-  const instruction = (
-    `${systemPrompt}\n\n` +
+  // P4: payload ceiling — persona/context capped above (never MCP block,
+  // skills, or TASK INSTRUCTIONS). Total stays bounded by construction.
+  const taskTail = (
     `## TASK INSTRUCTIONS\n\n${instructions}\n\n` +
     `You must now act as ${dbAgentName} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n` +
     '## Execution Protocol\n\n' +
     '1. Execute the task directly as described in TASK INSTRUCTIONS above.\n' +
-    '2. When complete, write your summary to `result.md` in the task directory (or report your results and key learnings via the `report_from_agent` tool or structured response).'
+    '2. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
+    '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (run `aislop_scan` to verify `ai_slop_clean: true` and `ai_slop_findings: 0`).\n' +
+    '4. When complete, write your summary to `result.md` in the task directory (or report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response).'
   );
+  const instruction = `${systemPrompt}\n\n` + taskTail;
 
   const res = JSON.stringify({
     status: 'ready',

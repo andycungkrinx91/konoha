@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// DB isolation: keep test writes out of the production ~/.konoha/konoha.db
+require('./helpers/isolate_db');
+
 'use strict';
 
 /**
@@ -53,9 +56,13 @@ async function run() {
     fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review flagged AI-slop violations.');
 
     const res1 = JSON.parse(server.runMcpWorkflow(tmpDir));
-    assert.strictEqual(res1.status, 'blocked', 'Non-zero ai_slop_findings must block workflow approval.');
-    assert.strictEqual(res1.phase, 'review');
-    console.log('✓ Blocked when ai_slop_findings > 0 passed');
+    // Default-on remediation loop (PLAN_NATIVE_SDLC §2.4): actual findings must
+    // dispatch a slop-fix remediation task instead of returning blocked.
+    assert.strictEqual(res1.status, 'remediation', 'Non-zero ai_slop_findings must dispatch the remediation loop (default-on).');
+    assert.strictEqual(res1.phase, 'execute');
+    assert.strictEqual(res1.slop_cycles, 1);
+    assert.ok(res1.dispatch_id, 'Remediation dispatch must have a dispatch id');
+    console.log('✓ Remediation dispatched (default-on) when ai_slop_findings > 0 passed');
 
     // 2. Blocked when ai_slop fields missing
     let status2 = {

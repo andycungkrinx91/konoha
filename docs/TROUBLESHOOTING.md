@@ -331,7 +331,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 39 tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 42 tools.
 - **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
@@ -385,7 +385,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   ```
 
 * **Pure Node.js Runtime**: Konoha runs 100% pure Node.js (`file_tools_launcher.js` / `server.js`) via `better-sqlite3`. No Python installation, Python processes, or Python bridges are needed.
-* **nvm-windows**: Konoha works seamlessly with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
+* **nvm-windows**: Konoha works with [nvm-windows](https://github.com/coreybutler/nvm-windows). If `konoha` is missing after switching Node versions, re-run:
   ```powershell
   nvm use <version>
   pnpm add --global github:andycungkrinx91/konoha
@@ -448,7 +448,7 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 * **`Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header` in Web UI (`v2.0.0-beta.7`)**:
   - **Symptom**: Saving bridges, embedding skills, or editing persona memories in the Web UI returns HTTP 403 Forbidden.
   - **Reason**: All state-mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) require the session CSRF token to prevent cross-site request forgery attacks.
-  - **Fix**: Resolved in `v2.0.0-beta.7` by injecting the CSRF token into `index.html` and automatically attaching it via `X-Konoha-Web-Token` on all API mutations.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by issuing the session token as an `HttpOnly` + `SameSite=Strict` cookie (`konoha-web-token`) and exposing the CSRF token through `GET /api/v1/csrf`; the Web UI (`apps/web/src/lib/api.js`) fetches the token at runtime, keeps it in memory only, and attaches it via `X-Konoha-Web-Token` on all API mutations. The token is no longer injected into `index.html`, so it never leaks through the served HTML.
 * **`ENOENT: no such file or directory` when running `konoha ui start` / `ui build` from installed runtime (`v2.0.0-beta.7`)**:
   - **Symptom**: Running `konoha ui start` from an arbitrary directory fails with `spawn ENOENT`.
   - **Reason**: The CLI resolved `apps/web` relative to the installed runtime location (`~/.konoha/bin/cli.js`), pointing to a non-existent `$HOME/apps/web`.
@@ -461,6 +461,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: When resuming an existing conversation with `--resume` or `--continue`, agents bypassed the Konoha workflow.
   - **Reason**: Contracts are loaded at session start, but session resume lacked a re-engagement trigger.
   - **Fix**: Resolved in `v2.0.0-beta.7` by registering `src/workflow_reminder.js` as UserPromptSubmit and SessionStart hooks (`resume|compact|clear`) for Claude Code and Command Code.
+* **Pi (pi.dev) `[Skill conflicts]` warning at startup (`v2.0.0-beta.7`)**:
+  - **Symptom**: Running `pi` in a project with `.agents/skills` prints `[Skill conflicts]` collisions between global user skills (`~/.agents/skills`) and project local skills (`.agents/skills`).
+  - **Reason**: Pi scans both global and local skill directories; identical mirror copies on disk have different physical file paths, causing Pi to log collision diagnostics.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by updating `konoha-blocker.ts` in `~/.pi/agent/extensions/` to monkeypatch `DefaultResourceLoader.prototype.getSkills` and `updateSkillsFromPaths`, filtering out benign collision diagnostics while keeping all skills fully accessible.
+* **Web UI Port 1404 Process Duplication or Warnings on New Terminal Tabs (`v2.0.0-beta.7`)**:
+  - **Symptom**: Opening new terminal tabs or running `konoha ui start` when already running shows `warn` warnings or leaves orphaned daemon processes in `ps aux`.
+  - **Reason**: `cmdUiStart` logged active instances as warnings instead of informational status, and dead PID files were not cleaned up if processes exited abruptly.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by reporting active servers cleanly via `info()`, pruning dead PID files, adding single-instance daemon process deduplication before spawn, handling `SIGHUP` in `cmdUiDaemon`, and ensuring `cmdUiStop` unconditionally cleans all orphaned daemons via `pkill -f "cli.js ui daemon"`.
 
 ---
 

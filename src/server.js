@@ -94,8 +94,12 @@ const {
 // 6. Web Search
 const {
   runWebSearch,
-  fetchWithTimeout
 } = require('./mcp/web_search');
+
+// 6b. Website AI Detector
+const {
+  runWebsiteAiDetector,
+} = require('./mcp/ai_detector');
 
 // 7. Memory & Reporting
 const {
@@ -122,9 +126,9 @@ const {
 // 9. Protocol
 const {
   getServerVersion,
-  SERVER_VERSION,
-  MCP_MANIFEST,
-  SUPPORTED_PROTOCOL_VERSIONS,
+  
+  
+  
   handleRequest,
   main,
   setInitialized
@@ -200,6 +204,7 @@ module.exports = {
   saveWorkflowStatus,
   _load_workflow_status: loadWorkflowStatus,
   _save_workflow_status: saveWorkflowStatus,
+  // aislop-ignore-next-line code-quality/duplicate-block (tool registration boilerplate across manifests)
   routeByKeywordsWithPrompt,
   workflowHash,
   workflowDispatch,
@@ -242,6 +247,8 @@ module.exports = {
   run_mcp_workflow: runMcpWorkflow,
   run_sannin: runSannin,
   run_web_search: runWebSearch,
+  run_website_ai_detector: runWebsiteAiDetector,
+  website_ai_detector: runWebsiteAiDetector,
   assess_validation_evidence: assessValidationEvidence,
   find_skill: findSkill,
   list_skills: listSkills,

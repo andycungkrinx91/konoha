@@ -12,9 +12,7 @@ function getModelMap() {
   }
 }
 
-// ─────────────────────────────────────────────
 // GET /v1/models
-// ─────────────────────────────────────────────
 
 async function handleModels(ctx, req, res) {
   const bridgeConfig = ctx.bridgeConfig || {};

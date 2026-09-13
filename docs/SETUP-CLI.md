@@ -235,7 +235,19 @@ The subagent configurations are stored in a structured format, enabling you to i
     --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
   ```
 
-- **Configure Subagent Models Interactively**: Removed in v2.0.0 — all subagents now use `Claude Sonnet 4.6 (Thinking)` automatically.
+- **Configure Subagent Model Assignment (v2.0.0-beta.7)**:
+  Assign active bridge-served models (or inherit the host default) to subagents:
+  ```bash
+  # Interactive two-step raw-mode TUI:
+  konoha agent models config [agent-name]
+
+  # Non-interactive / CLI mode:
+  konoha agent models config <agent-name> --model <model-id>
+  konoha agent models config <agent-name> --model inherit
+
+  # View all current agent model assignments:
+  konoha agent models
+  ```
 
 - **Toggle/Embed Skills for a Subagent Interactively**:
   ```bash
@@ -247,6 +259,35 @@ The subagent configurations are stored in a structured format, enabling you to i
   konoha agent delete <agent-name>
   ```
   Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
+
+### SDLC Task Governance & Quality Gates (v2.0.0-beta.7)
+
+Konoha includes a built-in SDLC governance layer tracking tasks, Definition of Readiness (DoR), cross-provider reviews, and anti-slop compliance in the `sdlc_tasks` SQLite table:
+
+- **List Recorded SDLC Tasks**:
+  ```bash
+  konoha task list
+  ```
+
+- **Inspect Task Evidence & Diagnostics**:
+  ```bash
+  konoha task show <task-id>
+  ```
+
+- **Inspect Anti-Slop Findings for a Task**:
+  ```bash
+  konoha task slop <task-id>
+  ```
+
+- **Configure Project Governance Modes**:
+  ```bash
+  # Set Definition-of-Readiness gate mode (advisory | enforced):
+  konoha project set dor-mode advisory
+  konoha project set dor-mode enforced
+
+  # Set Review Independence mode (independent | same_bridge | relaxed):
+  konoha project set review-mode independent
+  ```
 
 ### Tracking Efficiency and Token Savings
 

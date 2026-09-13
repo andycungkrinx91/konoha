@@ -4,8 +4,8 @@
  * Pure Node.js replacement for src/agent_stats.py.
  */
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
+
+
 const { getDb, DB_PATH } = require('./db');
 
 const dbPath = process.argv[2] && !process.argv[2].startsWith('--')

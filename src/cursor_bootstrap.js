@@ -34,7 +34,7 @@ function checkPython() {
     try {
       const r = spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000 });
       if (r.status === 0) return cmd;
-    } catch {}
+    } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
   return 'python3';
 }
@@ -44,7 +44,7 @@ function getUvx() {
   try {
     spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000, shell: isWin });
     return 'uvx';
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   // Windows installs put uvx.exe in %USERPROFILE%\.local\bin
   const localName = isWin ? 'uvx.exe' : 'uvx';
   const local = path.join(HOME, '.local', 'bin', localName);
@@ -56,7 +56,7 @@ function isUvxUsable() {
     const uvx = getUvx();
     const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, shell: process.platform === 'win32' });
     return r.status === 0;
-  } catch {}
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return false;
 }
 
@@ -73,7 +73,7 @@ function buildKonohaFilesMcpEntry() {
   };
 }
 
-function registerMcp(python) {
+function registerMcp(_) {
   ensureDir(CURSOR_DIR);
   let config = null;
   if (fileExists(CURSOR_MCP)) {

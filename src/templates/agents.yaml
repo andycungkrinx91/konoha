@@ -18,6 +18,7 @@
   purpose: Fast, read-only codebase navigation and analysis
   skills:
     - genin-skill
+    - i-have-adhd
   delegateWhen: Need to understand code structure, trace how something works, map dependencies
   constraints: Read-only — does not modify files. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: Search symbols with `semble` → open relevant files → summarize with file paths and line numbers.
@@ -46,6 +47,7 @@
   purpose: Web research, documentation lookup, evidence synthesis with citations
   skills:
     - chunin-skill
+    - i-have-adhd
   delegateWhen: Need external information, library docs, best practices, technology comparisons, compliance standards
   constraints: Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. External research only — redirect codebase questions to @genin. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: Decompose question → multi-query generation → parallel search → source ranking → evidence synthesis → cited report.
@@ -60,6 +62,7 @@
   purpose: Build premium, production-ready user interfaces
   skills:
     - jonin-skill
+    - i-have-adhd
   delegateWhen: UI design, component building, styling, layouts, animations, frontend development
   constraints: Visual excellence required — no basic/minimal designs. Use `agent-browser` for QA. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: 4 Frameworks Supported (SvelteKit default | Next.js 16 | Nuxt 3 | Angular v19+) | pnpm + Tailwind v4.
@@ -74,6 +77,7 @@
   purpose: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems, conduct authorized penetration testing and security assessments in dev/local environments
   skills:
     - anbu-skill
+    - i-have-adhd
   delegateWhen: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD, cybersecurity defense, penetration testing in dev/local environments, distributed messaging/caching, prompt engineering
   constraints: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
@@ -88,6 +92,7 @@
   purpose: Specialized in writing and maintaining technical documentation, specs, and READMEs
   skills:
     - tokubetsu-jonin-skill
+    - i-have-adhd
   delegateWhen: Technical writing, README creation, API specs, runbooks, onboarding guides, documentation updates, PDF reports, incident postmortems, RCA, technical blog articles, whitepapers
   constraints: Follow reader-first principles, include code examples, and link references. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: Search skills/references with `konoha` → construct clear documentation → show code examples/commands → link references.

@@ -12,22 +12,22 @@
 - Canonical `genin-skill` naming is used; `deep-code-explorer` is never a current diagram node.
 - Draw.io ports/waypoints and Mermaid layout both keep dense flows readable.
 - Bridge ownership is explicit: external `konoha-bridge` extension `127.0.0.1:1313`; embedded Konoha aggregate gateway `127.0.0.1:19999`.
-- External extension installation is automated on fresh install (`konoha init`) and upgrade (`konoha upgrade`), cloned from live master, packaged into `konoha-bridge-1.4.0.vsix`, and installed across IDE CLIs (`antigravity`, `code`, `cursor`), with atomic directory sync to `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`.
+- External extension installation is automated on fresh install (`konoha init`) and upgrade (`konoha upgrade`), cloned from live master, packaged into `konoha-bridge-1.4.0.vsix`, and installed ONLY into the Antigravity IDE CLI (`antigravity --install-extension`; never `code` or `cursor`), with atomic directory sync to `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`.
 
 
 | Page | Scope | Markdown owner | Implementation anchors |
 |---|---|---|---|
 | 01 System Architecture | Client, orchestration, MCP (konoha, semble, aislop), persistence, workspace | `docs/ARCHITECTURE.md` | `src/server.js`, `src/db.js`, `src/vector_search.js`, `src/agent_manager.js`, `bin/cli.js` |
 | 02 Runtime Query Lifecycle | Prompt, skill retrieval, code search, delegation, synthesis | `docs/ARCHITECTURE.md` | `src/server.js`, `src/prompt_hook.js` |
-| 03 MCP Tool and Skill Routing | `sannin` routing to tools and ninja agents | `docs/ARCHITECTURE.md` | `src/server.js`, `src/templates/agents.yaml` |
+| 03 MCP Tool and Skill Routing | `sannin` routing to tools and ninja agents (genin, jonin, anbu, tokubetsu-jonin, chunin embed `i-have-adhd`; sannin and kage do not); includes the `website_ai_detector` tool node (AI-fingerprint scan, 0-20 = Human-Built, CLI `konoha detect-ai`) | `docs/ARCHITECTURE.md` | `src/server.js`, `src/templates/agents.yaml`, `src/templates/skills/i-have-adhd/SKILL.md`, `src/ai_detector.js`, `src/mcp/ai_detector.js` |
 | 04 LLM Bridge Gateway | Bridge selection, provider boundaries, sidecar protocol retries | `docs/LLM-BRIDGE-GATEWAY.md` | `src/bridge/gateway.js`, `src/bridge/sidecar/` |
 | 05 Search Fallback Chain | SearXNG, DuckDuckGo, Startpage, Wikipedia fallback | `docs/SETUP-SEARXNG.md` | `src/server.js:web_search` |
-| 06 Skill Registry Installation | Template/package sync, migration, SQLite & vector retrieval | `docs/ADDING-SKILLS.md` | `src/migrate.js`, `src/db.js`, `src/vector_search.js`, `bin/cli.js`, `src/skill_manager.js` |
+| 06 Skill Registry Installation | Template/package sync, skills.sh registry proxy, Web UI 1-click install, multi-directory migration, SQLite FTS5 & IBM Granite 384d vector retrieval | `docs/ADDING-SKILLS.md` | `src/migrate.js`, `src/db.js`, `src/vector_search.js`, `bin/cli.js`, `src/skill_manager.js`, `src/web_server.js` |
 | 07 Token Footprint Comparison | Folder loading versus bounded FTS5 retrieval | `README.md` | `src/server.js`, `src/migrate.js` |
 | 08 Orchestrator Task Artifact Flow | Dispatch-scoped structured delegation, task evidence, Kage review, and `delegate.md`/`result.md` legacy fallback | `README.md` | `src/server.js`, `src/agent_manager.js` |
 | 09 Jonin Taste-Skill Frontend Engine | Anti-slop standards, Taste Dials, multi-framework targets (Next.js, SvelteKit, Nuxt, Angular) | `docs/ARCHITECTURE.md` | `src/server.js:build_from_source`, `src/server.js:build_from_text` |
 | 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.js`, `src/server.js` |
-| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Zero-AI-Slop Pre-Gate (aislop), 97% Minimum Confidence Gate (≥ 97%), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.js:run_mcp_workflow`, `src/server.js:_workflow_review_approved`, `tests/test_anti_slop_gate.js` |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Native SDLC Governance (Definition-of-Readiness DoR pre-dispatch gate, cross-provider second opinion), Zero-AI-Slop Pre-Gate (aislop), Autonomous Kage → Anbu Remediation Loop (slop_cycles > 7 circuit breaker), 97% Minimum Confidence Gate (≥ 97%), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/server.js:run_mcp_workflow`, `src/server.js:_workflow_review_approved`, `src/sdlc_manager.js`, `tests/test_anti_slop_gate.js` |
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, animated braille spinner (startSpinner, TTY-only), in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit` |
 
 ## Source policy
