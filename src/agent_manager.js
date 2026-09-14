@@ -292,6 +292,12 @@ function loadAgents(reloadDefaults = false, silent = false) {
           }
         }
 
+        // Ensure kage always has antislop skill attached
+        if (a.name === 'kage' && Array.isArray(a.skills) && !a.skills.includes('antislop')) {
+          a.skills.push('antislop');
+          changed = true;
+        }
+
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (typeof a.instructions === 'string' && a.instructions.length > 0) {
           const defInst = typeof defAgent.instructions === 'string' ? defAgent.instructions : '';

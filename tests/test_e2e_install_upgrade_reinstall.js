@@ -77,6 +77,14 @@ async function testFreshInstall(sandboxDir) {
     assert.ok(mainContract.includes('Website & UI scaffolding invariant'), `${client} contract must include Website scaffolding invariant`);
     assert.ok(mainContract.includes('Review token hygiene & strict changed-files scoping'), `${client} contract must include token hygiene invariant`);
   }
+  // Verify kage agent definition includes antislop
+  const agentMgr = require('../src/agent_manager');
+  const defaultAgents = agentMgr.loadAgents(false, false);
+  const kageAgent = defaultAgents.find(a => a.name === 'kage');
+  assert.ok(kageAgent, 'Kage agent must exist in default agent roster');
+  assert.ok(Array.isArray(kageAgent.skills) && kageAgent.skills.includes('antislop'), 'Kage agent must include antislop skill on fresh install');
+  console.log('  ✓ Kage agent correctly configured with antislop skill for Zero-AI-Slop gate');
+
   console.log('  ✓ All 7 client contracts generated and verified with 100% invariant parity');
 }
 
@@ -107,9 +115,16 @@ async function testUpgrade(sandboxDir) {
   const row = connAfter.prepare("SELECT * FROM agents WHERE name = 'custom-agent'").get();
   assert.ok(row, 'User customized agents must be preserved across upgrade');
   assert.strictEqual(row.title, 'Custom Ninja');
+
+  // Verify kage in DB includes antislop
+  const kageRow = connAfter.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
+  assert.ok(kageRow, 'Kage agent must exist in DB');
+  const kageSkills = JSON.parse(kageRow.skills || '[]');
+  assert.ok(kageSkills.includes('antislop'), 'Kage agent skills must include antislop after upgrade migration');
+
   connAfter.close();
 
-  console.log('  ✓ Upgrade preserves existing user configuration and database records without data loss');
+  console.log('  ✓ Upgrade preserves existing user configuration and updates kage with antislop skill');
 }
 
 async function testReinstallAndRepair(sandboxDir) {
@@ -138,6 +153,12 @@ async function testReinstallAndRepair(sandboxDir) {
   } finally {
     piManager.PI_AGENTS_MD = originalPiFile;
   }
+
+  // Verify that paths.js and cli launcher use dynamic user paths
+  const paths = require('../bin/lib/paths');
+  assert.ok(paths.FILE_TOOLS_LAUNCHER_JS, 'FILE_TOOLS_LAUNCHER_JS must be exported');
+  assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
+  console.log('  ✓ Launcher paths resolve dynamically to user environment without hardcoded paths');
 
   console.log('  ✓ Reinstall repairs corruptions and ensures single-mandate contract integrity');
 }

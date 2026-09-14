@@ -18,13 +18,28 @@
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
+---
+
+## ☕ Support & Buy Me a Coffee
+
+If you find Konoha helpful and want to support ongoing development, maintenance, and coffee-fueled coding sessions, consider buying me a coffee!
+
+<p align="center">
+  <a href="https://saweria.co/andycungkrinx">
+    <img src="https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Donate via Saweria">
+  </a>
+</p>
+
+<p align="center">
+  👉 <b><a href="https://saweria.co/andycungkrinx">Support Andy on Saweria (Buy Me Some Coffee)</a></b> ☕
+</p>
 
 ---
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-13)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, subagent skill & reference consolidation (antislop into kage, i-have-adhd into 5 target agents, helm & docker into anbu, powerpoint into tokubetsu-jonin), standalone source skill deprecation & pruning, neural embedding CPU 100% peak elimination & adaptive duty-cycle throttling (<50% duty, zero thermal spikes), Mission Control Dashboard (`/dashboard`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, Native SDLC Governance Layer, Pi (pi.dev) 7th client integration, and 100% clean test suite (78/78 passing).
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-13d)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-13d.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-14)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, cross-platform doctor diagnostics parity & Anti-Slop Gate health, Cursor status hygiene, subagent skill & reference consolidation (antislop into kage, i-have-adhd into 5 target agents, helm & docker into anbu, powerpoint into tokubetsu-jonin), neural embedding CPU throttling (<50% duty, zero thermal spikes), Mission Control Dashboard (`/dashboard`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, Native SDLC Governance Layer, Pi (pi.dev) 7th client integration, and 100% clean test suite.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-14)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-14.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -986,9 +1001,11 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 
 ## Credits
 
-Special thanks to [Semble](https://github.com/MinishLab/semble) by MinishLab for providing the powerful semantic code search capability that forms the second half of Konoha's optimization stack.
-
-Special thanks to [RTK (Rust Token Killer)](https://github.com/reachingforthejack/rtk) for providing the high-performance CLI proxy that filters and summarizes command outputs before they reach the LLM context, completing Konoha's token-efficient stack alongside Semble and the konoha MCP.
+* **[Semble](https://github.com/MinishLab/semble)** by MinishLab — High-performance semantic code search and dependency mapping for coding agents, providing the codebase discovery half of Konoha's optimization stack.
+* **[RTK (Rust Token Killer)](https://github.com/reachingforthejack/rtk)** — High-performance CLI proxy that filters, compacts, and summarizes command outputs before they enter LLM context, preventing terminal token explosion across all 7 supported coding clients.
+* **[aislop](https://github.com/scanaislop/aislop)** — The automated quality gate and AI-slop scanner for agentic coding, powering Konoha's Zero-AI-Slop Pre-Gate and mechanical delivery verification across changed files.
+* **[anti-slop](https://github.com/miqdadbadjuber/anti-slop)** by Miqdad Badjuber — Anti-slop engineering standards, code cleanliness, and UI design guidelines embedded directly into Kage's review checklist and delivery SOP.
+* **[i-have-adhd](https://github.com/ayghri/i-have-adhd)** by Ayghri — Cognitive output-shaping and ADHD-friendly communication protocol (action-first, numbered multi-step directives, minimal preamble, zero conversational fluff) embedded across Genin, Chunin, Jonin, Anbu, and Tokubetsu-Jonin reference SOPs.
 
 **Citation:** If you use Konoha in academic research, please also cite Semble as follows:
 
@@ -1001,14 +1018,6 @@ Special thanks to [RTK (Rust Token Killer)](https://github.com/reachingforthejac
   organization = {MinishLab}
 }
 ```
-
-## ☕ Support & Donation
-
-If you find Konoha helpful and want to support ongoing development, maintenance, and coffee-fueled coding sessions, consider buying me a coffee!
-
-[![Donate via Saweria](https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
-
-👉 **[Support Andy on Saweria (Buy Me Some Coffee)](https://saweria.co/andycungkrinx)**
 
 ---
 

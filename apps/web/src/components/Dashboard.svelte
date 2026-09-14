@@ -507,7 +507,7 @@
           <div class="h-2 rounded-full overflow-hidden border" style="border-color: var(--color-border);">
             <div class="h-full rounded-full transition-all duration-500" style="width: {(metrics.features.vectors_total_chunks ?? 0) > 0 ? ((metrics.features.embedded_chunks ?? 0) / metrics.features.vectors_total_chunks) * 100 : 0}%; background: var(--color-primary);"></div>
           </div>
-          <p class="text-[10px] font-mono mt-2" style="color: var(--color-text-muted);">IBM Granite 384-dim · RRF + cosine</p>
+          <p class="text-[10px] font-mono mt-2" style="color: var(--color-text-muted);">IBM Granite 384-dim · MS MARCO MiniLM Cross-Encoder · RRF + Cosine RAG</p>
         </div>
 
         <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">

@@ -150,6 +150,7 @@ function getDiagnostics(autoRepair = false) {
     const dbModule = require('./db');
     const conn = dbModule.getConnection(DB_PATH);
     try {
+      dbModule.setupSchema(conn);
       // Check 1: Cross-provider review setup
       const enabledBridges = conn.prepare('SELECT count(*) as count FROM bridges WHERE enabled = 1').get();
       const bridgeCount = enabledBridges ? enabledBridges.count : 0;
@@ -160,13 +161,42 @@ function getDiagnostics(autoRepair = false) {
       }
 
       // Check 2: Anti-slop skill for Kage
-      const kageRow = conn.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
-      const kageSkills = (kageRow && kageRow.skills) ? kageRow.skills.toLowerCase() : '';
-      const hasAntislopSkill = kageSkills.includes('antislop') || kageSkills.includes('anti-slop') || kageSkills.includes('aislop');
+      let hasAntislopInDb = false;
+      try {
+        const row = conn.prepare("SELECT 1 FROM skills WHERE name = 'antislop' OR name = 'kage-skill/antislop' OR name LIKE '%antislop%' LIMIT 1").get();
+        hasAntislopInDb = !!row;
+      } catch { /* intentional best-effort fallback */ }
+
+      let kageSkills = '';
+      try {
+        const kageRow = conn.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
+        kageSkills = (kageRow && kageRow.skills) ? kageRow.skills.toLowerCase() : '';
+      } catch { /* intentional best-effort fallback */ }
+
+      let hasAntislopSkill = kageSkills.includes('antislop') || kageSkills.includes('anti-slop') || kageSkills.includes('aislop') || (kageSkills.includes('kage-skill') && hasAntislopInDb);
+
+      if (!hasAntislopSkill && autoRepair) {
+        try {
+          const agentMgr = require('./agent_manager');
+          const agents = agentMgr.loadAgents(true, true);
+          const kage = agents.find(a => a.name === 'kage');
+          if (kage) {
+            if (!Array.isArray(kage.skills)) kage.skills = [];
+            if (!kage.skills.includes('antislop')) kage.skills.push('antislop');
+            agentMgr.saveAgents(agents);
+            const dbAgents = require('./db_agents');
+            dbAgents.bulkImportAgents(agents, DB_PATH);
+            hasAntislopSkill = true;
+            repairsDone++;
+            record('Anti-Slop Gate (Kage)', 'REPAIRED', 'Restored and registered anti-slop skill for Kage reviewer');
+          }
+        } catch { /* intentional best-effort fallback */ }
+      }
+
       if (hasAntislopSkill) {
         record('Anti-Slop Gate (Kage)', 'HEALTHY', 'Anti-slop skill loaded for Kage reviewer');
-      } else {
-        record('Anti-Slop Gate (Kage)', 'INFO', 'anti-slop skill not installed for kage (falls back to core zero-slop checks)');
+      } else if (!autoRepair) {
+        record('Anti-Slop Gate (Kage)', 'WARNING', 'anti-slop skill not installed for kage (falls back to core zero-slop checks)');
       }
     } finally {
       try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }

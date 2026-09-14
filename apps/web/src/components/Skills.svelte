@@ -454,8 +454,8 @@
           {registryResults.length} found
         </span>
       {:else}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10">
-          ⚡ {vectorStats.total_chunks || 316} Vector Chunks
+        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
+          ⚡ {vectorStats.embedded_chunks || vectorStats.total_chunks || 989} Vector Chunks (Dual Models Active)
         </span>
         <span class="text-xs font-bold" style="color: var(--color-text-muted);">
           {skills.length} skills
@@ -782,13 +782,13 @@
                   <div class="p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs" style="background: var(--color-surface-hover); border-color: var(--color-border);">
                     <div class="flex items-center gap-2">
                       <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span class="font-bold" style="color: var(--color-text);">Model:</span>
-                      <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">IBM Granite Multilingual (ONNX)</span>
+                      <span class="font-bold" style="color: var(--color-text);">Models:</span>
+                      <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">IBM Granite 97M (ONNX) + MS MARCO MiniLM</span>
                     </div>
                     <div class="flex items-center gap-3 text-[11px] font-mono" style="color: var(--color-text-muted);">
-                      <span>Dimension: <b class="text-indigo-600 dark:text-indigo-400">384-dim</b></span>
-                      <span>Distance: <b class="text-indigo-600 dark:text-indigo-400">Cosine</b></span>
-                      <span>Reranker: <b class="text-indigo-600 dark:text-indigo-400">RRF (k=60)</b></span>
+                      <span>Embedding: <b class="text-indigo-600 dark:text-indigo-400">384-dim (Cosine)</b></span>
+                      <span>RAG Reranker: <b class="text-indigo-600 dark:text-indigo-400">Cross-Encoder + RRF (k=60)</b></span>
+                      <span>Execution: <b class="text-emerald-600 dark:text-emerald-400">100% Offline INT8</b></span>
                     </div>
                   </div>
 

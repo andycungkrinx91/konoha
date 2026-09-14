@@ -33,6 +33,7 @@
   purpose: Expert-level analysis for critical decisions and high-level strategy
   skills:
     - kage-skill
+    - antislop
   delegateWhen: Architecture decisions, security audits, complex refactoring, production incident analysis, technology selection
   constraints: Always assess risk, blast radius, and rollback plan. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills. NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).
   workflow: Deep analysis → trade-off matrix → prioritized recommendations → rollback procedures.

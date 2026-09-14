@@ -47,7 +47,9 @@ const SKILLS_DB_DIR = KONOHA;
 const SERVER_PATH = path.join(KONOHA, 'server.js');
 
 /** SQLite database */
-const DB_PATH = path.join(KONOHA, 'konoha.db');
+const DB_PATH = process.env.KONOHA_DB_PATH
+  ? path.normalize(process.env.KONOHA_DB_PATH)
+  : path.join(KONOHA, 'konoha.db');
 
 /** Deploy fingerprint */
 const FINGERPRINT_PATH = path.join(KONOHA, '.deploy-fingerprint');
@@ -63,6 +65,9 @@ const FILE_TOOLS_MCP_PATH = path.join(KONOHA, 'file_tools_mcp.js');
 
 /** file_tools_launcher.sh in ~/.konoha */
 const FILE_TOOLS_LAUNCHER_PATH = path.join(KONOHA, 'file_tools_launcher.sh');
+
+/** file_tools_launcher.js in ~/.konoha */
+const FILE_TOOLS_LAUNCHER_JS = path.join(KONOHA, 'file_tools_launcher.js');
 
 /** Python executable cache file */
 const FILE_TOOLS_PYTHON_CMD_FILE = path.join(KONOHA, '.python_cmd');
@@ -229,6 +234,7 @@ module.exports = {
   FILE_TOOLS_DIR,
   FILE_TOOLS_MCP_PATH,
   FILE_TOOLS_LAUNCHER_PATH,
+  FILE_TOOLS_LAUNCHER_JS,
   FILE_TOOLS_PYTHON_CMD_FILE,
   FILE_TOOLS_NODE_PATH_FILE,
   TMP_DIR,

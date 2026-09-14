@@ -298,16 +298,36 @@
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">CLI Commands</h3>
         <div class="space-y-2 font-mono text-xs">
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha web</span>
-            <span style="color: var(--color-text-muted);"> — start the web UI server (dashboard, bridges, skills, SDLC)</span>
+            <span class="font-bold" style="color: var(--color-primary);">konoha init</span>
+            <span style="color: var(--color-text-muted);"> — full setup: MCP servers, migrate local skills, configure supported clients</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha embed</span>
+            <span style="color: var(--color-text-muted);"> — rebuild neural vector embeddings for all skills (IBM Granite + MS MARCO Reranker)</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha migrate [--clean|--rebuild-embeddings|--skills-dir]</span>
+            <span style="color: var(--color-text-muted);"> — re-index custom skills into SQLite FTS5 database</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha test</span>
+            <span style="color: var(--color-text-muted);"> — perform verification tests on the MCP server & tools</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha status</span>
+            <span style="color: var(--color-text-muted);"> — check installation health, database size, and loaded skills</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha web / konoha ui &lt;start|stop|restart|status&gt;</span>
+            <span style="color: var(--color-text-muted);"> — start/manage the local Web Configuration UI (port 1404)</span>
           </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
             <span class="font-bold" style="color: var(--color-primary);">konoha task &lt;list|show|slop&gt;</span>
             <span style="color: var(--color-text-muted);"> — inspect SDLC tasks and persisted slop results</span>
           </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
-            <span class="font-bold" style="color: var(--color-primary);">konoha skills &lt;list|embed|unembed|reindex&gt;</span>
-            <span style="color: var(--color-text-muted);"> — manage skills and vector embeddings</span>
+            <span class="font-bold" style="color: var(--color-primary);">konoha skill &lt;list|search|add|remove&gt;</span>
+            <span style="color: var(--color-text-muted);"> — manage skills from the public registry (skills.sh)</span>
           </div>
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
             <span class="font-bold" style="color: var(--color-primary);">konoha doctor [--repair]</span>

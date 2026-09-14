@@ -296,6 +296,9 @@ function getStatusTheme(status) {
   if (s === 'REPAIRED') {
     return [[0, 255, 255], [56, 189, 248]];
   }
+  if (s === 'INFO') {
+    return [[56, 189, 248], [14, 165, 233]];
+  }
   if (s === 'WARNING' || s === 'INACTIVE' || s === 'MISSING') {
     return [[251, 191, 36], [249, 115, 22]];
   }
@@ -3946,7 +3949,7 @@ async function cmdStatus(args = []) {
     if (mcpConfigExists) {
       log(`     Status:      ${isHealthy ? C.green + 'Healthy (Konoha MCP Registered)' + C.reset : C.red + 'Missing Konoha MCP' + C.reset}`);
       if (isHealthy) {
-        log(`     Command:     ${C.dim}cmd: node /home/andycungkrinx/.konoha/file_tools_launcher.js${C.reset}`);
+        log(`     Command:     ${C.dim}cmd: node ${path.join(SKILLS_DB_DIR, 'file_tools_launcher.js')}${C.reset}`);
       }
     }
     log('');
@@ -4015,12 +4018,6 @@ async function cmdStatus(args = []) {
     'sessionStart hook',
     cursorStatus.hooks,
     cursorStatus.hooks ? 'auto-bootstrap on session' : 'not registered',
-    NINJA_THEME
-  );
-  drawIntegrationRow(
-    'Project .cursor/',
-    cursorStatus.projectMcp,
-    `mcp:${cursorStatus.projectMcp ? 'yes' : 'no'} skills:${cursorStatus.skillsProject} rule:${cursorStatus.projectRule ? 'yes' : 'no'}`,
     NINJA_THEME
   );
   drawIntegrationRow(
@@ -4867,6 +4864,63 @@ async function cmdDoctor(args = []) {
   } else {
     record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
   }
+
+  // 11. SDLC Governance Layer Advisory Checks
+  try {
+    const dbModule = require('../src/db');
+    const conn = dbModule.getConnection(DB_PATH);
+    try {
+      dbModule.setupSchema(conn);
+      // Check 1: Cross-provider review setup
+      const enabledBridges = conn.prepare('SELECT count(*) as count FROM bridges WHERE enabled = 1').get();
+      const bridgeCount = enabledBridges ? enabledBridges.count : 0;
+      if (bridgeCount < 2) {
+        record('Cross-Provider Review Setup', 'INFO', `${bridgeCount} bridge(s) enabled. Cross-provider review falls back to same-provider if configured.`);
+      } else {
+        record('Cross-Provider Review Setup', 'HEALTHY', `${bridgeCount} bridges enabled for independent second-opinion reviews`);
+      }
+
+      // Check 2: Anti-slop skill for Kage
+      let hasAntislopInDb = false;
+      try {
+        const row = conn.prepare("SELECT 1 FROM skills WHERE name = 'antislop' OR name = 'kage-skill/antislop' OR name LIKE '%antislop%' LIMIT 1").get();
+        hasAntislopInDb = !!row;
+      } catch { /* intentional best-effort fallback */ }
+
+      let kageSkills = '';
+      try {
+        const kageRow = conn.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
+        kageSkills = (kageRow && kageRow.skills) ? kageRow.skills.toLowerCase() : '';
+      } catch { /* intentional best-effort fallback */ }
+
+      let hasAntislopSkill = kageSkills.includes('antislop') || kageSkills.includes('anti-slop') || kageSkills.includes('aislop') || (kageSkills.includes('kage-skill') && hasAntislopInDb);
+
+      if (!hasAntislopSkill) {
+        try {
+          const agents = agentManager.loadAgents(true, true);
+          const kage = agents.find(a => a.name === 'kage');
+          if (kage) {
+            if (!Array.isArray(kage.skills)) kage.skills = [];
+            if (!kage.skills.includes('antislop')) kage.skills.push('antislop');
+            agentManager.saveAgents(agents);
+            const dbAgents = require('../src/db_agents');
+            dbAgents.bulkImportAgents(agents, DB_PATH);
+            hasAntislopSkill = true;
+            repairsDone++;
+            record('Anti-Slop Gate (Kage)', 'REPAIRED', 'Restored and registered anti-slop skill for Kage reviewer');
+          }
+        } catch { /* intentional best-effort fallback */ }
+      }
+
+      if (hasAntislopSkill) {
+        record('Anti-Slop Gate (Kage)', 'HEALTHY', 'Anti-slop skill loaded for Kage reviewer');
+      } else {
+        record('Anti-Slop Gate (Kage)', 'WARNING', 'anti-slop skill not installed for kage (falls back to core zero-slop checks)');
+      }
+    } finally {
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
 
   // Complete diagnostic spinner
   globalSpinner.success('Diagnostic checks complete.');

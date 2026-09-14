@@ -147,7 +147,7 @@
               </p>
             </div>
 
-            <span class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase border {item.status === 'HEALTHY' || item.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'}">
+            <span class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase border {item.status === 'HEALTHY' || item.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : item.status === 'REPAIRED' ? 'bg-teal-100 text-teal-800 border-teal-300' : item.status === 'INFO' ? 'bg-sky-100 text-sky-800 border-sky-300' : item.status === 'WARNING' || item.status === 'INACTIVE' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-rose-100 text-rose-800 border-rose-300'}">
               {item.status}
             </span>
           </div>

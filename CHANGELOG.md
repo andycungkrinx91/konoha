@@ -4,6 +4,19 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [v2.0.0-beta.7] - 2026-09-12
 
+### Fixed: Cross-Platform Doctor Diagnostics & Cursor Status Invariant (2026-09-14)
+- **Eliminated Inactive `Project .cursor/` in `konoha status`**: Removed the redundant project-scoped `.cursor/` row from `bin/cli.js` integration reporting. Since Konoha v2 configures Cursor globally via `~/.cursor/mcp.json` and SQLite FTS5 indexer, displaying an inactive project row in arbitrary working directories was confusing and non-actionable.
+- **Anti-Slop Gate (Kage) Cross-Platform Health & Parity**:
+  - Unified SDLC Governance Layer Advisory Checks (`Cross-Provider Review Setup`, `Anti-Slop Gate (Kage)`) across both CLI/TUI (`bin/cli.js:cmdDoctor`) and Web UI (`src/doctor.js` via `/api/v1/doctor`).
+  - Added explicit `- antislop` skill assignment to `kage` in `src/templates/agents.yaml` and ensured runtime synchronization in `src/agent_manager.js`.
+  - Hardened `Anti-Slop Gate (Kage)` detection in `src/doctor.js` and `bin/cli.js` to cross-verify Kage agent skills, database `skills` table entries (`antislop`, `kage-skill/antislop`), and auto-repair capability.
+  - Added support for `INFO` status theme in `bin/cli.js:getStatusTheme` (cyan/sky gradient) and refined status badges in `apps/web/src/components/Doctor.svelte` (`HEALTHY`, `ACTIVE`, `REPAIRED`, `INFO`, `WARNING`, `FAILED`).
+  - Ensured `bin/lib/paths.js` honors `process.env.KONOHA_DB_PATH` across all platforms.
+- **Cross-Platform Path Portability & Elimination of Hardcoded Paths**:
+  - Replaced hardcoded launcher command in `bin/cli.js:printClientStatus` with dynamic `path.join(SKILLS_DB_DIR, 'file_tools_launcher.js')`.
+  - Added and exported `FILE_TOOLS_LAUNCHER_JS = path.join(KONOHA, 'file_tools_launcher.js')` in `bin/lib/paths.js`.
+  - Upgraded `tests/test_pi_skill_conflicts_and_ui_daemon.js` with `findPiResourceLoaderChunk()`, dynamically discovering `@earendil-works/pi-coding-agent` via `npm root -g`, `which/where pi`, and multi-version Node manager directories (`.nvm`, `fnm`, `volta`) to eliminate hardcoded author local paths.
+
 ### Added: Subagent Skill Integration & Reference Unification (2026-09-13)
 - **Anti-Slop Integration into Kage Review SOP (`kage-skill/references/`)**: Merged all six anti-slop skills (`antislop.md`, `antislop-code.md`, `antislop-copywriting.md`, `antislop-human.md` + contrast assets, `antislop-layoutmobile.md`, `antislop-ui.md`) directly into `kage-skill/references/`. Aligned Kage's review checklist and domain routing table so anti-slop rules are loaded on demand during code review and Zero-AI-Slop delivery gating.
 - **ADHD-Friendly Output Shaping Integration (`i-have-adhd.md`)**: Fully embedded `i-have-adhd.md` output shaping instructions across all 5 target agent reference directories (`genin-skill/references/`, `chunin-skill/references/`, `jonin-skill/references/`, `anbu-skill/references/`, and `tokubetsu-jonin-skill/references/`). Removed the standalone `i-have-adhd` directories across all 4 skill trees and updated `tests/test_i_have_adhd_skill.js` to assert byte-identical embedded references.
