@@ -15,6 +15,7 @@ const { buildFromSource, buildFromText } = require('./build_spec');
 const { getResolvedTaskDir, runSannin } = require('./workflow');
 const { runWebSearch } = require('./web_search');
 const { runWebsiteAiDetector, runWebsiteAiDetectorSync } = require('./ai_detector');
+const { runDocsAiDetector, runDocsAiDetectorSync } = require('./docs_ai_detector');
 const {
   getProjectContext,
   saveProjectContext,
@@ -105,11 +106,15 @@ function _executeToolInternal(toolName, args, agent) {
     return buildFromText(name, description, framework, agent, args.taste_dials);
   }
   if (toolName === 'get_resolved_task_dir') {
-    return JSON.stringify({ status: 'ok', task_dir: getResolvedTaskDir() });
+    const projPath = args.project_path || getWorkspaceRoot();
+    const sessId = args.session_id || args.sessionId;
+    return JSON.stringify({ status: 'ok', task_dir: getResolvedTaskDir(args.task_dir, projPath, sessId) });
   }
   if (toolName === 'sannin' || toolName === 'delegate_to_sannin' || toolName === 'delegated_to_sannin') {
     const prompt = args.prompt || args.task || args.instructions;
-    return runSannin(prompt, args.task_dir);
+    const projPath = args.project_path || getWorkspaceRoot();
+    const sessId = args.session_id || args.sessionId;
+    return runSannin(prompt, args.task_dir, projPath, sessId);
   }
   if (
     [
@@ -127,6 +132,7 @@ function _executeToolInternal(toolName, args, agent) {
     const tasteDials = args.taste_dials;
     const projectPath = args.project_path || getWorkspaceRoot();
     const taskDir = args.task_dir;
+    const sessId = args.session_id || args.sessionId;
 
     let cleanSubagent = toolName;
     if (cleanSubagent.startsWith('delegated_to_')) cleanSubagent = cleanSubagent.substring(13);
@@ -140,7 +146,8 @@ function _executeToolInternal(toolName, args, agent) {
       skills,
       tasteDials,
       projectPath,
-      taskDir
+      taskDir,
+      sessId
     );
   }
   if (toolName === 'report_from_agent' || (toolName && toolName.startsWith('report_from_'))) {
@@ -168,13 +175,13 @@ function _executeToolInternal(toolName, args, agent) {
     );
   }
   if (toolName === 'get_project_context') {
-    return getProjectContext(args.project_path || getWorkspaceRoot());
+    return getProjectContext(args.project_path || getWorkspaceRoot(), args.session_id);
   }
   if (toolName === 'save_project_context') {
-    return saveProjectContext(args.project_path || getWorkspaceRoot(), args.context_summary || '', args.tech_stack);
+    return saveProjectContext(args.project_path || getWorkspaceRoot(), args.context_summary || '', args.tech_stack, args.session_id);
   }
   if (toolName === 'query_project_memory') {
-    return queryProjectMemory(args.query || '', args.project_path || getWorkspaceRoot(), args.agent_name, args.memory_type, parseInt(args.limit || 10, 10));
+    return queryProjectMemory(args.query || '', args.project_path || getWorkspaceRoot(), args.agent_name, args.memory_type, parseInt(args.limit || 10, 10), args.session_id);
   }
   if (toolName === 'migrate_skills') {
     const migrateModule = require('../migrate');
@@ -188,6 +195,8 @@ function _executeToolInternal(toolName, args, agent) {
     const memoryType = args.memory_type || 'rule';
     const tags = args.tags || '';
     const importance = parseInt(args.importance || 1, 10);
+    const projectPath = args.project_path || getWorkspaceRoot();
+    const sessionId = args.session_id;
     if (!targetAgent || !content) {
       return JSON.stringify({ error: 'agent_name and content are required.' });
     }
@@ -198,7 +207,9 @@ function _executeToolInternal(toolName, args, agent) {
         title,
         memoryType,
         tags,
-        importance
+        importance,
+        projectPath,
+        sessionId
       });
       return JSON.stringify({ status: 'saved', id: mid, agent: targetAgent });
     } catch (e) {
@@ -210,11 +221,15 @@ function _executeToolInternal(toolName, args, agent) {
     const query = args.query || '';
     const memoryType = args.memory_type;
     const limit = parseInt(args.limit || 5, 10);
+    const projectPath = args.project_path || getWorkspaceRoot();
+    const sessionId = args.session_id;
     try {
       const mems = personaMemory.queryMemories({
         agentName: targetAgent,
         query,
         memoryType,
+        projectPath,
+        sessionId,
         limit
       });
       return JSON.stringify({ agent: targetAgent, count: mems.length, memories: mems });
@@ -226,10 +241,14 @@ function _executeToolInternal(toolName, args, agent) {
     const targetAgent = args.agent_name;
     const memoryType = args.memory_type;
     const limit = parseInt(args.limit || 50, 10);
+    const projectPath = args.project_path || getWorkspaceRoot();
+    const sessionId = args.session_id;
     try {
       const mems = personaMemory.listMemories({
         agentName: targetAgent,
         memoryType,
+        projectPath,
+        sessionId,
         limit
       });
       return JSON.stringify({ count: mems.length, memories: mems });
@@ -302,6 +321,12 @@ function _executeToolInternal(toolName, args, agent) {
     return (res.stdout || '').trim() || (res.stderr || '').trim() || JSON.stringify({ status: 'error', message: 'No output from website_ai_detector' });
   }
 
+  if (toolName === 'docs_ai_detector') {
+    const target = args.file_path || args.target || args.path || args.file;
+    if (!target) return JSON.stringify({ error: 'Missing required argument: file_path (document file path)' });
+    return runDocsAiDetectorSync(String(target), agent);
+  }
+
   return JSON.stringify({ error: `Unknown tool: ${toolName}` });
 }
 
@@ -338,6 +363,12 @@ async function executeTool(toolName, args = {}) {
     const target = args.target || args.path || args.url || args.site;
     if (!target) return JSON.stringify({ error: 'Missing required argument: target (site directory path or http(s) URL)' });
     return await runWebsiteAiDetector(String(target), agent);
+  }
+
+  if (toolName === 'docs_ai_detector') {
+    const target = args.file_path || args.target || args.path || args.file;
+    if (!target) return JSON.stringify({ error: 'Missing required argument: file_path (document file path)' });
+    return await runDocsAiDetector(String(target), agent);
   }
 
   return _executeToolInternal(toolName, args, agent);

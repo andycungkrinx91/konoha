@@ -502,27 +502,46 @@ async function runMigration(options = {}) {
   }
 
   if (detectedSkillsDirs.length === 0) {
-    const defaultDir = path.normalize(path.join(os.homedir(), ".agents", "skills"));
-    let hasSkills = false;
-    if (fs.existsSync(defaultDir) && fs.statSync(defaultDir).isDirectory()) {
-      try {
-        const entries = fs.readdirSync(defaultDir);
-        hasSkills = entries.some(d => {
-          const p = path.join(defaultDir, d);
-          return fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, "SKILL.md"));
-        });
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-
-    if (!hasSkills) {
-      const localDir = path.resolve(process.cwd(), ".agents", "skills");
-      if (fs.existsSync(localDir) && fs.statSync(localDir).isDirectory()) {
-        detectedSkillsDirs.push(localDir);
-      } else {
-        detectedSkillsDirs.push(defaultDir);
+    const candidateRoots = [
+      path.normalize(path.join(os.homedir(), ".agents", "skills")),
+      path.resolve(process.cwd(), ".agents", "skills"),
+      path.resolve(process.cwd(), ".cursor", "skills"),
+      path.resolve(process.cwd(), ".gemini", "skills"),
+      path.resolve(process.cwd(), ".commandcode", "skills"),
+      path.resolve(process.cwd(), ".claude", "skills"),
+      path.resolve(process.cwd(), ".config", "opencode", "skills"),
+      path.resolve(process.cwd(), ".opencode", "skills"),
+      path.resolve(process.cwd(), "skills"),
+      path.resolve(process.cwd(), "agent", "skills"),
+      path.resolve(process.cwd(), "src", "templates", "skills"),
+      path.normalize(path.join(os.homedir(), ".gemini", "antigravity-cli", "skills")),
+      path.normalize(path.join(os.homedir(), ".cursor", "skills")),
+      path.normalize(path.join(os.homedir(), ".commandcode", "skills")),
+      path.normalize(path.join(os.homedir(), ".claude", "skills")),
+      path.normalize(path.join(os.homedir(), ".gemini", "skills")),
+      path.normalize(path.join(os.homedir(), ".config", "opencode", "skills")),
+      path.normalize(path.join(os.homedir(), ".opencode", "skills")),
+      path.normalize(path.join(os.homedir(), ".codex", "skills")),
+    ];
+    for (const cand of candidateRoots) {
+      if (fs.existsSync(cand) && fs.statSync(cand).isDirectory()) {
+        try {
+          const entries = fs.readdirSync(cand);
+          const hasAny = entries.some(d => {
+            const p = path.join(cand, d);
+            try {
+              return (fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, "SKILL.md"))) ||
+                     (fs.statSync(p).isFile() && d.endsWith("-skill.md"));
+            } catch { return false; }
+          });
+          if (hasAny && !detectedSkillsDirs.includes(cand)) {
+            detectedSkillsDirs.push(cand);
+          }
+        } catch (_) { /* intentional best-effort fallback */ }
       }
-    } else {
-      detectedSkillsDirs.push(defaultDir);
+    }
+    if (detectedSkillsDirs.length === 0) {
+      detectedSkillsDirs.push(path.normalize(path.join(os.homedir(), ".agents", "skills")));
     }
   }
 
@@ -648,6 +667,14 @@ async function runMigration(options = {}) {
       log(`  ✓ Cleaned up: ${sName}`);
     }
   }
+
+  // Enforce chunk referential integrity by cleaning up orphaned chunks
+  try {
+    const orphanRes = conn.prepare("DELETE FROM skill_chunks WHERE skill_name NOT IN (SELECT name FROM skills)").run();
+    if (orphanRes && orphanRes.changes > 0) {
+      log(`  ✓ Pruned ${orphanRes.changes} orphaned vector chunks.`);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
 
   // Verify FTS index
   log("\n🔍 Verifying FTS index...");

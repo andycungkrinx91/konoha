@@ -13,14 +13,20 @@ Transform content into world-class presentations with the design quality of Appl
 > [!NOTE]
 > **Integrated into Tokubetsu-Jonin**: This skill is merged directly into `tokubetsu-jonin-skill` as an embedded domain reference: `tokubetsu-jonin-skill/elite-powerpoint-designer`.
 
-## Core Design Philosophy
+## Core Design Philosophy & Business-Class Invariants
+
+> [!IMPORTANT]
+> **Strict Light Mode Invariant (Zero Dark Theme)**: Under no circumstances should presentations be designed with dark backgrounds, black slides, or dark navy full-bleed covers. All presentations must use pure white (`#FFFFFF`) or soft pearl (`#F8FAFC` / `#FAFAFA`) canvases.
+> **3-Color Minimum Gradient Invariant**: When decorative accents, header/footer bands, title dividers, or KPI highlights are applied, strictly use a smooth gradient with a **minimum of 3 colors** (e.g., Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA` or Teal `#0D9488` → Cyan `#06B6D4` → Mint `#6EE7B7`).
 
 **Principles:**
-1. **Minimalism First** - Remove everything that doesn't serve a clear purpose
-2. **Bold & Clear** - Large typography, high contrast, confident colors
-3. **Visual Hierarchy** - Guide attention through size, color, and spacing
-4. **Consistent Branding** - Every element follows the design system
-5. **Purposeful Motion** - Animations only where they add clarity or emphasis
+1. **Pure Light Mode Canvas** - Clean white backgrounds with executive crisp contrast.
+2. **3-Color Gradient Accents** - Sophisticated, multi-stop accents; zero monotone dark blocks.
+3. **Minimalism First** - Remove everything that doesn't serve a clear purpose.
+4. **Bold & Clear** - Large typography, high contrast, confident colors.
+5. **Visual Hierarchy** - Guide attention through size, color, and spacing.
+6. **Consistent Branding** - Every element follows the design system.
+7. **Purposeful Motion** - Animations only where they add clarity or emphasis.
 
 ## When to Use This Skill
 
@@ -31,44 +37,44 @@ Transform content into world-class presentations with the design quality of Appl
 - User wants "Apple/Microsoft/Google style" presentations
 - Request includes terms: slides, deck, presentation, PowerPoint, PPTX
 
-## Design System & Brand Styles
+## Design System & Brand Styles (Pure Light Mode)
 
 ### Available Brand Styles
 
-**1. Tech Keynote (Apple/Tesla Style)**
-- **Colors**: Deep blacks (#000000), whites (#FFFFFF), accent blue (#0071E3)
+**1. Tech Keynote (Executive Light Edition)**
+- **Colors**: Pure white background (#FFFFFF), slate text (#0F172A), 3-color gradient accent bar (#1E3A8A → #2563EB → #60A5FA)
 - **Typography**: SF Pro Display (title 72-96pt), SF Pro Text (body 32-44pt)
 - **Layout**: Extreme whitespace, single focal point per slide
 - **Transitions**: Push, Fade (duration: 0.6s)
-- **Style**: Minimalist, premium, product-focused
+- **Style**: Minimalist, premium, product-focused light mode
 
 **2. Corporate Professional (Microsoft/IBM Style)**
-- **Colors**: Navy (#003366), steel blue (#0078D4), warm gray (#F3F2F1)
+- **Colors**: Pure white background (#FFFFFF), deep slate (#0F172A), 3-color gradient ribbon (#003366 → #0078D4 → #60A5FA), warm gray cards (#F8FAFC)
 - **Typography**: Segoe UI (title 54-72pt), body (24-32pt)
 - **Layout**: Balanced, grid-based, data-friendly
 - **Transitions**: Morph, Fade (duration: 0.8s)
-- **Style**: Trustworthy, data-driven, enterprise-ready
+- **Style**: Trustworthy, data-driven, enterprise-ready light mode
 
 **3. Creative Bold (Google/Airbnb Style)**
-- **Colors**: Bright primaries, gradients, bold combinations
+- **Colors**: Pure white canvas (#FFFFFF), 3-color gradient accents (#0D9488 → #06B6D4 → #6EE7B7)
 - **Typography**: Product Sans or Montserrat (title 64-84pt)
 - **Layout**: Dynamic, asymmetric, playful spacing
 - **Transitions**: Zoom, Reveal (duration: 0.5s)
-- **Style**: Energetic, innovative, design-forward
+- **Style**: Energetic, innovative, design-forward light mode
 
 **4. Financial Elite (Goldman Sachs/McKinsey Style)**
-- **Colors**: Charcoal (#2C3E50), gold accent (#D4AF37), white
+- **Colors**: Pure white background (#FFFFFF), deep charcoal (#1E293B), 3-color bronze/amber gradient (#9A3412 → #F59E0B → #FDE68A)
 - **Typography**: Garamond or Georgia (serif, elegant)
 - **Layout**: Traditional hierarchy, centered, balanced
 - **Transitions**: Subtle Fade only (duration: 0.4s)
-- **Style**: Sophisticated, authoritative, premium
+- **Style**: Sophisticated, authoritative, premium light mode
 
 **5. Startup Pitch (Y Combinator/500 Startups Style)**
-- **Colors**: High contrast black/white with brand accent
+- **Colors**: Pure white canvas (#FFFFFF), bold slate typography (#0F172A), 3-color gradient metric highlights
 - **Typography**: Inter or Roboto (modern sans-serif)
 - **Layout**: Problem-solution focused, metric-heavy
 - **Transitions**: Quick Push (duration: 0.3s)
-- **Style**: Energetic, data-driven, founder-friendly
+- **Style**: Energetic, data-driven, founder-friendly light mode
 
 ## Workflow Process
 

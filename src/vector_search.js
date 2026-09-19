@@ -557,11 +557,36 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
   try {
     const cleanQ = query.replace(/[^a-zA-Z0-9_\-\s]/g, ' ').trim();
     if (cleanQ) {
-      const tokens = cleanQ.split(/\s+/).filter(Boolean).map(t => `"${t}"*`);
-      if (tokens.length) {
-        const ftsQuery = tokens.join(" OR ");
+      const STOP_WORDS = new Set([
+        'dan', 'atau', 'yang', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'adalah', 'ini', 'itu',
+        'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were'
+      ]);
+      const MULTILINGUAL_SYNONYMS = {
+        'arsitektur': ['architecture', 'architect'],
+        'keamanan': ['security', 'audit'],
+        'keputusan': ['decision'],
+        'antarmuka': ['frontend', 'ui', 'jonin-skill'],
+        'styling': ['styling', 'tailwind', 'jonin-skill'],
+        'perbaikan': ['bug', 'fix'],
+        'pemetaan': ['mapping'],
+        'berkas': ['file'],
+        'panduan': ['guide']
+      };
+
+      const rawTokens = cleanQ.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+      const tokenSet = new Set();
+      for (const t of rawTokens) {
+        if (STOP_WORDS.has(t) || t.length <= 1) continue;
+        tokenSet.add(t);
+        if (MULTILINGUAL_SYNONYMS[t]) {
+          for (const syn of MULTILINGUAL_SYNONYMS[t]) tokenSet.add(syn);
+        }
+      }
+
+      if (tokenSet.size > 0) {
+        const ftsQuery = Array.from(tokenSet).map(t => `"${t}"*`).join(" OR ");
         const ftsSql = `
-          SELECT name, bm25(skills_fts) as rank
+          SELECT name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
           FROM skills_fts
           WHERE skills_fts MATCH ?
           ORDER BY rank ASC

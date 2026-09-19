@@ -469,6 +469,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Opening new terminal tabs or running `konoha ui start` when already running shows `warn` warnings or leaves orphaned daemon processes in `ps aux`.
   - **Reason**: `cmdUiStart` logged active instances as warnings instead of informational status, and dead PID files were not cleaned up if processes exited abruptly.
   - **Fix**: Resolved in `v2.0.0-beta.7` by reporting active servers cleanly via `info()`, pruning dead PID files, adding single-instance daemon process deduplication before spawn, handling `SIGHUP` in `cmdUiDaemon`, and ensuring `cmdUiStop` unconditionally cleans all orphaned daemons via `pkill -f "cli.js ui daemon"`.
+* **SDLC Task Delivery Deadlock in Long-Running Persistent Sessions (`v2.0.0-beta.7`)**:
+  - **Symptom**: Sannin routes a task, execution succeeds, but the Kage delivery review gate returns `status: "blocked"` with `Kage review did not approve all completed tasks` even though all current tasks passed validation.
+  - **Reason**: The SDLC task completion check in `workflowReviewApproved` queried `listTasks({ sessionId })` across the entire session table. In persistent clients (Antigravity CLI/IDE with a long-lived conversation ID), leftover or unverified tasks from earlier prompts in that same session falsely blocked the active workflow from completing.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by strictly scoping Kage's SDLC delivery gate to the root task container (checking for non-failure/non-blocked status while excluding it from self-deadlock) and the subtasks belonging specifically to the active workflow (`status.tasks`).
+* **Definition-of-Readiness (DoR) Gate Blocks Dispatch**:
+  - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
+  - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.
+  - **Fix**: Either provide more specific details in the prompt (e.g. mention the target file or feature), or switch the project to advisory mode via `konoha project set dor-mode advisory`.
 
 ---
 
@@ -588,17 +596,12 @@ The gateway does not rotate globally to another bridge after a rate limit. It fo
 
 ### External Antigravity Extension
 
-The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.4.0.vsix`, and installed via CLI across detected IDEs during `konoha init` and `konoha upgrade`:
+The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.5.0.vsix`, and installed ONLY into Antigravity IDE during `konoha init` and `konoha upgrade`:
 ```bash
-# Antigravity IDE CLI
-antigravity --install-extension konoha-bridge-1.4.0.vsix
-
-# Standard VS Code CLI
-code --install-extension konoha-bridge-1.4.0.vsix
-
-# Cursor IDE CLI
-cursor --install-extension konoha-bridge-1.4.0.vsix
+# Antigravity IDE CLI (exclusive install target)
+antigravity --install-extension konoha-bridge-1.5.0.vsix
 ```
+The VSIX is never installed into other IDEs (no `code --install-extension`, no `cursor --install-extension`). A fallback VSIX is bundled in `assets/konoha-bridge-1.5.0.vsix`.
 When Antigravity IDE is present, it is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
 
 1. Check the extension API on port `1313`: `curl -s http://localhost:1313/v1/models | jq .`

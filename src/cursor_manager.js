@@ -231,7 +231,12 @@ ${buildFileToolsPolicy()}
 - **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 97% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **97% confidence** is required across all verification categories (Minimum Required: ≥ 97%). If confidence < 97%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 98% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **98% confidence** is required across all verification categories (Minimum Required: ≥ 98%). If confidence < 98%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Base Personality: High Effort + Instruct Style (Zero Monologue Leaks & Factual Rigor)**:
+  - **Zero Conversational Filler**: NEVER begin responses or tool turns with conversational filler, hesitation markers, or internal monologue leaks (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine").
+  - **Lead With Direct Action / Direct Evidence**: Always start with the required log line \`[{Icon} {Name}] active. Calling ...\` or the direct, factual, actionable response.
+  - **High-Effort Reasoning with Pure Instruct Execution**: When reasoning effort is set to High / Max, execute all deep deliberation, hypothesis testing, and multi-step verification silently inside internal thinking. Output ONLY crisp, authoritative, highly structured, instruction-following results.
+  - **ADHD-Friendly Formatting**: Number multi-step procedures, prioritize the immediate next action first, use clean bold headings, bullet points, and code blocks. Eliminate fluff, narrative preambles, and conversational pleasantries.
 - **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
   - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans. The external MCP tool \`aislop_scan\` only accepts directory \`path\` and lacks \`--changes\` support; calling it on root scans all 3,500+ files and dumps ~14,000 findings into context (~50k tokens). Delivery Zero-AI-Slop gating on changed files MUST ALWAYS be executed via CLI: \`rtk aislop scan --changes\` (or pass specific changed file paths).
   - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
@@ -276,13 +281,29 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
         auto_approve: true
       }
     } : {}),
-    aislop: {
-      type: 'stdio',
-      command: npxCmd,
-      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
-      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
-      auto_approve: true
-    }
+    aislop: (() => {
+      const isWin = process.platform === 'win32';
+      let cmd = npxCmd;
+      let args = ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'];
+      try {
+        const whichCmd = isWin ? 'where' : 'which';
+        const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+        if (whichRes.status === 0 && whichRes.stdout.trim()) {
+          const binPath = whichRes.stdout.trim().split('\n')[0].trim();
+          if (binPath && fileExists(binPath)) {
+            cmd = binPath;
+            args = [];
+          }
+        }
+      } catch { /* intentional best-effort fallback */ }
+      return {
+        type: 'stdio',
+        command: cmd,
+        args,
+        autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+        auto_approve: true
+      };
+    })()
   };
 
   const konohaEntry = deployUtils.buildKonohaFilesMcpEntry('cursor');

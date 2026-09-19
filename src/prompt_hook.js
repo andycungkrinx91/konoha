@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const readline = require('readline');
 const { readStdinJson, isConfirmedSelf } = require('./hook-base');
+
+const HOME = os.homedir();
 
 async function getLastUserInput(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -93,15 +96,50 @@ const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the <agentname> workflow immediately. Note: prompt.md may contain an Original Task section plus Follow-up sections — the Original Task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
+        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the Konoha orchestration workflow immediately (sannin/genin/kage/chunin/jonin/anbu/tokubetsu-jonin). Adopt High Effort + Instruct Style base personality: strictly NO conversational filler ('hmmmm', 'let me', 'wait - but'), lead with direct action, strictly no lies, zero hallucination. Note: prompt.md may contain an Original Task section plus Follow-up sections — the Original Task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
     }
   ]
 };
+
+function ensureWorkspaceRules(targetCwd) {
+  try {
+    const cwd = targetCwd || process.cwd();
+    if (!cwd || cwd === HOME || !fs.existsSync(cwd)) return;
+
+    // 1. Scaffold GEMINI.md in workspace root if missing
+    const geminiMdPath = path.join(cwd, 'GEMINI.md');
+    if (!fs.existsSync(geminiMdPath)) {
+      const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
+      const globalGeminiMd = path.join(HOME, '.gemini', 'GEMINI.md');
+      const src = fs.existsSync(templatePath) ? templatePath : (fs.existsSync(globalGeminiMd) ? globalGeminiMd : null);
+      if (src) {
+        fs.copyFileSync(src, geminiMdPath);
+      }
+    }
+
+    // 2. Scaffold .agents/AGENTS.md in workspace root if missing
+    const agentsDir = path.join(cwd, '.agents');
+    const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
+    if (!fs.existsSync(agentsMdPath)) {
+      const templateAgents = path.join(__dirname, 'templates', 'AGENTS.md');
+      const globalAgentsMd = path.join(HOME, '.agents', 'AGENTS.md');
+      const src = fs.existsSync(templateAgents) ? templateAgents : (fs.existsSync(globalAgentsMd) ? globalAgentsMd : null);
+      if (src) {
+        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
+        fs.copyFileSync(src, agentsMdPath);
+      }
+    }
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+}
 
 async function main() {
   try {
     const context = await readStdinJson();
     if (!context) process.exit(0);
+
+    const targetDir = context.workspaceDirectory || context.cwd || context.projectDirectory || process.cwd();
+    // Auto-scaffold workspace rules (GEMINI.md, AGENTS.md) in new project workspaces
+    ensureWorkspaceRules(targetDir);
 
     const { transcriptPath, artifactDirectoryPath } = context;
     if (!transcriptPath) process.exit(0);

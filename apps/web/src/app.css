@@ -1,55 +1,62 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #7c3aed;
-  --color-accent: #6366f1;
-  --color-primary-glow: rgba(124, 58, 237, 0.12);
-  --color-bg: #f8fafc;
+  --color-primary: #0284c7;
+  --color-accent: #06b6d4;
+  --color-primary-glow: rgba(2, 132, 199, 0.12);
+  --color-bg: #f0f9ff;
   --color-surface: #ffffff;
   --color-surface-hover: #f1f5f9;
-  --color-border: #e2e8f0;
+  --color-border: #bae6fd;
   --color-text: #0f172a;
   --color-text-muted: #334155;
   --color-card-bg: #ffffff;
-  --color-card-border: #e2e8f0;
-  --glass-blur: 20px;
-  --glass-saturate: 160%;
+  --color-card-border: #bae6fd;
+  --theme-grad-1: #0284c7;
+  --theme-grad-2: #06b6d4;
+  --theme-grad-3: #38bdf8;
+  --theme-grad-4: #818cf8;
+  --theme-4gradient: linear-gradient(135deg, #0284c7 0%, #06b6d4 33%, #38bdf8 66%, #818cf8 100%);
+  --theme-4gradient-bar: linear-gradient(90deg, #0284c7, #06b6d4, #38bdf8, #818cf8);
+  --theme-4gradient-subtle: linear-gradient(135deg, rgba(2, 132, 199, 0.14) 0%, rgba(6, 182, 212, 0.14) 33%, rgba(56, 189, 248, 0.14) 66%, rgba(129, 140, 248, 0.14) 100%);
+  --glass-blur: 28px;
+  --glass-saturate: 195%;
   --glass-card: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.86) 0%,
-    rgba(255, 255, 255, 0.62) 55%,
-    rgba(255, 255, 255, 0.74) 100%
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.68) 50%,
+    rgba(255, 255, 255, 0.85) 100%
   );
   --glass-header: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.82) 0%,
-    rgba(255, 255, 255, 0.65) 100%
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(255, 255, 255, 0.74) 100%
   );
   --glass-sidebar: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(255, 255, 255, 0.72) 100%
+    rgba(255, 255, 255, 0.93) 0%,
+    rgba(255, 255, 255, 0.80) 100%
   );
   --glass-dock: linear-gradient(
     0deg,
-    rgba(255, 255, 255, 0.9) 0%,
-    rgba(255, 255, 255, 0.7) 100%
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.82) 100%
   );
   --glass-tint: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-primary) 7%, transparent) 0%,
+    color-mix(in srgb, var(--color-primary) 8%, transparent) 0%,
     transparent 45%,
-    color-mix(in srgb, var(--color-accent) 6%, transparent) 100%
+    color-mix(in srgb, var(--color-accent) 8%, transparent) 100%
   );
-  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.35);
-  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  --glass-edge: inset 0 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  --glass-highlight: inset 0 1px 2px rgba(255, 255, 255, 0.9);
   --shadow-3d:
-    0 10px 25px -5px rgba(15, 23, 42, 0.08),
-    0 8px 10px -6px rgba(15, 23, 42, 0.04),
+    0 12px 36px -4px rgba(15, 23, 42, 0.12),
+    0 8px 18px -4px rgba(15, 23, 42, 0.08),
     var(--glass-edge);
   --shadow-3d-hover:
-    0 24px 48px -12px rgba(15, 23, 42, 0.14),
-    0 12px 20px -8px rgba(15, 23, 42, 0.06),
+    0 28px 56px -10px rgba(15, 23, 42, 0.18),
+    0 14px 28px -6px rgba(15, 23, 42, 0.10),
     var(--glass-edge);
   --shadow-glass-inset: var(--glass-highlight);
 }
@@ -75,9 +82,21 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Universal Card Invariant: 5px Border Radius Across ALL Cards */
+.glass-card-3d,
+.theme-card,
+.card,
+[class*="card"],
+.widget-card,
+.metric-card,
+.modal-card {
+  border-radius: 5px !important;
+}
+
 /* 3D Glass & Animation Utilities with Hardware Acceleration to eliminate Chrome lag */
 .glass-card-3d {
   position: relative;
+  border-radius: 5px !important;
   background: var(--glass-tint), var(--glass-card);
   border: 1px solid var(--color-border, #e2e8f0);
   box-shadow: var(--shadow-3d);
@@ -92,7 +111,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 5px !important;
   background: linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.55) 0%,

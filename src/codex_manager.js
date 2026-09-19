@@ -1,14 +1,4 @@
 // aislop-ignore-next-line ai-slop/narrative-comment (genuine multi-line documentation preamble)
-/**
- * src/codex_manager.js — Codex IDE/CLI integration module.
- *
- * Handles auto-injection of Konoha MCP servers and runtime contracts into Codex.
- *
- * Codex config location: ~/.codex/config.toml
- * Codex instructions location: ~/.codex/AGENTS.md
- * Codex rules location: ~/.codex/rules/rtk.md
- * Config format: TOML with [mcp_servers.<name>] tables
- */
 
 const fs = require('fs');
 const path = require('path');

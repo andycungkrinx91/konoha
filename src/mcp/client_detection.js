@@ -82,13 +82,17 @@ function detectActiveClient() {
     }
 
     if (process.env.CODEX_SESSION || process.env.CODEX_THREAD_ID || process.env.CODEX_CI) return 'codex';
-    if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1') return 'opencode';
-    if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1') return 'commandcode';
-    if (process.env.CLAUDE_CODE_CHILD_SESSION === '1') return 'claudecode';
+    if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1' || process.env.OPENCODE_SESSION_ID) return 'opencode';
+    if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1' || process.env.COMMANDCODE_SESSION_ID) return 'commandcode';
+    if (process.env.CLAUDE_CODE_CHILD_SESSION === '1' || process.env.CLAUDE_CONVERSATION_ID) return 'claudecode';
+    if (process.env.PI_CODING_AGENT || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
+    if (process.env.CURSOR_SESSION_ID) return 'cursor';
 
     // Check environment variable for Antigravity
     const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
     if (convId) {
+      if (process.env.CLAUDE_CODE_CHILD_SESSION === '1' || process.env.CLAUDE_CONVERSATION_ID) return 'claudecode';
+      if (process.env.PI_CODING_AGENT || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
       if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy')) return 'agy';
       const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
       if (fs.existsSync(cliDir) && fs.statSync(cliDir).isDirectory()) return 'agy';
@@ -358,16 +362,52 @@ function detectActiveAgent() {
 }
 
 
-function getActiveSessionId() {
-  const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-  if (convId) return convId;
+function getActiveSessionId(workspaceRoot = null, client = null) {
+  try {
+    const runtimeState = require('./runtime_state');
+    if (runtimeState.getActiveSessionId) {
+      const explicit = runtimeState.getActiveSessionId();
+      if (explicit) return explicit;
+    }
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  const curClient = client || getActiveClient() || detectActiveClient() || '';
+  let sessId = '';
+  if (curClient === 'agy' || curClient === 'antigravity') {
+    sessId = process.env.ANTIGRAVITY_CONVERSATION_ID || '';
+  } else if (curClient === 'claudecode') {
+    sessId = process.env.CLAUDE_CONVERSATION_ID || process.env.CLAUDE_CODE_SESSION_ID || '';
+  } else if (curClient === 'pi') {
+    sessId = process.env.PI_SESSION_ID || '';
+    if (!sessId && process.env.PI_SESSION_FILE) {
+      try {
+        const bn = path.basename(process.env.PI_SESSION_FILE, path.extname(process.env.PI_SESSION_FILE));
+        if (bn) sessId = bn;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
+  } else if (curClient === 'cursor') {
+    sessId = process.env.CURSOR_SESSION_ID || '';
+  } else if (curClient === 'opencode') {
+    sessId = process.env.OPENCODE_SESSION_ID || '';
+  } else if (curClient === 'commandcode') {
+    sessId = process.env.COMMANDCODE_SESSION_ID || '';
+  } else if (curClient === 'codex') {
+    sessId = process.env.CODEX_THREAD_ID || process.env.CODEX_SESSION || '';
+  } else {
+    sessId = process.env.SESSION_ID || process.env.KONOHA_SESSION_ID || '';
+  }
+  if (sessId) return sessId;
+
   let conn = null;
   try {
     conn = getDb();
+    const ws = workspaceRoot || getWorkspaceRoot() || 'unknown';
+    const cl = curClient || 'unknown';
     const row = conn.prepare(`
       SELECT session_id FROM active_sessions
       WHERE client = ? AND workspace_root = ?
-    `).get(getActiveClient() || 'unknown', getWorkspaceRoot() || 'unknown');
+      ORDER BY last_active_at DESC LIMIT 1
+    `).get(cl, ws);
     if (row && row.session_id) return row.session_id;
   } catch (_) { /* ignore */ } finally {
     if (conn) {
@@ -377,16 +417,20 @@ function getActiveSessionId() {
   return '';
 }
 
-function getKonohaTmpRoot() {
+function getKonohaTmpRoot(projectPath = null, sessionId = null) {
   let client = getActiveClient() || detectActiveClient() || 'unknown';
-  let sess = '';
-  try {
-    sess = getActiveSessionId();
-  } catch (_) { /* ignore */ }
+  const pPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const pHash = personaMemory.computeProjectHash(pPath) || 'global';
+  let sess = sessionId || '';
+  if (!sess) {
+    try {
+      sess = getActiveSessionId(pPath, client);
+    } catch (_) { /* ignore */ }
+  }
   if (!sess) sess = 'default';
 
   try {
-    const target = path.join(KONOHA_DIR, 'tmp', client, sess);
+    const target = path.join(KONOHA_DIR, 'tmp', client, pHash, sess);
     fs.mkdirSync(target, { recursive: true });
     const probe = path.join(target, '.write_probe');
     fs.writeFileSync(probe, 'ok');
@@ -394,7 +438,7 @@ function getKonohaTmpRoot() {
     return target;
   } catch (_) { /* ignore */ }
 
-  const fallback = path.join(os.tmpdir(), `konoha-${process.pid}-${process.env.KONOHA_TS || 'x'}`);
+  const fallback = path.join(os.tmpdir(), `konoha-${client}-${pHash}-${sess}`);
   try {
     fs.mkdirSync(fallback, { recursive: true });
     return fallback;
@@ -408,20 +452,12 @@ const SESSION_TURNS = new Map();
 const SESSION_TURN_LAST_ACCESS = new Map();
 const SESSION_IDLE_RESET_SECONDS = 30 * 60;
 
-function getSessionKey(projectPath = null) {
-  const convId = (
-    process.env.ANTIGRAVITY_CONVERSATION_ID ||
-    process.env.CLAUDE_CONVERSATION_ID ||
-    process.env.OPENCODE_SESSION_ID ||
-    process.env.COMMANDCODE_SESSION_ID ||
-    process.env.CURSOR_SESSION_ID ||
-    process.env.SESSION_ID ||
-    ''
-  );
+function getSessionKey(projectPath = null, sessionId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   const pHash = personaMemory.computeProjectHash(pPath);
-  const client = getActiveClient() || 'universal';
-  if (convId) return `${client}:${convId}:${pHash}`;
+  const client = getActiveClient() || detectActiveClient() || 'universal';
+  const sess = sessionId || getActiveSessionId(pPath, client) || '';
+  if (sess) return `${client}:${sess}:${pHash}`;
   return `${client}:${pHash}`;
 }
 

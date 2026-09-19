@@ -135,6 +135,44 @@ async function run() {
     assert.ok(cleanSlopOut.includes('Anti-Slop Audit for Task: task_sdlc_crud_1'));
     console.log('✓ CLI konoha task slop passed');
 
+    // 10. Unit: deleteTask
+    const deleted1 = sdlc.deleteTask('task_sdlc_crud_1', testDbPath);
+    assert.strictEqual(deleted1, true, 'deleteTask must return true when task existed');
+    const fetchedDeleted = sdlc.getTask('task_sdlc_crud_1', testDbPath);
+    assert.strictEqual(fetchedDeleted, null, 'Deleted task must not be retrievable');
+    const deleteNonExistent = sdlc.deleteTask('non_existent_task_xyz', testDbPath);
+    assert.strictEqual(deleteNonExistent, false, 'deleteTask must return false for non-existent task');
+    console.log('✓ deleteTask unit test passed');
+
+    // 11. Unit: deleteTasks with filters & clearTasks
+    sdlc.createTask({ id: 'task_del_filter_1', description: 'Filter test 1', status: 'draft' }, testDbPath);
+    sdlc.createTask({ id: 'task_del_filter_2', description: 'Filter test 2', status: 'draft' }, testDbPath);
+    sdlc.createTask({ id: 'task_del_filter_3', description: 'Filter test 3', status: 'completed' }, testDbPath);
+
+    const filterResult = sdlc.deleteTasks({ status: 'draft' }, testDbPath);
+    assert.strictEqual(filterResult.deleted, 2, 'deleteTasks by status must delete 2 matching tasks');
+
+    const clearResult = sdlc.clearTasks(testDbPath);
+    assert.ok(clearResult.deleted >= 1, 'clearTasks must delete remaining tasks');
+    const remainingTasks = sdlc.listTasks({}, testDbPath);
+    assert.strictEqual(remainingTasks.length, 0, 'All tasks must be cleared');
+    console.log('✓ deleteTasks and clearTasks unit tests passed');
+
+    // 12. CLI: konoha task delete <id>
+    sdlc.createTask({ id: 'task_cli_del_1', description: 'CLI delete test', status: 'draft' }, testDbPath);
+    const cliDelOut = execSync('node bin/cli.js task delete task_cli_del_1', { encoding: 'utf8' });
+    assert.ok(cliDelOut.includes("deleted successfully"), 'CLI task delete output must confirm deletion');
+    assert.strictEqual(sdlc.getTask('task_cli_del_1', testDbPath), null, 'CLI deleted task must not exist');
+    console.log('✓ CLI konoha task delete passed');
+
+    // 13. CLI: konoha task clear
+    sdlc.createTask({ id: 'task_cli_clear_1', description: 'CLI clear test 1' }, testDbPath);
+    sdlc.createTask({ id: 'task_cli_clear_2', description: 'CLI clear test 2' }, testDbPath);
+    const cliClearOut = execSync('node bin/cli.js task clear', { encoding: 'utf8' });
+    assert.ok(cliClearOut.includes('Cleared'), 'CLI task clear output must report cleared tasks');
+    assert.strictEqual(sdlc.listTasks({}, testDbPath).length, 0, 'CLI clear must leave task list empty');
+    console.log('✓ CLI konoha task clear passed');
+
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

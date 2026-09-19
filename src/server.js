@@ -24,6 +24,7 @@ const {
   setWorkspaceRoot,
   getActiveClient,
   setActiveClient,
+  setActiveSessionId,
   isPathVisible,
   konohaTmp,
   uriToPath,
@@ -96,10 +97,13 @@ const {
   runWebSearch,
 } = require('./mcp/web_search');
 
-// 6b. Website AI Detector
+// 6b. Website AI Detector & Docs AI Detector
 const {
   runWebsiteAiDetector,
 } = require('./mcp/ai_detector');
+const {
+  runDocsAiDetector,
+} = require('./mcp/docs_ai_detector');
 
 // 7. Memory & Reporting
 const {
@@ -155,6 +159,10 @@ if (require.main === module) {
       }
       process.exit(0);
     }
+    try {
+      const { ensureUiDaemonAutoStart } = require('../bin/cli');
+      ensureUiDaemonAutoStart({ silent: true }).catch(() => {});
+    } catch (_) { /* intentional best-effort fallback: UI auto-start must never block MCP server initialization */ }
     await main();
   })();
 }
@@ -194,9 +202,6 @@ module.exports = {
   buildFromText,
   detectActiveClient,
   detectActiveAgent,
-  getActiveSessionId,
-  getKonohaTmpRoot,
-  getResolvedTaskDir,
   getMainModel,
   applyFileEdits,
   readFileSafe,
@@ -249,6 +254,8 @@ module.exports = {
   run_web_search: runWebSearch,
   run_website_ai_detector: runWebsiteAiDetector,
   website_ai_detector: runWebsiteAiDetector,
+  run_docs_ai_detector: runDocsAiDetector,
+  docs_ai_detector: runDocsAiDetector,
   assess_validation_evidence: assessValidationEvidence,
   find_skill: findSkill,
   list_skills: listSkills,
@@ -256,6 +263,13 @@ module.exports = {
   build_from_source: buildFromSource,
   build_from_text: buildFromText,
   get_resolved_task_dir: getResolvedTaskDir,
+  getResolvedTaskDir,
+  getKonohaTmpRoot,
+  get_konoha_tmp_root: getKonohaTmpRoot,
+  getActiveSessionId,
+  get_active_session_id: getActiveSessionId,
+  setActiveSessionId,
+  set_active_session_id: setActiveSessionId,
   getWorkspaceRoot,
   setWorkspaceRoot,
   getActiveClient,

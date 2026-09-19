@@ -82,22 +82,30 @@ function detectWorkspaceRoot() {
     }
   }
 
-  const HOME = os.homedir();
-  const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+  let curClient = '';
+  try {
+    const runtimeState = require('./mcp/runtime_state');
+    curClient = runtimeState.getActiveClient() || '';
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
-  const cliCache = path.join(HOME, '.gemini', 'antigravity-cli', 'cache');
-  const ideCache = path.join(HOME, '.gemini', 'antigravity-ide', 'cache');
-  for (const cacheDir of [cliCache, ideCache]) {
-    const lastConvFile = path.join(cacheDir, 'last_conversations.json');
-    if (convId && fs.existsSync(lastConvFile)) {
-      try {
-        const mapping = JSON.parse(fs.readFileSync(lastConvFile, 'utf8'));
-        for (const [p, id] of Object.entries(mapping)) {
-          if (id === convId && fs.existsSync(p) && !isIdeInstallationDirectory(p)) {
-            return p;
+  if (curClient === 'agy' || curClient === 'antigravity') {
+    const HOME = os.homedir();
+    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
+
+    const cliCache = path.join(HOME, '.gemini', 'antigravity-cli', 'cache');
+    const ideCache = path.join(HOME, '.gemini', 'antigravity-ide', 'cache');
+    for (const cacheDir of [cliCache, ideCache]) {
+      const lastConvFile = path.join(cacheDir, 'last_conversations.json');
+      if (convId && fs.existsSync(lastConvFile)) {
+        try {
+          const mapping = JSON.parse(fs.readFileSync(lastConvFile, 'utf8'));
+          for (const [p, id] of Object.entries(mapping)) {
+            if (id === convId && fs.existsSync(p) && !isIdeInstallationDirectory(p)) {
+              return p;
+            }
           }
-        }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      }
     }
   }
 
@@ -110,6 +118,10 @@ function setWorkspaceRoot(root) {
     return;
   }
   workspaceRoot = root ? platform.stripWinExtendedPrefix(root) : null;
+  try {
+    const runtimeState = require('./mcp/runtime_state');
+    runtimeState.setWorkspaceRoot(workspaceRoot);
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 function getWorkspaceRoot() {
@@ -388,7 +400,8 @@ const TOOL_HANDLERS = {
   check_readiness: (args) => runNodeSkillTool('check_readiness', args),
   get_task_evidence: (args) => runNodeSkillTool('get_task_evidence', args),
   get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
-  website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args)
+  website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args),
+  docs_ai_detector: (args) => runNodeSkillTool('docs_ai_detector', args)
 };
 
 function validateSchemaValue(value, schema, key) {

@@ -218,6 +218,8 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
           if (personaMemory.memoryContentExists({ content, agentName: cleanAgent, projectPath: pPath, dbPath: db.DB_PATH })) {
             continue;
           }
+          const cd = require('./client_detection');
+          const sessId = cd.getActiveSessionId(pPath);
           const mid = personaMemory.saveMemory({
             agentName: cleanAgent,
             content,
@@ -225,6 +227,7 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
             memoryType: 'episodic',
             importance: 2,
             projectPath: pPath,
+            sessionId: sessId,
             dbPath: db.DB_PATH
           });
           savedIds.push(mid);
@@ -251,6 +254,9 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
 
   try {
     const sdlcManager = require('../sdlc_manager');
+    const cd = require('./client_detection');
+    const actClient = cd.getActiveClient() || cd.detectActiveClient() || '';
+    const sessId = cd.getActiveSessionId(pPath);
     const evidenceData = {
       verified,
       verification_reason: verificationReason,
@@ -260,7 +266,10 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
       summary,
       files_created: filesCreated || [],
       files_modified: filesModified || [],
-      recorded_at: new Date().toISOString()
+      recorded_at: new Date().toISOString(),
+      project_path: pPath,
+      session_id: sessId,
+      client: actClient
     };
     sdlcManager.recordEvidence(effTaskId, evidenceData);
     result.task_id = effTaskId;
@@ -282,14 +291,16 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   return res;
 }
 
-function getProjectContext(projectPath = null) {
+function getProjectContext(projectPath = null, sessionId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const cd = require('./client_detection');
+  const sess = sessionId || cd.getActiveSessionId(pPath);
   let profile = personaMemory.getProjectProfile(pPath);
   if (!profile) {
     const pHash = personaMemory.saveOrUpdateProject(pPath);
     profile = personaMemory.getProjectProfile(pHash);
   }
-  const mems = personaMemory.listMemories({ projectPath: pPath, limit: 5 });
+  const mems = personaMemory.listMemories({ projectPath: pPath, sessionId: sess, limit: 5 });
   const boundedMems = (mems || []).map(m => ({
     id: m.id,
     agent_name: m.agent_name,
@@ -307,29 +318,36 @@ function getProjectContext(projectPath = null) {
   return JSON.stringify({
     status: 'ok',
     project_path: pPath,
+    session_id: sess,
     profile: safeProfile,
     memories: boundedMems
   });
 }
 
-function saveProjectContext(projectPath = null, contextSummary = '', techStack = null) {
+function saveProjectContext(projectPath = null, contextSummary = '', techStack = null, sessionId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const cd = require('./client_detection');
+  const sess = sessionId || cd.getActiveSessionId(pPath);
   const pHash = personaMemory.saveOrUpdateProject(pPath, contextSummary, techStack);
   return JSON.stringify({
     status: 'saved',
     project_hash: pHash,
-    project_path: pPath
+    project_path: pPath,
+    session_id: sess
   });
 }
 
-function queryProjectMemory(query = '', projectPath = null, agentName = null, memoryType = null, limit = 5) {
+function queryProjectMemory(query = '', projectPath = null, agentName = null, memoryType = null, limit = 5, sessionId = null) {
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const cd = require('./client_detection');
+  const sess = sessionId || cd.getActiveSessionId(pPath);
   const effLimit = Math.min(Math.max(parseInt(limit, 10) || 5, 1), 10);
   const mems = personaMemory.queryMemories({
     agentName,
     query,
     memoryType,
     projectPath: pPath,
+    sessionId: sess,
     limit: effLimit
   });
   const boundedMems = (mems || []).map(m => ({
@@ -343,12 +361,13 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
   return JSON.stringify({
     status: 'ok',
     project_path: pPath,
+    session_id: sess,
     count: boundedMems.length,
     memories: boundedMems
   });
 }
 
-function runMcpAgent(agentName, task = null, context = null, constraints = null, skills = null, tasteDials = null, projectPath = null, taskDir = null) {
+function runMcpAgent(agentName, task = null, context = null, constraints = null, skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null) {
   if (typeof task === 'object' && task !== null) {
     const opts = task;
     context = opts.context || null;
@@ -357,10 +376,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     tasteDials = opts.tasteDials || opts.taste_dials || null;
     projectPath = opts.projectPath || opts.project_path || projectPath;
     taskDir = opts.taskDir || opts.task_dir || taskDir;
+    sessionId = opts.sessionId || opts.session_id || sessionId;
     task = opts.task || null;
   }
   const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
-  const sessionKey = getSessionKey(resolvedProjPath);
+  const cd = require('./client_detection');
+  const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath);
+  const sessionKey = getSessionKey(resolvedProjPath, resolvedSessionId);
   const turn = getAndIncrementSessionTurn(sessionKey);
   const isAutoCompact = (turn >= 2);
 
@@ -394,7 +416,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       instructions += `\n\n### Execution Constraints:\n${constraints.trim()}`;
     }
   } else {
-    const resolvedTaskDir = getResolvedTaskDir(taskDir);
+    const resolvedTaskDir = getResolvedTaskDir(taskDir, resolvedProjPath, resolvedSessionId);
     const delegatePath = path.join(resolvedTaskDir, 'delegate.md');
     if (!fs.existsSync(delegatePath)) {
       return JSON.stringify({ status: 'error', message: `Neither direct task instructions nor delegate.md found in task directory: ${resolvedTaskDir}` });
@@ -544,6 +566,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       agentName: dbAgentName,
       query: instructions,
       projectPath: resolvedProjPath,
+      sessionId: resolvedSessionId,
       limit: isAutoCompact ? 2 : 3
     });
     projectContextBlock = personaMemory.formatProjectContextForPrompt(
@@ -654,7 +677,18 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
 
   // P4: payload ceiling — persona/context capped above (never MCP block,
   // skills, or TASK INSTRUCTIONS). Total stays bounded by construction.
+  const basePersonalityBlock = (
+    '## Base Personality: High Effort + Instruct Style\n\n' +
+    '- Strictly NO conversational filler or hesitation markers (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine", "let me", "hmm", "hmmm").\n' +
+    '- Lead with direct action and direct evidence. Start immediately with the action taken or the factual result.\n' +
+    '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code blocks. No fluff or pleasantries.\n' +
+    '- Zero hallucination and strictly NO lies: never pretend a test ran or passed without verified output evidence.\n' +
+    '- Minimum 98% confidence gate: mechanically verified against real execution exit codes and 0 slop findings.\n' +
+    '- FIRST ACTION on any new task: call konoha.find_skill with keywords from the user prompt BEFORE any code changes.\n\n'
+  );
+
   const taskTail = (
+    `${basePersonalityBlock}` +
     `## TASK INSTRUCTIONS\n\n${instructions}\n\n` +
     `You must now act as ${dbAgentName} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n` +
     '## Execution Protocol\n\n' +
@@ -665,15 +699,17 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   );
   const instruction = `${systemPrompt}\n\n` + taskTail;
 
+  const effTaskDir = taskDir || getResolvedTaskDir(taskDir, resolvedProjPath, resolvedSessionId);
   const res = JSON.stringify({
     status: 'ready',
     phase: 'execution',
     agent: dbAgentName,
     project_path: resolvedProjPath,
-    task_dir: taskDir,
+    session_id: resolvedSessionId,
+    task_dir: effTaskDir,
     instructions: instruction
   });
-  logToolCall(agentName, `project_path=${resolvedProjPath} task_dir=${taskDir}`, res, dbAgentName);
+  logToolCall(agentName, `project_path=${resolvedProjPath} session_id=${resolvedSessionId} task_dir=${effTaskDir}`, res, dbAgentName);
   return res;
 }
 

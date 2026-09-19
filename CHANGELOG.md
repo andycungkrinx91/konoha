@@ -2,7 +2,81 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [v2.0.0-beta.7] - 2026-09-12
+## [v2.0.0-beta.7] - 2026-09-19
+
+### Added & Enhanced: Web UI Experience, Theming & Quality Governance (2026-09-19)
+
+- **Collapsible Submenu Accordion**: Sidebar navigation sections (`Overview`, `Clients & Finance`, `Tools & Integrations`, `Configuration`, `Operations`, `Resources`) now feature interactive collapsible accordions that reveal sub-menus on click with smooth transitions and animated chevron indicators.
+- **Collapsible Sidebar (Open/Close Toggle)**: Added desktop sidebar collapse/expand toggle button in both sidebar brand header and top main header, allowing the central content stage to expand to 100% full width for maximum workspace area.
+- **Default Theme: Chidori Azure**: Configured `chidori` (Chidori Azure Light) as the default theme across all environments, featuring sky-blue and cyan precision.
+- **Vibrant 4-Gradient Theme System**: Every theme in the 10-theme light mode palette now defines a calibrated 4-color gradient array (`--theme-grad-1` through `4`, `--theme-4gradient`, `--theme-4gradient-bar`, `--theme-4gradient-subtle`), accompanied by visual 4-swatch previews in `ThemeSwitcher.svelte` and a top accent bar.
+- **Akatsuki Dusk Plum Palette**: Redesigned `akatsuki` from crimson red to a distinctive Dusk Plum and Fuchsia palette (`#86198f`, `#c026d3`, 4-stop gradient `['#581c87', '#701a75', '#86198f', '#c026d3']`, `#fdf4ff`), completely eliminating duplicate hues with Sharingan Rose Light (`#dc2626`).
+- **Crisp 5px Card Border-Radius Invariant**: Standardized card border-radius to exactly `5px` (`border-radius: 5px !important`) across ALL cards (`.glass-card-3d`, `.theme-card`, `.card`, `[class*="card"]`, modals, and metric tiles).
+- **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows.
+- **Self-Healing ESM Package Boundaries**: Explicitly typed root `package.json` as `"commonjs"` and deployed isolated `package.json` with `{"type": "module"}` in `apps/web/build/` and runtime copies, permanently eliminating `[MODULE_TYPELESS_PACKAGE_JSON]` warnings without performance overhead.
+- **AI Slop Scanner Zero-Exclusions Policy**: Enforced strict zero-exclusions invariant for application source code, components, and docs. Restricted exclusions strictly to third-party dependency modules (`node_modules`, `vendor`, `.venv`, `venv`, `site-packages`, `Pods`, `target`, `.gradle`, `.pub-cache`, `.cargo`, `.nuget`). Bypassed config prerequisites so all projects are unconditionally force-scanned.
+- **Multi-Version Node Compatibility & NVM/pnpm Fallback for Skill Installation**: Added automated Node version discovery (`resolveCompatibleNode`, `resolveCompatibleNodeEnv`) in `src/deploy_utils.js` and `src/skill_manager.js`. If the active shell or terminal runs older Node versions (e.g. Node v16 via `nvm`), child processes spawned for skill installation (`pnpm dlx skills add ...`), UI daemon startup, and database migration automatically discover an installed compatible Node >= 18.12.0 binary (from `~/.nvm/versions/node/`, `fnm`, `asdf`, `volta`, or system paths) and prepend its `bin` directory to `PATH`. Added seamless fallback to `npx -y skills add ...` if `pnpm` fails.
+- **QA & Autonomous E2E Staging Configuration**: Added `qa.config.yaml` and `src/templates/qa.config.yaml` supporting multi-device matrix staging configurations and release quality gates.
+- **SDLC Task Deletion & Anti-Hallucination Purge**: Added complete task deletion and clearing functionality across backend (`sdlcManager.deleteTask`, `sdlcManager.deleteTasks`, `sdlcManager.clearTasks`), HTTP API (`DELETE /api/v1/sdlc/tasks/:id` and bulk `DELETE /api/v1/sdlc/tasks?all=true`), CLI (`konoha task delete <id>` and `konoha task clear [--status <s>] [--project <p>]`), and Web UI (`Tasks.svelte`). Tasks can be individually deleted with SweetAlert confirmation or bulk-purged across sessions to prevent LLM agents and developers from hallucinating stale task contexts.
+
+### Fixed: 16-Bug Comprehensive Patch (2026-09-19)
+
+- **AI Slop Gate Circuit Breaker (Bug 1)**: Added `CircuitBreaker` instance to `runAislopGate()` in `src/mcp/workflow.js`. After 2 consecutive failures the gate degrades to advisory mode with 120-second recovery. Added `killSignal: 'SIGTERM'` and cross-platform binary detection (RTK first, then aislop via `which`/`where`).
+- **Stale Cache Invalidation (Bug 4)**: Aislop gate results now include `cached_at` timestamp. Before returning cached results, `getMaxMtime()` compares file modification timestamps against the cache timestamp and invalidates stale entries.
+- **Confidence Gate Constants (Bug 16)**: Extracted `MINIMUM_CONFIDENCE = 98` and `AISLOP_TARGET_SCORE = 100` as module-level constants for mechanical enforcement.
+- **Universal 7-Client Workflow Reminder (Bugs 2, 3, 6)**: Expanded `src/workflow_reminder.js` with client detection for all 7 supported clients (Antigravity, Cursor, OpenCode, Pi, Codex, Claude Code, CommandCode) and universal stdout output on every session start, resume, and compaction.
+- **Mandatory FIRST ACTION Directive (Bug 3)**: Added `FIRST ACTION: call konoha.find_skill BEFORE code changes` to workflow reminder, base personality block in `src/mcp/memory_reporting.js`, and runtime contract in `src/agent_contract.js`.
+- **ADHD + Base Personality Enforcement (Bugs 8, 9)**: Expanded forbidden filler phrase list to 10 explicit entries (`Hmmmm`, `Let me check`, `Let me see`, `Wait, let me`, `Wait - but`, `I will now proceed to`, `Let me examine`, `let me`, `hmm`, `hmmm`) across all agent prompts and contracts.
+- **Skill Install Full Indexing (Bug 5)**: Removed `--skip-embeddings` flag from post-install migration in `src/skill_manager.js`. Installed skills now get both FTS5 and vector search indexing.
+- **Skill Routing Aliases (Bug 11)**: Added 5 missing aliases to `normalizeLegacySkillName()` in `src/mcp/skills.js`: `agent-browser`, `devsecops-engineer`, `documentation`, `modern-full-stack`, `websearch-deep`.
+- **Cross-Client Skill Parity (Bug 10)**: Added `.codex` and `.opencode` mirror trees to `scripts/sync_skills.js` CLIENT_MIRRORS. All 7 clients now receive skill parity when their parent directories exist.
+- **SDLC Integration Gate & Review Isolation (Bug 12)**: Fixed `actClient` variable scoping error in Sannin routing payload. Isolated Kage review SDLC delivery gate to active workflow tasks and root container, preventing cross-workflow session deadlocks in long-running persistent client sessions. Synchronized subtask completion status in `sdlc_tasks` during review mode transitions. Verified across all 82 test suites at 100%.
+- **Docs AI Detector Recalibration (Bugs 7, 14)**: Excluded structural elements (headers, bullets, numbered lists, short labels) from burstiness calculation. Lowered burstiness threshold from 0.22 to 0.18, paragraph cadence CV from 0.30 to 0.25, raised buzzword density thresholds (4 to 8 for high, 2 to 5 for medium), reduced individual finding weights. Tightened transition trigger requirement from 2 to 3.
+- **Docs Detector Text Paste UI (Bug 13)**: Added `docInputMode` toggle (File Path / Paste Text) and textarea to `Detector.svelte`. Added `POST /api/v1/detect-docs/text` endpoint in `src/web_server.js` for text-mode scanning. Updated `Docs.svelte` API documentation.
+- **Standalone helm-chart-scaffolding Cleanup**: Removed duplicate standalone `helm-chart-scaffolding` from `.agents/skills/` and all client mirrors (already referenced inside `anbu-skill`).
+- **Clean Runtime Reinstallation & ~/.konoha Sanitization**: Added `cleanKonohaRuntimeDir()` in `src/deploy_utils.js` and wired into `bin/cli.js init --force --yes` (plus `reinstall` and standalone `clean` command). Automatically purges stale `.bak` files, legacy `skills.db*`, legacy root Python scripts, dead PIDs, dead caches, transient `tmp/` scratch files, and orphaned `.js` files while preserving user `konoha.db`, `transformers_cache`, and dependencies with database WAL truncation and vacuuming.
+- **Runtime Contract Hardening**: Added `Skill discovery vs file search` boundary, `IDE Directory Protection`, and `FIRST ACTION` mandate to `src/agent_contract.js`.
+- **AI Slop Scanner Zero-Exclusion & Mandatory Force-Scan**: Enforced zero-exclusions policy in `runAislopGate()` and `.aislopignore`. Configured strict module-only exclusion boundary (`node_modules/`, `vendor/` composer/go, `.venv/`, `venv/`, `*/site-packages/`, `Pods/`, `target/`), strictly forbidding exclusions of application source code, components, tests, configs, scripts, or docs. Removed `.aislop/config.yml` prerequisite to ensure every project is always force-scanned before synthesis.
+
+### Added & Hardened: High Effort + Instruct Style, 98% Confidence Gate, Zero-AI Docs & Bridge 1.5.0 (2026-09-18)
+- **Base Personality: High Effort + Instruct Style Across All Agents**:
+  - Injected an authoritative, action-first base personality across all 7 ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) and main orchestrators across all 7 supported clients.
+  - Strictly banned conversational filler phrases (`hmmmm`, `let me`, `wait - but`) and mandated ADHD-friendly output formatting, direct next-step action, zero hallucination, and strictly factual truth.
+- **Strict 98% Minimum Confidence Gate**:
+  - Elevated the Kage Reviewer delivery gate threshold from 97% to 98% (`confidence >= 98`) across all verification categories in `src/mcp/workflow.js`, `src/agent_contract.js`, `src/agent_manager.js`, `src/cursor_manager.js`, `src/pi_manager.js`, and `CLAUDE.md`.
+  - Replaced missing-confidence fallback from `100` to `0` (blocking), mathematically eliminating fabricated, unverified approvals.
+- **Zero-AI Human-Grade Document Generation Skills (Word, Excel, PPTX, PDF)**:
+  - Integrated enterprise document generation references and assets into `tokubetsu-jonin-skill`: `docx.md`, `xlsx.md`, `pptx.md`, and `pdf.md` alongside upstream script assets (`docx-assets`, `xlsx-assets`, `pptx-assets`, `pdf-assets`).
+  - Added `zero-ai-human-writing.md` enforcing 0% AI detection through dynamic sentence rhythm variation, domain-specific vocabulary, active voice, and metadata scrubbing.
+  - Re-indexed all references and rebuild vector embeddings in SQLite (`konoha.db`).
+- **Strict Zero Dark Theme & 3-Color Minimum Gradient Invariants for Documentation**:
+  - Enforced pure light mode invariant across all document formats: Microsoft Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), and PDF (`.pdf`). Strictly forbidden: dark covers, dark headers, dark footers, black fills.
+  - Mandated a smooth multi-stop gradient with a minimum of 3 colors (e.g. Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA` or Teal `#0D9488` → Cyan `#06B6D4` → Mint `#6EE7B7`) for decorative accents, cover ribbons, running headers/footers, and divider lines.
+  - Publication-grade PDF overhaul (`pdf.md`) implementing ReportLab two-pass `NumberedCanvas` (dynamic `Page X of Y`), WeasyPrint print CSS, light executive table tints (`#F1F5F9`), and automated metadata scrubbing.
+- **Premium Flow GIFs Re-rendered to 98% Confidence Gate**:
+  - Updated `scripts/generate_premium_flow_gifs.js` with the 98% confidence threshold across all three flow animations.
+  - Re-rendered `assets/konoha-orchestration-flow.gif`, `assets/konoha-jonin-flow.gif`, and `assets/konoha-kage-gate.gif`.
+- **Google Policy Security Compliance Report**:
+  - Published comprehensive compliance report: `docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-18.md` certifying 100% compliance across all architectural and security gates.
+- **Konoha Bridge 1.5.0 VSIX Upgrade**:
+  - Upgraded the local bridge extension binary to `assets/konoha-bridge-1.5.0.vsix` and installed it into Antigravity IDE and CLI.
+  - Updated CLI references in `bin/cli.js` and removed deprecated `1.4.0` artifacts.
+- **New Project Workspace Auto-Scaffolding**:
+  - Added automatic workspace rule scaffolding (`GEMINI.md`, `AGENTS.md`, and `.cursor/rules/konoha.mdc`) in `src/antigravity_subagent_hook.js`, `src/prompt_hook.js`, and `src/cursor_bootstrap.js` so new project workspaces immediately adopt the Konoha contract without hallucinations or workflow skipping.
+- **Vibes-Plug Skills Integration & Unified Routing**:
+  - Merged 119 curated skills from `https://github.com/roedyrustam/vibes-plug` across all 7 Konoha ninja agent skill trees (`anbu-skill`, `jonin-skill`, `kage-skill`, `chunin-skill`, `genin-skill`, `tokubetsu-jonin-skill`, `sannin-skill`).
+  - Added 190 canonical routing aliases to `src/mcp/skills.js` (`normalizeLegacySkillName`) so agents can query skills by short name or domain prefix with zero friction.
+  - Synchronized skills across all client mirror trees (`.cursor/skills/`, `.gemini/skills/`, `.commandcode/skills/`, `.claude/skills/`, and `src/templates/skills/`) and indexed 403 total skills/references into SQLite FTS5 and vector embeddings (`konoha.db`).
+- **Document AI Detector (Web UI & ZeroGPT 0%–3% Precision Defense)**:
+  - Added dual-tab Website AI & Document AI Detector interface in `apps/web/src/components/Detector.svelte` with full support for `.docx`, `.pdf`, `.pptx`, `.xlsx`, `.md`, and `.txt` files.
+  - Implemented sliding-window paragraph burstiness evaluation and ZeroGPT risk scoring (`ZEROGPT-01`) in `src/docs_ai_detector.js` to catch uniform sentence cadence and transition triggers, enforcing our 0%–3% ZeroGPT human-authenticity target.
+  - Extracted `<w:p>` paragraphs and parsed both `docProps/core.xml` and `docProps/app.xml` in `.docx` containers to detect unscrubbed library footprints (`python-docx`, `docx-js`).
+- **Multi-Session Sandbox & Knowledge Isolation (Per-Session Sandbox & Episodic Memory)**:
+  - Reverted knowledge scoping from per-project back to per-session (`session_id = ? OR (session_id = '' AND project_hash = '')`) across `src/persona_memory.js` and `src/sdlc_manager.js`, permanently preventing task memories and SDLC states from leaking across concurrent sessions.
+  - Hardened client environment detection in `src/file_tools_mcp.js` by delegating directly to `client_detection.detectActiveClient()` instead of scanning filesystem mtimes, ensuring Antigravity, Claude Code, and Pi maintain isolated client runtimes.
+  - Eliminated cross-client session hijacking in `src/mcp/client_detection.js` by strictly scoping `getActiveSessionId(workspaceRoot, client)` to the active client.
+  - Sandboxed task directories strictly under `~/.konoha/tmp/<client>/<project_hash>/<session_id>/scratch/tasks/<task_id>/`, preventing foreign task directories from conflicting when multiple clients run concurrently in different project folders.
+  - Added full test suite `tests/test_session_sandbox_isolation.js` verifying 8 isolation invariants.
 
 ### Fixed: Cross-Platform Doctor Diagnostics & Cursor Status Invariant (2026-09-14)
 - **Eliminated Inactive `Project .cursor/` in `konoha status`**: Removed the redundant project-scoped `.cursor/` row from `bin/cli.js` integration reporting. Since Konoha v2 configures Cursor globally via `~/.cursor/mcp.json` and SQLite FTS5 indexer, displaying an inactive project row in arbitrary working directories was confusing and non-actionable.
@@ -150,7 +224,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Comprehensive Test Coverage**: Added 5 dedicated SDLC test suites (`test_sdlc_dor.js`, `test_sdlc_tasks.js`, `test_sdlc_cross_provider.js`, `test_sdlc_remediation_loop.js`, `test_web_sdlc_api.js`), bringing the test suite count to 69 JS test suites passing at 100%.
 
 ### Changed: VSIX Antigravity-Only Scoping & Models Command Consolidation
-- **konoha-bridge VSIX installs ONLY into Antigravity IDE**: `autoInstallKonohaBridgeExtension` (`bin/cli.js`) no longer runs `code --install-extension` or `cursor --install-extension`. The `konoha-bridge-1.4.0.vsix` extension is exclusively an Antigravity IDE integration (CLI install + atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`); it is never installed into any other IDE.
+- **konoha-bridge VSIX installs ONLY into Antigravity IDE**: `autoInstallKonohaBridgeExtension` (`bin/cli.js`) no longer runs `code --install-extension` or `cursor --install-extension`. The `konoha-bridge-1.5.0.vsix` extension is exclusively an Antigravity IDE integration (CLI install + atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`); it is never installed into any other IDE.
 - **Removed the `konoha models` CLI command**: the top-level `models` command (`cmdModels`/`cmdModelsHelp` and its router case) has been removed entirely. Bridge-served models are now listed exclusively via `konoha bridge models`. Affected tests and snapshots were updated (`tests/test_cli_help_contract.js`, `tests/test_commandcode_and_argument_aliases.js`, `tests/snapshot_capture.js`, removed `cli_models_help.txt` snapshots).
 
 ### Added: Subagent Model Config — `konoha agent models config` + Web UI

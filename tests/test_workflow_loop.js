@@ -212,6 +212,7 @@ async function run() {
       rollback_reviewed: true,
       ai_slop_findings: 0,
       ai_slop_clean: true,
+      confidence: 100,
       findings: []
     }));
     writePlan(taskT11, '## Plan\n\nDo everything.\n');

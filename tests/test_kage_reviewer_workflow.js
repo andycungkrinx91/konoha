@@ -84,20 +84,20 @@ async function run() {
     assert.strictEqual(res3.status, 'blocked');
     assert.strictEqual(res3.phase, 'review');
 
-    // 3b. Verify 96% confidence is still blocked (threshold is strictly >= 97%)
+    // 3b. Verify 97% confidence is still blocked (threshold is strictly >= 98%)
     server.runMcpWorkflow(tmpDir);
-    reviewArtifact3.confidence = 96;
+    reviewArtifact3.confidence = 97;
     delete reviewArtifact3.categories;
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3), 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with 96% confidence.', 'utf8');
+    fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with 97% confidence.', 'utf8');
     const res3b = JSON.parse(server.runMcpWorkflow(tmpDir));
     assert.strictEqual(res3b.status, 'blocked');
     assert.strictEqual(res3b.phase, 'review');
 
-    // 3c. Verify category-level confidence < 97 is blocked
+    // 3c. Verify category-level confidence < 98 is blocked
     server.runMcpWorkflow(tmpDir);
-    reviewArtifact3.confidence = 98;
-    reviewArtifact3.categories = { 'Security Review': 95 };
+    reviewArtifact3.confidence = 99;
+    reviewArtifact3.categories = { 'Security Review': 97 };
     fs.writeFileSync(path.join(tmpDir, 'kage_review.json'), JSON.stringify(reviewArtifact3), 'utf8');
     fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Review completed with category failure.', 'utf8');
     const res3c = JSON.parse(server.runMcpWorkflow(tmpDir));
@@ -123,7 +123,7 @@ async function run() {
 
     const reviewArtifact4 = {
       approved: true,
-      confidence: 97,
+      confidence: 98,
       verified_task_ids: ['task-1'],
       security_reviewed: true,
       rollback_reviewed: true,
@@ -139,8 +139,8 @@ async function run() {
     assert.strictEqual(res4.phase, 'done');
     assert.ok(fs.existsSync(path.join(tmpDir, 'final_report.md')));
     const finalReportContent = fs.readFileSync(path.join(tmpDir, 'final_report.md'), 'utf8');
-    assert.ok(finalReportContent.includes('Minimum Required: ≥ 97%'), 'Report must specify Minimum Required: ≥ 97%');
-    assert.ok(finalReportContent.includes('Minimum 97% required to allow delivery'), 'Report must specify Minimum 97% required');
+    assert.ok(finalReportContent.includes('Minimum Required: ≥ 98%'), 'Report must specify Minimum Required: ≥ 98%');
+    assert.ok(finalReportContent.includes('Minimum 98% required to allow delivery'), 'Report must specify Minimum 98% required');
     assert.strictEqual(fs.existsSync(debugScript), false);
     console.log('✓ Kage review approval advances to synthesize passed');
 

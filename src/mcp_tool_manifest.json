@@ -284,6 +284,36 @@
       }
     },
     {
+      "name": "docs_ai_detector",
+      "description": "Scan a document (.docx, .pdf, .pptx, .xlsx, .md, .txt) for AI-generation fingerprints (watermarks, library metadata, dark theme violations, lowercase formulas, AI clichés, and burstiness rhythm) and return a 0-100 score with findings. 0-20 = HUMAN_WRITTEN (zero-AI human consistency target).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Document file path to scan"
+          },
+          "target": {
+            "type": "string",
+            "description": "Alias for file_path: document file path"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "file_path"
+            ]
+          },
+          {
+            "required": [
+              "target"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_resolved_task_dir",
       "description": "Resolve an isolated task directory.",
       "inputSchema": {

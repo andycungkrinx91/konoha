@@ -115,6 +115,33 @@ function initRtkHook(silent = true) {
 }
 
 
+function resolveAislopMcpConfig() {
+  const isWin = process.platform === 'win32';
+  try {
+    const whichCmd = isWin ? 'where' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+    if (whichRes.status === 0 && whichRes.stdout.trim()) {
+      const binPath = whichRes.stdout.trim().split('\n')[0].trim();
+      if (binPath && fileExists(binPath)) {
+        return {
+          type: 'stdio',
+          command: binPath,
+          args: [],
+          autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+          auto_approve: true
+        };
+      }
+    }
+  } catch { /* intentional best-effort fallback */ }
+  return {
+    type: 'stdio',
+    command: isWin ? 'npx.cmd' : 'npx',
+    args: ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'],
+    autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+    auto_approve: true
+  };
+}
+
 function buildStdioMcpServers(options = {}) {
   const {
     pythonCmd: _pythonCmd = 'python3',
@@ -143,13 +170,7 @@ function buildStdioMcpServers(options = {}) {
         auto_approve: true
       }
     } : {}),
-    aislop: {
-      type: 'stdio',
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
-      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
-      auto_approve: true
-    }
+    aislop: resolveAislopMcpConfig()
   };
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = deployUtils.buildKonohaFilesMcpEntry(client);
@@ -358,13 +379,8 @@ function registerClaudeCodePermissions(silent = true) {
       }
 
       if (config.mcpServers && typeof config.mcpServers === 'object') {
-        const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
         if (!config.mcpServers.aislop) {
-          config.mcpServers.aislop = {
-            type: 'stdio',
-            command: npxCmd,
-            args: ['-y', '-p', 'aislop', 'aislop-mcp']
-          };
+          config.mcpServers.aislop = resolveAislopMcpConfig();
           updated = true;
         }
       }

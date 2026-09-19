@@ -128,11 +128,18 @@ const ANTIGRAVITY_IDE = path.join(GEMINI, 'antigravity-ide');
 const DEFAULT_SKILLS_DIRS = [
   path.join(process.cwd(), '.agents', 'skills'), // local project .agents/skills
   path.join(process.cwd(), '.cursor', 'skills'), // local project .cursor/skills
+  path.join(process.cwd(), '.gemini', 'skills'), // local project .gemini/skills
+  path.join(process.cwd(), '.commandcode', 'skills'), // local project .commandcode/skills
+  path.join(process.cwd(), '.claude', 'skills'), // local project .claude/skills
   path.join(process.cwd(), 'skills'),          // local project skills/
   path.join(process.cwd(), '.skills'),         // local project .skills/
   path.join(process.cwd(), 'docs', 'skills'),   // local project docs/skills
   AGENTS_SKILLS,                        // ~/.agents/skills
   path.join(ANTIGRAVITY_CLI, 'skills'), // ~/.gemini/antigravity-cli/skills
+  path.join(HOME, '.cursor', 'skills'),
+  path.join(HOME, '.commandcode', 'skills'),
+  path.join(HOME, '.claude', 'skills'),
+  path.join(HOME, '.gemini', 'skills'),
 ];
 
 /** Antigravity agent deployment targets */

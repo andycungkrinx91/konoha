@@ -47,7 +47,7 @@ function orchestrationScene() {
     dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'delegate_to_jonin / anbu / kage' },
     agents: { x: 345, y: 418, w: 510, h: 74, accent: THEME.violet, title: '4. SPECIALIST NINJA AGENTS', detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu'] },
     report: { x: 60, y: 545, w: 170, h: 52, accent: THEME.emerald, title: '5. REPORT', detail: 'report_from_agent' },
-    kage: { x: 285, y: 535, w: 240, h: 62, accent: THEME.amber, title: '6. KAGE REVIEW GATE', detail: 'zero-AI-slop · ≥97% conf' },
+    kage: { x: 285, y: 535, w: 240, h: 62, accent: THEME.amber, title: '6. KAGE REVIEW GATE', detail: 'zero-AI-slop · ≥98% conf' },
     synth: { x: 580, y: 545, w: 170, h: 52, accent: THEME.violet, title: '7. SYNTHESIZE', detail: 'sannin final report' },
     resp: { x: 820, y: 545, w: 160, h: 52, accent: THEME.blue, title: 'RESPONSE', detail: 'to user' },
   };
@@ -149,7 +149,7 @@ function joninScene() {
     { title: 'SCAFFOLD & COMPOSE', detail: 'pnpm · 10 themes · hero carousel', accent: THEME.cyan },
     { title: 'HUMAN-BUILT FINGERPRINT', detail: 'Phosphor icons · custom assets · no generator tags', accent: THEME.emerald, note: 'PLAN_HUMAN_BUILT' },
     { title: 'ANTI-SLOP DELIVERY GATE', detail: 'aislop scan 100/100 · antislop rules', accent: THEME.amber },
-    { title: 'KAGE REVIEW', detail: '≥97% confidence · security · rollback', accent: THEME.amber },
+    { title: 'KAGE REVIEW', detail: '≥98% confidence · security · rollback', accent: THEME.amber },
     { title: 'PREMIUM WEBSITE', detail: 'delivered · zero AI fingerprints', accent: THEME.emerald },
   ];
   const nodes = defs.map((d, i) => ({ ...d, x: X, y: 96 + i * 78, w: NW, h: NH }));
@@ -210,13 +210,13 @@ function kageScene() {
     { title: 'STEP 1 · AISLOP SCAN', detail: 'changed files only · score 100 · 0 findings', accent: THEME.cyan },
     { title: 'STEP 2 · ANTI-SLOP RULES', detail: 'vendored antislop filters · 0 findings', accent: THEME.cyan },
     { title: 'VERIFICATION MATRIX', detail: 'tasks ✓ · security ✓ · rollback ✓', accent: THEME.violet },
-    { title: 'CONFIDENCE COMPUTATION', detail: 'every category ≥ 97%', accent: THEME.violet },
+    { title: 'CONFIDENCE COMPUTATION', detail: 'every category ≥ 98%', accent: THEME.violet },
   ].map((d, i) => ({ ...d, x: 60, y: 96 + i * 82, w: 520, h: 64 }));
 
   const BARS = [
     { label: 'TASKS VERIFIED', val: 100, accent: THEME.violet },
     { label: 'SECURITY REVIEW', val: 100, accent: THEME.cyan },
-    { label: 'ROLLBACK PLAN', val: 97, accent: THEME.amber },
+    { label: 'ROLLBACK PLAN', val: 98, accent: THEME.amber },
     { label: 'AI-SLOP CLEAN', val: 100, accent: THEME.emerald },
   ];
   const REMED_PATH = [[60, 456], [30, 456], [30, 210], [60, 210]];
@@ -245,11 +245,11 @@ function kageScene() {
       ctx.font = '10px "KonohaMono"';
       ctx.fillStyle = 'rgba(248,113,113,0.95)';
       ctx.textAlign = 'left';
-      ctx.fillText('FAIL <97% → remediate & re-dispatch', 66, 512);
+      ctx.fillText('FAIL <98% → remediate & re-dispatch', 66, 512);
       ctx.restore();
     }
     for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
-    ringGauge(ctx, 890, 250, 105, pct, { threshold: 97, label: 'KAGE CONFIDENCE' });
+    ringGauge(ctx, 890, 250, 105, pct, { threshold: 98, label: 'KAGE CONFIDENCE' });
     const fill = Math.min(1, pct / 98);
     BARS.forEach((b, i) => {
       metricBar(ctx, 660, 420 + i * 36, 460, b.label, Math.round(b.val * fill), b.accent, 1);
@@ -272,7 +272,7 @@ function kageScene() {
   const COUNT = 20;
   for (let i = 1; i <= COUNT; i++) {
     const pct = Math.round(easeOutCubic(i / COUNT) * 98);
-    frames.push(frame(W, H, paint({ stepCount: 5, dashOffset: -i * 8, remedAlpha: 1, pct, approved: pct >= 97 }), 110));
+    frames.push(frame(W, H, paint({ stepCount: 5, dashOffset: -i * 8, remedAlpha: 1, pct, approved: pct >= 98 }), 110));
   }
   frames.push(frame(W, H, paint({ stepCount: 5, dashOffset: -80, remedAlpha: 1, pct: 98, approved: true }), 1300));
   saveAsset(frames, 'konoha-kage-gate.gif');

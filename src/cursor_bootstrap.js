@@ -159,21 +159,37 @@ async function main() {
     const python = checkPython();
     registerMcp(python);
     ensureDir(path.dirname(CURSOR_RULE));
-    const projectRule = path.join(process.cwd(), '.cursor', 'rules', 'konoha.mdc');
-    const projectContent = fileExists(projectRule) ? fs.readFileSync(projectRule, 'utf8') : '';
+    const cwd = process.cwd();
+    const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
+    const agentContract = fileExists(contractPath) ? require(contractPath) : null;
     const currentRule = fileExists(CURSOR_RULE) ? fs.readFileSync(CURSOR_RULE, 'utf8') : '';
+
+    // Maintain global Cursor rule contract
     if (!currentRule.includes(CONTRACT_MARKER) || !currentRule.includes(CONTRACT_VERSION)) {
-      const contractPath = path.join(KONOHA_DIR, 'agent_contract.js');
-      if (fileExists(contractPath)) {
-        const agentContract = require(contractPath);
-        const base = projectContent || currentRule;
-        const repaired = agentContract.buildManagedContract(base, agentContract.buildMainAgentContract('cursor'));
+      if (agentContract) {
+        const repaired = agentContract.buildManagedContract(currentRule, agentContract.buildMainAgentContract('cursor'));
         fs.writeFileSync(CURSOR_RULE, repaired);
-        if (projectContent && (!projectContent.includes(CONTRACT_MARKER) || !projectContent.includes(CONTRACT_VERSION))) {
-          fs.writeFileSync(projectRule, repaired);
+      }
+    }
+
+    // Auto-scaffold project-level rule in new/existing project workspace to eliminate hallucinations and workflow skipping
+    if (cwd && cwd !== HOME && fileExists(cwd) && !cwd.startsWith(path.join(HOME, '.konoha'))) {
+      const projectRulesDir = path.join(cwd, '.cursor', 'rules');
+      const projectRule = path.join(projectRulesDir, 'konoha.mdc');
+      if (!fileExists(projectRule)) {
+        ensureDir(projectRulesDir);
+        if (agentContract) {
+          const content = agentContract.buildManagedContract('', agentContract.buildMainAgentContract('cursor'));
+          fs.writeFileSync(projectRule, content, 'utf8');
+        } else if (fileExists(CURSOR_RULE)) {
+          fs.copyFileSync(CURSOR_RULE, projectRule);
         }
-      } else if (projectContent) {
-        fs.copyFileSync(projectRule, CURSOR_RULE);
+      } else {
+        const projectContent = fs.readFileSync(projectRule, 'utf8');
+        if ((!projectContent.includes(CONTRACT_MARKER) || !projectContent.includes(CONTRACT_VERSION)) && agentContract) {
+          const repaired = agentContract.buildManagedContract(projectContent, agentContract.buildMainAgentContract('cursor'));
+          fs.writeFileSync(projectRule, repaired, 'utf8');
+        }
       }
     }
     const packagedRtk = path.join(KONOHA_DIR, 'rtk.mdc');

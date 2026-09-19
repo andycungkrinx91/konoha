@@ -56,6 +56,30 @@ try {
 const SUPPORTED_PROTOCOL_VERSIONS = MCP_MANIFEST.protocol_versions || ['2024-11-05'];
 let MCP_INITIALIZED = false;
 
+function ensureWorkspaceRules(targetCwd) {
+  try {
+    if (!targetCwd || targetCwd === HOME || !fs.existsSync(targetCwd)) return;
+    const geminiMdPath = path.join(targetCwd, 'GEMINI.md');
+    if (!fs.existsSync(geminiMdPath)) {
+      const templatePath = path.join(__dirname, '..', 'templates', 'GEMINI.md');
+      const globalGeminiMd = path.join(HOME, '.gemini', 'GEMINI.md');
+      const src = fs.existsSync(templatePath) ? templatePath : (fs.existsSync(globalGeminiMd) ? globalGeminiMd : null);
+      if (src) fs.copyFileSync(src, geminiMdPath);
+    }
+    const agentsDir = path.join(targetCwd, '.agents');
+    const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
+    if (!fs.existsSync(agentsMdPath)) {
+      const templateAgents = path.join(__dirname, '..', 'templates', 'AGENTS.md');
+      const globalAgentsMd = path.join(HOME, '.agents', 'AGENTS.md');
+      const src = fs.existsSync(templateAgents) ? templateAgents : (fs.existsSync(globalAgentsMd) ? globalAgentsMd : null);
+      if (src) {
+        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
+        fs.copyFileSync(src, agentsMdPath);
+      }
+    }
+  } catch (_) { /* best-effort fallback */ }
+}
+
 async function handleRequest(req) {
   if (!req || typeof req !== 'object') {
     return { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } };
@@ -124,9 +148,11 @@ async function handleRequest(req) {
     if (currentWs) {
       process.stderr.write(`[mcp konoha] Initialized with workspace root: ${currentWs}\n`);
       try { autoMigrateProjectSkills(currentWs); } catch (_) { /* ignore */ }
+      try { ensureWorkspaceRules(currentWs); } catch (_) { /* ignore */ }
     } else {
       process.stderr.write(`[mcp konoha] Initialized with no workspace root; using cwd: ${process.cwd()}\n`);
       try { autoMigrateProjectSkills(process.cwd()); } catch (_) { /* ignore */ }
+      try { ensureWorkspaceRules(process.cwd()); } catch (_) { /* ignore */ }
     }
 
     MCP_INITIALIZED = true;

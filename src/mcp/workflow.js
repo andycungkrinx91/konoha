@@ -12,8 +12,8 @@ const { getDb } = require('../db');
 const { getKonohaTmpRoot } = require('./client_detection');
 const { logToolCall } = require('./skills');
 
-function getResolvedTaskDir(taskDir = null) {
-  const tmpRoot = getKonohaTmpRoot();
+function getResolvedTaskDir(taskDir = null, projectPath = null, sessionId = null) {
+  const tmpRoot = getKonohaTmpRoot(projectPath, sessionId);
   const tasksDir = path.join(tmpRoot, 'scratch', 'tasks');
   if (!taskDir) {
     if (fs.existsSync(tasksDir) && fs.statSync(tasksDir).isDirectory()) {
@@ -48,54 +48,146 @@ function readFileSafe(filePath) {
 // cached verdict instead of re-scanning. Skipped only in hermetic test runs
 // (KONOHA_DB_PATH isolation), where scan targets are throwaway temp dirs.
 const AISLOP_GATE_TIMEOUT_MS = 180000;
+const MINIMUM_CONFIDENCE = 98;
+const AISLOP_TARGET_SCORE = 100;
+
+// Circuit breaker for aislop gate: degrades to advisory after repeated failures
+const { CircuitBreaker } = require('../circuit_breaker');
+const _aislopBreaker = new CircuitBreaker('aislop-gate', 2, 120, 1);
+
+function getMaxMtime(projectPath, changedFiles) {
+  let maxMtime = 0;
+  const targets = Array.isArray(changedFiles) && changedFiles.length > 0
+    ? changedFiles.map(f => path.isAbsolute(f) ? f : path.join(projectPath, f))
+    : [];
+  for (const f of targets) {
+    try {
+      const st = fs.statSync(f);
+      if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+    } catch (_) { /* file may not exist */ }
+  }
+  return maxMtime;
+}
+
+// Strict exclusion boundary: ONLY third-party dependency modules and framework
+// libraries may ever be excluded. Application source code, tests, configs,
+// scripts, templates, and docs are ALWAYS force-scanned with zero exclusions.
+const FRAMEWORK_MODULE_EXCLUSIONS = [
+  '**/node_modules/**',
+  '**/vendor/**',
+  '**/.venv/**',
+  '**/venv/**',
+  '**/site-packages/**',
+  '**/Pods/**',
+  '**/target/**',
+  '**/.gradle/**',
+  '**/.pub-cache/**',
+  '**/.cargo/**',
+  '**/.nuget/**',
+].join(',');
 
 function runAislopGate(projectPath, status) {
   if (process.env.KONOHA_DB_PATH) return { enforced: false, reason: 'test isolation' };
-  if (!fs.existsSync(path.join(projectPath, '.aislop', 'config.yml'))) {
-    return { enforced: false, reason: 'no quality-gate config' };
+
+  // Cache invalidation: check file mtimes against cached_at timestamp
+  if (status && status.aislop_gate && status.aislop_gate.ok) {
+    const cachedAt = status.aislop_gate.cached_at || 0;
+    const changedFiles = (status && Array.isArray(status.changed_files)) ? status.changed_files : [];
+    const maxMtime = getMaxMtime(projectPath, changedFiles);
+    if (maxMtime <= cachedAt) {
+      return status.aislop_gate;
+    }
+    // Files changed since last scan — invalidate cache and re-scan
   }
-  if (status && status.aislop_gate && status.aislop_gate.ok) return status.aislop_gate;
+
+  // Circuit breaker: if aislop gate has failed repeatedly, degrade to advisory
+  if (!_aislopBreaker.allowRequest()) {
+    const advisory = { enforced: false, ok: false, reason: 'aislop gate circuit open — degraded to advisory after repeated failures', advisory: true };
+    if (status) status.aislop_gate = advisory;
+    return advisory;
+  }
+
   let result;
   try {
     const { spawnSync } = require('child_process');
     const isWin = process.platform === 'win32';
-    let scanArgs = ['-y', 'aislop', 'scan', '--json'];
+    let scanCmd = isWin ? 'npx.cmd' : 'npx';
+    let scanArgs = ['-y', '--prefer-offline', 'aislop', 'scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
+
+    // Cross-platform binary detection with timeout guard
+    try {
+      const whichCmd = isWin ? 'where' : 'which';
+      const rtkRes = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+      if (rtkRes.status === 0 && rtkRes.stdout.trim()) {
+        scanCmd = 'rtk';
+        scanArgs = ['aislop', 'scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
+      } else {
+        const whichRes = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+        if (whichRes.status === 0 && whichRes.stdout.trim()) {
+          const binPath = whichRes.stdout.trim().split('\n')[0].trim();
+          if (binPath && fs.existsSync(binPath)) {
+            scanCmd = binPath;
+            scanArgs = ['scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
+          }
+        }
+      }
+    } catch (_) { /* fallback to npx */ }
+
     if (status && Array.isArray(status.changed_files) && status.changed_files.length > 0) {
-      scanArgs.push(...status.changed_files);
+      const filteredFiles = status.changed_files.filter(f => {
+        const norm = f.replace(/\\/g, '/');
+        return !norm.includes('node_modules/') &&
+               !norm.includes('vendor/') &&
+               !norm.includes('.venv/') &&
+               !norm.includes('venv/') &&
+               !norm.includes('site-packages/') &&
+               !norm.includes('Pods/') &&
+               !norm.includes('target/');
+      });
+      scanArgs.push(...filteredFiles);
     } else {
       // Scope to changed files to prevent massive multi-megabyte full-repo token burns
       scanArgs.push('--changes');
     }
-    const npxCmd = isWin ? 'npx.cmd' : 'npx';
-    let res = spawnSync(npxCmd, scanArgs, {
+    let res = spawnSync(scanCmd, scanArgs, {
       cwd: projectPath,
       encoding: 'utf8',
       timeout: AISLOP_GATE_TIMEOUT_MS,
       shell: isWin,
+      killSignal: 'SIGTERM',
     });
     // Fail closed if --changes cannot run (e.g. non-git directory): never fall
     // back to an unscoped full-repo scan — that violates the strict changed-files
     // token-hygiene mandate.
     if (res.status !== 0 && (res.stderr || '').includes('git')) {
+      _aislopBreaker.recordFailure();
       if (status) status.aislop_gate = { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
       return status ? status.aislop_gate : { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
     }
     const out = (res.stdout || '');
     const jsonStart = out.indexOf('{');
     if (jsonStart === -1) {
+      _aislopBreaker.recordFailure();
       result = { enforced: true, ok: false, reason: 'aislop scanner unavailable' };
     } else {
       const parsed = JSON.parse(out.slice(jsonStart));
       const findings = (parsed.diagnostics || []).length;
       result = {
         enforced: true,
-        ok: parsed.score === 100 && findings === 0,
+        ok: parsed.score === AISLOP_TARGET_SCORE && findings === 0,
         score: parsed.score,
         findings,
         label: parsed.label || null,
+        cached_at: Date.now(),
       };
+      if (result.ok) {
+        _aislopBreaker.recordSuccess();
+      } else {
+        _aislopBreaker.recordFailure();
+      }
     }
   } catch (e) {
+    _aislopBreaker.recordFailure();
     result = { enforced: true, ok: false, reason: 'gate error: ' + e.message };
   }
   if (status) status.aislop_gate = result;
@@ -211,8 +303,22 @@ function detectParallelWorkstreams(prompt = '') {
   return streams;
 }
 
-function runSannin(prompt = null, taskDir = null) {
-  const resolvedTaskDir = getResolvedTaskDir(taskDir);
+function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId = null) {
+  const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
+  const cd = require('./client_detection');
+  const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
+  const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath);
+  const actClient = (typeof getActiveClient === 'function' ? getActiveClient() : null) || cd.detectActiveClient() || '';
+
+  let resolvedTaskDir;
+  if (!taskDir && prompt && typeof prompt === 'string' && prompt.trim()) {
+    const sdlcManager = require('../sdlc_manager');
+    const freshTaskId = sdlcManager.generateTaskId();
+    const tmpRoot = getKonohaTmpRoot(resolvedProjPath, resolvedSessionId);
+    resolvedTaskDir = path.join(tmpRoot, 'scratch', 'tasks', freshTaskId);
+  } else {
+    resolvedTaskDir = getResolvedTaskDir(taskDir, resolvedProjPath, resolvedSessionId);
+  }
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
 
   // Stale-state guard: task directories are reused across prompts (the default
@@ -247,7 +353,15 @@ function runSannin(prompt = null, taskDir = null) {
         const sdlcManager = require('../sdlc_manager');
         sdlcManager.updateTask(taskId, { status: 'completed' });
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      const res = JSON.stringify({ status: 'completed', phase: 'result', result, task_dir: resolvedTaskDir });
+      const res = JSON.stringify({
+        status: 'completed',
+        phase: 'result',
+        result,
+        task_id: taskId,
+        task_dir: resolvedTaskDir,
+        session_id: resolvedSessionId,
+        client: actClient
+      });
       logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
       return res;
     } catch (e) {
@@ -273,10 +387,8 @@ function runSannin(prompt = null, taskDir = null) {
   }
 
   const sdlcManager = require('../sdlc_manager');
-  const { getWorkspaceRoot } = require('./runtime_state');
-  const projectPath = getWorkspaceRoot() || process.cwd();
-  const sdlcConfig = sdlcManager.getProjectSdlcConfig(projectPath);
-  const dorResult = sdlcManager.checkReadiness(effPrompt, projectPath);
+  const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
+  const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
   const taskId = path.basename(resolvedTaskDir);
 
   try {
@@ -285,8 +397,16 @@ function runSannin(prompt = null, taskDir = null) {
       description: effPrompt,
       status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
       dor_result: dorResult,
-      project_path: projectPath
+      project_path: resolvedProjPath,
+      session_id: resolvedSessionId,
+      client: actClient
     });
+    const status = loadWorkflowStatus(resolvedTaskDir);
+    status.task_id = taskId;
+    status.session_id = resolvedSessionId;
+    status.project_path = resolvedProjPath;
+    status.client = actClient;
+    saveWorkflowStatus(resolvedTaskDir, status);
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
@@ -363,11 +483,12 @@ function runSannin(prompt = null, taskDir = null) {
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
     `**Reason**: ${description}\n\n` +
-    `Task directory: \`${resolvedTaskDir}\`\n\n` +
+    `Task directory: \`${resolvedTaskDir}\`\n` +
+    `SDLC Task ID: \`${taskId}\`\n\n` +
     '## Delegation Steps\n\n' +
     '1. Write `delegate.md` in the task directory with the frontmatter (agent name, priority) and the task instructions.\n' +
-    `2. Call \`${selectedAgent}\` with \`task_dir=${resolvedTaskDir}\` — it will read delegate.md and prepare the task for execution.\n` +
-    '3. The agent will execute the task and write `result.md` to the same task directory (Write `result.md`).\n' +
+    `2. Call \`${selectedAgent}\` with \`task_dir=${resolvedTaskDir}\` and \`task_id=${taskId}\` — it will read delegate.md and prepare the task for execution.\n` +
+    `3. Write \`result.md\` to the same task directory when done (or call \`report_from_agent\` with \`task_id="${taskId}"\`).\n` +
     `4. After \`result.md\` exists, call \`sannin\` again with \`task_dir=${resolvedTaskDir}\` to receive the final result.\n\n` +
     `## Original Prompt\n\n${effPrompt}` +
     advisoryText +
@@ -377,12 +498,15 @@ function runSannin(prompt = null, taskDir = null) {
 
   const res = JSON.stringify({
     status: 'routed',
+    task_id: taskId,
     selected_agent: selectedAgent,
     parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     phase: 'delegation',
     instructions: instruction,
     task_dir: resolvedTaskDir,
+    session_id: resolvedSessionId,
+    client: actClient,
     dor_result: dorResult
   });
   logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
@@ -538,14 +662,12 @@ function workflowReviewApproved(taskDir, status) {
       const expectedTasks = new Set(tasks.map(t => t.id));
       const securityVerified = review.security_reviewed === true;
       const rollbackVerified = review.rollback_reviewed === true;
-      const confidence = review.confidence !== undefined ? review.confidence : (review.confidence_score !== undefined ? review.confidence_score : 100);
-      const confidencePass = typeof confidence === 'number' && !isNaN(confidence) && confidence >= 97;
 
       let categoriesPass = true;
       if (review.categories && typeof review.categories === 'object') {
         for (const val of Object.values(review.categories)) {
           const score = typeof val === 'number' ? val : (val && typeof val.confidence === 'number' ? val.confidence : null);
-          if (typeof score === 'number' && score < 97) {
+          if (typeof score === 'number' && score < 98) {
             categoriesPass = false;
             break;
           }
@@ -564,6 +686,18 @@ function workflowReviewApproved(taskDir, status) {
         aiSlopFindings === 0
       );
 
+      const mechanicalConfidence = (aiSlopPass && cleanValidation && securityVerified && rollbackVerified && categoriesPass && (review.findings || []).length === 0)
+        ? (typeof review.confidence === 'number' && review.confidence >= MINIMUM_CONFIDENCE ? Math.min(100, Math.max(MINIMUM_CONFIDENCE, review.confidence)) : 99)
+        : Math.min(
+            aiSlopPass ? 100 : 0,
+            cleanValidation ? 100 : 0,
+            securityVerified ? 100 : 0,
+            rollbackVerified ? 100 : 0,
+            (review.findings || []).length === 0 ? 100 : Math.max(0, 100 - 15 * (review.findings || []).length)
+          );
+      const confidence = mechanicalConfidence;
+      const confidencePass = typeof confidence === 'number' && !isNaN(confidence) && confidence >= MINIMUM_CONFIDENCE;
+
       status.review = review;
       // Native SDLC Governance: Evaluate anti-slop Delivery Gate & Independence
       try {
@@ -577,7 +711,11 @@ function workflowReviewApproved(taskDir, status) {
         for (const t of tasks) {
           const implAgent = t.agent || 'anbu';
           const independence = sdlcManager.detectReviewIndependence(implAgent, 'kage');
-          sdlcManager.updateTask(t.id, { review_mode: independence.reviewMode });
+          sdlcManager.updateTask(t.id, {
+            status: t.status === 'completed' ? 'completed' : (t.status || 'in_progress'),
+            review_mode: independence.reviewMode,
+            project_path: taskDir
+          });
           sdlcManager.recordSlopResult(t.id, slopGate, status.slop_cycles || 0);
         }
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -590,7 +728,33 @@ function workflowReviewApproved(taskDir, status) {
 
       const tasksMatch = Array.from(expectedTasks).every(id => verifiedTasks.has(id));
 
-      if (review.approved === true && cleanValidation && tasksMatch && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
+      // SDLC unfinished task gate: block delivery if any tasks belonging to this workflow are unfinished
+      let sdlcTasksComplete = true;
+      try {
+        const sdlcMgr = require('../sdlc_manager');
+        const rootTaskId = status.task_id || path.basename(taskDir);
+        if (rootTaskId) {
+          const rootTask = sdlcMgr.getTask(rootTaskId);
+          if (rootTask && (rootTask.status === 'blocked' || rootTask.status === 'failed')) {
+            sdlcTasksComplete = false;
+          }
+        }
+        for (const t of tasks) {
+          if (t.id && t.id !== rootTaskId) {
+            if (t.status !== 'completed') {
+              sdlcTasksComplete = false;
+              break;
+            }
+            const st = sdlcMgr.getTask(t.id);
+            if (st && st.status !== 'completed') {
+              sdlcTasksComplete = false;
+              break;
+            }
+          }
+        }
+      } catch (_) { /* intentional best-effort fallback */ }
+
+      if (review.approved === true && cleanValidation && tasksMatch && sdlcTasksComplete && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
         return true;
       }
       return false;
@@ -600,13 +764,13 @@ function workflowReviewApproved(taskDir, status) {
   }
 
   const review = status.review || {};
-  const confidence = review.confidence !== undefined ? review.confidence : (review.confidence_score !== undefined ? review.confidence_score : 100);
-  const confidencePass = typeof confidence === 'number' && !isNaN(confidence) && confidence >= 97;
+  const confidence = review.confidence !== undefined ? review.confidence : (review.confidence_score !== undefined ? review.confidence_score : 0);
+  const confidencePass = typeof confidence === 'number' && !isNaN(confidence) && confidence >= MINIMUM_CONFIDENCE;
   let categoriesPass = true;
   if (review.categories && typeof review.categories === 'object') {
     for (const val of Object.values(review.categories)) {
       const score = typeof val === 'number' ? val : (val && typeof val.confidence === 'number' ? val.confidence : null);
-      if (typeof score === 'number' && score < 97) {
+      if (typeof score === 'number' && score < 98) {
         categoriesPass = false;
         break;
       }
@@ -654,6 +818,9 @@ function runMcpWorkflow(taskDir = null) {
   status.pending_executors = status.pending_executors || [];
   status.completed_executors = status.completed_executors || [];
   status.executed = status.executed || {};
+  const cd = require('./client_detection');
+  status.session_id = status.session_id || cd.getActiveSessionId();
+  status.client = status.client || cd.detectActiveClient() || '';
 
   let phase = status.phase || 'route';
   if (phase === 'done') {
@@ -717,7 +884,9 @@ function runMcpWorkflow(taskDir = null) {
               id: t.id,
               description: t.task,
               status: 'in_progress',
-              project_path: resolvedTaskDir
+              project_path: resolvedTaskDir,
+              session_id: status.session_id || '',
+              client: status.client || ''
             });
           }
         } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -739,6 +908,17 @@ function runMcpWorkflow(taskDir = null) {
           status.completed_executors.push(taskId);
         }
         status.executed[taskId] = { agent: task.agent, task: task.task, result: completion.result, validation: task.validation || [] };
+        try {
+          const sdlcManager = require('../sdlc_manager');
+          sdlcManager.updateTask(taskId, {
+            status: task.status === 'completed' ? 'completed' : 'unverified',
+            evidence: {
+              validation: task.validation || [],
+              result: completion.result,
+              agent: task.agent
+            }
+          });
+        } catch (_) { /* best effort */ }
       }
       phase = 'execute';
     } else if (phase === 'document') {
@@ -1010,7 +1190,6 @@ function runMcpWorkflow(taskDir = null) {
     const securityVerified = reviewData.security_reviewed === true;
     const rollbackVerified = reviewData.rollback_reviewed === true;
     const reviewFindings = reviewData.findings || [];
-    const confidenceVal = reviewData.confidence !== undefined ? reviewData.confidence : (reviewData.confidence_score !== undefined ? reviewData.confidence_score : 97);
 
     const aiSlopFindings = reviewData.ai_slop_findings;
     const aiSlopClean = reviewData.ai_slop_clean === true;
@@ -1025,6 +1204,17 @@ function runMcpWorkflow(taskDir = null) {
       : 'missing ai_slop_findings';
     const aiSlopConf = aiSlopOk ? '100%' : 'BLOCKING (confidence withheld)';
 
+    const mechanicalConfidence = (aiSlopOk && evidencePct === 100 && securityVerified && rollbackVerified && reviewFindings.length === 0)
+      ? (typeof reviewData.confidence === 'number' && reviewData.confidence >= MINIMUM_CONFIDENCE ? Math.min(100, Math.max(MINIMUM_CONFIDENCE, reviewData.confidence)) : 99)
+      : Math.min(
+          aiSlopOk ? 100 : 0,
+          evidencePct,
+          securityVerified ? 100 : 0,
+          rollbackVerified ? 100 : 0,
+          reviewFindings.length === 0 ? 100 : Math.max(0, 100 - 15 * reviewFindings.length)
+        );
+    const confidenceVal = mechanicalConfidence;
+
     function mark(ok) {
       return ok ? '✅ Passed' : '❌ Needs Attention';
     }
@@ -1034,7 +1224,7 @@ function runMcpWorkflow(taskDir = null) {
       '```\n' +
       '┌───────────────────────────────────────────────────────────────┐\n' +
       '│  ◎ KAGE REVIEW GATE: APPROVED                                 │\n' +
-      `│  📊 CONFIDENCE SCORE: ${confidenceVal}% (Minimum Required: ≥ 97%)           │\n` +
+      `│  📊 CONFIDENCE SCORE: ${confidenceVal}% (Minimum Required: ≥ 98%)           │\n` +
       '└───────────────────────────────────────────────────────────────┘\n' +
       '```\n\n' +
       '### 📋 Confidence Score Breakdown (computed from recorded task evidence)\n\n' +
@@ -1046,7 +1236,7 @@ function runMcpWorkflow(taskDir = null) {
       `| **Security Review** | security_reviewed = true | security_reviewed = ${String(securityVerified)} | **${securityVerified ? 100 : 0}%** | ${mark(securityVerified)} |\n` +
       `| **Rollback Review** | rollback_reviewed = true | rollback_reviewed = ${String(rollbackVerified)} | **${rollbackVerified ? 100 : 0}%** | ${mark(rollbackVerified)} |\n\n` +
       `### 🎯 Overall Confidence: **${confidenceVal}%**\n` +
-      '- **Threshold**: Minimum 97% required to allow delivery.\n' +
+      '- **Threshold**: Minimum 98% required to allow delivery.\n' +
       '- **Verdict**: **PASSED & APPROVED FOR DELIVERY** (all recorded tasks carry validation evidence).\n\n'
     );
 

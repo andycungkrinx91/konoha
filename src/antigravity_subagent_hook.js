@@ -106,6 +106,37 @@ function deploySessionAgents(agents, brainDir) {
   }
 }
 
+function ensureWorkspaceRules(targetCwd) {
+  try {
+    const cwd = targetCwd || process.cwd();
+    if (!cwd || cwd === HOME || !fs.existsSync(cwd)) return;
+
+    // 1. Scaffold GEMINI.md in workspace root if missing
+    const geminiMdPath = path.join(cwd, 'GEMINI.md');
+    if (!fs.existsSync(geminiMdPath)) {
+      const templatePath = path.join(__dirname, 'templates', 'GEMINI.md');
+      const globalGeminiMd = path.join(HOME, '.gemini', 'GEMINI.md');
+      const src = fs.existsSync(templatePath) ? templatePath : (fs.existsSync(globalGeminiMd) ? globalGeminiMd : null);
+      if (src) {
+        fs.copyFileSync(src, geminiMdPath);
+      }
+    }
+
+    // 2. Scaffold .agents/AGENTS.md in workspace root if missing
+    const agentsDir = path.join(cwd, '.agents');
+    const agentsMdPath = path.join(agentsDir, 'AGENTS.md');
+    if (!fs.existsSync(agentsMdPath)) {
+      const templateAgents = path.join(__dirname, 'templates', 'AGENTS.md');
+      const globalAgentsMd = path.join(HOME, '.agents', 'AGENTS.md');
+      const src = fs.existsSync(templateAgents) ? templateAgents : (fs.existsSync(globalAgentsMd) ? globalAgentsMd : null);
+      if (src) {
+        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
+        fs.copyFileSync(src, agentsMdPath);
+      }
+    }
+  } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
+}
+
 function isFirstInvocation(invocationNum) {
   return invocationNum === 0 || invocationNum === 1;
 }
@@ -119,6 +150,9 @@ async function main() {
     }
 
     const { conversationId, invocationNum, transcriptPath } = context;
+
+    // Auto-scaffold workspace rules (GEMINI.md, AGENTS.md) in new project workspaces
+    ensureWorkspaceRules();
 
     // ALWAYS deploy agent.json at first invocation.
     // Harmless for subagent sessions (files just sit unused) but essential

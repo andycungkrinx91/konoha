@@ -136,10 +136,16 @@ konoha web
 - Instant search results with title, URL, snippet, and category badges.
 - 100% parity with `konoha search` / `konoha searxng` CLI.
 
-### 8. 🎨 10 Light-Mode Themes & Byakugan 3D Aesthetic
+### 8. 🎨 10 Light-Mode Themes & Chidori Azure 4-Gradient Aesthetic
+- **Default Theme: Chidori Azure**: Default out-of-the-box palette configured to `chidori` (Chidori Azure Light) for crackling sky-blue clarity and lightning focus.
+- **Universal 4-Gradient Theme System**: Every theme in the 10-theme light mode palette defines a calibrated 4-color gradient array (`--theme-grad-1` through `4`, `--theme-4gradient`, `--theme-4gradient-bar`, `--theme-4gradient-subtle`), displayed with visual 4-swatch previews in `ThemeSwitcher.svelte` and a top accent bar.
+- **Collapsible Submenu Accordion**: Sidebar navigation sections (`Overview`, `Clients & Finance`, `Tools & Integrations`, `Configuration`, `Operations`, `Resources`) feature interactive collapsible accordions that reveal sub-menus on click with smooth transitions and animated chevron indicators.
+- **Collapsible Sidebar (Open/Close Toggle)**: Dedicated desktop sidebar toggle button (`[ ⇤ ]` / `[ ◨ ]`) in both sidebar brand header and top main header, allowing the central content stage to expand to 100% full screen width for maximum center workspace.
+- **Universal 5px Card Border-Radius Invariant**: Strict 5px border-radius (`border-radius: 5px !important`) enforced across ALL cards (`.glass-card-3d`, `.theme-card`, `.card`, `[class*="card"]`, modals, and metric tiles).
+- **Akatsuki Dusk Plum Palette**: Redesigned `akatsuki` to a distinctive Dusk Plum and Fuchsia palette (`#86198f`, `#c026d3`, gradient: `['#581c87', '#701a75', '#86198f', '#c026d3']`), eliminating duplicate color with Sharingan Rose Light.
+- **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows.
 - Universal floating circular FAB button in the bottom-left corner (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) opening the 10-theme selection popup modal.
-- Pure light-mode gradient palettes (`byakugan`, `chidori`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`) with dynamic CSS variables and localStorage persistence.
-- Byakugan translucent glassmorphism gradients on cards, headers, sidebars, and footers.
+- Pure light-mode gradient palettes (`chidori`, `byakugan`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`) with dynamic CSS variables and localStorage persistence.
 - Hardware-accelerated 3D perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
 - Accessible high-contrast typography and custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.
 

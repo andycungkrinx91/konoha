@@ -49,6 +49,14 @@ let _WORKSPACE_ROOT = (!_rawWs || isIdeInstallationDir(_rawWs))
   ? (!isIdeInstallationDir(process.cwd()) ? process.cwd() : null)
   : _rawWs;
 let _ACTIVE_CLIENT = process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || null;
+let _ACTIVE_SESSION_ID = process.env.ANTIGRAVITY_CONVERSATION_ID ||
+  process.env.CLAUDE_CONVERSATION_ID ||
+  process.env.PI_SESSION_ID ||
+  process.env.CURSOR_SESSION_ID ||
+  process.env.OPENCODE_SESSION_ID ||
+  process.env.COMMANDCODE_SESSION_ID ||
+  process.env.SESSION_ID ||
+  null;
 
 function getWorkspaceRoot() {
   return _WORKSPACE_ROOT;
@@ -66,8 +74,19 @@ function setActiveClient(val) {
   _ACTIVE_CLIENT = val;
 }
 
-function konohaTmp(client, sessionId) {
-  return path.join(KONOHA_DIR, "tmp", client, sessionId);
+function getActiveSessionId() {
+  return _ACTIVE_SESSION_ID;
+}
+
+function setActiveSessionId(val) {
+  _ACTIVE_SESSION_ID = val;
+}
+
+function konohaTmp(client = 'universal', arg2 = 'global', arg3 = null) {
+  if (arg3 !== null) {
+    return path.join(KONOHA_DIR, "tmp", client || 'universal', arg2 || 'global', arg3 || 'default');
+  }
+  return path.join(KONOHA_DIR, "tmp", client || 'universal', arg2 || 'default');
 }
 
 function uriToPath(uri) {
@@ -156,6 +175,8 @@ module.exports = {
   setWorkspaceRoot,
   getActiveClient,
   setActiveClient,
+  getActiveSessionId,
+  setActiveSessionId,
   konohaTmp,
   uriToPath,
   isIdeInstallationDir,

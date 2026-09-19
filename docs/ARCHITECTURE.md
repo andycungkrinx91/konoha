@@ -30,7 +30,7 @@ flowchart TB
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
-        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search · website_ai_detector)"]
+        KonohaMCP["Konoha MCP Server<br/>(build_from_text · build_from_source · build_with_image_design<br/>find_skill · list_skills · get_skill · optimize_report · web_search<br/>website_ai_detector · docs_ai_detector)"]
         SembleMCP["Semble MCP Server<br/>(Project Code Search & Retrieval)"]
         AislopMCP["aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene, Scan & Auto-Fix)"]
         
@@ -75,6 +75,7 @@ flowchart TB
 | **Autonomous Website Builders** | `build_from_text`, `build_from_source`, `build_with_image_design` | Side-effect-free structured specifications for multi-archetype website generation. |
 | **Intel & Web Search** | `web_search` | Real-time web evidence gathering and documentation lookups. |
 | **Website AI Detection** | `website_ai_detector` | anonymiz.com-style AI-fingerprint scanner (generator tags, Lucide, shadcn shapes, Vercel/Netlify, attribution comments) scoring sites 0-100; 0-20 = Human-Built (PLAN_HUMAN_BUILT). CLI: `konoha detect-ai`; Web UI: `/detector`. |
+| **Document AI Detection** | `docs_ai_detector` | Enterprise document AI-fingerprint detector (.docx, .pdf, .pptx, .xlsx, .md, .txt) evaluating sliding-window paragraph burstiness, ZeroGPT risk (0%–1% target), generator metadata (python-docx), watermarks, and dark theme violations. Features dual-mode File Path + Text Paste input (`POST /api/v1/detect-docs/text`). CLI: `konoha detect-docs`; Web UI: `/detector`. |
 | **Specialist Delegation Subagents** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin` (or `tokubetsu-jonin`), `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
 | **Bounded File Operations** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 
@@ -164,9 +165,9 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Hard pre-gate: `kage` executes `aislop_scan` scoped to all changed files before any confidence percentage is assessed.
    - Requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json`. Missing or non-zero findings mechanically block workflow delivery.
    - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate issues.
-2. **Kage Reviewer 97% Minimum Confidence Gate**:
+2. **Kage Reviewer 98% Minimum Confidence Gate**:
    - Every task is reviewed by `kage` for structural integrity, zero hallucination, and security compliance.
-   - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 97% (Minimum Required: ≥ 97% across all verification categories), delivery is blocked and tasks are re-delegated for remediation.
+   - Evaluates real recorded task evidence in `status.json` and writes structured `kage_review.json`. If confidence < 98% (Minimum Required: ≥ 98% across all verification categories), delivery is blocked and tasks are re-delegated for remediation.
 3. **Zero Errors & Zero Warnings**:
    - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
 4. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
@@ -199,7 +200,74 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
    - **Cross-Provider Independent Review**: Automatically detects model and bridge independence between implementing agents (e.g. `anbu`, `jonin`) and the reviewer (`kage`), ensuring objective, cross-provider second-opinion audits when multi-model bridges are active.
-   - **Two-Step Anti-Slop Delivery Gate**: Enforces mandatory zero-AI-slop compliance (`ai_slop_clean: true` and `ai_slop_findings: 0`) prior to final delivery — Step 1 `aislop_scan` (aislop scanner), Step 2 `anti-slop` rule review via the vendored `antislop` skill family (https://github.com/miqdadbadjuber/anti-slop).
+   - **Two-Step Anti-Slop Delivery Gate**: Enforces mandatory zero-AI-slop compliance (`ai_slop_clean: true` and `ai_slop_findings: 0`) prior to final delivery — Step 1 `aislop_scan` (aislop scanner with CircuitBreaker fail-safe degrade and dynamic file mtime cache invalidation), Step 2 `anti-slop` rule review via the vendored `antislop` skill family (https://github.com/miqdadbadjuber/anti-slop).
    - **Autonomous Kage → Anbu Remediation Loop**: Automatically converts anti-slop findings into high-priority remediation tasks for `anbu`, re-evaluating upon completion. The loop is strictly bounded by Konoha's delegation-depth circuit breaker (`slop_cycles > 7`) to prevent infinite recursion.
-   - **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Persists structured task state, DoR results, validation evidence, and slop audit history in SQLite WAL mode (`~/.konoha/konoha.db`). Managed via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`).
+   - **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Persists structured task state, DoR results, validation evidence, and slop audit history in SQLite WAL mode (`~/.konoha/konoha.db`). Managed via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`). Delivery is strictly blocked if any SDLC task remains in `blocked` or `failed` state.
    - **Web UI Governance Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness tester, task detail & audit evidence modal, and real-time project governance configuration (`/api/v1/sdlc/*`).
+12. **Base Personality: High Effort + Instruct Style Across All Agents**:
+   - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) and main orchestrators across all 7 supported clients.
+   - Combines deep internal reasoning (silent deliberation during High/Max effort) with crisp, direct, instruction-following output.
+   - Strictly prohibits conversational filler ("hmmmm", "let me check", "wait - but", "let me see", "I will now proceed to", "let me examine"), hesitation markers, and sycophantic praise. Mandates ADHD-friendly formatting (numbered procedures, immediate next action first) and mandatory `FIRST ACTION: call konoha.find_skill`.
+13. **Strict Zero Dark Theme & 3-Color Minimum Gradient Invariants for Documentation**:
+   - Strictly forbids dark theme styles (dark covers, dark headers, dark footers, black fills) across all generated and refined document formats: Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), and PDF (`.pdf`). All canvases must be pure white (`#FFFFFF`) or pearl (`#F8FAFC`).
+   - Mandates a smooth multi-stop gradient with a minimum of 3 colors (e.g. Sapphire-to-Azure-to-Sky `#1E3A8A` → `#2563EB` → `#60A5FA`) for decorative accents, cover ribbons, running headers/footers, and divider lines.
+   - Enforces business-class enterprise typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
+14. **Konoha Bridge 1.5.0 VSIX Extension**:
+   - Upgraded local extension binary (`assets/konoha-bridge-1.5.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
+15. **Cross-Client 7-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0-beta.7)**:
+   - Synchronizes official skills across all 7 supported coding clients (`.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, `src/templates/skills`, `.codex/skills`, `.opencode/skills`) via `node scripts/sync_skills.js`.
+   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 clients.
+   - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
+
+---
+
+## 🔄 8-Phase Multi-Agent Workflow & Native SDLC Governance Lifecycle
+
+Konoha coordinates all software development through an autonomous, state-driven 8-phase orchestration pipeline governed by `src/mcp/workflow.js` and backed by the native SDLC task engine in `src/sdlc_manager.js` (visualized in Draw.io diagram [Page 11: Kage Pre-Delivery Reviewer Workflow Gate](diagrams/README.md#manifest)):
+
+```text
+[User Prompt] ──> Phase 1: Route (✧ Sannin) ──> Phase 2: Explore (⚑ Genin) ──> Phase 3: Plan (◎ Kage)
+                                                                                     │
+                       ┌─────────────────────────────────────────────────────────────┴── [needs_research?] ──> Phase 4: Research (▫ Chunin)
+                       ▼
+               Phase 5: Execute (♦ Jonin / ♠ Anbu) ──> Phase 6: Document (⬡ Tokubetsu-Jonin)
+                       │
+                       ▼
+               Phase 7: Review Gate (◎ Kage) ──[slop findings > 0]──> Autonomous Remediation Loop (♠ Anbu)
+                       │ (0 findings, 100% tests, >= 98% confidence)
+                       ▼
+               Phase 8: Synthesize & Done (✧ Sannin) ──> [Delivery Report to Orchestrator]
+```
+
+### 📋 Workflow Phase Matrix
+
+| Phase | Assigned Agent | Core Mandate & Actions | Artifact Inputs | Artifact Outputs | Phase Exit Gate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Route** | `sannin` | Task resolution, Definition-of-Readiness check (`checkReadiness`), task directory isolation (`scratch/tasks/<task_id>/`), root task registration in `sdlc_tasks`. | User prompt | `prompt.md`, `status.json` | DoR check passed (or advisory hints injected in advisory mode). |
+| **2. Explore** | `genin` | Read-only codebase exploration, symbol indexing, dependency discovery, architecture boundary tracing. Does NOT modify code. | `prompt.md`, project codebase | `findings.md`, `result.md` | Non-empty `findings.md` and completed exploration dispatch. |
+| **3. Plan** | `kage` | Analyzes exploration findings, defines decoupled `- [agent]: task` items, detects if web research is required (`needs_research: true`), registers subtasks in SQLite `sdlc_tasks`. | `findings.md`, `prompt.md` | `plan.md`, `result.md` | Locked architectural plan with unique executable tasks. |
+| **4. Research** | `chunin` | Conducts real-time web research and documentation verification when requested by Kage plan (`needs_research: true`). | `plan.md` query line | `research_results.json`, `result.md` | Structured findings returned back to Kage for plan finalization. |
+| **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps) | Implements designated task, runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | `delegate.md`, plan task items | Modified project files, `result.md`, recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
+| **6. Document** | `tokubetsu-jonin` | Generates or updates technical documentation, API specifications, runbooks, and changelogs. Enforces zero dark theme and human-authentic writing. | Completed code changes, `findings.md`, `plan.md` | `final_docs.md`, `result.md` | Technical documentation and changelog synchronized with changes. |
+| **7. Review** | `kage` | Comprehensive pre-delivery quality and confidence gate. Evaluates Zero-AI-Slop compliance, SDLC subtask completion, security/rollback reviews, and calculated confidence. | All artifacts, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), all subtasks completed, ≥98% confidence. |
+| **8. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
+
+### 🏛️ Native SDLC Task Governance & Session Isolation Invariants
+
+1. **Definition-of-Readiness (DoR) Pre-Dispatch Gate**:
+   - Evaluates prompt substance (> 4 words), absence of unresolved placeholder markers (`TODO`, `FIXME`, `???`), verification of referenced file paths, and domain keyword alignment before any subagent is dispatched.
+   - Operates in `advisory` mode by default (surfaces diagnostic hints without blocking) or `enforced` mode (blocks dispatch with actionable guidance until prompt meets readiness criteria).
+
+2. **Hierarchical Task Structure & Session Deadlock Immunity**:
+   - **Root Task Container (`task_id`)**: Created by Sannin upon prompt receipt. Represents the overarching user request. Maintained with `status: 'in_progress'` throughout the workflow lifecycle, and marked `'completed'` only when Sannin finishes final synthesis.
+   - **Unit Subtasks (`status.tasks`)**: Created during the `plan` phase from `plan.md`, persisted into SQLite `sdlc_tasks` with `project_path: resolvedTaskDir`. Each subtask is executed independently, captures verified validation evidence, and transitions to `'completed'`.
+   - **Delivery Gate Isolation**: In `src/mcp/workflow.js`, Kage's review gate strictly validates that all unit subtasks belonging to the active workflow are `'completed'` in both `status.json` and SQLite `sdlc_tasks`. It checks the root container to ensure it is not `'blocked'` or `'failed'` while deliberately excluding it from self-completion checks. This guarantees that long-running persistent client sessions (Antigravity IDE/CLI, Cursor, Claude Code) never deadlock or block new workflows due to orphan tasks from earlier prompts.
+
+3. **Autonomous Remediation Loop with Circuit Breaker**:
+   - If Kage's Zero-AI-Slop Pre-Gate detects any AI slop findings (`ai_slop_findings > 0`), the workflow automatically synthesizes a high-priority remediation task and dispatches `anbu` (or `jonin` for UI files).
+   - Once remediation completes, Kage re-evaluates the two-step gate.
+   - Bounded by Konoha's delegation-depth circuit breaker (`slop_cycles <= 7`) to prevent infinite remediation loops.
+
+4. **100% Passing Test Baseline**:
+   - Verified across all **82 JavaScript test suites** (`rtk node tests/run_all.js`) at 100% pass rate.
+

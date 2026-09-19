@@ -303,6 +303,22 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```
   Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
 
+### AI Fingerprint Detection (Website & Documents) (v2.0.0-beta.7)
+
+Scan websites and enterprise documents for AI generation markers, generator footprints, and robotic cadence:
+
+- **Scan Website for AI Fingerprints**:
+  ```bash
+  konoha detect-ai <path-or-url> [--json]
+  ```
+  Evaluates generator meta tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify hosting signals, attribution comments, boilerplate text, and template asset names. Scores 0–100 (0–20 = Human-Built per PLAN_HUMAN_BUILT).
+
+- **Scan Documents for AI Fingerprints (0%–1% ZeroGPT Target)**:
+  ```bash
+  konoha detect-docs <file-path> [--json]
+  ```
+  Evaluates `.docx`, `.pdf`, `.pptx`, `.xlsx`, `.md`, and `.txt` files for sliding-window paragraph burstiness, sentence cadence uniformity ($CV < 0.18$), generator tags (`python-docx`, `docx-js`), watermarks, and dark theme violations.
+
 ### System Diagnostics and Health Checks
 
 To verify all components and configurations are operating correctly, you can run automated health checks:

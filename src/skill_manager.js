@@ -17,32 +17,42 @@ function validateInputs(repoUrl, skillName) {
 }
 
 const HOME = os.homedir();
+const currentCwd = (() => {
+  try { return process.cwd(); } catch (_) { return HOME; }
+})();
 const {
   AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
 } = require('../bin/lib/paths');
 
-let currentCwd = HOME;
-try {
-  currentCwd = process.cwd();
-} catch (_) {
-  if (process.env.PWD) {
-    try {
-      if (fs.existsSync(process.env.PWD)) {
-        currentCwd = process.env.PWD;
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+function getSkillsScanDirs(targetCwd = null) {
+  let cwd = targetCwd || null;
+  if (!cwd) {
+    try { cwd = process.cwd(); } catch (_) { cwd = HOME; }
   }
+  const dirs = [
+    path.join(cwd, '.agents', 'skills'),
+    path.join(cwd, '.cursor', 'skills'),
+    path.join(cwd, '.gemini', 'skills'),
+    path.join(cwd, '.commandcode', 'skills'),
+    path.join(cwd, '.claude', 'skills'),
+    path.join(cwd, 'skills'),
+    path.join(cwd, '.skills'),
+    path.join(cwd, 'agent', 'skills'),
+    path.join(cwd, 'docs', 'skills'),
+    path.join(AGENTS, 'skills'),
+    path.join(ANTIGRAVITY_CLI, 'skills'),
+    path.join(HOME, '.cursor', 'skills'),
+    path.join(HOME, '.commandcode', 'skills'),
+    path.join(HOME, '.claude', 'skills'),
+    path.join(HOME, '.gemini', 'skills'),
+    path.join(HOME, '.config', 'opencode', 'skills'),
+    path.join(HOME, '.opencode', 'skills'),
+    path.join(HOME, '.codex', 'skills'),
+  ];
+  return Array.from(new Set(dirs.filter(d => {
+    try { return fs.existsSync(d) && fs.statSync(d).isDirectory(); } catch { return false; }
+  })));
 }
-
-const DEFAULT_SKILLS_DIRS = [
-  path.join(currentCwd, '.agents', 'skills'),
-  path.join(currentCwd, '.cursor', 'skills'),
-  path.join(currentCwd, 'skills'),
-  path.join(currentCwd, '.skills'),
-  path.join(currentCwd, 'docs', 'skills'),
-  path.join(AGENTS, 'skills'),
-  path.join(ANTIGRAVITY_CLI, 'skills'),
-];
 
 // Helper to check if file exists
 function fileExists(p) {
@@ -54,9 +64,11 @@ function fileExists(p) {
 }
 
 // List all installed skills across scan directories
-function listInstalledSkills() {
+function listInstalledSkills(targetCwd = null) {
   const installed = {};
-  for (const dir of DEFAULT_SKILLS_DIRS) {
+  const scanDirs = getSkillsScanDirs(targetCwd);
+  const cwd = targetCwd || process.cwd() || HOME;
+  for (const dir of scanDirs) {
     if (fileExists(dir)) {
       try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -66,7 +78,7 @@ function listInstalledSkills() {
             try {
               const realPath = fs.realpathSync(path.join(dir, entry.name));
               isDir = fs.statSync(realPath).isDirectory();
-            } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+            } catch (_) { /* intentional best-effort fallback */ }
           }
           if (isDir) {
             const skillMd = path.join(dir, entry.name, 'SKILL.md');
@@ -78,10 +90,10 @@ function listInstalledSkills() {
                 if (descMatch && descMatch[1]) {
                   description = descMatch[1].trim();
                 }
-              } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+              } catch (_) { /* intentional best-effort fallback */ }
               
               // Prevent duplicates if found in multiple paths, prioritize workspace/cwd
-              if (!installed[entry.name] || dir.startsWith(currentCwd)) {
+              if (!installed[entry.name] || dir.startsWith(cwd)) {
                 installed[entry.name] = {
                   name: entry.name,
                   path: path.join(dir, entry.name),
@@ -91,7 +103,7 @@ function listInstalledSkills() {
             }
           }
         }
-      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      } catch (_) { /* intentional best-effort fallback */ }
     }
   }
   return Object.values(installed);
@@ -127,9 +139,31 @@ function searchRegistry(query) {
   });
 }
 
+// Verify a skill is actually discoverable on disk after an install. The
+// skills CLI can exit 0 without writing a discoverable SKILL.md (partial
+// installs, upstream layout changes), so a zero exit code alone must NEVER
+// be reported as success — that produced "install succeeded but the skill
+// cannot be found anywhere" regressions reported from the web frontend.
+function verifySkillInstalled(skillName, targetCwd = null) {
+  const installed = listInstalledSkills(targetCwd);
+  const hit = installed.find(s => s.name === skillName);
+  return hit ? hit.path : null;
+}
+
+function skillNotFoundMessage(skillName, runOutput, targetCwd = null) {
+  const scanned = getSkillsScanDirs(targetCwd).map(d => `- ${d}`).join('\n');
+  let detail = '';
+  if (runOutput) {
+    const text = String(runOutput).trim();
+    if (text) detail = `\nInstaller output (tail):\n${text.slice(-1500)}`;
+  }
+  return `Skill "${skillName}" was NOT found on disk after install. Scanned directories:\n${scanned}${detail}\nThe installer reported success but no SKILL.md is discoverable — refusing to claim success.`;
+}
+
 // Remove/delete an installed skill
-function removeSkill(name) {
-  const installed = listInstalledSkills();
+function removeSkill(name, targetCwd = null) {
+  const cwd = targetCwd || currentCwd;
+  const installed = listInstalledSkills(cwd);
   const target = installed.find(s => s.name === name);
   if (!target) {
     throw new Error(`Skill "${name}" is not installed.`);
@@ -140,7 +174,7 @@ function removeSkill(name) {
 
   const cursorPaths = [
     path.join(HOME, '.cursor', 'skills', name),
-    path.join(currentCwd, '.cursor', 'skills', name)
+    path.join(cwd, '.cursor', 'skills', name)
   ];
   for (const cursorPath of cursorPaths) {
     if (fileExists(cursorPath)) {
@@ -203,14 +237,31 @@ function runInteractiveSearch(query) {
         process.stderr.write(`\n📦 Installing "${skillName}" from ${repoUrl}...\n`);
         try {
           const isWin = process.platform === 'win32';
+          const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
+          let run = null;
+          let pnpmError = null;
           const runCmd = isWin ? 'pnpm.cmd' : 'pnpm';
-          const run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin });
-          if (run.status !== 0) throw new Error(`Process exited with status ${run.status}`);
-          process.stderr.write(`\n✓ Skill "${skillName}" installed successfully!\n`);
+          try {
+            run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin, env: childEnv });
+            if (run.status !== 0) {
+              pnpmError = `Process exited with status ${run.status}`;
+            }
+          } catch (err) {
+            pnpmError = err.message;
+          }
+          if (!run || run.status !== 0) {
+            process.stderr.write(`⚠️ pnpm dlx failed (${pnpmError || 'unknown error'}). Attempting fallback via npx...\n`);
+            const npxCmd = isWin ? 'npx.cmd' : 'npx';
+            run = spawnSync(npxCmd, ['-y', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin, env: childEnv });
+          }
+          if (!run || run.status !== 0) throw new Error(`Process exited with status ${run ? run.status : 1}`);
+          const verifiedPath = verifySkillInstalled(skillName);
+          if (!verifiedPath) throw new Error(skillNotFoundMessage(skillName));
+          process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
 
           process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
           const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-          const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { stdio: 'inherit', shell: isWin });
+          const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', shell: isWin, env: childEnv });
           if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
         } catch (err) {
           console.error(`❌ Installation failed: ${err.message}`);
@@ -223,7 +274,7 @@ function runInteractiveSearch(query) {
 }
 
 // Add skill directly from a repository URL
-function addSkillDirect(repoUrl, skillName) {
+function addSkillDirect(repoUrl, skillName, options = {}) {
   let normalizedRepo = (repoUrl || '').trim();
   if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://')) {
     if (normalizedRepo.includes('/') && !normalizedRepo.includes(' ')) {
@@ -233,40 +284,98 @@ function addSkillDirect(repoUrl, skillName) {
   validateInputs(normalizedRepo, skillName);
   process.stderr.write(`📦 Installing "${skillName}" from ${normalizedRepo}...\n`);
   const isWin = process.platform === 'win32';
-  const runCmd = isWin ? 'pnpm.cmd' : 'pnpm';
-  const run = spawnSync(runCmd, ['dlx', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: isWin
-  });
-  if (run.status !== 0) {
-    const errorMsg = (run.stderr && run.stderr.toString().trim()) || (run.stdout && run.stdout.toString().trim()) || `Process exited with status ${run.status}`;
-    throw new Error(errorMsg);
+  const execCwd = (options && options.projectRoot) || currentCwd;
+  const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
+
+  let run = null;
+  let pnpmError = null;
+  const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
+  try {
+    run = spawnSync(pnpmCmd, ['dlx', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
+      cwd: execCwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: isWin,
+      env: childEnv
+    });
+    if (run.status !== 0) {
+      pnpmError = (run.stderr && run.stderr.toString().trim()) || (run.stdout && run.stdout.toString().trim()) || `Process exited with status ${run.status}`;
+    }
+  } catch (err) {
+    pnpmError = err.message;
   }
-  process.stderr.write(`\n✓ Skill "${skillName}" installed successfully!\n`);
 
-  syncAllClientSkills({ projectRoot: currentCwd, silent: false });
+  if (!run || run.status !== 0) {
+    process.stderr.write(`⚠️ pnpm dlx failed (${pnpmError || 'unknown error'}). Attempting fallback via npx...\n`);
+    try {
+      const npxCmd = isWin ? 'npx.cmd' : 'npx';
+      const npxRun = spawnSync(npxCmd, ['-y', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
+        cwd: execCwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: isWin,
+        env: childEnv
+      });
+      if (npxRun && npxRun.status === 0) {
+        run = npxRun;
+      } else {
+        const npxError = (npxRun && ((npxRun.stderr && npxRun.stderr.toString().trim()) || (npxRun.stdout && npxRun.stdout.toString().trim())));
+        throw new Error(npxError || pnpmError || `Process exited with status ${run ? run.status : (npxRun ? npxRun.status : 1)}`);
+      }
+    } catch (fallbackErr) {
+      throw new Error(fallbackErr.message || pnpmError || 'Process exited with error');
+    }
+  }
+  // Zero exit code is NOT proof of installation. Verify a discoverable
+  // SKILL.md exists before reporting success so callers (CLI, MCP, web API)
+  // can never be told an install landed when it did not.
+  const verifiedPath = verifySkillInstalled(skillName, execCwd);
+  if (!verifiedPath) {
+    throw new Error(skillNotFoundMessage(skillName, run.stdout && run.stdout.toString(), execCwd));
+  }
+  process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
 
-  process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
+  // Ensure skill is synced to global ~/.agents/skills if installed in project, or vice-versa
+  const globalSkillDir = path.join(AGENTS, 'skills', skillName);
+  if (verifiedPath !== globalSkillDir && !fs.existsSync(globalSkillDir)) {
+    try {
+      deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(AGENTS, 'skills'));
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+  if (execCwd && fs.existsSync(execCwd)) {
+    const projectSkillDir = path.join(execCwd, '.agents', 'skills', skillName);
+    if (verifiedPath !== projectSkillDir && !fs.existsSync(projectSkillDir)) {
+      try {
+        deployUtils.copySkillsDirFast(path.dirname(verifiedPath), path.join(execCwd, '.agents', 'skills'));
+      } catch (_) { /* intentional best-effort fallback */ }
+    }
+  }
+
+  syncAllClientSkills({ projectRoot: execCwd, silent: false });
+
+  process.stderr.write('\n🔄 Re-indexing SQLite database and embedding vectors...\n');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], {
+  const migrate = spawnSync(resolvedNode, [cliPath, 'migrate', '--skills-dir', path.dirname(verifiedPath)], {
+    cwd: execCwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    shell: isWin
+    shell: isWin,
+    env: childEnv
   });
   if (migrate.status !== 0) {
     const migrateErr = (migrate.stderr && migrate.stderr.toString().trim()) || (migrate.stdout && migrate.stdout.toString().trim()) || `Skill migration exited with status ${migrate.status}`;
-    throw new Error(migrateErr);
+    process.stderr.write(`⚠️ Skill migration warning: ${migrateErr}\n`);
   }
+  process.stderr.write(`✓ Skill "${skillName}" indexed in FTS5 database and vector search.\n`);
+  return verifiedPath;
 }
 
 // Add skill either by name (lookup from registry or scaffold local) or direct repo URL
-async function addSkill(nameOrUrl, optionalName) {
+async function addSkill(nameOrUrl, optionalName, options = {}) {
   if (optionalName || nameOrUrl.startsWith('https://') || nameOrUrl.startsWith('git@') || nameOrUrl.startsWith('http://')) {
     const repoUrl = nameOrUrl;
     const skillName = optionalName;
     if (!skillName) {
       throw new Error('Skill name must be specified when adding via repository URL.');
     }
-    return addSkillDirect(repoUrl, skillName);
+    return addSkillDirect(repoUrl, skillName, options);
   }
 
   const skillName = nameOrUrl;
@@ -277,7 +386,7 @@ async function addSkill(nameOrUrl, optionalName) {
     if (found && found.source) {
       const repoUrl = `https://github.com/${found.source}`;
       process.stderr.write(`📦 Found skill in registry: ${repoUrl}\n`);
-      return addSkillDirect(repoUrl, skillName);
+      return addSkillDirect(repoUrl, skillName, options);
     }
   } catch (err) {
     process.stderr.write(`⚠️  Registry search skipped: ${err.message}\n`);
@@ -299,11 +408,13 @@ Standard Operating Procedures and guidelines for ${skillName}.
 `;
     fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content, 'utf8');
     process.stderr.write(`\n✓ Skill "${skillName}" created successfully at ${targetDir}\n`);
-    deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: currentCwd, silent: false });
+    const execCwd = (options && options.projectRoot) || currentCwd;
+    deployUtils.syncCursorSkillsFromAgents({ deployProject: true, projectRoot: execCwd, silent: false });
 
     process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
     const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-    const migrate = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32' });
+    const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
+    const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', shell: process.platform === 'win32', env: childEnv });
     if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
     return targetDir;
   } else {
@@ -348,7 +459,15 @@ function syncAllClientSkills(options = {}) {
   if (projectRoot && fs.existsSync(projectRoot)) {
     targetDirs.push(path.join(projectRoot, '.cursor', 'skills'));
     targetDirs.push(path.join(projectRoot, '.gemini', 'skills'));
+    targetDirs.push(path.join(projectRoot, '.commandcode', 'skills'));
+    targetDirs.push(path.join(projectRoot, '.claude', 'skills'));
     targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
+    if (fs.existsSync(path.join(projectRoot, '.config', 'opencode'))) {
+      targetDirs.push(path.join(projectRoot, '.config', 'opencode', 'skills'));
+    }
+    if (fs.existsSync(path.join(projectRoot, '.opencode'))) {
+      targetDirs.push(path.join(projectRoot, '.opencode', 'skills'));
+    }
   }
 
   const sourceFp = deployUtils.treeFingerprint(sourceSkillsDir);
@@ -376,19 +495,24 @@ function autoMigrateProjectSkills(projectRoot) {
   const candidateDirs = [
     path.join(ws, '.agents', 'skills'),
     path.join(ws, 'skills'),
+    path.join(ws, '.skills'),
     path.join(ws, '.cursor', 'skills'),
     path.join(ws, '.gemini', 'skills'),
     path.join(ws, '.gemini', 'antigravity-cli', 'skills'),
+    path.join(ws, '.claude', 'skills'),
+    path.join(ws, 'agent', 'skills'),
+    path.join(ws, 'docs', 'skills')
   ];
 
   const foundDirs = candidateDirs.filter(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
   if (foundDirs.length === 0) return { migrated: 0, skills: [] };
 
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
+  const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
   let totalMigrated = 0;
   for (const dir of foundDirs) {
     try {
-      const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32' });
+      const run = spawnSync(resolvedNode, [cliPath, 'migrate', '--skip-embeddings', '--skills-dir', dir], { stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32', env: childEnv });
       if (run.status === 0) {
         totalMigrated++;
       }

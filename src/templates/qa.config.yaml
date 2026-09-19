@@ -1,0 +1,29 @@
+# QA / Autonomous E2E Staging Configuration
+target:
+  base_url: https://staging.example.com
+  environment: staging          # staging | local | production
+  allowed_domains: [staging.example.com]
+preset: ecommerce               # ecommerce | admin-dashboard | smoke | custom
+mode: full                      # smoke | full | regression
+devices: [desktop-chrome, desktop-firefox, mobile-safari]   # matrix; use [desktop-chrome] for smoke
+roles:
+  - name: admin
+    login_url: /login
+    username_env: QA_ADMIN_USER
+    password_env: QA_ADMIN_PASS
+  - name: customer
+    login_url: /login
+    username_env: QA_CUSTOMER_USER
+    password_env: QA_CUSTOMER_PASS
+spec:                            # optional but strongly recommended
+  files: [./docs/prd.md, ./docs/user-stories.md]
+budget:
+  max_steps_per_scenario: 40
+  max_llm_tokens_per_run: 200000
+  max_run_minutes: 30
+safety:
+  allow_destructive: false       # forced false when environment=production
+  test_data_prefix: "qa_auto_"
+release_gate:
+  max_critical: 0
+  max_major: 2

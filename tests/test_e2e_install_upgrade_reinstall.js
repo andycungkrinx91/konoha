@@ -32,6 +32,7 @@ const { buildFromText, buildFromSource } = require('../src/mcp/build_spec');
 const { runMcpAgent } = require('../src/mcp/memory_reporting');
 const { runSannin, runAislopGate } = require('../src/mcp/workflow');
 const { installCliRuntime } = require('../bin/cli');
+const { cleanKonohaRuntimeDir } = require('../src/deploy_utils');
 
 async function testFreshInstall(sandboxDir) {
   console.log('\n--- 1. Testing End-to-End Fresh Install ---');
@@ -159,6 +160,24 @@ async function testReinstallAndRepair(sandboxDir) {
   assert.ok(paths.FILE_TOOLS_LAUNCHER_JS, 'FILE_TOOLS_LAUNCHER_JS must be exported');
   assert.strictEqual(paths.FILE_TOOLS_LAUNCHER_JS, path.join(os.homedir(), '.konoha', 'file_tools_launcher.js'), 'Launcher path must be dynamic based on user home');
   console.log('  ✓ Launcher paths resolve dynamically to user environment without hardcoded paths');
+
+  // Verify clean reinstallation sanitizes ~/.konoha stale artifacts
+  const mockKonohaClean = path.join(sandboxDir, 'test-clean-konoha');
+  fs.mkdirSync(mockKonohaClean, { recursive: true });
+  const staleBak = path.join(mockKonohaClean, 'konoha.db.bak-old-test');
+  const stalePy = path.join(mockKonohaClean, 'db_agents.py');
+  fs.writeFileSync(staleBak, 'stale-backup-data', 'utf8');
+  fs.writeFileSync(stalePy, 'print("legacy python")', 'utf8');
+  const cleanRes = cleanKonohaRuntimeDir({
+    targetDir: mockKonohaClean,
+    srcDir: path.resolve(__dirname, '..', 'src'),
+    silent: true,
+    vacuumDatabase: false,
+  });
+  assert.ok(cleanRes.purgedFiles >= 2, 'cleanKonohaRuntimeDir must purge stale .bak and .py artifacts');
+  assert.strictEqual(fs.existsSync(staleBak), false, 'stale .bak file must be removed');
+  assert.strictEqual(fs.existsSync(stalePy), false, 'legacy python file must be removed');
+  console.log('  ✓ Clean reinstallation safely purges stale runtime bloat during reinstall');
 
   console.log('  ✓ Reinstall repairs corruptions and ensures single-mandate contract integrity');
 }

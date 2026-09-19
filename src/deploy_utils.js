@@ -189,6 +189,28 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
     }
   };
   walk(srcRoot);
+
+  // Prune top-level entries in destRoot that do not exist in srcRoot (except fingerprint markers & ignore)
+  try {
+    const destEntries = fs.readdirSync(destRoot, { withFileTypes: true });
+    const srcEntriesSet = new Set();
+    try {
+      for (const e of fs.readdirSync(srcRoot)) {
+        if (e !== '.claude' && e !== '.cursor' && e !== 'CLAUDE.md' && e !== '.git' && e !== '.DS_Store') {
+          srcEntriesSet.add(e);
+        }
+      }
+    } catch (_) { /* ignore */ }
+    for (const de of destEntries) {
+      if (de.name === '.ignore' || de.name.endsWith('.fingerprint') || de.name === '.fingerprint') continue;
+      if (!srcEntriesSet.has(de.name)) {
+        try {
+          fs.rmSync(path.join(destRoot, de.name), { recursive: true, force: true });
+        } catch (_) { /* ignore */ }
+      }
+    }
+  } catch (_) { /* ignore */ }
+
   try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
@@ -200,9 +222,191 @@ function syncCursorSkillsFromAgents(_ = {}) {
   return 0;
 }
 
+/**
+ * Parse a Node.js semver string into { major, minor, patch }.
+ * Returns null if string cannot be parsed.
+ */
+function parseNodeVersion(verStr) {
+  if (!verStr || typeof verStr !== 'string') return null;
+  const m = verStr.trim().match(/^v?(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!m) return null;
+  return {
+    major: parseInt(m[1], 10),
+    minor: parseInt(m[2], 10),
+    patch: m[3] ? parseInt(m[3], 10) : 0,
+  };
+}
+
+/**
+ * Check if a Node.js version satisfies minimum requirements (default: >= 18.12.0).
+ */
+function isNodeVersionCompatible(ver, minMajor = 18, minMinor = 12) {
+  const parsed = typeof ver === 'object' && ver !== null ? ver : parseNodeVersion(ver);
+  if (!parsed) return false;
+  if (parsed.major > minMajor) return true;
+  if (parsed.major === minMajor && parsed.minor >= minMinor) return true;
+  return false;
+}
+
+/**
+ * Check if a candidate node binary path exists and is compatible.
+ */
+function checkNodeCandidate(candidatePath, minMajor = 18, minMinor = 12) {
+  if (!candidatePath || typeof candidatePath !== 'string') return null;
+  const normalized = path.resolve(candidatePath.trim());
+  if (!fileExists(normalized)) return null;
+
+  if (normalized === process.execPath) {
+    if (isNodeVersionCompatible(process.versions.node, minMajor, minMinor)) {
+      return { path: normalized, version: `v${process.versions.node}` };
+    }
+    return null;
+  }
+
+  try {
+    const res = spawnSync(normalized, ['-v'], {
+      encoding: 'utf8',
+      timeout: 2500,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    if (res.status === 0 && res.stdout) {
+      const verStr = res.stdout.trim();
+      if (isNodeVersionCompatible(verStr, minMajor, minMinor)) {
+        return { path: normalized, version: verStr };
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+  return null;
+}
+
+/**
+ * Resolves an installed Node.js binary satisfying minimum version (>= 18.12.0).
+ * Handles user shells configured with nvm, fnm, asdf, volta, or system defaults.
+ */
+function resolveCompatibleNode(options = {}) {
+  const minMajor = options.minMajor != null ? options.minMajor : 18;
+  const minMinor = options.minMinor != null ? options.minMinor : 12;
+
+  // 1. Check process.env.KONOHA_NODE
+  if (process.env.KONOHA_NODE) {
+    const checked = checkNodeCandidate(process.env.KONOHA_NODE, minMajor, minMinor);
+    if (checked) return checked.path;
+  }
+
+  // 2. Check process.execPath
+  if (process.execPath && isNodeVersionCompatible(process.versions.node, minMajor, minMinor)) {
+    return process.execPath;
+  }
+
+  // 3. Check FILE_TOOLS_NODE_PATH_FILE (~/.konoha/.node_exec_path)
+  if (fileExists(FILE_TOOLS_NODE_PATH_FILE)) {
+    try {
+      const recorded = fs.readFileSync(FILE_TOOLS_NODE_PATH_FILE, 'utf8').trim();
+      if (recorded) {
+        const checked = checkNodeCandidate(recorded, minMajor, minMinor);
+        if (checked) return checked.path;
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
+  const isWin = process.platform === 'win32';
+  const nodeExeName = isWin ? 'node.exe' : 'node';
+
+  // 4. Scan NVM versions
+  const nvmDir = process.env.NVM_DIR || path.join(HOME, '.nvm');
+  const nvmVersionsDir = path.join(nvmDir, 'versions', 'node');
+  if (fileExists(nvmVersionsDir)) {
+    try {
+      const entries = fs.readdirSync(nvmVersionsDir)
+        .map(name => ({ name, ver: parseNodeVersion(name) }))
+        .filter(item => item.ver && isNodeVersionCompatible(item.ver, minMajor, minMinor))
+        .sort((a, b) => b.ver.major - a.ver.major || b.ver.minor - a.ver.minor || b.ver.patch - a.ver.patch);
+
+      for (const entry of entries) {
+        const binPath = path.join(nvmVersionsDir, entry.name, isWin ? '' : 'bin', nodeExeName);
+        const checked = checkNodeCandidate(binPath, minMajor, minMinor);
+        if (checked) return checked.path;
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
+  // 5. Scan fnm, asdf, volta, and local version managers
+  const managerDirs = [
+    path.join(HOME, '.local', 'share', 'fnm', 'current', 'bin', nodeExeName),
+    path.join(HOME, '.fnm', 'current', 'bin', nodeExeName),
+    path.join(HOME, '.volta', 'bin', nodeExeName),
+  ];
+  for (const mPath of managerDirs) {
+    const checked = checkNodeCandidate(mPath, minMajor, minMinor);
+    if (checked) return checked.path;
+  }
+
+  const asdfNodeDir = path.join(HOME, '.asdf', 'installs', 'nodejs');
+  if (fileExists(asdfNodeDir)) {
+    try {
+      const entries = fs.readdirSync(asdfNodeDir)
+        .map(name => ({ name, ver: parseNodeVersion(name) }))
+        .filter(item => item.ver && isNodeVersionCompatible(item.ver, minMajor, minMinor))
+        .sort((a, b) => b.ver.major - a.ver.major || b.ver.minor - a.ver.minor || b.ver.patch - a.ver.patch);
+
+      for (const entry of entries) {
+        const binPath = path.join(asdfNodeDir, entry.name, 'bin', nodeExeName);
+        const checked = checkNodeCandidate(binPath, minMajor, minMinor);
+        if (checked) return checked.path;
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
+  // 6. Scan PATH entries
+  const currentPath = process.env.PATH || process.env.Path || '';
+  if (currentPath) {
+    const dirs = currentPath.split(path.delimiter);
+    for (const d of dirs) {
+      if (!d) continue;
+      const candidate = path.join(d, nodeExeName);
+      const checked = checkNodeCandidate(candidate, minMajor, minMinor);
+      if (checked) return checked.path;
+    }
+  }
+
+  // 7. Check standard unix paths
+  if (!isWin) {
+    const standardPaths = ['/usr/local/bin/node', '/usr/bin/node'];
+    for (const stdPath of standardPaths) {
+      const checked = checkNodeCandidate(stdPath, minMajor, minMinor);
+      if (checked) return checked.path;
+    }
+  }
+
+  // Fallback to process.execPath or 'node'
+  return process.execPath || 'node';
+}
+
+/**
+ * Creates an environment object where the directory of a compatible Node (>= 18.12.0)
+ * is guaranteed to be at the front of PATH.
+ */
+function resolveCompatibleNodeEnv(baseEnv = process.env, options = {}) {
+  const childEnv = Object.assign({}, baseEnv);
+  const nodePath = resolveCompatibleNode(options);
+  const nodeBinDir = path.dirname(nodePath);
+
+  if (nodeBinDir) {
+    const existingPath = childEnv.PATH || childEnv.Path || '';
+    const parts = existingPath.split(path.delimiter).filter(p => p && p !== nodeBinDir);
+    childEnv.PATH = [nodeBinDir, ...parts].join(path.delimiter);
+    if (process.platform === 'win32') {
+      childEnv.Path = childEnv.PATH;
+    }
+  }
+  childEnv.KONOHA_NODE = nodePath;
+  return { env: childEnv, nodePath, nodeBinDir };
+}
+
 function writeNodeExecPathRecord() {
   try {
-    const nodePath = process.execPath || "node";
+    const nodePath = resolveCompatibleNode();
     fs.writeFileSync(FILE_TOOLS_NODE_PATH_FILE, `${nodePath}\n`);
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
@@ -355,6 +559,7 @@ function installFileTools(silent = true, pythonCmd = null) {
           { cmd: isWin ? "npm.cmd" : "npm", args: ["install", "--omit=dev", "--no-audit", "--no-fund"] },
         ];
         let lastErr = null;
+        const { env: childEnv } = resolveCompatibleNodeEnv(process.env);
         for (const pm of pmCandidates) {
           try {
             execFileSync(pm.cmd, pm.args, {
@@ -362,6 +567,7 @@ function installFileTools(silent = true, pythonCmd = null) {
               stdio: "ignore",
               shell: isWin,
               timeout: 300000,
+              env: childEnv,
             });
             lastErr = null;
             break;
@@ -380,6 +586,251 @@ function installFileTools(silent = true, pythonCmd = null) {
     }
   }
   return fileExists(FILE_TOOLS_MCP_PATH);
+}
+
+/**
+ * Safely cleans stale artifacts, legacy databases, dead PIDs, old backups,
+ * and orphan modules from the Konoha runtime directory (~/.konoha).
+ *
+ * Preserves:
+ *  - konoha.db (active SQLite DB) and its WAL/SHM files
+ *  - transformers_cache/ (downloaded neural model weights)
+ *  - node_modules/ (installed production dependencies)
+ *  - searxng/ (local SearXNG container/config)
+ *  - vendor/ (vendored libraries)
+ *  - assets/ (vsix, pre-cached model weights)
+ *  - web_token, bridges.json, konoha-bridge.json
+ *  - package.json, pnpm-lock.yaml
+ *
+ * Purges:
+ *  - konoha.db.bak-* and skills.db.bak-* (abandoned disk bloat)
+ *  - *.bak, *.backup, *~, .*.bak*
+ *  - Legacy skills.db* (pre-unified database)
+ *  - Legacy *.py, *.pyc, __pycache__ in runtime root
+ *  - Stale PID files (*.pid: bridge.pid, ui.pid)
+ *  - Dead caches & logs (*.log, transcript_cache.json, package-lock.json)
+ *  - Transient task scratch folders in tmp/
+ *  - Root-level .vsix files (canonical location is assets/*.vsix)
+ *  - Root-level cli.js (canonical location is bin/cli.js)
+ *  - Root-level hook-wrapper (deprecated legacy wrapper)
+ *  - Orphaned root .js files that do not exist in src/
+ *  - Truncates WAL & vacuums konoha.db to reclaim disk pages
+ *
+ * @param {Object} [options]
+ * @param {string} [options.targetDir] - Directory to clean (defaults to SKILLS_DB_DIR)
+ * @param {string} [options.srcDir] - Source directory to compare JS files against (defaults to SRC_DIR)
+ * @param {boolean} [options.silent] - Suppress log output
+ * @param {boolean} [options.vacuumDatabase] - Run VACUUM & checkpoint on konoha.db (default: true)
+ * @returns {{ purgedFiles: number, reclaimedBytes: number, errors: string[], details: string[] }}
+ */
+function cleanKonohaRuntimeDir(options = {}) {
+  const target = path.resolve(options.targetDir || SKILLS_DB_DIR);
+  const src = path.resolve(options.srcDir || SRC_DIR);
+  const silent = options.silent === true;
+  const vacuumDb = options.vacuumDatabase !== false;
+
+  const result = {
+    purgedFiles: 0,
+    reclaimedBytes: 0,
+    errors: [],
+    details: [],
+  };
+
+  if (!target || target === '/' || target === HOME || target === path.resolve(HOME, '..')) {
+    throw new Error(`Refusing to clean unsafe directory: ${target}`);
+  }
+  if (target === src) {
+    throw new Error(`Refusing to clean source directory: targetDir equals srcDir (${target})`);
+  }
+  if (!fs.existsSync(target)) {
+    ensureDir(target);
+    return result;
+  }
+
+  const activeScript = process.argv[1] ? path.resolve(process.argv[1]) : '';
+
+  // 1. Clean transient task scratch folders inside tmp/
+  const tmpDir = path.join(target, 'tmp');
+  if (fs.existsSync(tmpDir)) {
+    try {
+      const tmpEntries = fs.readdirSync(tmpDir, { withFileTypes: true });
+      for (const entry of tmpEntries) {
+        if (entry.name === '.' || entry.name === '..') continue;
+        const entryPath = path.join(tmpDir, entry.name);
+        try {
+          let size = 0;
+          try {
+            const stat = fs.statSync(entryPath);
+            size = stat.size || 0;
+          } catch (_) { /* non-fatal stat error */ }
+          fs.rmSync(entryPath, { recursive: true, force: true });
+          result.purgedFiles++;
+          result.reclaimedBytes += size;
+          result.details.push(`tmp/${entry.name}`);
+        } catch (tmpErr) {
+          result.errors.push(`Failed to clean tmp/${entry.name}: ${tmpErr.message}`);
+        }
+      }
+    } catch (readErr) {
+      result.errors.push(`Failed to read tmp directory: ${readErr.message}`);
+    }
+  }
+
+  // 2. Scan and clean root-level items in targetDir
+  const preserveDirs = new Set([
+    'transformers_cache',
+    'node_modules',
+    'vendor',
+    'searxng',
+    'assets',
+    'apps',
+    'bin',
+    'bridge',
+    'file_tools',
+    'mcp',
+    'src',
+    '.agents',
+    'tmp',
+  ]);
+
+  const preserveFiles = new Set([
+    'konoha.db',
+    'konoha.db-wal',
+    'konoha.db-shm',
+    'package.json',
+    'pnpm-lock.yaml',
+    'web_token',
+    'bridges.json',
+    'konoha-bridge.json',
+    '.python_cmd',
+    '.node_exec_path',
+    '.deploy-fingerprint',
+    '.gitignore',
+  ]);
+
+  let entries = [];
+  try {
+    entries = fs.readdirSync(target, { withFileTypes: true });
+  } catch (err) {
+    result.errors.push(`Failed to read target directory: ${err.message}`);
+    return result;
+  }
+
+  for (const entry of entries) {
+    const name = entry.name;
+    if (name === '.' || name === '..') continue;
+    const itemPath = path.join(target, name);
+
+    if (activeScript && itemPath === activeScript) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      if (preserveDirs.has(name)) {
+        continue;
+      }
+      if (name === '__pycache__' || name === '.pytest_cache' || name === '.ruff_cache') {
+        try {
+          fs.rmSync(itemPath, { recursive: true, force: true });
+          result.purgedFiles++;
+          result.details.push(`${name}/`);
+        } catch (dirErr) {
+          result.errors.push(`Failed to remove directory ${name}: ${dirErr.message}`);
+        }
+      }
+      continue;
+    }
+
+    if (preserveFiles.has(name)) {
+      continue;
+    }
+
+    let shouldPurge = false;
+    let purgeReason = '';
+
+    if (
+      name.startsWith('konoha.db.bak') ||
+      name.startsWith('skills.db.bak') ||
+      name.startsWith('.konoha.db.bak') ||
+      name.endsWith('.bak') ||
+      name.endsWith('.backup') ||
+      name.endsWith('~')
+    ) {
+      shouldPurge = true;
+      purgeReason = 'stale backup';
+    } else if (
+      name === 'skills.db' ||
+      name === 'skills.db-wal' ||
+      name === 'skills.db-shm' ||
+      name === 'skills.db.journal'
+    ) {
+      shouldPurge = true;
+      purgeReason = 'legacy database';
+    } else if (name.endsWith('.py') || name.endsWith('.pyc')) {
+      shouldPurge = true;
+      purgeReason = 'legacy python script';
+    } else if (name.endsWith('.pid') || name === 'package-lock.json') {
+      shouldPurge = true;
+      purgeReason = 'stale lock/pid';
+    } else if (name === 'transcript_cache.json' || name.endsWith('.log')) {
+      shouldPurge = true;
+      purgeReason = 'dead cache/log';
+    } else if (name.endsWith('.vsix') || name === 'hook-wrapper') {
+      shouldPurge = true;
+      purgeReason = 'misplaced or deprecated artifact';
+    } else if (name === 'cli.js') {
+      shouldPurge = true;
+      purgeReason = 'obsolete root cli.js (canonical in bin/cli.js)';
+    } else if (name.endsWith('.js')) {
+      const isKnownRuntimeFile = (
+        name === 'server.js' ||
+        name === 'file_tools_launcher.js'
+      );
+      const existsInSrc = fs.existsSync(path.join(src, name));
+      if (!isKnownRuntimeFile && !existsInSrc) {
+        shouldPurge = true;
+        purgeReason = 'orphaned module (not in src/)';
+      }
+    }
+
+    if (shouldPurge) {
+      try {
+        let size = 0;
+        try {
+          size = fs.statSync(itemPath).size;
+        } catch (_) { /* non-fatal stat error */ }
+        fs.unlinkSync(itemPath);
+        result.purgedFiles++;
+        result.reclaimedBytes += size;
+        result.details.push(`${name} (${purgeReason})`);
+      } catch (unlinkErr) {
+        result.errors.push(`Failed to unlink ${name}: ${unlinkErr.message}`);
+      }
+    }
+  }
+
+  // 3. Vacuum and truncate WAL on konoha.db if enabled
+  if (vacuumDb) {
+    const activeDbPath = path.join(target, 'konoha.db');
+    if (fs.existsSync(activeDbPath)) {
+      try {
+        const Database = require('better-sqlite3');
+        const db = new Database(activeDbPath, { timeout: 5000 });
+        try {
+          db.pragma('wal_checkpoint(TRUNCATE)');
+          db.exec('VACUUM');
+        } finally {
+          db.close();
+        }
+      } catch (dbErr) {
+        if (!silent) {
+          result.errors.push(`Database vacuum skipped: ${dbErr.message}`);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 module.exports = {
@@ -406,4 +857,9 @@ module.exports = {
   treeFingerprint,
   copySkillsDirFast,
   installFileTools,
+  cleanKonohaRuntimeDir,
+  parseNodeVersion,
+  isNodeVersionCompatible,
+  resolveCompatibleNode,
+  resolveCompatibleNodeEnv,
 };

@@ -148,9 +148,20 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
   // Aislop MCP registration
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'];
+  try {
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', timeout: 3000 });
+    if (whichRes.status === 0 && whichRes.stdout.trim()) {
+      const binPath = whichRes.stdout.trim().split('\n')[0].trim();
+      if (binPath && fileExists(binPath)) {
+        aislopCommand = [binPath];
+      }
+    }
+  } catch { /* intentional best-effort fallback */ }
   config.mcp['aislop'] = {
     type: 'local',
-    command: [npxCmd, '-y', '-p', 'aislop', 'aislop-mcp'],
+    command: aislopCommand,
     environment: {
       ACTIVE_CLIENT: 'opencode',
       OPENCODE_CLIENT: '1',

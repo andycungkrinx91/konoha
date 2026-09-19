@@ -20,13 +20,8 @@
     },
     "aislop": {
       "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "-p",
-        "aislop",
-        "aislop-mcp"
-      ],
+      "command": "/home/andycungkrinx/.nvm/versions/node/v26.5.1/bin/aislop-mcp",
+      "args": [],
       "autoApprove": [
         "*",
         "aislop_scan",

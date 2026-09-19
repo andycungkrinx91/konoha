@@ -19,6 +19,8 @@ exclude:
   - ".cursor/**"
   - ".gemini/**"
   - ".agents/**"
+  - ".commandcode/**"
+  - ".claude/**"
   - "src/templates/**"
   - "apps/web/build/**"
   - "node_modules/**"

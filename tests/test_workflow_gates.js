@@ -92,6 +92,7 @@ async function run() {
       rollback_reviewed: true,
       ai_slop_findings: 0,
       ai_slop_clean: true,
+      confidence: 100,
       findings: []
     }));
     write(root3, 'result.md', 'Kage approved all work.');

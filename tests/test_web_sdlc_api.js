@@ -138,6 +138,53 @@ async function run() {
     assert.ok(['advisory', 'enforced'].includes(normRes.data.dor_mode), 'normalized dor_mode must be valid');
     console.log(`✓ PATCH /api/v1/sdlc/config normalization passed (hard-mandatory → ${normRes.data.dor_mode})`);
 
+    // 11. DELETE /api/v1/sdlc/tasks/:id WITHOUT token → CSRF rejection
+    const delNoToken = await request({ ...base, path: '/api/v1/sdlc/tasks/some_task', method: 'DELETE' });
+    assert.strictEqual(delNoToken.status, 403, 'unauthenticated DELETE must be rejected by CSRF gate');
+    console.log('✓ DELETE /api/v1/sdlc/tasks/:id CSRF gate passed');
+
+    // 12. Create a test task, delete by ID, and verify 404 on re-deletion
+    const sdlcManager = require('../src/sdlc_manager');
+    const apiTestTask = sdlcManager.createTask({
+      id: 'task_api_delete_me_1',
+      description: 'API delete test task',
+      status: 'pending'
+    });
+    assert.ok(apiTestTask, 'Test task must be created');
+
+    const delRes = await request({
+      ...base,
+      path: `/api/v1/sdlc/tasks/${encodeURIComponent(apiTestTask.id)}`,
+      method: 'DELETE',
+      headers: authHeaders
+    });
+    assert.strictEqual(delRes.status, 200, 'DELETE task by ID must return 200');
+    assert.strictEqual(delRes.data.ok, true, 'DELETE response must have ok: true');
+    assert.strictEqual(delRes.data.id, apiTestTask.id, 'DELETE response must echo task id');
+
+    const del404Res = await request({
+      ...base,
+      path: `/api/v1/sdlc/tasks/${encodeURIComponent(apiTestTask.id)}`,
+      method: 'DELETE',
+      headers: authHeaders
+    });
+    assert.strictEqual(del404Res.status, 404, 'Deleting already-deleted task must return 404');
+    console.log('✓ DELETE /api/v1/sdlc/tasks/:id passed (200 success + 404 on subsequent delete)');
+
+    // 13. Bulk DELETE /api/v1/sdlc/tasks?all=true
+    sdlcManager.createTask({ id: 'task_api_bulk_1', description: 'Bulk 1' });
+    sdlcManager.createTask({ id: 'task_api_bulk_2', description: 'Bulk 2' });
+    const bulkDelRes = await request({
+      ...base,
+      path: '/api/v1/sdlc/tasks?all=true',
+      method: 'DELETE',
+      headers: authHeaders
+    });
+    assert.strictEqual(bulkDelRes.status, 200, 'DELETE /api/v1/sdlc/tasks?all=true must return 200');
+    assert.strictEqual(bulkDelRes.data.ok, true, 'Bulk delete must report ok: true');
+    assert.ok(bulkDelRes.data.deleted >= 2, 'Bulk delete must delete at least 2 tasks');
+    console.log(`✓ DELETE /api/v1/sdlc/tasks?all=true passed (deleted ${bulkDelRes.data.deleted} tasks)`);
+
   } finally {
     await srv.instance.stop();
     console.log('✓ Server stopped');

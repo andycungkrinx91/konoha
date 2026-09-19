@@ -220,6 +220,7 @@ function setupSchema(conn) {
     CREATE TABLE IF NOT EXISTS persona_memories (
         id TEXT PRIMARY KEY,
         project_hash TEXT DEFAULT '',
+        session_id TEXT DEFAULT '',
         agent_name TEXT NOT NULL,
         memory_type TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -266,6 +267,9 @@ function setupSchema(conn) {
     "ALTER TABLE tool_calls ADD COLUMN agent TEXT;",
     "ALTER TABLE tool_calls ADD COLUMN client TEXT;",
     "ALTER TABLE persona_memories ADD COLUMN project_hash TEXT DEFAULT '';",
+    "ALTER TABLE persona_memories ADD COLUMN session_id TEXT DEFAULT '';",
+    "ALTER TABLE sdlc_tasks ADD COLUMN session_id TEXT DEFAULT '';",
+    "ALTER TABLE sdlc_tasks ADD COLUMN client TEXT DEFAULT '';",
     "ALTER TABLE agents ADD COLUMN model TEXT;",
     "ALTER TABLE projects ADD COLUMN dor_mode TEXT DEFAULT 'advisory';",
     "ALTER TABLE projects ADD COLUMN review_mode TEXT DEFAULT 'self';",
@@ -290,8 +294,11 @@ function setupSchema(conn) {
     CREATE INDEX IF NOT EXISTS idx_mem_agent ON persona_memories(agent_name);
     CREATE INDEX IF NOT EXISTS idx_mem_type ON persona_memories(memory_type);
     CREATE INDEX IF NOT EXISTS idx_mem_project ON persona_memories(project_hash);
+    CREATE INDEX IF NOT EXISTS idx_mem_session ON persona_memories(session_id);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status ON sdlc_tasks(status);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_project ON sdlc_tasks(project_path);
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_session ON sdlc_tasks(session_id);
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_client ON sdlc_tasks(client);
   `);
 
   // Purge any legacy mcp_* agents from authoritative database

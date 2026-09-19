@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-14)](CHANGELOG.md) — Pure Node.js single-runtime, SvelteKit 3 (RC) Web UI monorepo with full TUI parity, cross-platform doctor diagnostics parity & Anti-Slop Gate health, Cursor status hygiene, subagent skill & reference consolidation (antislop into kage, i-have-adhd into 5 target agents, helm & docker into anbu, powerpoint into tokubetsu-jonin), neural embedding CPU throttling (<50% duty, zero thermal spikes), Mission Control Dashboard (`/dashboard`), website AI detector (`konoha detect-ai` + `/detector`), skills.sh Global Registry Search with 1-Click Install, Native SDLC Governance Layer, Pi (pi.dev) 7th client integration, and 100% clean test suite.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-14)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-14.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-19)](CHANGELOG.md) — SvelteKit 3 Web UI collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes across all 10 themes, crisp 4px card radius, enhanced glassmorphism, zero-exclusions AI slop scanner force-scanning, 16-bug comprehensive patch, and full 7-client parity.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-19)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-19.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -528,6 +528,19 @@ Once installed, the following CLI commands are available:
 | `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `models`, `create`, `delete`, `enable`, `disable`) |
 | `konoha help` | Show help |
 
+## 🔄 8-Phase Multi-Agent Workflow Engine
+
+Konoha structures every development task into an autonomous 8-phase state machine coordinated by `sannin` and validated by `kage`:
+
+1. **`route` (✧ Sannin)**: Runs Definition-of-Readiness (DoR) validation and registers the root task container in SQLite `sdlc_tasks`.
+2. **`explore` (⚑ Genin)**: Read-only reconnaissance mapping codepaths, architecture boundaries, and dependencies (`findings.md`).
+3. **`plan` (◎ Kage)**: Evaluates exploration findings, defines decoupled subtasks (`- [agent]: task`), registers unit subtasks in SQLite `sdlc_tasks`, and detects web research needs.
+4. **`research` (▫ Chunin)**: Performs targeted web queries and documentation verification when requested by the Kage plan (`needs_research: true`).
+5. **`execute` (♦ Jonin / ♠ Anbu)**: Dispatches implementation tasks, executes framework-native builds/lints, and records verifiable validation evidence.
+6. **`document` (⬡ Tokubetsu-Jonin)**: Generates human-authentic documentation, API specifications, runbooks, and changelogs (`final_docs.md`).
+7. **`review` (◎ Kage Gate)**: Mandatory Two-Step Zero-AI-Slop Gate (100/100 target) + SDLC subtask completion check + security audit + ≥98% confidence score. Autonomous remediation loop dispatched to `anbu` if slop findings exist.
+8. **`synthesize` & `done` (✧ Sannin)**: Synthesizes `final_report.md` with full evidence table, marks root container `completed`, purges transient scratch files, and delivers cleanly.
+
 ## 🏛️ Native SDLC Governance Layer
 
 Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDLC) Governance Layer** that operates natively without heavy external orchestration engines or external attestation frameworks:
@@ -1006,18 +1019,7 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 * **[aislop](https://github.com/scanaislop/aislop)** — The automated quality gate and AI-slop scanner for agentic coding, powering Konoha's Zero-AI-Slop Pre-Gate and mechanical delivery verification across changed files.
 * **[anti-slop](https://github.com/miqdadbadjuber/anti-slop)** by Miqdad Badjuber — Anti-slop engineering standards, code cleanliness, and UI design guidelines embedded directly into Kage's review checklist and delivery SOP.
 * **[i-have-adhd](https://github.com/ayghri/i-have-adhd)** by Ayghri — Cognitive output-shaping and ADHD-friendly communication protocol (action-first, numbered multi-step directives, minimal preamble, zero conversational fluff) embedded across Genin, Chunin, Jonin, Anbu, and Tokubetsu-Jonin reference SOPs.
-
-**Citation:** If you use Konoha in academic research, please also cite Semble as follows:
-
-```bibtex
-@software{minishlab2026semble,
-  author       = {{van Dongen}, Thomas and Stephan Tulkens},
-  title        = {Semble: Fast and Accurate Code Search for Agents},
-  year         = {2026},
-  url          = {https://github.com/MinishLab/semble},
-  organization = {MinishLab}
-}
-```
+* **[vibes-plug](https://github.com/roedyrustam/vibes-plug)** by Roedy Rustam — Comprehensive suite of developer, cloud, security, and architecture skills merged into Konoha's ninja agent skill trees and indexed with SQLite FTS5 and neural embeddings.
 
 ---
 

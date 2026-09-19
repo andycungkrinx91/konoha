@@ -507,9 +507,6 @@ async function _discoverSidecarOnce(ctx) {
 }
 
 // aislop-ignore-next-line ai-slop/narrative-comment (genuine multi-line documentation preamble)
-// Fast liveness check (binary existence only — no port/CSRF parsing)
-// Used by the bridge lifecycle gate so the HTTP listener on :11435 only
-// binds when the user has actually opened Antigravity CLI/IDE.
 
 const _livenessCache = { ts: 0, result: null };
 const _livenessCacheMs = 3000;

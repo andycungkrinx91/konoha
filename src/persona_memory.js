@@ -317,6 +317,7 @@ function saveMemory(
   importance = 1,
   projectPath = null,
   projectHash = null,
+  sessionId = null,
   dbPath = DB_PATH
 ) {
   if (typeof agentName === 'object' && agentName !== null) {
@@ -328,6 +329,7 @@ function saveMemory(
     importance = opts.importance !== undefined ? opts.importance : 1;
     projectPath = opts.projectPath || opts.project_path || null;
     projectHash = opts.projectHash || opts.project_hash || null;
+    sessionId = opts.sessionId || opts.session_id || null;
     dbPath = opts.dbPath || opts.db_path || DB_PATH;
     agentName = opts.agentName || opts.agent_name;
   }
@@ -354,6 +356,15 @@ function saveMemory(
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
+  let sessId = sessionId;
+  if (!sessId && sessId !== "") {
+    try {
+      const { getActiveSessionId } = require('./mcp/client_detection');
+      sessId = getActiveSessionId(projectPath);
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  sessId = String(sessId || "").trim();
+
   let finalTitle = title;
   if (!finalTitle) {
     const firstLine = safeContent.split('\n')[0].replace(/^[#*\-\s]+/, '').trim();
@@ -368,9 +379,9 @@ function saveMemory(
     initMemoryTables(conn);
     const existing = conn.prepare(`
       SELECT id FROM persona_memories
-      WHERE agent_name = ? AND content = ? AND project_hash = ?
+      WHERE agent_name = ? AND content = ? AND project_hash = ? AND session_id = ?
       LIMIT 1
-    `).get(cleanAgent, safeContent, pHash);
+    `).get(cleanAgent, safeContent, pHash, sessId);
 
     if (existing) {
       const existingId = existing.id;
@@ -383,9 +394,9 @@ function saveMemory(
     }
 
     conn.prepare(`
-      INSERT INTO persona_memories (id, project_hash, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(memId, pHash, cleanAgent, memoryType, finalTitle, safeContent, tags, importance, now, now);
+      INSERT INTO persona_memories (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(memId, pHash, sessId, cleanAgent, memoryType, finalTitle, safeContent, tags, importance, now, now);
 
     return memId;
   } finally {
@@ -431,6 +442,7 @@ function queryMemories(
   memoryType = null,
   projectPath = null,
   projectHash = null,
+  sessionId = null,
   limit = 5,
   dbPath = DB_PATH
 ) {
@@ -440,6 +452,7 @@ function queryMemories(
     memoryType = opts.memoryType || opts.memory_type || null;
     projectPath = opts.projectPath || opts.project_path || null;
     projectHash = opts.projectHash || opts.project_hash || null;
+    sessionId = opts.sessionId || opts.session_id || null;
     limit = opts.limit !== undefined ? opts.limit : 5;
     dbPath = opts.dbPath || opts.db_path || DB_PATH;
     agentName = opts.agentName || opts.agent_name || null;
@@ -457,6 +470,15 @@ function queryMemories(
   } else if (projectPath) {
     pHash = computeProjectHash(projectPath);
   }
+
+  let sessId = sessionId;
+  if (sessId === null || sessId === undefined) {
+    try {
+      const { getActiveSessionId } = require('./mcp/client_detection');
+      sessId = getActiveSessionId(projectPath);
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  sessId = String(sessId || "").trim();
 
   const conn = getDb(dbPath);
   try {
@@ -492,13 +514,23 @@ function queryMemories(
             params.push(pHash);
           }
 
+          if (sessId) {
+            sql += " AND (m.session_id = ? OR (m.session_id = '' AND m.project_hash = ''))";
+            params.push(sessId);
+          }
+
           if (memoryType) {
             sql += " AND m.memory_type = ?";
             params.push(memoryType);
           }
 
-          sql += " ORDER BY (CASE WHEN m.project_hash = ? THEN 2 ELSE 1 END) DESC, m.importance DESC, m.updated_at DESC LIMIT ?";
-          params.push(pHash, limit);
+          if (sessId) {
+            sql += " ORDER BY (CASE WHEN m.session_id = ? THEN 3 WHEN m.project_hash = ? THEN 2 ELSE 1 END) DESC, m.importance DESC, m.updated_at DESC LIMIT ?";
+            params.push(sessId, pHash, limit);
+          } else {
+            sql += " ORDER BY (CASE WHEN m.project_hash = ? THEN 2 ELSE 1 END) DESC, m.importance DESC, m.updated_at DESC LIMIT ?";
+            params.push(pHash, limit);
+          }
 
           const rows = conn.prepare(sql).all(...params);
           if (rows && rows.length) {
@@ -508,7 +540,7 @@ function queryMemories(
       }
     }
 
-    // Fallback: Top memories ordered by project scope and importance
+    // Fallback: Top memories ordered by session/project scope and importance
     let sql;
     let params;
     if (isAll) {
@@ -524,13 +556,23 @@ function queryMemories(
       params.push(pHash);
     }
 
+    if (sessId) {
+      sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
+      params.push(sessId);
+    }
+
     if (memoryType) {
       sql += " AND memory_type = ?";
       params.push(memoryType);
     }
 
-    sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, importance DESC, updated_at DESC LIMIT ?";
-    params.push(pHash, limit);
+    if (sessId) {
+      sql += " ORDER BY (CASE WHEN session_id = ? THEN 3 WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, importance DESC, updated_at DESC LIMIT ?";
+      params.push(sessId, pHash, limit);
+    } else {
+      sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, importance DESC, updated_at DESC LIMIT ?";
+      params.push(pHash, limit);
+    }
 
     return conn.prepare(sql).all(...params);
   } finally {
@@ -543,6 +585,7 @@ function listMemories(
   memoryType = null,
   projectPath = null,
   projectHash = null,
+  sessionId = null,
   limit = 50,
   dbPath = DB_PATH
 ) {
@@ -551,10 +594,20 @@ function listMemories(
     memoryType = opts.memoryType || opts.memory_type || null;
     projectPath = opts.projectPath || opts.project_path || null;
     projectHash = opts.projectHash || opts.project_hash || null;
+    sessionId = opts.sessionId || opts.session_id || null;
     limit = opts.limit !== undefined ? opts.limit : 50;
     dbPath = opts.dbPath || opts.db_path || DB_PATH;
     agentName = opts.agentName || opts.agent_name || null;
   }
+
+  let sessId = sessionId;
+  if (sessId === null || sessId === undefined) {
+    try {
+      const { getActiveSessionId } = require('./mcp/client_detection');
+      sessId = getActiveSessionId(projectPath);
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  sessId = String(sessId || "").trim();
 
   const conn = getDb(dbPath);
   try {
@@ -581,13 +634,23 @@ function listMemories(
       params.push(pHash);
     }
 
+    if (sessId) {
+      sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
+      params.push(sessId);
+    }
+
     if (memoryType) {
       sql += " AND memory_type = ?";
       params.push(memoryType);
     }
 
-    sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, agent_name ASC, importance DESC, updated_at DESC LIMIT ?";
-    params.push(pHash, limit);
+    if (sessId) {
+      sql += " ORDER BY (CASE WHEN session_id = ? THEN 3 WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, agent_name ASC, importance DESC, updated_at DESC LIMIT ?";
+      params.push(sessId, pHash, limit);
+    } else {
+      sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, agent_name ASC, importance DESC, updated_at DESC LIMIT ?";
+      params.push(pHash, limit);
+    }
 
     return conn.prepare(sql).all(...params);
   } finally {
@@ -737,6 +800,18 @@ function countMemories(agentName = null, projectPath = null, projectHash = null,
   }
 }
 
+function pruneSessionMemories(sessionId, dbPath = DB_PATH) {
+  if (!sessionId) return { deleted: 0 };
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    const res = conn.prepare("DELETE FROM persona_memories WHERE session_id = ?").run(sessionId);
+    return { deleted: res.changes };
+  } finally {
+    conn.close();
+  }
+}
+
 function formatMemoriesForPrompt(memories, maxItems = 2) {
   if (!memories || !memories.length) return "";
   const lines = ["### Agent Persona Memory & Learned Rules:"];
@@ -744,7 +819,7 @@ function formatMemoriesForPrompt(memories, maxItems = 2) {
     const mtype = (m.memory_type || "rule").toUpperCase();
     const content = (m.content || "").trim();
     const shortC = content.length > 120 ? content.substring(0, 120) + "..." : content;
-    const scopeBadge = m.project_hash ? " [PROJECT]" : "";
+    const scopeBadge = m.session_id ? " [SESSION]" : (m.project_hash ? " [PROJECT]" : "");
     lines.push(`- [${mtype}${scopeBadge}] ${shortC}`);
   }
   return lines.join("\n") + "\n\n";
@@ -833,6 +908,8 @@ module.exports = {
   delete_memory: deleteMemory,
   pruneProjectMemories,
   prune_project_memories: pruneProjectMemories,
+  pruneSessionMemories,
+  prune_session_memories: pruneSessionMemories,
   pruneAllProjects,
   prune_all_projects: pruneAllProjects,
   pruneMemories,

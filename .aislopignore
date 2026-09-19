@@ -1,0 +1,14 @@
+# AI Slop Scanner Ignore Policy (Zero-Exclusions Invariant)
+# ONLY third-party dependency modules and framework libraries are excluded.
+# ALL application source code, tests, components, configs, templates, scripts,
+# and documentation are ALWAYS force-scanned with zero exclusions.
+
+node_modules/
+vendor/
+.venv/
+venv/
+*/site-packages/
+Pods/
+target/
+.gradle/
+.pub-cache/

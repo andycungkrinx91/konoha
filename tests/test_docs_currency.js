@@ -96,7 +96,7 @@ async function run() {
   const actualTools = parseToolsList();
   const actualFileTools = parseToolNamesFromRouter(routerPath);
 
-  assert.strictEqual(actualTools.length, 43, `Expected 43 manifest-backed tools, found ${actualTools.length}`);
+  assert.strictEqual(actualTools.length, 44, `Expected 44 manifest-backed tools, found ${actualTools.length}`);
   assert.deepStrictEqual(
     new Set(actualTools),
     new Set(actualFileTools),

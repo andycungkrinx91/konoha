@@ -295,13 +295,16 @@
     installingSkill = skillName;
     try {
       uiState.addNotification(`Installing skill "${skillName}" from skills.sh...`, "info");
-      await api.post("/api/v1/skills/install", {
+      const result = await api.post("/api/v1/skills/install", {
         repo_url: repoUrl,
         skill_name: skillName
       });
+      const verifiedPath = result && result.installed_path ? result.installed_path : null;
       await sweetAlert.fire({
         title: "Skill Installed!",
-        text: `Skill "${skillName}" installed successfully and indexed into SQLite database.`,
+        text: verifiedPath
+          ? `Skill "${skillName}" verified on disk at:\n${verifiedPath}`
+          : `Skill "${skillName}" installed and verified.`,
         icon: "success"
       });
       uiState.addNotification(`Installed skill "${skillName}"`, "success");

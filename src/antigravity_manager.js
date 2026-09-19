@@ -240,7 +240,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         const existing = entries.find(e => e?.relativeLocation === targetDirName || e?.identifier?.id?.toLowerCase() === 'andycungkrinx91.konoha-bridge');
         if (existing) {
           existing.identifier = { id: 'andycungkrinx91.konoha-bridge' };
-          existing.version = pkg?.version || '1.4.0';
+          existing.version = pkg?.version || '1.5.0';
           existing.location = {
             $mid: 1,
             fsPath: targetPath,
@@ -251,7 +251,7 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         } else {
           entries.push({
             identifier: { id: 'andycungkrinx91.konoha-bridge' },
-            version: pkg?.version || '1.4.0',
+            version: pkg?.version || '1.5.0',
             location: {
               $mid: 1,
               fsPath: targetPath,

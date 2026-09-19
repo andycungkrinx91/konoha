@@ -36,6 +36,8 @@
     { method: 'GET', path: '/api/v1/health', desc: 'Server health, version, skills/agents counts' },
     { method: 'GET', path: '/api/v1/system/metrics', desc: 'System CPU/memory telemetry + Konoha feature metrics' },
     { method: 'GET', path: '/api/v1/detect-ai?target=', desc: 'Website AI-fingerprint detector (directory path or URL) — 0–100 score, 0–20 = Human-Built' },
+    { method: 'GET', path: '/api/v1/detect-docs?file_path=', desc: 'Document AI-fingerprint detector (.docx, .pdf, .pptx, .xlsx, .md, .txt) — 0–3% ZeroGPT target' },
+    { method: 'POST', path: '/api/v1/detect-docs/text', desc: 'Analyze pasted text for AI fingerprints (body: { text: string })' },
     { method: 'GET', path: '/api/v1/csrf', desc: 'Session CSRF token (mutating requests require X-Konoha-Web-Token)' },
     { method: 'GET', path: '/api/v1/bridges', desc: 'List configured bridges' },
     { method: 'GET', path: '/api/v1/bridges/status', desc: 'Runtime status of bridges & gateway' },

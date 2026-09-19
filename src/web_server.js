@@ -128,6 +128,17 @@ function createWebServer(options = {}) {
     const svelteKitHandlerPath = path.join(WEB_UI_DIR, 'build', 'handler.js');
     if (fs.existsSync(svelteKitHandlerPath) && process.env.KONOHA_UI_ROUTER !== 'legacy') {
       try {
+        // Guarantee ESM package boundary for SvelteKit handler to prevent [MODULE_TYPELESS_PACKAGE_JSON] warning
+        const buildDir = path.dirname(svelteKitHandlerPath);
+        const buildPkgPath = path.join(buildDir, 'package.json');
+        if (!fs.existsSync(buildPkgPath)) {
+          fs.writeFileSync(buildPkgPath, '{\n  "type": "module"\n}\n');
+        }
+        const appWebDir = path.dirname(buildDir);
+        const appWebPkg = path.join(appWebDir, 'package.json');
+        if (!fs.existsSync(appWebPkg)) {
+          fs.writeFileSync(appWebPkg, '{\n  "name": "konoha-web",\n  "type": "module",\n  "private": true\n}\n');
+        }
         const { pathToFileURL } = require('url');
         const mod = await import(pathToFileURL(svelteKitHandlerPath).href);
         svelteKitHandler = mod.handler;
@@ -801,14 +812,15 @@ function createWebServer(options = {}) {
         }
 
         const skillManager = require('./skill_manager');
+        let installedPath = null;
         if (repoUrl && skillName) {
-          await skillManager.addSkillDirect(repoUrl, skillName);
+          installedPath = await skillManager.addSkillDirect(repoUrl, skillName);
         } else {
-          await skillManager.addSkill(nameOrUrl, skillName || undefined);
+          installedPath = await skillManager.addSkill(nameOrUrl, skillName || undefined);
         }
 
         broadcastEvent('skills_updated', { action: 'install', name: skillName || nameOrUrl });
-        return sendJson(res, 200, { ok: true, skill_name: skillName || nameOrUrl });
+        return sendJson(res, 200, { ok: true, skill_name: skillName || nameOrUrl, installed_path: installedPath || null });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -959,6 +971,48 @@ function createWebServer(options = {}) {
           return sendJson(res, 400, result);
         }
         return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/detect-docs') {
+      const file_path = (parsedUrl.searchParams.get('file_path') || parsedUrl.searchParams.get('path') || parsedUrl.searchParams.get('target') || '').trim();
+      if (!file_path) {
+        return sendJson(res, 400, { error: 'Missing required query parameter: file_path (document file path)' });
+      }
+      try {
+        const { detectDocsAi } = require('./docs_ai_detector');
+        const result = detectDocsAi(file_path);
+        if (result && result.error) {
+          return sendJson(res, 400, result);
+        }
+        return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/detect-docs/text') {
+      try {
+        const body = await parseBody(req);
+        const text = (body && body.text) ? String(body.text).trim() : '';
+        if (!text) {
+          return sendJson(res, 400, { error: 'Missing required field: text' });
+        }
+        const tmpDir = require('os').tmpdir();
+        const tmpFile = path.join(tmpDir, `konoha_docs_detect_${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, text, 'utf8');
+        try {
+          const { detectDocsAi } = require('./docs_ai_detector');
+          const detectResult = detectDocsAi(tmpFile);
+          if (detectResult && detectResult.error) {
+            return sendJson(res, 400, detectResult);
+          }
+          return sendJson(res, 200, detectResult);
+        } finally {
+          try { fs.unlinkSync(tmpFile); } catch (_) { /* cleanup */ }
+        }
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -1246,6 +1300,44 @@ function createWebServer(options = {}) {
           return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
         }
         return sendJson(res, 200, { task });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'DELETE' && (pathname === '/api/v1/sdlc/tasks' || pathname === '/api/v1/sdlc/tasks/')) {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const all = parsedUrl.searchParams.get('all') === 'true';
+        const status = parsedUrl.searchParams.get('status') || null;
+        const project = parsedUrl.searchParams.get('project') || null;
+        const session = parsedUrl.searchParams.get('session') || null;
+        const result = sdlcManager.deleteTasks({
+          projectPath: project,
+          sessionId: session,
+          status,
+          all
+        });
+        broadcastEvent('sdlc_tasks_updated', { action: 'delete_many', ...result });
+        return sendJson(res, 200, { ok: true, ...result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'DELETE' && pathname.startsWith('/api/v1/sdlc/tasks/')) {
+      try {
+        const sdlcManager = require('./sdlc_manager');
+        const taskId = decodeURIComponent(pathname.slice('/api/v1/sdlc/tasks/'.length));
+        if (!taskId) {
+          return sendJson(res, 400, { error: 'SDLC task id is required.' });
+        }
+        const deleted = sdlcManager.deleteTask(taskId);
+        if (!deleted) {
+          return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
+        }
+        broadcastEvent('sdlc_tasks_updated', { action: 'delete', id: taskId });
+        return sendJson(res, 200, { ok: true, id: taskId });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

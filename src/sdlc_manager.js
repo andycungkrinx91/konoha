@@ -60,12 +60,18 @@ function getDbConn(dbPath = null) {
         slop_result TEXT DEFAULT '{}',
         slop_cycles INTEGER DEFAULT 0,
         project_path TEXT DEFAULT '',
+        session_id TEXT DEFAULT '',
+        client TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status ON sdlc_tasks(status);
       CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_project ON sdlc_tasks(project_path);
+      CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_session ON sdlc_tasks(session_id);
+      CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_client ON sdlc_tasks(client);
     `);
+    try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN session_id TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
+    try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN client TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return conn;
 }
@@ -111,15 +117,27 @@ function createTask(data = {}, dbPath = null) {
     const slopResult = (data.slop_result && typeof data.slop_result === 'object') ? JSON.stringify(data.slop_result) : (data.slop_result || '{}');
     const slopCycles = typeof data.slop_cycles === 'number' ? data.slop_cycles : 0;
     const projectPath = data.project_path || '';
+    const sessionId = data.session_id || (function() {
+      try {
+        const cd = require('./mcp/client_detection');
+        return cd.getActiveSessionId(projectPath);
+      } catch (_) { return ''; }
+    })() || '';
+    const client = data.client || (function() {
+      try {
+        const cd = require('./mcp/client_detection');
+        return cd.getActiveClient() || cd.detectActiveClient() || '';
+      } catch (_) { return ''; }
+    })() || '';
     const now = new Date().toISOString();
 
     const stmt = conn.prepare(`
       INSERT OR REPLACE INTO sdlc_tasks
-      (id, description, status, dor_result, review_mode, evidence, slop_result, slop_cycles, project_path, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, description, status, dor_result, review_mode, evidence, slop_result, slop_cycles, project_path, session_id, client, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, description, status, dorResult, reviewMode, evidence, slopResult, slopCycles, projectPath, now, now);
+    stmt.run(id, description, status, dorResult, reviewMode, evidence, slopResult, slopCycles, projectPath, sessionId, client, now, now);
 
     return getTask(id, dbPath);
   } finally {
@@ -150,7 +168,7 @@ function getTask(id, dbPath = null) {
 /**
  * Lists SDLC tasks with optional filters.
  */
-function listTasks({ projectPath = null, status = null, limit = 50 } = {}, dbPath = null) {
+function listTasks({ projectPath = null, sessionId = null, client = null, status = null, limit = 50 } = {}, dbPath = null) {
   const conn = getDbConn(dbPath);
   try {
     let sql = 'SELECT * FROM sdlc_tasks WHERE 1=1';
@@ -159,6 +177,14 @@ function listTasks({ projectPath = null, status = null, limit = 50 } = {}, dbPat
     if (projectPath) {
       sql += ' AND (project_path = ? OR project_path LIKE ?)';
       params.push(projectPath, `%${projectPath}%`);
+    }
+    if (sessionId) {
+      sql += " AND session_id = ?";
+      params.push(sessionId);
+    }
+    if (client) {
+      sql += " AND client = ?";
+      params.push(client);
     }
     if (status) {
       sql += ' AND status = ?';
@@ -237,6 +263,14 @@ function updateTask(id, updates = {}, dbPath = null) {
       fields.push('project_path = ?');
       values.push(updates.project_path);
     }
+    if (updates.session_id !== undefined) {
+      fields.push('session_id = ?');
+      values.push(updates.session_id);
+    }
+    if (updates.client !== undefined) {
+      fields.push('client = ?');
+      values.push(updates.client);
+    }
 
     fields.push('updated_at = ?');
     values.push(new Date().toISOString());
@@ -252,6 +286,77 @@ function updateTask(id, updates = {}, dbPath = null) {
 }
 
 /**
+ * Deletes a single SDLC task by ID.
+ * @param {string} id - Task ID to delete
+ * @param {string} [dbPath] - Optional custom DB path
+ * @returns {boolean} True if a task was deleted, false otherwise
+ */
+function deleteTask(id, dbPath = null) {
+  if (!id) return false;
+  const conn = getDbConn(dbPath);
+  try {
+    const info = conn.prepare('DELETE FROM sdlc_tasks WHERE id = ?').run(id);
+    return info.changes > 0;
+  } finally {
+    try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+}
+
+/**
+ * Deletes multiple SDLC tasks matching criteria, or all tasks if all: true.
+ * @param {object} filters - Filter criteria { projectPath, sessionId, client, status, all }
+ * @param {string} [dbPath] - Optional custom DB path
+ * @returns {{ deleted: number }} Number of deleted tasks
+ */
+function deleteTasks({ projectPath = null, sessionId = null, client = null, status = null, all = false } = {}, dbPath = null) {
+  const conn = getDbConn(dbPath);
+  try {
+    if (all) {
+      const info = conn.prepare('DELETE FROM sdlc_tasks').run();
+      return { deleted: info.changes };
+    }
+
+    let sql = 'DELETE FROM sdlc_tasks WHERE 1=1';
+    const params = [];
+
+    if (projectPath) {
+      sql += ' AND (project_path = ? OR project_path LIKE ?)';
+      params.push(projectPath, `%${projectPath}%`);
+    }
+    if (sessionId) {
+      sql += ' AND session_id = ?';
+      params.push(sessionId);
+    }
+    if (client) {
+      sql += ' AND client = ?';
+      params.push(client);
+    }
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+
+    if (params.length === 0) {
+      return { deleted: 0 };
+    }
+
+    const info = conn.prepare(sql).run(...params);
+    return { deleted: info.changes };
+  } finally {
+    try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+}
+
+/**
+ * Clears all SDLC tasks from the database.
+ * @param {string} [dbPath] - Optional custom DB path
+ * @returns {{ deleted: number }} Number of deleted tasks
+ */
+function clearTasks(dbPath = null) {
+  return deleteTasks({ all: true }, dbPath);
+}
+
+/**
  * Records validation and attestation evidence into sdlc_tasks.
  */
 function recordEvidence(id, evidenceData, dbPath = null) {
@@ -262,13 +367,19 @@ function recordEvidence(id, evidenceData, dbPath = null) {
       id,
       description: `Task ${id}`,
       status: evidenceData.verified ? 'completed' : 'unverified',
-      evidence: evidenceData
+      evidence: evidenceData,
+      project_path: evidenceData.project_path || '',
+      session_id: evidenceData.session_id || '',
+      client: evidenceData.client || ''
     }, dbPath);
   }
 
   return updateTask(id, {
     evidence: evidenceData,
-    status: evidenceData.verified ? 'completed' : (existing.status === 'completed' ? 'completed' : 'unverified')
+    status: evidenceData.verified ? 'completed' : (existing.status === 'completed' ? 'completed' : 'unverified'),
+    project_path: existing.project_path || evidenceData.project_path || '',
+    session_id: existing.session_id || evidenceData.session_id || '',
+    client: existing.client || evidenceData.client || ''
   }, dbPath);
 }
 
@@ -519,10 +630,14 @@ function generateSlopFixTask(deliveryGateReport) {
 
 module.exports = {
   GateLevel,
+  generateTaskId,
   createTask,
   getTask,
   listTasks,
   updateTask,
+  deleteTask,
+  deleteTasks,
+  clearTasks,
   recordEvidence,
   recordSlopResult,
   getProjectSdlcConfig,
