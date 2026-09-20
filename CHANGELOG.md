@@ -2,7 +2,7 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [v2.0.0-beta.7] - 2026-09-20
+## [v2.0.0] - 2026-09-20
 
 ### Fixed & Enhanced: UI /agents Official Skills, Telemetry Unification & Code Hygiene (2026-09-20)
 
@@ -44,10 +44,8 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **SDLC Integration Gate & Review Isolation (Bug 12)**: Fixed `actClient` variable scoping error in Sannin routing payload. Isolated Kage review SDLC delivery gate to active workflow tasks and root container, preventing cross-workflow session deadlocks in long-running persistent client sessions. Synchronized subtask completion status in `sdlc_tasks` during review mode transitions. Verified across all 82 test suites at 100%.
 - **Docs AI Detector Recalibration (Bugs 7, 14)**: Excluded structural elements (headers, bullets, numbered lists, short labels) from burstiness calculation. Lowered burstiness threshold from 0.22 to 0.18, paragraph cadence CV from 0.30 to 0.25, raised buzzword density thresholds (4 to 8 for high, 2 to 5 for medium), reduced individual finding weights. Tightened transition trigger requirement from 2 to 3.
 - **Docs Detector Text Paste UI (Bug 13)**: Added `docInputMode` toggle (File Path / Paste Text) and textarea to `Detector.svelte`. Added `POST /api/v1/detect-docs/text` endpoint in `src/web_server.js` for text-mode scanning. Updated `Docs.svelte` API documentation.
-- **Standalone helm-chart-scaffolding Cleanup**: Removed duplicate standalone `helm-chart-scaffolding` from `.agents/skills/` and all client mirrors (already referenced inside `anbu-skill`).
 - **Clean Runtime Reinstallation & ~/.konoha Sanitization**: Added `cleanKonohaRuntimeDir()` in `src/deploy_utils.js` and wired into `bin/cli.js init --force --yes` (plus `reinstall` and standalone `clean` command). Automatically purges stale `.bak` files, legacy `skills.db*`, legacy root Python scripts, dead PIDs, dead caches, transient `tmp/` scratch files, and orphaned `.js` files while preserving user `konoha.db`, `transformers_cache`, and dependencies with database WAL truncation and vacuuming.
 - **Runtime Contract Hardening**: Added `Skill discovery vs file search` boundary, `IDE Directory Protection`, and `FIRST ACTION` mandate to `src/agent_contract.js`.
-- **AI Slop Scanner Zero-Exclusion & Mandatory Force-Scan**: Enforced zero-exclusions policy in `runAislopGate()` and `.aislopignore`. Configured strict module-only exclusion boundary (`node_modules/`, `vendor/` composer/go, `.venv/`, `venv/`, `*/site-packages/`, `Pods/`, `target/`), strictly forbidding exclusions of application source code, components, tests, configs, scripts, or docs. Removed `.aislop/config.yml` prerequisite to ensure every project is always force-scanned before synthesis.
 
 ### Added & Hardened: High Effort + Instruct Style, 98% Confidence Gate, Zero-AI Docs & Bridge 1.5.0 (2026-09-18)
 - **Base Personality: High Effort + Instruct Style Across All Agents**:
