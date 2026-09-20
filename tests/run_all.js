@@ -5,7 +5,13 @@
  */
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync, spawn } = require('child_process');
+
+const konohaModules = path.join(os.homedir(), '.konoha', 'node_modules');
+const existingNodePath = process.env.NODE_PATH || '';
+const testNodePath = existingNodePath ? `${konohaModules}${path.delimiter}${existingNodePath}` : konohaModules;
+const testEnv = { ...process.env, NODE_PATH: testNodePath };
 
 const testsDir = __dirname;
 const files = fs.readdirSync(testsDir);
@@ -42,7 +48,7 @@ function runSuiteSync(cmd, args, name) {
   const start = Date.now();
   const res = spawnSync(cmd, args, {
     encoding: 'utf-8',
-    env: process.env,
+    env: testEnv,
     shell: process.platform === 'win32'
   });
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -62,7 +68,7 @@ function runSuiteAsync(cmd, args, name) {
   return new Promise((resolve) => {
     const start = Date.now();
     const child = spawn(cmd, args, {
-      env: process.env,
+      env: testEnv,
       shell: process.platform === 'win32'
     });
     let out = '';

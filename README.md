@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-19)](CHANGELOG.md) — SvelteKit 3 Web UI collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes across all 10 themes, crisp 4px card radius, enhanced glassmorphism, zero-exclusions AI slop scanner force-scanning, 16-bug comprehensive patch, and full 7-client parity.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-19)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-19.md)
+* **Latest Release:** [v2.0.0-beta.7 (2026-09-20)](CHANGELOG.md) — SvelteKit 3 Web UI /agents official skills visibility & inside-card scroll, unified single savings counter (Visual Savings + 2065 KB baseline + Unified metric), removal of Client Provider Breakdown in TUI/UI, permanent variables standard (zero aliases), function parameter hygiene (zero dummy `(_)`, `[_]` idioms), strictly 8 official skills tree & database hygiene, cross-platform auto-reinstall for all 7 clients (`init --force --yes`), collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes, 5px card radius, zero-exclusions AI slop scanner force-scanning, and full 7-client parity.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-20)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-20.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>

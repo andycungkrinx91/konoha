@@ -214,11 +214,11 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
   try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
-function mirrorSkillsDirectory(_, _) {
+function mirrorSkillsDirectory() {
   return 0;
 }
 
-function syncCursorSkillsFromAgents(_ = {}) {
+function syncCursorSkillsFromAgents() {
   return 0;
 }
 

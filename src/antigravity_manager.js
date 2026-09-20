@@ -344,7 +344,7 @@ function deployAntigravityRtkRule(silent = true) {
   return { ok: deployed > 0, deployed };
 }
 
-function ensureAntigravityMcpSchemas(_) {
+function ensureAntigravityMcpSchemas() {
   const schemaDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'konoha');
   if (!fs.existsSync(schemaDir)) {
     fs.mkdirSync(schemaDir, { recursive: true });

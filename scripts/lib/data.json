@@ -71,26 +71,27 @@
   ],
   "commands_data": {
    "assets/konoha-init.png": {
-    "title": "konoha init — setup mcp server & clients",
+    "title": "konoha init — automated environment provisioning",
     "cmd": "konoha init --yes",
-    "badge": "6-CLIENT INITIALIZATION",
+    "badge": "7-CLIENT INITIALIZATION",
     "lines": [
      "[green]🚀 Konoha Installer — MCP Tools Orchestrator[/green]",
      "[muted]========================================================================[/muted]",
-     "  › Checking Python 3 environment... [green]✓ Found python3[/green]",
+     "  › Checking Node.js runtime environment... [green]✓ Found Node.js v20+ (pure Node.js runtime)[/green]",
      "  › Installing MCP Server files to [cyan]~/.konoha/[/cyan]... [green]✓ OK[/green]",
-     "  › Seeding skills to SQLite FTS5 database... [green]✓ OK (48 records)[/green]",
+     "  › Seeding skills to SQLite FTS5 database... [green]✓ OK (8 official skills, 202 records)[/green]",
      "",
-     "[bold]Configuring 6 Supported AI Coding Clients:[/bold]",
+     "[bold]Configuring 7 Supported AI Coding Clients:[/bold]",
      "  [green]✓ Antigravity IDE/CLI[/green] : ~/.gemini/config/mcp_config.json + prompt hook",
      "  [green]✓ Cursor IDE / CLI [/green] : ~/.cursor/mcp.json + subagents + RTK rules",
      "  [green]✓ Claude Code      [/green] : ~/.claude.json + double-underscore MCP tools",
      "  [green]✓ OpenCode IDE     [/green] : ~/.config/opencode/opencode.json + RTK rules",
      "  [green]✓ Command Code     [/green] : ~/.commandcode/mcp.json + permissions",
      "  [green]✓ Codex IDE / CLI  [/green] : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK rules",
+     "  [green]✓ Pi (pi.dev)      [/green] : ~/.pi/agent/mcp.json + workflow contract",
      "",
-     "  › Checking RTK (Rust Token Killer)... [green]✓ Rules deployed to 4 locations[/green]",
-     "[green]✅ Installation Complete! All 6 clients successfully configured.[/green]"
+     "  › Checking RTK (Rust Token Killer)... [green]✓ Rules deployed to 5 locations[/green]",
+     "[green]✅ Installation Complete! All 7 clients successfully configured.[/green]"
     ]
    },
    "assets/konoha-migrate.png": {
@@ -125,11 +126,11 @@
     "lines": [
      "[green]🧪 Konoha Verification & Full Test Suite Runner[/green]",
      "[muted]========================================================================[/muted]",
-     "  [green]✓[/green] MCP Server Initialization        : [green]PASS[/green] (Python 3.11 JSON-RPC 2.0)",
+     "  [green]✓[/green] MCP Server Initialization        : [green]PASS[/green] (Node.js JSON-RPC 2.0 Pure Runtime)",
      "  [green]✓[/green] Tool Registration (38 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
      "  [green]✓[/green] SQLite FTS5 Full-Text Search      : [green]PASS[/green] (Query latency: 0.82ms)",
      "  [green]✓[/green] Subagent Inline MCP Execution     : [green]PASS[/green] (7/7 ninjas executable)",
-     "  [green]✓[/green] 6-Client Contract Validation     : [green]PASS[/green] (Antigravity/Cursor/Claude/Open/Cmd/Codex)",
+     "  [green]✓[/green] 7-Client Contract Validation     : [green]PASS[/green] (Antigravity/Cursor/Claude/Open/Cmd/Codex/Pi)",
      "  [green]✓[/green] RTK Force-First Rule Deployment  : [green]PASS[/green] (7 rule locations verified)",
      "  [green]✓[/green] Documentation Currency (Markdown): [green]PASS[/green] (100% in sync with code)",
      "  [green]✓[/green] Canonical Draw.io XML Parity      : [green]PASS[/green] (Valid cells & orthogonal edges)",
@@ -143,13 +144,13 @@
    "assets/konoha-status.png": {
     "title": "konoha status — system & mcp health",
     "cmd": "konoha status",
-    "badge": "6 CLIENTS • SQLITE FTS5",
+    "badge": "7 CLIENTS • SQLITE FTS5",
     "lines": [
      "[green]📋 Konoha MCP Status[/green]",
      "[muted]========================================================================[/muted]",
-     "  ✓ Python 3.11          : [green]/usr/bin/python3 (OK)[/green]",
-     "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills)[/cyan]",
-     "  ✓ MCP Server Path      : [green]~/.konoha/server.py (39 registered tools)[/green]",
+     "  ✓ Node.js Runtime      : [green]v20+ (Pure Node.js Single Runtime)[/green]",
+     "  ✓ SQLite Database      : [cyan]~/.konoha/konoha.db (8 official skills)[/cyan]",
+     "  ✓ MCP Server Path      : [green]~/.konoha/file_tools_launcher.js (registered tools)[/green]",
      "  ✓ Bridge Gateway       : [purple]127.0.0.1:19999 (in-process router active)[/purple]",
      "",
      "[bold]Client MCP Configurations & RTK Rule Status:[/bold]",
@@ -159,8 +160,9 @@
      "  [green]✓ OpenCode IDE     [/green]  : ~/.config/opencode/opencode.json + RTK [green](OK)[/green]",
      "  [green]✓ Command Code     [/green]  : ~/.commandcode/mcp.json + RTK          [green](OK)[/green]",
      "  [green]✓ Codex IDE / CLI  [/green]  : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK       [green](OK)[/green]",
+     "  [green]✓ Pi (pi.dev)      [/green]  : ~/.pi/agent/mcp.json + RTK             [green](OK)[/green]",
      "",
-     "[amber]Overall Status: All 6 client bridges & RTK rules operational (100% OK)[/amber]"
+     "[amber]Overall Status: All 7 client bridges & RTK rules operational (100% OK)[/amber]"
     ]
    },
    "assets/konoha-version.png": {
@@ -173,8 +175,8 @@
      "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.7 (cross-client unified)[/cyan]",
      "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
      "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
-     "  • [bold]Python Runtime[/bold]      : [green]Python 3.11.10[/green]",
-     "  • [bold]Release Date[/bold]        : [amber]2026-09-07[/amber]",
+     "  • [bold]Runtime Mode[/bold]        : [green]Pure Node.js (Single-Runtime)[/green]",
+     "  • [bold]Release Date[/bold]        : [amber]2026-09-20[/amber]",
      "",
      "  › Checking remote GitHub updates (github:andycungkrinx91/konoha)...",
      "  [green]✓ You are running the latest version of Konoha![/green]",
@@ -279,18 +281,19 @@
     "lines": [
      "[green]🩺 Konoha Environment Diagnostics & Auto-Repair[/green]",
      "[muted]========================================================================[/muted]",
-     "  [green]✓[/green] 1. Node.js Engine Check            : [green]PASS[/green] (v20.18.0 >= v18.0.0)",
-     "  [green]✓[/green] 2. Python 3.11 Runtime Check       : [green]PASS[/green] (/usr/bin/python3)",
-     "  [green]✓[/green] 3. SQLite FTS5 Virtual Tables      : [green]PASS[/green] (FTS5 enabled, valid schema)",
-     "  [green]✓[/green] 4. RTK Force-First Binary          : [green]PASS[/green] (~/.cargo/bin/rtk detected)",
-     "  [green]✓[/green] 5. Antigravity IDE/CLI Integrations: [green]PASS[/green] (mcp_config.json + prompt_hook)",
-     "  [green]✓[/green] 6. Cursor IDE Integrations         : [green]PASS[/green] (mcp.json + RTK rules)",
-     "  [green]✓[/green] 7. Claude Code Integrations        : [green]PASS[/green] (.claude.json + double-underscore)",
-     "  [green]✓[/green] 8. OpenCode IDE Integrations       : [green]PASS[/green] (opencode.json + RTK rules)",
-     "  [green]✓[/green] 9. Command Code Integrations       : [green]PASS[/green] (mcp.json + permissions)",
-     "  [green]✓[/green] 10. Codex CLI / IDE Integrations   : [green]PASS[/green] (config.toml TOML + RTK rules)",
+     "  [green]✓[/green] 1. Node.js Engine Check            : [green]PASS[/green] (v20+ Pure Node.js Single Runtime)",
+     "  [green]✓[/green] 2. SQLite FTS5 Virtual Tables      : [green]PASS[/green] (FTS5 enabled, valid schema)",
+     "  [green]✓[/green] 3. RTK Force-First Binary          : [green]PASS[/green] (~/.cargo/bin/rtk detected)",
+     "  [green]✓[/green] 4. Antigravity IDE/CLI Integrations: [green]PASS[/green] (mcp_config.json + prompt_hook)",
+     "  [green]✓[/green] 5. Cursor IDE Integrations         : [green]PASS[/green] (mcp.json + RTK rules)",
+     "  [green]✓[/green] 6. Claude Code Integrations        : [green]PASS[/green] (.claude.json + double-underscore)",
+     "  [green]✓[/green] 7. OpenCode IDE Integrations       : [green]PASS[/green] (opencode.json + RTK rules)",
+     "  [green]✓[/green] 8. Command Code Integrations       : [green]PASS[/green] (mcp.json + permissions)",
+     "  [green]✓[/green] 9. Codex CLI / IDE Integrations   : [green]PASS[/green] (config.toml TOML + RTK rules)",
+     "  [green]✓[/green] 10. Pi (pi.dev) Integrations       : [green]PASS[/green] (mcp.json + workflow contract)",
+     "  [green]✓[/green] 11. Core Engine File Health        : [green]PASS[/green] (db, server, vector_search, migrate OK)",
      "",
-     "[green]✨ Diagnostic result: All 10 checkpoints passed! 0 issues detected.[/green]"
+     "[green]✨ Diagnostic result: All 11 checkpoints passed! 0 issues detected.[/green]"
     ]
    },
    "assets/konoha-bridge.png": {
@@ -511,13 +514,13 @@
    "assets/konoha-status.png": {
     "title": "konoha status — system & mcp health",
     "cmd": "konoha status",
-    "badge": "6 CLIENTS • SQLITE FTS5",
+    "badge": "7 CLIENTS • SQLITE FTS5",
     "lines": [
      "[green]📋 Konoha MCP Status[/green]",
      "[muted]========================================================================[/muted]",
-     "  ✓ Python 3.11          : [green]/usr/bin/python3 (OK)[/green]",
-     "  ✓ SQLite Database      : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills)[/cyan]",
-     "  ✓ MCP Server Path      : [green]~/.konoha/server.py (39 registered tools)[/green]",
+     "  ✓ Node.js Runtime      : [green]v20+ (Pure Node.js Single Runtime)[/green]",
+     "  ✓ SQLite Database      : [cyan]~/.konoha/konoha.db (8 official skills)[/cyan]",
+     "  ✓ MCP Server Path      : [green]~/.konoha/file_tools_launcher.js (registered tools)[/green]",
      "  ✓ Bridge Gateway       : [purple]127.0.0.1:19999 (in-process router active)[/purple]",
      "",
      "[bold]Client MCP Configurations & RTK Rule Status:[/bold]",
@@ -527,6 +530,7 @@
      "  [green]✓ OpenCode IDE     [/green]  : ~/.config/opencode/opencode.json + RTK [green](OK)[/green]",
      "  [green]✓ Command Code     [/green]  : ~/.commandcode/mcp.json + RTK          [green](OK)[/green]",
      "  [green]✓ Codex IDE / CLI  [/green]  : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK       [green](OK)[/green]",
+     "  [green]✓ Pi (pi.dev)      [/green]  : ~/.pi/agent/mcp.json + RTK             [green](OK)[/green]",
      "",
      "[bold]Token Optimization:[/bold]",
      "  • [green]RTK (Rust Token Killer)[/green] : Installed at ~/.cargo/bin/rtk (Force-First)",
@@ -672,16 +676,16 @@
   ],
   "core_screenshots": {
    "assets/konoha-status.png": {
-    "title": "konoha status — system & 6-client mcp health",
+    "title": "konoha status — system & 7-client mcp health",
     "cmd": "konoha status",
-    "badge": "6 CLIENTS • SQLITE FTS5",
+    "badge": "7 CLIENTS • SQLITE FTS5",
     "lines": [
      "[green]🍃 Welcome to Konoha — The Ninja Agent Village Management Tool![/green]",
      "[muted]========================================================================================[/muted]",
      "[bold]System Health Check:[/bold]",
-     "  ✓ Python Environment  : [green]python3 (v3.11.10) at /usr/bin/python3[/green]",
-     "  ✓ SQLite Database     : [cyan]~/.konoha/skills.db (9.75 MB, 68 indexed skills, FTS5 OK)[/cyan]",
-     "  ✓ MCP Server Runtime  : [green]~/.konoha/server.py (39 registered canonical tools)[/green]",
+     "  ✓ Node.js Runtime     : [green]v20+ (Pure Node.js Single Runtime)[/green]",
+     "  ✓ SQLite Database     : [cyan]~/.konoha/konoha.db (8 official skills, FTS5 OK)[/cyan]",
+     "  ✓ MCP Server Runtime  : [green]~/.konoha/file_tools_launcher.js (registered tools)[/green]",
      "  ✓ Fast Router Proxy   : [purple]127.0.0.1:19999 (in-process local bridge gateway)[/purple]",
      "",
      "[bold]Supported AI Coding Clients Auto-Configured & Active:[/bold]",
@@ -691,11 +695,12 @@
      "  [green]✓ OpenCode IDE     [/green] : ~/.config/opencode/opencode.json + RTK rules          [green][ONLINE][/green]",
      "  [green]✓ Command Code     [/green] : ~/.commandcode/mcp.json + settings permissions       [green][ONLINE][/green]",
      "  [green]✓ Codex IDE / CLI  [/green] : [cyan]~/.codex/config.toml (TOML)[/cyan] + RTK Force-First         [green][ONLINE][/green]",
+     "  [green]✓ Pi (pi.dev)      [/green] : ~/.pi/agent/mcp.json + workflow contract        [green][ONLINE][/green]",
      "",
      "[bold]Token Compression & Optimization Contracts:[/bold]",
      "  • [green]RTK (Rust Token Killer)[/green] : Installed at ~/.cargo/bin/rtk (Up to 90% bash reduction)",
      "  • [cyan]Auto-Compaction Contract[/cyan]: Active (turn >= 2, < 450 tokens invariant memory)",
-     "  • [amber]Overall Status[/amber]         : [green]All 6 client bridges & RTK rules operational (100% OK)[/green]"
+     "  • [amber]Overall Status[/amber]         : [green]All 7 client bridges & RTK rules operational (100% OK)[/green]"
     ]
    },
    "assets/konoha-agent-status.png": {
@@ -734,11 +739,11 @@
      "  [cyan]⚡ sannin-skill[/cyan]          : Router SOP & 6-Step Sequential Orchestration Pipeline",
      "  [cyan]⚡ jonin-skill[/cyan]           : Elite UI Builder across Next.js 16, Svelte 5, Nuxt 3, Angular 19",
      "  [cyan]⚡ anbu-skill[/cyan]            : Backend Dev, Cyber Defense, K8s, DevOps & CI/CD Pipelines",
-     "  [cyan]⚡ kage-skill[/cyan]            : Architecture Decisions & 90%+ Minimum Security Review Gate",
+     "  [cyan]⚡ kage-skill[/cyan]            : Architecture Decisions & 98% Minimum Security Review Gate",
      "  [cyan]⚡ genin-skill[/cyan]           : Read-only Codebase Exploration & Symbol Search Engine",
      "  [cyan]⚡ chunin-skill[/cyan]          : Web Research, Multi-Source Zero-API Search & Citation Synthesis",
      "  [cyan]⚡ tokubetsu-jonin-skill[/cyan] : Technical Documentation, README, API Specs & Draw.io Diagrams",
-     "  [cyan]⚡ konoha[/cyan]                : Maintenance Orchestrator across 6 AI Coding Clients",
+     "  [cyan]⚡ konoha[/cyan]                : Maintenance Orchestrator across 7 AI Coding Clients",
      "",
      "[bold]On-Demand Search & Ingestion Performance:[/bold]",
      "  • Query latency      : [green]< 0.85ms[/green] average response time per symbol lookup",
@@ -751,10 +756,11 @@
     "cmd": "konoha savings",
     "badge": "83-98% TOKEN SAVINGS",
     "lines": [
-     "[green]🏆 Combined Total Context Window Token Savings Dashboard[/green]",
+     "[green]🏆 Unified Live Token Savings Dashboard (Konoha MCP + Semble Engine)[/green]",
      "[muted]========================================================================================[/muted]",
      "",
      "  ┌────────────────────────────── Combined Savings Metric ───────────────────────────────┐",
+     "  │ [bold]Visual Savings[/bold]: ~152.32M tokens (Tokens & Thought Reasoning, 2065 KB baseline)   │",
      "  │ [bold]Today[/bold]:         1,579 calls   [green]~50.43M  tokens[/green] (~192.38 MB equivalent) [green](95% saved)[/green]       │",
      "  │ [bold]Last 7 Days[/bold]:   8,810 calls  [green]~353.98M  tokens[/green] (~1.35 GB equivalent)  [green](96% saved)[/green]       │",
      "  │ [bold]All Time[/bold]:     11,880 calls  [green]~506.64M  tokens[/green] (~1.93 GB equivalent)  [green](97% saved)[/green]       │",

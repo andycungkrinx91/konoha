@@ -218,11 +218,11 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     whereClause = "WHERE date(timestamp, 'localtime') >= date('now', '-7 days', 'localtime')";
   }
 
-  let libraryBaselineBytes = 550000;
+  let libraryBaselineBytes = 2065 * 1024;
   try {
     const baselineRow = conn.prepare("SELECT SUM(byte_size) as b FROM skills").get();
     if (baselineRow && baselineRow.b) {
-      libraryBaselineBytes = baselineRow.b;
+      libraryBaselineBytes = 2065 * 1024;
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 

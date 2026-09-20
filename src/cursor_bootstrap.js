@@ -73,7 +73,7 @@ function buildKonohaFilesMcpEntry() {
   };
 }
 
-function registerMcp(_) {
+function registerMcp() {
   ensureDir(CURSOR_DIR);
   let config = null;
   if (fileExists(CURSOR_MCP)) {

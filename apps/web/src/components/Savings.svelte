@@ -48,18 +48,6 @@
     return '█'.repeat(finalFilled) + '░'.repeat(Math.max(0, width - finalFilled));
   }
 
-  const CLIENTS = [
-    { name: 'Antigravity IDE', key: 'antigravity', icon: '✦' },
-    { name: 'Antigravity CLI (agy)', key: 'agy', icon: '▶' },
-    { name: 'Cursor', key: 'cursor', icon: '♦' },
-    { name: 'Claude Code', key: 'claudecode', icon: '◎' },
-    { name: 'OpenCode', key: 'opencode', icon: '▫' },
-    { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
-    { name: 'Codex', key: 'codex', icon: '🤖' },
-    { name: 'Pi (pi.dev)', key: 'pi', icon: 'π' },
-    // Honest-attribution bucket: calls with no verified client session signal.
-    { name: 'Unattributed', key: 'unattributed', icon: '◇' }
-  ];
 
   function getFilteredTools(list) {
     if (!list) return [];
@@ -143,17 +131,6 @@
     {@const combToday = combined.today || { calls: today.calls || 0, tokens: today.tokens || today.tokens_saved_approx || 0, bytes: today.bytes || today.tokens_saved_bytes || 0, pct: today.pct_saved ?? today.pct ?? 0 }}
     {@const combLast7 = combined.last_7_days || combined.last7days || { calls: last7Days.calls || 0, tokens: last7Days.tokens || last7Days.tokens_saved_approx || 0, bytes: last7Days.bytes || last7Days.tokens_saved_bytes || 0, pct: last7Days.pct_saved ?? last7Days.pct ?? 0 }}
     {@const combAllTime = combined.all_time || combined.alltime || { calls: allTime.calls || 0, tokens: allTime.tokens || allTime.tokens_saved_approx || 0, bytes: allTime.bytes || allTime.tokens_saved_bytes || 0, pct: allTime.pct_saved ?? allTime.pct ?? 0 }}
-    {@const providerRows = (() => {
-      const meta = Object.fromEntries(CLIENTS.map((c) => [c.key, c]));
-      const keys = new Set([
-        ...Object.keys(today.by_client || {}),
-        ...Object.keys(last7Days.by_client || {}),
-        ...Object.keys(allTime.by_client || {})
-      ]);
-      return [...keys]
-        .map((key) => ({ key, ...(meta[key] || { name: key, icon: '•' }) }))
-        .sort((a, b) => ((allTime.by_client?.[b.key]?.calls || 0) - (allTime.by_client?.[a.key]?.calls || 0)));
-    })()}
 
     <!-- Combined Total Savings Banner (TUI Parity) -->
     <div
@@ -218,7 +195,7 @@
             <span style="color: var(--color-primary);">1. ⚡</span> Konoha MCP Savings
           </h3>
           <p class="text-xs font-semibold text-slate-600">
-            Calculated relative to full context index sizing ({((today.db_size_bytes || 569831) / 1024).toFixed(0)} KB actual baseline)
+            Calculated relative to full context index sizing ({((today.db_size_bytes || (2065 * 1024)) / 1024).toFixed(0)} KB actual baseline)
           </p>
         </div>
       </div>
@@ -333,50 +310,6 @@
         </div>
       </div>
 
-      <!-- Provider Breakdown Table (TUI Parity) -->
-      <div class="glass-card-3d p-6 rounded-3xl border space-y-4">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
-          <span>Client Provider Breakdown (Invocations & Tokens)</span>
-          <span class="text-[11px] font-normal text-slate-500">{providerRows.filter((c) => c.key !== 'unattributed').length} Connected Coding Platform{providerRows.filter((c) => c.key !== 'unattributed').length === 1 ? '' : 's'}</span>
-        </h4>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs" style="color: var(--color-text);">
-            <thead>
-              <tr class="border-b uppercase text-[11px] font-semibold" style="border-color: var(--color-border); color: var(--color-text-muted);">
-                <th class="py-3 px-4">Provider</th>
-                <th class="py-3 px-4">Today</th>
-                <th class="py-3 px-4">Last 7 Days</th>
-                <th class="py-3 px-4">All Time</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y font-semibold" style="border-color: var(--color-border);">
-              {#each providerRows as c}
-                {@const todayC = (today.by_client && today.by_client[c.key]) || { calls: 0, tokens: 0 }}
-                {@const last7C = (last7Days.by_client && last7Days.by_client[c.key]) || { calls: 0, tokens: 0 }}
-                {@const alltimeC = (allTime.by_client && allTime.by_client[c.key]) || { calls: 0, tokens: 0 }}
-                <tr class="hover:bg-slate-500/5 transition-colors">
-                  <td class="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                    <span class="text-sm" style="color: var(--color-primary);">{c.icon}</span>
-                    <span>{c.name}</span>
-                  </td>
-                  <td class="py-3 px-4 font-mono">
-                    <span class="text-slate-900">{todayC.calls}</span>
-                    <span class="text-slate-500 text-[11px]">({formatTokens(todayC.tokens)} Token)</span>
-                  </td>
-                  <td class="py-3 px-4 font-mono">
-                    <span class="text-slate-900">{last7C.calls}</span>
-                    <span class="text-slate-500 text-[11px]">({formatTokens(last7C.tokens)} Token)</span>
-                  </td>
-                  <td class="py-3 px-4 font-mono">
-                    <span class="text-slate-900">{alltimeC.calls}</span>
-                    <span class="text-slate-500 text-[11px]">({formatTokens(alltimeC.tokens)} Token)</span>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════════════════ -->

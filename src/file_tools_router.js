@@ -9,7 +9,7 @@ const MCP_MANIFEST = require('./mcp_tool_manifest.json');
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
-  try { return require('../bin/lib/paths'); } catch(_) { return null; }
+  try { return require('../bin/lib/paths'); } catch (_) { return null; }
 })();
 
 
@@ -431,7 +431,7 @@ function validateSchemaValue(value, schema, key) {
   if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error(`${key} must be a boolean`);
 }
 
-const TOOL_SPECIFIC_ALIASES = {
+const TOOL_SPECIFIC_PARAM_MAP = {
   read_file_head: { lines: 'max_lines', limit: 'max_lines', count: 'max_lines', FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
   read_file_range: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', StartLine: 'start_line', EndLine: 'end_line' },
   file_info: { FilePath: 'file_path', filepath: 'file_path', Path: 'path' },
@@ -440,7 +440,7 @@ const TOOL_SPECIFIC_ALIASES = {
   find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', root_dir: 'dir', rootDir: 'dir', max_results: 'limit', maxResults: 'limit' },
 };
 
-const GLOBAL_ALIASES = {
+const GLOBAL_PARAM_MAP = {
   filepath: 'file_path',
   FilePath: 'file_path',
   Path: 'path',
@@ -458,14 +458,14 @@ const GLOBAL_ALIASES = {
 function normalizeToolArguments(name, rawArgs) {
   if (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs)) return rawArgs;
   const normalized = { ...rawArgs };
-  const toolAliases = TOOL_SPECIFIC_ALIASES[name] || {};
-  for (const [rawKey, targetKey] of Object.entries(toolAliases)) {
+  const toolParamMap = TOOL_SPECIFIC_PARAM_MAP[name] || {};
+  for (const [rawKey, targetKey] of Object.entries(toolParamMap)) {
     if (rawKey in normalized && !(targetKey in normalized)) {
       normalized[targetKey] = normalized[rawKey];
       delete normalized[rawKey];
     }
   }
-  for (const [rawKey, targetKey] of Object.entries(GLOBAL_ALIASES)) {
+  for (const [rawKey, targetKey] of Object.entries(GLOBAL_PARAM_MAP)) {
     if (rawKey in normalized && !(targetKey in normalized)) {
       normalized[targetKey] = normalized[rawKey];
       delete normalized[rawKey];
@@ -517,16 +517,16 @@ function dispatchTool(name, rawArgs) {
   }
 }
 
-// Deprecated compatibility aliases — hidden from tools/list to slim the
+// Deprecated compatibility tool names — hidden from tools/list to slim the
 // per-session schema payload; dispatch paths remain functional for direct calls.
-const DEPRECATED_TOOL_ALIASES = new Set([
+const DEPRECATED_LEGACY_TOOL_NAMES = new Set([
   'delegate_to_sannin', 'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
   'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
   'build_with_image_design',
 ]);
 
 function listToolSchemas() {
-  return MCP_MANIFEST.tools.filter((t) => !DEPRECATED_TOOL_ALIASES.has(t.name));
+  return MCP_MANIFEST.tools.filter((t) => !DEPRECATED_LEGACY_TOOL_NAMES.has(t.name));
 }
 
 function validateInstall() {

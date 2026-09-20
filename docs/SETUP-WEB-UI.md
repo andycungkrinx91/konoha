@@ -92,6 +92,7 @@ konoha web
   - `♠ Anbu` (Black Ops Backend & DevOps)
   - `⬡ Tokubetsu-jonin` (Technical Writing & Scribe)
 - Interactive embedded skill checkboxes: toggling instantly syncs `~/.agents/agents.yaml` and `konoha.db`. Primary dedicated skills (`kage-skill`, `jonin-skill`, etc.) are strictly preserved at priority index 0.
+- **Official & Embedded Skills Visibility**: Cards accurately render all active embedded and official ninja subagent skills (`sannin-skill`, `genin-skill`, `kage-skill`, `chunin-skill`, `jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `konoha`) with active status badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`).
 
 ### 3. 📚 Skills Management Screen (`Skills.svelte`)
 - **3-Mode Search Switcher**:
@@ -110,6 +111,7 @@ konoha web
 - Click any skill to open an interactive modal with full markdown preview.
 
 ### 4. 📊 Token Savings Screen (`Savings.svelte`)
+- **Unified Live Token Savings Metric**: Visual Savings (Tokens & Thought Reasoning), calculated relative to full context index sizing (2065 KB baseline) and Unified live metric from Konoha MCP + Semble Semantic Engine. Fragmented Client Provider Breakdown has been removed for a clean, unified counter across all 7 clients.
 - Real-time token reduction telemetry:
   - Today Bytes Saved
   - Last 7 Days Bytes Saved

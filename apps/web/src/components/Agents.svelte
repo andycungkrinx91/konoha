@@ -19,16 +19,44 @@
     "tokubetsu-jonin": "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
   };
 
+  const OFFICIAL_SKILLS = [
+    "sannin-skill",
+    "genin-skill",
+    "kage-skill",
+    "chunin-skill",
+    "jonin-skill",
+    "anbu-skill",
+    "tokubetsu-jonin-skill",
+    "konoha",
+    "antislop",
+    "i-have-adhd"
+  ];
+
+  function getSkillsForAgent(agent) {
+    const activeList = agent.skills || [];
+    const activeSet = new Set(activeList);
+    const result = [...activeList];
+    OFFICIAL_SKILLS.forEach(s => {
+      if (!activeSet.has(s)) {
+        result.push(s);
+      }
+    });
+    return result;
+  }
+
   async function loadData() {
     loading = true;
     error = "";
     try {
       agents = await api.get("/api/v1/agents");
-      const skills = await api.get("/api/v1/skills");
-      const set = new Set();
-      skills.forEach(s => {
+      const skills = await api.get("/api/v1/skills?limit=1000");
+      const set = new Set(OFFICIAL_SKILLS);
+      (skills || []).forEach(s => {
+        if (s.name) set.add(s.name);
         if (s.skill_name) set.add(s.skill_name);
-        else if (s.name) set.add(s.name.split("/")[0]);
+      });
+      (agents || []).forEach(a => {
+        (a.skills || []).forEach(s => set.add(s));
       });
       allSkills = Array.from(set).sort();
       try {
@@ -213,18 +241,25 @@
                 <span class="text-slate-500 font-mono text-[11px]">{agent.skills ? agent.skills.length : 0} active</span>
               </div>
 
-              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {#each allSkills as skill}
+              <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {#each getSkillsForAgent(agent) as skill}
                   {@const isChecked = agent.skills && agent.skills.includes(skill)}
                   <label class="flex items-center justify-between p-2 rounded-xl border border-slate-200 bg-white/70 hover:bg-purple-50/50 transition-colors cursor-pointer text-xs">
-                    <span class="font-mono text-xs font-bold {isChecked ? 'text-slate-900' : 'text-slate-500'} truncate">
-                      {skill}
-                    </span>
+                    <div class="flex items-center gap-2 min-w-0 pr-2">
+                      <span class="font-mono text-xs font-bold {isChecked ? 'text-slate-900' : 'text-slate-400'} truncate" title={skill}>
+                        {skill}
+                      </span>
+                      {#if isChecked}
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                          active
+                        </span>
+                      {/if}
+                    </div>
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onchange={() => toggleSkill(agent, skill, isChecked)}
-                      class="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                      class="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer shrink-0 ml-2"
                     />
                   </label>
                 {/each}

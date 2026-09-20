@@ -473,6 +473,14 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Sannin routes a task, execution succeeds, but the Kage delivery review gate returns `status: "blocked"` with `Kage review did not approve all completed tasks` even though all current tasks passed validation.
   - **Reason**: The SDLC task completion check in `workflowReviewApproved` queried `listTasks({ sessionId })` across the entire session table. In persistent clients (Antigravity CLI/IDE with a long-lived conversation ID), leftover or unverified tasks from earlier prompts in that same session falsely blocked the active workflow from completing.
   - **Fix**: Resolved in `v2.0.0-beta.7` by strictly scoping Kage's SDLC delivery gate to the root task container (checking for non-failure/non-blocked status while excluding it from self-deadlock) and the subtasks belonging specifically to the active workflow (`status.tasks`).
+* **Web UI `/agents` Missing Embedded & Official Skills (`v2.0.0-beta.7`)**:
+  - **Symptom**: In the SvelteKit Web UI `/agents` page, subagent cards do not show their official skills or embedded reference capabilities.
+  - **Reason**: The skills list was querying without agent name mapping and default pagination in `GET /api/v1/skills` truncated the returned list at 100 items.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by introducing `getSkillsForAgent` helper, rendering active embedded skills with badges and smooth inside-card scrolling (`max-h-56 overflow-y-auto`), and increasing the API default pagination limit to 500.
+* **Fragmented Savings Telemetry in TUI & UI (`v2.0.0-beta.7`)**:
+  - **Symptom**: Running `konoha savings` displayed cluttered per-client provider invocation tables that distracted from visual token reduction metrics.
+  - **Reason**: Legacy provider breakdown tables duplicated client stats rather than aggregating into the core token optimization metric.
+  - **Fix**: Resolved in `v2.0.0-beta.7` by removing the "Client Provider Breakdown (Invocations & Tokens)" section from both TUI and Web UI, unifying all counters into a single all-in-one counter: Visual Savings (Tokens & Thought Reasoning), calculated relative to full context index sizing (2065 KB actual baseline) and Unified live metric from Konoha MCP + Semble Semantic Engine.
 * **Definition-of-Readiness (DoR) Gate Blocks Dispatch**:
   - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
   - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.

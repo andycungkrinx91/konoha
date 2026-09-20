@@ -84,7 +84,7 @@ function validateContractText(text) {
     ['resume handling', /Resume safety/i],
     ['contract markers', new RegExp(`${CONTRACT_START}.*${CONTRACT_END}`, 's')]
   ];
-  const missing = required.filter(([, pattern]) => !pattern.test(source)).map(([name]) => name);
+  const missing = required.filter((entry) => !entry[1].test(source)).map((entry) => entry[0]);
   return { ok: missing.length === 0, missing };
 }
 

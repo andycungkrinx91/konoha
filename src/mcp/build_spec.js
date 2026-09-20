@@ -26,7 +26,7 @@ const BUILD_FRAMEWORKS = {
   next: {
     canonical: 'nextjs',
     display: 'Next.js 16.3',
-    aliases: new Set(['next', 'nextjs', 'react']),
+    identifiers: new Set(['next', 'nextjs', 'react']),
     scaffold_command: 'rtk pnpm create next-app@latest <project-name> --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias "@/*" --use-pnpm --silent',
     routing: 'Use Next.js 16 App Router under app/ (strictly Next.js 16.3+, React 19, fully custom-themed Tailwind v4 — NEVER Next.js 15, 14, or hash-based SPA routing).',
     validation: ['pnpm run lint', 'pnpm run build'],
@@ -37,7 +37,7 @@ const BUILD_FRAMEWORKS = {
   svelte: {
     canonical: 'sveltekit',
     display: 'SvelteKit',
-    aliases: new Set(['svelte', 'sveltekit']),
+    identifiers: new Set(['svelte', 'sveltekit']),
     scaffold_command: 'rtk pnpm dlx sv create <project-name> --template minimal --types ts --no-add-ons --install pnpm',
     routing: 'Use SvelteKit file-based routing under src/routes/ — NEVER hash-based SPA routing.',
     validation: ['pnpm run check', 'pnpm run lint', 'pnpm run build'],
@@ -48,7 +48,7 @@ const BUILD_FRAMEWORKS = {
   nuxt: {
     canonical: 'nuxt',
     display: 'Nuxt 4.3',
-    aliases: new Set(['nuxt', 'nuxt3', 'vue']),
+    identifiers: new Set(['nuxt', 'nuxt3', 'vue']),
     scaffold_command: 'rtk pnpm dlx nuxi@latest init <project-name> --packageManager pnpm --gitInit false',
     routing: 'Use Nuxt 4 file-based routing under app/pages/ and app/layouts/ — NEVER hash-based SPA routing.',
     validation: ['pnpm run lint', 'pnpm run build'],
@@ -59,7 +59,7 @@ const BUILD_FRAMEWORKS = {
   angular: {
     canonical: 'angular',
     display: 'Angular 20+ Signals',
-    aliases: new Set(['angular', 'ng']),
+    identifiers: new Set(['angular', 'ng']),
     scaffold_command: 'rtk pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm --style=scss --routing=true --ssr=false --skip-tests=true --skip-git=true',
     routing: 'Use standalone Angular Router with app.routes.ts — NEVER hash-based SPA routing.',
     validation: ['pnpm run lint', 'pnpm run build'],
@@ -128,8 +128,8 @@ function validateBuildInput(name, description = null, framework = null, tasteDia
   const fwClean = String(framework || '').toLowerCase().replace(/[.\s-]/g, '');
   let spec = null;
   for (const value of Object.values(BUILD_FRAMEWORKS)) {
-    for (const alias of value.aliases) {
-      if (fwClean === alias.replace(/[.\s-]/g, '')) {
+    for (const identifier of value.identifiers) {
+      if (fwClean === identifier.replace(/[.\s-]/g, '')) {
         spec = value;
         break;
       }

@@ -431,7 +431,7 @@ function startAgentTui(agents) {
           return maxLen;
         });
         
-        const rowColors = agents.map((_, idx) => {
+        const rowColors = agents.map((agent, idx) => {
           if (idx === selectedIndex) {
             return [C.bold + C.yellow, C.bold + C.cyan, C.bold + C.white, C.bold + C.magenta];
           }
@@ -625,7 +625,7 @@ function startAgentModelTui(agents, models) {
           return maxLen;
         });
 
-        const rowColors = agents.map((_, idx) => {
+        const rowColors = agents.map((agent, idx) => {
           if (idx === agentIndex) {
             return [C.bold + C.yellow, C.bold + C.cyan, C.bold + C.white, C.bold + C.green];
           }
@@ -657,7 +657,7 @@ function startAgentModelTui(agents, models) {
           return maxLen;
         });
 
-        const rowColors = modelRows.map((_, idx) => {
+        const rowColors = modelRows.map((row, idx) => {
           if (idx === modelIndex) {
             return [C.bold + C.yellow, C.bold + C.white, C.bold + C.cyan];
           }
@@ -6543,7 +6543,7 @@ async function cmdSavings(args = []) {
       const { getSavingsReport } = require('../src/db_savings');
       const stats = getSavingsReport(DB_PATH);
 
-      const actualBaselineKB = (stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? 550000) / 1024;
+      const actualBaselineKB = (stats.today.db_size_bytes ?? stats.alltime.db_size_bytes ?? (2065 * 1024)) / 1024;
       log(`     ${C.dim}Calculated relative to full context index sizing (${actualBaselineKB.toFixed(0)} KB actual baseline)${C.reset}\n`);
       
       if (stats.error) {
@@ -6581,7 +6581,7 @@ async function cmdSavings(args = []) {
 
         // Table
         log('    ' + applyGradientToBorders('┌──────────────┬─────────┬──────────────┬────────────────────────────────────────────────────────┐', LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Period', 12)}${C.reset} │ ${C.bold}${padEndVisual('Calls', 7)}${C.reset} │ ${C.bold}${padEndVisual('Bytes Saved', 12)}${C.reset} │ ${C.bold}${padEndVisual('Visual Savings (Tokens / thought)', 54)}${C.reset} │`, LEAF_THEME));
+        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Period', 12)}${C.reset} │ ${C.bold}${padEndVisual('Calls', 7)}${C.reset} │ ${C.bold}${padEndVisual('Bytes Saved', 12)}${C.reset} │ ${C.bold}${padEndVisual('Visual Savings (Tokens & Thought Reasoning)', 54)}${C.reset} │`, LEAF_THEME));
         log('    ' + applyGradientToBorders('├──────────────┼─────────┼──────────────┼────────────────────────────────────────────────────────┤', LEAF_THEME));
         log('    ' + applyGradientToBorders(`│ ${padEndVisual('Today', 12)} │ ${padEndVisual(stats.today.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.today.bytes), 12)} │ ${padEndVisual(formatSavings(stats.today.tokens, stats.today.pct || 0, stats.today.thought_tokens), 54)} │`, LEAF_THEME));
         log('    ' + applyGradientToBorders(`│ ${padEndVisual('Last 7 days', 12)} │ ${padEndVisual(stats.last7days.calls.toString(), 7)} │ ${padEndVisual(formatBytes(stats.last7days.bytes), 12)} │ ${padEndVisual(formatSavings(stats.last7days.tokens, stats.last7days.pct || 0, stats.last7days.thought_tokens), 54)} │`, LEAF_THEME));
@@ -6589,46 +6589,6 @@ async function cmdSavings(args = []) {
         log('    ' + applyGradientToBorders('└──────────────┴─────────┴──────────────┴────────────────────────────────────────────────────────┘', LEAF_THEME));
         log('');
 
-        // Provider Breakdown Table
-        log(`    ${C.bold}Provider Breakdown${C.reset}`);
-        log('    ' + applyGradientToBorders('┌──────────────────────┬──────────────────────┬──────────────────────┬──────────────────────┐', LEAF_THEME));
-        log('    ' + applyGradientToBorders(`│ ${C.bold}${padEndVisual('Provider', 20)}${C.reset} │ ${C.bold}${padEndVisual('Today', 20)}${C.reset} │ ${C.bold}${padEndVisual('Last 7 Days', 20)}${C.reset} │ ${C.bold}${padEndVisual('All Time', 20)}${C.reset} │`, LEAF_THEME));
-        log('    ' + applyGradientToBorders('├──────────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤', LEAF_THEME));
-
-        const clients = [
-          { name: 'Antigravity IDE', key: 'antigravity', icon: '✦' },
-          { name: 'Antigravity CLI', key: 'agy', icon: '▶' },
-          { name: 'Cursor', key: 'cursor', icon: '♦' },
-          { name: 'Claude Code', key: 'claudecode', icon: '◎' },
-          { name: 'OpenCode', key: 'opencode', icon: '▫' },
-          { name: 'CommandCode', key: 'commandcode', icon: '⚡' },
-          { name: 'Codex', key: 'codex', icon: '🤖' },
-          { name: 'Pi', key: 'pi', icon: '▲' },
-          // Honest-attribution bucket: calls with no verified client session
-          // signal, kept visible so the table totals match the period totals.
-          { name: 'Unattributed', key: 'unattributed', icon: '◇' }
-        ];
-
-        clients.forEach(client => {
-          const clientLabel = `${client.icon} ${client.name}`;
-          
-          const todayStats = stats.today.by_client ? (stats.today.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
-          const last7Stats = stats.last7days.by_client ? (stats.last7days.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
-          const alltimeStats = stats.alltime.by_client ? (stats.alltime.by_client[client.key] || { calls: 0, tokens: 0 }) : { calls: 0, tokens: 0 };
-          
-          const formatCellText = (cStats) => {
-            if (!cStats || cStats.calls === 0) return '0 (0 Token)';
-            return `${cStats.calls} (${formatTokensComb(cStats.tokens)} Token)`;
-          };
-
-          const todayText = formatCellText(todayStats);
-          const last7Text = formatCellText(last7Stats);
-          const allTimeText = formatCellText(alltimeStats);
-
-          log('    ' + applyGradientToBorders(`│ ${padEndVisual(clientLabel, 20)} │ ${padEndVisual(todayText, 20)} │ ${padEndVisual(last7Text, 20)} │ ${padEndVisual(allTimeText, 20)} │`, LEAF_THEME));
-        });
-        log('    ' + applyGradientToBorders('└──────────────────────┴──────────────────────┴──────────────────────┴──────────────────────┘', LEAF_THEME));
-        log('');
 
         if (stats.by_call_type && stats.by_call_type.length > 0) {
           log(`    ${C.bold}By Call Type${C.reset}`);
@@ -9620,7 +9580,8 @@ async function cmdSearch(args = []) {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-const [,, command, ...args] = process.argv;
+const command = process.argv[2];
+const args = process.argv.slice(3);
 
 async function main() {
   if (command === undefined) {

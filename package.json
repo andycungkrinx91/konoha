@@ -35,8 +35,8 @@
   },
   "scripts": {
     "build": "node bin/cli.js ui build",
-    "prepare": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
-    "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch(_) {} }\"",
+    "prepare": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch (err) {} }\"",
+    "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch (err) {} }\"",
     "test": "node tests/run_all.js",
     "test:parallel": "node tests/run_all.js --parallel",
     "test:mcp": "node tests/test_mcp_protocol.js && node tests/test_mcp_e2e.js",
