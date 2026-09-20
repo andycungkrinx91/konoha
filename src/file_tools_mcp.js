@@ -38,15 +38,15 @@ const SERVER_VERSION = (() => {
       try {
         const v = JSON.parse(fs.readFileSync(c, 'utf8')).version;
         if (v) return v;
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return "2.0.0-beta.7";
+  return "2.0.0";
 })();
 
 // Support both dev (require bin/lib/paths) and deployed (~/.konoha/) contexts.
 const devPaths = (() => {
-  try { return require("../bin/lib/paths"); } catch(_) { return null; }
+  try { return require("../bin/lib/paths"); } catch { return null; }
 })();
 const DB_PATH = devPaths ? devPaths.DB_PATH : path.join(__dirname, 'konoha.db');
 

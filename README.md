@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0-beta.7 (2026-09-20)](CHANGELOG.md) — SvelteKit 3 Web UI /agents official skills visibility & inside-card scroll, unified single savings counter (Visual Savings + 2065 KB baseline + Unified metric), removal of Client Provider Breakdown in TUI/UI, permanent variables standard (zero aliases), function parameter hygiene (zero dummy `(_)`, `[_]` idioms), strictly 8 official skills tree & database hygiene, cross-platform auto-reinstall for all 7 clients (`init --force --yes`), collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes, 5px card radius, zero-exclusions AI slop scanner force-scanning, and full 7-client parity.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0-beta.7 — Konoha v2.0.0-beta.7 (2026-09-20)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0-beta.7_2026-09-20.md)
+* **Latest Release:** [v2.0.0 (2026-09-20)](CHANGELOG.md) — Official GA Release: SvelteKit 3 Web UI /agents official skills visibility & inside-card scroll, unified single savings counter (Visual Savings + 2065 KB baseline + Unified metric), removal of Client Provider Breakdown in TUI/UI, permanent variables standard (zero aliases), function parameter hygiene (zero dummy `(_)`, `[_]` idioms), strictly 8 official skills tree & database hygiene, cross-platform auto-reinstall for all 7 clients (`init --force --yes`), collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes, 5px card radius, zero-exclusions AI slop scanner force-scanning, and full 7-client parity.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0 (2026-09-20)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-09-20.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -883,7 +883,7 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
 
-### Hard Guardrail Enforcement (v2.0.0-beta.7)
+### Hard Guardrail Enforcement (v2.0.0)
 
 The destructive-command, git-safety, secret-protection, and MCP read-bypass guardrails are **enforced at the tool-call level**, not just in prompts. A shared self-contained checker (`src/guardrails.js`, `checkCommandGuardrails(command)`) is deployed flat to `~/.konoha/guardrails.js` and inlined verbatim into every client hook:
 

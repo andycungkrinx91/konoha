@@ -78,7 +78,7 @@ function orchestrationScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
-      subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.0.0-beta.7',
+      subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.0.0',
       badge: '83–98% TOKEN SAVINGS',
       footer: '43 MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
     });
@@ -158,7 +158,7 @@ function joninScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'JONIN PREMIUM UI BUILD PIPELINE',
-      subtitle: 'build_from_text / build_from_source · Taste-Skill Design Engine · v2.0.0-beta.7',
+      subtitle: 'build_from_text / build_from_source · Taste-Skill Design Engine · v2.0.0',
       badge: 'PREMIUM UI AGENT',
       footer: 'design match comparison · component architecture · 3D web experiences · Phosphor icons — never Lucide',
     });
@@ -224,7 +224,7 @@ function kageScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KAGE FINAL REVIEW GATE',
-      subtitle: 'PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v2.0.0-beta.7',
+      subtitle: 'PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v2.0.0',
       badge: 'ZERO-AI-SLOP PRE-GATE',
       badgeAccent: THEME.amber,
       footer: 'aislop_scan → anti-slop rules → result / fixing · remediation loop ≤7 cycles · sannin synthesizes on APPROVED',

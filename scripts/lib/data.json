@@ -168,11 +168,11 @@
    "assets/konoha-version.png": {
     "title": "konoha version — check version & git updates",
     "cmd": "konoha version",
-    "badge": "RELEASE v2.0.0-beta.7",
+    "badge": "RELEASE v2.0.0",
     "lines": [
      "[green]✨ Konoha Version Inspector[/green]",
      "[muted]========================================================================[/muted]",
-     "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0-beta.7 (cross-client unified)[/cyan]",
+     "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0 (cross-client unified)[/cyan]",
      "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
      "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
      "  • [bold]Runtime Mode[/bold]        : [green]Pure Node.js (Single-Runtime)[/green]",
@@ -193,7 +193,7 @@
      "[muted]========================================================================[/muted]",
      "  › Fetching latest release manifest from GitHub...",
      "  › Installing latest package via pnpm...",
-     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0-beta.7[/cyan]",
+     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0[/cyan]",
      "",
      "  › Re-syncing SQLite FTS5 database schemas...",
      "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -204,7 +204,7 @@
      "    [green]✓ Command Code updated[/green]",
      "    [green]✓ Codex IDE / CLI updated[/green]",
      "",
-     "[green]✨ Konoha successfully upgraded to v2.0.0-beta.7! All clients re-synced.[/green]"
+     "[green]✨ Konoha successfully upgraded to v2.0.0! All clients re-synced.[/green]"
     ]
    },
    "assets/konoha-savings.png": {
@@ -1045,7 +1045,7 @@
      "bin/cli.js",
      "version"
     ],
-    "RELEASE v2.0.0-beta.7"
+    "RELEASE v2.0.0"
    ],
    [
     "assets/konoha-upgrade.png",
@@ -1875,7 +1875,7 @@
      "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
      "",
      "● konoha/read_file_head(path=\"package.json\", max_lines=20)",
-     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.0.0-beta.7)",
+     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.0.0)",
      "",
      "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
      "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
@@ -1917,7 +1917,7 @@
     "http://127.0.0.1:1404/",
     "01_home.png",
     "http://127.0.0.1:1404/ • Village Overview",
-    "KONOHA WEB • v2.0.0-beta.7",
+    "KONOHA WEB • v2.0.0",
     2200
    ],
    [

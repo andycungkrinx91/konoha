@@ -10,7 +10,7 @@
 
   let { children } = $props();
 
-  let health = $state({ status: 'checking', port: 1404, version: '2.0.0-beta.7' });
+  let health = $state({ status: 'checking', port: 1404, version: '2.0.0' });
 
   const navSections = [
     {

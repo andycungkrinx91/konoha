@@ -239,7 +239,7 @@ The subagent configurations are stored in a structured format, enabling you to i
     --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
   ```
 
-- **Configure Subagent Model Assignment (v2.0.0-beta.7)**:
+- **Configure Subagent Model Assignment (v2.0.0)**:
   Assign active bridge-served models (or inherit the host default) to subagents:
   ```bash
   # Interactive two-step raw-mode TUI:
@@ -264,7 +264,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```
   Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
 
-### SDLC Task Governance & Quality Gates (v2.0.0-beta.7)
+### SDLC Task Governance & Quality Gates (v2.0.0)
 
 Konoha includes a built-in SDLC governance layer tracking tasks, Definition of Readiness (DoR), cross-provider reviews, and anti-slop compliance in the `sdlc_tasks` SQLite table:
 
@@ -303,7 +303,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```
   Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
 
-### AI Fingerprint Detection (Website & Documents) (v2.0.0-beta.7)
+### AI Fingerprint Detection (Website & Documents) (v2.0.0)
 
 Scan websites and enterprise documents for AI generation markers, generator footprints, and robotic cadence:
 

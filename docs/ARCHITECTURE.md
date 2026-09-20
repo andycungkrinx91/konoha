@@ -214,7 +214,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Enforces business-class enterprise typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
 14. **Konoha Bridge 1.5.0 VSIX Extension**:
    - Upgraded local extension binary (`assets/konoha-bridge-1.5.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
-15. **Cross-Client 7-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0-beta.7)**:
+15. **Cross-Client 7-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
    - Synchronizes official skills across all 7 supported coding clients (`.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, `src/templates/skills`, `.codex/skills`, `.opencode/skills`) via `node scripts/sync_skills.js`.
    - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 clients.
    - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
