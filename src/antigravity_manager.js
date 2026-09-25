@@ -114,22 +114,27 @@ function buildAgentJson(agent) {
 
   const processedInstructions = processAgentInstructions(agent);
 
+  const customAgent = {
+    systemPromptSections: [
+      {
+        title: 'Agent System Instructions',
+        content: processedInstructions,
+      },
+    ],
+    toolNames: tools,
+    systemPromptConfig: {
+      includeSections: SYSTEM_PROMPT_SECTIONS,
+    },
+  };
+  if (agent.model) {
+    customAgent.model = agent.model;
+  }
+
   return {
     name: agent.name,
     description: agent.description,
     config: {
-      customAgent: {
-        systemPromptSections: [
-          {
-            title: 'Agent System Instructions',
-            content: processedInstructions,
-          },
-        ],
-        toolNames: tools,
-        systemPromptConfig: {
-          includeSections: SYSTEM_PROMPT_SECTIONS,
-        },
-      },
+      customAgent,
     },
   };
 }
@@ -197,12 +202,13 @@ function buildDefineSubagentArgs(agent) {
   };
 }
 
-function removeAntigravityAgents() {
+function removeAntigravityAgents(options = {}) {
+  const home = options.home || process.env.HOME || os.homedir();
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   const dirs = [
-    ANTIGRAVITY_AGENTS_GLOBAL,
-    path.join(ANTIGRAVITY_CLI_GLOBAL, 'agents'),
-    path.join(ANTIGRAVITY_IDE_GLOBAL, 'agents')
+    path.join(home, '.gemini', 'antigravity-cli', 'agents'),
+    path.join(home, '.gemini', 'antigravity-cli', 'agents'),
+    path.join(home, '.gemini', 'antigravity-ide', 'agents')
   ];
 
   for (const baseDir of dirs) {
@@ -773,6 +779,60 @@ function ensureAntigravityPermissions(silent = true) {
   return { ok: true, updatedCount };
 }
 
+function removeAntigravityConfig(silent = true, options = {}) {
+  const home = options.home || process.env.HOME || os.homedir();
+  const mcpConfigPath = options.configPath || path.join(home, '.gemini', 'config', 'mcp_config.json');
+  if (fs.existsSync(mcpConfigPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
+      if (config.mcpServers) {
+        let changed = false;
+        for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
+          if (config.mcpServers[name]) {
+            delete config.mcpServers[name];
+            changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
+          if (!silent) process.stderr.write('✓ Removed Konoha MCP servers from ~/.gemini/config/mcp_config.json\n');
+        }
+      }
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  removeAntigravityAgents({ home });
+  return { ok: true };
+}
+
+function ensureAntigravitySetup(options = {}) {
+  const { silent = true } = options;
+  const home = options.home || process.env.HOME || os.homedir();
+  const mcpConfigPath = options.configPath || path.join(home, '.gemini', 'config', 'mcp_config.json');
+  const dir = path.dirname(mcpConfigPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  let config = { mcpServers: {} };
+  if (fs.existsSync(mcpConfigPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
+      if (!config.mcpServers) config.mcpServers = {};
+    } catch {
+      config = { mcpServers: {} };
+    }
+  }
+
+  const { buildStdioMcpServers } = require('./mcp_clients_manager');
+  const servers = buildStdioMcpServers({ client: 'antigravity' });
+  Object.assign(config.mcpServers, servers);
+  fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
+
+  ensureAntigravityPermissions(silent);
+  ensureAntigravityMcpSchemas();
+  deployAntigravityRtkRule(silent);
+
+  return { ok: true };
+}
+
 module.exports = {
   detectAntigravityIde,
   ANTIGRAVITY_AGENTS_GLOBAL,
@@ -788,4 +848,6 @@ module.exports = {
   syncAntigravityExtensionRegistry,
   getAntigravityStatus,
   removeAntigravityAgents,
+  removeAntigravityConfig,
+  ensureAntigravitySetup,
 };

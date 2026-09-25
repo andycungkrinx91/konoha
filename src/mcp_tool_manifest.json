@@ -246,7 +246,7 @@
     },
     {
       "name": "website_ai_detector",
-      "description": "Scan a website (directory path or URL) for AI-generation fingerprints (generator meta tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify hosting, attribution comments, template assets) and return a 0-100 score with evidence-backed findings. 0-20 = Human-Built.",
+      "description": "Scan a website directory or URL for AI-generation fingerprints.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -285,7 +285,7 @@
     },
     {
       "name": "docs_ai_detector",
-      "description": "Scan a document (.docx, .pdf, .pptx, .xlsx, .md, .txt) for AI-generation fingerprints (watermarks, library metadata, dark theme violations, lowercase formulas, AI clichés, and burstiness rhythm) and return a 0-100 score with findings. 0-20 = HUMAN_WRITTEN (zero-AI human consistency target).",
+      "description": "Scan a document for AI-generation fingerprints and return a 0-100 score.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -328,7 +328,7 @@
     },
     {
       "name": "find_skill",
-      "description": "Search indexed skills across global and project-scoped repositories.",
+      "description": "Search indexed skills across repositories.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -347,6 +347,9 @@
           },
           "compact": {
             "type": "boolean"
+          },
+          "task_id": {
+            "type": "string"
           }
         },
         "required": [
@@ -376,6 +379,9 @@
           },
           "compact": {
             "type": "boolean"
+          },
+          "task_id": {
+            "type": "string"
           }
         },
         "required": [
@@ -414,6 +420,15 @@
             "minLength": 1
           },
           "agent": {
+            "type": "string"
+          },
+          "token_budget": {
+            "type": "number"
+          },
+          "section": {
+            "type": "string"
+          },
+          "task_id": {
             "type": "string"
           }
         },
@@ -1337,7 +1352,7 @@
     },
     {
       "name": "check_readiness",
-      "description": "Definition-of-Readiness (DoR) check on a task prompt before dispatch.",
+      "description": "Check task prompt readiness before dispatch.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1358,7 +1373,7 @@
     },
     {
       "name": "get_task_evidence",
-      "description": "Retrieve persisted validation and attestation evidence for an SDLC task.",
+      "description": "Retrieve validation evidence for a task.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1375,7 +1390,7 @@
     },
     {
       "name": "get_slop_findings",
-      "description": "Retrieve persisted anti-slop scan findings and Delivery Gate report for an SDLC task.",
+      "description": "Retrieve anti-slop scan findings and report for a task.",
       "inputSchema": {
         "type": "object",
         "properties": {

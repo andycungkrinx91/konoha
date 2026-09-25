@@ -523,6 +523,7 @@ const DEPRECATED_LEGACY_TOOL_NAMES = new Set([
   'delegate_to_sannin', 'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
   'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
   'build_with_image_design',
+  'find_skills',
 ]);
 
 function listToolSchemas() {

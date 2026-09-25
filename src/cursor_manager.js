@@ -116,6 +116,9 @@ function generateCursorSubagent(agent) {
     `name: ${agent.name}`,
     `description: ${description.replace(/\n/g, ' ')}`,
   ];
+  if (agent.model) {
+    frontmatter.push(`model: ${agent.model}`);
+  }
   if (readonly) {
     frontmatter.push('readonly: true');
   }
@@ -683,14 +686,16 @@ function ensureCursorSetup(options = {}) {
   return { ok: true };
 }
 
-function removeCursorConfig(silent = true) {
+function removeCursorConfig(silent = true, options = {}) {
+  const home = options.home || process.env.HOME || HOME;
+  const cursorMcp = options.configPath || (home === HOME ? CURSOR_MCP_GLOBAL : path.join(home, '.cursor', 'mcp.json'));
   // Remove only Konoha-managed MCP entries
-  if (fileExists(CURSOR_MCP_GLOBAL)) {
+  if (fileExists(cursorMcp)) {
     try {
-      const config = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
+      const config = JSON.parse(fs.readFileSync(cursorMcp, 'utf-8'));
       let updated = false;
       if (config.mcpServers) {
-        for (const name of ['konoha', 'semble']) {
+        for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
           if (config.mcpServers[name]) {
             delete config.mcpServers[name];
             updated = true;
@@ -698,16 +703,30 @@ function removeCursorConfig(silent = true) {
         }
       }
       if (updated) {
-        fs.writeFileSync(CURSOR_MCP_GLOBAL, JSON.stringify(config, null, 2) + '\n');
+        fs.writeFileSync(cursorMcp, JSON.stringify(config, null, 2) + '\n');
         if (!silent) process.stderr.write('✓ Removed Konoha MCP servers from ~/.cursor/mcp.json\n');
       }
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
+  // Remove accidental konoha-bridge extension if present in Cursor extensions
+  const cursorExtDir = options.extensionsDir || path.join(home, '.cursor', 'extensions');
+  if (fileExists(cursorExtDir)) {
+    try {
+      for (const entry of fs.readdirSync(cursorExtDir)) {
+        if (entry.toLowerCase().startsWith('andycungkrinx91.konoha-bridge')) {
+          fs.rmSync(path.join(cursorExtDir, entry), { recursive: true, force: true });
+          if (!silent) process.stderr.write('✓ Removed konoha-bridge extension from ~/.cursor/extensions\n');
+        }
+      }
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+
   // Remove global subagents
+  const agentsGlobal = path.join(home, '.cursor', 'agents');
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   for (const name of official) {
-    const p = path.join(CURSOR_AGENTS_GLOBAL, `${name}.md`);
+    const p = path.join(agentsGlobal, `${name}.md`);
     if (fileExists(p)) {
       try {
         fs.unlinkSync(p);

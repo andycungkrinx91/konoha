@@ -1426,6 +1426,51 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
   }
 }
 
+function removeCommandCodeConfig(silent = true, options = {}) {
+  const home = options.home || process.env.HOME || HOME;
+  const commandCodeJson = options.configPath || (home === HOME ? COMMANDCODE_JSON : path.join(home, '.commandcode', 'mcp.json'));
+  if (fileExists(commandCodeJson)) {
+    try {
+      mergeJsonFile(
+        commandCodeJson,
+        (config) => removeKonohaFromMcpBlock(config.mcpServers),
+        silent
+      );
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  const settingsPath = path.join(home, '.commandcode', 'settings.json');
+  if (fileExists(settingsPath)) {
+    try {
+      mergeJsonFile(
+        settingsPath,
+        (config) => {
+          let updated = false;
+          if (config.permissions && Array.isArray(config.permissions.allow)) {
+            const initial = config.permissions.allow.length;
+            config.permissions.allow = config.permissions.allow.filter(
+              (p) => !p.startsWith('mcp__konoha') && !p.startsWith('mcp__semble') && !p.startsWith('mcp__aislop') && !p.startsWith('mcp__skills-db')
+            );
+            if (config.permissions.allow.length !== initial) updated = true;
+          }
+          if (config.hooks && Array.isArray(config.hooks.PreToolUse)) {
+            const initial = config.hooks.PreToolUse.length;
+            config.hooks.PreToolUse = config.hooks.PreToolUse.filter(
+              (h) => !(h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc')))
+            );
+            if (config.hooks.PreToolUse.length !== initial) updated = true;
+          }
+          return updated;
+        },
+        silent
+      );
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  const rtkRule = path.join(home, '.commandcode', 'rules', 'rtk.md');
+  if (fileExists(rtkRule)) {
+    try { fs.unlinkSync(rtkRule); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  return { ok: true };
+}
 
 function getCommandCodeStatus() {
   const status = {
@@ -1515,5 +1560,6 @@ module.exports = {
   getClaudeCodeStatus,
   getCommandCodeStatus,
   removeClaudeCodeConfig,
+  removeCommandCodeConfig,
   generateClaudeCodeSubagent,
 };

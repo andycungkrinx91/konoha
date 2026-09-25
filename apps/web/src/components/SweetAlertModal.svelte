@@ -5,8 +5,15 @@
   useScrollLock(() => sweetAlert.isOpen);
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && sweetAlert.isOpen) sweetAlert.handleCancel(); }} />
+
 {#if sweetAlert.isOpen}
-  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200"
+    onclick={(e) => { if (e.target === e.currentTarget) sweetAlert.handleCancel(); }}
+  >
     <!-- 3D Perspective Modal Card -->
     <div
       class="modal-card relative w-full max-w-lg rounded-[5px] p-6 sm:p-8 border shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden"
@@ -14,6 +21,17 @@
       role="alertdialog"
       aria-modal="true"
     >
+      <button
+        type="button"
+        onclick={sweetAlert.handleCancel}
+        class="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer z-10"
+        aria-label="Close dialog"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
       <!-- 3D Animated Icon Header -->
       <div class="flex justify-center mb-5">
         {#if sweetAlert.icon === "success"}

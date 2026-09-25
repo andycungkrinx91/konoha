@@ -22,8 +22,6 @@ const {
 const { detectActiveClient } = require("./client_detection");
 
 const USER_AGENTS_YAML = path.join(AGENTS_DIR, "agents.yaml");
-const PREVIEW_LIMIT = 500;
-const COMPACT_PREVIEW_LIMIT = 250;
 const MAX_CONTENT_SIZE = 12000;
 
 let yamlUtils;
@@ -137,43 +135,57 @@ function contentHash(content) {
 
 const LAST_CALL_TIMES = new Map();
 
-function logToolCall(toolName, queryStr, returnedContent, agentName = null) {
+function logToolCall(toolName, queryStr, returnedContent, agentName = null, baselineOverride = null) {
   let conn = null;
   try {
     conn = getDb();
-    let baselineBytes = 550000;
-    try {
-      const row = conn.prepare('SELECT SUM(byte_size) as total FROM skills').get();
-      if (row && row.total != null) {
-        baselineBytes = Number(row.total);
-      }
-    } catch (_) { /* ignore */ }
-
     const returnedBytes = Buffer.byteLength(returnedContent || '', 'utf8');
     const currentTime = Date.now() / 1000;
     const agentKey = (agentName || 'direct').toLowerCase();
     LAST_CALL_TIMES.set(agentKey, currentTime);
 
-    const skillSavingTools = new Set([
-      'find_skill', 'find_skills', 'list_skills', 'optimize_report',
-      'build_from_text', 'build_from_source', 'build_with_image_design',
-      'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'tokubetsu-jonin', 'genin'
-    ]);
-    const isSubagent = toolName.startsWith('delegate_to_') || toolName.startsWith('mcp_');
-
-    let bytesSaved = 0;
-    let tokensSaved = 0;
-    let totalLibraryBytes = returnedBytes;
-
-    if (skillSavingTools.has(toolName) || isSubagent) {
-      bytesSaved = Math.max(baselineBytes - returnedBytes, 0);
-      tokensSaved = Math.floor(bytesSaved / 4);
-      totalLibraryBytes = baselineBytes;
+    let baselineBytes = returnedBytes;
+    if (baselineOverride !== null && baselineOverride !== undefined && Number(baselineOverride) > 0) {
+      baselineBytes = Math.max(returnedBytes, Number(baselineOverride));
+    } else if (toolName === 'find_skill' || toolName === 'find_skills') {
+      let matchedSize = 0;
+      try {
+        const words = String(queryStr || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+        if (words.length > 0) {
+          const lk = '%' + words.join('%') + '%';
+          const sumRow = conn.prepare(`
+            SELECT COALESCE(SUM(byte_size), 0) as total_matched
+            FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
+          `).get(lk, lk, lk);
+          if (sumRow && sumRow.total_matched > 0) {
+            matchedSize = Number(sumRow.total_matched);
+          }
+        }
+      } catch (_) { /* ignore */ }
+      baselineBytes = Math.max(returnedBytes, matchedSize > 0 ? matchedSize : 15000);
     } else if (toolName === 'get_skill') {
-      bytesSaved = 0;
-      tokensSaved = 0;
-      totalLibraryBytes = returnedBytes;
+      let skillSize = 0;
+      try {
+        let skillTarget = queryStr;
+        if (typeof queryStr === 'string' && queryStr.startsWith('{')) {
+          try { skillTarget = JSON.parse(queryStr).name || queryStr; } catch (_) { /* best-effort json parse fallback */ }
+        }
+        const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
+        if (sRow && sRow.byte_size) {
+          skillSize = Number(sRow.byte_size);
+        }
+      } catch (_) { /* ignore */ }
+      baselineBytes = Math.max(returnedBytes, skillSize > 0 ? skillSize : returnedBytes);
+    } else if (['list_skills', 'optimize_report'].includes(toolName)) {
+      // Baseline rationale: Unpruned listing across ~138 skills requires loading raw frontmatter metadata
+      // (averaging ~250 bytes each = ~34.5 KB, standardized to 35,000 bytes baseline). list_skills parses
+      // and delivers concise JSON summaries (~15.7 KB), yielding ~55% empirical token reduction.
+      baselineBytes = Math.max(returnedBytes, 35000);
     }
+
+    const bytesSaved = Math.max(baselineBytes - returnedBytes, 0);
+    const tokensSaved = Math.floor(bytesSaved / 4);
+    const totalLibraryBytes = baselineBytes;
 
     const clientName = detectActiveClient();
     conn.prepare(`
@@ -222,7 +234,27 @@ function smartTruncate(content, maxSize, name = null) {
   return { text: truncatedStr, truncated: true };
 }
 
-function findSkill(keyword, limit = 3, agentName = null, compact = false) {
+function extractSnippet(content, maxLen = 150) {
+  if (!content || typeof content !== 'string') return '';
+  let text = content.replace(/^---[\s\S]*?---\s*/, '').trim();
+  text = text.replace(/```[\s\S]*?```/g, '').replace(/\|[^\n]+\|/g, '');
+  text = text.replace(/^#+\s+[^\n]+/gm, '').trim();
+  text = text.replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLen) return text;
+  return text.substring(0, maxLen).trim() + '...';
+}
+
+const SERVED_SKILLS_BY_SESSION = new Map();
+
+function getServedSkillsSet(sessionId) {
+  const key = sessionId || 'default_session';
+  if (!SERVED_SKILLS_BY_SESSION.has(key)) {
+    SERVED_SKILLS_BY_SESSION.set(key, new Set());
+  }
+  return SERVED_SKILLS_BY_SESSION.get(key);
+}
+
+function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId = null) {
   process.stderr.write(`[mcp konoha] tool_call: find_skill(keyword='${keyword}', limit=${limit}, compact=${compact})\n`);
   try {
     autoMigrateProjectSkills();
@@ -230,7 +262,6 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false) {
 
   const normKeyword = normalizeLegacySkillName(keyword);
   const conn = getDb();
-  const previewLimit = compact ? COMPACT_PREVIEW_LIMIT : PREVIEW_LIMIT;
   try {
     let rows = [];
     try {
@@ -297,29 +328,38 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false) {
       return res;
     }
 
+    const servedSet = getServedSkillsSet(taskId);
     const results = [];
     process.stderr.write(`  → Found ${visibleRows.length} matching skill/reference entries:\n`);
     for (const row of visibleRows) {
       process.stderr.write(`    - ${row.name} (${row.type}, ${row.byte_size} bytes)\n`);
       const shielded = shieldPromptInjection(row.content || '');
-      const isTruncated = shielded.length > previewLimit;
-      const preview = isTruncated ? shielded.substring(0, previewLimit) : shielded;
+      const isAlreadyServed = servedSet.has(row.name);
+      servedSet.add(row.name);
+
+      const snippet = extractSnippet(shielded, 150);
+      const estTokens = Math.ceil(Buffer.byteLength(shielded, 'utf8') / 4);
+      const score = row.rank ? Math.round(Math.abs(row.rank) * 100) / 100 : 1.0;
 
       const entry = {
+        id: row.name,
         name: row.name,
         type: row.type,
-        content: preview,
-        truncated: isTruncated,
-        hash: contentHash(shielded)
+        score,
+        estimated_tokens: estTokens,
+        snippet: isAlreadyServed ? '[LOADED]' : snippet,
+        content: isAlreadyServed ? '[LOADED]' : snippet,
+        loaded: isAlreadyServed,
+        truncated: true,
+        hash: contentHash(shielded),
+        hint: `Use get_skill('${row.name}') for full content`
       };
-      if (isTruncated) {
-        entry.hint = `Use get_skill('${row.name}') for full content`;
-      }
       results.push(entry);
     }
 
+    const unsnippetedBaseline = visibleRows.reduce((acc, r) => acc + (Number(r.byte_size) || 0), 0);
     const res = JSON.stringify({ found: results.length, query: normKeyword, results });
-    logToolCall('find_skill', normKeyword, res, agentName);
+    logToolCall('find_skill', normKeyword, res, agentName, Math.max(Buffer.byteLength(res, 'utf8'), unsnippetedBaseline));
     return res;
   } finally {
     conn.close();
@@ -367,13 +407,26 @@ function listSkills(agentName = null, fields = null) {
   }
 }
 
-function getSkill(name, agentName = null) {
+function extractSectionTitle(sectionText) {
+  const m = sectionText.match(/^#+\s+([^\n]+)/m);
+  return m ? m[1].trim() : 'section';
+}
+
+function getSkill(name, agentName = null, options = {}) {
   process.stderr.write(`[mcp konoha] tool_call: get_skill(name='${name}')\n`);
   try {
     autoMigrateProjectSkills();
   } catch (_) { /* ignore */ }
 
   const normName = normalizeLegacySkillName(name);
+  const tokenBudget = (typeof options === 'object' && options !== null && options.tokenBudget) ? parseInt(options.tokenBudget, 10) : (typeof options === 'number' ? options : 0);
+  const requestedSection = (typeof options === 'object' && options !== null && options.section) ? String(options.section).trim() : null;
+  const taskId = (typeof options === 'object' && options !== null && options.taskId) ? options.taskId : null;
+
+  if (taskId) {
+    getServedSkillsSet(taskId).add(normName);
+  }
+
   const conn = getDb();
   try {
     let row = conn.prepare(`
@@ -404,14 +457,47 @@ function getSkill(name, agentName = null) {
     const shielded = shieldPromptInjection(row.content || '');
     let content = shielded;
     let truncated = false;
+    let remainingSections = [];
 
-    if (content.length > MAX_CONTENT_SIZE) {
+    // Token-budgeted or section-targeted retrieval
+    if (tokenBudget > 0 || requestedSection) {
+      const maxChars = tokenBudget > 0 ? tokenBudget * 4 : Infinity;
+      const rawSections = shielded.split(/\n(?=#{1,3}\s)/);
+      if (rawSections.length > 1) {
+        if (requestedSection) {
+          const reqLower = requestedSection.toLowerCase().replace(/^#+/, '').trim();
+          const foundIdx = rawSections.findIndex(s => {
+            const title = extractSectionTitle(s).toLowerCase();
+            return title.includes(reqLower);
+          });
+          if (foundIdx !== -1) {
+            content = rawSections[foundIdx];
+            remainingSections = rawSections.filter((_, idx) => idx !== foundIdx).map(extractSectionTitle).slice(0, 10);
+          } else {
+            content = rawSections[0];
+            remainingSections = rawSections.slice(1).map(extractSectionTitle).slice(0, 10);
+          }
+        } else {
+          content = rawSections[0];
+          remainingSections = rawSections.slice(1).map(extractSectionTitle).slice(0, 10);
+        }
+
+        truncated = remainingSections.length > 0;
+        if (remainingSections.length > 0) {
+          content += `\n\n[+${remainingSections.length} remaining sections: ${remainingSections.map(s => '#' + s).join(', ')}. Pass section parameter to get_skill to read each.]`;
+        }
+      } else if (content.length > maxChars) {
+        const truncRes = smartTruncate(content, maxChars, row.name);
+        content = truncRes.text;
+        truncated = truncRes.truncated;
+      }
+    } else if (content.length > MAX_CONTENT_SIZE) {
       const truncRes = smartTruncate(content, MAX_CONTENT_SIZE, row.name);
       content = truncRes.text;
       truncated = truncRes.truncated;
     }
 
-    const res = JSON.stringify({
+    const payload = {
       name: row.name,
       type: row.type,
       content,
@@ -419,8 +505,12 @@ function getSkill(name, agentName = null) {
       line_count: (content.match(/\n/g) || []).length + 1,
       truncated,
       hash: contentHash(shielded)
-    });
-    logToolCall('get_skill', normName, res, agentName);
+    };
+    if (remainingSections.length > 0) {
+      payload.remaining_sections = remainingSections;
+    }
+    const res = JSON.stringify(payload);
+    logToolCall('get_skill', normName, res, agentName, row ? Math.max(Buffer.byteLength(res, 'utf8'), Number(row.byte_size) || 0) : null);
     return res;
   } finally {
     conn.close();

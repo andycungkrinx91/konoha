@@ -308,9 +308,50 @@ function sanitizeLegacyRecords(conn) {
       SET total_library_bytes = returned_bytes,
           bytes_saved = 0,
           tokens_saved = 0
-      WHERE tool NOT IN ('find_skill', 'list_skills')
+      WHERE tool IN ('anbu', 'genin', 'sannin', 'kage', 'jonin', 'tokubetsu_jonin', 'tokubetsu-jonin')
+        AND total_library_bytes > returned_bytes
+    `).run();
+    conn.prepare(`
+      UPDATE tool_calls
+      SET total_library_bytes = returned_bytes,
+          bytes_saved = 0,
+          tokens_saved = 0
+      WHERE tool NOT IN ('find_skill', 'find_skills', 'list_skills', 'optimize_report', 'get_skill')
         AND total_library_bytes >= 400000
     `).run();
+    conn.prepare(`
+      UPDATE tool_calls
+      SET total_library_bytes = MAX(returned_bytes, 15000),
+          bytes_saved = MAX(0, MAX(returned_bytes, 15000) - returned_bytes),
+          tokens_saved = CAST((MAX(0, MAX(returned_bytes, 15000) - returned_bytes) / 4) AS INTEGER)
+      WHERE tool IN ('find_skill', 'find_skills')
+        AND total_library_bytes >= 400000
+    `).run();
+    // Normalize legacy list_skills / optimize_report rows from old full-library 2.11 MB baseline down to realistic 35,000-byte frontmatters baseline
+    conn.prepare(`
+      UPDATE tool_calls
+      SET total_library_bytes = MAX(returned_bytes, 35000),
+          bytes_saved = MAX(0, MAX(returned_bytes, 35000) - returned_bytes),
+          tokens_saved = CAST((MAX(0, MAX(returned_bytes, 35000) - returned_bytes) / 4) AS INTEGER)
+      WHERE tool IN ('list_skills', 'optimize_report')
+        AND total_library_bytes >= 400000
+    `).run();
+    try {
+      const getSkillRows = conn.prepare("SELECT id, query, returned_bytes FROM tool_calls WHERE tool = 'get_skill' AND bytes_saved = 0").all();
+      const updateGetSkill = conn.prepare("UPDATE tool_calls SET total_library_bytes = ?, bytes_saved = ?, tokens_saved = ? WHERE id = ?");
+      for (const gRow of getSkillRows) {
+        let skillTarget = gRow.query;
+        if (typeof skillTarget === 'string' && skillTarget.startsWith('{')) {
+          try { skillTarget = JSON.parse(skillTarget).name || skillTarget; } catch (_) { /* best-effort json parse fallback */ }
+        }
+        const sRow = conn.prepare('SELECT byte_size FROM skills WHERE name = ? OR name LIKE ? LIMIT 1').get(skillTarget, `%/${skillTarget}`);
+        if (sRow && sRow.byte_size > gRow.returned_bytes) {
+          const bSaved = sRow.byte_size - gRow.returned_bytes;
+          const tSaved = Math.floor(bSaved / 4);
+          updateGetSkill.run(sRow.byte_size, bSaved, tSaved, gRow.id);
+        }
+      }
+    } catch (_) { /* ignore */ }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
@@ -355,11 +396,18 @@ function getSavingsReport(dbPath = null) {
       });
     }
 
+    let tiktokenAccuracy = null;
+    try {
+      const tokenSampler = require('./token_sampler');
+      tiktokenAccuracy = tokenSampler.getDriftMetrics();
+    } catch (_) { /* best-effort fallback: failure here must never crash telemetry */ }
+
     return {
       today: statsToday,
       last7days: stats7Days,
       alltime: statsAll,
-      by_call_type: byCallType
+      by_call_type: byCallType,
+      tiktoken_accuracy: tiktokenAccuracy
     };
   } finally {
     conn.close();

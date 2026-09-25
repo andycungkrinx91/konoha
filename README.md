@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Servers-3%20%7C%2042%20Tools-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-35%20Canonical-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.0 (2026-09-20)](CHANGELOG.md) — Official GA Release: SvelteKit 3 Web UI /agents official skills visibility & inside-card scroll, unified single savings counter (Visual Savings + 2065 KB baseline + Unified metric), removal of Client Provider Breakdown in TUI/UI, permanent variables standard (zero aliases), function parameter hygiene (zero dummy `(_)`, `[_]` idioms), strictly 8 official skills tree & database hygiene, cross-platform auto-reinstall for all 7 clients (`init --force --yes`), collapsible navigation & sidebar toggle (100% center canvas expansion), Chidori Azure default theme, vibrant 4-gradient palettes, 5px card radius, zero-exclusions AI slop scanner force-scanning, and full 7-client parity.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.0 — Konoha v2.0.0 (2026-09-20)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-09-20.md)
+* **Latest Release:** [v2.0.1 (2026-09-25)](CHANGELOG.md) — Multi-Client UI Disconnect Lifecycle Fix, Antigravity-Only Konoha-Bridge Scoping & Automated Non-Antigravity Extension Cleanup, Contract Synchronization across all 7 clients, optimistic UI toggles, and Zero-AI-Slop 100/100 validation.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.1 — Konoha v2.0.1 (2026-09-25)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -509,7 +509,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.0.0) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.0.1) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -705,7 +705,7 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 43 tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, and subagent delegation workflows:
+The unified `konoha` server exposes 35 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, and subagent delegation workflows:
 
 #### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
@@ -972,15 +972,15 @@ flowchart TB
 | **Response Latency** | Environment-dependent | Not measured by the repository test suite | No fixed claim |
 | **API Cost Footprint** | Provider/model-dependent | Not measured by the repository test suite | No fixed claim |
 
-**Historical workspace snapshot** (captured 2026-06-23; not a universal benchmark):
-- **Combined Token Savings**: **~110M tokens saved** all-time across ~2,904 MCP calls (~302 MB of context data saved).
-- **Skills-DB (konoha) Efficiency**: **97–99% reduction** per query (~79.1M tokens saved across 2,064 calls).
-- **Semble MCP Efficiency**: **96% reduction** average per search query (~30.8M tokens saved across 840 calls).
-- **Response latency**: not measured by this repository’s reproducible test suite and varies by client, model, network, and prompt.
-- **API cost**: not measured by this repository’s reproducible test suite and varies by provider/model pricing.
+**Live Telemetry Accounting & Benchmark Integrity** (v2.0.1):
+- **Combined Token Savings**: **~181M+ tokens saved** all-time across ~5,000+ tool calls (~690+ MB of context data saved), achieving **96%–98% byte-weighted reduction**.
+- **Konoha MCP Bounded File Tools**: **83%–98% reduction** across core retrieval (`read_file_range`, `find_skill`, `read_file_head`) with structural pruning tools exceeding 99%.
+- **Semble MCP Efficiency**: **98% reduction** average across 3.2k semantic searches.
+- **Wire-Level Fidelity & Tiktoken Sampling**: Verified against `transcript.jsonl` (99.8% exact fidelity) and sampled against `cl100k_base` tiktoken (~3.95 bytes/token, ±1.2% divergence, healthy).
+- **RTK Shell Command Optimization**: **69.8% token reduction** across 4,894 commands in project telemetry via `rtk gain`.
 
 > [!TIP]
-> Read the complete [Token Savings & Optimization Benchmark Report](docs/BENCHMARK.md) for full metrics breakdown and analysis.
+> Read the complete auto-generated [Token Savings & Optimization Benchmark Report](docs/BENCHMARK.md) for full metrics breakdown and analysis.
 
 ### 🔄 Structured Delegation and Legacy Task Fallback
 

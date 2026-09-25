@@ -1,0 +1,87 @@
+{
+  "tasks": [
+    {
+      "id": "task-docs-fix",
+      "name": "Small Docs Fix: CLI Options & Architecture Reconciliation",
+      "prompt": "Audit and synchronize CLI options and documentation across the Konoha repository.\nTarget files: docs/SETUP-CLI.md, docs/SETUP-IDE.md, and README.md.\nRequirements:\n1. Verify that all 35 canonical MCP tools are accurately documented with correct argument types.\n2. Ensure CLI argument flags (--yes, --force, --client, --clean) match bin/cli.js command handlers.\n3. Validate that cross-client setup instructions match the latest v2.0.1 conventions.\n4. Run framework-native check and documentation tests to ensure zero broken links and 0 errors.",
+      "findings": "## Exploration Findings (Scout: Genin)\n\n1. Inspected `docs/SETUP-CLI.md` against `bin/cli.js`:\n   - Found outdated `--verbose` and `--debug` flag documentation; actual flags are `--yes`, `--force`, `--client`.\n   - Verified command list: `konoha init`, `migrate`, `embed`, `status`, `version`, `upgrade`, `savings`, `doctor`, `test`, `search`, `ui`, `bridge`, `sdlc`, `agent`, `skill`.\n2. Inspected `docs/architecture/CANONICAL-API.md`:\n   - Identified 35 canonical tools. Parameter definitions in table need exact synchronization with `listToolSchemas()`.\n3. Code linkages:\n   - Verified that `src/mcp_tool_manifest.json` and `src/file_tools_router.js` are in sync.\n   - Discovered that `test_docs_currency.js` checks docs currency, but lacked check for `CANONICAL-API.md`.\n4. Risk Assessment:\n   - Documentation-only changes. Zero runtime logic disruption. Low risk.",
+      "plan": "## Implementation Plan (Architect: Kage)\n\n- [tokubetsu-jonin]: Update `docs/SETUP-CLI.md` with accurate command flags (--yes, --force, --client).\n- [tokubetsu-jonin]: Synchronize `docs/architecture/CANONICAL-API.md` with live `listToolSchemas()`.\n- [tokubetsu-jonin]: Update `README.md` quickstart instructions to reference v2.0.1 commands.\n- [kage]: Review changes, run documentation test suites, and verify zero broken links.\n\nValidation Commands:\n- `rtk node tests/test_docs_currency.js`\n- `rtk node tests/test_canonical_api_sync.js`\n- `rtk aislop scan --changes`",
+      "research": "{\n  \"query\": \"documentation currency validation tools node.js\",\n  \"provider\": \"searxng_fallback\",\n  \"results\": [\n    {\n      \"title\": \"Markdown Link Check\",\n      \"url\": \"https://github.com/tcort/markdown-link-check\",\n      \"snippet\": \"Checks all relative and absolute links in markdown documentation.\"\n    },\n    {\n      \"title\": \"Documentation Testing Best Practices\",\n      \"url\": \"https://diataxis.fr\",\n      \"snippet\": \"Diataxis framework: tutorials, how-to guides, reference, explanation.\"\n    }\n  ]\n}",
+      "exec_result": "## Execution Result (Scribe: Tokubetsu-Jonin)\n\n- Modified files:\n  - `docs/SETUP-CLI.md`: Corrected flag tables for `init`, `migrate`, `embed`, and `ui` commands.\n  - `docs/architecture/CANONICAL-API.md`: Replaced hand-crafted table with live schema synchronization script.\n  - `README.md`: Updated version badges to v2.0.1 and refreshed CLI examples.\n- Validation Command Evidence:\n  - `rtk node tests/test_docs_currency.js` -> PASS (0 errors, exit code 0)\n  - `rtk node tests/test_canonical_api_sync.js` -> PASS (35 tools verified, exit code 0)\n  - `rtk aislop scan --changes` -> 100/100 Healthy (0 errors, 0 warnings)\n- Status: Completed cleanly without errors.",
+      "docs": "# Documentation Synchronization Summary (v2.0.1)\n\nAll public documentation has been reconciled against the authoritative codebase runtime:\n1. `docs/SETUP-CLI.md`: All 15 CLI commands fully documented with all required and optional flags.\n2. `docs/architecture/CANONICAL-API.md`: Automated synchronization via `scripts/sync_canonical_api.js` locked to 35 tools.\n3. `README.md`: Updated to v2.0.1 architecture specifications with 8-phase orchestration reference.",
+      "review": {
+        "approved": true,
+        "confidence": 100,
+        "verified_task_ids": [
+          "task-1"
+        ],
+        "validation": [
+          "node tests/test_docs_currency.js: PASS (0 errors)",
+          "node tests/test_canonical_api_sync.js: PASS (35 tools verified, exit code 0)",
+          "aislop scan --changes: 100/100 Healthy (0 errors, 0 warnings)"
+        ],
+        "security_reviewed": true,
+        "rollback_reviewed": true,
+        "ai_slop_clean": true,
+        "ai_slop_findings": 0,
+        "findings": []
+      }
+    },
+    {
+      "id": "task-ui-mid",
+      "name": "Mid UI Task: Theme Switcher & Navbar Glassmorphism",
+      "prompt": "Refactor the navigation header and theme switcher in apps/web.\nRequirements:\n1. Implement a 10-theme light-mode switcher floating popup at the bottom-left corner (fixed bottom-6 left-6 z-50).\n2. Apply subtle glassmorphism styling (backdrop-blur-md, border-white/20, semantic CSS variables) to the navigation bar.\n3. Ensure the brand logo is anchored to the far left of the header navigation.\n4. Enforce strict Zero-AI-Slop and Zero Emoji policy across all UI controls.\n5. Persist theme selection in localStorage with seamless fallback to default theme.\n6. Validate with `pnpm run check` and `pnpm run build` with 0 errors and 0 warnings.",
+      "findings": "## Exploration Findings (Scout: Genin)\n\n1. Inspected `apps/web/src/components/ThemeSwitcher.svelte`:\n   - Currently rendered inline in header; lacks floating bottom-left placement.\n   - Contains 10 themes: Konoha Light, Sakura, Hokage Gold, Akatsuki Dusk, Mist Gray, Sand Dune, Leaf Green, Sound Violet, Cloud White, Waterfall Blue.\n2. Inspected `apps/web/src/components/Navbar.svelte`:\n   - Brand logo is currently left-aligned, but padding allows mobile wrapping.\n   - Glassmorphism backdrop-blur is missing in mobile overlay dock.\n3. CSS variable definitions in `apps/web/src/app.css`:\n   - Themes define `--color-bg`, `--color-surface`, `--color-border`, `--color-text`, `--color-primary`.\n4. Quality Contract & Validation:\n   - Project uses SvelteKit 2 + Svelte 5 + Tailwind v4. Validation requires `pnpm run check` and `pnpm run build`.",
+      "plan": "## Implementation Plan (Architect: Kage)\n\n- [jonin]: Refactor `ThemeSwitcher.svelte` to floating bottom-left button (`fixed bottom-6 left-6 z-50`) with popup modal.\n- [jonin]: Apply glassmorphism tokens (`backdrop-blur-md`, subtle border, semantic CSS vars) to `Navbar.svelte`.\n- [jonin]: Verify zero emoji policy across all buttons and tooltips; use SVG icons only.\n- [tokubetsu-jonin]: Update UI component documentation in `docs/UI-COMPONENTS.md`.\n- [kage]: Run SvelteKit typecheck and build validation suites.\n\nValidation Commands:\n- `pnpm run check`\n- `pnpm run build`\n- `rtk aislop scan --changes`",
+      "research": "{\n  \"query\": \"tailwind v4 backdrop-blur glassmorphism svelte5 light theme\",\n  \"provider\": \"searxng_fallback\",\n  \"results\": [\n    {\n      \"title\": \"Tailwind CSS v4 Backdrop Filter\",\n      \"url\": \"https://tailwindcss.com/docs/backdrop-filter\",\n      \"snippet\": \"Utilities for applying backdrop filter effects to an element with backdrop-blur-md and backdrop-saturate.\"\n    },\n    {\n      \"title\": \"Svelte 5 Snippets and Transitions\",\n      \"url\": \"https://svelte.dev/docs/svelte/snippets\",\n      \"snippet\": \"Using snippets and fly/fade transitions for modal popups in Svelte 5 with fine-grained reactivity.\"\n    }\n  ]\n}",
+      "exec_result": "## Execution Result (Builder: Jonin)\n\n- Implemented changes:\n  - `apps/web/src/components/ThemeSwitcher.svelte`: Transformed into a floating bottom-left customer chat style button (`fixed bottom-6 left-6 z-50`) with an accessible 10-theme grid modal.\n  - `apps/web/src/components/Navbar.svelte`: Applied `backdrop-blur-md bg-white/70 border-b border-gray-200/50` glassmorphism styling.\n  - Replaced all unicode emoji icons with high-fidelity Lucide SVG inline icons.\n  - Verified localStorage persistence across page reloads.\n- Validation Command Evidence:\n  - `pnpm run check` -> PASS (svelte-check found 0 errors and 0 warnings)\n  - `pnpm run build` -> PASS (Vite production bundle generated successfully in 2.8s)\n  - `rtk aislop scan --changes` -> 100/100 Healthy (0 errors, 0 warnings)\n- Status: Completed cleanly with 0 errors and 0 warnings.",
+      "docs": "# Theme Switcher & Navbar Glassmorphism Guide\n\n1. Component Placement: `ThemeSwitcher.svelte` now mounts as a fixed bottom-left FAB (`bottom-6 left-6 z-50`).\n2. Theme Palette: 10 light-mode themes switchable dynamically via `document.documentElement.dataset.theme`.\n3. Design Invariant Compliance: Brand logo fixed to far left; zero emoji policy strictly enforced; glassmorphism tokens applied.",
+      "review": {
+        "approved": true,
+        "confidence": 100,
+        "verified_task_ids": [
+          "task-1"
+        ],
+        "validation": [
+          "pnpm run check: svelte-check found 0 errors and 0 warnings",
+          "pnpm run build: Vite production build succeeded cleanly",
+          "aislop scan --changes: 100/100 Healthy (0 errors, 0 warnings)"
+        ],
+        "security_reviewed": true,
+        "rollback_reviewed": true,
+        "ai_slop_clean": true,
+        "ai_slop_findings": 0,
+        "findings": []
+      }
+    },
+    {
+      "id": "task-backend-anbu",
+      "name": "Backend Security Hardening: SQLite WAL & FTS5 Sanitization",
+      "prompt": "Harden SQLite database backend in Konoha MCP.\nRequirements:\n1. Enable WAL (Write-Ahead Logging) journal mode on all SQLite connections to support high-concurrency readers.\n2. Configure PRAGMA synchronous = NORMAL and busy_timeout = 5000ms.\n3. Harden FTS5 full-text search queries against syntax injection by sanitizing quotes, asterisks, and boolean operators.\n4. Add comprehensive unit tests in tests/test_db_wal.js and tests/test_fts5_sanitization.js.\n5. Verify 0 errors, 0 regressions, and 100/100 aislop score.",
+      "findings": "## Exploration Findings (Scout: Genin)\n\n1. Inspected `src/db.js`:\n   - Database connections use `better-sqlite3`.\n   - Default PRAGMA journal_mode was `DELETE`, causing lock contention during concurrent agent delegations.\n   - Missing explicit `busy_timeout` configuration.\n2. Inspected `src/mcp/skills.js`:\n   - FTS5 search queries passed user input directly into MATCH clause: `WHERE skills_fts MATCH ?`.\n   - Malformed queries with unbalanced quotes or special characters (`*`, `AND`, `NOT`, `OR`) trigger SQLite syntax errors.\n3. Test Coverage:\n   - `tests/test_fts5_sanitization.js` exists but lacks edge cases for wildcard prefix characters.\n4. Risk Assessment:\n   - High impact: database stability affects all MCP clients. Backward migration compatibility must be guaranteed.",
+      "plan": "## Implementation Plan (Architect: Kage)\n\n- [anbu]: Configure `PRAGMA journal_mode = WAL`, `PRAGMA synchronous = NORMAL`, and `PRAGMA busy_timeout = 5000` in `src/db.js`.\n- [anbu]: Implement `sanitizeFts5Query(query)` helper in `src/db.js` and wrap all FTS5 search calls in `src/mcp/skills.js`.\n- [anbu]: Add stress tests for WAL concurrency and FTS5 injection in `tests/test_db_wal.js`.\n- [tokubetsu-jonin]: Document WAL mode and query sanitization rules in `docs/architecture/DATABASE.md`.\n- [kage]: Security audit and concurrency regression validation.\n\nValidation Commands:\n- `rtk node tests/test_fts5_sanitization.js`\n- `rtk node tests/test_db_consolidation.js`\n- `rtk aislop scan --changes`",
+      "research": "{\n  \"query\": \"sqlite wal mode better-sqlite3 pragma synchronous normal fts5 escaping\",\n  \"provider\": \"searxng_fallback\",\n  \"results\": [\n    {\n      \"title\": \"SQLite WAL Mode Documentation\",\n      \"url\": \"https://sqlite.org/wal.html\",\n      \"snippet\": \"Write-Ahead Logging provides significantly more concurrency as readers do not block writers and writers do not block readers.\"\n    },\n    {\n      \"title\": \"SQLite FTS5 Query Syntax and Escaping\",\n      \"url\": \"https://sqlite.org/fts5.html#full_text_query_syntax\",\n      \"snippet\": \"Strings enclosed in double quotes are matched as phrases. Double quotes within phrases must be escaped.\"\n    }\n  ]\n}",
+      "exec_result": "## Execution Result (Operator: Anbu)\n\n- Backend Hardening Applied:\n  - `src/db.js`: Configured `PRAGMA journal_mode = WAL`, `PRAGMA synchronous = NORMAL`, `PRAGMA busy_timeout = 5000`, and `PRAGMA cache_size = -64000` on connection initialization.\n  - Implemented robust `sanitizeFts5Query(query)` that strips control characters, balances double quotes, and formats multi-word queries for FTS5 token prefix matching.\n  - `src/mcp/skills.js`: Applied query sanitizer across `find_skill`, `list_skills`, and persona memory FTS queries.\n- Validation Command Evidence:\n  - `rtk node tests/test_fts5_sanitization.js` -> PASS (14 edge cases verified, exit code 0)\n  - `rtk node tests/test_db_consolidation.js` -> PASS (WAL checkpointing verified, exit code 0)\n  - `rtk node tests/test_database_migration.js` -> PASS (automatic schema migration verified, exit code 0)\n  - `rtk aislop scan --changes` -> 100/100 Healthy (0 errors, 0 warnings)\n- Status: Completed cleanly without regressions.",
+      "docs": "# SQLite WAL & FTS5 Query Security Architecture\n\n1. WAL Configuration: All connections initialize in WAL mode with 5000ms busy timeout and synchronous NORMAL.\n2. FTS5 Sanitization: `sanitizeFts5Query` prevents syntax exceptions on unbalanced quotes and query operators.\n3. Concurrency Benchmarks: Read throughput improved by 4.2x under concurrent MCP client invocations.",
+      "review": {
+        "approved": true,
+        "confidence": 100,
+        "verified_task_ids": [
+          "task-1"
+        ],
+        "validation": [
+          "node tests/test_fts5_sanitization.js: PASS (14 edge cases clean)",
+          "node tests/test_db_consolidation.js: PASS (WAL checkpointing verified)",
+          "node tests/test_database_migration.js: PASS (schema migration clean)",
+          "aislop scan --changes: 100/100 Healthy (0 errors, 0 warnings)"
+        ],
+        "security_reviewed": true,
+        "rollback_reviewed": true,
+        "ai_slop_clean": true,
+        "ai_slop_findings": 0,
+        "findings": []
+      }
+    }
+  ],
+  "gate_block": "### \ud83d\udee1\ufe0f Kage Reviewer Confidence Gate Report\n\n```\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  \u25ce KAGE REVIEW GATE: APPROVED                                 \u2502\n\u2502  \ud83d\udcca CONFIDENCE SCORE: 100% (Minimum Required: \u2265 98%)           \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n### \ud83d\udccb Confidence Score Breakdown (computed from recorded task evidence)\n\n| Verification Category | Target | Evaluated Result | Category Confidence | Status |\n|---|---|---|---|---|\n| **AI Slop Scan** | All changed files | ai_slop_findings = 0 | **100%** | \u2705 Passed |\n| **Task Validation Evidence** | 1/1 tasks with passing evidence | 1/1 verified, 1 validation entries recorded | **100%** | \u2705 Passed |\n| **Kage Review Findings** | 0 unresolved findings | 0 finding(s) recorded in kage_review.json | **100%** | \u2705 Passed |\n| **Security Review** | security_reviewed = true | security_reviewed = true | **100%** | \u2705 Passed |\n| **Rollback Review** | rollback_reviewed = true | rollback_reviewed = true | **100%** | \u2705 Passed |\n\n### \ud83c\udfaf Overall Confidence: **100%**\n- **Threshold**: Minimum 98% required to allow delivery.\n- **Verdict**: **PASSED & APPROVED FOR DELIVERY** (all recorded tasks carry validation evidence).\n"
+}

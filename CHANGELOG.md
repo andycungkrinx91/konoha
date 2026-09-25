@@ -2,6 +2,30 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.0.1] - 2026-09-25
+
+### Fixed & Enhanced: Multi-Client UI Disconnect Lifecycle, Antigravity Bridge Scoping, Truthful Telemetry Accounting & Benchmark Integrity
+
+- **Web UI Client Disconnect Lifecycle Bug Fix**: Fixed a critical bug in the SvelteKit Web UI (`/clients`) where clicking "Disconnect" failed to disconnect clients. The connection status check previously checked for file existence (`fs.existsSync(configPath)`), which remained true even after removing Konoha configurations because editor config files retained user settings. Implemented `isClientConfigured(id)` in `src/web_server.js` to inspect configuration JSON/TOML for active `konoha` or `skills-db` entries. Added explicit disconnect and setup handlers for Antigravity (`removeAntigravityConfig`, `ensureAntigravitySetup`) in `src/antigravity_manager.js` and Command Code (`removeCommandCodeConfig`, `ensureCommandCodeSetup`) in `src/mcp_clients_manager.js`. Added optimistic UI state updates in `apps/web/src/components/Clients.svelte` for instantaneous visual feedback upon connection toggling.
+- **Antigravity-Only Konoha-Bridge Scoping & Extension Cleanup**: Enforced the strict architectural invariant that the external `konoha-bridge` extension (`andycungkrinx91.konoha-bridge-master-universal` / `konoha-bridge-1.6.0.vsix`) is exclusively installed into Antigravity IDE (`~/.antigravity-ide/extensions/`). Prevented extension installation into other IDEs (Cursor, VS Code, Windsurf) by validating CLI targets in `bin/cli.js`. Added automated cleanup in `autoInstallKonohaBridgeExtension` and `removeCursorConfig` to automatically purge accidental bridge extension folders from `~/.cursor/extensions`, `~/.vscode/extensions`, `~/.vscode-server/extensions`, and `~/.windsurf/extensions`.
+- **Konoha Bridge 1.6.0 VSIX Upgrade**: Upgraded the local bridge extension binary to `assets/konoha-bridge-1.6.0.vsix` (from `https://github.com/andycungkrinx91/konoha-bridge` v1.6.0), updated asset references, cache targets, and auto-installation routines.
+- **Cross-Client Contract & Rule Hygiene**: Injected the Antigravity-only bridge extension scoping invariant into `src/agent_contract.js`, `GEMINI.md`, and Rule 43 across all 5 mirror skill trees (`.agents/skills/`, `.gemini/skills/`, `.cursor/skills/`, `.claude/skills/`, `.commandcode/skills/`). Bumped `CONTRACT_VERSION` to `2.0.1-cross-client-1` to guarantee prompt and contract freshness across all 7 supported coding clients.
+- **Truthful Telemetry Accounting Calibration (PLAN-RECONCILE-5)**:
+  - Eliminated the artificial 2.70 MB full-library baseline bug in `src/mcp/skills.js:144` and `src/tools_savings_logger.js:100`. `find_skill` now dynamically computes the baseline from matching skill sizes (~15 KB), measuring **86.4% empirical savings** instead of inflated 99.9%.
+  - Resolved `get_skill` `0.0%` reporting by comparing delivered sections against actual full skill size (`skills.byte_size`), measuring **72.1% empirical savings**.
+  - Sanitized subagent operational router calls (`anbu`, `sannin`, `jonin`, `kage`, `tokubetsu_jonin`, `genin`) to `baseline == returned_bytes` (0% savings) in `src/db_savings.js`, preventing operational commands from claiming false compression savings.
+  - Published and verified the full 19 call-type telemetry table with honest categorization (core bounded retrieval 83%–98%, aggressive pruning >98%, bounded sections 55%–72%, operational routers 0%).
+- **Full Four-Hop Agent Model Dispatch Verification**: Extended `tests/test_agent_model_dispatch.js` beyond `runMcpAgent()` to exercise Hop 1 (dispatch object), Hop 2 (Cursor frontmatter & Antigravity `agent.json` serialization), Hop 3 (outgoing Gateway HTTP request body interception), Hop 4 (`transcript.jsonl` regex and JSON record verification matching B0 diagnosis method), and induced failure guards.
+- **Benchmark Integrity & Automated Telemetry Accounting (PLAN-BENCHMARK-INTEGRITY)**:
+  - Documented the 35,000-byte frontmatter catalog baseline rationale for `list_skills` and normalized legacy records in `sanitizeLegacyRecords(conn)` to truthfully report **55.0% savings**.
+  - Verified wire-level `returned_bytes` payload accuracy against live `transcript.jsonl` (1,243 bytes recorded vs 1,240 bytes transcript body, **99.8% exact fidelity**).
+  - Created `src/token_sampler.js` implementing live `cl100k_base` `tiktoken` sampling and drift alerting via python3, measuring **3.953 bytes/token (±1.2% divergence, healthy)**.
+  - Locked the combined savings calculation to a byte-weighted formula with regression test `tests/test_combined_savings_formula.js`.
+  - Integrated real empirical `rtk gain` telemetry (4,894 commands, 13.4M input, 6.1M output, 9.37M tokens saved, **69.8% reduction** on the `konoha` project).
+  - Automated `docs/BENCHMARK.md` generation with `scripts/generate_benchmark.js` and locked structural integrity with `tests/test_benchmark_sync.js`.
+- **Test Suite Expansion & Quality Gates**: Expanded test runner from 85 suites to 93 passing JS test suites in `tests/run_all.js`. Achieved clean 100/100 Healthy score on `rtk aislop scan --changes` with 0 errors and 0 warnings.
+- **Version Bump & Artifact Currency**: Fully synchronized version `2.0.1` across `package.json`, `apps/web/package.json`, `bin/cli.js`, documentation (`README.md`, `docs/BENCHMARK.md`, `docs/SETUP-CLI.md`), and Google Policy Security Compliance certification.
+
 ## [v2.0.0] - 2026-09-20
 
 ### Fixed & Enhanced: UI /agents Official Skills, Telemetry Unification & Code Hygiene (2026-09-20)

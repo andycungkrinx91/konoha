@@ -1194,7 +1194,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.0.0';
+  return '2.0.1';
 }
 
 function drawLogo() {
@@ -2293,6 +2293,10 @@ function findIdeExecutable(name) {
 }
 
 function installExtensionViaCli(cliName, vsixPath, silent = false) {
+  if (cliName !== 'antigravity') {
+    if (!silent) warn(`  ⚡ ${cliName} CLI: Refusing to install konoha-bridge (Antigravity IDE only).`);
+    return { installed: false, skipped: true, reason: 'antigravity-only' };
+  }
   const exe = findIdeExecutable(cliName);
   if (!exe) {
     if (!silent) log(`  ⚡ ${cliName} CLI: not detected on PATH, skipped.`);
@@ -2334,9 +2338,9 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
   const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
   const KONOHA_BRIDGE_REF = 'master';
   const targetDirName = 'andycungkrinx91.konoha-bridge-master-universal';
-  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.5.0.vsix');
-  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.5.0.vsix');
-  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.5.0.vsix');
+  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.6.0.vsix');
+  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.6.0.vsix');
+  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.6.0.vsix');
   const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
   const extensionDir = path.join(HOME, '.antigravity-ide', 'extensions');
   const targetPath = path.join(extensionDir, targetDirName);
@@ -2470,6 +2474,27 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
   // konoha-bridge extension into any other IDE (VS Code, Cursor, etc.)
   if (vsixPath && fileExists(vsixPath)) {
     installExtensionViaCli('antigravity', vsixPath, silent);
+  }
+
+  // Enforce Antigravity-only invariant: clean up any accidental konoha-bridge extensions from non-Antigravity IDE directories
+  const nonAgDirs = [
+    path.join(HOME, '.cursor', 'extensions'),
+    path.join(HOME, '.vscode', 'extensions'),
+    path.join(HOME, '.vscode-server', 'extensions'),
+    path.join(HOME, '.windsurf', 'extensions'),
+    path.join(HOME, '.codeium', 'windsurf', 'extensions')
+  ];
+  for (const dir of nonAgDirs) {
+    if (fileExists(dir)) {
+      try {
+        for (const entry of fs.readdirSync(dir)) {
+          if (entry.toLowerCase().startsWith('andycungkrinx91.konoha-bridge')) {
+            fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+            if (!silent) log(`  ⚡ Removed konoha-bridge extension from non-Antigravity IDE directory: ${dir}`);
+          }
+        }
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
   }
 
   ensureDir(SKILLS_DB_DIR);
@@ -6620,6 +6645,16 @@ async function cmdSavings(args = []) {
             log(`      ${num}${toolName}${calls}  ${bar}   ${pctText}`);
           });
           log(`    ${applyGradient('════════════════════════════════════════════════════════════════════════', LEAF_THEME)}`);
+          log('');
+        }
+
+        if (stats.tiktoken_accuracy) {
+          const acc = stats.tiktoken_accuracy;
+          const statusColor = acc.isHealthy ? C.green : C.yellow;
+          log(`    ${C.dim}Tiktoken Accuracy (cl100k_base):${C.reset} ${statusColor}${acc.empiricalBytesPerToken} bytes/token${C.reset} ${C.dim}(±${acc.divergencePct}% vs /4 heuristic, ${acc.status})${C.reset}`);
+          if (acc.alertMessage) {
+            log(`    ${C.yellow}⚠ ${acc.alertMessage}${C.reset}`);
+          }
           log('');
         }
 

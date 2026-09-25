@@ -82,6 +82,58 @@ function checkPortActive(port) {
   });
 }
 
+function isClientConfigured(id) {
+  try {
+    if (id === 'antigravity') {
+      const cfgPath = path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
+      if (!fs.existsSync(cfgPath)) return false;
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
+    }
+    if (id === 'cursor') {
+      const cfgPath = path.join(os.homedir(), '.cursor', 'mcp.json');
+      if (!fs.existsSync(cfgPath)) return false;
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
+    }
+    if (id === 'claude') {
+      const cfgPath = path.join(os.homedir(), '.claude.json');
+      if (!fs.existsSync(cfgPath)) return false;
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
+    }
+    if (id === 'opencode') {
+      const p1 = path.join(os.homedir(), '.config', 'opencode', 'opencode.json');
+      const p2 = path.join(os.homedir(), '.opencode', 'config.json');
+      const target = fs.existsSync(p1) ? p1 : (fs.existsSync(p2) ? p2 : null);
+      if (!target) return false;
+      const cfg = JSON.parse(fs.readFileSync(target, 'utf8'));
+      return !!(cfg && cfg.mcp && (cfg.mcp['konoha'] || cfg.mcp['skills-db']));
+    }
+    if (id === 'commandcode') {
+      const cfgPath = path.join(os.homedir(), '.commandcode', 'mcp.json');
+      if (!fs.existsSync(cfgPath)) return false;
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
+    }
+    if (id === 'codex') {
+      const cfgPath = path.join(os.homedir(), '.codex', 'config.toml');
+      if (!fs.existsSync(cfgPath)) return false;
+      const content = fs.readFileSync(cfgPath, 'utf8');
+      return /\[mcp(?:_servers)?\.(?:konoha|skills-db)\]/i.test(content);
+    }
+    if (id === 'pi') {
+      const cfgPath = path.join(os.homedir(), '.pi', 'agent', 'mcp.json');
+      if (!fs.existsSync(cfgPath)) return false;
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 // aislop-ignore-next-line complexity/function-too-long (orchestrator web server factory hosting full API route tree and SvelteKit handler)
 function createWebServer(options = {}) {
   const port = options.port || 1404;
@@ -316,17 +368,17 @@ function createWebServer(options = {}) {
 
       try {
         const clientDefs = [
-          { name: 'Antigravity', rel: ['.gemini', 'config', 'mcp_config.json'] },
-          { name: 'Cursor', rel: ['.cursor', 'mcp.json'] },
-          { name: 'Claude Code', rel: ['.claude.json'] },
-          { name: 'OpenCode', rel: ['.config', 'opencode', 'opencode.json'] },
-          { name: 'CommandCode', rel: ['.commandcode', 'mcp.json'] },
-          { name: 'Codex', rel: ['.codex', 'config.toml'] },
-          { name: 'Pi', rel: ['.pi', 'agent', 'mcp.json'] }
+          { id: 'antigravity', name: 'Antigravity' },
+          { id: 'cursor', name: 'Cursor' },
+          { id: 'claude', name: 'Claude Code' },
+          { id: 'opencode', name: 'OpenCode' },
+          { id: 'commandcode', name: 'CommandCode' },
+          { id: 'codex', name: 'Codex' },
+          { id: 'pi', name: 'Pi' }
         ];
         features.clients_detail = clientDefs.map(c => ({
           name: c.name,
-          configured: fs.existsSync(path.join(os.homedir(), ...c.rel))
+          configured: isClientConfigured(c.id)
         }));
         features.clients_configured = features.clients_detail.filter(c => c.configured).length;
         features.clients_total = clientDefs.length;
@@ -1392,50 +1444,43 @@ function createWebServer(options = {}) {
           id: 'antigravity',
           name: 'Antigravity IDE / CLI',
           configPath: '~/.gemini/config/mcp_config.json',
-          configured: fs.existsSync(path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json'))
+          configured: isClientConfigured('antigravity')
         },
         {
           id: 'cursor',
           name: 'Cursor IDE / CLI',
           configPath: '~/.cursor/mcp.json',
-          configured: fs.existsSync(path.join(os.homedir(), '.cursor', 'mcp.json'))
+          configured: isClientConfigured('cursor')
         },
         {
           id: 'claude',
           name: 'Claude Code CLI',
           configPath: '~/.claude.json',
-          configured: fs.existsSync(path.join(os.homedir(), '.claude.json'))
+          configured: isClientConfigured('claude')
         },
         {
           id: 'opencode',
           name: 'OpenCode IDE',
           configPath: '~/.config/opencode/opencode.json',
-          configured: fs.existsSync(path.join(os.homedir(), '.config', 'opencode', 'opencode.json')) || fs.existsSync(path.join(os.homedir(), '.opencode', 'config.json'))
+          configured: isClientConfigured('opencode')
         },
         {
           id: 'commandcode',
           name: 'Command Code CLI',
           configPath: '~/.commandcode/mcp.json',
-          configured: fs.existsSync(path.join(os.homedir(), '.commandcode', 'mcp.json'))
+          configured: isClientConfigured('commandcode')
         },
         {
           id: 'codex',
           name: 'Codex IDE / CLI',
           configPath: '~/.codex/config.toml',
-          configured: fs.existsSync(path.join(os.homedir(), '.codex', 'config.toml'))
+          configured: isClientConfigured('codex')
         },
         {
           id: 'pi',
           name: 'Pi (pi.dev)',
           configPath: '~/.pi/agent/mcp.json',
-          configured: (function () {
-            try {
-              const cfg = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.pi', 'agent', 'mcp.json'), 'utf-8'));
-              return !!(cfg && cfg.mcpServers && cfg.mcpServers['konoha']);
-            } catch (_) {
-              return false;
-            }
-          })()
+          configured: isClientConfigured('pi')
         }
       ];
       return sendJson(res, 200, clientsList);
@@ -1444,11 +1489,12 @@ function createWebServer(options = {}) {
     if (method === 'POST' && pathname.startsWith('/api/v1/clients/') && pathname.endsWith('/setup')) {
       const clientName = pathname.split('/')[4];
       try {
-        if (clientName === 'cursor') require('./cursor_manager').ensureCursorSetup(true);
-        if (clientName === 'claude') require('./mcp_clients_manager').ensureClaudeCodeSetup(true);
-        if (clientName === 'commandcode') require('./mcp_clients_manager').ensureCommandCodeSetup(true);
-        if (clientName === 'opencode') require('./opencode_manager').ensureOpenCodeSetup(true);
-        if (clientName === 'codex') require('./codex_manager').ensureCodexSetup(true);
+        if (clientName === 'antigravity') require('./antigravity_manager').ensureAntigravitySetup({ silent: true });
+        if (clientName === 'cursor') require('./cursor_manager').ensureCursorSetup({ silent: true });
+        if (clientName === 'claude') require('./mcp_clients_manager').ensureClaudeCodeSetup({ silent: true });
+        if (clientName === 'commandcode') require('./mcp_clients_manager').ensureCommandCodeSetup({ silent: true });
+        if (clientName === 'opencode') require('./opencode_manager').ensureOpenCodeSetup({ silent: true });
+        if (clientName === 'codex') require('./codex_manager').ensureCodexSetup({ silent: true });
         if (clientName === 'pi') require('./pi_manager').ensurePiSetup({ silent: true });
         broadcastEvent('clients_updated', { client: clientName, action: 'setup' });
         return sendJson(res, 200, { ok: true, client: clientName });
@@ -1460,8 +1506,10 @@ function createWebServer(options = {}) {
     if (method === 'POST' && pathname.startsWith('/api/v1/clients/') && pathname.endsWith('/remove')) {
       const clientName = pathname.split('/')[4];
       try {
+        if (clientName === 'antigravity') require('./antigravity_manager').removeAntigravityConfig(true);
         if (clientName === 'cursor') require('./cursor_manager').removeCursorConfig(true);
         if (clientName === 'claude') require('./mcp_clients_manager').removeClaudeCodeConfig(true);
+        if (clientName === 'commandcode') require('./mcp_clients_manager').removeCommandCodeConfig(true);
         if (clientName === 'opencode') require('./opencode_manager').removeOpenCodeConfig(true);
         if (clientName === 'codex') require('./codex_manager').removeCodexConfig(true);
         if (clientName === 'pi') require('./pi_manager').removePiMcp(true);

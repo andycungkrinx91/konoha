@@ -515,7 +515,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
     config.mcpServers['konoha'] = {
       command: process.execPath || 'node',
-      // Match the other clients: the konoha entry serves ALL 39 tools through
+      // Match the other clients: the konoha entry serves all 35 canonical tools through
       // the file-tools launcher (which bootstraps node + workspace jail),
       // not the orchestrator-only server.js
       args: [fileExists(deployUtils.FILE_TOOLS_LAUNCHER_JS) ? deployUtils.FILE_TOOLS_LAUNCHER_JS : deployUtils.FILE_TOOLS_MCP_PATH],

@@ -122,12 +122,12 @@
    "assets/konoha-test.png": {
     "title": "konoha test — verify mcp server & test suites",
     "cmd": "konoha test",
-    "badge": "52 TEST SUITES PASSING",
+    "badge": "88 TEST SUITES PASSING",
     "lines": [
      "[green]🧪 Konoha Verification & Full Test Suite Runner[/green]",
      "[muted]========================================================================[/muted]",
      "  [green]✓[/green] MCP Server Initialization        : [green]PASS[/green] (Node.js JSON-RPC 2.0 Pure Runtime)",
-     "  [green]✓[/green] Tool Registration (38 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
+     "  [green]✓[/green] Tool Registration (35 Tools)     : [green]PASS[/green] (Manifest parity 100%)",
      "  [green]✓[/green] SQLite FTS5 Full-Text Search      : [green]PASS[/green] (Query latency: 0.82ms)",
      "  [green]✓[/green] Subagent Inline MCP Execution     : [green]PASS[/green] (7/7 ninjas executable)",
      "  [green]✓[/green] 7-Client Contract Validation     : [green]PASS[/green] (Antigravity/Cursor/Claude/Open/Cmd/Codex/Pi)",
@@ -135,7 +135,7 @@
      "  [green]✓[/green] Documentation Currency (Markdown): [green]PASS[/green] (100% in sync with code)",
      "  [green]✓[/green] Canonical Draw.io XML Parity      : [green]PASS[/green] (Valid cells & orthogonal edges)",
      "",
-     "[bold]Test Runner Summary:[/bold] [green]52 passed, 0 failed (100% success rate)[/green]",
+     "[bold]Test Runner Summary:[/bold] [green]88 passed, 0 failed (100% success rate)[/green]",
      "┌────────────────────────────────────────────────────────────┐",
      "│   [green]KAGE REVIEWER CONFIDENCE GATE: DELIVERY APPROVED (100%)[/green]  │",
      "└────────────────────────────────────────────────────────────┘"

@@ -1044,8 +1044,11 @@ function runMcpWorkflow(taskDir = null) {
 
   if (phase === 'plan') {
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'plan', 'kage');
-    const findings = readFileSafe(path.join(resolvedTaskDir, 'findings.md')) || 'No findings available.';
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: high\nPhase: Plan\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nAnalyze the findings and produce plan.md with unique \`- [agent]: task\` entries. Set needs_research or needs_replan explicitly when applicable.\n\n## FINDINGS\n\n${findings}\n`, 'utf8');
+    const findingsRaw = readFileSafe(path.join(resolvedTaskDir, 'findings.md')) || 'No findings available.';
+    const findingsSummary = findingsRaw.length > 500
+      ? findingsRaw.slice(0, 500).trim() + `...\n\n*(Full findings: \`${path.join(resolvedTaskDir, 'findings.md')}\`)*`
+      : findingsRaw;
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: high\nPhase: Plan\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nAnalyze the findings and produce plan.md with unique \`- [agent]: task\` entries. Set needs_research or needs_replan explicitly when applicable.\n\n## FINDINGS\n\n${findingsSummary}\n`, 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
@@ -1148,10 +1151,6 @@ function runMcpWorkflow(taskDir = null) {
     }
 
     const prompt = readFileSafe(path.join(resolvedTaskDir, 'prompt.md')) || '';
-    const findings = readFileSafe(path.join(resolvedTaskDir, 'findings.md')) || '';
-    const plan = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || '';
-    const research = readFileSafe(path.join(resolvedTaskDir, 'research_results.json')) || '';
-    const finalDocs = readFileSafe(path.join(resolvedTaskDir, 'final_docs.md')) || '';
     const reviewRaw = readFileSafe(path.join(resolvedTaskDir, 'kage_review.json'));
     let reviewData = {};
     if (reviewRaw) {
@@ -1240,9 +1239,16 @@ function runMcpWorkflow(taskDir = null) {
       '- **Verdict**: **PASSED & APPROVED FOR DELIVERY** (all recorded tasks carry validation evidence).\n\n'
     );
 
-    let report = `# Final Report\n\n${reviewGateBlock}## Task\n${prompt}\n\n## Exploration Findings\n${findings}\n\n## Implementation Plan\n${plan}\n\n## Research\n${research}\n\n## Documentation\n${finalDocs}\n\n## Executor Results\n\n`;
+    let report = `# Final Report\n\n${reviewGateBlock}## Task\n${prompt}\n\n## Phase Artifacts\n` +
+      `- **Exploration**: \`${path.join(resolvedTaskDir, 'findings.md')}\`\n` +
+      `- **Plan**: \`${path.join(resolvedTaskDir, 'plan.md')}\`\n` +
+      `- **Research**: \`${path.join(resolvedTaskDir, 'research_results.json')}\`\n` +
+      `- **Documentation**: \`${path.join(resolvedTaskDir, 'final_docs.md')}\`\n\n` +
+      `## Executor Results\n\n`;
     for (const t of (status.tasks || [])) {
-      report += `- **${t.id} / ${t.agent}**: ${t.task}\n\nResult: ${t.result || ''}\n\n`;
+      const resText = (t.result || '').trim();
+      const shortRes = resText.length > 200 ? resText.slice(0, 200).trim() + '...' : (resText || 'Completed');
+      report += `- **${t.id} / ${t.agent}**: ${t.task}\n  - Result: ${shortRes}\n\n`;
     }
 
     const reportPath = path.join(resolvedTaskDir, 'final_report.md');

@@ -457,25 +457,48 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   let personaInstructions = '';
   let skillsList = Array.isArray(skills) ? [...skills] : [];
 
+  let assignedModel = 'inherit';
+
   try {
     let rowConn = null;
     try {
       rowConn = getDb();
-      let row = rowConn.prepare(`
-        SELECT name, title, purpose, skills, constraints_text, instructions
-        FROM agents WHERE name = ?
-      `).get(dbAgentName);
-      if (!row) {
+      let row = null;
+      try {
         row = rowConn.prepare(`
-          SELECT name, title, purpose, skills, constraints_text, instructions
+          SELECT name, title, purpose, skills, constraints_text, instructions, model
           FROM agents WHERE name = ?
-        `).get(`mcp_${dbAgentName}`);
+        `).get(dbAgentName);
+        if (!row) {
+          row = rowConn.prepare(`
+            SELECT name, title, purpose, skills, constraints_text, instructions, model
+            FROM agents WHERE name = ?
+          `).get(`mcp_${dbAgentName}`);
+        }
+      } catch (colErr) {
+        if (colErr && colErr.message && colErr.message.includes('no such column: model')) {
+          row = rowConn.prepare(`
+            SELECT name, title, purpose, skills, constraints_text, instructions
+            FROM agents WHERE name = ?
+          `).get(dbAgentName);
+          if (!row) {
+            row = rowConn.prepare(`
+              SELECT name, title, purpose, skills, constraints_text, instructions
+              FROM agents WHERE name = ?
+            `).get(`mcp_${dbAgentName}`);
+          }
+        } else {
+          throw colErr;
+        }
       }
       if (row) {
         title = row.title || title;
         purpose = row.purpose || purpose;
         agentConstraints = row.constraints_text || agentConstraints;
         personaInstructions = row.instructions || personaInstructions;
+        if (row.model) {
+          assignedModel = row.model;
+        }
         if (row.skills && skillsList.length === 0) {
           try { skillsList = JSON.parse(row.skills); } catch (_) { /* ignore */ }
         }
@@ -704,6 +727,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     status: 'ready',
     phase: 'execution',
     agent: dbAgentName,
+    model: assignedModel,
     project_path: resolvedProjPath,
     session_id: resolvedSessionId,
     task_dir: effTaskDir,

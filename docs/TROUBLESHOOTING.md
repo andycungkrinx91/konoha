@@ -218,7 +218,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **20 tools** (or more).
+   Expected: JSON listing **35 canonical tools**.
 
 5. **Restart Cursor** after repair.
 
@@ -331,7 +331,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 42 tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 35 canonical tools.
 - **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---
@@ -604,12 +604,12 @@ The gateway does not rotate globally to another bridge after a rate limit. It fo
 
 ### External Antigravity Extension
 
-The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.5.0.vsix`, and installed ONLY into Antigravity IDE during `konoha init` and `konoha upgrade`:
+The `konoha-bridge` extension (`https://github.com/andycungkrinx91/konoha-bridge`) is automatically cloned from live `master`, packaged into `konoha-bridge-1.6.0.vsix`, and installed ONLY into Antigravity IDE during `konoha init` and `konoha upgrade`:
 ```bash
 # Antigravity IDE CLI (exclusive install target)
-antigravity --install-extension konoha-bridge-1.5.0.vsix
+antigravity --install-extension konoha-bridge-1.6.0.vsix
 ```
-The VSIX is never installed into other IDEs (no `code --install-extension`, no `cursor --install-extension`). A fallback VSIX is bundled in `assets/konoha-bridge-1.5.0.vsix`.
+The VSIX is never installed into other IDEs (no `code --install-extension`, no `cursor --install-extension`). A fallback VSIX is bundled in `assets/konoha-bridge-1.6.0.vsix`.
 When Antigravity IDE is present, it is also atomically synced into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/`. It owns `127.0.0.1:1313`; Konoha’s embedded aggregate gateway owns `127.0.0.1:19999`. Installation and bridge activation are separate:
 
 1. Check the extension API on port `1313`: `curl -s http://localhost:1313/v1/models | jq .`

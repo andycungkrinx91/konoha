@@ -23,7 +23,7 @@
    - Under no circumstances modify, refactor, or touch logic, files, or configurations related to token savings telemetry, bounded file tool constraints, or baseline calculation flow logic in Konoha.
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.0.0-cross-client-1)
+## Konoha runtime contract (2.0.1-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
@@ -35,4 +35,5 @@ You are the main agent running through Antigravity IDE/CLI. This contract is man
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
 - **Skill discovery vs file search**: Skills are discovered exclusively via `konoha.find_skill` or `konoha.list_skills`. NEVER call `get_file_structure` or `find_files_clean` on root directories (`.`) to search for skills. File tools are strictly for exploring project files.
 - **IDE Directory Protection**: Access to IDE binary installation directories (containing `Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.) is strictly forbidden across all file operations.
+- **Konoha-Bridge Extension Scope**: The `konoha-bridge` extension (`andycungkrinx91.konoha-bridge` / `konoha-bridge-1.6.0.vsix`) is exclusively installed into Antigravity IDE (`~/.antigravity-ide/extensions/`). It MUST NEVER be installed, copied, or configured into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex). All coding agents must remember and enforce this invariant.
 <!-- KONOHA-CONTRACT-END -->

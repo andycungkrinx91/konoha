@@ -94,7 +94,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.0.0-cross-client-1)
+## Konoha runtime contract (2.0.1-cross-client-1)
 
 You are the main agent running through Claude Code. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
@@ -127,6 +127,7 @@ You are the main agent running through Claude Code. This contract is mandatory o
 - **IDE Directory Protection**: Access to IDE binary installation directories (containing `Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.) is strictly forbidden across all file operations.
 - **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call `mcp__konoha__build_from_text` FIRST before creating files or scaffolding. Strictly implement the Konoha default design template: (1) Header logo on far LEFT, (2) NO hamburger menu in mobile header (`lg:hidden`), (3) Archetype-adaptive fixed bottom Mobile Navigation Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (`fixed bottom-6 left-6 z-50`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay), (6) Standard framework scaffolding via pnpm with token-safe non-interactive flags and rtk wrapping, and (7) Zero errors and zero warnings.
 - **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
+- **Konoha-Bridge extension scoping invariant**: The `konoha-bridge` extension (`andycungkrinx91.konoha-bridge` / `konoha-bridge-1.6.0.vsix`) is exclusively for Antigravity IDE (`~/.antigravity-ide/extensions/`). It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
 <!-- KONOHA-CONTRACT-END -->
 
 <!-- KONOHA-END -->

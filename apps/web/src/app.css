@@ -213,6 +213,16 @@ body {
   transition-duration: 0.08s;
 }
 
+/* Ensure interactive elements inside 3D tilt cards are never covered by 3D transforms */
+.tilt-3d button,
+.tilt-3d a,
+.tilt-3d .btn-3d {
+  transform: translateZ(25px);
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
+}
+
 /* Entrance: cards rise out of the floor on mount (runs once, GPU-only) */
 @keyframes rise-3d {
   from {

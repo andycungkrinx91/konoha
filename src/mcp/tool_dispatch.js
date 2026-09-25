@@ -80,13 +80,18 @@ function _executeToolInternal(toolName, args, agent) {
     const keyword = args.keyword || '';
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);
     const compact = Boolean(args.compact);
-    return findSkill(keyword, limit, agent, compact);
+    const taskId = args.task_id || args.taskId || args.session_id || args.sessionId || null;
+    return findSkill(keyword, limit, agent, compact, taskId);
   }
   if (toolName === 'list_skills') {
     return listSkills(agent, args.fields);
   }
   if (toolName === 'get_skill') {
-    return getSkill(args.name || '', agent);
+    return getSkill(args.name || '', agent, {
+      tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
+      section: args.section || null,
+      taskId: args.task_id || args.taskId || args.session_id || args.sessionId || null
+    });
   }
   if (toolName === 'optimize_report') {
     return optimizeReport(args.keyword, agent);
@@ -216,11 +221,22 @@ function _executeToolInternal(toolName, args, agent) {
       return JSON.stringify({ error: `Failed to save memory: ${e.message}` });
     }
   }
+function boundPersonaMemories(mems) {
+  return (mems || []).map(m => ({
+    id: m.id,
+    agent_name: m.agent_name,
+    memory_type: m.memory_type,
+    title: m.title,
+    content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
+    updated_at: m.updated_at
+  }));
+}
+
   if (toolName === 'query_persona_memory') {
     const targetAgent = args.agent_name || agent;
     const query = args.query || '';
     const memoryType = args.memory_type;
-    const limit = parseInt(args.limit || 5, 10);
+    const limit = Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10);
     const projectPath = args.project_path || getWorkspaceRoot();
     const sessionId = args.session_id;
     try {
@@ -232,7 +248,8 @@ function _executeToolInternal(toolName, args, agent) {
         sessionId,
         limit
       });
-      return JSON.stringify({ agent: targetAgent, count: mems.length, memories: mems });
+      const boundedMems = boundPersonaMemories(mems);
+      return JSON.stringify({ agent: targetAgent, count: boundedMems.length, memories: boundedMems });
     } catch (e) {
       return JSON.stringify({ error: `Failed to query memories: ${e.message}` });
     }
@@ -240,7 +257,7 @@ function _executeToolInternal(toolName, args, agent) {
   if (toolName === 'list_persona_memories') {
     const targetAgent = args.agent_name;
     const memoryType = args.memory_type;
-    const limit = parseInt(args.limit || 50, 10);
+    const limit = Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20);
     const projectPath = args.project_path || getWorkspaceRoot();
     const sessionId = args.session_id;
     try {
@@ -251,7 +268,8 @@ function _executeToolInternal(toolName, args, agent) {
         sessionId,
         limit
       });
-      return JSON.stringify({ count: mems.length, memories: mems });
+      const boundedMems = boundPersonaMemories(mems);
+      return JSON.stringify({ count: boundedMems.length, memories: boundedMems });
     } catch (e) {
       return JSON.stringify({ error: `Failed to list memories: ${e.message}` });
     }

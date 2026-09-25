@@ -270,6 +270,30 @@ async function run() {
     assert.ok(clients.data.some(c => c.id === 'pi' && c.name === 'Pi (pi.dev)'));
     console.log('✓ GET /api/v1/clients passed (7 clients incl. Pi)');
 
+    // 8a. Client disconnect & setup endpoints
+    const removeAg = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/clients/antigravity/remove',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Konoha-Web-Token': token }
+    }, {});
+    assert.strictEqual(removeAg.status, 200);
+    assert.strictEqual(removeAg.data.ok, true);
+    assert.strictEqual(removeAg.data.client, 'antigravity');
+
+    const removeCc = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/clients/commandcode/remove',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Konoha-Web-Token': token }
+    }, {});
+    assert.strictEqual(removeCc.status, 200);
+    assert.strictEqual(removeCc.data.ok, true);
+    assert.strictEqual(removeCc.data.client, 'commandcode');
+    console.log('✓ POST /api/v1/clients/:id/remove passed for antigravity and commandcode');
+
     // 9. Static UI HTML — CSRF token must NOT be rendered into the page source
     //    (HttpOnly cookie + GET /api/v1/csrf are the only delivery channels).
     //    The root route 307-redirects to /dashboard; the served page must stay clean.

@@ -67,17 +67,21 @@ flowchart TB
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix
+## 🛠️ Canonical Konoha MCP Tools Matrix (35 Canonical Tools)
 
-| Tool Category | Registered Tools | Description |
+| Tool Category | Registered Tools (35 Total) | Description |
 | :--- | :--- | :--- |
-| **Skill Discovery & Loading** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient skill ingestion. |
-| **Autonomous Website Builders** | `build_from_text`, `build_from_source`, `build_with_image_design` | Side-effect-free structured specifications for multi-archetype website generation. |
-| **Intel & Web Search** | `web_search` | Real-time web evidence gathering and documentation lookups. |
-| **Website AI Detection** | `website_ai_detector` | anonymiz.com-style AI-fingerprint scanner (generator tags, Lucide, shadcn shapes, Vercel/Netlify, attribution comments) scoring sites 0-100; 0-20 = Human-Built (PLAN_HUMAN_BUILT). CLI: `konoha detect-ai`; Web UI: `/detector`. |
-| **Document AI Detection** | `docs_ai_detector` | Enterprise document AI-fingerprint detector (.docx, .pdf, .pptx, .xlsx, .md, .txt) evaluating sliding-window paragraph burstiness, ZeroGPT risk (0%–1% target), generator metadata (python-docx), watermarks, and dark theme violations. Features dual-mode File Path + Text Paste input (`POST /api/v1/detect-docs/text`). CLI: `konoha detect-docs`; Web UI: `/detector`. |
-| **Specialist Delegation Subagents** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin` (or `tokubetsu-jonin`), `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
-| **Bounded File Operations** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
+| **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
+| **Skill Discovery & Loading (4)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient snippet-first ingestion. |
+| **Autonomous Website Builders (2)** | `build_from_source`, `build_from_text` | Side-effect-free structured specifications for multi-archetype website generation. |
+| **Specialist Delegation Subagents (7)** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
+| **AI Fingerprint Detection (2)** | `website_ai_detector`, `docs_ai_detector` | Website (0-20 Human-Built target) and Document AI detectors (.docx, .pdf, .pptx, text). |
+| **Project Context & Memory (4)** | `get_project_context`, `save_project_context`, `query_project_memory`, `report_from_agent` | Episodic architectural memory and context tracking across client workspaces. |
+| **Persona Memory (4)** | `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory` | Agent & user persona traits, patterns, and architectural rules in SQLite. |
+| **SDLC Governance & Quality Gates (3)** | `check_readiness`, `get_task_evidence`, `get_slop_findings` | Definition-of-Ready auditing, automated task evidence collection, and slop findings query. |
+| **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
+| **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
+
 
 ### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
 
@@ -195,7 +199,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (43 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (35 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -212,11 +216,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Strictly forbids dark theme styles (dark covers, dark headers, dark footers, black fills) across all generated and refined document formats: Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), and PDF (`.pdf`). All canvases must be pure white (`#FFFFFF`) or pearl (`#F8FAFC`).
    - Mandates a smooth multi-stop gradient with a minimum of 3 colors (e.g. Sapphire-to-Azure-to-Sky `#1E3A8A` → `#2563EB` → `#60A5FA`) for decorative accents, cover ribbons, running headers/footers, and divider lines.
    - Enforces business-class enterprise typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
-14. **Konoha Bridge 1.5.0 VSIX Extension**:
-   - Upgraded local extension binary (`assets/konoha-bridge-1.5.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
-15. **Cross-Client 7-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
-   - Synchronizes official skills across all 7 supported coding clients (`.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, `src/templates/skills`, `.codex/skills`, `.opencode/skills`) via `node scripts/sync_skills.js`.
-   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 clients.
+14. **Konoha Bridge 1.6.0 VSIX Extension**:
+   - Upgraded local extension binary (`assets/konoha-bridge-1.6.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
+15. **Cross-Client 5-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
+   - Synchronizes official skills from canonical source `.agents/skills` across all 5 active repository mirror trees (`src/templates/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`) via `node scripts/sync_skills.js`.
+   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 supported coding clients.
    - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
 
 ---
@@ -225,18 +229,64 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 
 Konoha coordinates all software development through an autonomous, state-driven 8-phase orchestration pipeline governed by `src/mcp/workflow.js` and backed by the native SDLC task engine in `src/sdlc_manager.js` (visualized in Draw.io diagram [Page 11: Kage Pre-Delivery Reviewer Workflow Gate](diagrams/README.md#manifest)):
 
-```text
-[User Prompt] ──> Phase 1: Route (✧ Sannin) ──> Phase 2: Explore (⚑ Genin) ──> Phase 3: Plan (◎ Kage)
-                                                                                     │
-                       ┌─────────────────────────────────────────────────────────────┴── [needs_research?] ──> Phase 4: Research (▫ Chunin)
-                       ▼
-               Phase 5: Execute (♦ Jonin / ♠ Anbu) ──> Phase 6: Document (⬡ Tokubetsu-Jonin)
-                       │
-                       ▼
-               Phase 7: Review Gate (◎ Kage) ──[slop findings > 0]──> Autonomous Remediation Loop (♠ Anbu)
-                       │ (0 findings, 100% tests, >= 98% confidence)
-                       ▼
-               Phase 8: Synthesize & Done (✧ Sannin) ──> [Delivery Report to Orchestrator]
+```mermaid
+---
+title: 8-Phase Multi-Agent SDLC Orchestration Workflow
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    primaryColor: '#dbeafe'
+    primaryTextColor: '#1e3a8a'
+    primaryBorderColor: '#2563eb'
+    lineColor: '#64748b'
+    secondaryColor: '#ede9fe'
+    tertiaryColor: '#d1fae5'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    %% Entry & Phase 1-3
+    UserPrompt(["User Prompt"]) --> P1["Phase 1: Route<br/><b>(✧ Sannin)</b>"]
+    P1 --> P2["Phase 2: Explore<br/><b>(⚑ Genin)</b>"]
+    P2 --> P3["Phase 3: Plan<br/><b>(◎ Kage)</b>"]
+
+    %% Research Decision Branch
+    P3 --> DecisionResearch{"needs_research?"}
+    DecisionResearch -->|Yes| P4["Phase 4: Research<br/><b>(▫ Chunin)</b>"]
+    DecisionResearch -->|No| P5["Phase 5: Execute<br/><b>(♦ Jonin / ♠ Anbu)</b>"]
+    P4 --> P5
+
+    %% Execution & Documentation
+    P5 --> P6["Phase 6: Document<br/><b>(⬡ Tokubetsu-Jonin)</b>"]
+    P6 --> P7["Phase 7: Review Gate<br/><b>(◎ Kage)</b>"]
+
+    %% Review Quality Gate & Autonomous Remediation Loop
+    P7 --> DecisionReview{"Zero-AI-Slop & Confidence Gate"}
+    DecisionReview -->|slop findings > 0| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu)</b>"]
+    Remediation -->|re-evaluate| P7
+    DecisionReview -->|"0 findings, 100% tests<br/>≥ 98% confidence"| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
+
+    %% Final Delivery
+    P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
+
+    %% Styling Classes
+    classDef startEnd fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e40af;
+    classDef phase fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef remediation fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    classDef approved fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#166534;
+
+    class UserPrompt,DeliveryReport startEnd;
+    class P1,P2,P3,P4,P5,P6,P7 phase;
+    class DecisionResearch,DecisionReview decision;
+    class Remediation remediation;
+    class P8 approved;
 ```
 
 ### 📋 Workflow Phase Matrix

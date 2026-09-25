@@ -1,11 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { uiState } from "#lib/state/uiState.svelte.js";
 
   let clients = $state([]);
   let loading = $state(true);
   let error = $state("");
+  let actionInProgress = $state(null);
 
   async function loadClients() {
     loading = true;
@@ -20,47 +21,34 @@
   }
 
   async function setupClient(id, name) {
+    if (actionInProgress) return;
+    actionInProgress = id;
     try {
       await api.post("/api/v1/clients/" + id + "/setup", {});
-      await sweetAlert.fire({
-        title: "Integration Active",
-        text: `Konoha MCP tools successfully registered for ${name}!`,
-        icon: "success"
-      });
+      const target = clients.find(c => c.id === id);
+      if (target) target.configured = true;
+      uiState.addNotification(`Connected Konoha MCP tools for ${name}!`, "success");
       await loadClients();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Setup Failed",
-        text: err.message,
-        icon: "error"
-      });
+      uiState.addNotification(`Setup failed for ${name}: ${err.message}`, "error");
+    } finally {
+      actionInProgress = null;
     }
   }
 
   async function removeClient(id, name) {
-    const confirmed = await sweetAlert.confirm({
-      title: "Remove Configuration?",
-      text: `Remove Konoha MCP configuration from ${name}?`,
-      icon: "warning",
-      confirmText: "Remove",
-      cancelText: "Keep"
-    });
-    if (!confirmed) return;
-
+    if (actionInProgress) return;
+    actionInProgress = id;
     try {
       await api.post("/api/v1/clients/" + id + "/remove", {});
-      await sweetAlert.fire({
-        title: "Configuration Removed",
-        text: `Konoha MCP tools disconnected from ${name}.`,
-        icon: "success"
-      });
+      const target = clients.find(c => c.id === id);
+      if (target) target.configured = false;
+      uiState.addNotification(`Disconnected Konoha MCP tools from ${name}.`, "info");
       await loadClients();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Removal Failed",
-        text: err.message,
-        icon: "error"
-      });
+      uiState.addNotification(`Disconnect failed for ${name}: ${err.message}`, "error");
+    } finally {
+      actionInProgress = null;
     }
   }
 
@@ -152,7 +140,7 @@
           </div>
 
           <!-- Actions -->
-          <div class="pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
+          <div class="relative z-30 pt-4 border-t border-slate-200 flex items-center justify-between gap-3 pointer-events-auto">
             <span class="text-[11px] font-semibold text-slate-600">
               {client.configured ? 'MCP tools enabled' : 'Ready to link'}
             </span>
@@ -160,19 +148,44 @@
             {#if client.configured}
               <button
                 type="button"
-                onclick={() => removeClient(client.id, client.name)}
-                class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer"
+                data-testid="disconnect-{client.id}"
+                data-client-id="{client.id}"
+                disabled={actionInProgress === client.id}
+                onclick={(e) => { e.stopPropagation(); removeClient(client.id, client.name); }}
+                class="btn-3d relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
+                style="transform: translateZ(25px);"
+                aria-label="Disconnect {client.name}"
               >
-                Disconnect
+                {#if actionInProgress === client.id}
+                  <svg class="animate-spin w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Disconnecting...</span>
+                {:else}
+                  <span>Disconnect</span>
+                {/if}
               </button>
             {:else}
               <button
                 type="button"
-                onclick={() => setupClient(client.id, client.name)}
-                class="btn-3d px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
-                style="background-color: var(--color-primary, #7c3aed);"
+                data-testid="setup-{client.id}"
+                data-client-id="{client.id}"
+                disabled={actionInProgress === client.id}
+                onclick={(e) => { e.stopPropagation(); setupClient(client.id, client.name); }}
+                class="btn-3d relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
+                style="background-color: var(--color-primary, #7c3aed); transform: translateZ(25px);"
+                aria-label="Setup {client.name}"
               >
-                Setup Integration
+                {#if actionInProgress === client.id}
+                  <svg class="animate-spin w-3.5 h-3.5 text-white shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Connecting...</span>
+                {:else}
+                  <span>Setup Integration</span>
+                {/if}
               </button>
             {/if}
           </div>
