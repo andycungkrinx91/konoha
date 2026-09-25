@@ -32,6 +32,8 @@ const FILE_TOOLS_LAUNCHER_JS = path.join(
  */
 function resolveWebUiDir(opts = {}) {
   const candidates = [
+    path.resolve(process.cwd(), "apps", "web"),
+    path.resolve(process.cwd()),
     path.join(HOME, ".konoha", "apps", "web"),
     path.resolve(__dirname, "..", "apps", "web")
   ];
@@ -47,22 +49,28 @@ function resolveWebUiDir(opts = {}) {
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const qualifying = [];
-  for (const dir of candidates) {
+  const seen = new Set();
+  for (const rawDir of candidates) {
+    const dir = path.resolve(rawDir);
+    if (seen.has(dir)) continue;
+    seen.add(dir);
     try {
       if (!fs.existsSync(dir)) continue;
-      let qualifies = false;
       let hasSources = false;
       const pkg = path.join(dir, "package.json");
       if (fs.existsSync(pkg)) {
         try {
-          if (JSON.parse(fs.readFileSync(pkg, "utf8")).name === "konoha-web") {
-            qualifies = true;
-            hasSources = fs.existsSync(path.join(dir, "src", "routes"));
+          const parsed = JSON.parse(fs.readFileSync(pkg, "utf8"));
+          if (parsed.name === "konoha-web") {
+            const hasRoutes = fs.existsSync(path.join(dir, "src", "routes"));
+            const hasBuildScript = Boolean(parsed.scripts && parsed.scripts.build);
+            hasSources = hasRoutes && hasBuildScript;
           }
         } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
-      if (!qualifies && fs.existsSync(path.join(dir, "build", "handler.js"))) qualifies = true;
-      if (qualifies) qualifying.push({ dir, hasSources });
+      const hasBuild = fs.existsSync(path.join(dir, "build", "handler.js"));
+      const qualifies = hasSources || hasBuild;
+      if (qualifies) qualifying.push({ dir, hasSources, hasBuild });
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
   if (qualifying.length === 0) return null;
@@ -71,6 +79,8 @@ function resolveWebUiDir(opts = {}) {
     if (withSources) return withSources.dir;
     return null;
   }
+  const withBuild = qualifying.find((c) => c.hasBuild);
+  if (withBuild) return withBuild.dir;
   return qualifying[0].dir;
 }
 

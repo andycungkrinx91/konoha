@@ -2855,7 +2855,7 @@ function copyRecursiveIfDifferent(src, dest) {
  */
 function installCliRuntime() {
   const cliDest = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
-  const skipNames = new Set(['.ruff_cache', '__pycache__', '.pytest_cache', '.DS_Store']);
+  const skipNames = new Set(['.ruff_cache', '__pycache__', '.pytest_cache', '.DS_Store', 'node_modules', '.svelte-kit', 'build', 'dist']);
   const copyTree = (src, dest) => {
     ensureDir(dest);
     for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -2922,20 +2922,76 @@ function installCliRuntime() {
       }
     }
 
+    // Ship the Web UI (complete application sources and pre-built distribution)
+    // so `konoha ui build`, `konoha ui start`, and `konoha web` work from
+    // the installed runtime anywhere on the system without requiring the repository
+    let webSrcDir = path.join(__dirname, '..', 'apps', 'web');
+    if (!fileExists(path.join(webSrcDir, 'package.json')) && fileExists(path.join(process.cwd(), 'apps', 'web', 'package.json'))) {
+      webSrcDir = path.join(process.cwd(), 'apps', 'web');
+    }
+    const webDestDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
+    if (fileExists(path.join(webSrcDir, 'package.json')) && path.resolve(webSrcDir) !== path.resolve(webDestDir)) {
+      copyTree(webSrcDir, webDestDir);
+      info(`Web UI application installed to ${webDestDir}`);
+    }
+
     // Ship the pre-built Web UI so `konoha ui start` / `konoha web` work from
     // the installed runtime without needing the repository or a rebuild
-    const webBuildSrc = path.join(__dirname, '..', 'apps', 'web', 'build');
-    if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
-      const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
-      fs.rmSync(webBuildDest, { recursive: true, force: true });
-      ensureDir(webBuildDest);
-      for (const entry of fs.readdirSync(webBuildSrc, { withFileTypes: true })) {
-        const s = path.join(webBuildSrc, entry.name);
-        const d = path.join(webBuildDest, entry.name);
-        if (entry.isDirectory()) copyRecursive(s, d);
-        else if (entry.isFile()) copyFile(s, d);
+    let webBuildSrc = path.join(__dirname, '..', 'apps', 'web', 'build');
+    if (!fileExists(path.join(webBuildSrc, 'handler.js'))) {
+      const candidates = [
+        path.join(process.cwd(), 'apps', 'web', 'build'),
+        path.join(process.cwd(), 'build'),
+      ];
+      for (const cand of candidates) {
+        if (fileExists(path.join(cand, 'handler.js'))) {
+          webBuildSrc = cand;
+          break;
+        }
       }
-      info(`Pre-built Web UI installed to ${webBuildDest}`);
+    }
+    const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
+    if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
+      if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest)) {
+        fs.rmSync(webBuildDest, { recursive: true, force: true });
+        ensureDir(webBuildDest);
+        fs.cpSync(webBuildSrc, webBuildDest, { recursive: true });
+        const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
+        const destWebPkg = path.join(destWebDir, 'package.json');
+        if (!fileExists(destWebPkg)) {
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
+        }
+        fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
+        info(`Pre-built Web UI installed to ${webBuildDest}`);
+      }
+    } else if (!fileExists(path.join(webBuildDest, 'handler.js'))) {
+      const sourceDir = deployUtils.resolveWebUiDir({ preferSources: true });
+      if (sourceDir && fileExists(path.join(sourceDir, 'src', 'routes'))) {
+        try {
+          const { execSync } = require('child_process');
+          info('Building Web UI during runtime initialization...');
+          try {
+            execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 180000 });
+          } catch (_) {
+            execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 180000 });
+          }
+          const builtOutput = path.join(sourceDir, 'build');
+          if (fileExists(path.join(builtOutput, 'handler.js')) && path.resolve(builtOutput) !== path.resolve(webBuildDest)) {
+            fs.rmSync(webBuildDest, { recursive: true, force: true });
+            ensureDir(webBuildDest);
+            fs.cpSync(builtOutput, webBuildDest, { recursive: true });
+            const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
+            const destWebPkg = path.join(destWebDir, 'package.json');
+            if (!fileExists(destWebPkg)) {
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
+            }
+            fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
+            info(`Pre-built Web UI installed to ${webBuildDest}`);
+          }
+        } catch (buildErr) {
+          warn(`Could not build Web UI automatically: ${buildErr.message}`);
+        }
+      }
     }
 
     // Ensure runtime dependencies for the installed CLI (idempotent, best-effort)
@@ -5397,6 +5453,15 @@ async function cmdUiStop(args = []) {
   // production daemon on 1404).
   const daemonPattern = `ui daemon --port=${stopPort}`;
 
+  if (stopPort === 1404 && isSystemdAvailable()) {
+    try {
+      const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      if (out === 'active') {
+        try { execSync('systemctl --user stop konoha-ui.service', { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
+
   // Defense in depth: even with port-specific pid files, verify the recorded
   // pid actually belongs to a daemon on the target port before killing it
   // (legacy shared ui.pid files, manual copies).
@@ -5466,6 +5531,23 @@ async function cmdUiStop(args = []) {
 
 async function cmdUiRestart(args = []) {
   header('Restarting Konoha Web Configuration UI');
+  let restartPort = 1404;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && args[i + 1]) restartPort = parseInt(args[++i], 10);
+    else if (args[i].startsWith('--port=')) restartPort = parseInt(args[i].slice('--port='.length), 10);
+  }
+  if (restartPort === 1404 && isSystemdAvailable()) {
+    try {
+      const { execSync } = require('child_process');
+      const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      if (out === 'active') {
+        info('Restarting via systemd user service...');
+        execSync('systemctl --user restart konoha-ui.service', { stdio: 'inherit' });
+        success('Konoha Web UI systemd service restarted successfully.');
+        return;
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
   info('Stopping running instance...');
   await cmdUiStop(args);
   await new Promise((r) => setTimeout(r, 500));
@@ -5831,20 +5913,49 @@ WantedBy=default.target
 async function cmdUiBuild() {
   header('Building Konoha Web UI (SvelteKit + Node Adapter)');
   const { execSync } = require('child_process');
-  const webDir = deployUtils.resolveWebUiDir({ preferSources: true })
-    || path.resolve(__dirname, '..', 'apps', 'web');
-  const hasSources = fileExists(path.join(webDir, 'package.json'))
+  let webDir = deployUtils.resolveWebUiDir({ preferSources: true });
+  if (!webDir) {
+    const candidates = [
+      path.resolve(process.cwd(), 'apps', 'web'),
+      path.resolve(process.cwd()),
+      path.resolve(__dirname, '..', 'apps', 'web'),
+      path.join(SKILLS_DB_DIR, 'apps', 'web')
+    ];
+    for (const cand of candidates) {
+      const pkg = path.join(cand, 'package.json');
+      if (fileExists(pkg) && fileExists(path.join(cand, 'src', 'routes'))) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(pkg, 'utf8'));
+          if (parsed.scripts && parsed.scripts.build) {
+            webDir = cand;
+            break;
+          }
+        } catch (_) { /* intentional best-effort fallback: unreadable package.json ignored */ }
+      }
+    }
+  }
+  const hasSources = webDir && fileExists(path.join(webDir, 'package.json'))
     && fileExists(path.join(webDir, 'src', 'routes'));
   if (!hasSources) {
-    error(`Web UI sources not found (looked in: ${webDir}).`);
-    info(`The pre-built UI at ${path.join(webDir, 'build')} is served automatically by 'konoha ui start'.`);
-    info(`To rebuild the UI from source, run from the Konoha repository: pnpm --dir apps/web run build`);
+    const installedHandler = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build', 'handler.js');
+    if (fileExists(installedHandler)) {
+      info('Web UI sources not found in current directory, but pre-built UI is ready:');
+      log(`    ↳ Build:   ${installedHandler}`);
+      log(`    ↳ Service: konoha ui status`);
+      log(`    ↳ Launch:  konoha ui start (or konoha web)\n`);
+      success('Pre-built Konoha Web UI is healthy and ready to serve.');
+      return;
+    }
+    error(`Web UI sources not found (looked in: ${webDir || 'workspace'}).`);
+    info(`The pre-built UI at ${path.join(SKILLS_DB_DIR, 'apps', 'web', 'build')} is served automatically by 'konoha ui start'.`);
+    info(`To rebuild the UI from source, clone the Konoha repository: pnpm --dir apps/web run build`);
     process.exit(1);
   }
   try {
-    const webModules = path.join(webDir, 'node_modules');
-    if (!fs.existsSync(webModules)) {
-      info('Installing apps/web dependencies...');
+    const isWin = process.platform === 'win32';
+    const viteBin = path.join(webDir, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
+    if (!fileExists(viteBin)) {
+      info(`Installing apps/web dependencies in ${webDir}...`);
       try {
         execSync('pnpm install', { cwd: webDir, stdio: 'inherit' });
       } catch (_) {
@@ -5869,7 +5980,10 @@ async function cmdUiBuild() {
         fs.mkdirSync(installedBuild, { recursive: true });
         fs.cpSync(path.join(webDir, 'build'), installedBuild, { recursive: true });
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
-        fs.writeFileSync(path.join(destWebDir, 'package.json'), JSON.stringify({ name: 'konoha-web', version: '2.0.0', type: 'module', private: true }, null, 2) + '\n');
+        const destWebPkg = path.join(destWebDir, 'package.json');
+        if (!fileExists(destWebPkg)) {
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
+        }
         fs.writeFileSync(path.join(installedBuild, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Installed runtime UI refreshed: ${installedBuild}`);
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }

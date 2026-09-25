@@ -172,12 +172,11 @@ function createWebServer(options = {}) {
   }
 
   let svelteKitHandler = null;
-  let svelteKitAttempted = false;
 
   async function getSvelteKitHandler() {
-    if (svelteKitAttempted) return svelteKitHandler;
-    svelteKitAttempted = true;
-    const svelteKitHandlerPath = path.join(WEB_UI_DIR, 'build', 'handler.js');
+    if (svelteKitHandler) return svelteKitHandler;
+    const resolvedWebDir = deployUtils.resolveWebUiDir() || WEB_UI_DIR;
+    const svelteKitHandlerPath = path.join(resolvedWebDir, 'build', 'handler.js');
     if (fs.existsSync(svelteKitHandlerPath) && process.env.KONOHA_UI_ROUTER !== 'legacy') {
       try {
         // Guarantee ESM package boundary for SvelteKit handler to prevent [MODULE_TYPELESS_PACKAGE_JSON] warning
