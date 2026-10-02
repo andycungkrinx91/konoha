@@ -21,7 +21,7 @@ const {
 
 const SAFETY_GUARDRAILS_BLOCK = `
 - **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 98% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **98% confidence** is required across all verification categories (Minimum Required: ≥ 98%). If confidence < 98%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
+- **Kage Reviewer 98% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. **Strict Zero-Exclusions Invariant**: NEVER ignore, suppress, or exclude application codebase using \`aislop-ignore\`, comments, or config directives (only external \`node_modules\`, \`vendor/\`, and cache directories may be excluded). Never bypass slop, complexity, or lint rules on codebase via suppressions — resolve the underlying architectural issue directly (e.g. modularizing oversized files). Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **98% confidence** is required across all verification categories (Minimum Required: ≥ 98%). If confidence < 98%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
 - **Base Personality: High Effort + Instruct Style (Zero Monologue Leaks & Factual Rigor)**:
   - **Zero Conversational Filler**: NEVER begin responses or tool turns with conversational filler, hesitation markers, or internal monologue leaks (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine").
   - **Lead With Direct Action / Direct Evidence**: Always start with the required log line \`[{Icon} {Name}] active. Calling ...\` or the direct, factual, actionable response.
@@ -177,12 +177,28 @@ function loadAgents(reloadDefaults = false, silent = false) {
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  if (agents.length === 0 && defaults.length > 0) {
-    agents = defaults;
-    try {
-      const dbAgents = require('./db_agents');
-      dbAgents.bulkImportAgents(agents);
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  if (defaults.length > 0) {
+    if (agents.length === 0) {
+      agents = defaults;
+      try {
+        const dbAgents = require('./db_agents');
+        dbAgents.bulkImportAgents(agents);
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    } else {
+      const existingNames = new Set(agents.map(a => a && a.name));
+      let anyAdded = false;
+      for (const def of defaults) {
+        if (def && def.name && !existingNames.has(def.name)) {
+          agents.push(def);
+          anyAdded = true;
+        }
+      }
+      if (anyAdded && loadedFromUser) {
+        try {
+          fs.writeFileSync(USER_AGENTS_YAML_PATH, stringifyYaml(agents) + '\n', 'utf8');
+        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      }
+    }
   }
 
   // Strip any legacy mcp_* agents from being loaded or exposed
@@ -670,8 +686,6 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 ## Tools & Guardrails
 
 - **MCP-Only Tooling (ABSOLUTE RULE)**: ALL file reads, searches, and operations MUST use \`konoha\` MCP or \`semble\` MCP tools. NEVER call built-in \`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`WebSearch\` tools directly. NEVER use shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`).
-// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
-// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.). When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines). Avoid loading massive files into your context window.
 - **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
 - **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools for finding or locating skills. NEVER use \`semble\` search for skills.**
@@ -826,9 +840,7 @@ ${SAFETY_GUARDRAILS_BLOCK}
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **Optimize Thought Tokens**: In the thought/thinking process, keep explanations concise and directly focused on implementation steps. Avoid writing extensive explanations, essays, or redundant logs in the thought block to minimize output/thought token costs.
 - **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
-// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-// aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
@@ -885,6 +897,56 @@ function getCliVersion() {
   return '0.0.0';
 }
 
+
+/**
+ * Injects managed Konoha configuration/instructions into a markdown file while
+ * strictly preserving existing user configuration, custom instructions, and notes.
+ */
+function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA') {
+  const startMarker = `<!-- ${marker}-START -->`;
+  const endMarker = `<!-- ${marker}-END -->`;
+  const wrapped = `${startMarker}\n${newManagedContent.trim()}\n${endMarker}\n`;
+
+  let existing = '';
+  if (fs.existsSync(filePath)) {
+    try {
+      existing = fs.readFileSync(filePath, 'utf8');
+    } catch {
+      existing = '';
+    }
+  }
+
+  const trimmed = existing.trim();
+  if (!trimmed) {
+    return wrapped;
+  }
+
+  // If already contains managed markers, replace between them and preserve surrounding content
+  const startIndex = existing.indexOf(startMarker);
+  const endIndex = existing.indexOf(endMarker);
+  if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+    const before = existing.slice(0, startIndex).trimEnd();
+    const after = existing.slice(endIndex + endMarker.length).trimStart();
+    const parts = [];
+    if (before) parts.push(before);
+    parts.push(`${startMarker}\n${newManagedContent.trim()}\n${endMarker}`);
+    if (after) parts.push(after);
+    return parts.join('\n\n') + '\n';
+  }
+
+  // Check if existing content starts with older unmanaged Konoha headers
+  const isLegacyGemini = trimmed.startsWith('# Global Agent Instructions');
+  const isLegacyAgents = trimmed.startsWith('# AGENTS.md — Multi-Agent Team Configuration');
+
+  if (isLegacyGemini || isLegacyAgents) {
+    return wrapped;
+  }
+
+  // User already had their own instructions/config before Konoha was installed.
+  // Strictly preserve the user's config and inject Konoha's managed block.
+  return `${trimmed}\n\n${wrapped}`;
+}
+
 // Regenerate template files and deploy them
 function regenerateAndDeploy(silentOrOptions = false) {
   const silent = typeof silentOrOptions === 'boolean' ? silentOrOptions : (silentOrOptions.silent || false);
@@ -918,12 +980,14 @@ function regenerateAndDeploy(silentOrOptions = false) {
 
   try {
     fs.mkdirSync(path.dirname(GEMINI_MD_PATH), { recursive: true });
-    fs.writeFileSync(GEMINI_MD_PATH, geminiContent);
+    const finalGemini = injectManagedConfig(GEMINI_MD_PATH, geminiContent, 'KONOHA');
+    fs.writeFileSync(GEMINI_MD_PATH, finalGemini, 'utf8');
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   try {
     fs.mkdirSync(path.dirname(AGENTS_MD_PATH), { recursive: true });
-    fs.writeFileSync(AGENTS_MD_PATH, agentsContent);
+    const finalAgents = injectManagedConfig(AGENTS_MD_PATH, agentsContent, 'KONOHA');
+    fs.writeFileSync(AGENTS_MD_PATH, finalAgents, 'utf8');
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   // Deploy Cursor IDE/CLI subagents, rules, and hooks
@@ -1254,6 +1318,7 @@ module.exports = {
   generateGeminiMd,
   generateAgentsMd,
   generateClaudeCodeMd,
+  injectManagedConfig,
   parseYaml,
   stringifyYaml
 };

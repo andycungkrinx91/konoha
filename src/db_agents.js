@@ -74,6 +74,31 @@ function autoMigrateYamlToDb(conn) {
   }
 }
 
+function mapAgentRow(r) {
+  let skills = [];
+  try {
+    skills = r.skills ? JSON.parse(r.skills) : [];
+  } catch (_) {
+    skills = [];
+  }
+
+  return {
+    name: r.name,
+    icon: r.icon,
+    title: r.title,
+    model: r.model || undefined,
+    purpose: r.purpose,
+    skills,
+    delegateWhen: r.delegate_when,
+    constraints: r.constraints_text,
+    workflow: r.workflow,
+    description: r.description,
+    instructions: r.instructions,
+    delegationKeywords: r.delegation_keywords,
+    enable_mcp_tools: Boolean(r.enable_mcp_tools)
+  };
+}
+
 function syncDbToYaml(conn) {
   const rows = conn.prepare(`
     SELECT name, icon, title, model, purpose, skills, delegate_when,
@@ -83,31 +108,7 @@ function syncDbToYaml(conn) {
     WHERE name NOT LIKE 'mcp_%'
   `).all();
 
-  const agentsList = [];
-  for (const r of rows) {
-    let skills = [];
-    try {
-      skills = r.skills ? JSON.parse(r.skills) : [];
-    } catch (_) {
-      skills = [];
-    }
-
-    agentsList.push({
-      name: r.name,
-      icon: r.icon,
-      title: r.title,
-      model: r.model || undefined,
-      purpose: r.purpose,
-      skills,
-      delegateWhen: r.delegate_when,
-      constraints: r.constraints_text,
-      workflow: r.workflow,
-      description: r.description,
-      instructions: r.instructions,
-      delegationKeywords: r.delegation_keywords,
-      enable_mcp_tools: Boolean(r.enable_mcp_tools)
-    });
-  }
+  const agentsList = rows.map(mapAgentRow);
 
   const dir = path.dirname(AGENTS_YAML_PATH);
   if (!fs.existsSync(dir)) {
@@ -128,33 +129,7 @@ function listAgents(dbPath = null) {
       WHERE name NOT LIKE 'mcp_%'
     `).all();
 
-    const result = [];
-    for (const r of rows) {
-      let skills = [];
-      try {
-        skills = r.skills ? JSON.parse(r.skills) : [];
-      } catch (_) {
-        skills = [];
-      }
-
-      result.push({
-        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
-        name: r.name,
-        icon: r.icon,
-        title: r.title,
-        model: r.model || undefined,
-        purpose: r.purpose,
-        skills,
-        delegateWhen: r.delegate_when,
-        constraints: r.constraints_text,
-        workflow: r.workflow,
-        description: r.description,
-        instructions: r.instructions,
-        delegationKeywords: r.delegation_keywords,
-        enable_mcp_tools: Boolean(r.enable_mcp_tools)
-      });
-    }
-    return result;
+    return rows.map(mapAgentRow);
   } finally {
     conn.close();
   }

@@ -114,9 +114,9 @@ async function main() {
 
   // T3: wiring — cmdInit auto-starts (honoring skipUiAutoStart), cmdUpgrade
   // restarts a previously-running daemon, and cmdUiStart uses a port-specific
-  // pgrep pattern so a custom-port start can never pkill the default daemon.
   {
-    const src = fs.readFileSync(CLI_PATH, 'utf8');
+    const uiLibPath = path.resolve(__dirname, '..', 'bin', 'lib', 'ui_commands.js');
+    const src = fs.readFileSync(CLI_PATH, 'utf8') + (fs.existsSync(uiLibPath) ? fs.readFileSync(uiLibPath, 'utf8') : '');
     ok('T3: cmdInit guards on options.skipUiAutoStart', src.includes('if (!options.skipUiAutoStart)'));
     ok('T3: cmdInit calls ensureUiDaemonAutoStart', /await ensureUiDaemonAutoStart\(\)/.test(src));
     ok('T3: cmdInit early-return (already-installed) path also auto-starts', (src.match(/options\.skipUiAutoStart/g) || []).length >= 2);

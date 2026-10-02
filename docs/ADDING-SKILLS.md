@@ -35,7 +35,7 @@ flowchart TB
     Developer["Developer"] --> Registry["skills.sh<br/>(Git repository)"]
     Registry --> Files["Workspace or Home<br/>.agents/skills/&lt;name&gt;"]
     Templates["src/templates/skills"] --> Files
-    Files --> Migrate["konoha migrate<br/>(--clean)"]
+    Files --> Migrate["konoha migrate<br/>(non-destructive)"]
     Migrate --> DB["SQLite konoha.db<br/>(skills + skills_fts)"]
     Client["Any Supported Client"] --> Find["find_skill(keyword)"]
     Find --> DB
@@ -84,19 +84,16 @@ konoha skill add https://github.com/pageai-pro/ralph-loop prd-creator
 > - `.agents/skills/` = same relative path on all platforms
 
 ### Step 3: Run the Migration (Optional)
-If the database does not automatically sync or if you manually copied skill files, run the migration command:
-Run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
+If the database does not automatically sync or if you manually copied skill files, run the migration command to scan your skills directories and index the new content into your SQLite FTS5 database:
 
 ```bash
 konoha migrate
+
+# Or rebuild embeddings explicitly:
+konoha migrate --rebuild-embeddings
 ```
 
-
-```bash
-konoha migrate --force
-```
-
-The migration automatically:
+In Konoha v2.0.2, migrations are strictly non-destructive: existing user skills, custom agent configurations, and prior indexed references are preserved and never pruned. The migration automatically:
 1. Scans `~/.agents/skills/` and `./.agents/skills/`.
 2. Indexes the main `SKILL.md` instructions.
 3. Automatically detects other root markdown files (e.g., `JSON.md`, `PRD.md`) or nested `references/*.md` files and indexes them as reference assets in the database.

@@ -25,29 +25,29 @@ On native Windows, child processes spawned by Antigravity IDE default to the Ele
 - **IDE Directory Guard (`isIdeInstallationDirectory`)**: File exploration and reading tools (`get_file_structure`, `find_files_clean`, `token_efficient_grep`, `read_file_head`, etc.) strictly disallow reading, scanning, or listing any Antigravity IDE installation binaries (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.).
 - **Automatic Workspace Detection (`detectWorkspaceRoot`)**: Resolves the true user project workspace from `WORKSPACE_ROOT` / `KONOHA_WORKSPACE` environment variables, or through active Antigravity session cache (`~/.gemini/antigravity-cli/cache/last_conversations.json`, `projects.json`, and session transcripts), completely preventing unintended scans of the IDE root.
 
-## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
+## Step 1: Install Konoha (Zero-Configuration Auto-Setup)
 
 > [!NOTE]
 > **Zero-Prompt Auto-Setup**:
 >
-> If you prefer a manual setup or want to perform a clean initialization, run:
+> If you prefer a manual setup or want to perform an initialization, run:
 
 ```bash
 # 1. Initialize MCP server and configurations
 pnpm dlx github:andycungkrinx91/konoha init
 
-# 2. Re-index skills & synchronize neural vector embeddings
-konoha migrate --clean --rebuild-embeddings
+# 2. Re-index skills & synchronize neural vector embeddings (strictly non-destructive):
+konoha migrate --rebuild-embeddings
 # (or simply: konoha embed)
 ```
 
 This manual script or the auto-setup routine will:
 1. Create `~/.konoha/` with the MCP server and database
-2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5
+2. Migrate all skills from `~/.agents/skills/` into SQLite FTS5 (strictly non-destructive: additive-only, never pruning pre-existing user skills)
 3. **Back up** existing `~/.gemini/config/mcp_config.json` → `mcp_config.json.back` (first install only)
 4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `semble` + `aislop`) while preserving unrelated entries
 5. Update `~/.gemini/GEMINI.md` with new subagent instructions
-6. If Antigravity IDE is detected, refresh the live `master` branch of `konoha-bridge` at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` for `127.0.0.1:1313`; otherwise skip it without creating extension directories. Konoha’s embedded gateway remains on `127.0.0.1:19999`.
+6. If Antigravity IDE is detected, refresh the live `master` branch of `konoha-bridge` at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` for `127.0.0.1:1313`; otherwise skip it without creating extension directories (the extension is exclusively installed into Antigravity IDE, never Cursor or other editors). Konoha’s embedded gateway remains on `127.0.0.1:19999`.
 
 > [!NOTE]
 > Your original config is safely preserved in `mcp_config.json.back`. To restore it, run:
@@ -147,7 +147,7 @@ To maintain stability and enforce security, the Antigravity system implements th
 > * **Agent-Browser CLI**: Use `agent-browser` (or `npx agent-browser`) to interact with live web pages, submit forms, take screenshots, inspect elements, and run visual end-to-end verifications.
 > * **Transparency & Logging**: At the very start of every response, you MUST output a log line announcing your rank/role, which MCP servers you are invoking, and which skill references you are calling. Example:
 >   `[🍃 Genin] scout active. Calling konoha.find_skill('keyword') and/or semble.search(...)`
-> * **Hard Guardrail Enforcement (v2.0.0)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha/semble MCP tools.
+> * **Hard Guardrail Enforcement (v2.0.2)**: The destructive-command, git-safety, secret-protection, and MCP read-bypass rules are enforced by blocking hooks, not just prompts — Claude Code (`konoha-bash-guard.js` on `^Bash$`), Command Code (`konoha-native-blocker-cc.js` on `read_file` + `shell_command`), Antigravity (`antigravity_tool_sanitize_hook.js` on `run_command`), and Pi (`konoha-blocker.ts` on reads + `bash`). Blocked shell commands can be retried with an `rtk` prefix (read-bypass only) or via the konoha/semble MCP tools.
 > * **Protected Configuration & Secrets**: All `terraform.tfvars`, `.env` configurations, and `secrets.yaml` files are strictly **read-only** by default. AI agents must **ALWAYS ask for user permission** before attempting to read or write them.
 > * **Subagent Delegation Model**: Custom `TypeName` values and `invoke_subagent` calls have been fully replaced by the MCP-only delegation model. All subagent delegation goes through the `mcp_sannin` tool, which routes to backend tools like `mcp_jonin`, `mcp_kage`, etc.
 > * **No Auto-Creation of Subagents**: The AI agent is **NEVER** allowed to automatically define, create, or delete subagents.
@@ -171,7 +171,7 @@ The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v2.0.0`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: As of `v2.0.2`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:

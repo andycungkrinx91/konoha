@@ -144,8 +144,6 @@ function renderFullscreenTerminal(commandStr, outputText, title, badge) {
 }
 
 /** Render a fixed-size (1200x760) GIF frame, capping at 32 lines. */
-// aislop-ignore-next-line code-quality/duplicate-block (frame renderer branches (dynamic vs fixed height))
-// aislop-ignore-next-line code-quality/duplicate-block (frame renderer branches (dynamic vs fixed height))
 function renderGifFrame(commandStr, outputText, title, badge) {
   const lines = outputText.split('\n').slice(0, 32);
 

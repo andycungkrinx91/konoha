@@ -196,6 +196,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Animated Terminal Feedback: `startSpinner()` renders a 10-frame braille spinner (90ms interval) with in-place line redraw (`\r\x1b[2K`) on TTY; automatically falls back to static `›` lines on non-TTY, CI, or `NO_COLOR` environments, with `KONOHA_SPINNERS=0` as an explicit opt-out.
    - Unicode-Accurate Table Widths: `getVisualLength()` implements East Asian Width accounting (CJK ideographs, Hangul, kana, fullwidth forms) plus emoji-presentation BMP symbols that render as 2 columns in modern terminals, and `truncateVisual()` strips ANSI escapes before measuring/cutting — eliminating column overlap in agent/skill/status tables.
    - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 7 MCP client configs, and verifies extension bridges.
+   - **Non-Destructive User Skills & Config Preservation (v2.0.2)**: `copySkillsDirFast` executes additive-only synchronization without destination pruning, safeguarding pre-existing custom skills in all 7 client skill directories. SQLite FTS5 migration (`src/migrate.js`) operates via non-destructive upserts (`INSERT OR REPLACE`), avoiding table wipes unless `--clean` is explicitly passed. Instruction files (`GEMINI.md`, `AGENTS.md`, `CODEX.md`, `instructions.md`) inject Konoha directives within managed boundary tags (`<!-- KONOHA-START -->...<!-- KONOHA-END -->`) preserving 100% of existing user prompts, rules, and preambles, while `agents.yaml` performs union-merge to protect user custom agent definitions.
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
@@ -222,6 +223,12 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Synchronizes official skills from canonical source `.agents/skills` across all 5 active repository mirror trees (`src/templates/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`) via `node scripts/sync_skills.js`.
    - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 supported coding clients.
    - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
+16. **Strict Non-Destructive Preservation & Union-Merge (v2.0.2)**:
+   - User custom skills and configuration are never pruned or overwritten during fresh installs or upgrades (`copySkillsDirFast` additive-only, `--clean` removed from default migrations, `injectManagedConfig` preserving custom user rule blocks, and custom agent union-merge in `agents.yaml`).
+17. **Cross-Platform Windows Web UI Resilience (v2.0.2)**:
+   - Headless browser launch via `cmd.exe /c start ""` with `windowsHide: true`, 30-attempt polling window, port-scoped daemon management, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
+18. **Architectural Modularization & Strict Zero-Exclusions Gate (v2.0.2)**:
+   - Extracted 1,068 lines of UI CLI commands into `bin/lib/ui_commands.js` to preserve the < 9,000 lines complexity threshold. Enforces strict zero-exclusions across application code — `aislop-ignore` and config suppressions are strictly forbidden on codebase files, mandating root-cause architectural resolution.
 
 ---
 
@@ -319,5 +326,14 @@ flowchart TD
    - Bounded by Konoha's delegation-depth circuit breaker (`slop_cycles <= 7`) to prevent infinite remediation loops.
 
 4. **100% Passing Test Baseline**:
-   - Verified across all **82 JavaScript test suites** (`rtk node tests/run_all.js`) at 100% pass rate.
+   - Verified across all JavaScript test suites (`rtk node tests/run_all.js`) at 100% pass rate.
+
+5. **Strict Zero-Exclusions Invariant**:
+   - Application codebase must NEVER be suppressed, ignored, or excluded via `aislop-ignore`, comments, or config directives (only external `node_modules`, `vendor/`, and cache directories may be excluded).
+   - Slop, complexity, or lint issues must be resolved architecturally (e.g. modularizing the 1,068-line UI subsystem from `bin/cli.js` into `bin/lib/ui_commands.js` to strictly adhere to the < 9,000 line threshold).
+
+6. **Cross-Platform Web UI Subsystem Architecture**:
+   - Modularized command execution in `bin/lib/ui_commands.js` provides cross-platform background daemon controls (`start`, `stop`, `restart`, `status`, `daemon`, `service`, `build`, `preview`, `open`).
+   - Hardened for Windows with `windowsHide: true` on browser and daemon spawn, 30-attempt port polling, port-scoped process tree cleanup (`taskkill /F /T /PID`), PowerShell `-Unique` ownership kill, and `netstat -ano` fallback. Supports Windows `SIGBREAK` alongside POSIX `SIGINT`/`SIGTERM`.
+   - Native OS background daemon service support via Linux `systemd --user` (`konoha-ui.service`) and macOS `launchd` (`com.konoha.ui.plist`).
 

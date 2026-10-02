@@ -59,8 +59,6 @@ async function main() {
 
   // Save to assets/demo-skill-embed.gif and assets/demo-skills.gif
   const targetPath = path.join(ASSETS_DIR, 'demo-skill-embed.gif');
-  // aislop-ignore-next-line code-quality/duplicate-block (scene object literals now table-driven (residual))
-  // aislop-ignore-next-line code-quality/duplicate-block (scene object literals now table-driven (residual))
   saveOptimizedGif(allFrames, targetPath);
 
   const targetPathSkills = path.join(ASSETS_DIR, 'demo-skills.gif');

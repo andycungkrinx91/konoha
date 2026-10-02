@@ -1,6 +1,6 @@
 {
   "name": "Konoha",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "type": "commonjs",
   "keywords": [
     "antigravity",
@@ -77,7 +77,8 @@
   "pnpm": {
     "overrides": {
       "sharp": ">=0.35.4",
-      "adm-zip": ">=0.6.0"
+      "adm-zip": ">=0.6.0",
+      "devalue": ">=5.9.3"
     }
   }
 }

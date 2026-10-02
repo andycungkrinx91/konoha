@@ -96,7 +96,7 @@ pnpm dlx github:andycungkrinx91/konoha init
      "mcpServers": {
        "konoha": {
          "command": "node",
-         "args": ["C:/Users/youruser/.konoha/file_tools_launcher.sh"]
+         "args": ["C:/Users/youruser/.konoha/file_tools_launcher.js"]
        }
      }
    }
@@ -222,7 +222,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 5. **Restart Cursor** after repair.
 
-6. Run `konoha test` — expects all MCP integration tests to pass, plus `tests/test_*.py` standalone suites.
+6. Run `konoha test` — expects all MCP integration tests to pass, plus `tests/test_*.js` standalone suites.
 
 **Common errors:**
 - `Refused: requested span is N lines (max 500)` — narrow `read_file_range` window.
@@ -267,7 +267,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 
 ### 📊 `konoha agent status` Shows Wrong Counts
 
-Agent attribution when the `agent` MCP parameter is omitted is resolved by `detect_active_agent()` in `server.py`:
+Agent attribution when the `agent` MCP parameter is omitted is resolved by `detectActiveAgent()` in `src/mcp/client_detection.js`:
 
 - **Antigravity**: Scans `~/.gemini/antigravity-ide/brain` and `antigravity-cli/brain` using delegated `prompt.md` and recent `PLANNER_RESPONSE` transcripts (ignores `VIEW_FILE` noise). If `ANTIGRAVITY_CONVERSATION_ID` is set, scans are strictly isolated to the active session folder (Cursor projects are excluded) to prevent cross-session telemetry pollution.
 - **Cursor**: Scans `~/.cursor/projects/*/agent-transcripts/` for `Task` `subagent_type`, subagent `[Agent] active` logs, or `[Konoha] orchestrator active`.
@@ -650,7 +650,25 @@ Configuration is invalid at ~/.config/opencode/opencode.json
 If running `get_file_structure` with `{"dir_path": "."}` on Windows outputs IDE binaries (`Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, `vulkan-1.dll`):
 **Cause:** Electron child processes on Windows inherit `C:\Users\<user>\AppData\Local\Programs\Antigravity IDE\` as `process.cwd()` when no explicit `rootUri` is provided during MCP initialize.
 
-**Fix:** Konoha incorporates strict `isIdeInstallationDirectory` guards in `file_tools_router.js`, `_common.py`, and `server.py`. Access to IDE program directories is permanently blocked, and `detectWorkspaceRoot()` automatically resolves the real project directory from session cache (`last_conversations.json`, `projects.json`) or `WORKSPACE_ROOT`. Run `konoha doctor --yes` to ensure all latest file tools are synced to `~/.konoha/`.
+**Fix:** Konoha incorporates strict `isIdeInstallationDirectory` guards in `file_tools_router.js` and `src/file_tools/common.js`. Access to IDE program directories is permanently blocked, and `detectWorkspaceRoot()` automatically resolves the real project directory from session cache (`last_conversations.json`, `projects.json`) or `WORKSPACE_ROOT`. Run `konoha doctor --yes` to ensure all latest file tools are synced to `~/.konoha/`.
+
+---
+
+### 🌐 Web Configuration UI Issues (`konoha ui`) (v2.0.2)
+
+1. **Port 1404 Already in Use**:
+   - **Symptom**: `EADDRINUSE 127.0.0.1:1404` when executing `konoha ui start`.
+   - **Fix**: Run `konoha ui restart` or `konoha ui stop`. On Windows, the stop handler executes process tree cleanup via `taskkill /F /T /PID`, releases port 1404, and cleans up port-scoped PID files under `~/.konoha/ui/`.
+   - Alternatively, bind to a custom port: `konoha ui start --port 1500`.
+
+2. **UI Daemon Fails to Start or Exits Immediately**:
+   - Check status and PID: `konoha ui status`.
+   - Check daemon logs: `~/.konoha/ui/daemon-1404.log`.
+   - Rebuild pre-built assets if missing: `konoha ui build`.
+
+3. **Browser Does Not Launch Automatically**:
+   - Run `konoha ui open` or navigate manually to `http://127.0.0.1:1404/`.
+   - On Windows, detached daemon execution uses `cmd.exe /c start ""` with `windowsHide: true`.
 
 ---
 

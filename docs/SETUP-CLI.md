@@ -30,7 +30,7 @@
 
 If `rtk` is installed (`cargo install rtk`), Konoha auto-deploys RTK rules to `~/.gemini/antigravity-cli/rules/rtk.md` during init. This instructs agents to use `rtk <command>` for shell operations, reducing token usage by up to 90% on common commands.
 
-## Step 1: Install Skills-DB (Zero-Configuration Auto-Setup)
+## Step 1: Install Konoha (Zero-Configuration Auto-Setup)
 
 ### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)
 For manual repository distribution or local development:
@@ -64,8 +64,8 @@ pnpm dlx github:andycungkrinx91/konoha init
 # Or with npx:
 npx github:andycungkrinx91/konoha init
 
-# 2. Re-index skills & synchronize neural vector embeddings:
-konoha migrate --clean --rebuild-embeddings
+# 2. Re-index skills & synchronize neural vector embeddings (strictly non-destructive):
+konoha migrate --rebuild-embeddings
 # (or simply: konoha embed)
 ```
 
@@ -110,7 +110,7 @@ Or use the node launcher directly:
 node "$env:USERPROFILE\.konoha\file_tools_launcher.js" <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-## Step 3: Verify Skills-DB Works
+## Step 3: Verify Konoha Works
 
 ```bash
 konoha test
@@ -134,7 +134,7 @@ Search for "terraform aws" using the konoha MCP tool.
 
 The agent should call `konoha.find_skill("terraform aws")` and return relevant anbu-skill references — without loading any SKILL.md files.
 
-## How Skills-DB Integrates with agy
+## How Konoha Integrates with agy
 
 ### MCP Config Location
 
@@ -178,12 +178,11 @@ The migration script auto-detects and reads skills from standard directories. It
 2. Re-run migration:
    ```bash
    konoha migrate
-   ```
-   ```bash
-   konoha migrate --force
+   # Or rebuild embeddings explicitly:
+   konoha migrate --rebuild-embeddings
    ```
 
-The migration is idempotent — it replaces existing entries with updated content.
+The migration is strictly non-destructive and idempotent — it preserves all pre-existing user skills and updates indexed entries with fresh content without pruning.
 
 ## Skill and Agent Management
 
@@ -203,6 +202,7 @@ Konoha provides CLI commands to manage custom skills and multi-agent configurati
   ```bash
   konoha skill add <repository-url> <skill-name>
   ```
+  *(Note: `konoha skill add` is the canonical command; `konoha skilladd` is strictly prohibited).*
 - **Delete/Remove a Skill**:
   ```bash
   konoha skill remove <skill-name>
@@ -239,7 +239,7 @@ The subagent configurations are stored in a structured format, enabling you to i
     --instructions "Verify SQL queries using EXPLAIN and ensure correct index usage."
   ```
 
-- **Configure Subagent Model Assignment (v2.0.0)**:
+- **Configure Subagent Model Assignment (v2.0.2)**:
   Assign active bridge-served models (or inherit the host default) to subagents:
   ```bash
   # Interactive two-step raw-mode TUI:
@@ -264,7 +264,7 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```
   Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
 
-### SDLC Task Governance & Quality Gates (v2.0.0)
+### SDLC Task Governance & Quality Gates (v2.0.2)
 
 Konoha includes a built-in SDLC governance layer tracking tasks, Definition of Readiness (DoR), cross-provider reviews, and anti-slop compliance in the `sdlc_tasks` SQLite table:
 
@@ -303,7 +303,7 @@ To monitor the performance and cost efficiency of your local setups, you can que
   ```
   Retrieves and displays token savings metrics (Today, 7 days, All time) for both the `konoha` FTS5 database and the `semble` semantic search MCP server, helping developers track overall efficiency.
 
-### AI Fingerprint Detection (Website & Documents) (v2.0.0)
+### AI Fingerprint Detection (Website & Documents) (v2.0.2)
 
 Scan websites and enterprise documents for AI generation markers, generator footprints, and robotic cadence:
 
@@ -318,6 +318,82 @@ Scan websites and enterprise documents for AI generation markers, generator foot
   konoha detect-docs <file-path> [--json]
   ```
   Evaluates `.docx`, `.pdf`, `.pptx`, `.xlsx`, `.md`, and `.txt` files for sliding-window paragraph burstiness, sentence cadence uniformity ($CV < 0.18$), generator tags (`python-docx`, `docx-js`), watermarks, and dark theme violations.
+
+### Web Configuration UI (`konoha ui`) (v2.0.2)
+
+Konoha provides an optional local browser-based management dashboard powered by SvelteKit 3 and Tailwind CSS v4 on `127.0.0.1:1404`:
+
+- **Start Background Daemon (Cross-Platform)**:
+  ```bash
+  konoha ui start
+  ```
+  Launches the detached background daemon. On Windows, runs with `windowsHide: true` (no intrusive cmd popup), polls port 1404 up to 30 attempts, and opens the default browser automatically.
+- **Check Status & PID**:
+  ```bash
+  konoha ui status
+  ```
+- **Restart Daemon**:
+  ```bash
+  konoha ui restart
+  ```
+- **Stop Daemon**:
+  ```bash
+  konoha ui stop
+  ```
+  Cleanly terminates the daemon process tree (`taskkill /F /T` on Windows, `SIGBREAK`/`SIGTERM` handling, and socket teardown).
+- **Run in Foreground**:
+  ```bash
+  konoha ui start --foreground
+  # or
+  konoha web
+  ```
+- **Build & Preview from Source**:
+  ```bash
+  konoha ui build
+  konoha ui preview
+  ```
+- **Open in Browser**:
+  ```bash
+  konoha ui open
+  ```
+- **Register OS Background Service (systemd / launchd)**:
+  ```bash
+  konoha ui service install
+  konoha ui service status
+  konoha ui service restart
+  konoha ui service stop
+  konoha ui service uninstall
+  ```
+
+### LLM Bridge Router (`konoha bridge`)
+
+Manage local proxy bridges and upstream LLM providers on `127.0.0.1:19999`:
+
+- **List Active Bridges & Models**:
+  ```bash
+  konoha bridge list
+  ```
+- **Check Router Health**:
+  ```bash
+  konoha bridge status
+  ```
+- **Create a New Bridge Configuration**:
+  ```bash
+  konoha bridge create
+  ```
+- **Enable or Disable a Bridge**:
+  ```bash
+  konoha bridge enable <name>
+  konoha bridge disable <name>
+  ```
+- **Delete a Bridge**:
+  ```bash
+  konoha bridge delete <name>
+  ```
+- **Start the Standalone Bridge Gateway**:
+  ```bash
+  konoha bridge start
+  ```
 
 ### System Diagnostics and Health Checks
 
@@ -334,7 +410,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `2.0.1`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `2.0.2`) and queries GitHub to check if a newer version is available.
   ```bash
   konoha version
   ```
@@ -344,9 +420,9 @@ To keep Konoha updated with the latest optimizations and features, you can check
   1. Environment Verification & Toolchain Diagnostics
   2. Package Manager & Dependency Engine Update (`pnpm` / `npm`)
   3. Global CLI Symlinks & Shell PATH Provisioning
-  4. Skill & Agent Registry Sync (idempotent preserve-protection)
-  5. Core Configuration & Database Regeneration
-  6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code, Pi / pi.dev)
+  4. Skill & Agent Registry Sync (strictly non-destructive: additive-only copy, zero pruning of pre-existing user skills)
+  5. Core Configuration & Database Regeneration (additive SQLite upsert without wiping `konoha.db`; managed boundary injection preserving all user instructions)
+  6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code, Pi / pi.dev; custom agent union-merge in `agents.yaml`)
   7. Verification, Doctor Diagnostics & Self-Healing
   During execution, it uses interactive `@inquirer/prompts` (or `--yes` / `-y` for headless non-interactive mode) before applying upgrades.
   ```bash
@@ -362,19 +438,19 @@ The external `konoha-bridge` extension is refreshed from the live `master` branc
 ### Model Registry and Fallbacks
 
 * **Available Models Registry**:
-  - `Claude Sonnet 4.6 (Thinking)` (default for all Konoha subagents since v2.0.0)
+  - `Claude Sonnet 4.6 (Thinking)` (default for all Konoha subagents in v2.0.2)
   - `Claude Opus 4.6 (Thinking)`
   - **Dynamic Bridge Models**: When the LLM Proxy Gateway (port `19999`) is running, any models served by active bridges (e.g. `adacode-*` or `antigravity-*`) are dynamically fetched and made available through the gateway.
 
 * **Fallback Configuration**:
-  Subagents all use `Claude Sonnet 4.6 (Thinking)` in v2.0.0 — there is no separate fallback tier. On rate-limit or API error, the orchestrator falls back to direct tool calls instead of spawning additional subagents.
+  Subagents all use `Claude Sonnet 4.6 (Thinking)` in v2.0.2 — there is no separate fallback tier. On rate-limit or API error, the orchestrator falls back to direct tool calls instead of spawning additional subagents.
 
 ## Auto-Approved Permissions & Commands Whitelisting
 
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v2.0.0`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: As of `v2.0.2`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:

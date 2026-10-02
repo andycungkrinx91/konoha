@@ -3,7 +3,7 @@ Konoha registers **konoha**, **semble**, and **aislop** for every supported clie
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
-| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension auto-cloned, packaged into VSIX, and installed across IDE CLIs (`antigravity`, `code`, `cursor`) on init and upgrade | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
+| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension auto-cloned, packaged into VSIX, and installed exclusively into Antigravity IDE (`~/.antigravity-ide/extensions/`) on init and upgrade (never into Cursor or other editors) | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
 | **Cursor** | When detected | `~/.cursor/mcp.json` and project `.cursor/mcp.json` |
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
@@ -219,8 +219,8 @@ approval_mode = "auto"
 2. `semble` `search` / `find_related` for code
 3. `konoha` for bounded file reads
 4. `aislop` `aislop_scan` / `aislop_fix` / `aislop_why` for zero-AI-slop validation and code quality
-4. The embedded Konoha Bridge Router runs in-process inside the `konoha` MCP server on `127.0.0.1:19999`. The optional Antigravity IDE extension is separate and serves `127.0.0.1:1313`; it is never started by Konoha as a standalone process. Local clients do not send API keys to the aggregate router.
-5. External `antigravity-extension` bridge records are disabled by default and require explicit `konoha bridge enable <name>`.
+5. The embedded Konoha Bridge Router runs in-process inside the `konoha` MCP server on `127.0.0.1:19999`. The optional Antigravity IDE extension is separate and serves `127.0.0.1:1313`; it is never started by Konoha as a standalone process. Local clients do not send API keys to the aggregate router.
+6. External `antigravity-extension` bridge records are disabled by default and require explicit `konoha bridge enable <name>`.
 
 In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 

@@ -27,7 +27,8 @@ const REQUIRED_DOCS = [
   'docs/diagrams/README.md',
   'docs/diagrams/konoha-architecture.drawio',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-27.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md'
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md'
 ];
 
 function checkLocalLinks() {

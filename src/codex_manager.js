@@ -1,5 +1,3 @@
-// aislop-ignore-next-line ai-slop/narrative-comment (genuine multi-line documentation preamble)
-
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -121,22 +119,22 @@ function readCodexInstructions() {
 
 function writeCodexInstructions(content) {
   ensureDir(path.dirname(CODEX_AGENTS_MD));
-  fs.writeFileSync(CODEX_AGENTS_MD, content, 'utf-8');
+  const agentMgr = require('./agent_manager');
+  const finalContent = agentMgr.injectManagedConfig(CODEX_AGENTS_MD, content, 'KONOHA');
+  fs.writeFileSync(CODEX_AGENTS_MD, finalContent, 'utf-8');
 }
 
-const KONOHA_TOOLS = [
-  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
-  'read_file_head', 'read_file_range', 'file_info', 'token_efficient_grep',
-  'get_file_structure', 'find_files_clean', 'get_resolved_task_dir',
-  'find_skill', 'list_skills', 'get_skill', 'optimize_report',
-  'build_with_image_design', 'build_from_source', 'build_from_text',
-  'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin',
-  'delegate_to_sannin', 'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
-  'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
-  'report_from_agent', 'get_project_context', 'save_project_context',
-  'query_project_memory', 'web_search', 'migrate_skills',
-  'save_persona_memory', 'query_persona_memory', 'list_persona_memories', 'delete_persona_memory'
-];
+function getKonohaToolNames() {
+  try {
+    const manifest = require('./mcp_tool_manifest.json');
+    if (manifest && Array.isArray(manifest.tools)) {
+      return manifest.tools.map(t => t.name);
+    }
+  } catch (_) { /* intentional best-effort manifest resolution */ }
+  return [];
+}
+
+const KONOHA_TOOLS = getKonohaToolNames();
 
 const SEMBLE_TOOLS = ['search', 'find_related'];
 const AISLOP_TOOLS = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
@@ -150,7 +148,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const uvxExecutable = uvxCmd || 'uvx';
   const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-  // Remove existing managed blocks ([mcp_servers.*], [mcp.*], [agents.*], [features], [model_providers.heraxles], [profiles.heraxles]) and top-level managed keys
+  // Remove existing managed blocks ([mcp_servers.*], [mcp.*], [agents.*]) and top-level managed keys
   const lines = (existingToml || '').split('\n');
   const preservedLines = [];
   let skippingManagedSection = false;
@@ -160,9 +158,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     /^\[mcp_servers\.(konoha|semble|aislop)(\..*)?\]/i,
     /^\[mcp\.(konoha|semble|aislop)(\..*)?\]/i,
     // Only strip agent tables Konoha manages — never the user's own agents
-    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)(\..*)?\]/i,
-    /^\[model_providers\.heraxles(\..*)?\]/i,
-    /^\[profiles\.heraxles(\..*)?\]/i
+    /^\[agents\.(sannin|genin|kage|chunin|jonin|anbu|tokubetsu-jonin)(\..*)?\]/i
   ];
 
   const TOP_LEVEL_MANAGED_KEYS = [
@@ -176,9 +172,6 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     /^auto_approve\s*=/i,
     /^auto_approve_tools\s*=/i
   ];
-
-  let hasModel = false;
-  let hasModelProvider = false;
 
   // [features] is merged, not replaced: Konoha's two keys are stripped here and
   // re-emitted in the featuresBlock below together with the user's own keys
@@ -228,16 +221,6 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     }
 
     if (!hasSeenSection) {
-      if (/^model\s*=/i.test(rawLine)) {
-        hasModel = true;
-        preservedLines.push(lines[i]);
-        continue;
-      }
-      if (/^model_provider\s*=/i.test(rawLine)) {
-        hasModelProvider = true;
-        preservedLines.push(lines[i]);
-        continue;
-      }
       if (TOP_LEVEL_MANAGED_KEYS.some(k => k.test(rawLine))) {
         continue;
       }
@@ -248,26 +231,10 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   const cleaned = preservedLines.join('\n').trim();
 
-  const heraxlesProviderBlock = [
-    '[model_providers.heraxles]',
-    'name = "Heraxles"',
-    // aislop-ignore-next-line ai-slop/hardcoded-url (stable vendor endpoint pinned in the generated Codex provider template)
-    'base_url = "https://api.heraxles.dev/v1"',
-    'env_key = "HERAXLES_API_KEY"',
-    'wire_api = "responses"'
-  ].join('\n');
-
-  const heraxlesProfileBlock = [
-    '[profiles.heraxles]',
-    'model = "claude-opus-5"',
-    'model_provider = "heraxles"'
-  ].join('\n');
-
-  const topDefaults = [];
-  if (!hasModel) topDefaults.push('model = "claude-opus-5"');
-  if (!hasModelProvider) topDefaults.push('model_provider = "heraxles"');
-  topDefaults.push('suppress_unstable_features_warning = true');
-  topDefaults.push('sandbox_mode = "danger-full-access"');
+  const topDefaults = [
+    'suppress_unstable_features_warning = true',
+    'sandbox_mode = "danger-full-access"'
+  ];
   const topFlags = topDefaults.join('\n');
 
   const resolvedUvx = uvxExecutable;
@@ -384,10 +351,6 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     .join('\n\n');
 
   const extraSections = [
-    heraxlesProviderBlock,
-    '',
-    heraxlesProfileBlock,
-    '',
     mcpSection,
     agentBlocks ? `# Official Konoha Ninja Agents\n${agentBlocks}` : ''
   ].filter(Boolean).join('\n\n');
@@ -413,32 +376,6 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     let updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
     writeCodexConfig(updated);
-
-    // Also sync ~/.codex/heraxles.config.toml
-    try {
-      const heraxlesConfigPath = path.join(CODEX_DIR, 'heraxles.config.toml');
-      const heraxlesContent = [
-        'model = "claude-opus-5"',
-        'model_provider = "heraxles"',
-        '',
-        '[model_providers.heraxles]',
-        'name = "Heraxles"',
-        // aislop-ignore-next-line ai-slop/hardcoded-url (stable vendor endpoint pinned in the generated Codex provider template)
-        'base_url = "https://api.heraxles.dev/v1"',
-        'env_key = "HERAXLES_API_KEY"',
-        'wire_api = "responses"',
-        '',
-        '[profiles.heraxles]',
-        'model = "claude-opus-5"',
-        'model_provider = "heraxles"',
-        '',
-        '[features]',
-        'skip_host_skill_discovery = true',
-        'skill_search = false',
-        ''
-      ].join('\n');
-      fs.writeFileSync(heraxlesConfigPath, heraxlesContent, 'utf-8');
-    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
     if (!silent) {
       process.stderr.write('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml\n');
@@ -472,8 +409,11 @@ function deployCodexRules(silent = true) {
     writeCodexInstructions(fullInstructions);
 
     // Also write ~/.codex/CODEX.md and ~/.codex/instructions.md
-    fs.writeFileSync(path.join(CODEX_DIR, 'CODEX.md'), fullInstructions, 'utf8');
-    fs.writeFileSync(path.join(CODEX_DIR, 'instructions.md'), fullInstructions, 'utf8');
+    const codexMdPath = path.join(CODEX_DIR, 'CODEX.md');
+    const instructionsMdPath = path.join(CODEX_DIR, 'instructions.md');
+    const agentMgr = require('./agent_manager');
+    fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, 'KONOHA'), 'utf8');
+    fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, 'KONOHA'), 'utf8');
 
     // Deploy rules/konoha.md
     fs.writeFileSync(path.join(CODEX_RULES_DIR, 'konoha.md'), buildMainAgentContract('codex') + '\n', 'utf8');

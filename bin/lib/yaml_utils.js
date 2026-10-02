@@ -97,8 +97,6 @@ function parseYaml(yamlStr) {
         let val = rest.slice(colonIdx + 1).trim();
         const obj = {};
         if (Array.isArray(current)) {
-          // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
-          // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
           current.push(obj);
         }
         val = coerceScalar(val);
@@ -162,9 +160,7 @@ function parseYaml(yamlStr) {
         continue;
       }
       val = coerceScalar(val);
-      // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
       current[key] = val;
-    // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
     }
   }
   if (inMultiLine && multiLineNode && multiLineKey) {

@@ -1194,7 +1194,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.0.1';
+  return '2.0.2';
 }
 
 function drawLogo() {
@@ -1442,6 +1442,21 @@ function purgePackageCaches({ _ = false } = {}) {
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
+function ensureCoreDirectories() {
+  const dirs = [
+    path.join(HOME, '.gemini'),
+    path.join(HOME, '.agents'),
+    SKILLS_DB_DIR,
+    path.join(HOME, '.gemini', 'antigravity-cli'),
+    path.join(HOME, '.gemini', 'config')
+  ];
+  dirs.forEach(d => {
+    if (!fileExists(d)) {
+      ensureDir(d);
+    }
+  });
+}
+
 async function cmdInit(args, options = {}) {
   if (args.includes('help') || args.includes('--help') || args.includes('-h')) {
     cmdInitHelp();
@@ -1489,18 +1504,7 @@ async function cmdInit(args, options = {}) {
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
   // 1. Ensure the directories exist
-  const dirs = [
-    path.join(HOME, '.gemini'),
-    path.join(HOME, '.agents'),
-    SKILLS_DB_DIR,
-    path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config')
-  ];
-  dirs.forEach(d => {
-    if (!fileExists(d)) {
-      ensureDir(d);
-    }
-  });
+  ensureCoreDirectories();
 
   if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Node.js environment...');
   // 2. Check Node.js
@@ -1817,9 +1821,13 @@ async function cmdInit(args, options = {}) {
   header('📊 Seeding Default Subagent Skills to SQLite FTS5');
   const skills = fileExists(pkgSkillsDir) ? detectCustomSkills(pkgSkillsDir) : [];
   const spinnerMigrate = startSpinner(skills.length > 0 ? `Seeding skills & pre-caching neural models from: ${pkgSkillsDir}...` : 'Initializing skills database schema...');
+  const isClean = args.includes('--clean');
   const migrationArgs = skills.length > 0
-    ? ['--clean', '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill']
-    : ['--clean', '--require-skill', 'genin-skill'];
+    ? ['--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill']
+    : ['--require-skill', 'genin-skill'];
+  if (isClean) {
+    migrationArgs.unshift('--clean');
+  }
   process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
   if (args.includes('--skip-embeddings')) {
     migrationArgs.push('--skip-embeddings');
@@ -1856,6 +1864,18 @@ async function cmdInit(args, options = {}) {
     process.exit(1);
   }
   spinnerMigrate.success(skills.length > 0 ? 'Default subagent skills seeded successfully.' : 'Empty skills database schema initialized.');
+  // Index pre-existing user skills from detected directories so old skills are preserved in SQLite
+  if (Array.isArray(skillsDirs)) {
+    for (const sDir of skillsDirs) {
+      if (sDir.path && sDir.path !== pkgSkillsDir && fileExists(sDir.path)) {
+        try {
+          spawnSync(process.execPath, [MIGRATE_PATH, '--skills-dir', sDir.path, '--skip-embeddings'], {
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: 60000
+          });
+        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      }
+    }
+  }
   try {
     if (!hasCompleteDatabaseSchema()) throw new Error('required SQLite schema is incomplete');
   } catch (schemaError) {
@@ -2723,7 +2743,7 @@ function registerHooks(silent = false, allowHooks) {
 
   let shouldWrite = false;
 
-  if (allowHooks === true) {
+  const applyPromptAndSanitizeHooks = () => {
     delete config['konoha-subagent-hook'];
     config['konoha-prompt-hook'] = {
       PreInvocation: [
@@ -2740,6 +2760,10 @@ function registerHooks(silent = false, allowHooks) {
       ],
     };
     shouldWrite = true;
+  };
+
+  if (allowHooks === true) {
+    applyPromptAndSanitizeHooks();
   } else if (allowHooks === false) {
     if (hookExists) {
       delete config['konoha-prompt-hook'];
@@ -2755,24 +2779,7 @@ function registerHooks(silent = false, allowHooks) {
     }
   } else if (allowHooks === undefined) {
     if (hookExists) {
-      // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-      // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-      config['konoha-prompt-hook'] = {
-        PreInvocation: [
-          { type: 'command', command: `"${process.execPath}" "${subagentHookPath}"` },
-          { type: 'command', command: `"${process.execPath}" "${promptHookPath}"` },
-        ],
-      };
-      config['konoha-tool-sanitize'] = {
-        PreToolUse: [
-          {
-            matcher: 'define_subagent|invoke_subagent',
-            hooks: [{ type: 'command', command: `"${process.execPath}" "${sanitizeHookPath}"`, timeout: 10 }],
-          },
-        ],
-      };
-      delete config['konoha-subagent-hook'];
-      shouldWrite = true;
+      applyPromptAndSanitizeHooks();
     }
   }
 
@@ -2959,7 +2966,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.2', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -2983,7 +2990,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.2', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3208,26 +3215,8 @@ function copySkillsDirFast(srcRoot, destRoot) {
   };
   walk(srcRoot);
 
-  // Prune top-level entries in destRoot that do not exist in srcRoot (except fingerprint markers & ignore)
-  try {
-    const destEntries = fs.readdirSync(destRoot, { withFileTypes: true });
-    const srcEntriesSet = new Set();
-    try {
-      for (const e of fs.readdirSync(srcRoot)) {
-        if (e !== '.claude' && e !== '.cursor' && e !== 'CLAUDE.md' && e !== '.git' && e !== '.DS_Store') {
-          srcEntriesSet.add(e);
-        }
-      }
-    } catch (_) { /* ignore */ }
-    for (const de of destEntries) {
-      if (de.name === '.ignore' || de.name.endsWith('.fingerprint') || de.name === '.fingerprint') continue;
-      if (!srcEntriesSet.has(de.name)) {
-        try {
-          fs.rmSync(path.join(destRoot, de.name), { recursive: true, force: true });
-        } catch (_) { /* ignore */ }
-      }
-    }
-  } catch (_) { /* ignore */ }
+  // Old skills protection: strictly NEVER prune or remove entries from destRoot.
+  // Pre-existing user skills and client skills are preserved across installs and upgrades.
 
   try { fs.writeFileSync(fpMarker, srcFp); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
@@ -3319,22 +3308,9 @@ function ensureAutoSetup(force = false) {
     }
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const versionChanged = prevVersion !== getCliVersion();
-// aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
 
-  // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
   // 1. Ensure the directories exist
-  const dirs = [
-    path.join(HOME, '.gemini'),
-    path.join(HOME, '.agents'),
-    SKILLS_DB_DIR,
-    path.join(HOME, '.gemini', 'antigravity-cli'),
-    path.join(HOME, '.gemini', 'config')
-  ];
-  dirs.forEach(d => {
-    if (!fileExists(d)) {
-      ensureDir(d);
-    }
-  });
+  ensureCoreDirectories();
 
   // 2. Copy the Node.js server and runtime files if missing or outdated
   const filesToCopy = [
@@ -3649,19 +3625,22 @@ async function cmdMigrate(args = []) {
     moveUnusedSkills(skillsDirs, agents);
   }
 
+  const isClean = args.includes('--clean');
+  const cleanArgs = isClean ? ['--clean'] : [];
+
   // Check for custom skills dir
   const customDirIdx = args.indexOf('--skills-dir');
   if (customDirIdx >= 0 && args[customDirIdx + 1]) {
     const customDir = args[customDirIdx + 1];
     try {
-      const runArgs = [MIGRATE_PATH, '--clean', '--skills-dir', customDir];
+      const runArgs = [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir];
       if (hasRebuildEmbeddings) runArgs.push('--rebuild-embeddings');
       if (hasSkipEmbeddings) runArgs.push('--skip-embeddings');
       let run = spawnSync(process.execPath, runArgs, {
         encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
       });
       if (run.status !== 0) {
-        run = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
+        run = spawnSync(process.execPath, [MIGRATE_PATH, ...cleanArgs, '--skills-dir', customDir, '--skills-only', '--skip-embeddings'], {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
         });
       }
@@ -3678,14 +3657,14 @@ async function cmdMigrate(args = []) {
     if (skillsDirs.length === 0) {
       // Fallback: run without args
       try {
-        const fallbackArgs = [MIGRATE_PATH, '--clean'];
+        const fallbackArgs = [MIGRATE_PATH, ...cleanArgs];
         if (hasRebuildEmbeddings) fallbackArgs.push('--rebuild-embeddings');
         if (hasSkipEmbeddings) fallbackArgs.push('--skip-embeddings');
         let runFallback = spawnSync(process.execPath, fallbackArgs, {
           encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
         });
         if (runFallback.status !== 0) {
-          runFallback = spawnSync(process.execPath, [MIGRATE_PATH, '--clean', '--skills-only', '--skip-embeddings'], {
+          runFallback = spawnSync(process.execPath, [MIGRATE_PATH, ...cleanArgs, '--skills-only', '--skip-embeddings'], {
             encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
           });
         }
@@ -3698,7 +3677,7 @@ async function cmdMigrate(args = []) {
       }
     } else {
       let anySuccess = false;
-      const migrateArgs = [MIGRATE_PATH, '--clean'];
+      const migrateArgs = [MIGRATE_PATH, ...cleanArgs];
       if (hasRebuildEmbeddings) migrateArgs.push('--rebuild-embeddings');
       if (hasSkipEmbeddings) migrateArgs.push('--skip-embeddings');
       for (const dir of skillsDirs) {
@@ -4758,6 +4737,18 @@ async function cmdDoctor(args = []) {
     }
   }
 
+  const getClientRepairOptions = () => ({
+    pythonCmd: checkPython() || 'python3',
+    serverPath: SERVER_PATH,
+    uvxCmd: getUvxCommand(),
+    agents: agentManager.loadAgents(),
+    projectRoot: currentCwd,
+    deployProject: false,
+    silent: true,
+    allowHooks: true,
+    ruleContent: null
+  });
+
   // 9c. Cursor IDE/CLI Configuration (only when Cursor is installed)
   if (cursorManager.isCursorInstalled()) {
     const cursorStatus = cursorManager.getCursorStatus();
@@ -4768,19 +4759,7 @@ async function cmdDoctor(args = []) {
     record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP and hooks configured');
   } else {
     try {
-      const agents = agentManager.loadAgents();
-      const python = checkPython() || 'python3';
-      cursorManager.ensureCursorSetup({
-        pythonCmd: python,
-        serverPath: SERVER_PATH,
-        uvxCmd: getUvxCommand(),
-        agents,
-        projectRoot: currentCwd,
-        deployProject: false,
-        silent: true,
-        allowHooks: true,
-        ruleContent: null
-      });
+      cursorManager.ensureCursorSetup(getClientRepairOptions());
       const repaired = cursorManager.getCursorStatus();
       if (repaired.mcpKonoha && repaired.mcpSemble) {
         record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP and session hook');
@@ -4842,21 +4821,7 @@ async function cmdDoctor(args = []) {
       record('OpenCode (~/.opencode/config.json)', 'HEALTHY', 'konoha, semble, and aislop active');
     } else {
       try {
-        const python = checkPython() || 'python3';
-        // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-        const agents = agentManager.loadAgents();
-        opencodeManager.ensureOpenCodeSetup({
-          // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-          pythonCmd: python,
-          serverPath: SERVER_PATH,
-          uvxCmd: getUvxCommand(),
-          agents,
-          projectRoot: currentCwd,
-          deployProject: false,
-          silent: true,
-          allowHooks: true,
-          ruleContent: null
-        });
+        opencodeManager.ensureOpenCodeSetup(getClientRepairOptions());
         const repaired = opencodeManager.getOpenCodeStatus();
         if (repaired.mcpKonoha && repaired.mcpSemble) {
           record('OpenCode (~/.opencode/config.json)', 'REPAIRED', 'Registered MCP and session hook');
@@ -5112,1007 +5077,15 @@ async function cmdDoctor(args = []) {
   }
 }
 
-function openUrlInBrowser(targetUrl) {
-  try {
-    const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-    const { spawn } = require('child_process');
-    spawn(openCmd, [targetUrl], { detached: true, stdio: 'ignore' }).unref();
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-}
+const {
+  ensureUiDaemonAutoStart,
+  cmdUiRestart,
+  getServiceStatus,
+  cmdUiService,
+  cmdUi,
+  cmdWeb
+} = require('./lib/ui_commands');
 
-function cmdUiHelp() {
-  log(`
-${C.cyan}konoha ui${C.reset} (or ${C.cyan}konoha web${C.reset}) — Manage the local browser-based Web Configuration UI
-
-${C.bold}USAGE${C.reset}
-  konoha ui <subcommand> [options]
-  konoha web <subcommand> [options]
-
-${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}start${C.reset}       Start the Web UI server as a background daemon (default port: 1404)
-  ${C.cyan}stop${C.reset}        Stop the running Web UI server daemon
-  ${C.cyan}restart${C.reset}     Restart the Web UI server
-  ${C.cyan}status${C.reset}      Display current Web UI server status, PID, port, and health
-  ${C.cyan}service${C.reset}     Manage the Web UI as an OS background daemon service (install, uninstall, status, restart)
-  ${C.cyan}open${C.reset}        Open http://127.0.0.1:1404 in your default browser
-
-${C.bold}OPTIONS${C.reset}
-  ${C.cyan}--port <num>${C.reset}        Port to listen on (default: 1404)
-  ${C.cyan}--host <ip>${C.reset}         Host to bind on (default: 127.0.0.1)
-  ${C.cyan}--foreground, -f${C.reset}    Run in the foreground instead of background daemon
-  ${C.cyan}--no-open${C.reset}           Do not automatically open default browser
-  ${C.cyan}--token <str>${C.reset}       Specify custom CSRF token
-
-${C.bold}EXAMPLES${C.reset}
-  konoha ui start
-  konoha ui stop
-  konoha ui restart
-  konoha ui status
-  konoha ui start --port 1404 --no-open
-  konoha ui start --foreground
-`);
-}
-
-
-async function cmdUiDaemon(args = []) {
-  let port = 1404;
-  let host = '127.0.0.1';
-  let token = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) {
-      port = parseInt(args[++i], 10);
-    } else if (args[i].startsWith('--port=')) {
-      port = parseInt(args[i].slice('--port='.length), 10);
-    } else if (args[i] === '--host' && args[i + 1]) {
-      host = args[++i];
-    } else if (args[i].startsWith('--host=')) {
-      host = args[i].slice('--host='.length);
-    } else if (args[i] === '--token' && args[i + 1]) {
-      token = args[++i];
-    }
-  }
-
-  const { startWebServer } = require('../src/web_server');
-  let srv;
-  const pidFile = uiPidFileForPort(port);
-  try {
-    srv = await startWebServer({ port, host, token });
-  } catch (_) {
-    try {
-      if (fileExists(pidFile)) {
-        const recorded = fs.readFileSync(pidFile, 'utf8').trim();
-        if (recorded === String(process.pid)) fs.unlinkSync(pidFile);
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    process.exit(1);
-  }
-
-  const shutdown = async () => {
-    try {
-      if (srv && srv.instance) {
-        // Belt-and-braces: even if instance.stop() were to hang (e.g. a
-        // stuck socket), guarantee the daemon exits so "ui stop"/"ui restart"
-        // can never leave a deaf-but-alive zombie process behind.
-        await Promise.race([
-          srv.instance.stop(),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      }
-    } catch (_) { /* intentional best-effort fallback: exit below regardless */ }
-    try {
-      if (fileExists(pidFile)) {
-        const recorded = fs.readFileSync(pidFile, 'utf8').trim();
-        if (recorded === String(process.pid)) fs.unlinkSync(pidFile);
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    process.exit(0);
-  };
-
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-  process.on('SIGHUP', shutdown);
-
-  await new Promise(() => {});
-}
-
-async function cmdWebForeground(options = {}) {
-  const port = options.port || 1404;
-  const host = options.host || '127.0.0.1';
-  const openBrowser = options.openBrowser !== false;
-  const token = options.token || null;
-
-  const buildHandler = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'handler.js');
-  if (!fs.existsSync(buildHandler)) {
-    info('Frontend build not found. Automatically building Konoha Web UI...');
-    await cmdUiBuild();
-  }
-
-  const { startWebServer } = require('../src/web_server');
-  drawLogo();
-  header('🌐 Konoha Web Configuration UI');
-  info(`Starting local web server on http://${host}:${port}/ ...`);
-
-  let srv;
-  try {
-    srv = await startWebServer({ port, host, token });
-  } catch (err) {
-    error(`Failed to start web server: ${err.message}`);
-    process.exit(1);
-  }
-
-  success(`Web UI ready at: http://${host}:${port}/`);
-  info(`CSRF session token active: ${srv.token}`);
-
-  if (openBrowser) {
-    openUrlInBrowser(`http://${host}:${port}/`);
-  }
-
-  log(`\n${C.dim}Press Ctrl+C to stop the Web UI server.${C.reset}\n`);
-
-  await new Promise((resolve) => {
-    process.on('SIGINT', async () => {
-      log(`\n${C.yellow}Shutting down Konoha Web UI...${C.reset}`);
-      if (srv && srv.instance) {
-        await srv.instance.stop();
-      }
-      resolve();
-      process.exit(0);
-    });
-  });
-}
-
-// Auto-start the Web UI daemon after install/upgrade so http://127.0.0.1:1404/
-// is live immediately. Cross-platform by construction: the daemon is spawned
-// detached (stdio: 'ignore') via process.execPath — no shell, pgrep, or
-// POSIX-only assumptions are involved in the launch path. Opt out globally
-// Auto-starts the Web UI server as a detached background daemon.
-// No-op if already running on the requested port, or if the user opted out
-// with KONOHA_UI_AUTOSTART=0 ("false"/"off"/"no" are also honored).
-async function ensureUiDaemonAutoStart(options = {}) {
-  const port = options.port || 1404;
-  const host = options.host || '127.0.0.1';
-  const silent = Boolean(options.silent);
-  const optOut = String(process.env.KONOHA_UI_AUTOSTART || '').trim().toLowerCase();
-  if (optOut === '0' || optOut === 'false' || optOut === 'off' || optOut === 'no') {
-    return { started: false, reason: 'disabled' };
-  }
-  try {
-    if (await checkPortActive(port)) {
-      return { started: false, reason: 'already-active' };
-    }
-  } catch { /* intentional best-effort fallback: port probe failure must never crash the installer */ }
-  const startArgs = ['--no-open', `--port=${port}`, `--host=${host}`];
-  if (silent) startArgs.push('--silent');
-  await cmdUiStart(startArgs);
-  return { started: true };
-}
-
-// Port-aware UI pid file: the default daemon keeps the canonical ui.pid,
-// while daemons on custom ports get ui-<port>.pid so they can never clobber
-// the default daemon's pid record (and vice versa).
-function uiPidFileForPort(port) {
-  return parseInt(port, 10) === 1404
-    ? path.join(SKILLS_DB_DIR, 'ui.pid')
-    : path.join(SKILLS_DB_DIR, `ui-${parseInt(port, 10)}.pid`);
-}
-
-async function cmdUiStart(args = []) {
-  const { spawn } = require('child_process');
-  let port = 1404;
-  let host = '127.0.0.1';
-  let openBrowser = true;
-  let foreground = false;
-  let silent = false;
-  let token = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) {
-      port = parseInt(args[++i], 10);
-    } else if (args[i].startsWith('--port=')) {
-      port = parseInt(args[i].slice('--port='.length), 10);
-    } else if (args[i] === '--host' && args[i + 1]) {
-      host = args[++i];
-    } else if (args[i].startsWith('--host=')) {
-      host = args[i].slice('--host='.length);
-    } else if (args[i] === '--no-open') {
-      openBrowser = false;
-    } else if (args[i] === '--foreground' || args[i] === '-f') {
-      foreground = true;
-    } else if (args[i] === '--silent' || args[i] === '-s') {
-      silent = true;
-    } else if (args[i] === '--token' && args[i + 1]) {
-      token = args[++i];
-    }
-  }
-
-  if (foreground) {
-    return await cmdWebForeground({ port, host, openBrowser, token });
-  }
-
-  if (!silent) header('Starting Konoha Web Configuration UI');
-  const active = await checkPortActive(port);
-  const pidFile = uiPidFileForPort(port);
-
-  if (active) {
-    let existingPid = null;
-    if (fileExists(pidFile)) {
-      try { existingPid = fs.readFileSync(pidFile, 'utf8').trim(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-    if (!silent) info(`Konoha Web UI is already active on http://${host}:${port}/${existingPid ? ` (PID: ${existingPid})` : ''}`);
-    if (openBrowser) {
-      openUrlInBrowser(`http://${host}:${port}/`);
-    }
-    return;
-  }
-
-  if (fileExists(pidFile)) {
-    try {
-      const pidStr = fs.readFileSync(pidFile, 'utf8').trim();
-      const pid = parseInt(pidStr, 10);
-      if (Number.isFinite(pid) && pid > 0) {
-        try { process.kill(pid, 0); } catch (_) {
-          try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  if (process.platform !== 'win32') {
-    try {
-      const { execSync } = require('child_process');
-      // Port-specific pattern: a daemon started on a custom port must never
-      // match (and get pkill'ed by) a start targeting a different port.
-      const daemonPattern = `ui daemon --port=${port}`;
-      const pgrep = execSync(`pgrep -f "${daemonPattern}"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-      if (pgrep) {
-        for (let attempt = 0; attempt < 5; attempt++) {
-          if (await checkPortActive(port)) {
-            if (!silent) info(`Konoha Web UI is already active on http://${host}:${port}/ (PID: ${pgrep.split('\n')[0]})`);
-            if (openBrowser) openUrlInBrowser(`http://${host}:${port}/`);
-            return;
-          }
-          await new Promise((r) => setTimeout(r, 200));
-        }
-        try { execSync(`pkill -f "${daemonPattern}"`, { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        await new Promise((r) => setTimeout(r, 200));
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  const buildHandler = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'handler.js');
-  if (!fs.existsSync(buildHandler)) {
-    if (!silent) info('Frontend build not found. Automatically building Konoha Web UI...');
-    await cmdUiBuild();
-  }
-
-  const cliPath = path.join(__dirname, 'cli.js');
-  const daemonArgs = [cliPath, 'ui', 'daemon', `--port=${port}`, `--host=${host}`];
-  if (token) daemonArgs.push(`--token=${token}`);
-
-  const { env: daemonEnv, nodePath: daemonNode } = deployUtils.resolveCompatibleNodeEnv(
-    Object.assign({}, process.env, { KONOHA_UI_DAEMON: 'true' })
-  );
-
-  const child = spawn(daemonNode, daemonArgs, {
-    detached: true,
-    stdio: 'ignore',
-    env: daemonEnv
-  });
-
-  child.on('error', (err) => {
-    if (!silent) warn(`Background UI process failed to spawn: ${err && err.message ? err.message : err}`);
-  });
-  child.unref();
-
-  if (child.pid) {
-    try {
-      if (!fs.existsSync(SKILLS_DB_DIR)) {
-        fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
-      }
-      fs.writeFileSync(pidFile, String(child.pid), 'utf8');
-    } catch (e) {
-      if (!silent) warn(`Could not save UI PID file: ${e.message}`);
-    }
-  }
-
-  let started = false;
-  for (let attempt = 0; attempt < 15; attempt++) {
-    await new Promise((r) => setTimeout(r, 200));
-    if (await checkPortActive(port)) {
-      started = true;
-      break;
-    }
-  }
-
-  if (started) {
-    if (!silent) {
-      success(`Konoha Web UI started successfully in background!`);
-      info(`URL: http://${host}:${port}/  (PID: ${child.pid || 'unknown'})`);
-      info(`To stop: konoha ui stop | To restart: konoha ui restart`);
-    }
-    if (openBrowser) {
-      openUrlInBrowser(`http://${host}:${port}/`);
-    }
-  } else {
-    if (!silent) warn(`Background process spawned (PID: ${child.pid}), but port ${port} is not yet responding. Run "konoha ui status" to verify.`);
-  }
-}
-
-async function cmdUiStop(args = []) {
-  let stopPort = 1404;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) stopPort = parseInt(args[++i], 10);
-    else if (args[i].startsWith('--port=')) stopPort = parseInt(args[i].slice('--port='.length), 10);
-  }
-  const { execSync } = require('child_process');
-  header('Stopping Konoha Web Configuration UI');
-  const pidFile = uiPidFileForPort(stopPort);
-  // Port-scoped daemon pattern: stopping a daemon on one port must never kill
-  // daemons serving other ports (e.g. a test instance on 1405 killing the
-  // production daemon on 1404).
-  const daemonPattern = `ui daemon --port=${stopPort}`;
-
-  if (stopPort === 1404 && isSystemdAvailable()) {
-    try {
-      const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-      if (out === 'active') {
-        try { execSync('systemctl --user stop konoha-ui.service', { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
-
-  // Defense in depth: even with port-specific pid files, verify the recorded
-  // pid actually belongs to a daemon on the target port before killing it
-  // (legacy shared ui.pid files, manual copies).
-  const pidBelongsToPort = (pid) => {
-    if (!Number.isFinite(pid) || pid <= 0) return false;
-    if (process.platform === 'win32') return stopPort === 1404; // cannot inspect cmdline portably
-    try {
-      const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
-      return cmdline.includes(daemonPattern);
-    } catch (_) {
-      return false;
-    }
-  };
-
-  if (fileExists(pidFile)) {
-    try {
-      const pidStr = fs.readFileSync(pidFile, 'utf8').trim();
-      const pid = parseInt(pidStr, 10);
-      if (Number.isFinite(pid) && pid > 0 && pidBelongsToPort(pid)) {
-        try {
-          if (process.platform === 'win32') {
-            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-          } else {
-            process.kill(pid, 'SIGTERM');
-          }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-        // Only remove the pid file when it described a daemon on THIS port
-        // (defense in depth: legacy shared ui.pid files could be overwritten
-        // by a daemon started on another port).
-        try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  if (process.platform !== 'win32') {
-    try {
-      execSync(`pkill -f "${daemonPattern}"`, { stdio: 'ignore' });
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  // Graceful shutdown can take up to ~1.5s (connection grace period inside
-  // the daemon), so poll for the port to clear instead of a single fixed wait.
-  for (let attempt = 0; attempt < 10 && await checkPortActive(stopPort); attempt++) {
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  let stillActive = await checkPortActive(stopPort);
-  if (stillActive && process.platform !== 'win32') {
-    try {
-      execSync(`fuser -k ${stopPort}/tcp`, { stdio: 'ignore' });
-      await new Promise((r) => setTimeout(r, 400));
-      stillActive = await checkPortActive(stopPort);
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  } else if (stillActive && process.platform === 'win32') {
-    try {
-      execSync(`powershell -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }"`, { stdio: 'ignore' });
-      await new Promise((r) => setTimeout(r, 400));
-      stillActive = await checkPortActive(stopPort);
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  if (stillActive) {
-    warn(`Port ${stopPort} is still active. There may be a foreground process running.`);
-  } else {
-    success('Konoha Web UI stopped successfully.');
-  }
-}
-
-async function cmdUiRestart(args = []) {
-  header('Restarting Konoha Web Configuration UI');
-  let restartPort = 1404;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) restartPort = parseInt(args[++i], 10);
-    else if (args[i].startsWith('--port=')) restartPort = parseInt(args[i].slice('--port='.length), 10);
-  }
-  if (restartPort === 1404 && isSystemdAvailable()) {
-    try {
-      const { execSync } = require('child_process');
-      const out = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-      if (out === 'active') {
-        info('Restarting via systemd user service...');
-        execSync('systemctl --user restart konoha-ui.service', { stdio: 'inherit' });
-        success('Konoha Web UI systemd service restarted successfully.');
-        return;
-      }
-    } catch (_) { /* intentional best-effort fallback */ }
-  }
-  info('Stopping running instance...');
-  await cmdUiStop(args);
-  await new Promise((r) => setTimeout(r, 500));
-  info('Starting new instance...');
-  await cmdUiStart(args);
-}
-
-async function cmdUiStatus(args = []) {
-  let port = 1404;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) port = parseInt(args[++i], 10);
-    else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
-  }
-
-  header('Konoha Web Configuration UI Status');
-  const active = await checkPortActive(port);
-  const pidFile = uiPidFileForPort(port);
-  let pid = null;
-  if (fileExists(pidFile)) {
-    try { pid = fs.readFileSync(pidFile, 'utf8').trim(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-
-  if (active) {
-    let healthData = null;
-    try {
-      const http = require('http');
-      healthData = await new Promise((resolve) => {
-        const req = http.get(`http://127.0.0.1:${port}/api/v1/health`, { timeout: 1000 }, (res) => {
-          let raw = '';
-          res.on('data', chunk => raw += chunk);
-          res.on('end', () => {
-            try { resolve(JSON.parse(raw)); } catch (_) { resolve(null); }
-          });
-        });
-        req.on('error', () => resolve(null));
-        req.on('timeout', () => { req.destroy(); resolve(null); });
-      });
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-
-    log(`  ${C.green}● RUNNING${C.reset}  Web UI is active on ${C.cyan}http://127.0.0.1:${port}/${C.reset}`);
-    log(`    Process ID:   ${pid || 'External / Foreground'}`);
-    if (healthData) {
-      log(`    Version:      v${healthData.version || '2.0.0'}`);
-      log(`    Skills:       ${healthData.skills_count || healthData.skills || 0}`);
-      log(`    Agents:       ${healthData.agents_count || healthData.agents || 7}`);
-      log(`    Uptime:       ${Math.floor(healthData.uptime || 0)}s`);
-    }
-    const svc = await getServiceStatus();
-    if (svc.installed) {
-      log(`    OS Service:   ${svc.type} (${svc.active ? C.green + 'active' : C.yellow + 'inactive'}${C.reset}, ${svc.enabled ? 'enabled' : 'disabled'})`);
-    } else {
-      log(`    OS Service:   ${C.dim}not installed${C.reset} (run: ${C.cyan}konoha ui service install${C.reset} for boot autostart)`);
-    }
-  } else {
-    log(`  ${C.dim}○ STOPPED${C.reset}  Web UI is not currently running.`);
-    log(`    Run ${C.cyan}konoha ui start${C.reset} to launch the UI in the background.`);
-    log(`    Run ${C.cyan}konoha ui service install${C.reset} to configure automatic startup on boot.`);
-  }
-}
-
-function getSystemdUserServicePath() {
-  return path.join(os.homedir(), '.config', 'systemd', 'user', 'konoha-ui.service');
-}
-
-function getLaunchdPlistPath() {
-  return path.join(os.homedir(), 'Library', 'LaunchAgents', 'com.konoha.ui.plist');
-}
-
-function isSystemdAvailable() {
-  if (process.platform !== 'linux') return false;
-  try {
-    const { execSync } = require('child_process');
-    const out = execSync('systemctl --user is-system-running || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-    return out === 'running' || out === 'degraded';
-  } catch (_) {
-    return false;
-  }
-}
-
-function isLaunchdAvailable() {
-  return process.platform === 'darwin';
-}
-
-async function getServiceStatus() {
-  if (isSystemdAvailable()) {
-    const serviceFile = getSystemdUserServicePath();
-    if (!fileExists(serviceFile)) {
-      return { type: 'systemd', installed: false, active: false, enabled: false };
-    }
-    try {
-      const { execSync } = require('child_process');
-      const activeOut = execSync('systemctl --user is-active konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-      const enabledOut = execSync('systemctl --user is-enabled konoha-ui.service || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-      return {
-        type: 'systemd',
-        installed: true,
-        active: activeOut === 'active',
-        enabled: enabledOut === 'enabled',
-        state: activeOut,
-        path: serviceFile
-      };
-    } catch (_) {
-      return { type: 'systemd', installed: true, active: false, enabled: false, path: serviceFile };
-    }
-  } else if (isLaunchdAvailable()) {
-    const plistFile = getLaunchdPlistPath();
-    if (!fileExists(plistFile)) {
-      return { type: 'launchd', installed: false, active: false, enabled: false };
-    }
-    try {
-      const { execSync } = require('child_process');
-      const listOut = execSync('launchctl list || true', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-      const loaded = listOut.includes('com.konoha.ui');
-      return {
-        type: 'launchd',
-        installed: true,
-        active: loaded,
-        enabled: true,
-        state: loaded ? 'active' : 'inactive',
-        path: plistFile
-      };
-    } catch (_) {
-      return { type: 'launchd', installed: true, active: false, enabled: false, path: plistFile };
-    }
-  }
-  return { type: 'unsupported', installed: false, active: false, enabled: false };
-}
-
-function cmdUiServiceHelp() {
-  log(`
-${C.cyan}konoha ui service${C.reset} — Manage Konoha Web UI as an operating system background daemon service
-
-${C.bold}USAGE${C.reset}
-  konoha ui service <subcommand> [options]
-  konoha service <subcommand> [options]
-
-${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}install${C.reset}     Install and enable Web UI as an OS user service (systemd on Linux, launchd on macOS)
-  ${C.cyan}uninstall${C.reset}   Stop, disable, and remove the OS daemon service
-  ${C.cyan}status${C.reset}      Show current OS daemon service state
-  ${C.cyan}start${C.reset}       Start the OS daemon service
-  ${C.cyan}stop${C.reset}        Stop the OS daemon service
-  ${C.cyan}restart${C.reset}     Restart the OS daemon service
-
-${C.bold}EXAMPLES${C.reset}
-  konoha ui service install
-  konoha ui service status
-  konoha ui service restart
-  konoha ui service uninstall
-`);
-}
-
-async function cmdUiService(args = []) {
-  const subcommand = args[0];
-  if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
-    cmdUiServiceHelp();
-    return;
-  }
-
-  const { execSync } = require('child_process');
-  const isLinux = isSystemdAvailable();
-  const isMac = isLaunchdAvailable();
-
-  if (subcommand === 'status') {
-    header('Konoha Web UI OS Daemon Service Status');
-    const svc = await getServiceStatus();
-    const portActive = await checkPortActive(1404);
-    if (!svc.installed) {
-      log(`  ${C.dim}○ NOT INSTALLED${C.reset}  OS daemon service unit is not registered.`);
-      log(`    Supported platform: ${isLinux ? 'Linux (systemd --user)' : isMac ? 'macOS (launchd)' : process.platform}`);
-      log(`    Run ${C.cyan}konoha ui service install${C.reset} to configure automatic startup on boot.`);
-      log(`    Port 1404 listener: ${portActive ? C.green + 'ACTIVE (manual/detached daemon)' : C.dim + 'INACTIVE'}${C.reset}\n`);
-      return;
-    }
-    log(`  Platform:     ${svc.type.toUpperCase()}`);
-    log(`  Unit File:    ${svc.path}`);
-    log(`  State:        ${svc.active ? C.green + '● ACTIVE (' + svc.state + ')' : C.yellow + '○ INACTIVE (' + svc.state + ')'}${C.reset}`);
-    log(`  Enabled:      ${svc.enabled ? C.green + 'YES (starts automatically on login/boot)' : C.yellow + 'NO'}${C.reset}`);
-    log(`  Web URL:      ${portActive ? C.cyan + 'http://127.0.0.1:1404/ (READY)' : C.yellow + 'PORT 1404 NOT RESPONDING'}${C.reset}\n`);
-    return;
-  }
-
-  if (subcommand === 'install') {
-    header('Installing Konoha Web UI OS Daemon Service');
-    if (isLinux) {
-      const userDir = path.join(os.homedir(), '.config', 'systemd', 'user');
-      ensureDir(userDir);
-      const servicePath = getSystemdUserServicePath();
-      const nodePath = process.execPath;
-      const cliPath = path.resolve(__dirname, 'cli.js');
-      const unitContent = `[Unit]
-Description=Konoha Web Configuration UI Daemon
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${nodePath} ${cliPath} ui daemon --port=1404 --host=127.0.0.1
-Restart=always
-RestartSec=3s
-Environment=NODE_ENV=production
-Environment=KONOHA_UI_DAEMON=true
-
-[Install]
-WantedBy=default.target
-`;
-      fs.writeFileSync(servicePath, unitContent, 'utf8');
-      info(`Created systemd service unit: ${servicePath}`);
-      try {
-        if (await checkPortActive(1404)) {
-          await cmdUiStop(['--port=1404']);
-        }
-        execSync('systemctl --user daemon-reload', { stdio: 'ignore' });
-        execSync('systemctl --user enable --now konoha-ui.service', { stdio: 'ignore' });
-      } catch (e) {
-        warn(`systemctl --user configuration: ${e.message}`);
-      }
-      let started = false;
-      for (let i = 0; i < 15; i++) {
-        await new Promise((r) => setTimeout(r, 200));
-        if (await checkPortActive(1404)) {
-          started = true;
-          break;
-        }
-      }
-      if (started) {
-        success('Konoha Web UI systemd daemon service installed and started successfully!');
-        info('URL: http://127.0.0.1:1404/');
-        info('The daemon service will now automatically start on boot and restart if stopped.');
-      } else {
-        warn('Service unit installed. Check status with: konoha ui service status');
-      }
-      return;
-    } else if (isMac) {
-      const agentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
-      ensureDir(agentsDir);
-      const plistPath = getLaunchdPlistPath();
-      const nodePath = process.execPath;
-      const cliPath = path.resolve(__dirname, 'cli.js');
-      const logPath = path.join(os.homedir(), '.konoha', 'ui-service.log');
-      const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.konoha.ui</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${nodePath}</string>
-    <string>${cliPath}</string>
-    <string>ui</string>
-    <string>daemon</string>
-    <string>--port=1404</string>
-    <string>--host=127.0.0.1</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>${logPath}</string>
-  <key>StandardErrorPath</key>
-  <string>${logPath}</string>
-</dict>
-</plist>
-`;
-      fs.writeFileSync(plistPath, plistContent, 'utf8');
-      info(`Created launchd agent plist: ${plistPath}`);
-      try {
-        execSync(`launchctl load -w "${plistPath}"`, { stdio: 'ignore' });
-      } catch (e) {
-        warn(`launchctl load: ${e.message}`);
-      }
-      success('Konoha Web UI launchd daemon service installed and loaded successfully!');
-      info('URL: http://127.0.0.1:1404/');
-      return;
-    } else {
-      error('OS daemon service installation is currently supported on Linux (systemd) and macOS (launchd).');
-      log(`On Windows, use ${C.cyan}konoha ui start${C.reset} to run as a background daemon process.`);
-      process.exit(1);
-    }
-  }
-
-  if (subcommand === 'uninstall') {
-    header('Uninstalling Konoha Web UI OS Daemon Service');
-    if (isLinux) {
-      const servicePath = getSystemdUserServicePath();
-      try { execSync('systemctl --user stop konoha-ui.service', { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
-      try { execSync('systemctl --user disable konoha-ui.service', { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
-      if (fileExists(servicePath)) {
-        try { fs.unlinkSync(servicePath); } catch (_) { /* intentional best-effort fallback */ }
-      }
-      try { execSync('systemctl --user daemon-reload', { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
-      success('Konoha Web UI systemd user service uninstalled successfully.');
-      return;
-    } else if (isMac) {
-      const plistPath = getLaunchdPlistPath();
-      try { execSync(`launchctl unload -w "${plistPath}"`, { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback */ }
-      if (fileExists(plistPath)) {
-        try { fs.unlinkSync(plistPath); } catch (_) { /* intentional best-effort fallback */ }
-      }
-      success('Konoha Web UI launchd agent uninstalled successfully.');
-      return;
-    }
-  }
-
-  if (subcommand === 'start') {
-    if (isLinux) {
-      try {
-        execSync('systemctl --user start konoha-ui.service', { stdio: 'inherit' });
-        success('Konoha Web UI service started.');
-      } catch (e) {
-        warn(`Could not start systemd service, falling back to direct daemon start: ${e.message}`);
-        await cmdUiStart(args.slice(1));
-      }
-      return;
-    } else if (isMac) {
-      const plistPath = getLaunchdPlistPath();
-      try { execSync(`launchctl load -w "${plistPath}"`, { stdio: 'inherit' }); } catch (_) { /* intentional best-effort fallback */ }
-      return;
-    }
-    await cmdUiStart(args.slice(1));
-    return;
-  }
-
-  if (subcommand === 'stop') {
-    if (isLinux) {
-      try {
-        execSync('systemctl --user stop konoha-ui.service', { stdio: 'inherit' });
-        success('Konoha Web UI service stopped.');
-      } catch (e) {
-        warn(`systemctl stop: ${e.message}`);
-        await cmdUiStop(args.slice(1));
-      }
-      return;
-    } else if (isMac) {
-      const plistPath = getLaunchdPlistPath();
-      try { execSync(`launchctl unload -w "${plistPath}"`, { stdio: 'inherit' }); } catch (_) { /* intentional best-effort fallback */ }
-      return;
-    }
-    await cmdUiStop(args.slice(1));
-    return;
-  }
-
-  if (subcommand === 'restart') {
-    if (isLinux) {
-      try {
-        execSync('systemctl --user restart konoha-ui.service', { stdio: 'inherit' });
-        success('Konoha Web UI service restarted.');
-        return;
-      } catch (e) {
-        warn(`systemctl restart: ${e.message}`);
-      }
-    }
-    await cmdUiRestart(args.slice(1));
-    return;
-  }
-
-  error(`Unknown service subcommand: ${subcommand}`);
-  cmdUiServiceHelp();
-  process.exit(1);
-}
-
-async function cmdUiBuild() {
-  header('Building Konoha Web UI (SvelteKit + Node Adapter)');
-  const { execSync } = require('child_process');
-  let webDir = deployUtils.resolveWebUiDir({ preferSources: true });
-  if (!webDir) {
-    const candidates = [
-      path.resolve(process.cwd(), 'apps', 'web'),
-      path.resolve(process.cwd()),
-      path.resolve(__dirname, '..', 'apps', 'web'),
-      path.join(SKILLS_DB_DIR, 'apps', 'web')
-    ];
-    for (const cand of candidates) {
-      const pkg = path.join(cand, 'package.json');
-      if (fileExists(pkg) && fileExists(path.join(cand, 'src', 'routes'))) {
-        try {
-          const parsed = JSON.parse(fs.readFileSync(pkg, 'utf8'));
-          if (parsed.scripts && parsed.scripts.build) {
-            webDir = cand;
-            break;
-          }
-        } catch (_) { /* intentional best-effort fallback: unreadable package.json ignored */ }
-      }
-    }
-  }
-  const hasSources = webDir && fileExists(path.join(webDir, 'package.json'))
-    && fileExists(path.join(webDir, 'src', 'routes'));
-  if (!hasSources) {
-    const installedHandler = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build', 'handler.js');
-    if (fileExists(installedHandler)) {
-      info('Web UI sources not found in current directory, but pre-built UI is ready:');
-      log(`    ↳ Build:   ${installedHandler}`);
-      log(`    ↳ Service: konoha ui status`);
-      log(`    ↳ Launch:  konoha ui start (or konoha web)\n`);
-      success('Pre-built Konoha Web UI is healthy and ready to serve.');
-      return;
-    }
-    error(`Web UI sources not found (looked in: ${webDir || 'workspace'}).`);
-    info(`The pre-built UI at ${path.join(SKILLS_DB_DIR, 'apps', 'web', 'build')} is served automatically by 'konoha ui start'.`);
-    info(`To rebuild the UI from source, clone the Konoha repository: pnpm --dir apps/web run build`);
-    process.exit(1);
-  }
-  try {
-    const isWin = process.platform === 'win32';
-    const viteBin = path.join(webDir, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
-    if (!fileExists(viteBin)) {
-      info(`Installing apps/web dependencies in ${webDir}...`);
-      try {
-        execSync('pnpm install', { cwd: webDir, stdio: 'inherit' });
-      } catch (_) {
-        try {
-          execSync('npm install', { cwd: webDir, stdio: 'inherit' });
-        } catch (e) {
-          warn(`Could not install apps/web dependencies: ${e.message}`);
-        }
-      }
-    }
-    info('Running build in apps/web...');
-    try {
-      execSync('pnpm run build', { cwd: webDir, stdio: 'inherit' });
-    } catch (_) {
-      execSync('npm run build', { cwd: webDir, stdio: 'inherit' });
-    }
-    // Refresh the installed runtime copy so 'konoha ui start' serves the new build
-    const installedBuild = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
-    if (path.resolve(webDir) !== path.resolve(path.dirname(installedBuild))) {
-      try {
-        fs.rmSync(installedBuild, { recursive: true, force: true });
-        fs.mkdirSync(installedBuild, { recursive: true });
-        fs.cpSync(path.join(webDir, 'build'), installedBuild, { recursive: true });
-        const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
-        const destWebPkg = path.join(destWebDir, 'package.json');
-        if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.1', type: 'module', private: true }, null, 2) + '\n');
-        }
-        fs.writeFileSync(path.join(installedBuild, 'package.json'), '{\n  "type": "module"\n}\n');
-        info(`Installed runtime UI refreshed: ${installedBuild}`);
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-    try {
-      const localBuildPkg = path.join(webDir, 'build', 'package.json');
-      if (!fs.existsSync(localBuildPkg)) {
-        fs.writeFileSync(localBuildPkg, '{\n  "type": "module"\n}\n');
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    success('Production build completed in apps/web/build/');
-  } catch (err) {
-    error(`Build failed: ${err.message}`);
-    process.exit(1);
-  }
-}
-
-async function cmdUiPreview(args = []) {
-  header('Previewing Konoha Web UI Production Build');
-  const { spawn } = require('child_process');
-  let port = 1404;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) port = parseInt(args[++i], 10);
-    else if (args[i].startsWith('--port=')) port = parseInt(args[i].slice('--port='.length), 10);
-  }
-
-  const buildIndex = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web'), 'build', 'index.js');
-  if (!fs.existsSync(buildIndex)) {
-    warn('Production build not found. Running "konoha ui build" first...');
-    await cmdUiBuild();
-  }
-
-  info(`Starting preview server on port ${port}...`);
-  const child = spawn(process.execPath || 'node', [buildIndex], {
-    env: Object.assign({}, process.env, { PORT: String(port), HOST: '127.0.0.1' }),
-    stdio: 'inherit'
-  });
-
-  process.on('SIGINT', () => {
-    child.kill('SIGTERM');
-    process.exit(0);
-  });
-}
-
-async function cmdUi(args = []) {
-  const subcommand = args[0];
-  const subArgs = args.slice(1);
-
-  if (!subcommand) {
-    await cmdUiStatus(args);
-    return;
-  }
-  if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
-    cmdUiHelp();
-    return;
-  }
-
-  switch (subcommand) {
-    case 'start':
-      await cmdUiStart(subArgs);
-      break;
-    case 'stop':
-      await cmdUiStop(subArgs);
-      break;
-    case 'restart':
-      await cmdUiRestart(subArgs);
-      break;
-    case 'status':
-      await cmdUiStatus(subArgs);
-      break;
-    case 'build':
-      await cmdUiBuild(subArgs);
-      break;
-    case 'preview':
-      await cmdUiPreview(subArgs);
-      break;
-    case 'open':
-      openUrlInBrowser('http://127.0.0.1:1404/');
-      break;
-    case 'daemon':
-      await cmdUiDaemon(subArgs);
-      break;
-    case 'service':
-      await cmdUiService(subArgs);
-      break;
-    default:
-      if (subcommand.startsWith('-')) {
-        await cmdUiStart(args);
-      } else {
-        error(`Unknown ui subcommand: ${subcommand}`);
-        log(`Run ${C.cyan}konoha ui help${C.reset} for usage.`);
-        process.exit(1);
-      }
-  }
-}
-
-async function cmdWeb(args = []) {
-  if (args && (args.includes('help') || args.includes('--help') || args.includes('-h'))) {
-    cmdUiHelp();
-    return;
-  }
-  const first = args[0];
-  if (first && ['start', 'stop', 'restart', 'status', 'open', 'daemon', 'service'].includes(first)) {
-    return await cmdUi(args);
-  }
-  let port = 1404;
-  let host = '127.0.0.1';
-  // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-  let openBrowser = true;
-  let token = null;
-
-  // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) {
-      port = parseInt(args[++i], 10);
-    } else if (args[i].startsWith('--port=')) {
-      port = parseInt(args[i].slice('--port='.length), 10);
-    } else if (args[i] === '--host' && args[i + 1]) {
-      host = args[++i];
-    } else if (args[i].startsWith('--host=')) {
-      host = args[i].slice('--host='.length);
-    } else if (args[i] === '--no-open') {
-      openBrowser = false;
-    } else if (args[i] === '--token' && args[i + 1]) {
-      token = args[++i];
-    }
-  }
-  await cmdWebForeground({ port, host, openBrowser, token });
-}
 
 function cmdUninstallHelp() {
   log(`
@@ -6292,20 +5265,40 @@ async function cmdUninstall(args = []) {
     }
   }
 
-  // Restore GEMINI.md backup if exists
+  // Restore or strip Konoha block from GEMINI.md
   const backupPath = GEMINI_MD_PATH + '.backup';
   if (fileExists(backupPath)) {
     fs.copyFileSync(backupPath, GEMINI_MD_PATH);
     fs.unlinkSync(backupPath);
     success('Restored GEMINI.md from backup');
+  } else if (fileExists(GEMINI_MD_PATH)) {
+    try {
+      const cur = fs.readFileSync(GEMINI_MD_PATH, 'utf8');
+      const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
+      if (stripped && !stripped.startsWith('# Global Agent Instructions')) {
+        fs.writeFileSync(GEMINI_MD_PATH, stripped + '\n', 'utf8');
+      } else {
+        fs.unlinkSync(GEMINI_MD_PATH);
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
   }
 
-  // Restore AGENTS.md backup if exists
+  // Restore or strip Konoha block from AGENTS.md
   const agentsBackupPath = AGENTS_MD_PATH + '.backup';
   if (fileExists(agentsBackupPath)) {
     fs.copyFileSync(agentsBackupPath, AGENTS_MD_PATH);
     fs.unlinkSync(agentsBackupPath);
     success('Restored AGENTS.md from backup');
+  } else if (fileExists(AGENTS_MD_PATH)) {
+    try {
+      const cur = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
+      const stripped = cur.replace(/\n?<!-- KONOHA-START -->[\s\S]*?<!-- KONOHA-END -->\n?/g, '\n').trim();
+      if (stripped && !stripped.startsWith('# AGENTS.md — Multi-Agent Team Configuration')) {
+        fs.writeFileSync(AGENTS_MD_PATH, stripped + '\n', 'utf8');
+      } else {
+        fs.unlinkSync(AGENTS_MD_PATH);
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
   }
 
   // Remove default official skills from global skills directory
@@ -8395,6 +7388,19 @@ async function cmdTask(args) {
     return;
   }
 
+  const resolveTaskOrExit = (id, cmdName) => {
+    if (!id) {
+      error(`Usage: konoha task ${cmdName} <id>`);
+      return null;
+    }
+    const task = sdlcManager.getTask(id, DB_PATH);
+    if (!task) {
+      error(`Task not found: ${id}`);
+      return null;
+    }
+    return task;
+  };
+
   if (sub === 'list') {
     let statusFilter = null;
     let limit = 50;
@@ -8430,17 +7436,9 @@ async function cmdTask(args) {
       error(`Failed to list tasks: ${e.message}`);
     }
   } else if (sub === 'show') {
-    const id = subArgs[0];
-    if (!id) {
-      error('Usage: konoha task show <id>');
-      return;
-    }
     try {
-      const task = sdlcManager.getTask(id, DB_PATH);
-      if (!task) {
-        error(`Task not found: ${id}`);
-        return;
-      }
+      const task = resolveTaskOrExit(subArgs[0], 'show');
+      if (!task) return;
       header(`📋 SDLC Task: ${task.id}`);
       log(`  ${C.bold}Status:${C.reset}        ${C.yellow}${task.status.toUpperCase()}${C.reset}`);
       log(`  ${C.bold}Description:${C.reset}   ${task.description}`);
@@ -8481,25 +7479,14 @@ async function cmdTask(args) {
           task.slop_result.findings.forEach(f => log(`      - [${f.rule || 'R-SLOP'}] ${f.description || f}`));
         }
         log('');
-      // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
       }
     } catch (e) {
       error(`Failed to show task: ${e.message}`);
     }
-  // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
   } else if (sub === 'slop') {
-    // aislop-ignore-next-line code-quality/duplicate-block (same hook/dir setup executed in distinct install/repair branches)
-    const id = subArgs[0];
-    if (!id) {
-      error('Usage: konoha task slop <id>');
-      return;
-    }
     try {
-      const task = sdlcManager.getTask(id, DB_PATH);
-      if (!task) {
-        error(`Task not found: ${id}`);
-        return;
-      }
+      const task = resolveTaskOrExit(subArgs[0], 'slop');
+      if (!task) return;
       header(`🛡️ Anti-Slop Audit for Task: ${task.id}`);
       const slop = task.slop_result || {};
       const pass = slop.pass === true;

@@ -45,7 +45,11 @@ function resolveWebUiDir(opts = {}) {
       shell: isWin
     });
     const globalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop();
-    if (globalRoot) candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
+    if (globalRoot) {
+      candidates.push(path.join(globalRoot, "konoha", "apps", "web"));
+      candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
+      candidates.push(path.join(globalRoot, "konohagakure", "apps", "web"));
+    }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const qualifying = [];
@@ -200,26 +204,8 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
   };
   walk(srcRoot);
 
-  // Prune top-level entries in destRoot that do not exist in srcRoot (except fingerprint markers & ignore)
-  try {
-    const destEntries = fs.readdirSync(destRoot, { withFileTypes: true });
-    const srcEntriesSet = new Set();
-    try {
-      for (const e of fs.readdirSync(srcRoot)) {
-        if (e !== '.claude' && e !== '.cursor' && e !== 'CLAUDE.md' && e !== '.git' && e !== '.DS_Store') {
-          srcEntriesSet.add(e);
-        }
-      }
-    } catch (_) { /* ignore */ }
-    for (const de of destEntries) {
-      if (de.name === '.ignore' || de.name.endsWith('.fingerprint') || de.name === '.fingerprint') continue;
-      if (!srcEntriesSet.has(de.name)) {
-        try {
-          fs.rmSync(path.join(destRoot, de.name), { recursive: true, force: true });
-        } catch (_) { /* ignore */ }
-      }
-    }
-  } catch (_) { /* ignore */ }
+  // Old skills protection: strictly NEVER prune or remove entries from destRoot.
+  // Pre-existing user skills and client skills are preserved across installs and upgrades.
 
   try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }

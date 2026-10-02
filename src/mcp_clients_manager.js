@@ -529,7 +529,9 @@ function deployCommandCodeRules(silent = true) {
     ensureDir(agentsDir);
 
     const fullInstructions = generateAgentsMd(agents, 'commandcode');
-    fs.writeFileSync(agentsMd, fullInstructions, 'utf8');
+    const agentManager = require('./agent_manager');
+    const finalAgentsMd = agentManager.injectManagedConfig(agentsMd, fullInstructions, 'KONOHA');
+    fs.writeFileSync(agentsMd, finalAgentsMd, 'utf8');
 
     const contractContent = buildMainAgentContract('commandcode') + '\n';
     fs.writeFileSync(ruleDest, contractContent, 'utf8');

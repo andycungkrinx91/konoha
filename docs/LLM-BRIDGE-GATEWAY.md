@@ -1,6 +1,6 @@
 # Konoha Bridge Gateway
 
-> **v2.0.0 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
+> **v2.0.2 Architecture** — The Konoha Bridge Gateway is now part of the broader **Konoha Bridge Router** stack, which multiplexes requests across user-configured LLM bridges. The outer Proxy Gateway listens on **port 19999** and forwards to inner bridges on user-defined ports.
 
 The **Konoha Bridge Gateway** provides a unified local API server on `127.0.0.1:19999` to route, multiplex, and stream LLM requests across multiple explicitly configured bridges from a single entry point. The embedded Konoha bridge remains available on machines without Antigravity IDE.
 

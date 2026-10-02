@@ -45,6 +45,13 @@ konoha ui start --port 1404 --no-open
 konoha web --port 1404 --no-open
 ```
 
+### Cross-Platform Daemon Management (Windows, Linux, macOS)
+
+- **Windows**: `konoha ui start` runs as a completely detached background daemon using `windowsHide: true` without flashing visible command prompt windows. Default port 1404 polling waits up to 30 attempts to ensure reliable startup. On `konoha ui stop`, process trees are cleanly cleaned up using `taskkill /F /T /PID`, with PowerShell `-Unique` connection ownership kill and `netstat -ano` fallback. Supports Windows `SIGBREAK` for graceful shutdown.
+- **Linux (systemd)**: Run `konoha ui service install` to register a `systemd --user` unit (`konoha-ui.service`) for automatic background launch on login/boot and automatic restarts.
+- **macOS (launchd)**: Run `konoha ui service install` to generate a `launchd` LaunchAgent plist (`com.konoha.ui.plist`) for automatic system startup.
+- **Port Isolation**: All daemon lifecycle commands (`start`, `stop`, `restart`, `status`) support `--port=<num>` scoping — stopping or restarting a daemon on a custom port never interrupts daemons running on port 1404 or other ports.
+
 ---
 
 ## 🛡️ Architecture & Security Model

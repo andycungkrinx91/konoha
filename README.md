@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.1 (2026-09-25)](CHANGELOG.md) — Multi-Client UI Disconnect Lifecycle Fix, Antigravity-Only Konoha-Bridge Scoping & Automated Non-Antigravity Extension Cleanup, Contract Synchronization across all 7 clients, optimistic UI toggles, and Zero-AI-Slop 100/100 validation.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.1 — Konoha v2.0.1 (2026-09-25)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md)
+* **Latest Release:** [v2.0.2 (2026-10-02)](CHANGELOG.md) — Strict Preservation of Pre-Existing User Skills & Config, Cross-Platform Windows Web UI Resilience, Modularized UI Subsystem, Strict Zero-Exclusions Invariant, and Zero-AI-Slop 100/100 validation.
+* **Latest Security Compliance:** [Google Policy Compliance v2.0.2 — Konoha v2.0.2 (2026-10-02)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -209,6 +209,8 @@ Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgress
 <img src="assets/konoha-upgrade.png" alt="konoha upgrade" width="100%">
 
 Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive fallback chain — full migration → retry with `--skip-embeddings` → `--skills-only` (seeding `SKILL.md` entries only) — and the migration loop itself honors a `KONOHA_MIGRATE_TIME_BUDGET` (default 150s) that defers non-required skills gracefully. Upgrades and fresh installs never fail from a slow migration; deferred references complete on the next `konoha migrate` or via on-demand indexing.
+
+> **🛡️ Strict Non-Destructive Preservation Invariant (v2.0.2)**: Upgrades (`konoha upgrade`) and fresh installations (`konoha init`) are strictly non-destructive. Pre-existing user skills in all 7 client skill directories are never pruned or removed (`copySkillsDirFast` additive sync only). `konoha.db` retains all existing skills via additive upserts (`INSERT OR REPLACE`), instruction configurations (`GEMINI.md`, `AGENTS.md`, `CODEX.md`, `instructions.md`) inject Konoha directives within managed boundary tags (`<!-- KONOHA-START -->...<!-- KONOHA-END -->`) preserving 100% of user custom rules and prompts, and `agents.yaml` merges default ninja personas while keeping custom user agents completely intact.
 </details>
 
 <details>
@@ -509,7 +511,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.0.1) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.0.2) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

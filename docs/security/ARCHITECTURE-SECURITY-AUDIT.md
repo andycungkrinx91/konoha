@@ -1,7 +1,7 @@
 # Konoha Architecture Security Audit
 
-**Document Version:** 1.0.0 (Konoha v2.0.1)  
-**Date:** 2026-09-25  
+**Document Version:** 1.0.0 (Konoha v2.0.2)  
+**Date:** 2026-10-02  
 **Auditor:** Kage (Village Leader, Security & Architecture Reviewer)  
 **Status:** Comprehensive Security Certification  
 
@@ -22,6 +22,7 @@ This security audit evaluates the attack surface across the complete Konoha exec
 | **AI Slop / Hallucination** | Generated code & documentation | Dual-gate: `aislop_scan` (100/100 score required) + vendored `antislop` hard rule filter | LOW | ✅ MITIGATED |
 | **Cross-Client Contamination**| Extension and client config scoping | `konoha-bridge` restricted exclusively to Antigravity IDE; non-Antigravity purged | LOW | ✅ MITIGATED |
 | **Denial of Service / Loops** | Delegation recursion | Circuit breaker in `src/circuit_breaker.js` and `workflow.js` hard-limits depth to 7 | LOW | ✅ MITIGATED |
+| **User Data / Config Wipe** | Installation, upgrades, sync | Non-destructive additive sync (`copySkillsDirFast`), managed boundary injections (`<!-- KONOHA -->`), SQLite upserts (no `--clean`) | LOW | ✅ MITIGATED |
 
 ---
 

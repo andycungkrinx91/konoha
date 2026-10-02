@@ -1,7 +1,7 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 1.0.0 (Konoha v2.0.1)  
-**Date:** 2026-09-25  
+**Document Version:** 1.0.0 (Konoha v2.0.2)  
+**Date:** 2026-10-02  
 **Status:** Canonical Reference  
 
 ---
@@ -240,16 +240,17 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ### 2.12 Administrative Web Dashboard
 
-* **Purpose:** Visual administration of agents, skills, SDLC tasks, bridges, clients, savings, and diagnostics.
-* **Canonical Implementation:** `src/web_server.js`, `apps/web/`.
+* **Purpose:** Visual administration of agents, skills, SDLC tasks, bridges, clients, savings, and diagnostics with cross-platform lifecycle management.
+* **Canonical Implementation:** `src/web_server.js`, `apps/web/`, `bin/lib/ui_commands.js`.
 * **Entry Points:**
-  - CLI: `konoha ui start`, `konoha ui status`, `konoha ui stop`.
+  - CLI: `konoha ui [start|stop|restart|status|daemon|service|build|preview|open]`, `konoha web`.
   - HTTP Server: `http://127.0.0.1:1404`.
 * **Consumers:** Developers, administrators.
-* **Storage:** Ephemeral session tokens, CSRF tokens.
-* **Configuration:** `src/web_server.js` port 1404.
-* **Tests:** `tests/test_web_ui.js`.
-* **Documentation:** `docs/SETUP-WEB-UI.md`.
-* **Dependencies:** SvelteKit 3, Vite, Tailwind CSS v4.
+* **Storage:** Ephemeral session tokens, CSRF tokens, port-scoped daemon PID files (`~/.konoha/ui/`).
+* **Configuration:** `src/web_server.js` port 1404 (configurable via `--port`).
+* **Cross-Platform Resilience:** Detached daemon execution with `windowsHide: true` on Windows, 30-attempt port polling, socket teardown, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
+* **Tests:** `tests/test_web_ui.js`, `tests/test_ui_cross_platform_lifecycle.js`, `tests/test_ui_autostart.js`.
+* **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/SETUP-CLI.md`.
+* **Dependencies:** SvelteKit 3, Vite, Tailwind CSS v4, `@sveltejs/adapter-node`.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.

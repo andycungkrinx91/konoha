@@ -32,7 +32,8 @@ const { buildFromText, buildFromSource } = require('../src/mcp/build_spec');
 const { runMcpAgent } = require('../src/mcp/memory_reporting');
 const { runSannin, runAislopGate } = require('../src/mcp/workflow');
 const { installCliRuntime } = require('../bin/cli');
-const { cleanKonohaRuntimeDir } = require('../src/deploy_utils');
+const deployUtils = require('../src/deploy_utils');
+const { cleanKonohaRuntimeDir } = deployUtils;
 
 async function testFreshInstall(sandboxDir) {
   console.log('\n--- 1. Testing End-to-End Fresh Install ---');
@@ -86,6 +87,33 @@ async function testFreshInstall(sandboxDir) {
   assert.ok(Array.isArray(kageAgent.skills) && kageAgent.skills.includes('antislop'), 'Kage agent must include antislop skill on fresh install');
   console.log('  ✓ Kage agent correctly configured with antislop skill for Zero-AI-Slop gate');
 
+  // Verify pre-existing user skills & configs are strictly preserved on fresh install
+  const userSkillDir = path.join(geminiHome, 'antigravity-cli', 'skills', 'my-user-skill');
+  fs.mkdirSync(userSkillDir, { recursive: true });
+  fs.writeFileSync(path.join(userSkillDir, 'SKILL.md'), '---\nname: my-user-skill\ndescription: Custom user skill\n---\n# Custom User Skill\n', 'utf8');
+
+  // Simulate syncing template skills to client directory
+  const templateSkillsDir = path.join(__dirname, '..', 'src', 'templates', 'skills');
+  const { copySkillsDirFast } = deployUtils;
+  copySkillsDirFast(templateSkillsDir, path.join(geminiHome, 'antigravity-cli', 'skills'));
+  assert.ok(fs.existsSync(path.join(userSkillDir, 'SKILL.md')), 'Pre-existing user skill must NOT be pruned by copySkillsDirFast during fresh install');
+
+  // Verify pre-existing GEMINI.md and AGENTS.md config preservation via injectManagedConfig
+  const userGeminiPath = path.join(geminiHome, 'GEMINI.md');
+  fs.writeFileSync(userGeminiPath, '# User Custom Pre-existing Config\n- rule: keep this untouched\n', 'utf8');
+  const injectedGemini = agentMgr.injectManagedConfig(userGeminiPath, agentMgr.generateGeminiMd(defaultAgents), 'KONOHA');
+  assert.ok(injectedGemini.includes('# User Custom Pre-existing Config'), 'Existing user GEMINI.md config must be preserved on fresh install');
+  assert.ok(injectedGemini.includes('<!-- KONOHA-START -->'), 'Konoha managed start marker must be present');
+  assert.ok(injectedGemini.includes('<!-- KONOHA-END -->'), 'Konoha managed end marker must be present');
+
+  const userAgentsMdPath = path.join(sandboxDir, '.agents', 'AGENTS.md');
+  fs.mkdirSync(path.dirname(userAgentsMdPath), { recursive: true });
+  fs.writeFileSync(userAgentsMdPath, '# User Custom Multi-Agent Rules\n- rule: never overwrite\n', 'utf8');
+  const injectedAgentsMd = agentMgr.injectManagedConfig(userAgentsMdPath, agentMgr.generateAgentsMd(defaultAgents), 'KONOHA');
+  assert.ok(injectedAgentsMd.includes('# User Custom Multi-Agent Rules'), 'Existing user AGENTS.md config must be preserved on fresh install');
+  assert.ok(injectedAgentsMd.includes('<!-- KONOHA-START -->'), 'Konoha managed start marker must be present in AGENTS.md');
+  console.log('  ✓ Pre-existing user skills and configs strictly preserved on fresh install');
+
   console.log('  ✓ All 7 client contracts generated and verified with 100% invariant parity');
 }
 
@@ -102,11 +130,12 @@ async function testUpgrade(sandboxDir) {
   };
   fs.writeFileSync(statePath, JSON.stringify(oldState, null, 2), 'utf8');
 
-  // Plant a database with existing user data
+  // Plant a database with existing user data AND existing skills
   const testDbPath = path.join(konohaHome, 'konoha.db');
   const conn = db.getConnection(testDbPath, false);
   db.setupSchema(conn);
   conn.prepare("INSERT OR REPLACE INTO agents (name, title, purpose, skills, constraints_text, instructions, model_tier) VALUES ('custom-agent', 'Custom Ninja', 'Custom purpose', '[]', 'None', 'Do work', 'Pro')").run();
+  conn.prepare("INSERT OR REPLACE INTO skills (name, skill_name, type, content, file_path) VALUES ('user-old-skill', 'user-old-skill', 'skill', 'User pre-existing skill content', '/path/to/old/skill')").run();
   conn.close();
 
   // Run migration and upgrade validation
@@ -117,6 +146,11 @@ async function testUpgrade(sandboxDir) {
   assert.ok(row, 'User customized agents must be preserved across upgrade');
   assert.strictEqual(row.title, 'Custom Ninja');
 
+  // Verify pre-existing skill in SQLite was NOT wiped out by migration
+  const oldSkillRow = connAfter.prepare("SELECT * FROM skills WHERE skill_name = 'user-old-skill'").get();
+  assert.ok(oldSkillRow, 'Pre-existing user skill in SQLite must be preserved across upgrade');
+  assert.strictEqual(oldSkillRow.content, 'User pre-existing skill content');
+
   // Verify kage in DB includes antislop
   const kageRow = connAfter.prepare("SELECT skills FROM agents WHERE name = 'kage'").get();
   assert.ok(kageRow, 'Kage agent must exist in DB');
@@ -125,7 +159,7 @@ async function testUpgrade(sandboxDir) {
 
   connAfter.close();
 
-  console.log('  ✓ Upgrade preserves existing user configuration and updates kage with antislop skill');
+  console.log('  ✓ Upgrade preserves existing user configuration and skills without loss');
 }
 
 async function testReinstallAndRepair(sandboxDir) {

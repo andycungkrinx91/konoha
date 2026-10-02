@@ -647,24 +647,27 @@ async function runMigration(options = {}) {
     process.exit(1);
   }
 
-  // Clean up deleted skills
-  const rows = conn.prepare("SELECT DISTINCT skill_name FROM skills").all();
-  const deletedSkills = new Set();
-  for (const r of rows) {
-    const sName = r.skill_name;
-    const fpRows = conn.prepare("SELECT file_path FROM skills WHERE skill_name = ? AND file_path IS NOT NULL").all(sName);
-    const anyExists = fpRows.some(fp => fp.file_path && fs.existsSync(fp.file_path));
-    if (!anyExists && fpRows.length) {
-      deletedSkills.add(sName);
+  // Clean up deleted skills only when explicitly requested via --clean / pruneDeleted.
+  // Pre-existing user skills from other workspaces or prior runs are strictly preserved.
+  if (options.clean || options.pruneDeleted) {
+    const rows = conn.prepare("SELECT DISTINCT skill_name FROM skills").all();
+    const deletedSkills = new Set();
+    for (const r of rows) {
+      const sName = r.skill_name;
+      const fpRows = conn.prepare("SELECT file_path FROM skills WHERE skill_name = ? AND file_path IS NOT NULL").all(sName);
+      const anyExists = fpRows.some(fp => fp.file_path && fs.existsSync(fp.file_path));
+      if (!anyExists && fpRows.length) {
+        deletedSkills.add(sName);
+      }
     }
-  }
 
-  if (deletedSkills.size) {
-    log("\n🗑️  Cleaning up deleted skills from database:");
-    for (const sName of Array.from(deletedSkills).sort()) {
-      try { conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(sName); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(sName);
-      log(`  ✓ Cleaned up: ${sName}`);
+    if (deletedSkills.size) {
+      log("\n🗑️  Cleaning up deleted skills from database:");
+      for (const sName of Array.from(deletedSkills).sort()) {
+        try { conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(sName); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        conn.prepare("DELETE FROM skills WHERE skill_name = ?").run(sName);
+        log(`  ✓ Cleaned up: ${sName}`);
+      }
     }
   }
 

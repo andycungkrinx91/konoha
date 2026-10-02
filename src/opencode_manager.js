@@ -297,7 +297,9 @@ function deployOpenCodeRules(silent = true) {
   for (const dest of targets) {
     try {
       ensureDir(path.dirname(dest));
-      fs.writeFileSync(dest, fullInstructions, 'utf-8');
+      const agentMgr = require('./agent_manager');
+      const finalDest = agentMgr.injectManagedConfig(dest, fullInstructions, 'KONOHA');
+      fs.writeFileSync(dest, finalDest, 'utf-8');
       deployed++;
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }

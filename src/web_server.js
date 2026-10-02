@@ -19,9 +19,18 @@ const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
 // copy, npm global package) via deployUtils.resolveWebUiDir()
-const WEB_UI_DIR = deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web');
-const BUILD_CLIENT_DIR = path.join(WEB_UI_DIR, 'build', 'client');
-const DIST_DIR = fs.existsSync(BUILD_CLIENT_DIR) ? BUILD_CLIENT_DIR : path.join(WEB_UI_DIR, 'dist');
+function getWebUiDir() {
+  return deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web');
+}
+
+function getDistDir() {
+  const base = getWebUiDir();
+  const buildClient = path.join(base, 'build', 'client');
+  if (fs.existsSync(buildClient)) return buildClient;
+  return path.join(base, 'dist');
+}
+
+const WEB_UI_DIR = getWebUiDir();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -1717,9 +1726,10 @@ function createWebServer(options = {}) {
       });
     }
 
-    let filePath = path.join(DIST_DIR, pathname === '/' ? 'index.html' : pathname);
+    const distDir = getDistDir();
+    let filePath = path.join(distDir, pathname === '/' ? 'index.html' : pathname);
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(DIST_DIR, 'index.html');
+      filePath = path.join(distDir, 'index.html');
     }
 
     if (fs.existsSync(filePath)) {
