@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.1 (2026-10-06)](CHANGELOG.md) — Socket Supply Chain Security Gate (100% clean), Konoha Bridge v1.7.0 VSIX upgrade, GitHub Actions Node 24 Runner upgrade, and zero-dependency ASCII splash.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.1 — Konoha v2.1.1 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md)
+* **Latest Release:** [v2.1.2 (2026-10-06)](CHANGELOG.md) — Socket Supply Chain Security Gate (100% clean), Konoha Bridge v1.7.0 VSIX upgrade, GitHub Actions Node 24 Runner upgrade, and zero-dependency ASCII splash.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.2 — Konoha v2.1.2 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.2_2026-10-06.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.1) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.2) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

@@ -2,7 +2,7 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [2.1.1] - 2026-10-06
+## [2.1.2] - 2026-10-06
 
 ### Added & Hardened: Socket Supply Chain Security Gate & Konoha Bridge v1.7.0
 
@@ -10,7 +10,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Transitive Dependency Hardening**: Resolved transitive vulnerabilities and security risks (including `devalue` and `source-map-js`) via modern package overrides. Pruned unmaintained dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, and relocated `playwright` to devDependencies.
 - **Konoha Bridge Extension Upgrade (v1.7.0)**: Upgraded bundled Antigravity IDE bridge extension to `konoha-bridge-1.7.0.vsix` in `assets/` with automatic GitHub direct download fallback (`https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix`) on fresh install and upgrade, detecting and replacing legacy extensions seamlessly.
 - **GitHub Actions Node 24 Runner Upgrade**: Upgraded `actions/checkout` and `actions/setup-node` to `@v5` (native Node 24 target) and transitioned pnpm installation to native `corepack enable`, permanently eliminating GitHub Actions runner Node 20 deprecation warnings.
-- **Security Compliance Certification v2.1.1**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md` meeting all Google policy standards, supply chain verification, and Zero-AI-Slop 100/100 delivery gate.
+- **Security Compliance Certification v2.1.2**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.2_2026-10-06.md` meeting all Google policy standards, supply chain verification, and Zero-AI-Slop 100/100 delivery gate.
 
 ## [2.1.0] - 2026-10-06
 
