@@ -903,6 +903,18 @@ function isCancel(ans) {
   return lower === '0' || lower === 'q' || lower === 'exit' || lower === 'back';
 }
 
+async function confirmPrompt(message, defaultVal = true) {
+  if (process.env.CI === 'true' || !process.stdin || !process.stdin.isTTY) {
+    return defaultVal;
+  }
+  const suffix = defaultVal ? ' (Y/n) ' : ' (y/N) ';
+  const ans = (await askQuestion(`${message}${suffix}`)).trim().toLowerCase();
+  if (ans === 'esc' || ans === 'n' || ans === 'no') return false;
+  if (ans === 'y' || ans === 'yes') return true;
+  if (ans === '') return defaultVal;
+  return defaultVal;
+}
+
 function rgb(r, g, b) {
   if (!USE_COLOR) return '';
   return `\x1b[38;2;${Math.round(r)};${Math.round(g)};${Math.round(b)}m`;
@@ -1194,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.2';
+  return '2.1.3';
 }
 
 function drawLogo() {
@@ -1472,19 +1484,8 @@ async function cmdInit(args, options = {}) {
   log(`${C.dim}MCP Tools Orchestrator for Antigravity, Cursor, Claude Code, OpenCode, Command Code, and Codex${C.reset}`);
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
-  let confirm;
   const isNonInteractive = args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
-  if (!isNonInteractive) {
-    try {
-      const prompts = await import('@inquirer/prompts');
-      confirm = prompts.confirm;
-    } catch (_) {
-      error('Could not load @inquirer/prompts. Please run "pnpm install".');
-      process.exit(1);
-    }
-  }
-
-  const doInit = isNonInteractive ? true : await confirm({ message: 'Initialize Konoha and modify ~/.gemini configurations?', default: true });
+  const doInit = isNonInteractive ? true : await confirmPrompt('Initialize Konoha and modify ~/.gemini configurations?', true);
   if (!doInit) {
     warn('Initialization aborted.');
     return;
@@ -2985,7 +2986,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.2', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.3', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3009,7 +3010,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.2', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.3', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -4732,11 +4733,10 @@ async function cmdDoctor(args = []) {
     } else {
       globalSpinner.stop();
       try {
-        const prompts = await import('@inquirer/prompts');
-        allowHooks = await prompts.confirm({ message: 'Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', default: true });
-      } catch (_) {
+        allowHooks = await confirmPrompt('Allow registering prompt-saver hook in ~/.gemini/config/hooks.json?', true);
+      } catch (err) {
         loadFailed = true;
-        record('Prompt Hook Config (hooks.json)', 'FAILED', 'Could not load @inquirer/prompts');
+        record('Prompt Hook Config (hooks.json)', 'FAILED', `Prompt error: ${err.message}`);
         hasErrors = true;
       }
       globalSpinner.start('Running environment diagnostics...');
@@ -6819,18 +6819,7 @@ async function cmdUpgrade(args = []) {
   log(`  Preparing to upgrade Konoha to the latest version...`);
 
   const autoYes = args && (args.includes('--yes') || args.includes('-y'));
-  let doUpgrade = autoYes;
-  if (!autoYes) {
-    let confirm;
-    try {
-      const prompts = await import('@inquirer/prompts');
-      confirm = prompts.confirm;
-    } catch (_) {
-      error('Could not load @inquirer/prompts. Please run "pnpm install".');
-      process.exit(1);
-    }
-    doUpgrade = await confirm({ message: 'Proceed with upgrading Konoha and modify ~/.gemini configurations?', default: true });
-  }
+  const doUpgrade = autoYes ? true : await confirmPrompt('Proceed with upgrading Konoha and modify ~/.gemini configurations?', true);
 
   if (!doUpgrade) {
     warn('Upgrade aborted.');

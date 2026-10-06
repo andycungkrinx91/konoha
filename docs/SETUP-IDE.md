@@ -171,7 +171,7 @@ The agent should use the `konoha` MCP tool instead of loading a SKILL.md file.
 To support uninterrupted background task execution and avoid blocking prompt overlays, the Konoha installation supports an optimized auto-approval workflow ("YOLO Mode").
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v2.0.2`, Konoha will interactively prompt the user (via `@inquirer/prompts`) during setup and upgrades before applying these auto-approvals to comply with security policies.
+> **Explicit User Consent**: Konoha interactively prompts the user (via native Node.js `node:readline`) during setup and upgrades before applying these auto-approvals to comply with security policies.
 
 ### 1. Tool Auto-Approvals (`mcp_config.json`)
 Upon user consent, the installation script registers and whitelists tool auto-approvals for the custom MCP servers:

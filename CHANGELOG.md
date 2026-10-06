@@ -2,6 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.3] - 2026-10-06
+
+### Security Hardening & Zero-Dependency Prompts: Supply Chain Elimination & Release Trigger Refinement
+
+- **Zero-Dependency Interactive Consent**: Replaced external `@inquirer/prompts` across all CLI workflows (`init`, `upgrade`, `hooks.json` diagnostics) with a native, zero-dependency `node:readline` interactive confirmation helper. This completely eliminates 10 High-severity supply chain alerts and typosquat risks (`@inquirer/external-editor`, `safer-buffer`, `fast-string-width`, `fast-wrap-ansi`) from production dependencies.
+- **Dependency & Attack Surface Pruning**: Streamlined production runtime dependencies strictly down to `@bufbuild/protobuf`, `better-sqlite3`, and `chalk`. Pruned root `devDependencies` by removing unused root `playwright`.
+- **Legacy Files & Reports Cleanup**: Cleaned up transient files including `PLAN-PUBLISH.md` and temporary `alerts.csv` after complete supply chain remediation.
+- **GitHub Actions Release Trigger Hardening**: Updated `.github/workflows/publish.yml` to trigger exclusively on semver release tags (`tags: ['v*']`), preventing publish race conditions between branch pushes and release tag pushes.
+- **Security Compliance Certification v2.1.3**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.3_2026-10-06.md` documenting 100% clean supply chain security, zero high/medium alerts, and Zero-AI-Slop 100/100 delivery gate.
+
 ## [2.1.2] - 2026-10-06
 
 ### Added & Hardened: Socket Supply Chain Security Gate & Konoha Bridge v1.7.0

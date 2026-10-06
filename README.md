@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.2 (2026-10-06)](CHANGELOG.md) — Socket Supply Chain Security Gate (100% clean), Konoha Bridge v1.7.0 VSIX upgrade, GitHub Actions Node 24 Runner upgrade, and zero-dependency ASCII splash.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.2 — Konoha v2.1.2 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.2_2026-10-06.md)
+* **Latest Release:** [v2.1.3 (2026-10-06)](CHANGELOG.md) — Socket Supply Chain Security Gate (100% clean), elimination of all transitive prompt vulnerabilities via native Node.js readline, Konoha Bridge v1.7.0 VSIX upgrade, GitHub Actions release-only publish gate, and zero-dependency ASCII splash.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.3 — Konoha v2.1.3 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.3_2026-10-06.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -474,7 +474,7 @@ node bin/cli.js init --yes --force
 ### Automatic Dependency & Environment Provisioning
 
 When installing Konoha, all required Node.js libraries, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
-- 📦 **Node.js dependencies**: Hardened, minimal production dependencies installed via `package.json` (`better-sqlite3`, `@inquirer/prompts`, `@bufbuild/protobuf`, `chalk`). Zero unmaintained packages, zero native compile scripts.
+- 📦 **Node.js dependencies**: Hardened, minimal production dependencies installed via `package.json` (`better-sqlite3`, `@bufbuild/protobuf`, `chalk`). Interactive consent prompts powered by native Node.js `node:readline`. Zero unmaintained packages, zero native compile scripts.
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/konoha.db` (legacy `skills.db` is auto-migrated on first open).
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.2) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.3) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

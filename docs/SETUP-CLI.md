@@ -424,7 +424,7 @@ To keep Konoha updated with the latest optimizations and features, you can check
   5. Core Configuration & Database Regeneration (additive SQLite upsert without wiping `konoha.db`; managed boundary injection preserving all user instructions)
   6. Client Integration & IDE Bridges (Antigravity, Cursor, Codex, OpenCode, Claude Code, Command Code, Pi / pi.dev; custom agent union-merge in `agents.yaml`)
   7. Verification, Doctor Diagnostics & Self-Healing
-  During execution, it uses interactive `@inquirer/prompts` (or `--yes` / `-y` for headless non-interactive mode) before applying upgrades.
+  During execution, it uses interactive confirmation prompts via native Node.js `node:readline` (or `--yes` / `-y` for headless non-interactive mode) before applying upgrades.
   ```bash
   konoha upgrade
   # Non-interactive / headless CI mode:
@@ -450,7 +450,7 @@ The external `konoha-bridge` extension is refreshed from the live `master` branc
 To optimize CLI sessions and enable frictionless automation, the `init` script configures auto-approval workflows for tools and commands.
 
 > [!IMPORTANT]
-> **Explicit User Consent**: As of `v2.0.2`, the CLI will interactively prompt the user (via `@inquirer/prompts`) during setup before applying these auto-approvals.
+> **Explicit User Consent**: The CLI interactively prompts the user (via native Node.js `node:readline`) during setup before applying these auto-approvals.
 
 ### 1. Command Whitelisting
 The installer registers whitelisted command prefixes in `~/.gemini/antigravity-cli/settings.json`:
