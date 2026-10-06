@@ -36,6 +36,16 @@ jobs:
       - name: Build Web UI bundle
         run: pnpm run build:web
 
+      - name: Socket Supply Chain Security Audit Gate
+        run: |
+          if [ -n "$SOCKET_SECURITY_API_KEY" ]; then
+            npx --yes @socketsecurity/cli ci
+          else
+            echo "::notice::SOCKET_SECURITY_API_KEY secret not found in repo; relying on pre-commit Kage local audit and Socket GitHub App."
+          fi
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+
       - name: Publish to npm registry via OIDC Trusted Publisher
         run: |
           set -o pipefail
