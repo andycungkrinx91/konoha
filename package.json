@@ -4,6 +4,10 @@
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andycungkrinx91/konoha.git"
+  },
   "type": "commonjs",
   "keywords": [
     "antigravity",
@@ -19,7 +23,7 @@
   "author": "Andy Setiyawan | The shadow ninja with coffee (https://www.linkedin.com/in/andy-setiyawan-452396170/)",
   "license": "MIT",
   "bin": {
-    "konoha": "./bin/cli.js"
+    "konoha": "bin/cli.js"
   },
   "files": [
     "bin/",
