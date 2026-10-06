@@ -2357,10 +2357,11 @@ function installExtensionViaCli(cliName, vsixPath, silent = false) {
 function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) {
   const KONOHA_BRIDGE_REPO = 'https://github.com/andycungkrinx91/konoha-bridge';
   const KONOHA_BRIDGE_REF = 'master';
+  const KONOHA_BRIDGE_VSIX_URL = 'https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix';
   const targetDirName = 'andycungkrinx91.konoha-bridge-master-universal';
-  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.6.0.vsix');
-  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.6.0.vsix');
-  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.6.0.vsix');
+  const bundledVsixPath = path.join(__dirname, '..', 'assets', 'konoha-bridge-1.7.0.vsix');
+  const cachedVsixPath = path.join(SKILLS_DB_DIR, 'konoha-bridge-1.7.0.vsix');
+  const globalCachedVsix = path.join(os.homedir(), '.konoha', 'konoha-bridge-1.7.0.vsix');
   const manifestPath = path.join(SKILLS_DB_DIR, 'konoha-bridge.json');
   const extensionDir = path.join(HOME, '.antigravity-ide', 'extensions');
   const targetPath = path.join(extensionDir, targetDirName);
@@ -2379,12 +2380,30 @@ function autoInstallKonohaBridgeExtension(silent = false, forceRefresh = false) 
 
   let vsixPath = fileExists(cachedVsixPath) ? cachedVsixPath : (fileExists(bundledVsixPath) ? bundledVsixPath : (fileExists(globalCachedVsix) ? globalCachedVsix : null));
 
+  // If VSIX is not cached or bundled locally, download pre-built v1.7.0 VSIX
+  if (!vsixPath || !fileExists(vsixPath)) {
+    try {
+      ensureDir(SKILLS_DB_DIR);
+      const isWin = process.platform === 'win32';
+      const dlRes = spawnSync(isWin ? 'curl.exe' : 'curl', ['-fSL', KONOHA_BRIDGE_VSIX_URL, '-o', cachedVsixPath], {
+        timeout: 30000,
+        stdio: 'ignore',
+        shell: isWin
+      });
+      if (dlRes.status === 0 && fileExists(cachedVsixPath)) {
+        vsixPath = cachedVsixPath;
+      }
+    } catch { /* fallback to git clone */ }
+  }
+
   if (vsixPath && fileExists(vsixPath)) {
     if (!fileExists(cachedVsixPath) && vsixPath !== cachedVsixPath) {
       try { ensureDir(SKILLS_DB_DIR); fs.copyFileSync(vsixPath, cachedVsixPath); vsixPath = cachedVsixPath; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
-    if (!forceRefresh && fileExists(targetPath) && validatePackage(installedPackage)) {
-      if (!silent) log(`  ⚡ Konoha Bridge master extension already installed.`);
+    const currentPkg = readPackage(installedPackage);
+    const isUpToDate = currentPkg?.version === '1.7.0';
+    if (!forceRefresh && fileExists(targetPath) && validatePackage(installedPackage) && isUpToDate) {
+      if (!silent) log(`  ⚡ Konoha Bridge v1.7.0 extension already installed.`);
       return { installed: true, skipped: true, path: targetPath, ref: KONOHA_BRIDGE_REF, vsixPath };
     }
   }

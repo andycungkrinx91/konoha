@@ -17,6 +17,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Supply Chain Security & Dependency Hardening**: Pruned unmaintained legacy dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, relocated `playwright` to devDependencies, and introduced `socket.yml` supply chain security configuration eliminating security alerts and reducing package weight.
 - **GitHub Actions Node 24 Runner Upgrade**: Upgraded `actions/checkout` and `actions/setup-node` to `@v5` (native Node 24 target) and transitioned pnpm installation to native `corepack enable`, permanently eliminating GitHub Actions runner Node 20 deprecation warnings.
 - **Socket Supply Chain Security Gate**: Mandated Socket security review in Kage review workflow (`socket ci` / `socket scan create --report`), enforcing 0 High and 0 Medium severity risks (excluding Low-level informational notices). Added Socket Supply Chain Security row to the Kage Reviewer Confidence Gate Report.
+- **Konoha Bridge Extension Upgrade (v1.7.0)**: Upgraded bundled Antigravity IDE bridge extension to `konoha-bridge-1.7.0.vsix` in `assets/` with automatic GitHub direct download fallback (`https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix`) on fresh install and upgrade, detecting and replacing legacy v1.6.0 extensions seamlessly.
 
 ## [2.0.2] - 2026-10-02
 
