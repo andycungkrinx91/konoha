@@ -401,7 +401,9 @@ const TOOL_HANDLERS = {
   get_task_evidence: (args) => runNodeSkillTool('get_task_evidence', args),
   get_slop_findings: (args) => runNodeSkillTool('get_slop_findings', args),
   website_ai_detector: (args) => runNodeSkillTool('website_ai_detector', args),
-  docs_ai_detector: (args) => runNodeSkillTool('docs_ai_detector', args)
+  docs_ai_detector: (args) => runNodeSkillTool('docs_ai_detector', args),
+  qa_codify: (args) => require('./qa_tools').qaCodify(args),
+  qa_e2e_run: (args) => require('./qa_tools').qaE2eRun(args)
 };
 
 function validateSchemaValue(value, schema, key) {

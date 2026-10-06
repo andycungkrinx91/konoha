@@ -1404,6 +1404,70 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "qa_codify",
+      "description": "Deterministically compiles and codifies an agent-browser flow JSON file into a Playwright test specification after verifying it via agent-browser batch.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "flow_path": {
+            "type": "string",
+            "description": "Path to the flow JSON file."
+          },
+          "out_path": {
+            "type": "string",
+            "description": "Path where the generated Playwright test file should be written."
+          },
+          "name": {
+            "type": "string",
+            "description": "Descriptive test title for the generated test case."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Target language: 'ts' or 'js' (auto-detected if omitted)."
+          },
+          "skip_verification": {
+            "type": "boolean",
+            "description": "Optional flag to bypass batch pre-verification (for testing/mocking)."
+          }
+        },
+        "required": [
+          "flow_path",
+          "out_path",
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qa_e2e_run",
+      "description": "Runs Playwright end-to-end regression suites in a target project with JSON reporting and returns a compact, capped execution summary under 2,000 characters with a verifiable run_id.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project_path": {
+            "type": "string",
+            "description": "Root path of the project containing the Playwright suite."
+          },
+          "grep": {
+            "type": "string",
+            "description": "Filter test cases to run by title pattern."
+          },
+          "last_failed": {
+            "type": "boolean",
+            "description": "Only run tests that failed in the previous run."
+          },
+          "max_failures": {
+            "type": "integer",
+            "description": "Stop test run after N failures (default 1 during remediation)."
+          }
+        },
+        "required": [
+          "project_path"
+        ],
+        "additionalProperties": false
+      }
     }
   ]
 }

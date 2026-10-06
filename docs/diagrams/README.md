@@ -1,6 +1,6 @@
 # Konoha diagrams
 
-`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains twelve pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
+`konoha-architecture.drawio` is the canonical editable source for the repository architecture diagrams. It contains thirteen pages covering every logical diagram embedded in the README and documentation. Each owner also keeps a synchronized Mermaid companion for native Markdown rendering and text review.
 
 **Format policy:** Draw.io owns editable geometry, page layout, and presentation routing. Mermaid owns Markdown-native rendering. The two formats must keep the same semantic nodes, relationships, titles, and implementation anchors; their visual layouts may differ.
 
@@ -29,6 +29,27 @@
 | 10 Persistent Project Context & Auto-Compaction | Stack detection, project invariants, 2-delegation auto-compaction (turn ≥ 2, 30m idle reset, SOP preservation, verified-only learnings) | `docs/ARCHITECTURE.md` | `src/persona_memory.js`, `src/server.js` |
 | 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase orchestration state machine, Native SDLC Governance (Definition-of-Readiness DoR pre-dispatch gate, cross-provider second opinion, SDLC task status block gate), Zero-AI-Slop Pre-Gate with `CircuitBreaker` fail-safe degrade (threshold=2, recovery=120s, SIGTERM) and dynamic mtime cache invalidation, Autonomous Kage → Anbu Remediation Loop, 98% Minimum Confidence Gate (≥ 98%), 100% task execution verification, clean evidence validation, security & CVE audit | `docs/ARCHITECTURE.md` | `src/mcp/workflow.js`, `src/sdlc_manager.js`, `src/circuit_breaker.js`, `tests/test_anti_slop_gate.js` |
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, animated braille spinner (startSpinner, TTY-only), non-destructive user skill & config preservation (zero pruning of pre-existing skills, additive-only sync, managed boundary injection, custom agent union-merge), in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit`, `src/deploy_utils.js` |
+| 13 QA Automation Workflow | Bounded token-preserving pipeline, `agent-browser` scoped exploration, flow declaration (`tests/e2e/flows/*.json`), deterministic `qa_codify`, `qa_e2e_run` RED/GREEN loop, remediation fix branches (Anbu backend / Jonin UI), Zero-AI-Slop gate, Anbu QA evidence (`run_id`), Kage review gate | `docs/QA-AUTOMATION.md` | `src/qa_tools.js`, `src/file_tools_router.js`, `docs/QA-AUTOMATION.md`, `tests/e2e/` |
+
+## Enterprise Cloud Architecture Diagrams (Official AWS / GCP / Azure Style)
+
+In addition to `konoha-architecture.drawio`, `konoha-enterprise-architecture.drawio` provides a dedicated 13-page professional cloud architecture edition modeled in official industry cloud architecture styling (AWS 2024 / GCP / Azure official stencils and group containers). Every page mirrors the 13 canonical pages with zero generic boxes, using official cloud palettes, VPC and Security Group containers, and crisp orthogonal connectors:
+
+| Page | Scope | Cloud Architecture Stencils | Systems Covered |
+|---|---|---|---|
+| 01 System Architecture | Multi-tier cloud topology across developer workstations, MCP API gateway, agent compute grid, DoR & Zero-AI-Slop security gates, and storage cluster | AWS Cloud, VPC, Corporate Data Center, API Gateway, Lambda, Database, S3 | Full Konoha Architecture |
+| 02 Runtime Query Lifecycle | End-to-end prompt resolution, skill search, Semble indexing, agent dispatch, and final synthesis | AWS Workspaces, API Gateway, Step Functions, OpenSearch, S3 | Query Lifecycle |
+| 03 MCP Tool and Skill Routing | Sannin MCP router, tool dispatch, Taste Dials, and specialized ninja agent execution | AWS API Gateway, Lambda Functions, EventBridge, CloudWatch | Tool & Skill Routing |
+| 04 LLM Bridge Gateway | Local LLM bridge proxy, port 1313 and 19999 endpoints, provider failover, and health state store | AWS Transit Gateway, VPC Router, ElastiCache, Aurora DB | Bridge Gateway |
+| 05 Search Fallback Chain | Multi-engine SearXNG ingress, DuckDuckGo, Startpage, and Wikipedia fallback chain | AWS API Gateway, Route 53, CloudFront, Lambda | Search Engine |
+| 06 Skill Registry Installation | Registry proxy, CLI installer, migration engine, and SQLite FTS5 vector store | AWS CodeArtifact, S3, ECS, OpenSearch | Skill Registry |
+| 07 Token Footprint Comparison | Raw context vs bounded MCP retrieval comparative telemetry | AWS Cost Explorer, CloudWatch Metrics, S3 | Token Telemetry |
+| 08 Orchestrator Task Artifact Flow | Structured delegation, isolated task dirs, Kage confidence gate, and synthesis | AWS Step Functions, EventBridge, EFS, S3 | Task Artifact Flow |
+| 09 Jonin Taste-Skill Frontend Engine | Taste Dials, anti-slop rules, and 4-framework builders (Next.js, SvelteKit, Nuxt, Angular) | AWS Amplify, Lambda, CloudFront, S3 | UI Builder Engine |
+| 10 Persistent Project Context & Auto-Compaction | Tech stack detection, project invariants, and 2-turn auto-compaction cache | AWS DynamoDB, Systems Manager Parameter Store, S3 | Context Memory Bank |
+| 11 Kage Pre-Delivery Reviewer Workflow Gate | 8-phase SDLC state machine, DoR gate, Zero-AI-Slop gate, and 98% confidence firewall | AWS Shield, WAF, Audit Manager, Security Hub | SDLC Governance Gate |
+| 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, pulse timers, and atomic client sync | AWS Systems Manager, CodeDeploy, CloudWatch | CLI Upgrade Pipeline |
+| 13 QA Automation Workflow | Bounded token QA pipeline, agent-browser explorer, Playwright codifier, and RED/GREEN loop | AWS Systems Manager, Device Farm, Lambda, S3 | QA Automation Pipeline |
 
 ## Source policy
 

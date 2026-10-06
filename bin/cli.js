@@ -1194,7 +1194,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.0.2';
+  return '2.1.0';
 }
 
 function drawLogo() {
@@ -2966,7 +2966,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.2', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.0', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -2990,7 +2990,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.0.2', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.0', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -4948,13 +4948,20 @@ async function cmdDoctor(args = []) {
         record('agent-browser CLI', 'REPAIRED', `Auto-installed ${ver}`);
         repairsDone++;
       } else {
-        record('agent-browser CLI', 'WARNING', 'Missing agent-browser (run npm install -g agent-browser)');
+        record('agent-browser CLI', 'WARNING', 'Missing agent-browser (run: pnpm add -g agent-browser && agent-browser install; on Linux add --with-deps; QA features unavailable)');
       }
     } catch {
-      record('agent-browser CLI', 'WARNING', 'Missing agent-browser (recommended for design match comparison)');
+      record('agent-browser CLI', 'WARNING', 'Missing agent-browser (run: pnpm add -g agent-browser && agent-browser install; QA features unavailable)');
     }
   } else {
-    record('agent-browser CLI', 'ACTIVE', agentBrowserVersion || 'Installed');
+    let chromeDetail = '';
+    try {
+      const docRes = spawnSync(agentBrowserCmd, ['doctor', '--offline', '--quick'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+      if (docRes.status === 0 && (docRes.stdout.includes('Google Chrome') || docRes.stdout.includes('Chromium'))) {
+        chromeDetail = ' (Chrome ready)';
+      }
+    } catch { /* intentional best-effort fallback */ }
+    record('agent-browser CLI', 'ACTIVE', `${agentBrowserVersion || 'Installed'}${chromeDetail}`);
   }
 
   // 11. SDLC Governance Layer Advisory Checks

@@ -3,3 +3,10 @@ node_modules/
 build/
 dist/
 .DS_Store
+
+# KONOHA-QA-START
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+# KONOHA-QA-END

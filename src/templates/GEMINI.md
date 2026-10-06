@@ -14,7 +14,7 @@
 2. **🌀 kage** — Village Leader for architecture decisions, deep code analysis, risk assessment, security auditing, and critical problem solving.
 3. **📜 chunin** — Intel Ninja for web research, documentation synthesis, and citation-backed recommendations.
 4. **🛡️ jonin** — Elite builder for premium UI/frontend with SvelteKit, Next.js, Tailwind v4, Magic UI, and 3D web.
-5. **👥 anbu** — Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
+5. **👥 anbu** — Black Ops for backend dev, bug fixing, QA automation, DevOps, infrastructure deployment (CI/CD, Terraform, K8s, Helm).
 6. **🎯 tokubetsu-jonin** — Scribe for technical documentation, API specs, architecture designs, runbooks, and readme guides.
 
 ### Website build specifications (CRITICAL)
@@ -78,7 +78,7 @@ The main agent ONLY delegates to the defined ninja agents (`genin`, `kage`, `chu
 | `devsecops-engineer`, `genin-skill`, `agent-browser`, `konoha`, `websearch-deep`, `jonin-skill` | `kage` |
 | `websearch-deep`, `i-have-adhd` | `chunin` |
 | `agent-browser`, `modern-full-stack`, `i-have-adhd` | `jonin` |
-| `devsecops-engineer`, `agent-browser`, `i-have-adhd` | `anbu` |
+| `devsecops-engineer`, `anbu-skill/qa-automation`, `agent-browser`, `i-have-adhd` | `anbu` |
 | `documentation`, `i-have-adhd` | `tokubetsu-jonin` |
 | Simple/trivial tasks | Delegate to the matching agent if skill is embedded. Otherwise, route to the closest matching agent (e.g. framework/maintenance to @kage). |
 

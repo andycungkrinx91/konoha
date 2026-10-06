@@ -1,7 +1,7 @@
 {
   "name": "konoha-web",
   "private": true,
-  "version": "2.0.2",
+  "version": "2.1.0",
   "type": "module",
   "imports": {
     "#lib/*": "./src/lib/*"
@@ -12,9 +12,11 @@
     "preview": "node build/index.js",
     "start": "node build/index.js",
     "check": "svelte-kit sync && svelte-check --threshold error",
-    "lint": "svelte-kit sync && svelte-check --threshold error"
+    "lint": "svelte-kit sync && svelte-check --threshold error",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@sveltejs/adapter-node": "6.0.0-next.12",
     "@sveltejs/kit": "3.0.0-next.27",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

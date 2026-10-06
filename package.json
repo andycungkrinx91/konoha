@@ -1,6 +1,9 @@
 {
-  "name": "Konoha",
-  "version": "2.0.2",
+  "name": "konoha-mcp",
+  "version": "2.1.0",
+  "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
+  "homepage": "https://github.com/andycungkrinx91/konoha#readme",
+  "bugs": "https://github.com/andycungkrinx91/konoha/issues",
   "type": "commonjs",
   "keywords": [
     "antigravity",
@@ -22,22 +25,22 @@
     "bin/",
     "src/",
     "docs/",
-    "apps/",
-    "assets/",
+    "apps/web/build/",
+    "apps/web/package.json",
     ".agents/",
-    ".cursor/",
-    ".claude/",
     "README.md",
     "LICENSE"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "node bin/cli.js ui build",
-    "prepare": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch (err) {} }\"",
-    "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('apps/web/package.json') && !fs.existsSync('apps/web/build/handler.js')) { try { require('child_process').execSync('pnpm --dir apps/web run build || npm --prefix apps/web run build', {stdio:'inherit'}); } catch (err) {} }\"",
     "test": "node tests/run_all.js",
+    "test:e2e": "pnpm --dir apps/web run test:e2e",
     "test:parallel": "node tests/run_all.js --parallel",
     "test:mcp": "node tests/test_mcp_protocol.js && node tests/test_mcp_e2e.js",
     "test:workflow": "node tests/test_workflow_gates.js && node tests/test_workflow_loop.js",
@@ -54,11 +57,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/andycungkrinx91/konoha"
+    "url": "git+https://github.com/andycungkrinx91/konoha.git"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
-    "@huggingface/transformers": "^4.2.0",
     "@inquirer/prompts": "^8.5.2",
     "better-sqlite3": "^13.0.3",
     "chalk": "^4.1.2",
@@ -78,7 +80,8 @@
     "overrides": {
       "sharp": ">=0.35.4",
       "adm-zip": ">=0.6.0",
-      "devalue": ">=5.9.3"
+      "devalue": ">=5.9.3",
+      "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
     }
   }
 }

@@ -24,11 +24,13 @@ const REQUIRED_DOCS = [
   'docs/SETUP-MCP-CLIENTS.md',
   'docs/ADDING-SKILLS.md',
   'docs/TROUBLESHOOTING.md',
+  'docs/QA-AUTOMATION.md',
   'docs/diagrams/README.md',
   'docs/diagrams/konoha-architecture.drawio',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-27.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.1_2026-09-25.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md'
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md'
 ];
 
 function checkLocalLinks() {
@@ -81,7 +83,7 @@ function parseToolNamesFromRouter(routerPath) {
   const end = content.indexOf('};', start);
   const block = content.slice(start, end);
   const matches = [];
-  const re = /^\s{2}([a-z_]+):/gm;
+  const re = /^\s{2}([a-z0-9_]+):/gm;
   let m;
   while ((m = re.exec(block)) !== null) {
     matches.push(m[1]);
@@ -98,7 +100,7 @@ async function run() {
   const actualTools = parseToolsList();
   const actualFileTools = parseToolNamesFromRouter(routerPath);
 
-  assert.strictEqual(actualTools.length, 44, `Expected 44 manifest-backed tools, found ${actualTools.length}`);
+  assert.strictEqual(actualTools.length, 46, `Expected 46 manifest-backed tools, found ${actualTools.length}`);
   assert.deepStrictEqual(
     new Set(actualTools),
     new Set(actualFileTools),
@@ -133,7 +135,7 @@ async function run() {
   const expectedTools = [
     'find_skill', 'list_skills', 'get_skill', 'optimize_report',
     'build_with_image_design', 'build_from_source', 'build_from_text', 'web_search',
-    'website_ai_detector',
+    'website_ai_detector', 'qa_codify', 'qa_e2e_run',
     'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin'
   ];
   for (const t of expectedTools) {

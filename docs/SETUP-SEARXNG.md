@@ -17,10 +17,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#d1fae5'
     primaryTextColor: '#065f46'
     primaryBorderColor: '#059669'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#ccfbf1'
     tertiaryColor: '#fef3c7'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -41,6 +43,7 @@ flowchart TD
     Startpage -->|Empty / fail| Wikipedia["4. Wikipedia<br/>(OpenSearch API)"]
     Wikipedia --> Return
 
+    linkStyle default stroke:#0f172a,stroke-width:2px;
     classDef input fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef primary fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
     classDef fallback fill:#ccfbf1,stroke:#0f766e,color:#134e4a

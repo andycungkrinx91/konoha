@@ -55,7 +55,9 @@ function getReturnDescription(toolName) {
     delete_persona_memory: 'Deletion confirmation JSON',
     check_readiness: 'Gate approval status JSON',
     get_task_evidence: 'Evidence log JSON',
-    get_slop_findings: 'Anti-slop scanner report JSON'
+    get_slop_findings: 'Anti-slop scanner report JSON',
+    qa_codify: 'Playwright spec compilation confirmation JSON',
+    qa_e2e_run: 'Structured E2E execution summary JSON'
   };
   return returnTypes[toolName] || 'JSON result object';
 }

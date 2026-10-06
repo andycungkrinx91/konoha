@@ -1,0 +1,7 @@
+[
+  ["open", "http://127.0.0.1:4173/"],
+  ["wait", "--url", "**/dashboard"],
+  ["wait", "--text", "Mission Control Dashboard"],
+  ["open", "http://127.0.0.1:4173/detector"],
+  ["wait", "--text", "Website AI Detector"]
+]

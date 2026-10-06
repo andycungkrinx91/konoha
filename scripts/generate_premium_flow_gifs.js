@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Generates the three premium flow GIFs embedded in the README:
+// Generates the four premium flow GIFs embedded in the README:
 //   assets/konoha-orchestration-flow.gif  — MCP orchestration & execution flow
 //   assets/konoha-jonin-flow.gif          — Jonin premium UI build pipeline
 //   assets/konoha-kage-gate.gif           — Kage final review gate
+//   assets/konoha-qa-flow.gif            — Anbu QA automation workflow
 'use strict';
 
 const {
@@ -29,6 +30,40 @@ function frame(W, H, paint, duration) {
   const ctx = canvas.getContext('2d');
   paint(ctx);
   return { canvas, duration };
+}
+
+function drawFeedbackLoop(ctx, pathPts, alpha, dashOffset, text, tx, ty) {
+  if (alpha <= 0) return;
+  connector(ctx, pathPts, {
+    from: THEME.red, to: THEME.amber, alpha, dashed: true, dash: [5, 5], dashOffset,
+  });
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = '10px "KonohaMono"';
+  ctx.fillStyle = 'rgba(248,113,113,0.95)';
+  ctx.textAlign = 'left';
+  ctx.fillText(text, tx, ty);
+  ctx.restore();
+}
+
+function drawReviewMetricsPanel(ctx, cfg) {
+  const { cx, cy, r, pct, threshold, label, bars, baseY, fillDenom, statusText, statusY, approved, stampText, stampY } = cfg;
+  ringGauge(ctx, cx, cy, r, pct, { threshold, label });
+  const fill = Math.min(1, pct / fillDenom);
+  bars.forEach((b, i) => {
+    metricBar(ctx, 660, baseY + i * 36, 460, b.label, Math.round(b.val * fill), b.accent, 1);
+  });
+  if (pct > 0 && !approved && statusText) {
+    ctx.save();
+    ctx.font = '13px "KonohaMonoBold"';
+    ctx.fillStyle = 'rgba(248,113,113,0.95)';
+    ctx.textAlign = 'center';
+    ctx.fillText(statusText, cx, statusY);
+    ctx.restore();
+  }
+  if (approved && stampText) {
+    stamp(ctx, cx, stampY, stampText, THEME.emerald, 1, -0.06);
+  }
 }
 
 /* ================================================================== *
@@ -80,7 +115,7 @@ function orchestrationScene() {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
       subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.0.2',
       badge: '83–98% TOKEN SAVINGS',
-      footer: '35 canonical MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
+      footer: '37 canonical MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
     });
 
   const paint = (opts) => (ctx) => {
@@ -236,33 +271,13 @@ function kageScene() {
     for (let i = 0; i < stepCount - 1; i++) {
       connector(ctx, [[320, steps[i].y + 64], [320, steps[i + 1].y]], { dashOffset, width: 1.8 });
     }
-    if (remedAlpha > 0) {
-      connector(ctx, REMED_PATH, {
-        from: THEME.red, to: THEME.amber, alpha: remedAlpha, dashed: true, dash: [5, 5], dashOffset,
-      });
-      ctx.save();
-      ctx.globalAlpha = remedAlpha;
-      ctx.font = '10px "KonohaMono"';
-      ctx.fillStyle = 'rgba(248,113,113,0.95)';
-      ctx.textAlign = 'left';
-      ctx.fillText('FAIL <98% → remediate & re-dispatch', 66, 512);
-      ctx.restore();
-    }
+    drawFeedbackLoop(ctx, REMED_PATH, remedAlpha, dashOffset, 'FAIL <98% → remediate & re-dispatch', 66, 512);
     for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
-    ringGauge(ctx, 890, 250, 105, pct, { threshold: 98, label: 'KAGE CONFIDENCE' });
-    const fill = Math.min(1, pct / 98);
-    BARS.forEach((b, i) => {
-      metricBar(ctx, 660, 420 + i * 36, 460, b.label, Math.round(b.val * fill), b.accent, 1);
+    drawReviewMetricsPanel(ctx, {
+      cx: 890, cy: 250, r: 105, pct, threshold: 98, label: 'KAGE CONFIDENCE',
+      bars: BARS, baseY: 420, fillDenom: 98, statusText: 'BLOCKED', statusY: 388,
+      approved, stampText: 'DELIVERY APPROVED', stampY: 588,
     });
-    if (pct > 0 && !approved) {
-      ctx.save();
-      ctx.font = '13px "KonohaMonoBold"';
-      ctx.fillStyle = 'rgba(248,113,113,0.95)';
-      ctx.textAlign = 'center';
-      ctx.fillText('BLOCKED', 890, 388);
-      ctx.restore();
-    }
-    if (approved) stamp(ctx, 890, 588, 'DELIVERY APPROVED', THEME.emerald, 1, -0.06);
   };
 
   const frames = [];
@@ -278,6 +293,71 @@ function kageScene() {
   saveAsset(frames, 'konoha-kage-gate.gif');
 }
 
+/* ================================================================== *
+ * 4. Anbu QA Automation Workflow
+ * ================================================================== */
+
+function qaScene() {
+  const W = 1200;
+  const H = 760;
+
+  const steps = [
+    { title: '1. TASK & PORT ISOLATION', detail: 'QA scope identified · preview server isolated on port 4173', accent: THEME.blue },
+    { title: '2. AGENT-BROWSER EXPLORATION', detail: 'interactive discovery · scoped snapshot -i -c (<500 tokens)', accent: THEME.cyan },
+    { title: '3. DECLARATIVE FLOW SPEC', detail: 'tests/e2e/flows/*.json declarative schema · semantic locators', accent: THEME.cyan },
+    { title: '4. DETERMINISTIC QA_CODIFY', detail: 'qaCodify compiler · lint gate · clean .spec.js generated', accent: THEME.violet },
+    { title: '5. RED RUN VERIFICATION', detail: 'qa_e2e_run reproduces failure · failure stack extracted', accent: THEME.red },
+    { title: '6. TARGETED REMEDIATION', detail: 'Anbu backend fix / Jonin UI fix · zero untouched code changes', accent: THEME.amber },
+    { title: '7. GREEN RUN VERIFICATION', detail: 'qa_e2e_run passes · 0 failures · unique run_id (<2000 chars)', accent: THEME.emerald },
+    { title: '8. DOGFOOD REPORT & KAGE GATE', detail: 'markdown dogfood report · Kage reviewer confidence ≥98%', accent: THEME.emerald },
+  ].map((d, i) => ({ ...d, x: 60, y: 96 + i * 78, w: 540, h: 58 }));
+
+  const BARS = [
+    { label: 'TOKEN REDUCTION (VS RAW)', val: 92, accent: THEME.emerald },
+    { label: 'JSON OUTPUT CHAR CAP', val: 100, accent: THEME.cyan },
+    { label: 'ZERO-AI-SLOP SCORE', val: 100, accent: THEME.emerald },
+    { label: 'KAGE GATE CONFIDENCE', val: 98, accent: THEME.violet },
+  ];
+
+  const LOOP_PATH = [[600, 437], [635, 437], [635, 515], [600, 515]];
+
+  const chrome = (ctx) =>
+    drawChrome(ctx, W, H, {
+      title: 'ANBU QA AUTOMATION WORKFLOW',
+      subtitle: 'agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v2.0.2',
+      badge: 'QA AUTOMATION PIPELINE',
+      badgeAccent: THEME.emerald,
+      footer: 'token-efficient browser QA · Playwright compilation · isolated preview port · 0 slop · Anbu owner',
+    });
+
+  const paint = (opts) => (ctx) => {
+    chrome(ctx);
+    const { stepCount, dashOffset, loopAlpha = 0, pct = 0, approved = false } = opts;
+    for (let i = 0; i < stepCount - 1; i++) {
+      connector(ctx, [[330, steps[i].y + 58], [330, steps[i + 1].y]], { dashOffset, width: 1.8 });
+    }
+    drawFeedbackLoop(ctx, LOOP_PATH, loopAlpha, dashOffset, 'FAIL (RED) → fix', 640, 480);
+    for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
+    drawReviewMetricsPanel(ctx, {
+      cx: 890, cy: 240, r: 100, pct, threshold: 98, label: 'E2E PASS RATE',
+      bars: BARS, baseY: 410, fillDenom: 98, statusText: 'TESTING', statusY: 375,
+      approved, stampText: 'QA VERIFIED', stampY: 595,
+    });
+  };
+
+  const frames = [];
+  frames.push(frame(W, H, paint({ stepCount: 0, dashOffset: 0 }), 1300));
+  for (let n = 1; n <= 8; n++) frames.push(frame(W, H, paint({ stepCount: n, dashOffset: 0 }), 380));
+  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: 0, loopAlpha: 1, pct: 0 }), 600));
+  const COUNT = 20;
+  for (let i = 1; i <= COUNT; i++) {
+    const pct = Math.round(easeOutCubic(i / COUNT) * 100);
+    frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -i * 8, loopAlpha: 1, pct, approved: pct >= 98 }), 110));
+  }
+  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -80, loopAlpha: 1, pct: 100, approved: true }), 1300));
+  saveAsset(frames, 'konoha-qa-flow.gif');
+}
+
 /* ------------------------------------------------------------------ */
 
 function main() {
@@ -285,6 +365,7 @@ function main() {
   orchestrationScene();
   joninScene();
   kageScene();
+  qaScene();
   console.log('✓ All premium flow GIFs generated.');
 }
 

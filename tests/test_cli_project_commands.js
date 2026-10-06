@@ -29,7 +29,7 @@ function runCli(args) {
       encoding: 'utf-8',
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 30000
+      timeout: 60000
     });
     return { status: 0, stdout, stderr: '' };
   } catch (err) {

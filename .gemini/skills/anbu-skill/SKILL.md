@@ -67,6 +67,11 @@ In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: e
 2. **Deterministic Layer Caching**: Order instructions from least frequently changed to most frequently changed (package manifests before application source).
 3. **Security Hardening**: Run as an explicit non-root user (`USER nonroot` / `USER 1001`), use minimal base images (Alpine, distroless, scratch), and drop unnecessary Linux capabilities.
 4. **Health Checks & Artifact Cleanliness**: Define explicit container `HEALTHCHECK` and purge package manager caches in the same `RUN` step (`rm -rf /var/cache/apk/*`, `pnpm store prune`).
+## SOP 8: QA Automation (agent-browser + Playwright)
+1. Explore routes via scoped snapshots (`snapshot -i -c -s`); write verified flow file (`<test-dir>/e2e/flows/*.json`).
+2. Codify deterministically via `qa_codify`; run regression suites via `qa_e2e_run` only.
+3. Strictly enforce no claims without tool output, no fake green (no skip/fixme/timeout hikes).
+4. See full procedures in `anbu-skill/qa-automation`.
 
 ## Domain Routing
 
@@ -74,6 +79,7 @@ Based on the user's request, load the specific reference file using `konoha.get_
 
 | If the request involves... | Load this reference |
 |---|---|
+| QA, E2E, regression, UI bug reproduction, browser testing, flow file, Playwright test | `anbu-skill/qa-automation` |
 | Penetration testing in dev/local environments, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
 | DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
 | Helm charts, Kubernetes packaging, Chart.yaml, values.yaml templating, Helm scaffolding, chart linting | `anbu-skill/helm-chart-scaffolding` |

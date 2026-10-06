@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-35%20Canonical-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-37%20Canonical-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.0.2 (2026-10-02)](CHANGELOG.md) — Strict Preservation of Pre-Existing User Skills & Config, Cross-Platform Windows Web UI Resilience, Modularized UI Subsystem, Strict Zero-Exclusions Invariant, and Zero-AI-Slop 100/100 validation.
-* **Latest Security Compliance:** [Google Policy Compliance v2.0.2 — Konoha v2.0.2 (2026-10-02)](docs/SecurityCompliance/security_compliance_report_google_policy_2.0.2_2026-10-02.md)
+* **Latest Release:** [v2.1.0 (2026-10-06)](CHANGELOG.md) — Enterprise Cloud Architecture, Universal High-Contrast Visual Standards, npm Package Normalization (`konoha-mcp`), QA Automation Engine, and Zero-AI-Slop 100/100 validation.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.0 — Konoha v2.1.0 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -346,8 +346,8 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
   - `@genin` — codebase exploration, codepath tracing, ADHD-friendly output shaping (`genin-skill/i-have-adhd`)
   - `@kage` — architecture, security, deep analysis, anti-slop delivery gate (`kage-skill/antislop*`, `kage-skill/drawio-skill`)
   - `@chunin` — web research, documentation synthesis, citations
-  - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4, React/Next.js best practices (`jonin-skill/react-patterns`, `react-performance`, `react-testing`), ADHD output shaping (`jonin-skill/i-have-adhd`)
-  - `@anbu` — backend development, bug fixing, DevOps & cloud infrastructure, Helm chart scaffolding (`anbu-skill/helm-chart-scaffolding`), multi-stage Dockerfiles (`anbu-skill/multi-stage-dockerfile`), ADHD output shaping (`anbu-skill/i-have-adhd`), & dev/local penetration testing
+  - `@jonin` — UI/frontend across 4 frameworks (SvelteKit, Next.js 16, Nuxt 3, Angular v19+) using `pnpm` + Tailwind v4, React/Next.js best practices (`jonin-skill/react-patterns`, `react-performance`, `react-testing`), ADHD output shaping (`jonin-skill/i-have-adhd`); fixes UI bugs found by QA automation (never calls QA tools)
+  - `@anbu` — backend development, bug fixing, QA automation & E2E verification (`anbu-skill/qa-automation`, `agent-browser` + Playwright), DevOps & cloud infrastructure, Helm chart scaffolding (`anbu-skill/helm-chart-scaffolding`), multi-stage Dockerfiles (`anbu-skill/multi-stage-dockerfile`), ADHD output shaping (`anbu-skill/i-have-adhd`), & dev/local penetration testing
   - `@tokubetsu-jonin` — technical writing, docs, runbooks, READMEs
 
 **The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** Trivial edits on a known file may run inline; everything else routes through a subagent.
@@ -374,10 +374,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#ede9fe'
     primaryTextColor: '#1e1b4b'
     primaryBorderColor: '#7c3aed'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#d1fae5'
     tertiaryColor: '#dbeafe'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -400,6 +402,7 @@ flowchart TB
     Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
     Synthesize --> Response["Synthesized Response"]
 
+    linkStyle default stroke:#0f172a,stroke-width:2px;
     classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
     classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46
@@ -511,13 +514,13 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.0.2) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.0) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
 | `konoha detect-ai <path-or-url>` | Website AI-fingerprint detector (anonymiz.com-style): scans a site directory or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
-| `konoha doctor` | Diagnose environment health and automatically repair missing files |
+| `konoha doctor` | Diagnose environment health, verify `agent-browser` CLI & Chrome binary readiness, and automatically repair missing files |
 | `konoha ui <subcommand>` | Optional Web UI lifecycle management (`start`, `stop`, `restart`, `status`, `open`) on port 1404 |
 | `konoha web` | Launch the browser-based Web Configuration UI on port 1404 (Svelte 5 + Vite) |
 | `konoha uninstall` | Remove Skills-DB (original skills untouched) |
@@ -538,7 +541,7 @@ Konoha structures every development task into an autonomous 8-phase state machin
 2. **`explore` (⚑ Genin)**: Read-only reconnaissance mapping codepaths, architecture boundaries, and dependencies (`findings.md`).
 3. **`plan` (◎ Kage)**: Evaluates exploration findings, defines decoupled subtasks (`- [agent]: task`), registers unit subtasks in SQLite `sdlc_tasks`, and detects web research needs.
 4. **`research` (▫ Chunin)**: Performs targeted web queries and documentation verification when requested by the Kage plan (`needs_research: true`).
-5. **`execute` (♦ Jonin / ♠ Anbu)**: Dispatches implementation tasks, executes framework-native builds/lints, and records verifiable validation evidence.
+5. **`execute` (♦ Jonin / ♠ Anbu)**: Dispatches implementation tasks, executes framework-native builds/lints, runs QA automation loop for browser/E2E tasks owned exclusively by Anbu (see [QA Automation Architecture](docs/QA-AUTOMATION.md)), and records verifiable validation evidence.
 6. **`document` (⬡ Tokubetsu-Jonin)**: Generates human-authentic documentation, API specifications, runbooks, and changelogs (`final_docs.md`).
 7. **`review` (◎ Kage Gate)**: Mandatory Two-Step Zero-AI-Slop Gate (100/100 target) + SDLC subtask completion check + security audit + ≥98% confidence score. Autonomous remediation loop dispatched to `anbu` if slop findings exist.
 8. **`synthesize` & `done` (✧ Sannin)**: Synthesizes `final_report.md` with full evidence table, marks root container `completed`, purges transient scratch files, and delivers cleanly.
@@ -558,6 +561,77 @@ Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDL
 - **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Every task's DoR check, review mode, validation evidence, and anti-slop findings are permanently saved in SQLite WAL mode. Queryable via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`).
 - **Web UI SDLC Tasks Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness sandbox tester, task evidence & anti-slop audit modal, and live governance mode toggles (`/api/v1/sdlc/*`).
 - **Web UI skills.sh Registry & Vector Chunks Inspector (`/skills`)**: 3-mode search toggle (`🔤 Local FTS5`, `⚡ Neural Vector`, `🌐 skills.sh Registry`), 1-click installation from `skills.sh` with non-interactive execution (`-y --agent '*'`), automated multi-directory migration, and dedicated vector chunks inspection modal with 384d Float32 vector samples.
+
+## 🧪 Token-Efficient QA Automation (`agent-browser` + Playwright)
+
+> **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md)
+
+<p align="center">
+  <img src="assets/konoha-qa-flow.gif" alt="Konoha QA Automation Workflow" width="100%" />
+</p>
+
+Konoha implements a token-efficient, bounded QA automation pipeline owned exclusively by `anbu`. By combining `agent-browser` interactive exploration (`snapshot -i -c` taking <500 tokens) with declarative flow specifications (`tests/e2e/flows/*.json`), deterministic `qa_codify` Playwright compilation, and bounded `qa_e2e_run` test execution (<2,000 characters output cap), Konoha achieves **92% token savings** over traditional unconstrained browser trace dumps while completely eliminating fake-green test claims. Working artifacts are directed outside the workspace with automated retention (default 20 newest runs) and managed `.gitignore` isolation in git repositories (opt out via `KONOHA_QA_GITIGNORE=0`).
+
+<details>
+<summary><b>📐 View Text-Based Mermaid Source Specification</b></summary>
+
+```mermaid
+---
+title: QA Automation Workflow
+config:
+  theme: base
+  themeVariables:
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ede9fe'
+    primaryTextColor: '#1e1b4b'
+    primaryBorderColor: '#7c3aed'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
+    secondaryColor: '#d1fae5'
+    tertiaryColor: '#dbeafe'
+    fontFamily: 'Inter, system-ui, sans-serif'
+    fontSize: '14px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+  P1["1 Route: Sannin, DoR, delegates"] --> P2["2 Explore: Genin, cites file:line"]
+  P2 --> P3["3 Plan: Kage, task list per agent"]
+  P3 -. needs_research .-> P4["4 Research: Chunin"]
+  P3 --> Q1
+  P4 --> Q1
+
+  subgraph P5["5 Execute: QA loop, Anbu owns all evidence"]
+    Q1["Anbu: explore with scoped snapshots"] --> Q2["Anbu: write flow file"]
+    Q2 --> QV{"batch --bail passes?"}
+    QV -- no --> Q2
+    QV -- yes --> Q3["Anbu: qa_codify + qa_e2e_run = RED"]
+    Q3 --> QF{"Where is the bug?"}
+    QF -- backend or API --> QFB["Anbu: fix"]
+    QF -- UI --> QFU["Jonin: fix UI code"]
+    QFB --> Q4["Anbu: qa_e2e_run same test = GREEN"]
+    QFU --> Q4
+    Q4 --> Q5["Anbu: aislop_scan + aislop_fix"]
+    Q5 -- "findings > 0" --> Q5
+    Q5 -- clean --> Q6["Anbu: QA report + record run_id as evidence"]
+  end
+
+  Q6 --> P6["6 Document: Tokubetsu-jonin"]
+  P6 --> P7["7 Review: Kage gate"]
+  P7 --> G{"gate passes?"}
+  G -- yes --> P8["8 Synthesize: Sannin final report"]
+  G -- no --> RD["Workflow engine re-delegates: slop to Anbu or Jonin for UI files, QA failure to the fix owner"]
+  RD --> QF
+  RD -. "depth 7 or slop_cycles > 7" .-> STOP["Stop and ask the user"]
+
+  linkStyle default stroke:#0f172a,stroke-width:2px;
+```
+
+</details>
 
 ## 🛰️ Cross-Platform Install
 
@@ -707,7 +781,7 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 35 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, and subagent delegation workflows:
+The unified `konoha` server exposes 37 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, QA automation, and subagent delegation workflows:
 
 #### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
@@ -772,6 +846,12 @@ Return a validated, side-effect-free premium specification for Next.js, Nuxt 3, 
 | `token_efficient_grep(pattern, dir, glob?, ignore_case?)` | Compressed regex search | Max **20** matches (cap 50) |
 | `get_file_structure(path)` | Class/function signatures only (no bodies) | AST (Python) / regex (JS/TS) |
 | `find_files_clean(pattern, dir)` | Glob walk with blacklist | Skips `.git`, `node_modules`, `dist`, lockfiles |
+
+#### QA Automation Tools (`anbu` exclusive)
+| Tool | Signature | Purpose & Token Guard |
+|------|-----------|------------------------|
+| `qa_codify` | `(flow_path, target_spec_path?, base_url?)` | Compiles declarative flow JSON (`tests/e2e/flows/*.json`) to Playwright `.spec.js`. Rejects `@e` element refs, generates semantic locators, pre-verifies against target app, and runs syntax linting before writing. Accessible exclusively to `anbu`. |
+| `qa_e2e_run` | `(test_file?, test_filter?, project_dir?, timeout_ms?)` | Headless Playwright test runner with hard output cap strictly under 2,000 characters. Strips ANSI color codes, extracts failure traces, assigns unique `run_id`, and returns clean structured JSON summary. Prevents LLM context blowup. Accessible exclusively to `anbu`. |
 
 > [!IMPORTANT]
 > **All agents must use konoha** for skill lookups, file reads, and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** (semantic code search) → **konoha** (skills & file operations).
@@ -926,10 +1006,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#fee2e2'
     primaryTextColor: '#7f1d1d'
     primaryBorderColor: '#ef4444'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#d1fae5'
     tertiaryColor: '#fef3c7'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -954,6 +1036,7 @@ flowchart TB
     Before --> Compare["Smaller query payload<br/>(97–99% token reduction)"]
     After --> Compare
 
+    linkStyle default stroke:#0f172a,stroke-width:2px;
     classDef waste fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:2px
     classDef optimized fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
     classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px

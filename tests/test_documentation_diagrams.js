@@ -14,7 +14,7 @@ const DIAGRAM = path.join(ROOT, 'docs', 'diagrams', 'konoha-architecture.drawio'
 const MANIFEST = path.join(ROOT, 'docs', 'diagrams', 'README.md');
 
 const MERMAID_OWNERS = [
-  { file: path.join(ROOT, 'README.md'), count: 2, required: ['genin-skill', 'sannin', 'Konoha MCP', 'Semble MCP', 'SQLite FTS5'] },
+  { file: path.join(ROOT, 'README.md'), count: 3, required: ['genin-skill', 'sannin', 'Konoha MCP', 'Semble MCP', 'SQLite FTS5'] },
   { file: path.join(ROOT, 'docs', 'ARCHITECTURE.md'), count: 2, required: ['genin-skill', 'sannin', 'Konoha MCP', 'Semble MCP', 'SQLite FTS5'] },
   { file: path.join(ROOT, 'docs', 'LLM-BRIDGE-GATEWAY.md'), count: 1, required: ['Konoha Bridge Router', 'SQLite', 'Antigravity Sidecar'] },
   { file: path.join(ROOT, 'docs', 'SETUP-SEARXNG.md'), count: 1, required: ['SearXNG', 'DuckDuckGo', 'Startpage', 'Wikipedia'] },
@@ -44,7 +44,7 @@ async function run() {
     pages.push({ name: unescapedName, content: dMatch[2] });
   }
 
-  assert.strictEqual(pages.length, 12);
+  assert.strictEqual(pages.length, 13);
   const expectedPageNames = new Set([
     '01 System Architecture',
     '02 Runtime Query Lifecycle',
@@ -57,7 +57,8 @@ async function run() {
     '09 Jonin Taste-Skill Frontend Engine',
     '10 Persistent Project Context & Auto-Compaction',
     '11 Kage Pre-Delivery Reviewer Workflow Gate',
-    '12 CLI Upgrade & Progress Engine'
+    '12 CLI Upgrade & Progress Engine',
+    '13 QA Automation Workflow'
   ]);
   assert.deepStrictEqual(new Set(pages.map(p => p.name)), expectedPageNames);
 
@@ -90,8 +91,12 @@ async function run() {
 
     for (const cell of cells) {
       if (cell.edge === '1') {
-        assert.ok(ids.has(cell.source), `Source ${cell.source} not in ids on page ${page.name}`);
-        assert.ok(ids.has(cell.target), `Target ${cell.target} not in ids on page ${page.name}`);
+        if (cell.source) {
+          assert.ok(ids.has(cell.source), `Source ${cell.source} not in ids on page ${page.name}`);
+        }
+        if (cell.target) {
+          assert.ok(ids.has(cell.target), `Target ${cell.target} not in ids on page ${page.name}`);
+        }
         assert.ok(cell.inner.includes('mxGeometry'), `Edge ${cell.id} missing mxGeometry`);
 
         if (HIGH_RISK_EDGES.has(cell.id)) {

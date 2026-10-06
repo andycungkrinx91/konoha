@@ -17,10 +17,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#dbeafe'
     primaryTextColor: '#1e3a8a'
     primaryBorderColor: '#2563eb'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#e0e7ff'
     tertiaryColor: '#d1fae5'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -42,6 +44,7 @@ flowchart TB
     DB --> Get["get_skill(canonical name)"]
     Get --> Client
 
+    linkStyle default stroke:#0f172a,stroke-width:2px;
     classDef actor fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef source fill:#e0e7ff,stroke:#6366f1,color:#312e81
     classDef process fill:#fef3c7,stroke:#d97706,color:#78350f

@@ -2,7 +2,27 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.0] - 2026-10-06
+
+### Added: Enterprise Cloud Architecture & Universal High-Contrast Visual Standards
+
+- **13-Page Enterprise Cloud Architecture (`docs/diagrams/konoha-enterprise-architecture.drawio`)**: Created publication-grade cloud architecture diagram with complete 13-page coverage using official AWS/GCP container stencils (`group_aws_cloud`, `group_vpc`, `group_security_group`, `group_auto_scaling_group`) and service color hierarchy. Validated with zero geometric collisions (0 penetrations, 0 crossings, 0 overlaps) across all 13 pages.
+- **Universal High-Contrast Mermaid Diagram Standards**: Standardized all Mermaid diagrams across documentation with `#ffffff` white background, `#0f172a` high-contrast lines, explicit matching `#0f172a` arrowhead markers, and bold 2px/2.5px strokes for maximum readability across dark and light editor themes.
+- **npm Package Normalization (`konoha-mcp`)**: Prepared package metadata for plug-and-play npm distribution as `konoha-mcp`, establishing strict Node floor `>=22.16.0` for `node:sqlite` + FTS5 support, removing blocked native install scripts under modern package managers (`pnpm 10+`).
+- **User Manual Diagram Preservation Guarantee**: Verified strict immutability of `docs/diagrams/konoha-architecture.drawio` across all automated documentation and diagram test suites (`tests/test_documentation_diagrams.js`, `tests/test_diagram_sync.js`).
+- **Security Compliance Certification v2.1.0**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md` meeting all Google policy standards and Zero-AI-Slop 100/100 delivery gate.
+
 ## [2.0.2] - 2026-10-02
+
+### Added: Token-Efficient QA Automation Engine (`agent-browser` + Playwright)
+
+- **Dedicated QA MCP Tools (`src/qa_tools.js`)**: Implemented `qa_codify` (deterministic compiler converting declarative flow JSON `tests/e2e/flows/*.json` into Playwright `.spec.js`, enforcing pre-verification against targets, rejecting `@e` element refs, auto-generating semantic locators, and linting syntax) and `qa_e2e_run` (headless Playwright test runner with hard output capping strictly under 2,000 characters, ANSI color stripping, structured failure stack extraction, and unique `run_id` assignment). Accessible exclusively to `anbu`.
+- **Anbu QA Automation Skill & Standard Operating Procedures (`anbu-skill/qa-automation`)**: Added `SOP 8: QA Automation` to `.agents/skills/anbu-skill/SKILL.md` and created comprehensive reference guides (`references/qa-automation.md`, `references/qa-automation-assets/references/explore-checklist.md`, `flow-format.md`, `failure-triage.md`, `report-template.md`). Synchronized across all 5 mirror trees via `scripts/sync_skills.js`.
+- **`apps/web` Playwright Integration & Dogfooding**: Added `@playwright/test` to `apps/web/package.json` devDependencies with preview server on dedicated port 4173. Codified and validated `/` and `/detector` routes with dogfood report `tests/e2e/reports/2026-10-06-dogfood-web.md`.
+- **CLI Doctor Health Verification (`bin/cli.js`)**: Added offline Chrome readiness verification to `konoha doctor` (`agent-browser doctor --offline --quick`) with automated pnpm remediation hints.
+- **Automated Anti-Drift Testing & Diagrams Synchronization**: Synchronized tool count across repository (37 canonical tools, 46 total manifest tools), added Page 13 ("13 QA Automation Workflow") to `docs/diagrams/konoha-architecture.drawio`, generated animated flow GIF `assets/konoha-qa-flow.gif`, updated diagram manifest, created `docs/QA-AUTOMATION.md`, and added regression suites `tests/test_qa_*.js` and `tests/test_diagram_sync.js`.
+- **QA Run Housekeeping & Workspace Hygiene (`src/qa_tools.js`)**: Redirected Playwright artifacts and `.last-run.json` outside repository workspace to stable per-project directory `~/.konoha/tmp/qa/projects/<hash>/artifacts/`, preserving `--last-failed` functionality without polluting user projects. Added automated managed `.gitignore` block `# KONOHA-QA-START ... # KONOHA-QA-END` for git projects (opt out with `KONOHA_QA_GITIGNORE=0`). Implemented automated retention keeping newest $N$ runs (default 20, overridable with `KONOHA_QA_RETENTION_COUNT`), failure evidence copy to run folders (`trace-*.zip`, `screenshot-*.png`), and protection for runs linked to open SDLC tasks.
+
 
 ### Fixed: Strict Preservation of Pre-Existing User Skills and Configuration Across Installs and Upgrades
 

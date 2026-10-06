@@ -8,7 +8,7 @@
 
 ## 1. Canonical MCP Tools (Active Advertised Roster)
 
-All tools (35 active) are served through the `konoha` MCP server over stdio JSON-RPC.
+All tools (37 active) are served through the `konoha` MCP server over stdio JSON-RPC.
 
 | Tool Name | Parameters | Purpose | Return Schema |
 |---|---|---|---|
@@ -47,6 +47,8 @@ All tools (35 active) are served through the `konoha` MCP server over stdio JSON
 | `check_readiness` | `task: string, project_path?: string` | Check task prompt readiness before dispatch. | Gate approval status JSON |
 | `get_task_evidence` | `task_id: string` | Retrieve validation evidence for a task. | Evidence log JSON |
 | `get_slop_findings` | `task_id: string` | Retrieve anti-slop scan findings and report for a task. | Anti-slop scanner report JSON |
+| `qa_codify` | `flow_path: string, out_path: string, name: string, lang?: string, skip_verification?: boolean` | Deterministically compiles and codifies an agent-browser flow JSON file into a Playwright test specification after verifying it via agent-browser batch. | Playwright spec compilation confirmation JSON |
+| `qa_e2e_run` | `project_path: string, grep?: string, last_failed?: boolean, max_failures?: integer` | Runs Playwright end-to-end regression suites in a target project with JSON reporting and returns a compact, capped execution summary under 2,000 characters with a verifiable run_id. | Structured E2E execution summary JSON |
 ---
 
 ## 2. Canonical Subagents Roster

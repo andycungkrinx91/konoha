@@ -15,10 +15,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#ffe6cc'
     primaryTextColor: '#78350f'
     primaryBorderColor: '#d97706'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#dbeafe'
     tertiaryColor: '#ede9fe'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -46,6 +48,7 @@ flowchart TB
     Compatible --> Local["Local LLM Endpoint"]
     Antigravity --> Cascade["Sidecar protocol cascade<br/>(proto -> raw -> gRPC)"]
 
+    linkStyle default stroke:#0f172a,stroke-width:2px;
     classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
     classDef gateway fill:#ffe6cc,stroke:#d97706,color:#78350f,stroke-width:2px
     classDef bridge fill:#e0e7ff,stroke:#6366f1,color:#312e81

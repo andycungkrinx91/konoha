@@ -115,6 +115,11 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
     tools.push('- `mcp__aislop__aislop_fix` — Auto-fix AI slop issues');
   }
 
+  if (normAgent === 'anbu') {
+    tools.push('- `mcp__konoha__qa_codify` — Deterministically codify flow file to Playwright test');
+    tools.push('- `mcp__konoha__qa_e2e_run` — Run Playwright regression test suite with compact summary');
+  }
+
   let boundaries = (
     '### Strict Tool Boundaries\n' +
     'Use konoha MCP for skill lookup and bounded file reads/grep. Use semble MCP for project code search.\n'
@@ -128,6 +133,12 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
     boundaries += (
       'For aislop MCP: You are permitted to use `aislop_scan`, `aislop_fix`, and `aislop_why` ' +
       'to detect and remediate slop issues before Kage delivery review.\n'
+    );
+  }
+  if (normAgent === 'anbu') {
+    boundaries += (
+      'For QA automation: Anbu is granted `qa_codify` and `qa_e2e_run`. ' +
+      'Other agents (Jonin, Kage, Genin) do not call QA tools.\n'
     );
   }
 

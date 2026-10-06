@@ -2,7 +2,7 @@
 
 ## Architecture
 
-> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Diagram manifest](diagrams/README.md).
+> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Enterprise Infrastructure View](diagrams/konoha-enterprise-architecture.drawio) · [Diagram manifest](diagrams/README.md).
 
 ```mermaid
 ---
@@ -11,10 +11,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#dbeafe'
     primaryTextColor: '#1e3a8a'
     primaryBorderColor: '#2563eb'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#ede9fe'
     tertiaryColor: '#d1fae5'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -45,7 +47,7 @@ flowchart TB
     subgraph Specialists ["Specialized Subagents (Sannin Router)"]
         Sannin["✧ sannin (Router)"]
         Jonin["♦ jonin (Elite Frontend Builder · aislop_fix)"]
-        Anbu["♠ anbu (Backend, DevOps & Dev/Local Pentest · aislop_fix)"]
+        Anbu["♠ anbu (Backend, DevOps, QA & Dev/Local Pentest · aislop_fix)"]
         Kage["◎ kage (Security, Architecture & Zero-AI-Slop Gate)"]
         Genin["⚑ genin (genin-skill Code Explorer · Baseline Scan)"]
         Chunin["▫ chunin (Research & Web Intel)"]
@@ -63,13 +65,15 @@ flowchart TB
     KonohaMCP --> Sannin
     Sannin --> Specialists
     Specialists --> UniversalInvariants
+
+    linkStyle default stroke:#0f172a,stroke-width:2px;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (35 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (37 Canonical Tools)
 
-| Tool Category | Registered Tools (35 Total) | Description |
+| Tool Category | Registered Tools (37 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (4)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient snippet-first ingestion. |
@@ -81,6 +85,7 @@ flowchart TB
 | **SDLC Governance & Quality Gates (3)** | `check_readiness`, `get_task_evidence`, `get_slop_findings` | Definition-of-Ready auditing, automated task evidence collection, and slop findings query. |
 | **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
+| **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
 
 
 ### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
@@ -200,7 +205,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (35 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (37 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -209,6 +214,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Autonomous Kage → Anbu Remediation Loop**: Automatically converts anti-slop findings into high-priority remediation tasks for `anbu`, re-evaluating upon completion. The loop is strictly bounded by Konoha's delegation-depth circuit breaker (`slop_cycles > 7`) to prevent infinite recursion.
    - **Persistent SQLite Audit Trail (`sdlc_tasks`)**: Persists structured task state, DoR results, validation evidence, and slop audit history in SQLite WAL mode (`~/.konoha/konoha.db`). Managed via CLI (`konoha task list`, `konoha task show <id>`, `konoha task slop <id>`) and MCP tools (`check_readiness`, `get_task_evidence`, `get_slop_findings`). Delivery is strictly blocked if any SDLC task remains in `blocked` or `failed` state.
    - **Web UI Governance Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness tester, task detail & audit evidence modal, and real-time project governance configuration (`/api/v1/sdlc/*`).
+   - **QA Automation Evidence Rule**: For browser, E2E, and UI regression tasks, validation evidence must be generated via `qa_e2e_run` (Anbu owner) containing a valid `run_id`, clean exit code 0, 0 failures, and strict output capping under 2,000 characters. Unsubstantiated or fake green claims are rejected by the review gate (see `docs/QA-AUTOMATION.md`).
 12. **Base Personality: High Effort + Instruct Style Across All Agents**:
    - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) and main orchestrators across all 7 supported clients.
    - Combines deep internal reasoning (silent deliberation during High/Max effort) with crisp, direct, instruction-following output.
@@ -229,6 +235,10 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Headless browser launch via `cmd.exe /c start ""` with `windowsHide: true`, 30-attempt polling window, port-scoped daemon management, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
 18. **Architectural Modularization & Strict Zero-Exclusions Gate (v2.0.2)**:
    - Extracted 1,068 lines of UI CLI commands into `bin/lib/ui_commands.js` to preserve the < 9,000 lines complexity threshold. Enforces strict zero-exclusions across application code — `aislop-ignore` and config suppressions are strictly forbidden on codebase files, mandating root-cause architectural resolution.
+19. **QA Automation Workflow & Bounded Browser Loop (v2.1.0)**:
+   - Integrates deterministic `agent-browser` + Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
+20. **13-Page Enterprise Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
+   - Full 13-page Draw.io enterprise cloud model in `docs/diagrams/konoha-enterprise-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
 
 ---
 
@@ -243,10 +253,12 @@ config:
   theme: base
   themeVariables:
     background: '#ffffff'
+    mainBkg: '#ffffff'
     primaryColor: '#dbeafe'
     primaryTextColor: '#1e3a8a'
     primaryBorderColor: '#2563eb'
-    lineColor: '#64748b'
+    lineColor: '#0f172a'
+    arrowheadColor: '#0f172a'
     secondaryColor: '#ede9fe'
     tertiaryColor: '#d1fae5'
     fontFamily: 'Inter, system-ui, sans-serif'
@@ -294,6 +306,8 @@ flowchart TD
     class DecisionResearch,DecisionReview decision;
     class Remediation remediation;
     class P8 approved;
+
+    linkStyle default stroke:#0f172a,stroke-width:2px;
 ```
 
 ### 📋 Workflow Phase Matrix
@@ -304,7 +318,7 @@ flowchart TD
 | **2. Explore** | `genin` | Read-only codebase exploration, symbol indexing, dependency discovery, architecture boundary tracing. Does NOT modify code. | `prompt.md`, project codebase | `findings.md`, `result.md` | Non-empty `findings.md` and completed exploration dispatch. |
 | **3. Plan** | `kage` | Analyzes exploration findings, defines decoupled `- [agent]: task` items, detects if web research is required (`needs_research: true`), registers subtasks in SQLite `sdlc_tasks`. | `findings.md`, `prompt.md` | `plan.md`, `result.md` | Locked architectural plan with unique executable tasks. |
 | **4. Research** | `chunin` | Conducts real-time web research and documentation verification when requested by Kage plan (`needs_research: true`). | `plan.md` query line | `research_results.json`, `result.md` | Structured findings returned back to Kage for plan finalization. |
-| **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps) | Implements designated task, runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | `delegate.md`, plan task items | Modified project files, `result.md`, recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
+| **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps/QA) | Implements designated task, runs QA automation loop for browser/E2E tasks (`qa_codify`, `qa_e2e_run`, scoped snapshots), runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | `delegate.md`, plan task items | Modified project files, `result.md`, recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
 | **6. Document** | `tokubetsu-jonin` | Generates or updates technical documentation, API specifications, runbooks, and changelogs. Enforces zero dark theme and human-authentic writing. | Completed code changes, `findings.md`, `plan.md` | `final_docs.md`, `result.md` | Technical documentation and changelog synchronized with changes. |
 | **7. Review** | `kage` | Comprehensive pre-delivery quality and confidence gate. Evaluates Zero-AI-Slop compliance, SDLC subtask completion, security/rollback reviews, and calculated confidence. | All artifacts, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), all subtasks completed, ≥98% confidence. |
 | **8. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |

@@ -32,6 +32,9 @@ async function testAll() {
   const testDir = path.join(__dirname, '../src');
   const dummyTaskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-mcp-e2e-'));
   fs.writeFileSync(path.join(dummyTaskDir, 'delegate.md'), 'Build an empty svelte site.');
+  const dummyFlowPath = path.join(dummyTaskDir, 'flow.json');
+  fs.writeFileSync(dummyFlowPath, JSON.stringify([{ action: 'snapshot' }]));
+  const dummyOutPath = path.join(dummyTaskDir, 'flow.spec.js');
 
   const universalPayload = {
     file_path: testFile,
@@ -47,7 +50,10 @@ async function testAll() {
     keyword: 'build',
     description: 'dummy desc',
     framework: 'nuxt',
-    source_dir: testDir
+    source_dir: testDir,
+    flow_path: dummyFlowPath,
+    out_path: dummyOutPath,
+    skip_verification: true
   };
 
   const skipList = [];

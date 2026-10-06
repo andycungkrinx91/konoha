@@ -218,7 +218,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
    ```powershell
    '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node $env:USERPROFILE\.konoha\file_tools_launcher.js
    ```
-   Expected: JSON listing **35 canonical tools**.
+   Expected: JSON listing **37 canonical tools**.
 
 5. **Restart Cursor** after repair.
 
@@ -331,7 +331,7 @@ chmod 644 ~/.konoha/konoha.db
 - **Cause**: The client's `konoha` MCP entry pointed at `~/.konoha/server.js`, whose tool manifest advertises the bounded file tools but whose dispatcher did not implement them (they live in `file_tools_router.js`). Pi's initial registration hit exactly this.
 - **Fix**: Two-layer:
   1. `src/mcp/tool_dispatch.js` now delegates the six bounded file tools to `file_tools_router.dispatchTool`, so `server.js` serves every tool it advertises (verified live via JSON-RPC).
-  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 35 canonical tools.
+  2. `src/pi_manager.js` registers Pi's `konoha` entry against `~/.konoha/file_tools_launcher.js` (the same topology as Antigravity/Cursor/Claude Code), which serves all 37 canonical tools.
 - **If it persists**: re-run `konoha init --force --yes`, fully restart the client, and verify `~/.pi/agent/mcp.json` (or the client's MCP config) points `konoha` at `file_tools_launcher.js`.
 
 ---

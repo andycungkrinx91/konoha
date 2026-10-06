@@ -1,0 +1,7 @@
+[
+  ["open", "http://127.0.0.1:4173/detector"],
+  ["find", "role", "button", "click", "--name", "📄 Document AI"],
+  ["find", "role", "button", "click", "--name", "Paste Text"],
+  ["find", "label", "Paste Document Text", "fill", "Sample verified flow content for document detection"],
+  ["wait", "--text", "Analyze Text"]
+]
