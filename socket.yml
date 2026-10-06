@@ -1,0 +1,14 @@
+version: 2
+# Socket.dev Configuration for Konoha
+# Docs: https://docs.socket.dev
+
+projectIgnorePaths:
+  - "apps/web/build"
+  - "tests"
+  - ".konoha"
+  - ".gemini"
+  - ".agents"
+  - ".claude"
+  - ".cursor"
+  - ".commandcode"
+  - ".pi"

@@ -14,6 +14,7 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **npm Package Normalization (`konoha-mcp`)**: Prepared package metadata for plug-and-play npm distribution as `konoha-mcp`, establishing strict Node floor `>=22.16.0` for `node:sqlite` + FTS5 support, removing blocked native install scripts under modern package managers (`pnpm 10+`).
 - **User Manual Diagram Preservation Guarantee**: Verified strict immutability of `docs/diagrams/konoha-architecture.drawio` across all automated documentation and diagram test suites (`tests/test_documentation_diagrams.js`, `tests/test_diagram_sync.js`).
 - **Security Compliance Certification v2.1.0**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md` meeting all Google policy standards and Zero-AI-Slop 100/100 delivery gate.
+- **Supply Chain Security & Dependency Hardening**: Pruned unmaintained legacy dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, relocated `playwright` to devDependencies, and introduced `socket.yml` supply chain security configuration eliminating security alerts and reducing package weight.
 
 ## [2.0.2] - 2026-10-02
 
