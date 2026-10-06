@@ -41,12 +41,13 @@ jobs:
 
       - name: Publish to npm registry via OIDC Trusted Publisher
         run: |
+          set -o pipefail
           npm publish --provenance --access public --verbose 2>&1 | tee /tmp/npm_publish.log || {
-            ERR=$(grep -E "npm error|403|404|401|E40|OIDC|Token" /tmp/npm_publish.log | head -n 20 | tr '\n' ' ')
+            ERR=$(grep -E "npm error|403|404|401|E40|OIDC|Token|Forbidden|previously" /tmp/npm_publish.log | head -n 20 | tr '\n' ' ')
             echo "::error::OIDC Publish failed: $ERR"
             echo "Attempting fallback publish..."
             npm publish --access public --verbose 2>&1 | tee /tmp/npm_fallback.log || {
-              ERR2=$(grep -E "npm error|403|404|401|E40" /tmp/npm_fallback.log | head -n 20 | tr '\n' ' ')
+              ERR2=$(grep -E "npm error|403|404|401|E40|Forbidden|previously" /tmp/npm_fallback.log | head -n 20 | tr '\n' ' ')
               echo "::error::Fallback Publish failed: $ERR2"
               exit 1
             }
