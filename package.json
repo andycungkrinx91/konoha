@@ -77,6 +77,9 @@
     "gifenc": "^1.0.3"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ],
     "overrides": {
       "sharp": ">=0.35.4",
       "adm-zip": ">=0.6.0",
