@@ -40,8 +40,6 @@ jobs:
       - name: Build Web UI bundle
         run: pnpm run build:web
 
-      - name: Publish to npm registry
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm registry via OIDC Trusted Publisher
         run: |
-          npm publish --access public || echo "Notice: Package version already published or awaiting staged release."
+          npm publish --provenance --access public
