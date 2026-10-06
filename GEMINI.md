@@ -23,7 +23,7 @@
    - Under no circumstances modify, refactor, or touch logic, files, or configurations related to token savings telemetry, bounded file tool constraints, or baseline calculation flow logic in Konoha.
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.1-cross-client-1)
+## Konoha runtime contract (2.1.0-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

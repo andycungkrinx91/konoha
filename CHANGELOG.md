@@ -2,16 +2,12 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [2.1.1] - 2026-10-06
+## [2.1.0] - 2026-10-06
 
-### Added: npm Trusted Publishing & Automated OIDC CI/CD Release
+### Added: Enterprise Cloud Architecture, Trusted Publishing & Universal Standards
 
 - **npm Trusted Publishing (OIDC)**: Integrated OpenID Connect (OIDC) provenance publishing via GitHub Actions (`.github/workflows/publish.yml`) directly targeting `konoha-mcp` with cryptographic provenance attestation.
 - **Automated Web UI Bundle Distribution**: Packaged pre-compiled SvelteKit Web UI bundle within published tarball for zero-build, plug-and-play local dashboard execution across all coding clients.
-
-## [2.1.0] - 2026-10-06
-
-### Added: Enterprise Cloud Architecture & Universal High-Contrast Visual Standards
 
 - **13-Page Enterprise Cloud Architecture (`docs/diagrams/konoha-enterprise-architecture.drawio`)**: Created publication-grade cloud architecture diagram with complete 13-page coverage using official AWS/GCP container stencils (`group_aws_cloud`, `group_vpc`, `group_security_group`, `group_auto_scaling_group`) and service color hierarchy. Validated with zero geometric collisions (0 penetrations, 0 crossings, 0 overlaps) across all 13 pages.
 - **Universal High-Contrast Mermaid Diagram Standards**: Standardized all Mermaid diagrams across documentation with `#ffffff` white background, `#0f172a` high-contrast lines, explicit matching `#0f172a` arrowhead markers, and bold 2px/2.5px strokes for maximum readability across dark and light editor themes.
