@@ -17,19 +17,20 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@sveltejs/adapter-node": "6.0.0-next.12",
-    "@sveltejs/kit": "3.0.0-next.27",
-    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@sveltejs/adapter-node": "^6.0.0",
+    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
-    "svelte": "^5.57.0",
-    "svelte-check": "^4.3.2",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.2.2"
+    "vite": "^8.3.3"
   },
   "pnpm": {
     "overrides": {
-      "devalue": ">=5.9.3",
-      "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
+      "devalue": ">=6.0.2",
+      "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2",
+      "playwright-core": "^1.63.0"
     }
   }
 }
