@@ -25,7 +25,7 @@
    - When maintaining Konoha, Kage review must execute Socket CLI security scans (`rtk socket ci` or `rtk socket scan create ./package.json --report`). Delivery requires 0 High and 0 Medium severity alerts (excluding Low-level informational notices).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.3-cross-client-1)
+## Konoha runtime contract (2.1.4-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
