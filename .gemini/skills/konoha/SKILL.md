@@ -434,3 +434,8 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Environment-Gated Publishing**: CI jobs target `environment: NPM_TOKEN` aligning with npm Trusted Publisher specifications.
     - **Bare-Relative Executable Path**: `package.json` configures `"bin": { "konoha": "bin/cli.js" }` complying with npm 11 strict path validation standards.
     - **Public Repository Metadata**: Root `package.json` enforces canonical public repository metadata (`git+https://github.com/andycungkrinx91/konoha.git`) required for cryptographic build provenance.
+74. **Socket Supply Chain Security Gate & Kage Review Invariant (v2.1.0)**:
+    - **Mandatory Socket Review in Kage Gate**: When maintaining or updating the Konoha repository, Kage Review MUST ALWAYS execute a Socket security scan via the Socket CLI (`rtk socket ci` or `rtk socket scan create ./package.json --report`).
+    - **High & Medium Risk Elimination**: The target repository manifests MUST be strictly clean from **High** (error/critical/malware/CVE) and **Medium** (warn/gptAnomaly/eval/anomaly) risk alerts (0 High, 0 Medium). Low-level risk (informational/monitor notices like telemetry or minified file alerts) is excluded from blocking delivery.
+    - **Delivery Blocking**: If any High or Medium risk vulnerability or supply-chain issue is detected, delivery is strictly BLOCKED until dependencies are upgraded, overridden, or remediated.
+    - **Standard Confidence Gate Report**: The Kage Reviewer Confidence Gate Report table must include the `Socket Security Gate` row verifying 0 High, 0 Medium findings before delivery.

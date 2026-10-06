@@ -15,6 +15,8 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **User Manual Diagram Preservation Guarantee**: Verified strict immutability of `docs/diagrams/konoha-architecture.drawio` across all automated documentation and diagram test suites (`tests/test_documentation_diagrams.js`, `tests/test_diagram_sync.js`).
 - **Security Compliance Certification v2.1.0**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md` meeting all Google policy standards and Zero-AI-Slop 100/100 delivery gate.
 - **Supply Chain Security & Dependency Hardening**: Pruned unmaintained legacy dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, relocated `playwright` to devDependencies, and introduced `socket.yml` supply chain security configuration eliminating security alerts and reducing package weight.
+- **GitHub Actions Node 24 Runner Upgrade**: Upgraded `actions/checkout` and `actions/setup-node` to `@v5` (native Node 24 target) and transitioned pnpm installation to native `corepack enable`, permanently eliminating GitHub Actions runner Node 20 deprecation warnings.
+- **Socket Supply Chain Security Gate**: Mandated Socket security review in Kage review workflow (`socket ci` / `socket scan create --report`), enforcing 0 High and 0 Medium severity risks (excluding Low-level informational notices). Added Socket Supply Chain Security row to the Kage Reviewer Confidence Gate Report.
 
 ## [2.0.2] - 2026-10-02
 

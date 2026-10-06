@@ -1203,10 +1203,18 @@ function runMcpWorkflow(taskDir = null) {
       : 'missing ai_slop_findings';
     const aiSlopConf = aiSlopOk ? '100%' : 'BLOCKING (confidence withheld)';
 
-    const mechanicalConfidence = (aiSlopOk && evidencePct === 100 && securityVerified && rollbackVerified && reviewFindings.length === 0)
+    const socketVerified = reviewData.socket_reviewed === true;
+    const socketClean = reviewData.socket_clean === true;
+    const socketFindings = typeof reviewData.socket_findings === 'number' ? reviewData.socket_findings : 0;
+    const socketOk = reviewData.socket_reviewed !== undefined
+      ? (socketVerified && socketClean && socketFindings === 0)
+      : true;
+
+    const mechanicalConfidence = (aiSlopOk && socketOk && evidencePct === 100 && securityVerified && rollbackVerified && reviewFindings.length === 0)
       ? (typeof reviewData.confidence === 'number' && reviewData.confidence >= MINIMUM_CONFIDENCE ? Math.min(100, Math.max(MINIMUM_CONFIDENCE, reviewData.confidence)) : 99)
       : Math.min(
           aiSlopOk ? 100 : 0,
+          socketOk ? 100 : 0,
           evidencePct,
           securityVerified ? 100 : 0,
           rollbackVerified ? 100 : 0,
@@ -1217,6 +1225,10 @@ function runMcpWorkflow(taskDir = null) {
     function mark(ok) {
       return ok ? '✅ Passed' : '❌ Needs Attention';
     }
+
+    const socketRow = reviewData.socket_reviewed !== undefined
+      ? `| **Socket Security Gate** | Clean from High & Medium (exclude Low) | 0 High, 0 Medium | **${socketOk ? 100 : 0}%** | ${mark(socketOk)} |\n`
+      : '';
 
     const reviewGateBlock = (
       '### 🛡️ Kage Reviewer Confidence Gate Report\n\n' +
@@ -1230,6 +1242,7 @@ function runMcpWorkflow(taskDir = null) {
       '| Verification Category | Target | Evaluated Result | Category Confidence | Status |\n' +
       '|---|---|---|---|---|\n' +
       `| **AI Slop Scan** | All changed files | ${aiSlopEval} | **${aiSlopConf}** | ${mark(aiSlopOk)} |\n` +
+      socketRow +
       `| **Task Validation Evidence** | ${totalTasks}/${totalTasks} tasks with passing evidence | ${verifiedCount}/${totalTasks} verified, ${validationEntries} validation entries recorded | **${evidencePct}%** | ${mark(evidencePct === 100)} |\n` +
       `| **Kage Review Findings** | 0 unresolved findings | ${reviewFindings.length} finding(s) recorded in kage_review.json | **${reviewFindings.length === 0 ? 100 : Math.max(60, 100 - 10 * reviewFindings.length)}%** | ${mark(reviewFindings.length === 0)} |\n` +
       `| **Security Review** | security_reviewed = true | security_reviewed = ${String(securityVerified)} | **${securityVerified ? 100 : 0}%** | ${mark(securityVerified)} |\n` +

@@ -21,6 +21,8 @@
    - When maintaining Konoha, ensure documentation, diagrams, README, and CHANGELOG are updated in tandem with code changes.
 6. **Token Savings Flow Logic Invariant**:
    - Under no circumstances modify, refactor, or touch logic, files, or configurations related to token savings telemetry, bounded file tool constraints, or baseline calculation flow logic in Konoha.
+7. **Socket Supply Chain Security Gate**:
+   - When maintaining Konoha, Kage review must execute Socket CLI security scans (`rtk socket ci` or `rtk socket scan create ./package.json --report`). Delivery requires 0 High and 0 Medium severity alerts (excluding Low-level informational notices).
 
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.1.0-cross-client-1)

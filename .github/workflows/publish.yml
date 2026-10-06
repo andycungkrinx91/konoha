@@ -19,18 +19,16 @@ jobs:
     environment: NPM_TOKEN
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        uses: actions/checkout@v5
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@10 --activate
 
       - name: Install native build tools
         run: sudo apt-get update && sudo apt-get install -y build-essential python3
