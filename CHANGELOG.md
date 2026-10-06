@@ -2,6 +2,13 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.1] - 2026-10-06
+
+### Added: npm Trusted Publishing & Automated OIDC CI/CD Release
+
+- **npm Trusted Publishing (OIDC)**: Integrated OpenID Connect (OIDC) provenance publishing via GitHub Actions (`.github/workflows/publish.yml`) directly targeting `konoha-mcp` with cryptographic provenance attestation.
+- **Automated Web UI Bundle Distribution**: Packaged pre-compiled SvelteKit Web UI bundle within published tarball for zero-build, plug-and-play local dashboard execution across all coding clients.
+
 ## [2.1.0] - 2026-10-06
 
 ### Added: Enterprise Cloud Architecture & Universal High-Contrast Visual Standards
