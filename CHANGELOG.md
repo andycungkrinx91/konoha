@@ -2,22 +2,27 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.1] - 2026-10-06
+
+### Added & Hardened: Socket Supply Chain Security Gate & Konoha Bridge v1.7.0
+
+- **Socket Supply Chain Security Gate**: Mandated Socket security review in Kage review workflow (`socket ci` / `socket scan create --report`), enforcing 0 High and 0 Medium severity risks (excluding Low-level informational notices). Added Socket Supply Chain Security row to the Kage Reviewer Confidence Gate Report. Configured `socket.yml` for automated repository protection.
+- **Transitive Dependency Hardening**: Resolved transitive vulnerabilities and security risks (including `devalue` and `source-map-js`) via modern package overrides. Pruned unmaintained dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, and relocated `playwright` to devDependencies.
+- **Konoha Bridge Extension Upgrade (v1.7.0)**: Upgraded bundled Antigravity IDE bridge extension to `konoha-bridge-1.7.0.vsix` in `assets/` with automatic GitHub direct download fallback (`https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix`) on fresh install and upgrade, detecting and replacing legacy extensions seamlessly.
+- **GitHub Actions Node 24 Runner Upgrade**: Upgraded `actions/checkout` and `actions/setup-node` to `@v5` (native Node 24 target) and transitioned pnpm installation to native `corepack enable`, permanently eliminating GitHub Actions runner Node 20 deprecation warnings.
+- **Security Compliance Certification v2.1.1**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md` meeting all Google policy standards, supply chain verification, and Zero-AI-Slop 100/100 delivery gate.
+
 ## [2.1.0] - 2026-10-06
 
 ### Added: Enterprise Cloud Architecture, Trusted Publishing & Universal Standards
 
 - **npm Trusted Publishing (OIDC)**: Integrated OpenID Connect (OIDC) provenance publishing via GitHub Actions (`.github/workflows/publish.yml`) directly targeting `konoha-mcp` with cryptographic provenance attestation.
 - **Automated Web UI Bundle Distribution**: Packaged pre-compiled SvelteKit Web UI bundle within published tarball for zero-build, plug-and-play local dashboard execution across all coding clients.
-
 - **13-Page Enterprise Cloud Architecture (`docs/diagrams/konoha-enterprise-architecture.drawio`)**: Created publication-grade cloud architecture diagram with complete 13-page coverage using official AWS/GCP container stencils (`group_aws_cloud`, `group_vpc`, `group_security_group`, `group_auto_scaling_group`) and service color hierarchy. Validated with zero geometric collisions (0 penetrations, 0 crossings, 0 overlaps) across all 13 pages.
 - **Universal High-Contrast Mermaid Diagram Standards**: Standardized all Mermaid diagrams across documentation with `#ffffff` white background, `#0f172a` high-contrast lines, explicit matching `#0f172a` arrowhead markers, and bold 2px/2.5px strokes for maximum readability across dark and light editor themes.
 - **npm Package Normalization (`konoha-mcp`)**: Prepared package metadata for plug-and-play npm distribution as `konoha-mcp`, establishing strict Node floor `>=22.16.0` for `node:sqlite` + FTS5 support, removing blocked native install scripts under modern package managers (`pnpm 10+`).
 - **User Manual Diagram Preservation Guarantee**: Verified strict immutability of `docs/diagrams/konoha-architecture.drawio` across all automated documentation and diagram test suites (`tests/test_documentation_diagrams.js`, `tests/test_diagram_sync.js`).
-- **Security Compliance Certification v2.1.0**: Certified `docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md` meeting all Google policy standards and Zero-AI-Slop 100/100 delivery gate.
-- **Supply Chain Security & Dependency Hardening**: Pruned unmaintained legacy dependencies (`figlet`, `gradient-string`, `agent-browser`), inlined zero-dependency ASCII banner in `src/splash.js`, relocated `playwright` to devDependencies, and introduced `socket.yml` supply chain security configuration eliminating security alerts and reducing package weight.
-- **GitHub Actions Node 24 Runner Upgrade**: Upgraded `actions/checkout` and `actions/setup-node` to `@v5` (native Node 24 target) and transitioned pnpm installation to native `corepack enable`, permanently eliminating GitHub Actions runner Node 20 deprecation warnings.
-- **Socket Supply Chain Security Gate**: Mandated Socket security review in Kage review workflow (`socket ci` / `socket scan create --report`), enforcing 0 High and 0 Medium severity risks (excluding Low-level informational notices). Added Socket Supply Chain Security row to the Kage Reviewer Confidence Gate Report.
-- **Konoha Bridge Extension Upgrade (v1.7.0)**: Upgraded bundled Antigravity IDE bridge extension to `konoha-bridge-1.7.0.vsix` in `assets/` with automatic GitHub direct download fallback (`https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix`) on fresh install and upgrade, detecting and replacing legacy v1.6.0 extensions seamlessly.
+- **Security Compliance Certification v2.0.2 & v2.1.0**: Certified security reports meeting all Google policy standards and Zero-AI-Slop 100/100 delivery gate.
 
 ## [2.0.2] - 2026-10-02
 

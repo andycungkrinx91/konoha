@@ -11,7 +11,7 @@
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2018%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20Tools-37%20Canonical-10b981)](README.md)
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.0 (2026-10-06)](CHANGELOG.md) — Enterprise Cloud Architecture, Universal High-Contrast Visual Standards, npm Package Normalization (`konoha-mcp`), QA Automation Engine, and Zero-AI-Slop 100/100 validation.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.0 — Konoha v2.1.0 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.0_2026-10-06.md)
+* **Latest Release:** [v2.1.1 (2026-10-06)](CHANGELOG.md) — Socket Supply Chain Security Gate (100% clean), Konoha Bridge v1.7.0 VSIX upgrade, GitHub Actions Node 24 Runner upgrade, and zero-dependency ASCII splash.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.1 — Konoha v2.1.1 (2026-10-06)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -434,16 +434,35 @@ flowchart TB
 
 ## 🚀 Quick Start
 
-### 📦 Standard 3-Step Team Onboarding (ZIP / Clone / Manual)
+### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 
-For team members receiving the repository as a ZIP archive or cloning from Git:
+Install Konoha globally from npm and initialize all 7 agentic coding clients in one command:
 
 ```bash
-# 1. Extract and enter the directory
-unzip konoha.zip
+# Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
+npm install -g konoha-mcp
+
+# Initialize all coding clients, SQLite FTS5 database, and Antigravity bridge extension
+konoha init
+```
+
+Or run directly without global installation via `npx` / `pnpm dlx`:
+
+```bash
+npx konoha-mcp init
+# or: pnpm dlx konoha-mcp init
+```
+
+### 📦 Source / Clone Onboarding
+
+For developers building from source or cloning the Git repository:
+
+```bash
+# 1. Clone repository and enter directory
+git clone https://github.com/andycungkrinx91/konoha.git
 cd konoha
 
-# 2. Install CLI dependencies (if node_modules is not included in zip)
+# 2. Install dependencies via pnpm
 pnpm install
 
 # 3. Execute one-command cross-client initialization
@@ -454,21 +473,12 @@ node bin/cli.js init --yes --force
 
 ### Automatic Dependency & Environment Provisioning
 
-When installing Konoha globally, all required Node.js libraries, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
-
-```bash
-# Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
-npm install -g konoha-mcp
-
-# Initialize all coding clients with 1 command
-konoha init
-```
-
-Konoha handles all setup steps automatically:
-- 📦 **Node.js dependencies**: Installed via `package.json` (`better-sqlite3`, `@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
+When installing Konoha, all required Node.js libraries, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
+- 📦 **Node.js dependencies**: Hardened, minimal production dependencies installed via `package.json` (`better-sqlite3`, `@inquirer/prompts`, `@bufbuild/protobuf`, `chalk`). Zero unmaintained packages, zero native compile scripts.
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/konoha.db` (legacy `skills.db` is auto-migrated on first open).
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
+- 🌉 **Konoha Bridge v1.7.0**: Bundled VSIX or auto-downloaded fallback directly from GitHub repo into `~/.konoha/konoha-bridge-1.7.0.vsix`.
 
 > [!IMPORTANT]
 > **Zero-Prompt Auto-Setup**:
@@ -496,7 +506,7 @@ konoha status
 
 ## 📋 Requirements
 
-- **Node.js** ≥ 18 (via nvm, Homebrew, or system package; pure Node.js runtime, zero Python dependency)
+- **Node.js** ≥ 22.16.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency)
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
 - **Cross-platform**: Linux, macOS, Windows (native and WSL)
 
@@ -518,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.0) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.1) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
