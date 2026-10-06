@@ -36,7 +36,7 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 For a full install:
 
 ```bash
-pnpm dlx github:andycungkrinx91/konoha init
+npx konoha-mcp init
 ```
 
 Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` binary on PATH) and skip silently otherwise. The following paths are deployed:

@@ -52,7 +52,7 @@ node bin/cli.js init --yes --force
 
 ### Direct Initialization
 ```bash
-pnpm dlx github:andycungkrinx91/konoha init
+npx konoha-mcp init
 ```
 
 ---

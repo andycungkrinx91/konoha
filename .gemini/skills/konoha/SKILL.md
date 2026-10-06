@@ -429,3 +429,8 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Zero-Compilation Runtime**: Built-in `node:sqlite` (`DatabaseSync` / `StatementSync`) replaces native C++ compilation bindings (`better-sqlite3`, `onnxruntime-node`), guaranteeing instant `npx konoha-mcp` installation without python, build tools, or node-gyp.
     - **Cold Skills FTS5 Seed**: Offline SQLite FTS5 database initialized in < 800ms.
     - **Standalone SvelteKit Web UI**: Self-contained `adapter-node` standalone build (`apps/web/build/handler.js`) requiring zero native runtime dependencies.
+73. **npm Trusted Publishing & OIDC CI/CD Release (v2.1.0)**:
+    - **OIDC Provenance Attestation**: Releases are published directly via GitHub Actions (`.github/workflows/publish.yml`) using OpenID Connect (OIDC) with `id-token: write` permissions, eliminating static token exposures.
+    - **Environment-Gated Publishing**: CI jobs target `environment: NPM_TOKEN` aligning with npm Trusted Publisher specifications.
+    - **Bare-Relative Executable Path**: `package.json` configures `"bin": { "konoha": "bin/cli.js" }` complying with npm 11 strict path validation standards.
+    - **Public Repository Metadata**: Root `package.json` enforces canonical public repository metadata (`git+https://github.com/andycungkrinx91/konoha.git`) required for cryptographic build provenance.

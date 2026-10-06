@@ -457,12 +457,15 @@ node bin/cli.js init --yes --force
 When installing Konoha globally, all required Node.js libraries, SQLite FTS5 database schemas, file tools MCP, and client configs are automatically provisioned:
 
 ```bash
-pnpm add --global github:andycungkrinx91/konoha
+# Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
+npm install -g konoha-mcp
+
+# Initialize all coding clients with 1 command
 konoha init
 ```
 
 Konoha handles all setup steps automatically:
-- 📦 **Node.js dependencies**: Installed via `package.json` (`better-sqlite3`, `@huggingface/transformers`, `@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
+- 📦 **Node.js dependencies**: Installed via `package.json` (`better-sqlite3`, `@inquirer/prompts`, `@bufbuild/protobuf`, `playwright`, `figlet`, `gradient-string`, `chalk`).
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/konoha.db` (legacy `skills.db` is auto-migrated on first open).
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
@@ -475,8 +478,8 @@ Konoha handles all setup steps automatically:
 Get Konoha up and running in under 2 minutes:
 
 ```bash
-# 1. Initialize on any machine directly from GitHub (or: node bin/cli.js init from unzipped release)
-pnpm dlx github:andycungkrinx91/konoha init
+# 1. Zero-install one-liner via npx (or: pnpm dlx konoha-mcp init)
+npx konoha-mcp init
 
 # 2. Re-index skills & synchronize vector embeddings (IBM Granite + MS MARCO MiniLM Reranker)
 konoha migrate --clean --rebuild-embeddings
@@ -502,7 +505,8 @@ konoha status
 To run all commands simply as `konoha <command>`, install the package globally:
 
 ```bash
-pnpm add --global github:andycungkrinx91/konoha
+npm install -g konoha-mcp
+# or: pnpm add -g konoha-mcp
 ```
 
 Once installed, the following CLI commands are available:

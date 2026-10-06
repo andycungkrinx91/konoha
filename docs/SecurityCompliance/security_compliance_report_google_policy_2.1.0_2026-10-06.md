@@ -54,6 +54,9 @@ Konoha `v2.1.0` introduces the deterministic QA Automation Workflow owned by Anb
 2. **Script-Free Installation Contract**:
    - Preparing transition to built-in `node:sqlite`, eliminating native build scripts blocked by modern package managers (`pnpm 10+`).
    - Package name normalized to lowercase `konoha-mcp`.
+3. **npm Trusted Publishing & Cryptographic Provenance (OIDC)**:
+   - Configured OpenID Connect (OIDC) workflow (`.github/workflows/publish.yml`) with cryptographic build provenance (`--provenance`) and `environment: NPM_TOKEN`.
+   - Eliminates long-lived static secret tokens in CI/CD pipelines in full compliance with SLSA Level 2+ and Google Supply Chain Security Policies.
 
 ---
 

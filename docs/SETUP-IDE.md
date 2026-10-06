@@ -33,8 +33,8 @@ On native Windows, child processes spawned by Antigravity IDE default to the Ele
 > If you prefer a manual setup or want to perform an initialization, run:
 
 ```bash
-# 1. Initialize MCP server and configurations
-pnpm dlx github:andycungkrinx91/konoha init
+# 1. Initialize MCP server and configurations via npx (or: pnpm dlx konoha-mcp init)
+npx konoha-mcp init
 
 # 2. Re-index skills & synchronize neural vector embeddings (strictly non-destructive):
 konoha migrate --rebuild-embeddings
