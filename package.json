@@ -70,7 +70,8 @@
       "adm-zip": ">=0.6.0",
       "devalue": ">=6.0.2",
       "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2",
-      "playwright-core": "^1.63.0"
+      "playwright-core": "1.50.1",
+      "@tailwindcss/oxide-wasm32-wasi": "npm:picocolors@^1.1.1"
     }
   }
 }

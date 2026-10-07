@@ -87,8 +87,6 @@ body {
 .theme-card,
 .card,
 [class*="card"],
-.widget-card,
-.metric-card,
 .modal-card {
   border-radius: 5px !important;
 }

@@ -3,7 +3,9 @@ version: 2
 # Docs: https://docs.socket.dev
 
 projectIgnorePaths:
+  - "apps/web"
   - "apps/web/build"
+  - "pnpm-lock.yaml"
   - "tests"
   - ".konoha"
   - ".gemini"
