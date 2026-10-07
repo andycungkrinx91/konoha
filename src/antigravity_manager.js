@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 // Self-contained: derive paths from HOME rather than importing bin/lib/paths.
 const { buildSubagentContract } = require('./agent_contract');
 const { getRtkCommand, isRtkInstalled } = require('./platform_utils');
+const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
 
 const HOME = os.homedir();
 const ANTIGRAVITY_AGENTS_GLOBAL = path.join(HOME, '.gemini', 'antigravity-cli', 'agents');
@@ -525,7 +526,7 @@ function refreshRtk(silent = true) {
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
     // Install from the official rtk-ai/rtk repo — the plain `cargo install rtk`
     // crate on crates.io is an unrelated project (Rust Type Kit name collision)
-    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked', '--force'], {
+    const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked', '--force'], {
       encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit'
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
@@ -554,7 +555,7 @@ function ensureRtkInstalled(silent = true) {
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
     if (available.status === 0) {
-      const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--locked'], {
+      const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked'], {
         encoding: 'utf-8',
         timeout: 600000,
         stdio: silent ? 'ignore' : 'inherit'
@@ -758,10 +759,15 @@ function ensureAntigravityPermissions(silent = true) {
         }
       }
 
+      const konohaToolsAutoApprove = (KONOHA_CANONICAL_TOOLS || []).map(t => 'mcp(konoha/' + t + ')');
       const safeAutoApprove = [
-        'mcp(konoha/*)',
-        'mcp(semble/*)',
-        'mcp(aislop/*)',
+        ...konohaToolsAutoApprove,
+        'mcp(semble/search)',
+        'mcp(semble/find_related)',
+        'mcp(aislop/aislop_scan)',
+        'mcp(aislop/aislop_fix)',
+        'mcp(aislop/aislop_why)',
+        'mcp(aislop/aislop_baseline)',
         'rtk',
         'rtk *',
         'konoha',
@@ -829,11 +835,9 @@ function ensureAntigravityPermissions(silent = true) {
               }
               if (!mConfig.mcpServers[serverName].autoApprove || mConfig.mcpServers[serverName].autoApprove.length === 0) {
                 if (serverName === 'konoha') {
-                  mConfig.mcpServers[serverName].autoApprove = [
-                    'find_skill', 'get_skill', 'list_skills',
-                    'read_file_head', 'read_file_range', 'file_info',
-                    ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean'
-                  ];
+                  mConfig.mcpServers[serverName].autoApprove = KONOHA_CANONICAL_TOOLS
+                    ? [...KONOHA_CANONICAL_TOOLS]
+                    : [];
                 } else if (serverName === 'semble') {
                   mConfig.mcpServers[serverName].autoApprove = ['search', 'find_related'];
                 } else if (serverName === 'aislop') {

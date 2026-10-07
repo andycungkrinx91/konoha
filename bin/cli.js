@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.10';
+  return '2.1.11';
 }
 
 function drawLogo() {
@@ -2604,7 +2604,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const aislopConfig = {
     command: npxCmd,
-    args: ['-y', '-p', 'aislop', 'aislop-mcp']
+    args: ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp']
   };
   if (allowAutoApprove) {
     aislopConfig.autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
@@ -2612,27 +2612,9 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
 
   const konohaConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
   if (konohaConfig && allowAutoApprove) {
-    konohaConfig.autoApprove = [
-      'read_file_head',
-      'read_file_range',
-      'file_info',
-      'token_efficient_grep',
-      'get_file_structure',
-      'find_files_clean',
-      'find_skill',
-      'list_skills',
-      'get_skill',
-      'optimize_report',
-      'build_from_source',
-      'build_from_text',
-      'sannin',
-      'kage',
-      'jonin',
-      'anbu',
-      'chunin',
-      'tokubetsu_jonin',
-      'genin'
-    ];
+    konohaConfig.autoApprove = deployUtils.KONOHA_CANONICAL_TOOLS
+      ? [...deployUtils.KONOHA_CANONICAL_TOOLS]
+      : [];
   }
 
   // Merge Konoha servers into existing mcpServers (preserve user's other servers)
@@ -2985,7 +2967,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.10', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.11', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3009,7 +2991,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.10', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.11', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -4619,7 +4601,7 @@ async function cmdDoctor(args = []) {
   // 7. MCP Configuration
   const nodeCmd = process.execPath;
   const expectedSembleArgs = ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'];
-  const expectedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
+  const expectedAislopArgs = ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'];
   let mcpHealthy = false;
   if (fileExists(MCP_CONFIG_PATH)) {
     try {

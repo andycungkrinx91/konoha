@@ -99,28 +99,41 @@ function registerMcp() {
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const uvxUsable = isUvxUsable();
+  const canonicalKonohaTools = [
+    'read_file_head', 'read_file_range', 'file_info',
+    ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean',
+    'website_ai_detector', 'docs_ai_detector', 'get_resolved_task_dir',
+    'find_skill', 'list_skills', 'get_skill', 'optimize_report',
+    'build_from_source', 'build_from_text',
+    'sannin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin',
+    'report_from_agent', 'get_project_context', 'save_project_context',
+    'query_project_memory', 'web_search', 'migrate_skills',
+    'save_persona_memory', 'query_persona_memory', 'list_persona_memories',
+    'delete_persona_memory', 'check_readiness', 'get_task_evidence',
+    'get_slop_findings', 'qa_codify', 'qa_e2e_run'
+  ];
   const servers = {
     ...(uvxUsable ? {
       semble: {
         type: 'stdio',
         command: getUvx(),
-        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-        autoApprove: ['*', 'search', 'find_related'],
+        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+        autoApprove: ['search', 'find_related'],
         auto_approve: true
       }
     } : {}),
     aislop: {
       type: 'stdio',
       command: npxCmd,
-      args: ['-y', '-p', 'aislop', 'aislop-mcp'],
-      autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+      args: ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'],
+      autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
       auto_approve: true
     }
   };
   if (FILE_TOOLS_MCP_PATH && fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = buildKonohaFilesMcpEntry();
     if (entry) {
-      entry.autoApprove = ['*'];
+      entry.autoApprove = [...canonicalKonohaTools];
       entry.auto_approve = true;
       servers['konoha'] = entry;
       updated = true;

@@ -261,7 +261,7 @@ Then agents should use `find_skill("konoha maintenance")` instead of reading `SK
 4. **`aislop` MCP Handshake Failure or npm 404 (`aislop-mcp`)**:
    - **Symptom**: `npm error 404 Not Found - GET https://registry.npmjs.org/aislop-mcp` or `handshaking with MCP server failed: connection closed: initialize response` during client startup.
    - **Reason**: Attempting to execute `npx aislop-mcp` prompts npm to search for a non-existent package named `aislop-mcp`. The binary `aislop-mcp` is packaged inside `aislop`.
-   - **Fix**: Update MCP client configuration arguments to `args: ["-y", "-p", "aislop", "aislop-mcp"]`. In `~/.codex/config.toml`, ensure `command = "npx"` and `args = ["-y", "-p", "aislop", "aislop-mcp"]`. Run `konoha upgrade --yes` or `konoha doctor --yes` to automatically repair all 6 client configurations.
+   - **Fix**: Update MCP client configuration arguments to `args: ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]`. In `~/.codex/config.toml`, ensure `command = "npx"` and `args = ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]`. Run `konoha upgrade --yes` or `konoha doctor --yes` to automatically repair all 6 client configurations.
 
 ---
 

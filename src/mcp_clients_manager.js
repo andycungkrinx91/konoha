@@ -143,7 +143,7 @@ function resolveAislopMcpConfig() {
   return {
     type: 'stdio',
     command: isWin ? 'npx.cmd' : 'npx',
-    args: ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'],
+    args: ['-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'],
     autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
     auto_approve: true
   };
@@ -182,11 +182,9 @@ function buildStdioMcpServers(options = {}) {
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = deployUtils.buildKonohaFilesMcpEntry(client);
     if (entry) {
-      entry.autoApprove = [
-        'find_skill', 'get_skill', 'list_skills',
-        'read_file_head', 'read_file_range', ['token', 'efficient', 'grep'].join('_'),
-        'file_info', 'get_file_structure', 'find_files_clean'
-      ];
+      entry.autoApprove = deployUtils.KONOHA_CANONICAL_TOOLS
+        ? [...deployUtils.KONOHA_CANONICAL_TOOLS]
+        : [];
       entry.auto_approve = true;
       servers['konoha'] = entry;
     }
@@ -309,12 +307,18 @@ function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = tr
   return true;
 }
 
+function buildClientToolGrants(prefix) {
+  const tools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
+  const sep = prefix === 'mcp__' ? '__' : ':';
+  const konohaGrants = tools.map(t => `${prefix}konoha${sep}${t}`);
+  const sembleGrants = ['search', 'find_related'].map(t => `${prefix}semble${sep}${t}`);
+  const aislopGrants = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'].map(t => `${prefix}aislop${sep}${t}`);
+  return [...konohaGrants, ...sembleGrants, ...aislopGrants];
+}
+
 function registerClaudeCodePermissions(silent = true) {
   const grants = [
-    'mcp__konoha__*',
-    'mcp__semble__*',
-    'mcp__aislop__*',
-    'Bash(*)',
+    ...buildClientToolGrants('mcp__'),
     'Bash(rtk *)',
     'Bash(rtk:*)',
     'Bash(rtk)',
@@ -360,9 +364,7 @@ function registerClaudeCodePermissions(silent = true) {
       }
 
       const autoApproveGrants = [
-        'mcp__konoha__*',
-        'mcp__semble__*',
-        'mcp__aislop__*',
+        ...buildClientToolGrants('mcp__'),
         'Bash(rtk *)',
         'Bash(rtk:*)',
         'Bash(rtk)',
@@ -381,9 +383,7 @@ function registerClaudeCodePermissions(silent = true) {
       }
 
       const defaultAllowedTools = [
-        'mcp__konoha__*',
-        'mcp__semble__*',
-        'mcp__aislop__*',
+        ...buildClientToolGrants('mcp__'),
         'Bash'
       ];
       if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
@@ -628,12 +628,8 @@ function registerCommandCodePermissions(silent = true) {
       if (!config.permissions) config.permissions = {};
       const allow = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
       const grants = [
-        'mcp__konoha__*',
-        'mcp__semble__*',
-        'mcp__aislop__*',
-        'mcp:konoha:*',
-        'mcp:semble:*',
-        'mcp:aislop:*',
+        ...buildClientToolGrants('mcp__'),
+        ...buildClientToolGrants('mcp:'),
         'Shell(rtk *)',
         'Shell(rtk)',
         'Bash(rtk *)',
@@ -643,8 +639,7 @@ function registerCommandCodePermissions(silent = true) {
         'rtk',
         'rtk *',
         'command(rtk *)',
-        'command(rtk)',
-        '*'
+        'command(rtk)'
       ];
       let updated = false;
       for (const grant of grants) {
@@ -656,12 +651,8 @@ function registerCommandCodePermissions(silent = true) {
       config.permissions.allow = allow;
 
       const _autoApproveGrants = [
-        'mcp__konoha__*',
-        'mcp__semble__*',
-        'mcp__aislop__*',
-        'mcp:konoha:*',
-        'mcp:semble:*',
-        'mcp:aislop:*',
+        ...buildClientToolGrants('mcp__'),
+        ...buildClientToolGrants('mcp:'),
         'Shell(rtk *)',
         'Shell(rtk)',
         'Bash(rtk *)',
@@ -682,9 +673,7 @@ function registerCommandCodePermissions(silent = true) {
       }
 
       const defaultAllowedTools = [
-        'mcp__konoha__*',
-        'mcp__semble__*',
-        'mcp__aislop__*',
+        ...buildClientToolGrants('mcp__'),
         'Bash',
         'Shell'
       ];

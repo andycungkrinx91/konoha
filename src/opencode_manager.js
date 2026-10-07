@@ -148,7 +148,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
   // Aislop MCP registration
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'];
+  let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'];
   try {
     const whichCmd = process.platform === 'win32' ? 'where' : 'which';
     const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', timeout: 3000 });

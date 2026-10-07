@@ -152,7 +152,7 @@ args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
 
 [mcp_servers.aislop]
 command = "npx"
-args = ["-y", "-p", "aislop", "aislop-mcp"]
+args = ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
 auto_approve = true
 
 [mcp_servers.aislop.tools.aislop_scan]
@@ -198,7 +198,7 @@ approval_mode = "auto"
     },
     "aislop": {
       "command": "npx",
-      "args": ["-y", "-p", "aislop", "aislop-mcp"]
+      "args": ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
     }
   }
 }

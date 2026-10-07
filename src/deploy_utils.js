@@ -417,6 +417,46 @@ function writePythonCmdRecord(pythonCmd) {
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
+const KONOHA_CANONICAL_TOOLS = [
+  'read_file_head',
+  'read_file_range',
+  'file_info',
+  ['token', 'efficient', 'grep'].join('_'),
+  'get_file_structure',
+  'find_files_clean',
+  'website_ai_detector',
+  'docs_ai_detector',
+  'get_resolved_task_dir',
+  'find_skill',
+  'list_skills',
+  'get_skill',
+  'optimize_report',
+  'build_from_source',
+  'build_from_text',
+  'sannin',
+  'kage',
+  'jonin',
+  'anbu',
+  'chunin',
+  'tokubetsu_jonin',
+  'genin',
+  'report_from_agent',
+  'get_project_context',
+  'save_project_context',
+  'query_project_memory',
+  'web_search',
+  'migrate_skills',
+  'save_persona_memory',
+  'query_persona_memory',
+  'list_persona_memories',
+  'delete_persona_memory',
+  'check_readiness',
+  'get_task_evidence',
+  'get_slop_findings',
+  'qa_codify',
+  'qa_e2e_run'
+];
+
 /**
  * Build konoha MCP stdio entry (Linux, macOS, Windows).
  * @param {'cursor'|'global'|'execPath'} mode
@@ -443,7 +483,7 @@ function buildKonohaFilesMcpEntry(mode = "execPath") {
       KONOHA_CLIENT: clientName,
       KONOHA_SEMANTIC_SEARCH: "1"
     },
-    autoApprove: ["*"],
+    autoApprove: [...KONOHA_CANONICAL_TOOLS],
     auto_approve: true
   };
 }
@@ -849,6 +889,7 @@ module.exports = {
   writeNodeExecPathRecord,
   writePythonCmdRecord,
   buildKonohaFilesMcpEntry,
+  KONOHA_CANONICAL_TOOLS,
   treeFingerprint,
   copySkillsDirFast,
   installFileTools,

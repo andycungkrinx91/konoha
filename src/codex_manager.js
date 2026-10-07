@@ -131,6 +131,10 @@ function getKonohaToolNames() {
       return manifest.tools.map(t => t.name);
     }
   } catch (_) { /* intentional best-effort manifest resolution */ }
+  try {
+    const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
+    if (KONOHA_CANONICAL_TOOLS) return [...KONOHA_CANONICAL_TOOLS];
+  } catch (_) { /* intentional fallback to empty array */ }
   return [];
 }
 
@@ -241,7 +245,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   // Resolve aislop-mcp path
   let resolvedAislopCmd = npxExecutable;
-  let resolvedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
+  let resolvedAislopArgs = ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'];
   try {
     const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32' });
     if (whichAislop.status === 0 && whichAislop.stdout.trim()) {

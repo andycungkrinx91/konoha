@@ -533,7 +533,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     }
     config.mcpServers['aislop'] = {
       command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', '-p', 'aislop', 'aislop-mcp']
+      args: ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp']
     };
 
     fs.writeFileSync(PI_MCP_CONFIG, JSON.stringify(config, null, 2) + '\n', 'utf-8');

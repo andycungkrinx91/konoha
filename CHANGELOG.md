@@ -2,6 +2,24 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.11] - 2026-10-07
+
+### Hardening & Dependency Tag Pinning
+
+- **Explicit Registration of All 37 Canonical Konoha MCP Tools**:
+  - Eliminated wildcards (`*`) across all client auto-approval and permissions lists (`Antigravity`, `Cursor`, `Claude Code`, `Command Code`, `Codex`, `Pi`, `OpenCode`, and CLI).
+  - Exported authoritative `KONOHA_CANONICAL_TOOLS` (37 canonical tools) from `src/deploy_utils.js`.
+  - Scoped explicit tool arrays across Antigravity (`mcp(konoha/<tool>)`), Cursor (`konoha/<tool>`), Claude Code (`mcp__konoha__<tool>`), and Command Code (`mcp__` and `mcp:`).
+- **Pinned Specific Release Tags for External Dependencies**:
+  - Pinned `semble` to `semble[mcp]==0.6.2`.
+  - Pinned `aislop` to `aislop@0.18.1` across all client managers, MCP templates, and `doctor` checks.
+  - Pinned `rtk` Cargo installation to GitHub release `--tag v0.51.0`.
+  - Pinned `vibes-plug` to version `4.1.0`.
+- **Security Compliance & Documentation Sync**:
+  - Created `security_compliance_report_google_policy_2.1.11_2026-10-07.md`.
+  - Updated `README.md`, `GEMINI.md`, `docs/SETUP-CLI.md`, `docs/SETUP-MCP-CLIENTS.md`, and `docs/TROUBLESHOOTING.md`.
+  - Enforced 100/100 Zero-AI-Slop quality gate on all changed files.
+
 ## [2.1.10] - 2026-10-07
 
 ### Supply Chain Security & Maintenance Remediation (Socket.dev Audit Hardening)

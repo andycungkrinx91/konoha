@@ -287,7 +287,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
     aislop: (() => {
       const isWin = process.platform === 'win32';
       let cmd = npxCmd;
-      let args = ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'];
+      let args = ['-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'];
       try {
         const whichCmd = isWin ? 'where' : 'which';
         const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
@@ -311,11 +311,9 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
 
   const konohaEntry = deployUtils.buildKonohaFilesMcpEntry('cursor');
   if (konohaEntry) {
-    konohaEntry.autoApprove = [
-      'find_skill', 'get_skill', 'list_skills',
-      'read_file_head', 'read_file_range', ['token', 'efficient', 'grep'].join('_'),
-      'file_info', 'get_file_structure', 'find_files_clean'
-    ];
+    konohaEntry.autoApprove = deployUtils.KONOHA_CANONICAL_TOOLS
+      ? [...deployUtils.KONOHA_CANONICAL_TOOLS]
+      : [];
     konohaEntry.auto_approve = true;
     servers['konoha'] = konohaEntry;
   }
@@ -523,10 +521,11 @@ function registerCursorCliPermissions(silent = true) {
       if (fileExists(sPath)) {
         try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
+      const konohaToolsPrefixed = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => 'konoha/' + t);
       sObj['cursor.mcp.autoApprove'] = [
-        'konoha/find_skill', 'konoha/get_skill', 'konoha/list_skills',
-        'konoha/read_file_head', 'konoha/read_file_range', 'konoha/token_efficient_grep',
-        'semble/search', 'semble/find_related', 'aislop/aislop_scan'
+        ...konohaToolsPrefixed,
+        'semble/search', 'semble/find_related',
+        'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline'
       ];
       sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha'];
       if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
