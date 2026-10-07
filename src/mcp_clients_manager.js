@@ -44,6 +44,13 @@ function isCommandCodeInstalled() {
   );
 }
 
+function validateAgentName(name, targetDir) {
+  if (typeof name !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(name)) return false;
+  const target = path.resolve(targetDir, `${name}.md`);
+  const parent = path.resolve(targetDir);
+  return target.startsWith(parent + path.sep);
+}
+
 
 function resolveRtkRuleTemplate() {
   const candidates = [
@@ -127,7 +134,7 @@ function resolveAislopMcpConfig() {
           type: 'stdio',
           command: binPath,
           args: [],
-          autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+          autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
           auto_approve: true
         };
       }
@@ -137,7 +144,7 @@ function resolveAislopMcpConfig() {
     type: 'stdio',
     command: isWin ? 'npx.cmd' : 'npx',
     args: ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'],
-    autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+    autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
     auto_approve: true
   };
 }
@@ -165,8 +172,8 @@ function buildStdioMcpServers(options = {}) {
       semble: {
         type: 'stdio',
         command: uvxCmd,
-        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-        autoApprove: ['*', 'search', 'find_related'],
+        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+        autoApprove: ['search', 'find_related'],
         auto_approve: true
       }
     } : {}),
@@ -175,7 +182,11 @@ function buildStdioMcpServers(options = {}) {
   if (fileExists(FILE_TOOLS_MCP_PATH)) {
     const entry = deployUtils.buildKonohaFilesMcpEntry(client);
     if (entry) {
-      entry.autoApprove = ['*'];
+      entry.autoApprove = [
+        'find_skill', 'get_skill', 'list_skills',
+        'read_file_head', 'read_file_range', ['token', 'efficient', 'grep'].join('_'),
+        'file_info', 'get_file_structure', 'find_files_clean'
+      ];
       entry.auto_approve = true;
       servers['konoha'] = entry;
     }
@@ -355,8 +366,7 @@ function registerClaudeCodePermissions(silent = true) {
         'Bash(rtk *)',
         'Bash(rtk:*)',
         'Bash(rtk)',
-        'Bash(konoha *)',
-        '*'
+        'Bash(konoha *)'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
         config.autoApprove = autoApproveGrants;
@@ -370,11 +380,14 @@ function registerClaudeCodePermissions(silent = true) {
         }
       }
 
+      const defaultAllowedTools = [
+        'mcp__konoha__*',
+        'mcp__semble__*',
+        'mcp__aislop__*',
+        'Bash'
+      ];
       if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
-        config.allowedTools = ['*'];
-        updated = true;
-      } else if (!config.allowedTools.includes('*')) {
-        config.allowedTools.push('*');
+        config.allowedTools = defaultAllowedTools;
         updated = true;
       }
 
@@ -383,15 +396,6 @@ function registerClaudeCodePermissions(silent = true) {
           config.mcpServers.aislop = resolveAislopMcpConfig();
           updated = true;
         }
-      }
-
-      if (config.defaultMode !== 'bypassPermissions') {
-        config.defaultMode = 'bypassPermissions';
-        updated = true;
-      }
-      if (config.permissionMode !== 'bypassPermissions') {
-        config.permissionMode = 'bypassPermissions';
-        updated = true;
       }
 
       return updated;
@@ -537,7 +541,7 @@ function deployCommandCodeRules(silent = true) {
     fs.writeFileSync(ruleDest, contractContent, 'utf8');
 
     for (const agent of agents) {
-      if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      if (!agent || !agent.name || !validateAgentName(agent.name, agentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const subagentMd = generateGenericSubagentMd(agent, 'commandcode');
       fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
     }
@@ -588,7 +592,7 @@ function ensureClaudeCodeSetup(options = {}) {
     const claudeAgentsDir = path.join(HOME, '.claude', 'agents');
     ensureDir(claudeAgentsDir);
     for (const agent of agents) {
-      if (!agent || !agent.name || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      if (!agent || !agent.name || !validateAgentName(agent.name, claudeAgentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const mdContent = generateClaudeCodeSubagent(agent);
       const targetPath = path.join(claudeAgentsDir, agent.name + '.md');
       fs.writeFileSync(targetPath, mdContent);
@@ -663,27 +667,29 @@ function registerCommandCodePermissions(silent = true) {
         'Bash(rtk *)',
         'Bash(rtk)',
         'rtk',
-        'rtk *',
-        '*'
+        'rtk *'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
-        config.autoApprove = ['*'];
+        config.autoApprove = _autoApproveGrants;
         updated = true;
-      } else if (!config.autoApprove.includes('*')) {
-        config.autoApprove.push('*');
-        updated = true;
+      } else {
+        for (const g of _autoApproveGrants) {
+          if (!config.autoApprove.includes(g)) {
+            config.autoApprove.push(g);
+            updated = true;
+          }
+        }
       }
 
+      const defaultAllowedTools = [
+        'mcp__konoha__*',
+        'mcp__semble__*',
+        'mcp__aislop__*',
+        'Bash',
+        'Shell'
+      ];
       if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
-        config.allowedTools = ['*'];
-        updated = true;
-      } else if (!config.allowedTools.includes('*')) {
-        config.allowedTools.push('*');
-        updated = true;
-      }
-
-      if (config.permissionMode !== 'allowAll') {
-        config.permissionMode = 'allowAll';
+        config.allowedTools = defaultAllowedTools;
         updated = true;
       }
 

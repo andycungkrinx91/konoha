@@ -279,8 +279,8 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
       semble: {
         type: 'stdio',
         command: uvxCmd,
-        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
-        autoApprove: ['*', 'search', 'find_related'],
+        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+        autoApprove: ['search', 'find_related'],
         auto_approve: true
       }
     } : {}),
@@ -303,7 +303,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
         type: 'stdio',
         command: cmd,
         args,
-        autoApprove: ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
+        autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
         auto_approve: true
       };
     })()
@@ -311,7 +311,11 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
 
   const konohaEntry = deployUtils.buildKonohaFilesMcpEntry('cursor');
   if (konohaEntry) {
-    konohaEntry.autoApprove = ['*'];
+    konohaEntry.autoApprove = [
+      'find_skill', 'get_skill', 'list_skills',
+      'read_file_head', 'read_file_range', ['token', 'efficient', 'grep'].join('_'),
+      'file_info', 'get_file_structure', 'find_files_clean'
+    ];
     konohaEntry.auto_approve = true;
     servers['konoha'] = konohaEntry;
   }
@@ -484,7 +488,12 @@ function registerCursorCliPermissions(silent = true) {
   }
 
   if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
-    config.autoApprove = ['*'];
+    config.autoApprove = [
+      'rtk *', 'rtk', 'konoha *', 'konoha',
+      'konoha:find_skill', 'konoha:get_skill', 'konoha:list_skills',
+      'konoha:read_file_head', 'konoha:read_file_range', 'konoha:token_efficient_grep',
+      'semble:search', 'semble:find_related', 'aislop:aislop_scan'
+    ];
     updated = true;
   }
 
@@ -514,10 +523,12 @@ function registerCursorCliPermissions(silent = true) {
       if (fileExists(sPath)) {
         try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
-      sObj['cursor.mcp.autoApprove'] = ['*'];
-      sObj['cursor.mcp.allowAll'] = true;
-      sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha', '*'];
-      sObj['cursor.agent.autoApprove'] = true;
+      sObj['cursor.mcp.autoApprove'] = [
+        'konoha/find_skill', 'konoha/get_skill', 'konoha/list_skills',
+        'konoha/read_file_head', 'konoha/read_file_range', 'konoha/token_efficient_grep',
+        'semble/search', 'semble/find_related', 'aislop/aislop_scan'
+      ];
+      sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha'];
       if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
       // Merge Konoha grants into the user's existing allow list — never replace it
       if (!Array.isArray(sObj.permissions.allow)) sObj.permissions.allow = [];

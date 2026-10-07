@@ -528,7 +528,7 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     if (uvxAvailable) {
       config.mcpServers['semble'] = {
         command: uvxCmd || 'uvx',
-        args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all']
       };
     }
     config.mcpServers['aislop'] = {

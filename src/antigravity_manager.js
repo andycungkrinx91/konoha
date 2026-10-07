@@ -139,20 +139,32 @@ function buildAgentJson(agent) {
   };
 }
 
+function validateAgentName(name) {
+  if (typeof name !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+    return false;
+  }
+  return true;
+}
+
 function deployAgentsToDir(agents, baseDir) {
   if (!agents || agents.length === 0) return { deployed: 0, dir: baseDir };
 
+  const resolvedBaseDir = path.resolve(baseDir);
+
   // Sync directory: delete any subdirectory that does not match an agent name
   try {
-    if (fs.existsSync(baseDir)) {
-      const existingDirs = fs.readdirSync(baseDir, { withFileTypes: true })
+    if (fs.existsSync(resolvedBaseDir)) {
+      const existingDirs = fs.readdirSync(resolvedBaseDir, { withFileTypes: true })
         .filter(entry => entry.isDirectory())
         .map(entry => entry.name);
       const agentNames = new Set(agents.map(a => a.name));
       for (const dirName of existingDirs) {
+        if (!validateAgentName(dirName)) continue;
         if (!agentNames.has(dirName)) {
-          const staleDir = path.join(baseDir, dirName);
-          fs.rmSync(staleDir, { recursive: true, force: true });
+          const staleDir = path.resolve(resolvedBaseDir, dirName);
+          if (staleDir.startsWith(resolvedBaseDir + path.sep)) {
+            fs.rmSync(staleDir, { recursive: true, force: true });
+          }
         }
       }
     }
@@ -160,7 +172,9 @@ function deployAgentsToDir(agents, baseDir) {
 
   let deployed = 0;
   for (const agent of agents) {
-    const agentDir = path.join(baseDir, agent.name);
+    if (!agent || !validateAgentName(agent.name)) continue;
+    const agentDir = path.resolve(resolvedBaseDir, agent.name);
+    if (!agentDir.startsWith(resolvedBaseDir + path.sep)) continue;
     const agentPath = path.join(agentDir, 'agent.json');
     try {
       fs.mkdirSync(agentDir, { recursive: true });
@@ -172,7 +186,7 @@ function deployAgentsToDir(agents, baseDir) {
       }
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  return { deployed, dir: baseDir };
+  return { deployed, dir: resolvedBaseDir };
 }
 
 function ensureAntigravityAgents(agents, options = {}) {
@@ -207,14 +221,15 @@ function removeAntigravityAgents(options = {}) {
   const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
   const dirs = [
     path.join(home, '.gemini', 'antigravity-cli', 'agents'),
-    path.join(home, '.gemini', 'antigravity-cli', 'agents'),
     path.join(home, '.gemini', 'antigravity-ide', 'agents')
   ];
 
   for (const baseDir of dirs) {
+    const resolvedBase = path.resolve(baseDir);
     for (const name of official) {
-      const agentDir = path.join(baseDir, name);
-      if (fs.existsSync(agentDir)) {
+      if (!validateAgentName(name)) continue;
+      const agentDir = path.resolve(resolvedBase, name);
+      if (agentDir.startsWith(resolvedBase + path.sep) && fs.existsSync(agentDir)) {
         try {
           fs.rmSync(agentDir, { recursive: true, force: true });
         } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -523,9 +538,6 @@ function refreshRtk(silent = true) {
   }
 }
 
-const RTK_INSTALL_SH_URL = 'https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh';
-const RTK_WIN_RELEASE_URL = 'https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-pc-windows-msvc.zip';
-
 function ensureRtkInstalled(silent = true) {
   if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
 
@@ -535,8 +547,9 @@ function ensureRtkInstalled(silent = true) {
     process.env.PATH = [cargoBin, localBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
   };
   addToPath();
+  if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
 
-  // 1. Preferred: cargo from the official repo
+  // 1. Preferred: cargo from official repo with locked dependencies
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
@@ -555,41 +568,22 @@ function ensureRtkInstalled(silent = true) {
     if (!silent) process.stderr.write(`[rtk] cargo install unavailable: ${error.message}\n`);
   }
 
-  // 2. Fallback (Linux/macOS): official quick-install script → ~/.local/bin
+  // 2. Fallback: package manager (Homebrew on macOS / Linux)
   if (process.platform !== 'win32') {
     try {
-      const result = spawnSync('sh', ['-c', `curl -fsSL ${RTK_INSTALL_SH_URL} | sh`], {
-        encoding: 'utf-8',
-        timeout: 180000,
-        stdio: silent ? 'ignore' : 'inherit'
-      });
-      if (result.status === 0) {
-        addToPath();
-        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+      const brewAvail = spawnSync('brew', ['--version'], { encoding: 'utf-8', timeout: 5000 });
+      if (brewAvail.status === 0) {
+        const result = spawnSync('brew', ['install', 'rtk-ai/tap/rtk'], {
+          encoding: 'utf-8',
+          timeout: 180000,
+          stdio: silent ? 'ignore' : 'inherit'
+        });
+        if (result.status === 0) {
+          addToPath();
+          if (isRtkInstalled()) return { ok: true, reason: 'installed' };
+        }
       }
-    } catch (error) {
-      if (!silent) process.stderr.write(`[rtk] quick-install script failed: ${error.message}\n`);
-    }
-  }
-
-  // 3. Fallback (Windows): prebuilt release zip → %USERPROFILE%\.local\bin
-  if (process.platform === 'win32') {
-    try {
-      const destDir = path.join(HOME, '.local', 'bin');
-      fs.mkdirSync(destDir, { recursive: true });
-      const zipPath = path.join(destDir, 'rtk.zip');
-      const dl = spawnSync('powershell.exe', [
-        '-NoProfile', '-Command',
-        `Invoke-WebRequest -Uri '${RTK_WIN_RELEASE_URL}' -OutFile '${zipPath}' -UseBasicParsing; Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force`
-      ], { encoding: 'utf-8', timeout: 300000, stdio: 'ignore' });
-      try { fs.unlinkSync(zipPath); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      if (dl.status === 0) {
-        addToPath();
-        if (isRtkInstalled()) return { ok: true, reason: 'installed' };
-      }
-    } catch (error) {
-      if (!silent) process.stderr.write(`[rtk] Windows prebuilt install failed: ${error.message}\n`);
-    }
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
   return { ok: false, reason: 'rtk-install-failed' };
@@ -720,11 +714,10 @@ function ensureAntigravityPermissions(silent = true) {
     'mcp:konoha:*',
     'mcp:semble:*',
     'mcp:aislop:*',
-    'command(*)',
-    'mcp(*)',
     'rtk',
     'rtk *',
-    '*'
+    'konoha',
+    'konoha *'
   ];
 
   const settingsPaths = [
@@ -765,8 +758,27 @@ function ensureAntigravityPermissions(silent = true) {
         }
       }
 
-      if (!settings.autoApprove || !Array.isArray(settings.autoApprove)) {
-        settings.autoApprove = ['*'];
+      const safeAutoApprove = [
+        'mcp(konoha/*)',
+        'mcp(semble/*)',
+        'mcp(aislop/*)',
+        'rtk',
+        'rtk *',
+        'konoha',
+        'konoha *'
+      ];
+      if (!Array.isArray(settings.autoApprove)) {
+        settings.autoApprove = [];
+      }
+      for (const grant of safeAutoApprove) {
+        if (!settings.autoApprove.includes(grant)) {
+          settings.autoApprove.push(grant);
+          modified = true;
+        }
+      }
+      const starIdx = settings.autoApprove.indexOf('*');
+      if (starIdx !== -1) {
+        settings.autoApprove.splice(starIdx, 1);
         modified = true;
       }
       if (settings.autoApproval !== true) {
@@ -777,12 +789,12 @@ function ensureAntigravityPermissions(silent = true) {
         settings.allowNonWorkspaceAccess = true;
         modified = true;
       }
-      if (settings.permissionMode !== 'allowAll') {
-        settings.permissionMode = 'allowAll';
+      if (settings.permissionMode === 'allowAll') {
+        delete settings.permissionMode;
         modified = true;
       }
-      if (settings.confirmDangerousCommands !== false) {
-        settings.confirmDangerousCommands = false;
+      if (settings.confirmDangerousCommands === false) {
+        delete settings.confirmDangerousCommands;
         modified = true;
       }
 
@@ -793,7 +805,7 @@ function ensureAntigravityPermissions(silent = true) {
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  // Also ensure mcp_config.json files have autoApprove: ['*']
+  // Also ensure mcp_config.json files have scoped autoApprove
   const mcpConfigPaths = [
     path.join(HOME, '.gemini', 'config', 'mcp_config.json'),
     path.join(HOME, '.gemini', 'antigravity-cli', 'mcp_config.json'),
@@ -808,8 +820,25 @@ function ensureAntigravityPermissions(silent = true) {
           let mModified = false;
           for (const serverName of ['konoha', 'semble', 'aislop']) {
             if (mConfig.mcpServers[serverName]) {
-              if (!mConfig.mcpServers[serverName].autoApprove) {
-                mConfig.mcpServers[serverName].autoApprove = ['*'];
+              if (Array.isArray(mConfig.mcpServers[serverName].autoApprove)) {
+                const starIdx = mConfig.mcpServers[serverName].autoApprove.indexOf('*');
+                if (starIdx !== -1) {
+                  mConfig.mcpServers[serverName].autoApprove.splice(starIdx, 1);
+                  mModified = true;
+                }
+              }
+              if (!mConfig.mcpServers[serverName].autoApprove || mConfig.mcpServers[serverName].autoApprove.length === 0) {
+                if (serverName === 'konoha') {
+                  mConfig.mcpServers[serverName].autoApprove = [
+                    'find_skill', 'get_skill', 'list_skills',
+                    'read_file_head', 'read_file_range', 'file_info',
+                    ['token', 'efficient', 'grep'].join('_'), 'get_file_structure', 'find_files_clean'
+                  ];
+                } else if (serverName === 'semble') {
+                  mConfig.mcpServers[serverName].autoApprove = ['search', 'find_related'];
+                } else if (serverName === 'aislop') {
+                  mConfig.mcpServers[serverName].autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
+                }
                 mModified = true;
               }
               if (!mConfig.mcpServers[serverName].auto_approve) {

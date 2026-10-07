@@ -1,7 +1,7 @@
 {
   "name": "konoha-web",
   "private": true,
-  "version": "2.1.9",
+  "version": "2.1.10",
   "type": "module",
   "imports": {
     "#lib/*": "./src/lib/*"

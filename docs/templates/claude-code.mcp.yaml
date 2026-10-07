@@ -17,7 +17,7 @@ mcpServers:
     command: uvx
     args:
       - --from
-      - semble[mcp]@latest
+      - semble[mcp]==0.6.2
       - semble
       - --content
       - all

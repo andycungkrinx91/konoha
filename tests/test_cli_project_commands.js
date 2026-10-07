@@ -24,7 +24,7 @@ function runCli(args) {
   try {
     const env = { ...process.env };
     if (activeTestDbPath) env.KONOHA_DB_PATH = activeTestDbPath;
-    const stdout = execFileSync('node', [CLI_JS, ...args], {
+    const stdout = execFileSync(process.execPath, [CLI_JS, ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
       env,

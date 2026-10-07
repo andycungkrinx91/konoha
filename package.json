@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.1.9",
+  "version": "2.1.10",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -61,7 +61,7 @@
     "win32"
   ],
   "dependencies": {
-    "@bufbuild/protobuf": "^2.16.0"
+    "@bufbuild/protobuf": "2.16.0"
   },
   "devDependencies": {},
   "pnpm": {

@@ -136,7 +136,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (uvxAvailable) {
     config.mcp['semble'] = {
       type: 'local',
-      command: [uvxCmd || 'uvx', '--from', 'semble[mcp]@latest', 'semble', '--content', 'all'],
+      command: [uvxCmd || 'uvx', '--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
       environment: {
         ACTIVE_CLIENT: 'opencode',
         OPENCODE_CLIENT: '1',

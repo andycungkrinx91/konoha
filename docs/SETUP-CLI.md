@@ -410,7 +410,7 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `2.1.9`) and queries the official npm registry to check if a newer version is available.
+  Displays the installed local version (noted as `2.1.10`) and queries the official npm registry to check if a newer version is available.
   ```bash
   konoha version
   ```

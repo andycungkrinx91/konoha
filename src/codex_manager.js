@@ -275,7 +275,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const sembleBlock = [
     '[mcp_servers.semble]',
     `command = ${tomlStr(resolvedUvx)}`,
-    'args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]',
+    'args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]',
     'startup_timeout_sec = 30',
     'tool_timeout_sec = 60',
     'default_tools_approval_mode = "auto"'

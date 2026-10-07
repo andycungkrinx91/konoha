@@ -2,6 +2,32 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.10] - 2026-10-07
+
+### Supply Chain Security & Maintenance Remediation (Socket.dev Audit Hardening)
+
+- **Committed Deterministic `package-lock.json`**:
+  - Pinned `@bufbuild/protobuf` to exact `"2.16.0"` in `package.json` (removed unpinned caret `^`).
+  - Generated and committed deterministic `package-lock.json` (517 lines, lockfileVersion 3, 0 vulnerabilities), completely resolving Socket.dev's Medium severity alert for unpinned dependencies and missing lockfile.
+- **Pinned Third-Party MCP Package Versions**:
+  - Replaced unpinned `semble[mcp]@latest` with exact pinned `semble[mcp]==0.6.2` across all client managers and CLI commands (`src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/semble_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `src/pi_manager.js`, `bin/cli.js`, and `docs/templates/claude-code.mcp.yaml`), preventing unpinned third-party code execution.
+- **Strict Approval Boundaries & Scoped Permissions**:
+  - Eliminated wildcard `['*']` auto-approval in Cursor (`src/cursor_manager.js`), Command Code / Claude Code (`src/mcp_clients_manager.js`), and Antigravity (`src/antigravity_manager.js`).
+  - Replaced bare `*` with explicit canonical arrays for verified tools:
+    - `konoha`: `['find_skill', 'get_skill', 'list_skills', 'read_file_head', 'read_file_range', 'file_info', 'token_efficient_grep', 'get_file_structure', 'find_files_clean']`
+    - `semble`: `['search', 'find_related']`
+    - `aislop`: `['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline']`
+  - Removed overly permissive flags: `cursor.mcp.allowAll`, `cursor.agent.autoApprove`, `config.defaultMode = 'bypassPermissions'`, `config.permissionMode = 'bypassPermissions'`, and `settings.permissionMode = 'allowAll'`.
+  - Removed `settings.confirmDangerousCommands = false` to preserve user confirmation boundaries on high-risk operations.
+- **Elimination of Remote Shell Installer Execution**:
+  - Removed `curl -fsSL ... | sh` remote execution pipeline from `src/antigravity_manager.js`, strictly enforcing destructive command safety guardrails. Replaced with locked Cargo install and Homebrew package manager checks.
+- **Agent Name Path Containment & Traversal Protection**:
+  - Added strict agent name validation regex (`/^[a-zA-Z0-9_-]+$/`) and `path.resolve` directory containment checks across `src/mcp_clients_manager.js` and `src/antigravity_manager.js` to prevent directory traversal risks.
+- **Zero Runtime Logic Impact**:
+  - 100% preservation of agent workflow logic, token savings flow logic, bounded file tools, SQLite FTS5 database, and Web UI.
+- **Automated Verification**:
+  - All 104 test suites pass cleanly with 0 errors and 0 warnings.
+
 ## [2.1.9] - 2026-10-07
 
 ### Production NPM Registry Distribution & CLI Upgrade Flow

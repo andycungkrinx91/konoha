@@ -50,9 +50,9 @@ function getSembleStatus() {
 
   return {
     name: 'Semble MCP',
-    package: 'semble[mcp]@latest',
+    package: 'semble[mcp]==0.6.2',
     engine: 'Semantic Code Search (Neural Embedding + Vector Index)',
-    command: `${uvxCmd} --from semble[mcp]@latest semble`,
+    command: `${uvxCmd} --from semble[mcp]==0.6.2 semble`,
     configured,
     available: isUvxUsable(uvxCmd),
     features: ['search', 'find_related'],
@@ -76,7 +76,7 @@ function getSembleSavings() {
   const candidates = [
     { cmd: 'semble', args: ['savings'], timeout: 1500 },
     { cmd: uvxCmd, args: ['semble', 'savings'], timeout: 2000 },
-    { cmd: uvxCmd, args: ['--from', 'semble[mcp]@latest', 'semble', 'savings'], timeout: 3000 }
+    { cmd: uvxCmd, args: ['--from', 'semble[mcp]==0.6.2', 'semble', 'savings'], timeout: 3000 }
   ];
 
   for (const c of candidates) {
@@ -171,7 +171,7 @@ function searchSemble(query, searchPath = process.cwd(), topK = 5) {
   const k = Math.min(Math.max(parseInt(topK, 10) || 5, 1), 20);
 
   try {
-    const res = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {
+    const res = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {
       encoding: 'utf-8',
       timeout: 8000,
       shell: process.platform === 'win32'

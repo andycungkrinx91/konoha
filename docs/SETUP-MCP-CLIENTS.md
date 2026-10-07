@@ -148,7 +148,7 @@ args = ["/home/<user>/.konoha/server.js"]
 
 [mcp_servers.semble]
 command = "uvx"
-args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
+args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
 
 [mcp_servers.aislop]
 command = "npx"
@@ -194,7 +194,7 @@ approval_mode = "auto"
     },
     "semble": {
       "command": "uvx",
-      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
+      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
     },
     "aislop": {
       "command": "npx",

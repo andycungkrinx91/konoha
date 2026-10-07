@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.9';
+  return '2.1.10';
 }
 
 function drawLogo() {
@@ -2158,7 +2158,7 @@ function getUvCommand() {
 function refreshSemblePackage(silent = true) {
   const uvxCmd = getUvxCommand();
   try {
-    const result = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', '--version'], {
+    const result = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', '--version'], {
       encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit'
     });
     return result.status === 0
@@ -2595,10 +2595,10 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
 
   const sembleConfig = {
     command: uvxCmd,
-    args: ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']
+    args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all']
   };
   if (allowAutoApprove) {
-    sembleConfig.autoApprove = ['*', 'search', 'find_related'];
+    sembleConfig.autoApprove = ['search', 'find_related'];
   }
 
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -2607,13 +2607,12 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
     args: ['-y', '-p', 'aislop', 'aislop-mcp']
   };
   if (allowAutoApprove) {
-    aislopConfig.autoApprove = ['*', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
+    aislopConfig.autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
   }
 
   const konohaConfig = deployUtils.buildKonohaFilesMcpEntry('execPath');
   if (konohaConfig && allowAutoApprove) {
     konohaConfig.autoApprove = [
-      '*',
       'read_file_head',
       'read_file_range',
       'file_info',
@@ -2986,7 +2985,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.9', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.10', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3010,7 +3009,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.9', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.10', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -4619,7 +4618,7 @@ async function cmdDoctor(args = []) {
 
   // 7. MCP Configuration
   const nodeCmd = process.execPath;
-  const expectedSembleArgs = ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all'];
+  const expectedSembleArgs = ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'];
   const expectedAislopArgs = ['-y', '-p', 'aislop', 'aislop-mcp'];
   let mcpHealthy = false;
   if (fileExists(MCP_CONFIG_PATH)) {
@@ -5859,7 +5858,7 @@ async function cmdSavings(args = []) {
       });
     }
     if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]@latest', 'semble', 'savings'], {
+      runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', 'savings'], {
         encoding: 'utf-8',
         timeout: 5000,
         shell: process.platform === 'win32'
