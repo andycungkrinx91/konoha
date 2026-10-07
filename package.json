@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
