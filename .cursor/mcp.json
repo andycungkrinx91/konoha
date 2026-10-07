@@ -5,25 +5,35 @@
       "command": "uvx",
       "args": [
         "--from",
-        "semble[mcp]@latest",
+        "semble[mcp]==0.6.2",
         "semble",
         "--content",
         "all"
-      ]
+      ],
+      "autoApprove": [
+        "search",
+        "find_related"
+      ],
+      "auto_approve": true
     },
     "konoha": {
       "type": "stdio",
-      "command": "/home/andycungkrinx/.nvm/versions/node/v26.5.1/bin/node",
+      "command": "/home/andycungkrinx/.nvm/versions/node/v22.23.3/bin/node",
       "args": [
         "${userHome}/.konoha/file_tools_launcher.js"
       ]
     },
     "aislop": {
       "type": "stdio",
-      "command": "/home/andycungkrinx/.nvm/versions/node/v26.5.1/bin/aislop-mcp",
-      "args": [],
+      "command": "npx",
+      "args": [
+        "-y",
+        "--prefer-offline",
+        "-p",
+        "aislop@0.18.1",
+        "aislop-mcp"
+      ],
       "autoApprove": [
-        "*",
         "aislop_scan",
         "aislop_fix",
         "aislop_why",

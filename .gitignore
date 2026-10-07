@@ -78,6 +78,8 @@ tests/.pytest_cache/
 # Client skill-sync side effects from running the test suite
 tests/.agents/
 tests/.cursor/
+.agents/plugins/
+
 tests/.gemini/
 
 # Build artifacts

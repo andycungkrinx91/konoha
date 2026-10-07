@@ -244,7 +244,8 @@ function getBundledModelsDir() {
 async function getEmbedPipeline() {
   if (_pipelineExtractor) return _pipelineExtractor;
   try {
-    const { pipeline, env } = require('@huggingface/transformers');
+    const tfModule = '@huggingface/transformers';
+    const { pipeline, env } = require(tfModule);
     const cacheDir = getBundledModelsDir();
     env.cacheDir = cacheDir;
     env.localModelPath = cacheDir;
@@ -286,7 +287,8 @@ async function getEmbedPipeline() {
 async function getRerankPipeline() {
   if (_pipelineReranker) return _pipelineReranker;
   try {
-    const { AutoTokenizer, AutoModelForSequenceClassification, env } = require('@huggingface/transformers');
+    const tfModule = '@huggingface/transformers';
+    const { AutoTokenizer, AutoModelForSequenceClassification, env } = require(tfModule);
     const cacheDir = getBundledModelsDir();
     env.cacheDir = cacheDir;
     env.localModelPath = cacheDir;
@@ -461,8 +463,22 @@ async function embedText(text) {
 
   const extractor = await getEmbedPipeline();
   if (!extractor) {
-    // Return pseudo-deterministic zero vector if embedder unavailable
-    return new Float32Array(VECTOR_DIMENSION);
+    // Return pseudo-deterministic L2-normalized vector if neural embedder unavailable
+    const vec = new Float32Array(VECTOR_DIMENSION);
+    let sumSq = 0;
+    for (let i = 0; i < VECTOR_DIMENSION; i++) {
+      const byteVal = parseInt(textHash.slice((i * 2) % 62, ((i * 2) % 62) + 2) || '1', 16);
+      vec[i] = (byteVal - 128) / 128.0;
+      sumSq += vec[i] * vec[i];
+    }
+    const normVal = Math.sqrt(sumSq) || 1.0;
+    for (let i = 0; i < VECTOR_DIMENSION; i++) vec[i] /= normVal;
+    if (_EMBED_CACHE.size >= _MAX_EMBED_CACHE) {
+      const firstKey = _EMBED_CACHE.keys().next().value;
+      _EMBED_CACHE.delete(firstKey);
+    }
+    _EMBED_CACHE.set(textHash, new Float32Array(vec));
+    return vec;
   }
 
   let output;

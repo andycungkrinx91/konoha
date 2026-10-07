@@ -1198,10 +1198,10 @@ function getClaudeCodeStatus() {
       }
       const allowRaw = settings?.permissions?.allow;
       const allowed = Array.isArray(allowRaw) ? allowRaw : [];
-      status.permissionsAllowed =
-        allowed.includes('mcp__konoha__*') &&
-        allowed.includes('mcp__semble__*') &&
-        allowed.includes('mcp__aislop__*');
+      const hasKonoha = allowed.includes('mcp__konoha__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__konoha__'));
+      const hasSemble = allowed.includes('mcp__semble__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__semble__'));
+      const hasAislop = allowed.includes('mcp__aislop__*') || allowed.some(a => typeof a === 'string' && a.startsWith('mcp__aislop__'));
+      status.permissionsAllowed = hasKonoha && hasSemble && hasAislop;
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
