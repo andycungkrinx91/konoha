@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bridge storage management for Konoha via SQLite (skills.db).
- * Pure Node.js replacement for db_bridges.py using better-sqlite3.
+ * Pure Node.js replacement for db_bridges.py using the node:sqlite driver.
  */
 
 const fs = require('fs');

@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
-const Database = require('better-sqlite3');
+const Database = require('../src/sqlite_driver');
 const sdlc = require('../src/sdlc_manager');
 const { getDiagnostics } = require('../src/doctor');
 

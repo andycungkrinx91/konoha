@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.4';
+  return '2.1.5';
 }
 
 function drawLogo() {
@@ -1281,7 +1281,7 @@ function checkPython() {
 function hasCompleteDatabaseSchema(_ = null) {
   if (!fileExists(DB_PATH)) return false;
   try {
-    const Database = require('better-sqlite3');
+    const Database = require('../src/sqlite_driver');
     const db = new Database(DB_PATH, { readonly: true });
     const required = ["skills", "skills_fts", "tool_calls", "active_sessions", "agents", "bridges"];
     const rows = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
@@ -1341,7 +1341,7 @@ function verifySkillDatabaseContract(python = null, requiredSkill = 'genin-skill
     return { ok: false, reason: 'skills database is unavailable' };
   }
   try {
-    const Database = require('better-sqlite3');
+    const Database = require('../src/sqlite_driver');
     const db = new Database(DB_PATH, { readonly: true });
     const hasRequired = !!db.prepare("SELECT 1 FROM skills WHERE name = ?").get(requiredSkill);
     const legacy = db.prepare("SELECT name FROM skills WHERE name LIKE 'deep-code-explorer%' OR skill_name = 'deep-code-explorer'").all().map(r => r.name);
@@ -2986,7 +2986,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.4', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.5', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3010,7 +3010,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.4', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.5', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3022,7 +3022,7 @@ function installCliRuntime() {
     }
 
     // Ensure runtime dependencies for the installed CLI (idempotent, best-effort)
-    const depMarker = path.join(SKILLS_DB_DIR, 'node_modules', 'better-sqlite3');
+    const depMarker = path.join(SKILLS_DB_DIR, 'node_modules', '@bufbuild', 'protobuf');
     if (!fileExists(depMarker)) {
       const isWin = process.platform === 'win32';
       const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);

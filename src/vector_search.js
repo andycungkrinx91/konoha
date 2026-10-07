@@ -1,6 +1,6 @@
 /**
  * Hybrid semantic search, ONNX embeddings, and cross-encoder reranker for Konoha.
- * Pure Node.js replacement for vector_search.py using @huggingface/transformers and better-sqlite3.
+ * Pure Node.js replacement for vector_search.py using @huggingface/transformers and the node:sqlite driver.
  */
 
 const fs = require('fs');

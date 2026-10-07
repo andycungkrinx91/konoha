@@ -96,11 +96,21 @@ function getDiagnostics(autoRepair = false) {
       const servers = cfg.mcpServers || {};
       if (servers.konoha && servers.semble && servers.aislop) {
         record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
+      } else if (autoRepair) {
+        require('./antigravity_manager').ensureAntigravitySetup({ silent: true });
+        record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
       } else {
         record('MCP Config (mcp_config.json)', 'WARNING', 'Some MCP servers not registered');
       }
     } catch {
       record('MCP Config (mcp_config.json)', 'FAILED', 'Invalid JSON config');
+    }
+  } else if (autoRepair) {
+    try {
+      require('./antigravity_manager').ensureAntigravitySetup({ silent: true });
+      record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+    } catch {
+      record('MCP Config (mcp_config.json)', 'FAILED', 'Missing mcp_config.json');
     }
   } else {
     record('MCP Config (mcp_config.json)', 'FAILED', 'Missing mcp_config.json');

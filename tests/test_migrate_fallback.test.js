@@ -54,7 +54,7 @@ describe('Migrate Progressive Fallback & Deferred Indexing', () => {
     assert.match(out, /References deferred \(--skills-only\): \d+ files skipped/, 'expected deferred-reference output');
     assert.doesNotMatch(out, /✓ references\//, 'references must not be migrated under --skills-only');
 
-    const Database = require('better-sqlite3');
+    const Database = require('../src/sqlite_driver');
     const db = new Database(tmpDbPath);
     const rows = db.prepare("SELECT DISTINCT name FROM skills").all().map(r => r.name);
     db.close();

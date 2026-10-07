@@ -66,13 +66,13 @@ function resolveWebUiDir(opts = {}) {
         try {
           const parsed = JSON.parse(fs.readFileSync(pkg, "utf8"));
           if (parsed.name === "konoha-web") {
-            const hasRoutes = fs.existsSync(path.join(dir, "src", "routes"));
+            const hasRoutes = fs.existsSync(path.join(dir, "src", "routes")) || fs.existsSync(path.join(dir, "public", "index.html"));
             const hasBuildScript = Boolean(parsed.scripts && parsed.scripts.build);
             hasSources = hasRoutes && hasBuildScript;
           }
         } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
-      const hasBuild = fs.existsSync(path.join(dir, "build", "handler.js"));
+      const hasBuild = fs.existsSync(path.join(dir, "build", "handler.js")) || fs.existsSync(path.join(dir, "public", "index.html"));
       const qualifies = hasSources || hasBuild;
       if (qualifies) qualifying.push({ dir, hasSources, hasBuild });
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -537,7 +537,6 @@ function installFileTools(silent = true, pythonCmd = null) {
               private: true,
               dependencies: {
                 "@bufbuild/protobuf": "^2.11.0",
-                "better-sqlite3": "^13.0.3",
                 "@huggingface/transformers": "^4.2.0"
               },
             },
@@ -546,7 +545,7 @@ function installFileTools(silent = true, pythonCmd = null) {
           ) + "\n",
         );
       }
-      if (!fileExists(nodeModulesPath) || !fileExists(path.join(nodeModulesPath, 'better-sqlite3'))) {
+      if (!fileExists(nodeModulesPath) || !fileExists(path.join(nodeModulesPath, '@bufbuild', 'protobuf'))) {
         const isWin = process.platform === "win32";
         // .cmd/.bat shims require shell:true since Node >= 18.20.2 (CVE-2024-27980);
         // fall back to npm when pnpm is unavailable
@@ -810,7 +809,7 @@ function cleanKonohaRuntimeDir(options = {}) {
     const activeDbPath = path.join(target, 'konoha.db');
     if (fs.existsSync(activeDbPath)) {
       try {
-        const Database = require('better-sqlite3');
+        const Database = require('./sqlite_driver');
         const db = new Database(activeDbPath, { timeout: 5000 });
         try {
           db.pragma('wal_checkpoint(TRUNCATE)');

@@ -294,6 +294,29 @@ async function run() {
     assert.strictEqual(removeCc.data.client, 'commandcode');
     console.log('✓ POST /api/v1/clients/:id/remove passed for antigravity and commandcode');
 
+    const setupAg = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/clients/antigravity/setup',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Konoha-Web-Token': token }
+    }, {});
+    assert.strictEqual(setupAg.status, 200);
+    assert.strictEqual(setupAg.data.ok, true);
+    assert.strictEqual(setupAg.data.client, 'antigravity');
+
+    const setupCc = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/clients/commandcode/setup',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Konoha-Web-Token': token }
+    }, {});
+    assert.strictEqual(setupCc.status, 200);
+    assert.strictEqual(setupCc.data.ok, true);
+    assert.strictEqual(setupCc.data.client, 'commandcode');
+    console.log('✓ POST /api/v1/clients/:id/setup passed for antigravity and commandcode');
+
     // 9. Static UI HTML — CSRF token must NOT be rendered into the page source
     //    (HttpOnly cookie + GET /api/v1/csrf are the only delivery channels).
     //    The root route 307-redirects to /dashboard; the served page must stay clean.

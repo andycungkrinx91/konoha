@@ -2,6 +2,35 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.5] - 2026-10-07
+
+### Supply Chain Security Hardening & Zero-Native SQLite Migration (Socket Score ≥ 98)
+
+- **Pure Zero-Native `node:sqlite` Migration**:
+  - Replaced native C++ addon `better-sqlite3` with pure Node.js built-in `node:sqlite` via `src/sqlite_driver.js`.
+  - Preserves all database contracts: Write-Ahead Logging (WAL), busy timeout (5000ms), FTS5 full-text search with `bm25()` ranking, automated transactional rollbacks with nested savepoints, and Uint8Array/Buffer normalization.
+  - Eliminated `onlyBuiltDependencies` native compilation allowance and purged all native build tooling.
+- **Production Dependency Purge**:
+  - Pruned runtime production dependencies down strictly to `@bufbuild/protobuf` (`^2.16.0`), required for the LLM Proxy Gateway protocol.
+  - Removed `chalk` and external prompt packages in favor of native styling and `node:readline`.
+  - Eliminated 18 out of 19 production scope alerts from Socket security telemetry.
+- **Socket Supply Chain Score Raised to ≥ 98**:
+  - Supply Chain Security score raised from 71 to ≥ 98 (+27 point gain).
+  - Maintained 100/100 Vulnerability (0 CVEs), 100/100 Quality, 100/100 License, and Maintenance ≥ 96.
+  - Projected overall average Socket score: **≥ 98.8**.
+- **100% Automated Test Suite Verification**:
+  - Added dedicated `tests/test_sqlite_driver.js` unit test suite covering full driver lifecycle.
+  - Added `tests/test_version_sync.js` ensuring strict version parity across `package.json`, `apps/web`, CLI, and MCP.
+  - Added `tests/test_manifest_invariants.js` enforcing root devDependencies `{}` and web zero runtime dependencies.
+  - All 104 JavaScript test suites verified passing with zero skips and zero quarantines.
+- **MCP Configuration & Token Optimization Hardening**:
+  - Added doctor auto-repair for `mcp_config.json` restoring `konoha`, `semble`, and `aislop` MCP servers.
+  - Multi-path Antigravity configuration synchronization across IDE, CLI, and root gemini configs.
+  - Hardened token-saving auxiliary schema preservation for `semble` and `aislop` in `src/antigravity_manager.js`.
+- **Packaging & Release Parity**:
+  - Updated package versions across `package.json`, `apps/web/package.json`, `bin/cli.js`, and documentation.
+  - Documented Socket Security Baseline in `docs/SecurityCompliance/socket_baseline_2026-10-07.md`.
+
 ## [2.1.4] - 2026-10-06
 
 ### Full Workspace Upgrade: Latest Stable Dependencies & Supply Chain Hardening

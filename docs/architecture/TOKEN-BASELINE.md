@@ -47,7 +47,7 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`, `delegate_to_*`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
 4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and exactly 37 canonical tools in CI/CD.
-5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 → 35 → 37 canonical tools) until locked at exactly 37 canonical tools in `src/file_tools_router.js`.
+5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37) until locked at exactly 37 canonical tools in `src/file_tools_router.js`.
 6. **Semble & Aislop Schema Optimization (PLAN-PHASE2 Problem 1)**: Condensed verbose multi-line descriptions and redundant parameter blurbs across Semble (`search.json`, `find_related.json` saving -280 tokens / -35.7%) and Aislop (`aislop_scan.json`, `aislop_fix.json`, `aislop_why.json`, `aislop_baseline.json` saving -179 tokens / -36.3%), saving a combined -459 tokens (-35.9%) across auxiliary MCP servers.
 
 ---

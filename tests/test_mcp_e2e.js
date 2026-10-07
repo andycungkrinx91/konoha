@@ -53,7 +53,8 @@ async function testAll() {
     source_dir: testDir,
     flow_path: dummyFlowPath,
     out_path: dummyOutPath,
-    skip_verification: true
+    skip_verification: true,
+    mock_report: { suites: [] }
   };
 
   const skipList = [];

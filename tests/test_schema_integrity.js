@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const Database = require('better-sqlite3');
+const Database = require('../src/sqlite_driver');
 
 const ROOT = path.resolve(__dirname, '..');
 

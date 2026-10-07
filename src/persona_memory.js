@@ -1,6 +1,6 @@
 /**
  * Persistent Persona Memory & Project Context Engine for Konoha.
- * Pure Node.js replacement for persona_memory.py using better-sqlite3 and crypto.
+ * Pure Node.js replacement for persona_memory.py using the node:sqlite driver and crypto.
  */
 
 const fs = require('fs');

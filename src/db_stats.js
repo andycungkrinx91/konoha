@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Helper script and in-process module to return database stats as JSON.
- * Replaces db_stats.py with pure Node.js better-sqlite3.
+ * Replaces db_stats.py with pure Node.js the node:sqlite driver.
  */
 
 

@@ -1,12 +1,12 @@
 /**
- * Canonical database access layer for Konoha (skills.db) using better-sqlite3.
+ * Canonical database access layer for Konoha (skills.db) using the built-in node:sqlite driver.
  * Owns DB_PATH, connection pragmas, vector extension loading, and the unified schema.
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const Database = require('better-sqlite3');
+const Database = require('./sqlite_driver');
 
 // Single canonical declaration of DB_PATH.
 // KONOHA_DB_PATH env override (set by the test runner / test suites) isolates

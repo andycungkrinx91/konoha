@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Skills Migration Engine (v1.1.0 — Enhanced Token Optimization)
- * Pure Node.js replacement for migrate.py using better-sqlite3 and yaml_utils.
+ * Pure Node.js replacement for migrate.py using the node:sqlite driver and yaml_utils.
  * Migrates skill content from ~/.agents/skills/ into SQLite FTS5 database.
  */
 

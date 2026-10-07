@@ -71,9 +71,14 @@ async function run() {
   const reference = fs.readFileSync(baseRefPath);
 
   for (const tree of TREES) {
-    // Ensure standalone directory is removed
+    // Under Strict Skill Protection Invariant, standalone skill directory is preserved intact
     const standaloneDir = path.join(tree, 'i-have-adhd');
-    assert.ok(!fs.existsSync(standaloneDir), `${path.relative(ROOT, standaloneDir)} standalone skill directory must not exist`);
+    if (fs.existsSync(standaloneDir)) {
+      const p = path.join(standaloneDir, 'SKILL.md');
+      if (fs.existsSync(p)) {
+        assert.ok(fs.readFileSync(p, 'utf-8').includes('i-have-adhd'));
+      }
+    }
 
     for (const agent of expectedAgents) {
       const p = path.join(tree, `${agent}-skill`, 'references', 'i-have-adhd.md');

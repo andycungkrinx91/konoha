@@ -108,3 +108,8 @@ coverage/
 # Playwright Test
 test-results/
 playwright-report/
+
+# KONOHA-QA-START
+blob-report/
+playwright/.cache/
+# KONOHA-QA-END

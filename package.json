@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -59,25 +59,11 @@
     "darwin",
     "win32"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/andycungkrinx91/konoha.git"
-  },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.16.0",
-    "better-sqlite3": "^13.0.3",
-    "chalk": "^4.1.2"
+    "@bufbuild/protobuf": "^2.16.0"
   },
-  "devDependencies": {
-    "@napi-rs/canvas": "^1.0.10",
-    "@types/vscode": "^1.140.0",
-    "gifenc": "^1.0.3",
-    "playwright": "^1.63.0"
-  },
+  "devDependencies": {},
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3"
-    ],
     "overrides": {
       "sharp": ">=0.35.4",
       "adm-zip": ">=0.6.0",

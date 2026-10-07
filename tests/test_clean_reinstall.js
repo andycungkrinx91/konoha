@@ -35,7 +35,7 @@ function runTest() {
     // 1. Populate preserved files and directories
     const preservedDirs = [
       path.join(mockKonoha, 'transformers_cache', 'models--xenova'),
-      path.join(mockKonoha, 'node_modules', 'better-sqlite3'),
+      path.join(mockKonoha, 'node_modules', '@bufbuild', 'protobuf'),
       path.join(mockKonoha, 'vendor', 'vector-ext'),
       path.join(mockKonoha, 'searxng', 'config'),
       path.join(mockKonoha, 'assets', 'models'),
@@ -53,13 +53,13 @@ function runTest() {
       path.join(mockKonoha, '.node_exec_path'),
       path.join(mockKonoha, '.deploy-fingerprint'),
       path.join(mockKonoha, 'transformers_cache', 'models--xenova', 'weight.bin'),
-      path.join(mockKonoha, 'node_modules', 'better-sqlite3', 'index.js'),
+      path.join(mockKonoha, 'node_modules', '@bufbuild', 'protobuf', 'index.js'),
     ];
     preservedFiles.forEach(f => fs.writeFileSync(f, 'mock preserved content\n', 'utf8'));
 
     // Create a real SQLite database to verify vacuum / WAL truncation
     const dbPath = path.join(mockKonoha, 'konoha.db');
-    const Database = require('better-sqlite3');
+    const Database = require('../src/sqlite_driver');
     const db = new Database(dbPath);
     db.exec('CREATE TABLE test_data (id INTEGER PRIMARY KEY, note TEXT);');
     db.exec("INSERT INTO test_data (note) VALUES ('active-user-agent-data');");

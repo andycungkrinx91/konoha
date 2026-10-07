@@ -446,6 +446,59 @@ function ensureAntigravityMcpSchemas() {
       }
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
+
+  // Ensure token-optimized auxiliary MCP schemas for semble and aislop (prevent token drift)
+  try {
+    const sembleDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'semble');
+    const searchJson = path.join(sembleDir, 'search.json');
+    const findRelatedJson = path.join(sembleDir, 'find_related.json');
+    if (fs.existsSync(searchJson) && fs.existsSync(findRelatedJson)) {
+      const s1 = JSON.parse(fs.readFileSync(searchJson, 'utf8'));
+      const s2 = JSON.parse(fs.readFileSync(findRelatedJson, 'utf8'));
+      if (s1.description !== 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.') {
+        s1.description = 'Search codebase with focused query. Returns file paths and line numbers. Pass local path or git URL as repo.';
+        if (s1.parameters?.properties?.max_snippet_lines) s1.parameters.properties.max_snippet_lines.description = 'Lines of source to include per result (default: 10, 0: location only).';
+        if (s1.parameters?.properties?.repo) s1.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
+        fs.writeFileSync(searchJson, JSON.stringify(s1, null, 2) + '\n', 'utf8');
+      }
+      if (s2.description !== 'Find code similar to a known location. Pass file_path and line from prior search result.') {
+        s2.description = 'Find code similar to a known location. Pass file_path and line from prior search result.';
+        if (s2.parameters?.properties?.max_snippet_lines) s2.parameters.properties.max_snippet_lines.description = 'Lines of source per result (default: 10, 0: location only).';
+        if (s2.parameters?.properties?.repo) s2.parameters.properties.repo.description = 'Local directory path or git URL to index and search.';
+        fs.writeFileSync(findRelatedJson, JSON.stringify(s2, null, 2) + '\n', 'utf8');
+      }
+    }
+
+    const aislopDir = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp', 'aislop');
+    const scanJson = path.join(aislopDir, 'aislop_scan.json');
+    const fixJson = path.join(aislopDir, 'aislop_fix.json');
+    const baselineJson = path.join(aislopDir, 'aislop_baseline.json');
+    const whyJson = path.join(aislopDir, 'aislop_why.json');
+    if (fs.existsSync(scanJson) && fs.existsSync(fixJson) && fs.existsSync(baselineJson) && fs.existsSync(whyJson)) {
+      const s = JSON.parse(fs.readFileSync(scanJson, 'utf8'));
+      const f = JSON.parse(fs.readFileSync(fixJson, 'utf8'));
+      const b = JSON.parse(fs.readFileSync(baselineJson, 'utf8'));
+      const w = JSON.parse(fs.readFileSync(whyJson, 'utf8'));
+
+      b.description = 'Read project baseline score. Returns score, lastScanAt, fileCount, or null.';
+      if (b.parameters?.properties?.path) b.parameters.properties.path.description = 'Project directory path.';
+
+      f.description = 'Apply mechanical fixes (formatting, unused/duplicate imports). Returns counts before/after.';
+      if (f.parameters?.properties?.path) f.parameters.properties.path.description = 'Project directory path.';
+      if (f.parameters?.properties?.force) f.parameters.properties.force.description = 'Run aggressive fixes.';
+
+      s.description = 'Scan project with aislop engines. Returns 0-100 score and top findings.';
+      if (s.parameters?.properties?.path) s.parameters.properties.path.description = 'Project directory path.';
+
+      w.description = 'Explain an aislop rule, rationale, severity, and auto-fixability.';
+      if (w.parameters?.properties?.rule_id) w.parameters.properties.rule_id.description = 'Full rule ID.';
+
+      fs.writeFileSync(scanJson, JSON.stringify(s, null, 2) + '\n', 'utf8');
+      fs.writeFileSync(fixJson, JSON.stringify(f, null, 2) + '\n', 'utf8');
+      fs.writeFileSync(baselineJson, JSON.stringify(b, null, 2) + '\n', 'utf8');
+      fs.writeFileSync(whyJson, JSON.stringify(w, null, 2) + '\n', 'utf8');
+    }
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 // isRtkInstalled is imported from platform_utils
@@ -807,24 +860,37 @@ function removeAntigravityConfig(silent = true, options = {}) {
 function ensureAntigravitySetup(options = {}) {
   const { silent = true } = options;
   const home = options.home || process.env.HOME || os.homedir();
-  const mcpConfigPath = options.configPath || path.join(home, '.gemini', 'config', 'mcp_config.json');
-  const dir = path.dirname(mcpConfigPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-  let config = { mcpServers: {} };
-  if (fs.existsSync(mcpConfigPath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
-      if (!config.mcpServers) config.mcpServers = {};
-    } catch {
-      config = { mcpServers: {} };
-    }
-  }
+  const targetPaths = [
+    options.configPath || path.join(home, '.gemini', 'config', 'mcp_config.json'),
+    path.join(home, '.gemini', 'antigravity-ide', 'mcp_config.json'),
+    path.join(home, '.gemini', 'antigravity', 'mcp_config.json')
+  ];
 
   const { buildStdioMcpServers } = require('./mcp_clients_manager');
   const servers = buildStdioMcpServers({ client: 'antigravity' });
-  Object.assign(config.mcpServers, servers);
-  fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
+
+  for (const mcpConfigPath of targetPaths) {
+    const dir = path.dirname(mcpConfigPath);
+    if (!fs.existsSync(dir)) {
+      if (mcpConfigPath === targetPaths[0]) {
+        fs.mkdirSync(dir, { recursive: true });
+      } else {
+        continue;
+      }
+    }
+
+    let config = { mcpServers: {} };
+    if (fs.existsSync(mcpConfigPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
+        if (!config.mcpServers) config.mcpServers = {};
+      } catch {
+        config = { mcpServers: {} };
+      }
+    }
+    Object.assign(config.mcpServers, servers);
+    fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2) + '\n');
+  }
 
   ensureAntigravityPermissions(silent);
   ensureAntigravityMcpSchemas();

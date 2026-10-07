@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Agent and model storage management for Konoha via SQLite (skills.db).
- * Pure Node.js replacement for db_agents.py using better-sqlite3 and yaml_utils.
+ * Pure Node.js replacement for db_agents.py using the node:sqlite driver and yaml_utils.
  */
 
 const fs = require('fs');

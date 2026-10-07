@@ -19,7 +19,7 @@
   const AGENTS = [
     { name: 'Sannin', role: 'Task triage & orchestration router', detail: 'Entry point for non-trivial work. Resolves the task directory, routes the request through the village pipeline, and delivers the final report.' },
     { name: 'Genin', role: 'Read-only exploration', detail: 'Codebase exploration, symbol search, dependency mapping, and evidence-based findings. Never mutates files.' },
-    { name: 'Kage', role: 'Architecture, security & review', detail: 'Deep code analysis, risk assessment, and the blocking Kage Reviewer Confidence Gate (≥97%) with the two-step Zero-AI-Slop scan.' },
+    { name: 'Kage', role: 'Architecture, security & review', detail: 'Deep code analysis, risk assessment, and the blocking Kage Reviewer Confidence Gate (≥98%) with the two-step Zero-AI-Slop scan.' },
     { name: 'Jonin', role: 'Premium UI development', detail: 'Frontend builds with the Taste-Skill Design Engine — typography dials, motion intensity, and strict design invariants.' },
     { name: 'Anbu', role: 'Backend & remediation', detail: 'Backend development, bug fixes, DevOps, and the slop-fix remediation specialist when the Delivery Gate reports findings.' },
     { name: 'Chunin', role: 'Research & evidence', detail: 'Web research, documentation lookup, and evidence synthesis with citations.' },

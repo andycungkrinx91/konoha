@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const Database = require('better-sqlite3');
+const Database = require('../src/sqlite_driver');
 const { DB_PATH } = require('../src/db');
 
 const MIGRATE_SCRIPT = fs.existsSync(path.join(os.homedir(), '.konoha', 'migrate.js'))

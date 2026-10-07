@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Helper script and in-process module to query token savings and tool call statistics as JSON.
- * Pure Node.js replacement for db_savings.py using better-sqlite3.
+ * Pure Node.js replacement for db_savings.py using the node:sqlite driver.
  */
 
 const fs = require('fs');

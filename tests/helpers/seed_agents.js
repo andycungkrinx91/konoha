@@ -14,7 +14,7 @@ require('./isolate_db');
 
 const path = require('path');
 const os = require('os');
-const Database = require('better-sqlite3');
+const Database = require('../../src/sqlite_driver');
 
 const { getConnection } = require('../../src/db');
 

@@ -850,7 +850,7 @@ async function cmdUiBuild() {
     ];
     for (const cand of candidates) {
       const pkg = path.join(cand, 'package.json');
-      if (fileExists(pkg) && fileExists(path.join(cand, 'src', 'routes'))) {
+      if (fileExists(pkg) && (fileExists(path.join(cand, 'src', 'routes')) || fileExists(path.join(cand, 'public')))) {
         try {
           const parsed = JSON.parse(fs.readFileSync(pkg, 'utf8'));
           if (parsed.scripts && parsed.scripts.build) {
@@ -862,7 +862,7 @@ async function cmdUiBuild() {
     }
   }
   const hasSources = webDir && fileExists(path.join(webDir, 'package.json'))
-    && fileExists(path.join(webDir, 'src', 'routes'));
+    && (fileExists(path.join(webDir, 'src', 'routes')) || fileExists(path.join(webDir, 'public')));
   if (!hasSources) {
     const installedHandler = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build', 'handler.js');
     if (fileExists(installedHandler)) {
@@ -889,8 +889,9 @@ async function cmdUiBuild() {
       } catch (_) { return false; }
     })();
 
+    const isZeroDep = fileExists(path.join(webDir, 'scripts', 'build.js'));
     const viteBin = path.join(webDir, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
-    if (!fileExists(viteBin)) {
+    if (!isZeroDep && !fileExists(viteBin)) {
       info(`Installing apps/web dependencies in ${webDir}...`);
       if (hasPnpm) {
         try {

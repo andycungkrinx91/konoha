@@ -105,7 +105,7 @@ async function testRrfRerankingArchitecture() {
 }
 
 async function testRagChunkRetrieval() {
-  const Database = require('better-sqlite3');
+  const Database = require('../src/sqlite_driver');
   const { DB_PATH } = require('../src/db');
   const vs = require('../src/vector_search');
 
