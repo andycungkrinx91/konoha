@@ -34,7 +34,9 @@ const REQUIRED_DOCS = [
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.1_2026-10-06.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.2_2026-10-06.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.3_2026-10-06.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.4_2026-10-06.md'
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.4_2026-10-06.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.5_2026-10-07.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.6_2026-10-07.md'
 ];
 
 function checkLocalLinks() {

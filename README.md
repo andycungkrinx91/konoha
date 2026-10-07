@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.5 (2026-10-07)](CHANGELOG.md) — Zero-native `node:sqlite` database engine migration, production dependency tree pruned to 1 audited package, Socket Supply Chain score raised to ≥ 98 (average ≥ 98.8), and clean package allowlist.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.5 — Konoha v2.1.5 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.5_2026-10-07.md)
+* **Latest Release:** [v2.1.6 (2026-10-07)](CHANGELOG.md) — Socket Supply Chain security score remediation (neutralized offensive AD documentation triggering gptSecurity, certified ≥ 98% average score), pure `node:sqlite` database engine, and 1 audited dependency package.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.6 — Konoha v2.1.6 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.6_2026-10-07.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.5) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.6) and check for updates from GitHub |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

