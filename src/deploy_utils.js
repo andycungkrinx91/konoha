@@ -6,6 +6,7 @@ const path = require("path");
 
 const { spawnSync } = require("child_process");
 const { fileExists, ensureDir, IS_WIN, detectPythonOrDefault } = require("./platform_utils");
+const { pruneObsoleteStandaloneSkills } = require("./canonical_skills");
 
 const {
   HOME,
@@ -205,7 +206,7 @@ function copySkillsDirFast(srcRoot, destRoot, precomputedSrcFp = null) {
   walk(srcRoot);
 
   // Old skills protection: strictly NEVER prune or remove entries from destRoot.
-  // Pre-existing user skills and client skills are preserved across installs and upgrades.
+  // Pre-existing user skills, global skills, and client skills are preserved across installs and upgrades.
 
   try { fs.writeFileSync(fpMarker, srcFp, 'utf-8'); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
@@ -892,6 +893,7 @@ module.exports = {
   KONOHA_CANONICAL_TOOLS,
   treeFingerprint,
   copySkillsDirFast,
+  pruneObsoleteStandaloneSkills,
   installFileTools,
   cleanKonohaRuntimeDir,
   parseNodeVersion,

@@ -92,7 +92,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.12-cross-client-1)
+## Konoha runtime contract (2.0.2-cross-client-1)
 
 You are the main agent running through Claude Code. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

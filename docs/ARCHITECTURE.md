@@ -239,6 +239,12 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Integrates deterministic `agent-browser` + Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
 20. **13-Page Enterprise Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
    - Full 13-page Draw.io enterprise cloud model in `docs/diagrams/konoha-enterprise-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
+21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13)**:
+   - Centralizes canonical skill definitions into `src/canonical_skills.js` (16 canonical ninja skills and registry of embedded reference skills). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees. Enforces 100% database parity (16 skills of type `skill`, 197 references).
+22. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
+   - Hardens client configuration managers (`src/mcp_clients_manager.js`, `src/cursor_manager.js`) by eliminating dangerous wildcard grants (`*`, `Bash(*)`) in favor of explicit, bounded tool manifests. Auto-approvals are strictly constrained to declared MCP tools without granting unconstrained shell or ambient system execution.
+23. **Native LibreOffice Shim Integrity & Supply Chain Hardening (v2.1.13)**:
+   - Protects document compilation pipelines against runtime DLL/SO injection and interposition attacks in `soffice.py` through cryptographically verified trusted shims, isolated execution environments, and zero dynamic C compilation at invocation time.
 
 ---
 

@@ -20,6 +20,7 @@ const {
   AGENTS_DIR
 } = require("./runtime_state");
 const { detectActiveClient } = require("./client_detection");
+const { isEmbeddedReference, isCanonicalSkill } = require("../canonical_skills");
 
 const USER_AGENTS_YAML = path.join(AGENTS_DIR, "agents.yaml");
 const MAX_CONTENT_SIZE = 12000;
@@ -56,6 +57,9 @@ function autoDetectSkills(skillsDir) {
   try {
     const entries = fs.readdirSync(skillsDir);
     for (const entry of entries) {
+      if (isEmbeddedReference(entry) && !isCanonicalSkill(entry)) {
+        continue;
+      }
       const full = path.join(skillsDir, entry);
       if (fs.statSync(full).isDirectory()) {
         const skillMd = path.join(full, 'SKILL.md');

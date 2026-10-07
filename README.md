@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.12 (2026-10-07)](CHANGELOG.md) — Remediation of supply-chain static analysis alerts, removal of wildcard permission grants across all client integrations, unauthenticated token exposure protection, and full cross-platform QA.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.12 — Konoha v2.1.12 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.12_2026-10-07.md)
+* **Latest Release:** [v2.1.13 (2026-10-07)](CHANGELOG.md) — Comprehensive supply-chain hardening, persistent session hook elimination, soffice.py multi-suite mitigation, and deterministic zero-transitive lockfile.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.13 — Konoha v2.1.13 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.13_2026-10-07.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.12) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.1.13) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

@@ -2,6 +2,39 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.13] - 2026-10-07
+
+### Canonical Skills Single Source of Truth & Database Parity
+
+- **Canonical Skills & Embedded Reference Protection (`src/canonical_skills.js`, `src/migrate.js`, `src/mcp/skills.js`)**:
+  - Established `src/canonical_skills.js` defining the exact 16 canonical skills and explicit registry of all consolidated embedded references.
+  - Resolved bug where skills already embedded into references within ninja skills (`jonin-skill`, `anbu-skill`, `tokubetsu-jonin-skill`, `kage-skill`, `chunin-skill`, `genin-skill`) lingered as standalone skills in SQLite database and client mirrors.
+  - Hardened `autoDetectSkills()` in `src/migrate.js` and `src/mcp/skills.js` to automatically filter out embedded references, preventing duplicate standalone skill registration.
+  - Pruned legacy duplicate `agent/skills/` directory from repository.
+  - Rebuilt SQLite database `konoha.db` to 100% codebase parity: exactly 16 top-level skills (`type = 'skill'`), with all embedded references preserved under their respective ninja skill namespaces.
+  - Enforced strict global skill protection: global user skills (`~/.agents/skills`) are never pruned.
+
+### Supply Chain Security & Persistent Hook Elimination
+
+- **Persistent Session Hook Remediation (`src/cursor_manager.js`, `bin/cli.js`)**:
+  - Gated Cursor session hooks behind `allowHooks: false` by default in `registerCursorHooks` and `ensureCursorSetup`.
+  - When `allowHooks` is false (default), `registerCursorHooks` automatically cleans up and removes `cursor_bootstrap.js` from `~/.cursor/hooks.json`, keeping only standard tool hooks (`rtk hook cursor`).
+  - Updated `bin/cli.js` (`ensureAutoSetup` and `cmdInit`) to default `allowHooks: false`.
+- **Global Editor Settings Isolation (`src/cursor_manager.js`)**:
+  - Completely removed VS Code paths (`.config/Code/User/settings.json`, `%APPDATA%/Code/User/settings.json`, `Library/Application Support/Code/User/settings.json`) from `cursorSettingsPaths`.
+  - Restricted settings reconciliation strictly to existing Cursor installations, preventing unprompted directory creation or mutation of external editors.
+- **LibreOffice C Shared Object Compilation Hardening (`soffice.py`)**:
+  - Extended the secure compilation gate across all reference suites (`pptx-assets/scripts/office/soffice.py`, `xlsx-assets/scripts/office/soffice.py`, and `docx-assets/scripts/office/soffice.py`).
+  - Gated LD_PRELOAD socket shim behind explicit opt-in environment variable `ENABLE_SOFFICE_SOCKET_SHIM=1`.
+  - Enforced private temporary directory with strict `0o700` POSIX permissions and immediate source cleanup.
+  - Synchronized across all 5 skill mirrors via `scripts/sync_skills.js`.
+- **Deterministic Clean Lockfile & Phantom Dependency Purge (`package-lock.json`)**:
+  - Purged 33 phantom transitive development dependencies (`jsonc-simple-parser`, `upstream-protobuf`, `tshy`, `@typescript/native-preview`, `lru-cache`, etc.) from root `package-lock.json`.
+  - Retained solely `@bufbuild/protobuf@2.16.0` as the audited production runtime dependency.
+- **Zero-AI-Slop & Full Test Pass**:
+  - Verified 100/100 Healthy on `aislop scan --changes` with 0 errors and 0 warnings.
+  - All 104 test suites passing 100%.
+
 ## [2.1.12] - 2026-10-07
 
 ### Supply Chain Security & Permission Boundary Remediation

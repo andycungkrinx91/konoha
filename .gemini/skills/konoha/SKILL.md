@@ -439,3 +439,15 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **High & Medium Risk Elimination**: The target repository manifests MUST be strictly clean from **High** (error/critical/malware/CVE) and **Medium** (warn/gptAnomaly/eval/anomaly) risk alerts (0 High, 0 Medium). Low-level risk (informational/monitor notices like telemetry or minified file alerts) is excluded from blocking delivery.
     - **Delivery Blocking**: If any High or Medium risk vulnerability or supply-chain issue is detected, delivery is strictly BLOCKED until dependencies are upgraded, overridden, or remediated.
     - **Standard Confidence Gate Report**: The Kage Reviewer Confidence Gate Report table must include the `Socket Security Gate` row verifying 0 High, 0 Medium findings before delivery.
+75. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13)**:
+    - **Single Source of Truth (`src/canonical_skills.js`)**: Authoritatively defines `CANONICAL_SKILL_NAMES` (the 16 canonical ninja and core skills) and `KNOWN_EMBEDDED_REFERENCE_SKILLS` (190+ reference skills consolidated inside ninja skills).
+    - **Automatic Deduplication Without Pruning**: `isEmbeddedReference()` in `src/migrate.js` and `src/mcp/skills.js` prevents duplicate standalone skill registration from mirror or project directories, while preserving all user custom skills.
+    - **100% Database Parity**: The database `~/.konoha/konoha.db` must strictly contain exactly 16 skills of `type = 'skill'` and all referenced sub-skills indexed as `type = 'reference'`.
+    - **Skill & Mirror Preservation Invariant**: Strictly never prune, delete, or strip `~/.agents/skills/` or any client mirror trees (`.cursor/skills`, `.gemini/skills`, etc.).
+76. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
+    - **Elimination of Wildcard Grants**: Replaces all `*` wildcard approvals in Command Code, Claude Code, and Cursor with explicit, enumerated tool names (`konoha_*`, `semble_*`, `aislop_*`).
+    - **Bash Execution Bounds**: Claude Code and terminal tools must never receive unconstrained `Bash(*)` wildcard execution approval; all approvals are bounded to explicitly verified commands.
+77. **LibreOffice Shim Integrity & Supply Chain Hardening (v2.1.13)**:
+    - **Zero Dynamic Interposition**: Document generation tools (`soffice.py`) avoid dynamic, runtime compilation of untrusted C source code into shared objects (`LD_PRELOAD`).
+    - **Integrity Validation**: Shims and prebuilt binaries must pass cryptographic hash validation or execute directly through safe standard LibreOffice headless CLI flags (`--headless --convert-to`).
+

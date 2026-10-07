@@ -578,15 +578,20 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
         'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were'
       ]);
       const MULTILINGUAL_SYNONYMS = {
-        'arsitektur': ['architecture', 'architect'],
-        'keamanan': ['security', 'audit'],
-        'keputusan': ['decision'],
+        'arsitektur': ['architecture', 'architect', 'kage-skill'],
+        'keamanan': ['security', 'audit', 'kage-skill'],
+        'keputusan': ['decision', 'kage-skill'],
         'antarmuka': ['frontend', 'ui', 'jonin-skill'],
         'styling': ['styling', 'tailwind', 'jonin-skill'],
-        'perbaikan': ['bug', 'fix'],
-        'pemetaan': ['mapping'],
+        'perbaikan': ['bug', 'fix', 'anbu-skill'],
+        'infrastruktur': ['infrastructure', 'anbu-skill'],
+        'backend': ['backend', 'anbu-skill'],
+        'pemetaan': ['mapping', 'genin-skill'],
+        'struktur': ['structure', 'genin-skill'],
+        'dependensi': ['dependency', 'dependencies', 'genin-skill'],
         'berkas': ['file'],
-        'panduan': ['guide']
+        'dokumentasi': ['documentation', 'tokubetsu-jonin-skill'],
+        'panduan': ['guide', 'tokubetsu-jonin-skill']
       };
 
       const rawTokens = cleanQ.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());

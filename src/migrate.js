@@ -21,6 +21,7 @@ try {
   }
 }
 const { parseYaml } = yamlUtils;
+const { isEmbeddedReference, isCanonicalSkill } = require('./canonical_skills');
 
 let DB_PATH = db.DB_PATH;
 let SKILLS_DIR = path.normalize(path.join(os.homedir(), '.agents', 'skills'));
@@ -193,6 +194,11 @@ function optimizeContent(content) {
 
 
 function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DIR) {
+  if (isEmbeddedReference(skillName) && !isCanonicalSkill(skillName)) {
+    log(`  ⏭ Skill '${skillName}' is already an embedded reference in a ninja skill (skipped standalone indexing)`);
+    return 0;
+  }
+
   // Check if skillName is a flat file
   if (skillName.endsWith(".md")) {
     const skillNameClean = path.basename(skillName, ".md");
@@ -472,6 +478,9 @@ function autoDetectSkills(skillsDir) {
 
   const entries = fs.readdirSync(skillsDir).sort();
   for (const entry of entries) {
+    if (isEmbeddedReference(entry) && !isCanonicalSkill(entry)) {
+      continue;
+    }
     const entryPath = path.join(skillsDir, entry);
     if (fs.statSync(entryPath).isDirectory()) {
       const skillMd = path.join(entryPath, "SKILL.md");
@@ -512,6 +521,8 @@ async function runMigration(options = {}) {
       path.resolve(process.cwd(), ".config", "opencode", "skills"),
       path.resolve(process.cwd(), ".opencode", "skills"),
       path.resolve(process.cwd(), "skills"),
+      path.resolve(process.cwd(), ".skills"),
+      path.resolve(process.cwd(), "docs", "skills"),
       path.resolve(process.cwd(), "agent", "skills"),
       path.resolve(process.cwd(), "src", "templates", "skills"),
       path.normalize(path.join(os.homedir(), ".gemini", "antigravity-cli", "skills")),
@@ -670,6 +681,18 @@ async function runMigration(options = {}) {
       }
     }
   }
+
+  // Cleanup stale embedded reference entries mistakenly saved as type = 'skill'
+  try {
+    const staleSkills = conn.prepare("SELECT name FROM skills WHERE type = 'skill'").all();
+    for (const row of staleSkills) {
+      if (isEmbeddedReference(row.name) && !isCanonicalSkill(row.name)) {
+        try { conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(row.name); } catch (_) { /* intentional best-effort fallback: chunk may not exist */ }
+        conn.prepare("DELETE FROM skills WHERE name = ?").run(row.name);
+        log(`  ✓ Cleaned up stale embedded reference skill entry: ${row.name}`);
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
 
   // Enforce chunk referential integrity by cleaning up orphaned chunks
   try {

@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.12';
+  return '2.1.13';
 }
 
 function drawLogo() {
@@ -1564,7 +1564,7 @@ async function cmdInit(args, options = {}) {
 
     if (!args.includes('--force')) {
       log(`\n${C.dim}Run with --force to reinstall.${C.reset}`);
-      const refreshFiles = ['server.js', 'vector_search.js', 'db.js', 'migrate.js', 'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js', 'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'guardrails.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js', 'ai_detector.js', 'docs_ai_detector.js', 'web_server.js', 'sdlc_manager.js', 'mcp_tool_manifest.json'];
+      const refreshFiles = ['server.js', 'vector_search.js', 'db.js', 'migrate.js', 'canonical_skills.js', 'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js', 'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js', 'prompt_hook.js', 'antigravity_subagent_hook.js', 'antigravity_tool_sanitize_hook.js', 'hook-base.js', 'guardrails.js', 'antigravity_manager.js', 'agent_contract.js', 'cursor_bootstrap.js', 'ai_detector.js', 'docs_ai_detector.js', 'web_server.js', 'sdlc_manager.js', 'mcp_tool_manifest.json'];
       refreshFiles.forEach(f => {
         const src = path.join(SRC_DIR, f);
         const dest = path.join(SKILLS_DB_DIR, f);
@@ -1592,7 +1592,7 @@ async function cmdInit(args, options = {}) {
           projectRoot: currentCwd,
           deployProject: true,
           silent: true,
-          allowHooks: true,
+          allowHooks: false,
           ruleContent: null
         });
         cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, getUvxCommand(), true);
@@ -1728,7 +1728,7 @@ async function cmdInit(args, options = {}) {
   }
 
   for (const jsFile of [
-    'db.js', 'vector_search.js', 'server.js', 'migrate.js',
+    'db.js', 'vector_search.js', 'server.js', 'migrate.js', 'canonical_skills.js',
     'db_stats.js', 'db_savings.js', 'db_bridges.js', 'agent_stats.js',
     'tools_savings_logger.js', 'circuit_breaker.js', 'persona_memory.js', 'yaml_utils.js'
   ]) {
@@ -1922,7 +1922,7 @@ async function cmdInit(args, options = {}) {
   if (options.onProgress) options.onProgress(4, 'MCP Clients', 'Configuring Cursor, Claude Code, OpenCode, Command Code, Codex');
   if (allowCursor) {
     header('🖱️  Configuring Cursor IDE/CLI');
-    const spinner7 = startSpinner('Registering Cursor MCP, subagents, and hooks...');
+    const spinner7 = startSpinner('Registering Cursor MCP, subagents, and permissions...');
     const uvxCmd = getUvxCommand();
     const cursorSetup = cursorManager.ensureCursorSetup({
       pythonCmd: python,
@@ -1932,7 +1932,7 @@ async function cmdInit(args, options = {}) {
       projectRoot: currentCwd,
       deployProject: true,
       silent: true,
-      allowHooks: true,
+      allowHooks: false,
       ruleContent: null
     });
     cursorManager.registerCursorProjectMcp(currentCwd, python, SERVER_PATH, uvxCmd, true);
@@ -2967,7 +2967,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.12', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.13', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -2991,7 +2991,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.12', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.13', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3217,7 +3217,7 @@ function copySkillsDirFast(srcRoot, destRoot) {
   walk(srcRoot);
 
   // Old skills protection: strictly NEVER prune or remove entries from destRoot.
-  // Pre-existing user skills and client skills are preserved across installs and upgrades.
+  // Pre-existing user skills, global skills, and client skills are preserved across installs and upgrades.
 
   try { fs.writeFileSync(fpMarker, srcFp); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
@@ -3315,7 +3315,7 @@ function ensureAutoSetup(force = false) {
 
   // 2. Copy the Node.js server and runtime files if missing or outdated
   const filesToCopy = [
-    'server.js', 'vector_search.js', 'db.js', 'migrate.js',
+    'server.js', 'vector_search.js', 'db.js', 'migrate.js', 'canonical_skills.js',
     'file_tools_router.js', 'file_tools_launcher.js', 'tools_savings_logger.js',
     'persona_memory.js', 'circuit_breaker.js', 'search_policy.js',
     'platform_utils.js', 'deploy_utils.js', 'mcp_tool_manifest.json',
@@ -4435,6 +4435,7 @@ async function cmdDoctor(args = []) {
 
   // 3. Migration Script
   checkAndRepairFile('migrate.js', MIGRATE_PATH, 'Migration Script (migrate.js)');
+  checkAndRepairFile('canonical_skills.js', path.join(SKILLS_DB_DIR, 'canonical_skills.js'), 'Canonical Skills (canonical_skills.js)');
 
   // 4. Stats Helper
   const statsScriptDest = path.join(SKILLS_DB_DIR, 'db_stats.js');

@@ -485,21 +485,17 @@ function registerCursorCliPermissions(silent = true) {
     }
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
-  // Also update Cursor settings.json if present or in Cursor User settings
-  // (XDG-style config dirs are POSIX-only — on Windows the APPDATA paths apply)
+  // Only update Cursor settings.json if Cursor is installed or the directory/file exists.
+  // Never modify VS Code ('Code') settings paths.
   const cursorSettingsPaths = [
-    path.join(CURSOR_DIR, 'settings.json'),
+    fileExists(CURSOR_DIR) ? path.join(CURSOR_DIR, 'settings.json') : null,
     process.platform !== 'win32' ? path.join(HOME, '.config', 'Cursor', 'User', 'settings.json') : null,
-    process.platform !== 'win32' ? path.join(HOME, '.config', 'Code', 'User', 'settings.json') : null,
     process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Cursor', 'User', 'settings.json') : null,
-    process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'Code', 'User', 'settings.json') : null,
-    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null,
-    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Code', 'User', 'settings.json') : null
-  ].filter(Boolean);
+    process.platform === 'darwin' ? path.join(HOME, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json') : null
+  ].filter(p => p && (fileExists(p) || fileExists(path.dirname(p))));
 
   for (const sPath of cursorSettingsPaths) {
     try {
-      ensureDir(path.dirname(sPath));
       let sObj = {};
       if (fileExists(sPath)) {
         try { sObj = JSON.parse(fs.readFileSync(sPath, 'utf-8')) || {}; } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -525,7 +521,7 @@ function registerCursorCliPermissions(silent = true) {
   return true;
 }
 
-function registerCursorHooks(silent = true, allowHooks = true) {
+function registerCursorHooks(silent = true, allowHooks = false) {
   if (!allowHooks) {
     if (!fileExists(CURSOR_HOOKS_GLOBAL)) return false;
     try {
@@ -642,7 +638,7 @@ function ensureCursorSetup(options = {}) {
     projectRoot = null,
     deployProject = true,
     silent = true,
-    allowHooks = true,
+    allowHooks = false,
     ruleContent = null
   } = options;
 
