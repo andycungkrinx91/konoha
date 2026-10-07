@@ -319,10 +319,7 @@ function buildClientToolGrants(prefix) {
 function registerClaudeCodePermissions(silent = true) {
   const grants = [
     ...buildClientToolGrants('mcp__'),
-    'Bash(rtk *)',
-    'Bash(rtk:*)',
     'Bash(rtk)',
-    'Bash(konoha *)',
     'Bash(konoha)'
   ];
 
@@ -335,7 +332,7 @@ function registerClaudeCodePermissions(silent = true) {
 
       let updated = false;
 
-      // Clean up invalid permission rules not supported in Claude Code allow rules
+      // Clean up invalid and overly permissive permission rules
       const invalidRules = [
         'mcp:konoha:*',
         'mcp:semble:*',
@@ -346,6 +343,10 @@ function registerClaudeCodePermissions(silent = true) {
         'command(rtk)',
         'command(*)',
         'mcp(*)',
+        'Bash(*)',
+        'Bash(rtk *)',
+        'Bash(rtk:*)',
+        'Bash(konoha *)',
         '*'
       ];
       for (const invalid of invalidRules) {
@@ -365,10 +366,8 @@ function registerClaudeCodePermissions(silent = true) {
 
       const autoApproveGrants = [
         ...buildClientToolGrants('mcp__'),
-        'Bash(rtk *)',
-        'Bash(rtk:*)',
         'Bash(rtk)',
-        'Bash(konoha *)'
+        'Bash(konoha)'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
         config.autoApprove = autoApproveGrants;
@@ -626,22 +625,33 @@ function registerCommandCodePermissions(silent = true) {
     settingsPath,
     (config) => {
       if (!config.permissions) config.permissions = {};
-      const allow = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+      const allowRaw = Array.isArray(config.permissions.allow) ? config.permissions.allow : [];
+      let updated = false;
+
+      // Clean up wildcards and overly permissive rules
+      const invalidRules = [
+        '*',
+        'rtk *',
+        'Shell(rtk *)',
+        'Bash(rtk *)',
+        'Shell(konoha *)',
+        'command(rtk *)',
+        'Shell(*)',
+        'Bash(*)'
+      ];
+      const allow = allowRaw.filter(rule => !invalidRules.includes(rule));
+      if (allow.length !== allowRaw.length) updated = true;
+
       const grants = [
         ...buildClientToolGrants('mcp__'),
         ...buildClientToolGrants('mcp:'),
-        'Shell(rtk *)',
         'Shell(rtk)',
-        'Bash(rtk *)',
         'Bash(rtk)',
-        'Shell(konoha *)',
         'Shell(konoha)',
+        'Bash(konoha)',
         'rtk',
-        'rtk *',
-        'command(rtk *)',
         'command(rtk)'
       ];
-      let updated = false;
       for (const grant of grants) {
         if (!allow.includes(grant)) {
           allow.push(grant);
@@ -653,17 +663,15 @@ function registerCommandCodePermissions(silent = true) {
       const _autoApproveGrants = [
         ...buildClientToolGrants('mcp__'),
         ...buildClientToolGrants('mcp:'),
-        'Shell(rtk *)',
         'Shell(rtk)',
-        'Bash(rtk *)',
         'Bash(rtk)',
-        'rtk',
-        'rtk *'
+        'rtk'
       ];
       if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
         config.autoApprove = _autoApproveGrants;
         updated = true;
       } else {
+        config.autoApprove = config.autoApprove.filter(rule => !invalidRules.includes(rule));
         for (const g of _autoApproveGrants) {
           if (!config.autoApprove.includes(g)) {
             config.autoApprove.push(g);
@@ -673,13 +681,19 @@ function registerCommandCodePermissions(silent = true) {
       }
 
       const defaultAllowedTools = [
-        ...buildClientToolGrants('mcp__'),
-        'Bash',
-        'Shell'
+        ...buildClientToolGrants('mcp__')
       ];
       if (!config.allowedTools || !Array.isArray(config.allowedTools)) {
         config.allowedTools = defaultAllowedTools;
         updated = true;
+      } else {
+        config.allowedTools = config.allowedTools.filter(t => t !== 'Bash' && t !== 'Shell' && t !== '*');
+        for (const t of defaultAllowedTools) {
+          if (!config.allowedTools.includes(t)) {
+            config.allowedTools.push(t);
+            updated = true;
+          }
+        }
       }
 
       return updated;

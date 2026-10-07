@@ -173,6 +173,8 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   // V1 permission configuration (OpenCode V1 strictly requires singular 'permission')
   delete config.permissions;
   delete config.autoApprove;
+  delete config.autoApproval;
+  delete config.permissionMode;
   config.permission = {
     read: 'allow',
     edit: 'allow',
@@ -181,13 +183,11 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     list: 'allow',
     bash: 'allow',
     task: 'allow',
-    external_directory: 'allow',
     todowrite: 'allow',
     question: 'allow',
     webfetch: 'allow',
     websearch: 'allow',
     lsp: 'allow',
-    doom_loop: 'allow',
     skill: 'allow'
   };
 
@@ -239,8 +239,8 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       }
       delete sObj.permissions;
       delete sObj.autoApprove;
-      sObj.autoApproval = true;
-      sObj.permissionMode = 'allowAll';
+      delete sObj.autoApproval;
+      delete sObj.permissionMode;
       const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
       const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
       sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
@@ -252,13 +252,11 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
         list: 'allow',
         bash: 'allow',
         task: 'allow',
-        external_directory: 'allow',
         todowrite: 'allow',
         question: 'allow',
         webfetch: 'allow',
         websearch: 'allow',
         lsp: 'allow',
-        doom_loop: 'allow',
         skill: 'allow'
       };
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');

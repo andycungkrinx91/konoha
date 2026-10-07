@@ -30,6 +30,8 @@ const {
   buildMainAgentContract,
 } = require('./agent_contract');
 
+const VALID_AGENT_NAME = /^[a-zA-Z0-9_-]+$/;
+
 // Codex Detection
 
 function isCodexInstalled() {
@@ -236,8 +238,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const cleaned = preservedLines.join('\n').trim();
 
   const topDefaults = [
-    'suppress_unstable_features_warning = true',
-    'sandbox_mode = "danger-full-access"'
+    'suppress_unstable_features_warning = true'
   ];
   const topFlags = topDefaults.join('\n');
 
@@ -343,7 +344,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   };
 
   const agentBlocks = agents
-    .filter(a => a && a.name && !a.name.startsWith('mcp_') && !a.name.startsWith('cli-test-'))
+    .filter(a => a && a.name && VALID_AGENT_NAME.test(a.name) && !a.name.startsWith('mcp_') && !a.name.startsWith('cli-test-'))
     .map(a => {
       const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
       return [
@@ -422,11 +423,13 @@ function deployCodexRules(silent = true) {
     // Deploy rules/konoha.md
     fs.writeFileSync(path.join(CODEX_RULES_DIR, 'konoha.md'), buildMainAgentContract('codex') + '\n', 'utf8');
 
-    // Deploy subagents (skip test/internal agents)
+    // Deploy subagents (skip test/internal agents and validate names)
     for (const agent of agents) {
-      if (agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
+      if (!agent || !agent.name || !VALID_AGENT_NAME.test(agent.name) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const subagentMd = generateGenericSubagentMd(agent, 'codex');
-      fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
+      const targetPath = path.resolve(path.join(agentsDir, `${agent.name}.md`));
+      if (!targetPath.startsWith(path.resolve(agentsDir))) continue;
+      fs.writeFileSync(targetPath, subagentMd, 'utf8');
     }
 
     if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Codex\n`);

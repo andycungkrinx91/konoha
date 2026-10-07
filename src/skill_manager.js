@@ -6,11 +6,20 @@ const https = require('https');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 
-function validateInputs(repoUrl, skillName) {
-  const skillNameRegex = /^[a-zA-Z0-9_.-]+$/;
-  if (!skillNameRegex.test(skillName)) {
-    throw new Error('Invalid skill name. Only alphanumeric characters, dashes, and underscores are allowed.');
+function validateSkillName(skillName) {
+  if (!skillName || typeof skillName !== 'string') {
+    throw new Error('Skill name must be a non-empty string.');
   }
+  const clean = skillName.trim();
+  const skillNameRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!skillNameRegex.test(clean) || clean.includes('..') || clean.startsWith('/') || clean.startsWith('\\')) {
+    throw new Error('Invalid skill name. Only alphanumeric characters, dashes, dots, and underscores are allowed.');
+  }
+  return clean;
+}
+
+function validateInputs(repoUrl, skillName) {
+  validateSkillName(skillName);
   if (!repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://')) {
     throw new Error('Invalid repository URL. Must be a valid HTTPS or SSH Git URL.');
   }
@@ -378,7 +387,7 @@ async function addSkill(nameOrUrl, optionalName, options = {}) {
     return addSkillDirect(repoUrl, skillName, options);
   }
 
-  const skillName = nameOrUrl;
+  const skillName = validateSkillName(nameOrUrl);
   process.stderr.write(`🔍 Checking skills registry for "${skillName}"...\n`);
   try {
     const results = await searchRegistry(skillName);
@@ -393,7 +402,10 @@ async function addSkill(nameOrUrl, optionalName, options = {}) {
   }
 
   // If not found in registry or search failed, create custom local skill
-  const targetDir = path.join(AGENTS_SKILLS, skillName);
+  const targetDir = path.resolve(path.join(AGENTS_SKILLS, skillName));
+  if (!targetDir.startsWith(path.resolve(AGENTS_SKILLS))) {
+    throw new Error('Path traversal detected: target directory is outside skills path.');
+  }
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
     const content = `---

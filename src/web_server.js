@@ -228,6 +228,15 @@ function createWebServer(options = {}) {
     }
 
     if (method === 'GET' && (pathname === '/api/v1/csrf' || pathname === '/api/v1/token')) {
+      const cookieHeader = req.headers.cookie || '';
+      const hasCookie = cookieHeader.split(';').some(c => c.trim() === `konoha-web-token=${sessionToken}`);
+      const secFetchSite = req.headers['sec-fetch-site'];
+      const origin = req.headers.origin || req.headers.referer;
+      const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+      const isSameOrigin = !origin || origin.includes(`127.0.0.1:${port}`) || origin.includes(`localhost:${port}`);
+      if (!hasCookie && (!isLoopback || !isSameOrigin || (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none'))) {
+        return sendJson(res, 403, { error: 'Forbidden: Missing or invalid session authentication' });
+      }
       return sendJson(res, 200, { token: sessionToken });
     }
 

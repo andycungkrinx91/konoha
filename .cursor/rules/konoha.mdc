@@ -162,7 +162,7 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 Full team config: `~/.agents/AGENTS.md
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.11-cross-client-1)
+## Konoha runtime contract (2.1.12-cross-client-1)
 
 You are the main agent running through Cursor IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

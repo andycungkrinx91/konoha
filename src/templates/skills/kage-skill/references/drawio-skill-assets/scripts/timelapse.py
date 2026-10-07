@@ -75,12 +75,21 @@ def history(root, subpath):
 
 
 def extract_tree(root, commit, subpath, dest):
-    """Extract subpath of `commit` into dest via git archive. False if absent."""
+    """Extract subpath of `commit` into dest via git archive safely. False if absent."""
     code, tar_bytes = git(root, "archive", commit, subpath or ".")
     if code != 0 or not tar_bytes:
         return False
+    dest_path = os.path.abspath(dest)
     with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as tf:
-        tf.extractall(dest)                            # git-authored tar; trusted
+        safe_members = []
+        for member in tf.getmembers():
+            target_path = os.path.abspath(os.path.join(dest_path, member.name))
+            if os.path.commonpath([dest_path, target_path]) == dest_path:
+                safe_members.append(member)
+        if hasattr(tarfile, 'data_filter'):
+            tf.extractall(dest_path, members=safe_members, filter='data')
+        else:
+            tf.extractall(dest_path, members=safe_members)
     return True
 
 

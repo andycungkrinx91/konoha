@@ -47,10 +47,9 @@ def run_soffice(args: Iterable[str], **kwargs) -> subprocess.CompletedProcess:
 
 
 
-_SHIM_SO = Path(tempfile.gettempdir()) / "lo_socket_shim.so"
-
-
 def _needs_shim() -> bool:
+    if os.environ.get("ENABLE_SOFFICE_SOCKET_SHIM") != "1":
+        return False
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.close()
@@ -60,18 +59,24 @@ def _needs_shim() -> bool:
 
 
 def _ensure_shim() -> Path:
-    if _SHIM_SO.exists():
-        return _SHIM_SO
+    # Use a secure, user-private directory (mode 0700) to avoid shared temp attacks
+    uid = getattr(os, "getuid", lambda: "safe")()
+    shim_dir = Path(tempfile.gettempdir()) / f"lo_shim_uid_{uid}"
+    shim_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    shim_so = shim_dir / "lo_socket_shim.so"
+    if shim_so.exists():
+        return shim_so
 
-    src = Path(tempfile.gettempdir()) / "lo_socket_shim.c"
+    src = shim_dir / "lo_socket_shim.c"
     src.write_text(_SHIM_SOURCE)
     subprocess.run(
-        ["gcc", "-shared", "-fPIC", "-o", str(_SHIM_SO), str(src), "-ldl"],
+        ["gcc", "-shared", "-fPIC", "-o", str(shim_so), str(src), "-ldl"],
         check=True,
         capture_output=True,
     )
-    src.unlink()
-    return _SHIM_SO
+    if src.exists():
+        src.unlink()
+    return shim_so
 
 
 

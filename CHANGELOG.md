@@ -2,6 +2,26 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.12] - 2026-10-07
+
+### Supply Chain Security & Permission Boundary Remediation
+
+- **Remediated Client Auto-Approval & Wildcard Boundaries**:
+  - `src/cursor_manager.js`: Removed bare `'*'` from `grants` allowlist, eliminated `Shell(rtk *)` and `Shell(konoha *)`, and restricted terminal auto-approvals strictly to `'rtk'` and `'konoha'`.
+  - `src/opencode_manager.js`: Removed `autoApproval = true` and `permissionMode = 'allowAll'`; removed `doom_loop` and `external_directory` high-risk permissions while preserving required file/search permissions.
+  - `src/codex_manager.js`: Removed `sandbox_mode = "danger-full-access"` to preserve default sandbox isolation; added `VALID_AGENT_NAME` regex validation and strict directory containment checks before writing agent files.
+- **CSRF Token Retrieval & Web API Hardening**:
+  - `src/web_server.js`: Authenticated `GET /api/v1/csrf` and `GET /api/v1/token` endpoints against the `konoha-web-token` session cookie and same-origin headers, preventing cross-origin token theft.
+  - Added URL protocol validation (`http:`, `https:`) in model proxy resolution.
+- **Path Traversal & Insecure Execution Hardening**:
+  - `src/skill_manager.js`: Added `validateSkillName` and path containment check in `addSkill` to prevent directory traversal during local skill creation.
+  - `timelapse.py`: Added member target verification before archive extraction (`CVE-2007-4559` fix).
+  - `soffice.py`: Gated runtime C compilation/LD_PRELOAD shim behind `ENABLE_SOFFICE_SOCKET_SHIM=1` opt-in and restricted temporary directory creation to mode `0o700`.
+  - `platform-engineering.md`: Added language template allowlist in FastAPI sample and sanitized hardcoded credentials.
+- **Skill Mirror Trees & Test Synchronization**:
+  - Synchronized all 5 skill mirror trees (`.agents/skills`, `src/templates/skills`, `.cursor/skills`, `.claude/skills`, `.commandcode/skills`, `.gemini/skills`).
+  - All 104 JavaScript test suites passed cleanly with 0 failures.
+
 ## [2.1.11] - 2026-10-07
 
 ### Hardening & Dependency Tag Pinning

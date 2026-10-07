@@ -429,37 +429,20 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
 }
 
 function registerCursorCliPermissions(silent = true) {
+  const konohaGrants = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `Mcp(konoha, ${t})`);
   const grants = [
     'Mcp(konoha)',
-    'Mcp(konoha, *)',
-    'Mcp(konoha, find_skill)',
-    'Mcp(konoha, get_skill)',
-    'Mcp(konoha, list_skills)',
-    'Mcp(konoha, optimize_report)',
-    'Mcp(konoha, read_file_head)',
-    'Mcp(konoha, read_file_range)',
-    'Mcp(konoha, file_info)',
-    'Mcp(konoha, token_efficient_grep)',
-    'Mcp(konoha, get_file_structure)',
-    'Mcp(konoha, find_files_clean)',
+    ...konohaGrants,
     'Mcp(semble)',
-    'Mcp(semble, *)',
     'Mcp(semble, search)',
     'Mcp(semble, find_related)',
     'Mcp(aislop)',
-    'Mcp(aislop, *)',
     'Mcp(aislop, aislop_scan)',
     'Mcp(aislop, aislop_fix)',
     'Mcp(aislop, aislop_why)',
     'Mcp(aislop, aislop_baseline)',
     'Shell(rtk)',
-    'Shell(rtk *)',
-    'Shell(rtk:*)',
-    'Shell(konoha)',
-    'Shell(konoha *)',
-    'Shell(node bin/cli.js)',
-    'Shell(node */.konoha/cursor_bootstrap.js)',
-    '*'
+    'Shell(konoha)'
   ];
 
   ensureDir(CURSOR_DIR);
@@ -475,7 +458,8 @@ function registerCursorCliPermissions(silent = true) {
 
   if (!config.permissions) config.permissions = {};
   const allowRaw = config.permissions.allow;
-  config.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
+  config.permissions.allow = (Array.isArray(allowRaw) ? allowRaw : [])
+    .filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
 
   let updated = false;
   for (const grant of grants) {
@@ -485,15 +469,14 @@ function registerCursorCliPermissions(silent = true) {
     }
   }
 
-  if (!config.autoApprove || !Array.isArray(config.autoApprove)) {
-    config.autoApprove = [
-      'rtk *', 'rtk', 'konoha *', 'konoha',
-      'konoha:find_skill', 'konoha:get_skill', 'konoha:list_skills',
-      'konoha:read_file_head', 'konoha:read_file_range', 'konoha:token_efficient_grep',
-      'semble:search', 'semble:find_related', 'aislop:aislop_scan'
-    ];
-    updated = true;
-  }
+  const allKonohaAutoApprove = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `konoha:${t}`);
+  config.autoApprove = [
+    'rtk', 'konoha',
+    ...allKonohaAutoApprove,
+    'semble:search', 'semble:find_related',
+    'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'
+  ];
+  updated = true;
 
   try {
     fs.writeFileSync(CURSOR_CLI_CONFIG, JSON.stringify(config, null, 2) + '\n');
@@ -527,10 +510,11 @@ function registerCursorCliPermissions(silent = true) {
         'semble/search', 'semble/find_related',
         'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline'
       ];
-      sObj['cursor.terminal.autoApprove'] = ['rtk *', 'rtk', 'konoha *', 'konoha'];
+      sObj['cursor.terminal.autoApprove'] = ['rtk', 'konoha'];
       if (!sObj.permissions || typeof sObj.permissions !== 'object') sObj.permissions = {};
       // Merge Konoha grants into the user's existing allow list — never replace it
       if (!Array.isArray(sObj.permissions.allow)) sObj.permissions.allow = [];
+      sObj.permissions.allow = sObj.permissions.allow.filter(g => g !== '*' && g !== 'Shell(rtk *)' && g !== 'Shell(konoha *)' && !g.includes('(*)'));
       for (const grant of grants) {
         if (!sObj.permissions.allow.includes(grant)) sObj.permissions.allow.push(grant);
       }

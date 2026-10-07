@@ -109,7 +109,7 @@ metadata:
   name: payment-service
   annotations:
     github.com/project-slug: org/payment-service
-    pagerduty.com/integration-key: abc123
+    pagerduty.com/integration-key: "${PAGERDUTY_INTEGRATION_KEY}"
     grafana/dashboard-selector: service=payment
 spec:
   type: service
@@ -293,6 +293,8 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+ALLOWED_LANGUAGES = {"python", "go", "typescript", "java", "rust"}
+
 class ServiceRequest(BaseModel):
     name: str
     environment: str
@@ -301,6 +303,8 @@ class ServiceRequest(BaseModel):
 
 @app.post("/api/v1/services")
 async def create_service(request: ServiceRequest):
+    if request.language not in ALLOWED_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {request.language}")
     # Validate and enqueue
     task = platform.provision_service(
         name=request.name,
