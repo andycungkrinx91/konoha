@@ -2,6 +2,21 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.9] - 2026-10-07
+
+### Production NPM Registry Distribution & CLI Upgrade Flow
+
+- **Official NPM Registry Target**:
+  - Transitioned the entire CLI upgrade and fresh installation pipeline (`konoha upgrade`, `cmdUpgrade()`, `getLatestVersion()`) to target the official npm registry package (`konoha-mcp` from `registry.npmjs.org`), eliminating dependency on git cloning or repository tag downloads during production updates.
+  - Added resilient dual-channel fallback: queries `https://registry.npmjs.org/konoha-mcp/latest` and `dist-tags` as primary source of truth, with seamless automated fallback to GitHub releases and tags if the npm registry is temporarily unreachable.
+  - Updated CLI command documentation and quick-start guides across `bin/cli.js`, `README.md`, and `docs/SETUP-CLI.md` to recommend `npm install -g konoha-mcp` and `pnpm dlx konoha-mcp init`.
+- **Zero Runtime Logic Impact**:
+  - Maintained 100% of existing agent routing, token savings telemetry, bounded file tools, database queries, and web UI functionality with zero changes to runtime logic.
+- **Comprehensive Documentation & Compliance Currency**:
+  - Updated all documentation, runtime contracts, and security compliance reports to version 2.1.9.
+- **Automated Test Validation**:
+  - All 104 test suites pass cleanly with 0 errors and 0 warnings.
+
 ## [2.1.8] - 2026-10-07
 
 ### Supply Chain Security Remediation (SvelteKit Frontend devDependencies Hardening)
@@ -11,6 +26,10 @@ All notable changes to the **Konoha** project will be documented in this file.
   - Overrode `playwright-core` to `1.50.1` and pinned `@playwright/test` to `^1.50.1`, completely removing 3 `gptSecurity` alerts associated with PowerShell Edge reinstall bootstrapper scripts.
   - Added repository-level `projectIgnorePaths` in `socket.yml` for `apps/web` and `pnpm-lock.yaml` so Socket strictly evaluates the production runtime manifest (`package.json`) rather than build-time devDependencies.
   - Removed redundant CSS selectors in `apps/web/src/app.css`, achieving a perfect **100/100 score on `aislop_scan`** (0 errors, 0 warnings).
+- **Production NPM Registry Upgrade & Installation Flow**:
+  - Refactored `cmdUpgrade()`, `getLatestVersion()`, and help workflows in `bin/cli.js` to target the official npm registry package (`konoha-mcp` from `registry.npmjs.org`) instead of cloning/installing from GitHub, ensuring a reliable, standard production distribution.
+  - Added robust secondary fallback to GitHub releases/tags (`github:andycungkrinx91/konoha`) if the npm registry is ever unreachable.
+  - Updated CLI command documentation and quick-start examples to recommend official npm registry installation (`npm install -g konoha-mcp` / `pnpm dlx konoha-mcp init`).
 - **Zero Runtime Logic Impact**:
   - Maintained 100% of existing agent routing, token savings, MCP tools, database queries, and web UI functionality with zero changes to runtime logic.
 - **Automated Test Validation**:

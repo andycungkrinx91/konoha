@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.8';
+  return '2.1.9';
 }
 
 function drawLogo() {
@@ -2986,7 +2986,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.8', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.9', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3010,7 +3010,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.8', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.9', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -6658,11 +6658,12 @@ function semverCompare(v1, v2) {
   return 0;
 }
 
-function getGithubData(url) {
+function fetchJsonUrl(url, userAgent = 'Konoha-CLI-Updater') {
   return new Promise((resolve, reject) => {
     const options = {
       headers: {
-        'User-Agent': 'Konoha-CLI-Updater'
+        'User-Agent': userAgent,
+        'Accept': 'application/json'
       },
       timeout: 5000
     };
@@ -6684,6 +6685,8 @@ function getGithubData(url) {
   });
 }
 
+const getGithubData = fetchJsonUrl;
+
 async function getLatestVersion() {
   const cachePath = path.join(SKILLS_DB_DIR, '.version_cache.json');
   try {
@@ -6696,31 +6699,52 @@ async function getLatestVersion() {
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   const candidateTags = new Set();
-  try {
-    const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
-    if (Array.isArray(releases)) {
-      releases.forEach(r => {
-        if (r && r.tag_name) candidateTags.add(r.tag_name);
-      });
-    }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
+  // 1. Primary source of truth: official npm registry (konoha-mcp)
   try {
-    const tags = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/tags');
-    if (Array.isArray(tags)) {
-      tags.forEach(t => {
-        if (t && t.name) candidateTags.add(t.name);
-      });
+    const npmLatest = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp/latest');
+    if (npmLatest && npmLatest.version) {
+      candidateTags.add(npmLatest.version);
     }
-  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  } catch { /* intentional best-effort fallback: proceed to npm dist-tags / github fallback */ }
 
   if (candidateTags.size === 0) {
     try {
-      const release = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases/latest');
-      if (release && release.tag_name) {
-        candidateTags.add(release.tag_name);
+      const npmPkg = await fetchJsonUrl('https://registry.npmjs.org/konoha-mcp');
+      if (npmPkg && npmPkg['dist-tags'] && npmPkg['dist-tags'].latest) {
+        candidateTags.add(npmPkg['dist-tags'].latest);
+      }
+    } catch { /* intentional best-effort fallback */ }
+  }
+
+  // 2. Secondary fallback: query GitHub releases and tags if npm registry was unreachable
+  if (candidateTags.size === 0) {
+    try {
+      const releases = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases');
+      if (Array.isArray(releases)) {
+        releases.forEach(r => {
+          if (r && r.tag_name) candidateTags.add(r.tag_name);
+        });
       }
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+    try {
+      const tags = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/tags');
+      if (Array.isArray(tags)) {
+        tags.forEach(t => {
+          if (t && t.name) candidateTags.add(t.name);
+        });
+      }
+    } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+    if (candidateTags.size === 0) {
+      try {
+        const release = await getGithubData('https://api.github.com/repos/andycungkrinx91/konoha/releases/latest');
+        if (release && release.tag_name) {
+          candidateTags.add(release.tag_name);
+        }
+      } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
   }
 
   const sorted = Array.from(candidateTags)
@@ -6733,12 +6757,12 @@ async function getLatestVersion() {
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     return sorted[0];
   }
-  throw new Error('No release or tag found on GitHub');
+  throw new Error('No release or version found on npm registry or GitHub');
 }
 
 function cmdVersionHelp() {
   log(`
-${C.cyan}konoha version${C.reset} — Display current version and check for updates on GitHub
+${C.cyan}konoha version${C.reset} — Display current version and check for updates from npm registry
 
 ${C.bold}USAGE${C.reset}
   konoha version
@@ -6771,7 +6795,7 @@ async function cmdVersion(args = []) {
   header('✨ Konoha Version');
   log(`  ${C.bold}Current Version:${C.reset}  ${C.green}${currentVersion}${C.reset}\n`);
 
-  const spinner = startSpinner('Checking for latest release from GitHub...');
+  const spinner = startSpinner('Checking for latest release from npm registry...');
   try {
     const latestVersion = await getLatestVersion();
     const cleanLatest = latestVersion.replace(/^v/, '');
@@ -6794,14 +6818,14 @@ async function cmdVersion(args = []) {
 
 function cmdUpgradeHelp() {
   log(`
-${C.cyan}konoha upgrade${C.reset} — Upgrade Konoha CLI to the latest release from GitHub
+${C.cyan}konoha upgrade${C.reset} — Upgrade Konoha CLI to the latest release from npm registry
 
 ${C.bold}USAGE${C.reset}
   konoha upgrade [options]
 
 ${C.bold}OPTIONS${C.reset}
   ${C.cyan}--yes, -y${C.reset}    Non-interactive confirmation.
-  ${C.cyan}--force, -f${C.reset}  Force clean reinstallation from GitHub.
+  ${C.cyan}--force, -f${C.reset}  Force clean reinstallation from npm registry.
 
 ${C.bold}EXAMPLES${C.reset}
   konoha upgrade
@@ -6840,8 +6864,9 @@ async function cmdUpgrade(args = []) {
   const isWin = process.platform === 'win32';
   purgePackageCaches({ silent: true });
 
-  // Resolve target version/tag from GitHub or local package (never downgrade)
+  // Resolve target version from npm registry or local package (never downgrade)
   const localVer = getCliVersion();
+  let targetVer = localVer;
   let targetTag = `v${localVer}`;
   try {
     const latest = await getLatestVersion();
@@ -6849,12 +6874,14 @@ async function cmdUpgrade(args = []) {
       const cleanLatest = latest.replace(/^v/, '');
       const cleanLocal = localVer.replace(/^v/, '');
       if (semverCompare(cleanLatest, cleanLocal) >= 0) {
-        targetTag = latest;
+        targetVer = cleanLatest;
+        targetTag = latest.startsWith('v') ? latest : `v${latest}`;
       }
     }
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
-  const pkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
+  const cleanTarget = targetVer.replace(/^v/, '');
+  const pkgTarget = `konoha-mcp@${cleanTarget}`;
 
   // Build package manager fallback chain
   const pmCandidates = [];
@@ -6909,11 +6936,11 @@ async function cmdUpgrade(args = []) {
     pmCandidates.push({ name: 'npm', cmd: npmCmd, args: ['install', '--global', '--force', '--prefer-online', '--no-cache', pkgTarget] });
   }
 
-  pbar.logStep(`Target: ${C.green}${targetTag}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
+  pbar.logStep(`Target: ${C.green}konoha-mcp@${cleanTarget}${C.reset} | Package Manager: ${C.bold}${pmCandidates[0].name}${C.reset}`);
 
-  // Stage 2/7: Fetching and installing latest release from GitHub
-  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching ${targetTag} from GitHub via ${pmCandidates[0].name}...`);
-  pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and compiling Konoha package via ${pmCandidates[0].name}...`);
+  // Stage 2/7: Fetching and installing latest release from npm registry
+  pbar.update(1, `${C.cyan}[Stage 2/7]${C.reset} Fetching konoha-mcp@${cleanTarget} from npm registry via ${pmCandidates[0].name}...`);
+  pbar.startPulse(`${C.cyan}[Stage 2/7]${C.reset} Downloading and installing Konoha package via ${pmCandidates[0].name}...`);
 
   const spawnOptions = { stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 };
   if (isWin) {
@@ -6929,7 +6956,7 @@ async function cmdUpgrade(args = []) {
       if (res.status === 0) {
         installSuccess = true;
         pbar.stopPulse();
-        pbar.logStep(`Konoha ${targetTag} installed from GitHub via ${pm.name}`);
+        pbar.logStep(`Konoha ${cleanTarget} installed from npm registry via ${pm.name}`);
         break;
       } else {
         const errOut = (res.stderr || res.stdout || '').toString().trim();
@@ -6937,6 +6964,23 @@ async function cmdUpgrade(args = []) {
       }
     } catch (err) {
       lastError = err.message;
+    }
+  }
+
+  // Fallback: If npm registry install failed across all package managers, attempt GitHub fallback
+  if (!installSuccess) {
+    const gitPkgTarget = `github:andycungkrinx91/konoha#${targetTag}`;
+    for (const pm of pmCandidates) {
+      try {
+        const fallbackArgs = pm.args.map(a => a === pkgTarget ? gitPkgTarget : a);
+        const res = spawnSync(pm.cmd, fallbackArgs, spawnOptions);
+        if (res.status === 0) {
+          installSuccess = true;
+          pbar.stopPulse();
+          pbar.logStep(`Konoha ${targetTag} installed from GitHub fallback via ${pm.name}`);
+          break;
+        }
+      } catch (_) { /* continue */ }
     }
   }
 
@@ -7036,8 +7080,8 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}embed${C.reset}         ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
   ${C.cyan}test${C.reset}          🧪 Perform verification tests on the MCP server.
   ${C.cyan}status${C.reset}        🩺 Check installation health, database size, and loaded skills.
-  ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from GitHub.
-  ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from GitHub.
+  ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from npm registry.
+  ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from npm registry.
   ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
   ${C.cyan}project${C.reset}       📁 Manage persistent project workspaces, detected stacks, and invariants.
   ${C.cyan}task${C.reset}          📋 Native SDLC governance tasks, readiness gates, and audits.
@@ -7060,7 +7104,7 @@ ${C.bold}GLOBAL OPTIONS${C.reset}
 
 ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. Setup everything for the first time:${C.reset}
-     pnpm dlx github:andycungkrinx91/konoha init
+     pnpm dlx konoha-mcp init  # (or: npm install -g konoha-mcp && konoha init)
 
   ${C.dim}2. Re-index skills & synchronize vector embeddings:${C.reset}
      konoha migrate --clean --rebuild-embeddings  # (or: konoha embed)

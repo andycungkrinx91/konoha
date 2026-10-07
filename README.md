@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.8 (2026-10-07)](CHANGELOG.md) — Socket Supply Chain security score remediation (SvelteKit devDependencies remediation, clean dependency overrides, eliminated all medium severity alerts, certified ≥ 98% average score), pure `node:sqlite` database engine, and 1 audited dependency package.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.8 — Konoha v2.1.8 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.8_2026-10-07.md)
+* **Latest Release:** [v2.1.9 (2026-10-07)](CHANGELOG.md) — Official npm registry distribution & upgrade flow (`konoha-mcp` with GitHub fallback), supply chain security hardening, pure `node:sqlite` database engine, and 1 audited dependency package.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.9 — Konoha v2.1.9 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.9_2026-10-07.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -195,7 +195,7 @@ Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgress
   Preparing to upgrade Konoha to the latest version...
 
   ✓ Package manager ready: pnpm
-  ✓ Latest Konoha release installed from GitHub via pnpm
+  ✓ Latest Konoha release installed from npm registry (konoha-mcp) via pnpm
   [████████████████░░░░░░░░░░░░]  57%  [Stage 5/7] Skills Index: Seeding subagent skills into SQLite FTS5 database
   ✓ Subagent skills and references seeded to SQLite FTS5
   [████████████████████░░░░░░░░]  71%  [Stage 6/7] MCP Clients: Configuring Cursor, Claude Code, OpenCode, Command Code, Codex, Pi
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.8) and check for updates from GitHub |
+| `konoha version` | Display current local version (2.1.9) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

@@ -410,13 +410,13 @@ To verify all components and configurations are operating correctly, you can run
 To keep Konoha updated with the latest optimizations and features, you can check your installed version and perform in-place upgrades:
 
 * **Check Current Version**:
-  Displays the installed local version (noted as `2.0.2`) and queries GitHub to check if a newer version is available.
+  Displays the installed local version (noted as `2.1.9`) and queries the official npm registry to check if a newer version is available.
   ```bash
   konoha version
   ```
 
 * **Upgrade CLI**:
-  Upgrades the local Konoha installation to the latest stable release from GitHub in-place. Displays a real-time animated progress bar (`[████████░░] 80% (stage/total) [Stage Name] | Live action text`) tracking the 7-stage upgrade pipeline:
+  Upgrades the local Konoha installation to the latest stable release from npm registry (`konoha-mcp`) in-place. Displays a real-time animated progress bar (`[████████░░] 80% (stage/total) [Stage Name] | Live action text`) tracking the 7-stage upgrade pipeline:
   1. Environment Verification & Toolchain Diagnostics
   2. Package Manager & Dependency Engine Update (`pnpm` / `npm`)
   3. Global CLI Symlinks & Shell PATH Provisioning
