@@ -439,6 +439,35 @@
       }
     },
     {
+      "name": "use_skills",
+      "description": "Load and activate specific skill(s) by name from the database, with automatic fallback to mirror skills and warning if missing in database.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "skills": {
+            "description": "Skill name, comma-separated names, or array of skill names to load."
+          },
+          "name": {
+            "type": "string",
+            "description": "Alias for skills (single skill name)."
+          },
+          "agent": {
+            "type": "string"
+          },
+          "token_budget": {
+            "type": "number"
+          },
+          "section": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "optimize_report",
       "description": "Analyze skill token footprint.",
       "inputSchema": {
@@ -1402,6 +1431,36 @@
         "required": [
           "task_id"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "anti_slop",
+      "description": "Perform final Zero-AI-Slop audit across changed files or target paths during Kage review, verifying zero AI slop findings and a perfect 100/100 score.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project_path": {
+            "type": "string",
+            "description": "Base directory to inspect (defaults to workspace root)."
+          },
+          "files": {
+            "description": "Specific files or comma-separated file paths to audit."
+          },
+          "changed_files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Array of changed file paths to audit."
+          },
+          "task_id": {
+            "type": "string",
+            "description": "Associated SDLC task ID."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "Enforce strict zero tolerance for any slop pattern."
+          }
+        },
         "additionalProperties": false
       }
     },

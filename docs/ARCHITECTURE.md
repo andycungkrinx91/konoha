@@ -2,7 +2,7 @@
 
 ## Architecture
 
-> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Enterprise Infrastructure View](diagrams/konoha-enterprise-architecture.drawio) · [Diagram manifest](diagrams/README.md).
+> **Canonical editable diagram:** [01 System Architecture](diagrams/konoha-architecture.drawio) · [Enterprise Infrastructure View](diagrams/konoha-enterprise-architecture.drawio) · [Complete Workflow Architecture](ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](diagrams/README.md).
 
 ```mermaid
 ---
@@ -73,16 +73,16 @@ flowchart TB
 
 ## 🛠️ Canonical Konoha MCP Tools Matrix (37 Canonical Tools)
 
-| Tool Category | Registered Tools (37 Total) | Description |
+| Tool Category | Registered Tools | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
-| **Skill Discovery & Loading (4)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report` | High-speed FTS5 SQLite skill querying and token-efficient snippet-first ingestion. |
-| **Autonomous Website Builders (2)** | `build_from_source`, `build_from_text` | Side-effect-free structured specifications for multi-archetype website generation. |
+| **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. |
+| **Autonomous Website Builders (3)** | `build_from_source`, `build_from_text`, `build_with_image_design` | Side-effect-free structured specifications for multi-archetype website generation. |
 | **Specialist Delegation Subagents (7)** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
 | **AI Fingerprint Detection (2)** | `website_ai_detector`, `docs_ai_detector` | Website (0-20 Human-Built target) and Document AI detectors (.docx, .pdf, .pptx, text). |
 | **Project Context & Memory (4)** | `get_project_context`, `save_project_context`, `query_project_memory`, `report_from_agent` | Episodic architectural memory and context tracking across client workspaces. |
 | **Persona Memory (4)** | `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory` | Agent & user persona traits, patterns, and architectural rules in SQLite. |
-| **SDLC Governance & Quality Gates (3)** | `check_readiness`, `get_task_evidence`, `get_slop_findings` | Definition-of-Ready auditing, automated task evidence collection, and slop findings query. |
+| **SDLC Governance & Quality Gates (4)** | `anti_slop`, `check_readiness`, `get_task_evidence`, `get_slop_findings` | Deterministic rule-based anti-slop verification pre-gate, DoR auditing, automated task evidence collection, and slop findings query. |
 | **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
@@ -239,12 +239,16 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Integrates deterministic `agent-browser` + Playwright Test execution owned by `anbu`. Interactive exploration is bounded to scoped snapshots (< 500 tokens), codified deterministically via `qa_codify` with zero LLM tokens, and executed headless via `qa_e2e_run` with strict 2,000 character output capping and cryptographic `run_id` tracking.
 20. **13-Page Enterprise Cloud Architecture & Universal High-Contrast Visual Standards (v2.1.0)**:
    - Full 13-page Draw.io enterprise cloud model in `docs/diagrams/konoha-enterprise-architecture.drawio` using official AWS/GCP cloud boundary stencils and service color hierarchy with 0 geometric collisions. All Mermaid documentation diagrams enforce pure white background (`#ffffff`) with high-contrast `#0f172a` arrows and matching arrowhead markers.
-21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13)**:
-   - Centralizes canonical skill definitions into `src/canonical_skills.js` (16 canonical ninja skills and registry of embedded reference skills). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees. Enforces 100% database parity (16 skills of type `skill`, 197 references).
+21. **Canonical Skills Single Source of Truth & Database Parity (v2.1.13 - v2.1.14)**:
+   - Centralizes canonical skill definitions into `src/canonical_skills.js` (15 canonical ninja and core skills, with `helm-chart-scaffolding` consolidated into `anbu-skill`). Prevents duplicate standalone skill indexing during auto-detection across project, client, and mirror directories while strictly preserving all global skills and client mirror trees.
 22. **Least-Privilege Security Boundaries & Scoped Client Tool Permissions (v2.1.13)**:
    - Hardens client configuration managers (`src/mcp_clients_manager.js`, `src/cursor_manager.js`) by eliminating dangerous wildcard grants (`*`, `Bash(*)`) in favor of explicit, bounded tool manifests. Auto-approvals are strictly constrained to declared MCP tools without granting unconstrained shell or ambient system execution.
 23. **Native LibreOffice Shim Integrity & Supply Chain Hardening (v2.1.13)**:
    - Protects document compilation pipelines against runtime DLL/SO injection and interposition attacks in `soffice.py` through cryptographically verified trusted shims, isolated execution environments, and zero dynamic C compilation at invocation time.
+24. **Deterministic Accurate Skill Resolution via `use_skills` (v2.1.14)**:
+   - Resolves and loads skill instructions directly from SQLite FTS5 database (`konoha.db`) by exact name or array of names, with automatic fallback warning to mirror directories (`.agents/skills/`, `~/.agents/skills/`). Eliminates skill misattribution and ensures precise subagent capability loading.
+25. **Rule-Based `anti_slop` Verification Pre-Gate & Tokubetsu-Jonin Human Document Design Layer (v2.1.14)**:
+   - Adds `anti_slop` MCP tool executed in Kage pre-delivery review alongside `aislop_scan`. Enforces mandatory agent anti-slop skills matrix (`antislop`, `antislop-ui`, `antislop-copywriting`, `antislop-human`, `antislop-layoutmobile`, `antislop-code`). Refines Tokubetsu-Jonin design layer for generated documents (DOCX, PPTX, XLSX, PDF): 20 gradient themes (T01–T20), medium slate `#64748B` body text, zero dark colors, font pairing contracts, and mandatory Kage review before completion.
 
 ---
 

@@ -43,7 +43,8 @@ const REQUIRED_DOCS = [
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.10_2026-10-07.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.11_2026-10-07.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.12_2026-10-07.md',
-  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.13_2026-10-07.md'
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.13_2026-10-07.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.14_2026-10-08.md'
 ];
 
 function checkLocalLinks() {
@@ -113,7 +114,7 @@ async function run() {
   const actualTools = parseToolsList();
   const actualFileTools = parseToolNamesFromRouter(routerPath);
 
-  assert.strictEqual(actualTools.length, 46, `Expected 46 manifest-backed tools, found ${actualTools.length}`);
+  assert.strictEqual(actualTools.length, 48, `Expected 48 manifest-backed tools, found ${actualTools.length}`);
   assert.deepStrictEqual(
     new Set(actualTools),
     new Set(actualFileTools),

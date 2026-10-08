@@ -313,10 +313,26 @@ function loadAgents(reloadDefaults = false, silent = false) {
           }
         }
 
-        // Ensure kage always has antislop skill attached
-        if (a.name === 'kage' && Array.isArray(a.skills) && !a.skills.includes('antislop')) {
-          a.skills.push('antislop');
-          changed = true;
+        // Enforce mandatory anti-slop skills across all official agents
+        const MANDATORY_AGENT_ANTISLOP_SKILLS = {
+          'sannin': ['antislop'],
+          'genin': ['antislop', 'antislop-human', 'antislop-code'],
+          'kage': ['antislop', 'antislop-human', 'antislop-code'],
+          'chunin': ['antislop', 'antislop-human', 'antislop-code'],
+          'jonin': ['antislop', 'antislop-ui', 'antislop-human', 'antislop-layoutmobile', 'antislop-code'],
+          'anbu': ['antislop', 'antislop-human', 'antislop-code'],
+          'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code'],
+          'tokubetsu_jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
+        };
+
+        const mandatory = MANDATORY_AGENT_ANTISLOP_SKILLS[a.name];
+        if (mandatory && Array.isArray(a.skills)) {
+          for (const mSkill of mandatory) {
+            if (!a.skills.includes(mSkill)) {
+              a.skills.push(mSkill);
+              changed = true;
+            }
+          }
         }
 
         // Always ensure instructions use the correct find_skill call for the new default skill

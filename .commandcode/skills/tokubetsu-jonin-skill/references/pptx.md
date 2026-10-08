@@ -21,8 +21,29 @@ Use this reference whenever building, modifying, or styling presentations and sl
 ## 1. Zero-AI Slide Design Invariants
 
 When creating slide presentations:
-- **Strict Light Mode Invariant (Zero Dark Theme Style)**: Under NO circumstances generate, style, or refine slides with dark theme style. Dark slide backgrounds, black title slides, dark hero covers, dark header bars, and near-black card fills are STRICTLY FORBIDDEN. All slides must use pure white (`#FFFFFF`) or soft pearl white (`#F8FAFC`).
-- **3-Color Minimum Gradient for Covers, Headers, & Footers**: When visual color or decorative emphasis is needed for title slide covers, header bands, footer accents, or card divider rules, ALWAYS create a smooth multi-stop gradient with a MINIMUM of 3 colors (e.g. Executive Sapphire `#1E3A8A` → `#2563EB` → `#60A5FA`, Teal-to-Cyan-to-Mint `#0D9488` → `#06B6D4` → `#6EE7B7`, or Sunrise Amber `#9A3412` → `#F59E0B` → `#FDE68A`). Never use dark gradients or single flat dark blocks.
+- **Strict Light Mode & Zero Black/Dark Invariant**: Under NO circumstances generate, style, or refine slides with black, dark gray, or dark blue anywhere (text, fills, lines, backgrounds). Strictly forbidden: `#000000`, `#000`, dark navy, dark slate (`#0F172A`, `#1E293B`, `#1E3A8A`), or dark blocks. All slides must use pure white (`#FFFFFF`) or pearl (`#F8FAFC`), with text strictly in **medium slate `#64748B`**.
+- **20 Canonical 4-Base-Color Themes**: When decorative color or visual emphasis is needed for title covers, headers, footers, card accent strips, or divider rules, ALWAYS apply a smooth **4-base-color gradient**, randomly selecting ONE of the 20 canonical themes (T01–T20) per deck and keeping it consistent throughout:
+  - **T01**: `linear-gradient(90deg,#8A4FD0,#E8453C,#F08A24,#F7C948)`
+  - **T02**: `linear-gradient(90deg,#17B3A3,#3A8DDE,#8A4FD0,#E85DA0)`
+  - **T03**: `linear-gradient(90deg,#34B38A,#F7C948,#F08A24,#E85DA0)`
+  - **T04**: `linear-gradient(90deg,#3A8DDE,#17B3A3,#6FCF7A,#F7C948)`
+  - **T05**: `linear-gradient(90deg,#8A4FD0,#D6459E,#E8453C,#F5A04A)`
+  - **T06**: `linear-gradient(90deg,#5CC46A,#F7C948,#F08A24,#E8453C)`
+  - **T07**: `linear-gradient(90deg,#4F8DF0,#8A4FD0,#E85DA0,#F5A04A)`
+  - **T08**: `linear-gradient(90deg,#17B3A3,#6FCF7A,#F7C948,#F2705F)`
+  - **T09**: `linear-gradient(90deg,#3AA6C9,#8A4FD0,#E85DA0,#F7C948)`
+  - **T10**: `linear-gradient(90deg,#3A8DDE,#52D1BC,#8BCB4A,#F5A623)`
+  - **T11**: `linear-gradient(90deg,#8A4FD0,#E85DA0,#F2705F,#F7C948)`
+  - **T12**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#E85D75)`
+  - **T13**: `linear-gradient(90deg,#4F8DF0,#D6459E,#E85D75,#F5A04A)`
+  - **T14**: `linear-gradient(90deg,#8A4FD0,#3A8DDE,#17B3A3,#8BCB4A)`
+  - **T15**: `linear-gradient(90deg,#E85DA0,#E8453C,#F08A24,#8BCB4A)`
+  - **T16**: `linear-gradient(90deg,#7C5CE0,#3A8DDE,#52D1BC,#6FCF7A)`
+  - **T17**: `linear-gradient(90deg,#E8453C,#F08A24,#F7C948,#8BCB4A)`
+  - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
+  - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
+  - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+- **Strict Typography Contract**: PowerPoint strictly uses **Segoe UI Semibold or Georgia (headings) + Segoe UI or Calibri (body)** with consistent spacing, alignment, and visual hierarchy.
 - **The "Rule of One"**: Exactly 1 central thesis or key takeaway per slide.
 - **Strict Ban on AI Bullet Walls**: Never write slides with 4–6 generic bullet points of identical sentence length.
   - *Bad (AI)*: 5 bullets each starting with "Ensures that...", "Facilitates...", "Helps to optimize..."
@@ -30,8 +51,9 @@ When creating slide presentations:
 - **Stat Callouts as Visuals**: When presenting performance, savings, or metrics, render the number in massive 44–60pt bold font with a concise 12pt label below it.
 - **Asymmetric 2-Column Layouts**: Use 60/40 or 70/30 split layouts (e.g. left side big takeaway and key metrics, right side data table or architectural diagram).
 - **16:9 Widescreen Standard**: Always format for 16:9 widescreen (`layout: 'LAYOUT_16x9'` in pptxgenjs; `slide_width = Inches(13.333)`, `slide_height = Inches(7.5)` in python-pptx).
-- **Strict Zero Watermark Invariant**: Under NO circumstances should presentation slide decks contain watermarks, translucent "CONFIDENTIAL" / "DRAFT" diagonal stamps, or background evaluation watermarks.
+- **Strict Zero Watermark Invariant**: Under NO circumstances should presentation slide decks contain watermarks, translucent stamps, or background evaluation watermarks.
 - **Metadata Scrubbing**: Set core presentation properties (`creator`, `lastModifiedBy`, `title`) to the human author or project name; remove `python-pptx` and `pptxgenjs` tags.
+- **Mandatory Kage Review Gate**: Always use Kage review on every generated PPTX presentation.
 
 ---
 

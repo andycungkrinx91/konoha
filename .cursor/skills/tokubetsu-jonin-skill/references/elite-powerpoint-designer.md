@@ -16,17 +16,40 @@ Transform content into world-class presentations with the design quality of Appl
 ## Core Design Philosophy & Business-Class Invariants
 
 > [!IMPORTANT]
-> **Strict Light Mode Invariant (Zero Dark Theme)**: Under no circumstances should presentations be designed with dark backgrounds, black slides, or dark navy full-bleed covers. All presentations must use pure white (`#FFFFFF`) or soft pearl (`#F8FAFC` / `#FAFAFA`) canvases.
-> **3-Color Minimum Gradient Invariant**: When decorative accents, header/footer bands, title dividers, or KPI highlights are applied, strictly use a smooth gradient with a **minimum of 3 colors** (e.g., Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA` or Teal `#0D9488` → Cyan `#06B6D4` → Mint `#6EE7B7`).
+> **Strict Light Mode & Zero Black/Dark Invariant**: Under NO circumstances should presentations be designed with black, dark gray, or dark blue anywhere (text, fills, lines, backgrounds). Strictly forbidden: `#000000`, `#000`, dark navy, dark slate (`#0F172A`, `#1E293B`, `#1E3A8A`), or dark blocks. All slide canvases must be pure white (`#FFFFFF`) or soft pearl (`#F8FAFC` / `#FAFAFA`), with text strictly in **medium slate `#64748B`**.
+> **20 Canonical 4-Base-Color Themes**: When decorative accents, header/footer bands, title dividers, or KPI highlights are applied, ALWAYS apply a smooth **4-base-color gradient**, randomly selecting ONE of the 20 canonical themes (T01–T20) per presentation deck and keeping it consistent throughout:
+>   - **T01**: `linear-gradient(90deg,#8A4FD0,#E8453C,#F08A24,#F7C948)`
+>   - **T02**: `linear-gradient(90deg,#17B3A3,#3A8DDE,#8A4FD0,#E85DA0)`
+>   - **T03**: `linear-gradient(90deg,#34B38A,#F7C948,#F08A24,#E85DA0)`
+>   - **T04**: `linear-gradient(90deg,#3A8DDE,#17B3A3,#6FCF7A,#F7C948)`
+>   - **T05**: `linear-gradient(90deg,#8A4FD0,#D6459E,#E8453C,#F5A04A)`
+>   - **T06**: `linear-gradient(90deg,#5CC46A,#F7C948,#F08A24,#E8453C)`
+>   - **T07**: `linear-gradient(90deg,#4F8DF0,#8A4FD0,#E85DA0,#F5A04A)`
+>   - **T08**: `linear-gradient(90deg,#17B3A3,#6FCF7A,#F7C948,#F2705F)`
+>   - **T09**: `linear-gradient(90deg,#3AA6C9,#8A4FD0,#E85DA0,#F7C948)`
+>   - **T10**: `linear-gradient(90deg,#3A8DDE,#52D1BC,#8BCB4A,#F5A623)`
+>   - **T11**: `linear-gradient(90deg,#8A4FD0,#E85DA0,#F2705F,#F7C948)`
+>   - **T12**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#E85D75)`
+>   - **T13**: `linear-gradient(90deg,#4F8DF0,#D6459E,#E85D75,#F5A04A)`
+>   - **T14**: `linear-gradient(90deg,#8A4FD0,#3A8DDE,#17B3A3,#8BCB4A)`
+>   - **T15**: `linear-gradient(90deg,#E85DA0,#E8453C,#F08A24,#8BCB4A)`
+>   - **T16**: `linear-gradient(90deg,#7C5CE0,#3A8DDE,#52D1BC,#6FCF7A)`
+>   - **T17**: `linear-gradient(90deg,#E8453C,#F08A24,#F7C948,#8BCB4A)`
+>   - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
+>   - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
+>   - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+> **Strict Typography Contract**: PowerPoint presentations strictly use **Segoe UI Semibold or Georgia (headings) + Segoe UI or Calibri (body)** with text in medium slate `#64748B`.
+> **Mandatory Kage Review Gate**: Always use Kage review on every generated PowerPoint presentation.
 
 **Principles:**
 1. **Pure Light Mode Canvas** - Clean white backgrounds with executive crisp contrast.
-2. **3-Color Gradient Accents** - Sophisticated, multi-stop accents; zero monotone dark blocks.
-3. **Minimalism First** - Remove everything that doesn't serve a clear purpose.
-4. **Bold & Clear** - Large typography, high contrast, confident colors.
-5. **Visual Hierarchy** - Guide attention through size, color, and spacing.
-6. **Consistent Branding** - Every element follows the design system.
-7. **Purposeful Motion** - Animations only where they add clarity or emphasis.
+2. **4-Base-Color Theme Gradient Accents** - Sophisticated, multi-stop accents matching T01–T20; zero monotone dark blocks.
+3. **Medium Slate `#64748B` Typography** - High-legibility, zero dark gray or black text.
+4. **Minimalism First** - Remove everything that doesn't serve a clear purpose.
+5. **Bold & Clear** - Large typography, high contrast, confident colors.
+6. **Visual Hierarchy** - Guide attention through size, color, and spacing.
+7. **Consistent Branding** - Every element follows the chosen theme consistently.
+8. **Purposeful Motion** - Animations only where they add clarity or emphasis.
 
 ## When to Use This Skill
 
@@ -41,37 +64,39 @@ Transform content into world-class presentations with the design quality of Appl
 
 ### Available Brand Styles
 
+All presentation styles strictly enforce **Pure Light Mode**, text in **medium slate `#64748B`**, and smooth **4-base-color gradient ribbons** from one of the 20 canonical themes (T01–T20):
+
 **1. Tech Keynote (Executive Light Edition)**
-- **Colors**: Pure white background (#FFFFFF), slate text (#0F172A), 3-color gradient accent bar (#1E3A8A → #2563EB → #60A5FA)
-- **Typography**: SF Pro Display (title 72-96pt), SF Pro Text (body 32-44pt)
+- **Colors**: Pure white background (#FFFFFF), medium slate text (#64748B), 4-base-color gradient accent bar (T01–T20)
+- **Typography**: Segoe UI Semibold (title 54-72pt), Segoe UI (body 24-32pt)
 - **Layout**: Extreme whitespace, single focal point per slide
 - **Transitions**: Push, Fade (duration: 0.6s)
 - **Style**: Minimalist, premium, product-focused light mode
 
-**2. Corporate Professional (Microsoft/IBM Style)**
-- **Colors**: Pure white background (#FFFFFF), deep slate (#0F172A), 3-color gradient ribbon (#003366 → #0078D4 → #60A5FA), warm gray cards (#F8FAFC)
-- **Typography**: Segoe UI (title 54-72pt), body (24-32pt)
+**2. Corporate Professional (Enterprise Executive Edition)**
+- **Colors**: Pure white background (#FFFFFF), medium slate text (#64748B), 4-base-color gradient ribbon (T01–T20), soft pearl cards (#F8FAFC)
+- **Typography**: Georgia (title 54-72pt), Calibri (body 24-32pt)
 - **Layout**: Balanced, grid-based, data-friendly
 - **Transitions**: Morph, Fade (duration: 0.8s)
 - **Style**: Trustworthy, data-driven, enterprise-ready light mode
 
-**3. Creative Bold (Google/Airbnb Style)**
-- **Colors**: Pure white canvas (#FFFFFF), 3-color gradient accents (#0D9488 → #06B6D4 → #6EE7B7)
-- **Typography**: Product Sans or Montserrat (title 64-84pt)
-- **Layout**: Dynamic, asymmetric, playful spacing
+**3. Creative Bold (Design Innovation Edition)**
+- **Colors**: Pure white canvas (#FFFFFF), medium slate text (#64748B), 4-base-color gradient accents (T01–T20)
+- **Typography**: Segoe UI Semibold (title 54-72pt), Calibri (body 24-32pt)
+- **Layout**: Dynamic, asymmetric, generous spacing
 - **Transitions**: Zoom, Reveal (duration: 0.5s)
 - **Style**: Energetic, innovative, design-forward light mode
 
-**4. Financial Elite (Goldman Sachs/McKinsey Style)**
-- **Colors**: Pure white background (#FFFFFF), deep charcoal (#1E293B), 3-color bronze/amber gradient (#9A3412 → #F59E0B → #FDE68A)
-- **Typography**: Garamond or Georgia (serif, elegant)
+**4. Financial Elite (Institutional Boardroom Edition)**
+- **Colors**: Pure white background (#FFFFFF), medium slate text (#64748B), 4-base-color gradient metrics ribbon (T01–T20)
+- **Typography**: Georgia (title 54-72pt), Calibri (body 24-32pt)
 - **Layout**: Traditional hierarchy, centered, balanced
 - **Transitions**: Subtle Fade only (duration: 0.4s)
 - **Style**: Sophisticated, authoritative, premium light mode
 
-**5. Startup Pitch (Y Combinator/500 Startups Style)**
-- **Colors**: Pure white canvas (#FFFFFF), bold slate typography (#0F172A), 3-color gradient metric highlights
-- **Typography**: Inter or Roboto (modern sans-serif)
+**5. Startup Pitch (Venture Showcase Edition)**
+- **Colors**: Pure white canvas (#FFFFFF), medium slate typography (#64748B), 4-base-color gradient metric highlights (T01–T20)
+- **Typography**: Segoe UI Semibold (title 54-72pt), Segoe UI (body 24-32pt)
 - **Layout**: Problem-solution focused, metric-heavy
 - **Transitions**: Quick Push (duration: 0.3s)
 - **Style**: Energetic, data-driven, founder-friendly light mode

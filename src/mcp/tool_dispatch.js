@@ -10,7 +10,8 @@ const { spawnSync } = require('child_process');
 const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { detectActiveAgent } = require('./client_detection');
-const { findSkill, listSkills, getSkill, optimizeReport } = require('./skills');
+const { findSkill, listSkills, getSkill, useSkills, optimizeReport } = require('./skills');
+const { runAntiSlopAudit } = require('./anti_slop');
 const { buildFromSource, buildFromText } = require('./build_spec');
 const { getResolvedTaskDir, runSannin } = require('./workflow');
 const { runWebSearch } = require('./web_search');
@@ -88,6 +89,14 @@ function _executeToolInternal(toolName, args, agent) {
   }
   if (toolName === 'get_skill') {
     return getSkill(args.name || '', agent, {
+      tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
+      section: args.section || null,
+      taskId: args.task_id || args.taskId || args.session_id || args.sessionId || null
+    });
+  }
+  if (toolName === 'use_skills' || toolName === 'use_skill') {
+    const skillsArg = args.skills || args.name || args.skill || args.names;
+    return useSkills(skillsArg, agent, {
       tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
       section: args.section || null,
       taskId: args.task_id || args.taskId || args.session_id || args.sessionId || null
@@ -320,6 +329,10 @@ function boundPersonaMemories(mems) {
       slop_cycles: task.slop_cycles || 0,
       updated_at: task.updated_at
     });
+  }
+
+  if (toolName === 'anti_slop') {
+    return runAntiSlopAudit(args, agent);
   }
 
   if (toolName === 'website_ai_detector') {

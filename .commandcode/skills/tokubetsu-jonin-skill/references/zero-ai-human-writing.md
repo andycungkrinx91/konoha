@@ -209,17 +209,40 @@ def sanitize_pdf(document, pdf):
 Across all generated and refined documents (DOCX, PPTX, XLSX, PDF), adhere strictly to executive enterprise design standards:
 
 ### Global Visual Invariants
-1. **Strict Zero Dark Theme Invariant**:
-   - NEVER create, generate, or refine documents using dark theme style.
-   - Strictly forbidden: dark covers, dark page backgrounds, dark headers, dark footers, black or near-black fills.
-   - All document canvases and slide backgrounds must be pure white (`#FFFFFF`) or soft pearl (`#F8FAFC` / `#FAFAFA`).
-2. **3-Color Minimum Gradient Invariant**:
-   - Whenever color is required for headers, footers, covers, accent ribbons, or decorative dividing rules, create a smooth multi-stop gradient with a **MINIMUM of 3 colors**.
-   - Two-color harsh bands or single-color dark blocks are strictly prohibited.
-   - Approved Enterprise 3-Color Gradients:
-     - **Crimson Executive**: `#B91C1C` (Crimson) → `#D97706` (Amber) → `#FDE68A` (Warm Gold)
-     - **Sapphire Corporate**: `#1E3A8A` (Deep Sapphire) → `#2563EB` (Azure) → `#60A5FA` (Sky Blue)
-     - **Teal Innovation**: `#0D9488` (Deep Teal) → `#06B6D4` (Cyan) → `#6EE7B7` (Mint)
+1. **Strict Zero Black/Dark Invariant (Zero Dark Style)**:
+   - NEVER create, generate, or refine documents using black, dark gray, or dark blue anywhere (text, fills, lines, backgrounds).
+   - Strictly forbidden: `#000000`, `#000`, dark navy, dark slate (`#0F172A`, `#1E293B`, `#1E3A8A`), charcoal, dark fills, or dark borders.
+   - All canvases and backgrounds must be pure white (`#FFFFFF`) or soft pearl (`#F8FAFC`). Text must strictly be in **medium slate `#64748B`**.
+2. **20 Canonical 4-Base-Color Gradient Themes**:
+   - Whenever color is applied to covers, headers, footers, accent ribbons, or dividing rules, use a smooth **4-base-color gradient**.
+   - Randomly pick ONE of these 20 themes per document and keep it consistent throughout:
+     - **T01**: `linear-gradient(90deg,#8A4FD0,#E8453C,#F08A24,#F7C948)`
+     - **T02**: `linear-gradient(90deg,#17B3A3,#3A8DDE,#8A4FD0,#E85DA0)`
+     - **T03**: `linear-gradient(90deg,#34B38A,#F7C948,#F08A24,#E85DA0)`
+     - **T04**: `linear-gradient(90deg,#3A8DDE,#17B3A3,#6FCF7A,#F7C948)`
+     - **T05**: `linear-gradient(90deg,#8A4FD0,#D6459E,#E8453C,#F5A04A)`
+     - **T06**: `linear-gradient(90deg,#5CC46A,#F7C948,#F08A24,#E8453C)`
+     - **T07**: `linear-gradient(90deg,#4F8DF0,#8A4FD0,#E85DA0,#F5A04A)`
+     - **T08**: `linear-gradient(90deg,#17B3A3,#6FCF7A,#F7C948,#F2705F)`
+     - **T09**: `linear-gradient(90deg,#3AA6C9,#8A4FD0,#E85DA0,#F7C948)`
+     - **T10**: `linear-gradient(90deg,#3A8DDE,#52D1BC,#8BCB4A,#F5A623)`
+     - **T11**: `linear-gradient(90deg,#8A4FD0,#E85DA0,#F2705F,#F7C948)`
+     - **T12**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#E85D75)`
+     - **T13**: `linear-gradient(90deg,#4F8DF0,#D6459E,#E85D75,#F5A04A)`
+     - **T14**: `linear-gradient(90deg,#8A4FD0,#3A8DDE,#17B3A3,#8BCB4A)`
+     - **T15**: `linear-gradient(90deg,#E85DA0,#E8453C,#F08A24,#8BCB4A)`
+     - **T16**: `linear-gradient(90deg,#7C5CE0,#3A8DDE,#52D1BC,#6FCF7A)`
+     - **T17**: `linear-gradient(90deg,#E8453C,#F08A24,#F7C948,#8BCB4A)`
+     - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
+     - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
+     - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+3. **Typography Contract**:
+   - **Word/reports (DOCX)**: Georgia (headings) + Calibri (body)
+   - **PowerPoint (PPTX)**: Segoe UI Semibold or Georgia (headings) + Segoe UI or Calibri (body)
+   - **Excel (XLSX)**: Calibri (headings and body)
+   - **PDF/digital (PDF)**: Inter (headings and body)
+4. **Mandatory Kage Review Gate**:
+   - Every generated document (DOCX, PPTX, XLSX, PDF) must be verified by Kage review before completion.
 
 ---
 

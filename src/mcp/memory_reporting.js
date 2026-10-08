@@ -567,6 +567,27 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     }
   }
 
+  // Force-load mandatory anti-slop skills for all official ninja agents
+  const MANDATORY_AGENT_ANTISLOP_SKILLS = {
+    'sannin': ['antislop'],
+    'genin': ['antislop', 'antislop-human', 'antislop-code'],
+    'kage': ['antislop', 'antislop-human', 'antislop-code'],
+    'chunin': ['antislop', 'antislop-human', 'antislop-code'],
+    'jonin': ['antislop', 'antislop-ui', 'antislop-human', 'antislop-layoutmobile', 'antislop-code'],
+    'anbu': ['antislop', 'antislop-human', 'antislop-code'],
+    'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code'],
+    'tokubetsu_jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
+  };
+
+  const forcedSkills = MANDATORY_AGENT_ANTISLOP_SKILLS[dbAgentName] || MANDATORY_AGENT_ANTISLOP_SKILLS[cleanAgentName];
+  if (forcedSkills) {
+    for (const fsItem of forcedSkills) {
+      if (!skillsList.includes(fsItem)) {
+        skillsList.push(fsItem);
+      }
+    }
+  }
+
   const skillsContent = [];
   if (skillsList.length > 0) {
     let skillConn = null;

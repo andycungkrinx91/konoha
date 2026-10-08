@@ -20,8 +20,29 @@ Use this reference whenever generating, editing, or auditing Microsoft Excel (.x
 ## 1. Zero-AI Human Data Presentation Invariants
 
 When creating spreadsheets:
-- **Strict Light Mode Invariant (Zero Dark Style)**: Spreadsheets must strictly use pure light mode. Never apply dark theme fills, dark covers, dark header blocks, or black/near-black fills to cells, sheets, or tables. Backgrounds must be pure white (`#FFFFFF`) or soft pearl (`#F8FAFC`).
-- **3-Color Minimum Gradient Invariant**: When decorative accent styling is applied (such as top accent ribbons on table headers, summary cards, or KPI divider rows), use a smooth multi-stop gradient with a minimum of 3 colors (e.g., Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA` or Emerald `#047857` → Teal `#0D9488` → Mint `#34D399`), never dark monotone fills.
+- **Strict Light Mode & Zero Black/Dark Invariant**: Under NO circumstances create, generate, or style Excel workbooks with black, dark gray, or dark blue anywhere (text, fills, lines, backgrounds). Strictly forbidden: `#000000`, `#000`, dark navy, dark slate (`#0F172A`, `#1E293B`, `#1E3A8A`), or dark blocks. All sheet backgrounds must be pure white (`#FFFFFF`) or pearl (`#F8FAFC`), with text strictly in **medium slate `#64748B`**.
+- **20 Canonical 4-Base-Color Themes**: When decorative accent styling is applied (such as top accent ribbons on table headers, summary cards, or KPI divider rows), ALWAYS apply a smooth **4-base-color gradient**, randomly selecting ONE of the 20 canonical themes (T01–T20) per document and keeping it consistent throughout:
+  - **T01**: `linear-gradient(90deg,#8A4FD0,#E8453C,#F08A24,#F7C948)`
+  - **T02**: `linear-gradient(90deg,#17B3A3,#3A8DDE,#8A4FD0,#E85DA0)`
+  - **T03**: `linear-gradient(90deg,#34B38A,#F7C948,#F08A24,#E85DA0)`
+  - **T04**: `linear-gradient(90deg,#3A8DDE,#17B3A3,#6FCF7A,#F7C948)`
+  - **T05**: `linear-gradient(90deg,#8A4FD0,#D6459E,#E8453C,#F5A04A)`
+  - **T06**: `linear-gradient(90deg,#5CC46A,#F7C948,#F08A24,#E8453C)`
+  - **T07**: `linear-gradient(90deg,#4F8DF0,#8A4FD0,#E85DA0,#F5A04A)`
+  - **T08**: `linear-gradient(90deg,#17B3A3,#6FCF7A,#F7C948,#F2705F)`
+  - **T09**: `linear-gradient(90deg,#3AA6C9,#8A4FD0,#E85DA0,#F7C948)`
+  - **T10**: `linear-gradient(90deg,#3A8DDE,#52D1BC,#8BCB4A,#F5A623)`
+  - **T11**: `linear-gradient(90deg,#8A4FD0,#E85DA0,#F2705F,#F7C948)`
+  - **T12**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#E85D75)`
+  - **T13**: `linear-gradient(90deg,#4F8DF0,#D6459E,#E85D75,#F5A04A)`
+  - **T14**: `linear-gradient(90deg,#8A4FD0,#3A8DDE,#17B3A3,#8BCB4A)`
+  - **T15**: `linear-gradient(90deg,#E85DA0,#E8453C,#F08A24,#8BCB4A)`
+  - **T16**: `linear-gradient(90deg,#7C5CE0,#3A8DDE,#52D1BC,#6FCF7A)`
+  - **T17**: `linear-gradient(90deg,#E8453C,#F08A24,#F7C948,#8BCB4A)`
+  - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
+  - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
+  - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+- **Strict Typography Contract**: Excel spreadsheets strictly use **Calibri for both headings and body**, with crisp point sizing (Title: 16pt, Subtitle: 10pt, Headers/Data: 11pt, Totals: 11pt bold).
 - **Zero Raw Numbers**: Never leave bare floats (`0.3333333333`). Format currency as `$#,##0` or `$#,##0.00`, percentages as `0.0%` or `0%`, counts as `#,##0`.
 - **Formulas Over Hardcoded Values**: If a number is derived from other cells, calculate it via an Excel formula (`=SUM(C4:C12)`, `=C13-D13`), never paste pre-calculated static values into summary rows.
 - **Formula Casing**: Always write formula names in ALL CAPS (`SUM`, `AVERAGE`, `IF`, `XLOOKUP`, `INDEX`, `MATCH`). Lowercase formula names (`=sum(...)`) signal hasty robotic generation.
@@ -29,21 +50,23 @@ When creating spreadsheets:
 - **Visual Grid & Freeze Panes**: Explicitly enable `ws.views.sheetView[0].showGridLines = True` and freeze header rows (`ws.freeze_panes = 'A5'`).
 - **Strict Zero Watermark Invariant**: Under NO circumstances should generated, styled, or edited Excel workbooks contain watermarks, diagonal background stamps, sheet header watermark graphics, or evaluation marks.
 - **Metadata Scrubbing**: Set workbook author and properties to the human analyst / organization; remove `openpyxl` / `pandas` application tags.
+- **Mandatory Kage Review Gate**: Every generated Excel workbook must undergo Kage review before completion.
 
 ---
 
 ## 2. Professional Enterprise Color Palettes (Pure Light Mode)
 
-Never use dark theme fills, harsh bright primary colors, or black header bars. Use refined business-class light palettes:
+Never use black, dark gray, dark blue, or dark theme fills. Use refined business-class light palettes with text in medium slate `#64748B`:
 
-| Element | Executive Slate (Default) | Mint Sage Finance | Modern Azure Tech |
-|---|---|---|---|
-| **Header Background** | Executive Slate Tint `#F1F5F9` | Sage Mint Tint `#ECFDF5` | Ice Azure Tint `#F0F9FF` |
-| **Header Text** | Deep Slate `#0F172A` (Bold) | Deep Forest `#064E3B` (Bold) | Deep Navy `#0C4A6E` (Bold) |
-| **Header Accent Ribbon** | Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA` | Pine `#047857` → Teal `#0D9488` → Mint `#34D399` | Cobalt `#1D4ED8` → Blue `#3B82F6` → Ice `#93C5FD` |
-| **Zebra Row Shading** | Pearl `#F8FAFC` | Mint Pearl `#F0FDF4` | Sky Pearl `#F8FAFC` |
-| **Total / Summary Row** | Top thin border `#CBD5E1`, double bottom `#0F172A` | Top thin border `#A7F3D0`, double bottom `#064E3B` | Top thin border `#BAE6FD`, double bottom `#0C4A6E` |
-| **Accent / KPI Highlight** | Indigo `#4F46E5` | Emerald `#10B981` | Cyan `#06B6D4` |
+| Element | Specification & Values |
+|---|---|
+| **Sheet Background** | Pure White `#FFFFFF` or Pearl `#F8FAFC` |
+| **Typography (Headings & Body)** | Medium Slate `#64748B` (Calibri font exclusively) |
+| **Header Background** | Executive Slate Tint `#F1F5F9` |
+| **Header Accent Ribbon** | 4-base-color gradient ribbon matching the chosen theme (T01–T20) |
+| **Zebra Row Shading** | Pearl `#F8FAFC` |
+| **Total / Summary Row** | Top thin border `#CBD5E1`, double bottom `#64748B`, text in `#64748B` (bold) |
+| **Cell Borders** | Subtle light slate `#E2E8F0` / `#CBD5E1` |
 
 ---
 
@@ -63,20 +86,21 @@ ws.title = "Q3 Infrastructure ROI"
 # Enforce explicit gridlines
 ws.views.sheetView[0].showGridLines = True
 
-# Styling definitions (Pure Light Executive Class)
-font_title = Font(name="Calibri", size=16, bold=True, color="0F172A")
+# Styling definitions (Pure Light Executive Class - Text strictly in #64748B, Zero dark colors)
+font_title = Font(name="Calibri", size=16, bold=True, color="64748B")
 font_subtitle = Font(name="Calibri", size=10, italic=True, color="64748B")
-font_header = Font(name="Calibri", size=11, bold=True, color="0F172A")
-font_body = Font(name="Calibri", size=11, color="1E293B")
-font_total = Font(name="Calibri", size=11, bold=True, color="0F172A")
+font_header = Font(name="Calibri", size=11, bold=True, color="64748B")
+font_body = Font(name="Calibri", size=11, color="64748B")
+font_total = Font(name="Calibri", size=11, bold=True, color="64748B")
 
 fill_header = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
 fill_zebra = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
 
-# 3-Color Minimum Gradient Accent Bar (Row 3)
-fill_accent_1 = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid") # Sapphire
-fill_accent_2 = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid") # Azure
-fill_accent_3 = PatternFill(start_color="60A5FA", end_color="60A5FA", fill_type="solid") # Sky
+# 4-Base-Color Gradient Accent Ribbon (Theme T01 example: #8A4FD0, #E8453C, #F08A24, #F7C948)
+fill_accent_1 = PatternFill(start_color="8A4FD0", end_color="8A4FD0", fill_type="solid")
+fill_accent_2 = PatternFill(start_color="E8453C", end_color="E8453C", fill_type="solid")
+fill_accent_3 = PatternFill(start_color="F08A24", end_color="F08A24", fill_type="solid")
+fill_accent_4 = PatternFill(start_color="F7C948", end_color="F7C948", fill_type="solid")
 
 align_left = Alignment(horizontal="left", vertical="center")
 align_right = Alignment(horizontal="right", vertical="center")
@@ -84,7 +108,7 @@ align_center = Alignment(horizontal="center", vertical="center")
 
 border_thin = Side(style="thin", color="E2E8F0")
 border_header = Side(style="medium", color="CBD5E1")
-border_double = Side(style="double", color="0F172A")
+border_double = Side(style="double", color="64748B")
 border_total = Border(top=border_thin, bottom=border_double)
 border_cell = Border(left=border_thin, right=border_thin, top=border_thin, bottom=border_thin)
 
@@ -94,14 +118,14 @@ ws["A1"].font = font_title
 ws["A2"] = "Prepared by Infrastructure SRE Team | Target Savings: $450,000/yr"
 ws["A2"].font = font_subtitle
 
-# 3-Color Gradient Accent Ribbon above table header
+# 4-Color Gradient Accent Ribbon above table header (Theme T01)
 ws.row_dimensions[3].height = 4
 ws["A3"].fill = fill_accent_1
 ws["B3"].fill = fill_accent_1
 ws["C3"].fill = fill_accent_2
-ws["D3"].fill = fill_accent_2
-ws["E3"].fill = fill_accent_3
-ws["F3"].fill = fill_accent_3
+ws["D3"].fill = fill_accent_3
+ws["E3"].fill = fill_accent_4
+ws["F3"].fill = fill_accent_4
 
 # Table Headers (Light Executive Tint)
 headers = ["Service Component", "Cluster Tier", "Old Monthly Cost", "New Monthly Cost", "Net Savings", "Delta %"]
@@ -206,11 +230,14 @@ wb.save("infrastructure_roi.xlsx")
 ## 4. Delivery & Verification Checklist
 
 Before shipping any spreadsheet:
-1. **Zero Dark Theme Invariant**: Pure light mode strictly enforced. Background is pure white (`#FFFFFF`) or soft pearl (`#F8FAFC`). Zero dark header blocks or dark cells.
-2. **3-Color Minimum Gradient Invariant**: Any decorative accent bars, top ribbons, or KPI highlights must use at least 3 gradient stops (e.g. Sapphire `#1E3A8A` → Azure `#2563EB` → Sky `#60A5FA`).
-3. **Table Header Fills**: Executive light tint (`#F1F5F9` / `#ECFDF5`) with bold dark high-contrast typography (`#0F172A`).
-4. **Formula Accuracy**: Verify workbook opens in Excel/LibreOffice with 0 formula repair warnings (`#NAME?`, `#VALUE!`, `#REF!`).
-5. **Formatting**: Verify all numbers have explicit number formatting (`$#,##0`, `0.0%`, `#,##0`).
-6. **Freeze Panes & Gridlines**: Confirm freeze panes are set on the header row and gridlines are explicitly turned on (`showGridLines = True`).
-7. **Auto-Fit**: Check column widths: no text is clipped and no numbers appear as `###`.
-8. **Metadata**: Confirm metadata properties have been sanitized.
+1. **Strict Light Mode & Zero Black/Dark Invariant**: Pure light mode strictly enforced. Background is pure white (`#FFFFFF`) or soft pearl (`#F8FAFC`). Zero dark headers, black cells, dark blue, or dark gray anywhere.
+2. **Medium Slate `#64748B` Typography**: All text (titles, headers, body, numbers, totals) strictly set in `#64748B`.
+3. **Calibri Typography Contract**: Calibri font strictly used for both headings and body text.
+4. **4-Base-Color Theme Gradient**: Decorative accent ribbons or KPI highlights strictly use a smooth 4-base-color gradient matching one of the 20 canonical themes (T01–T20) consistently.
+5. **Table Header Fills**: Executive light tint (`#F1F5F9`) with bold `#64748B` typography and subtle `#CBD5E1` borders.
+6. **Formula Accuracy**: Verify workbook opens in Excel/LibreOffice with 0 formula repair warnings (`#NAME?`, `#VALUE!`, `#REF!`). Formulas use UPPERCASE names (`SUM`, `AVERAGE`).
+7. **Formatting**: Verify all numbers have explicit number formatting (`$#,##0`, `0.0%`, `#,##0`).
+8. **Freeze Panes & Gridlines**: Confirm freeze panes are set on the header row and gridlines are explicitly turned on (`showGridLines = True`).
+9. **Auto-Fit**: Check column widths: no text is clipped and no numbers appear as `###`.
+10. **Metadata**: Confirm metadata properties have been sanitized.
+11. **Mandatory Kage Review Gate**: Always run Kage review to verify zero-slop compliance, visual hierarchy, and 0% AI detection before delivery.

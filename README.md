@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.13 (2026-10-07)](CHANGELOG.md) — Comprehensive supply-chain hardening, persistent session hook elimination, soffice.py multi-suite mitigation, and deterministic zero-transitive lockfile.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.13 — Konoha v2.1.13 (2026-10-07)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.13_2026-10-07.md)
+* **Latest Release:** [v2.1.14 (2026-10-08)](CHANGELOG.md) — Deterministic skill resolution via `use_skills`, rule-based `anti_slop` verification pre-gate, canonical skill registry consolidation, mandatory agent anti-slop matrix, and Tokubetsu-Jonin human document design layer.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.14 — Konoha v2.1.14 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.14_2026-10-08.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -358,7 +358,7 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
 
 Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption via MCP Tools), specifically engineered to deliver maximum performance, complete cross-IDE portability, and **83–98% token savings**.
 
-> **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Diagram manifest](docs/diagrams/README.md).
+> **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Complete Workflow Architecture](docs/ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](docs/diagrams/README.md).
 
 <p align="center">
   <img src="assets/konoha-orchestration-flow.gif" alt="Konoha MCP Orchestration & Execution Flow" width="100%" />
@@ -393,12 +393,12 @@ config:
 flowchart TB
     Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
     Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
-    Orchestrator --> Discover["2. Discover Skill, Code & Hygiene<br/>(konoha.find_skill · semble.search · aislop_scan)"]
+    Orchestrator --> Discover["2. Discover & Resolve Skills<br/>(konoha.find_skill · konoha.use_skills · semble.search)"]
     Context --> Delegate["3. Structured MCP Delegation<br/>(delegate_to_jonin / anbu / kage)"]
     Discover --> Delegate
     Delegate --> Agent["4. Specialist Ninja Agent<br/>(genin · kage · jonin · anbu · chunin · tokubetsu)"]
     Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]
-    Report --> Review["6. Kage Review Gate<br/>(Zero-AI-slop pre-gate + 100% task & security verification)"]
+    Report --> Review["6. Kage Review Gate<br/>(Zero-AI-slop pre-gate: aislop_scan + anti_slop + 100% verification)"]
     Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
     Synthesize --> Response["Synthesized Response"]
 
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.13) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.1.14) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -836,6 +836,13 @@ get_skill("tokubetsu-jonin-skill/elite-powerpoint-designer")
 get_skill("genin-skill/i-have-adhd")
 ```
 
+#### `use_skills(skills)`
+Accurately resolve and load skills directly by exact name or array of names from SQLite FTS5 database (`konoha.db`) with automatic fallback warning to local mirror directories (`.agents/skills/` / `~/.agents/skills/`). Ensures skill resolution accuracy and prevents skill misattribution.
+
+```javascript
+use_skills({ skills: ["jonin-skill", "antislop-ui"] })
+```
+
 #### `list_skills()`
 List all indexed skills and references with metadata.
 
@@ -866,6 +873,11 @@ Return a validated, side-effect-free premium specification for Next.js, Nuxt 3, 
 |------|-----------|------------------------|
 | `qa_codify` | `(flow_path, target_spec_path?, base_url?)` | Compiles declarative flow JSON (`tests/e2e/flows/*.json`) to Playwright `.spec.js`. Rejects `@e` element refs, generates semantic locators, pre-verifies against target app, and runs syntax linting before writing. Accessible exclusively to `anbu`. |
 | `qa_e2e_run` | `(test_file?, test_filter?, project_dir?, timeout_ms?)` | Headless Playwright test runner with hard output cap strictly under 2,000 characters. Strips ANSI color codes, extracts failure traces, assigns unique `run_id`, and returns clean structured JSON summary. Prevents LLM context blowup. Accessible exclusively to `anbu`. |
+
+#### Quality & Governance Tools
+| Tool | Signature | Purpose & Token Guard |
+|------|-----------|------------------------|
+| `anti_slop` | `(target_dir?, file_paths?)` | Deterministic rule-based anti-slop verification engine executed during Kage pre-delivery review after `aislop_scan`. Audits changed files for lazy placeholders, generic syntax comments, speculative code, and conversational fluff. Returns 0-100 score and issue breakdown. |
 
 > [!IMPORTANT]
 > **All agents must use konoha** for skill lookups, file reads, and line grep — not Cursor `Read`/`Grep`/`Glob`, Antigravity `view_file`, or shell `cat`/`head`/`grep`. Workflow: **semble** (semantic code search) → **konoha** (skills & file operations).

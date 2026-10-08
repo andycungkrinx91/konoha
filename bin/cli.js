@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.13';
+  return '2.1.14';
 }
 
 function drawLogo() {
@@ -2967,7 +2967,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.13', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.14', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -2991,7 +2991,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.13', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.14', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);

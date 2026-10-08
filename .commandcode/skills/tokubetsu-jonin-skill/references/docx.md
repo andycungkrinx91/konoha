@@ -19,11 +19,32 @@ Use this reference whenever generating, editing, or styling Microsoft Word docum
 
 ## 1. Zero-AI Human Writing Invariants for Word Documents
 
-- **Strict Light Mode Invariant (Zero Dark Theme Style)**: Under NO circumstances create, generate, or style Word documents with dark theme style. Dark covers, dark pages, dark headers, dark footers, and black or near-black background fills are STRICTLY PROHIBITED. All document backgrounds must be pure white (`#FFFFFF`) or subtle pearl white (`#F8FAFC`) for executive readability.
-- **3-Color Minimum Gradient for Covers, Headers, & Footers**: When color or visual distinction is needed for cover pages, header bands, footer accents, or hero dividers, ALWAYS create a smooth multi-stop gradient with a MINIMUM of 3 colors (e.g. Crisp Executive Sapphire `#1E3A8A` → `#2563EB` → `#60A5FA`, Emerald Wealth `#065F46` → `#0D9488` → `#38BDF8`, or Dawn Coral `#9A3412` → `#EA580C` → `#FDBA74`). Never use a dark gradient or single flat dark blocks.
-- **Business & Enterprise Class Polish**: Typography must use modern corporate fonts (Aptos, Calibri, Arial, Georgia) with clean point sizing, 1.15 line spacing, generous cell padding (minimum 120 DXA), subtle light borders (`#CBD5E1`), and soft zebra stripes (`#F8FAFC`).
-- **Strict Zero Watermark Invariant**: Under NO circumstances should generated, styled, or edited Word documents contain watermarks, diagonal background stamps ("DRAFT", "CONFIDENTIAL", "SAMPLE"), translucent image overlays, or evaluation markings. All pages must feature clean, unblemished white canvases.
+- **Strict Light Mode & Zero Black/Dark Invariant**: Under NO circumstances create, generate, or style Word documents with black, dark gray, or dark blue anywhere (text, fills, lines, backgrounds). Strictly forbidden: `#000000`, `#000`, dark navy, dark slate (`#0F172A`, `#1E293B`, `#1E3A8A`), or dark blocks. All document backgrounds must be pure white (`#FFFFFF`) or pearl (`#F8FAFC`), with text strictly in **medium slate `#64748B`**.
+- **20 Canonical 4-Base-Color Themes**: When decorative color is applied to cover ribbons, header bands, or footer lines, ALWAYS apply a smooth **4-base-color gradient**, randomly selecting ONE of the 20 canonical themes (T01–T20) per document and keeping it consistent throughout:
+  - **T01**: `linear-gradient(90deg,#8A4FD0,#E8453C,#F08A24,#F7C948)`
+  - **T02**: `linear-gradient(90deg,#17B3A3,#3A8DDE,#8A4FD0,#E85DA0)`
+  - **T03**: `linear-gradient(90deg,#34B38A,#F7C948,#F08A24,#E85DA0)`
+  - **T04**: `linear-gradient(90deg,#3A8DDE,#17B3A3,#6FCF7A,#F7C948)`
+  - **T05**: `linear-gradient(90deg,#8A4FD0,#D6459E,#E8453C,#F5A04A)`
+  - **T06**: `linear-gradient(90deg,#5CC46A,#F7C948,#F08A24,#E8453C)`
+  - **T07**: `linear-gradient(90deg,#4F8DF0,#8A4FD0,#E85DA0,#F5A04A)`
+  - **T08**: `linear-gradient(90deg,#17B3A3,#6FCF7A,#F7C948,#F2705F)`
+  - **T09**: `linear-gradient(90deg,#3AA6C9,#8A4FD0,#E85DA0,#F7C948)`
+  - **T10**: `linear-gradient(90deg,#3A8DDE,#52D1BC,#8BCB4A,#F5A623)`
+  - **T11**: `linear-gradient(90deg,#8A4FD0,#E85DA0,#F2705F,#F7C948)`
+  - **T12**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#E85D75)`
+  - **T13**: `linear-gradient(90deg,#4F8DF0,#D6459E,#E85D75,#F5A04A)`
+  - **T14**: `linear-gradient(90deg,#8A4FD0,#3A8DDE,#17B3A3,#8BCB4A)`
+  - **T15**: `linear-gradient(90deg,#E85DA0,#E8453C,#F08A24,#8BCB4A)`
+  - **T16**: `linear-gradient(90deg,#7C5CE0,#3A8DDE,#52D1BC,#6FCF7A)`
+  - **T17**: `linear-gradient(90deg,#E8453C,#F08A24,#F7C948,#8BCB4A)`
+  - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
+  - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
+  - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+- **Strict Typography Contract**: Word/reports strictly use **Georgia (headings) + Calibri (body)** with clean point sizing, 1.15 line spacing, generous cell padding (minimum 120 DXA), subtle light borders (`#E2E8F0`), and soft zebra stripes (`#F8FAFC`).
+- **Strict Zero Watermark Invariant**: Under NO circumstances should generated Word documents contain watermarks, diagonal background stamps ("DRAFT", "CONFIDENTIAL", "SAMPLE"), translucent image overlays, or evaluation markings.
 - **Metadata Scrubbing**: Always set document core properties (`creator`, `lastModifiedBy`) to the project or author name; remove default library tags (`python-docx`, `docx-js`).
+- **Mandatory Kage Review Gate**: Every generated DOCX document must undergo Kage review before completion.
 
 ---
 

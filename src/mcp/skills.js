@@ -521,6 +521,279 @@ function getSkill(name, agentName = null, options = {}) {
   }
 }
 
+/**
+ * useSkills — Load and activate one or more skills by name.
+ * Looks up in the database skills table first.
+ * If not found in database, logs a warning and falls back to reading mirror skills from disk.
+ *
+ * @param {string|string[]} skillsInput - Skill name, comma-separated names, or array of names
+ * @param {string|null} agentName - Calling agent name
+ * @param {object} options - { tokenBudget, section, taskId }
+ * @returns {string} JSON response string
+ */
+function useSkills(skillsInput, agentName = null, options = {}) {
+  process.stderr.write(`[mcp konoha] tool_call: use_skills(skills=${JSON.stringify(skillsInput)})\n`);
+  try {
+    autoMigrateProjectSkills();
+  } catch (_) { /* ignore */ }
+
+  let normalizedInput = skillsInput;
+  if (typeof normalizedInput === 'object' && normalizedInput !== null && !Array.isArray(normalizedInput)) {
+    normalizedInput = normalizedInput.skills || normalizedInput.name || normalizedInput.skill || normalizedInput.names;
+  }
+
+  let skillNames = [];
+  if (Array.isArray(normalizedInput)) {
+    skillNames = normalizedInput.map(s => String(s).trim()).filter(Boolean);
+  } else if (typeof normalizedInput === 'string') {
+    if (normalizedInput.includes(',')) {
+      skillNames = normalizedInput.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      skillNames = [normalizedInput.trim()].filter(Boolean);
+    }
+  }
+
+  if (skillNames.length === 0) {
+    const errRes = JSON.stringify({
+      error: 'Missing required argument: skills (skill name or array of skill names).'
+    });
+    logToolCall('use_skills', '', errRes, agentName);
+    return errRes;
+  }
+
+  const tokenBudget = (typeof options === 'object' && options !== null && options.tokenBudget) ? parseInt(options.tokenBudget, 10) : 0;
+  const requestedSection = (typeof options === 'object' && options !== null && options.section) ? String(options.section).trim() : null;
+  const taskId = (typeof options === 'object' && options !== null && options.taskId) ? options.taskId : null;
+
+  if (taskId) {
+    for (const name of skillNames) {
+      getServedSkillsSet(taskId).add(normalizeLegacySkillName(name));
+    }
+  }
+
+  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
+  const mirrorRoots = [
+    path.join(ws, '.agents', 'skills'),
+    path.join(ws, 'src', 'templates', 'skills'),
+    path.join(HOME, '.agents', 'skills'),
+    path.join(ws, '.cursor', 'skills'),
+    path.join(ws, '.gemini', 'skills'),
+    path.join(ws, '.commandcode', 'skills'),
+    path.join(ws, '.claude', 'skills'),
+    path.join(ws, '.opencode', 'skills'),
+    path.join(ws, '.codex', 'skills'),
+  ];
+
+  function findInMirror(name) {
+    const norm = normalizeLegacySkillName(name);
+    for (const root of mirrorRoots) {
+      if (!fs.existsSync(root)) continue;
+      if (norm.includes('/')) {
+        const parts = norm.split('/');
+        const parentSkill = parts[0];
+        const subName = parts.slice(1).join('/');
+        const candidatePaths = [
+          path.join(root, parentSkill, 'references', `${subName}.md`),
+          path.join(root, parentSkill, 'references', subName),
+          path.join(root, parentSkill, `${subName}.md`),
+          path.join(root, parentSkill, subName, 'SKILL.md'),
+          path.join(root, `${norm}.md`),
+          path.join(root, norm, 'SKILL.md')
+        ];
+        for (const cp of candidatePaths) {
+          if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+            return { filePath: cp, type: 'reference' };
+          }
+        }
+      } else {
+        const candidatePaths = [
+          path.join(root, norm, 'SKILL.md'),
+          path.join(root, `${norm}.md`),
+          path.join(root, norm)
+        ];
+        for (const cp of candidatePaths) {
+          if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+            return { filePath: cp, type: 'skill' };
+          }
+        }
+        try {
+          const subs = fs.readdirSync(root, { withFileTypes: true });
+          for (const sub of subs) {
+            if (!sub.isDirectory()) continue;
+            const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
+            if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
+              return { filePath: refPath, type: 'reference' };
+            }
+          }
+        } catch (_) { /* ignore */ }
+      }
+    }
+    return null;
+  }
+
+  const loadedSkills = [];
+  const allWarnings = [];
+
+  let conn = null;
+  try {
+    conn = getDb();
+  } catch (err) {
+    allWarnings.push(`Database connection failed: ${err.message}. Falling back to mirror skills.`);
+  }
+
+  for (const rawName of skillNames) {
+    const normName = normalizeLegacySkillName(rawName);
+    let row = null;
+    let source = 'database';
+    let warning = null;
+
+    if (conn) {
+      try {
+        row = conn.prepare(`
+          SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
+          FROM skills
+          WHERE name = ?
+        `).get(normName);
+
+        if (!row) {
+          row = conn.prepare(`
+            SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
+            FROM skills
+            WHERE name LIKE ?
+            LIMIT 1
+          `).get(`%/${normName}`);
+        }
+
+        if (row && !isPathVisible(row.file_path)) {
+          row = null;
+        }
+      } catch (dbErr) {
+        process.stderr.write(`[mcp konoha] DB lookup error for '${normName}': ${dbErr.message}\n`);
+      }
+    }
+
+    let content = '';
+    let skillType = 'skill';
+    let filePath = null;
+
+    if (row && row.content) {
+      content = row.content;
+      skillType = row.type || 'skill';
+      filePath = row.file_path;
+      source = 'database';
+      process.stderr.write(`  → [use_skills] Retrieved '${normName}' from database (${row.byte_size || content.length} bytes)\n`);
+    } else {
+      warning = `Skill '${normName}' not found in database. Falling back to mirror skills.`;
+      process.stderr.write(`  ⚠️ [use_skills] ${warning}\n`);
+      allWarnings.push(warning);
+
+      const mirrorHit = findInMirror(normName);
+      if (mirrorHit) {
+        try {
+          content = fs.readFileSync(mirrorHit.filePath, 'utf8');
+          skillType = mirrorHit.type;
+          filePath = mirrorHit.filePath;
+          source = 'mirror_fallback';
+          process.stderr.write(`  → [use_skills] Retrieved '${normName}' from mirror: ${filePath} (${content.length} bytes)\n`);
+        } catch (readErr) {
+          warning = `Failed to read mirror skill '${normName}' from ${mirrorHit.filePath}: ${readErr.message}`;
+          allWarnings.push(warning);
+        }
+      } else {
+        warning = `Skill '${normName}' not found in database or mirror skills.`;
+        allWarnings.push(warning);
+      }
+    }
+
+    if (!content) {
+      loadedSkills.push({
+        name: normName,
+        status: 'not_found',
+        error: warning || `Skill '${normName}' not found.`,
+        source: 'none'
+      });
+      continue;
+    }
+
+    const shielded = shieldPromptInjection(content);
+    let finalContent = shielded;
+    let truncated = false;
+    let remainingSections = [];
+
+    if (tokenBudget > 0 || requestedSection) {
+      const maxChars = tokenBudget > 0 ? tokenBudget * 4 : Infinity;
+      const rawSections = shielded.split(/\n(?=#{1,3}\s)/);
+      if (rawSections.length > 1) {
+        if (requestedSection) {
+          const reqLower = requestedSection.toLowerCase().replace(/^#+/, '').trim();
+          const foundIdx = rawSections.findIndex(s => extractSectionTitle(s).toLowerCase().includes(reqLower));
+          if (foundIdx !== -1) {
+            finalContent = rawSections[foundIdx];
+            remainingSections = rawSections.filter((_, idx) => idx !== foundIdx).map(extractSectionTitle).slice(0, 10);
+          } else {
+            finalContent = rawSections[0];
+            remainingSections = rawSections.slice(1).map(extractSectionTitle).slice(0, 10);
+          }
+        } else {
+          finalContent = rawSections[0];
+          remainingSections = rawSections.slice(1).map(extractSectionTitle).slice(0, 10);
+        }
+        truncated = remainingSections.length > 0;
+        if (remainingSections.length > 0) {
+          finalContent += `\n\n[+${remainingSections.length} remaining sections: ${remainingSections.map(s => '#' + s).join(', ')}. Pass section parameter to read each.]`;
+        }
+      } else if (finalContent.length > maxChars) {
+        const truncRes = smartTruncate(finalContent, maxChars, normName);
+        finalContent = truncRes.text;
+        truncated = truncRes.truncated;
+      }
+    } else if (finalContent.length > MAX_CONTENT_SIZE) {
+      const truncRes = smartTruncate(finalContent, MAX_CONTENT_SIZE, normName);
+      finalContent = truncRes.text;
+      truncated = truncRes.truncated;
+    }
+
+    const item = {
+      name: normName,
+      type: skillType,
+      status: 'loaded',
+      source,
+      content: finalContent,
+      byte_size: Buffer.byteLength(finalContent, 'utf8'),
+      line_count: (finalContent.match(/\n/g) || []).length + 1,
+      truncated,
+      hash: contentHash(shielded)
+    };
+    if (warning) item.warning = warning;
+    if (remainingSections.length > 0) item.remaining_sections = remainingSections;
+    loadedSkills.push(item);
+  }
+
+  if (conn) {
+    try { conn.close(); } catch (_) { /* ignore */ }
+  }
+
+  let resPayload;
+  if (skillNames.length === 1 && loadedSkills.length === 1) {
+    const single = loadedSkills[0];
+    resPayload = {
+      ...single,
+      skills: loadedSkills,
+      warnings: allWarnings
+    };
+  } else {
+    resPayload = {
+      status: loadedSkills.some(s => s.status === 'loaded') ? 'success' : 'failed',
+      skills: loadedSkills,
+      warnings: allWarnings
+    };
+  }
+
+  const resStr = JSON.stringify(resPayload);
+  logToolCall('use_skills', skillNames.join(','), resStr, agentName);
+  return resStr;
+}
+
 function optimizeReport(keyword = null, agentName = null) {
   process.stderr.write(`[mcp konoha] tool_call: optimize_report(keyword='${keyword}')\n`);
   const conn = getDb();
@@ -697,6 +970,7 @@ module.exports = {
   findSkill,
   listSkills,
   getSkill,
+  useSkills,
   optimizeReport,
   getAgentSkills,
   fuzzyResolveSkill,

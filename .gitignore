@@ -115,3 +115,8 @@ playwright-report/
 blob-report/
 playwright/.cache/
 # KONOHA-QA-END
+
+# Obsolete standalone skills (consolidated into ninja references)
+**/helm-chart-scaffolding/
+helm-chart-scaffolding/
+agent/
