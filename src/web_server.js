@@ -1549,6 +1549,25 @@ function createWebServer(options = {}) {
       }
     }
 
+    // Soul & Will of Fire Endpoints
+    if (method === 'GET' && pathname === '/api/v1/soul') {
+      try {
+        const personaMemory = require('./persona_memory');
+        const agentFilter = parsedUrl.searchParams.get('agent') || null;
+        const raw = parsedUrl.searchParams.get('raw') === 'true';
+        const projectPath = parsedUrl.searchParams.get('project') || null;
+        const soul = personaMemory.getSoul({ agentName: agentFilter, projectPath, raw });
+        if (raw) {
+          res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+          res.end(soul.raw_markdown || '');
+          return;
+        }
+        return sendJson(res, 200, { ok: true, soul });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     // Persona Memory Endpoints
     if (method === 'GET' && pathname === '/api/v1/persona') {
       try {

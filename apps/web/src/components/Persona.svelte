@@ -159,7 +159,104 @@
     }
   }
 
-  onMount(() => { loadAgents(); loadMemories(); });
+  const DEFAULT_SOUL = {
+    title: 'The Soul of Konoha: The Will of Fire',
+    will_of_fire: "Where tree leaves dance, one shall find flames. The fire's shadow will illuminate the village, and once again, tree leaves shall bud anew.",
+    universal_adhd_standard: 'i-have-adhd (Lead with next action, numbered tasks, end with one concrete step, cap visible lists to 5, matter-of-fact errors, zero filler)',
+    tenets: [
+      { name: 'Factual Rigor & Absolute Truth', summary: 'Never lie. Claim success only with verified terminal evidence.' },
+      { name: 'Silent Depth & Mandatory ADHD Shaping', summary: 'Zero monologue leaks. Enforce i-have-adhd across all turn responses: lead with action, numbered steps, cap lists to 5, zero filler.' },
+      { name: 'Sanctity of Existing Architecture', summary: 'Protect working code. Never modify unrequested logic.' },
+      { name: 'Anti-Slop as a Moral Duty', summary: 'Reject generic AI boilerplate, robotic pleasantries, and visual clichés.' },
+      { name: 'Tactical Token Hygiene', summary: 'Zero wasted movement. Bounded file reading and symbol search.' }
+    ],
+    archetypes: {
+      sannin: {
+        name: '✧ Sannin',
+        role: 'The Grand Tactician (Router)',
+        voice: 'The battlefield is clear. Task analyzed; dispatching the ideal specialist without a single wasted second.',
+        calling: 'Instant task classification, domain triage, subagent dispatch, and token-safe structured arguments.',
+        antislop_skills: ['antislop'],
+        adhd_shaping: 'Lead with routing verdict, numbered triage steps (max 3), cap delegation to 1 specialist, zero fluff.'
+      },
+      kage: {
+        name: '◎ Kage',
+        role: 'The Sovereign Guardian (Village Leader)',
+        voice: 'Zero defects permitted past the village gates. 100/100 anti-slop score and ≥ 98% confidence verified before delivery.',
+        calling: 'Architectural oversight, supply chain audit, Zero-AI-Slop gate enforcement, and final delivery approval.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
+        adhd_shaping: 'Lead with pass/fail verdict and score, numbered verification categories, matter-of-fact confidence reporting.'
+      },
+      jonin: {
+        name: '♦ Jonin',
+        role: 'The Elite Artisan (Frontend Master)',
+        voice: 'Every pixel must breathe. Responsive, fluid, accessible, and vibrant—never cookie-cutter AI filler.',
+        calling: 'Next.js, SvelteKit, Nuxt, Angular, Tailwind CSS v4, WebGL/3D, and fluid motion.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human', 'antislop-ui', 'antislop-layoutmobile'],
+        adhd_shaping: 'Lead with UI action/file path, numbered component steps, cap visible options to 5, end with build check.'
+      },
+      anbu: {
+        name: '♠ Anbu',
+        role: 'The Covert Specialist (Backend & Black Ops)',
+        voice: 'The pipes are silent, the connections pooled, and the boundaries hardened. Systems don\'t break on my watch.',
+        calling: 'Node/Bun/Python/Go backends, databases, distributed caching, Docker/K8s/Terraform, and defensive security auditing.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
+        adhd_shaping: 'Lead with exact command/patch, numbered backend steps, calm error reporting, make system wins visible.'
+      },
+      genin: {
+        name: '⚑ Genin',
+        role: 'The Non-Destructive Scout (Explorer)',
+        voice: 'Trail mapped. All dependencies, references, and symbol paths traced with zero side effects.',
+        calling: 'Read-only codebase exploration, AST symbol tracing, dependency graphing, and blast-radius analysis.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
+        adhd_shaping: 'Lead with exploration entry point, numbered discovery trace, cap symbol lists to 5, zero side effects.'
+      },
+      chunin: {
+        name: '▫ Chunin',
+        role: 'The Empirical Scholar (Intel Ninja)',
+        voice: 'Every assertion backed by primary documentation. Citations verified against ground truth.',
+        calling: 'Autonomous technical research, library documentation synthesis, and competitive analysis with verifiable citations.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
+        adhd_shaping: 'Lead with verified documentation answer, numbered evidence points, cap citations to 5, end with concrete recommendation.'
+      },
+      'tokubetsu-jonin': {
+        name: '⬡ Tokubetsu-Jonin',
+        role: 'The Authentic Scribe (Humanist Writer)',
+        voice: 'Writing must be human, clear, and compelling. Documents that people actually enjoy reading.',
+        calling: 'Production-grade technical documentation, runbooks, and refined human-authentic office documents (Word, Excel, PPT, PDF).',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human', 'antislop-copywriting'],
+        adhd_shaping: 'Lead with executive takeaway, numbered sections, zero robotic AI fluff, compact human prose.'
+      }
+    }
+  };
+
+  let activeTab = $state("memories");
+  let soulData = $state(DEFAULT_SOUL);
+  let loadingSoul = $state(false);
+  let soulError = $state("");
+
+  async function loadSoul() {
+    loadingSoul = true;
+    soulError = "";
+    try {
+      const res = await api.get("/api/v1/soul");
+      if (res && res.soul) {
+        soulData = res.soul;
+      } else if (res && res.title) {
+        soulData = res;
+      }
+    } catch (err) {
+      soulError = err.message;
+    } finally {
+      loadingSoul = false;
+    }
+  }
+
+  onMount(() => {
+    loadAgents();
+    loadMemories();
+    loadSoul();
+  });
 
   useScrollLock(() => isCreateModalOpen);
 
@@ -218,8 +315,37 @@
         </button>
       </div>
     </div>
+
+    <!-- View Switcher Tabs -->
+    <div class="relative z-10 flex items-center gap-2 mt-6 pt-6 border-t border-slate-200/60 w-full">
+      <button
+        type="button"
+        onclick={() => { activeTab = "memories"; }}
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2"
+        style={activeTab === "memories" ? "background-color: var(--color-primary); color: #ffffff; border-color: var(--color-primary);" : "background-color: #ffffff; color: var(--color-text-muted); border-color: var(--color-border);"}
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+        <span>Episodic Memories ({memories.length})</span>
+      </button>
+
+      <button
+        type="button"
+        onclick={() => { activeTab = "soul"; loadSoul(); }}
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2"
+        style={activeTab === "soul" ? "background-color: var(--color-primary); color: #ffffff; border-color: var(--color-primary);" : "background-color: #ffffff; color: var(--color-text-muted); border-color: var(--color-border);"}
+      >
+        <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-amber-200' : 'text-amber-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+        </svg>
+        <span>Will of Fire (Village Soul)</span>
+      </button>
+    </div>
   </div>
 
+  {#if activeTab === "memories"}
   <!-- Filter & Search Controls -->
   <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
     <!-- Agent Filter Tabs -->
@@ -324,6 +450,198 @@
       {/each}
     </div>
   {/if}
+{/if}
+
+{#if activeTab === "soul"}
+  <div class="space-y-8">
+    {#if loadingSoul && !soulData}
+      <div class="flex items-center justify-center py-16 text-slate-600 text-sm font-semibold">
+        <div class="flex items-center gap-3">
+          <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>Loading Will of Fire doctrine...</span>
+        </div>
+      </div>
+    {:else if soulError && !soulData}
+      <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">
+        Failed to load Village Soul: {soulError}
+      </div>
+    {:else if soulData}
+      {#if soulError}
+        <div class="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold flex items-center justify-between">
+          <span>Notice: Displaying offline Village Soul doctrine ({soulError})</span>
+          <button type="button" onclick={loadSoul} class="underline text-amber-900 cursor-pointer font-bold">Retry</button>
+        </div>
+      {/if}
+
+      <!-- Will of Fire Creed Card -->
+      <div
+        class="rise-3d rounded-2xl p-6 sm:p-8 border shadow-lg space-y-4"
+        style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(254, 243, 199, 0.4) 100%); border-color: #fde68a;"
+      >
+        <div class="flex items-center gap-2 text-amber-800 text-xs font-black tracking-wider uppercase">
+          <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+          </svg>
+          <span>Konohagakure Core Doctrine — Will of Fire</span>
+        </div>
+        <blockquote class="text-base sm:text-lg font-serif italic text-slate-800 border-l-4 border-amber-500 pl-4 py-1 leading-relaxed">
+          "{soulData.will_of_fire || 'Where tree leaves dance, one shall find flames.'}"
+        </blockquote>
+        <p class="text-xs font-semibold text-slate-600">
+          The Will of Fire is the unyielding philosophy binding every Ninja agent in Konohagakure.
+          It commands absolute factual truth, silent deliberation, architectural respect, anti-slop rigor, and zero wasted tokens.
+        </p>
+      </div>
+
+      <!-- Universal i-have-adhd Doctrine Banner -->
+      <div class="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 text-slate-800 flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <div class="space-y-1 text-xs">
+          <div class="font-black text-amber-900 tracking-wide uppercase flex items-center gap-2">
+            <span>Universal i-have-adhd Doctrine Enforced Across All Souls</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 border border-amber-300">
+              Active in All 7 Spirits
+            </span>
+          </div>
+          <p class="font-semibold text-slate-700 leading-relaxed">
+            Every shinobi subagent response in Konoha is governed by <strong>i-have-adhd</strong> output shaping: leading with the next action first, numbering multi-step tasks, ending with one concrete next step, capping visible lists to 5, and suppressing all conversational fluff.
+          </p>
+        </div>
+      </div>
+
+      <!-- The 5 Universal Tenets -->
+      <div class="space-y-3">
+        <h3 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Five Universal Tenets of the Village</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {#each (soulData.tenets || []) as tenet, idx}
+            <div class="glass-card-3d rounded-2xl p-4 border bg-white/90 space-y-2" style="border-color: var(--color-border);">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0" style="background-color: var(--color-primary, #7c3aed);">
+                  {idx + 1}
+                </span>
+                <h4 class="text-xs font-black text-slate-900 truncate">{tenet.name}</h4>
+                {#if idx === 1}
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                    i-have-adhd
+                  </span>
+                {/if}
+              </div>
+              <p class="text-xs font-semibold text-slate-700 leading-relaxed pl-8">
+                {tenet.summary}
+              </p>
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <!-- The 7 Ninja Archetypes -->
+      <div class="space-y-3">
+        <h3 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span>Seven Ninja Archetypes &amp; Spirits</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {#each Object.entries(soulData.archetypes || {}) as [key, arch]}
+            <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between bg-white/95 space-y-4" style="border-color: var(--color-border);">
+              <div class="space-y-3">
+                <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <h4 class="text-sm font-black text-slate-900">
+                    {arch.name || key}
+                  </h4>
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border bg-purple-50 text-purple-700 border-purple-200">
+                    {key}
+                  </span>
+                </div>
+
+                <p class="text-xs font-bold text-slate-700">
+                  {arch.role || ""}
+                </p>
+
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <p class="text-[11px] font-medium italic text-slate-800 leading-relaxed">
+                    "{arch.voice || ""}"
+                  </p>
+                </div>
+
+                {#if arch.calling}
+                  <div class="space-y-1">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Sacred Calling</span>
+                    <p class="text-xs font-semibold text-slate-700 leading-normal">
+                      {arch.calling}
+                    </p>
+                  </div>
+                {/if}
+
+                {#if arch.adhd_shaping}
+                  <div class="space-y-1 p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/80">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                      <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>ADHD Shaping (i-have-adhd)</span>
+                    </span>
+                    <p class="text-[11px] font-semibold text-slate-700 leading-normal">
+                      {arch.adhd_shaping}
+                    </p>
+                  </div>
+                {/if}
+
+                {#if arch.antislop_skills && arch.antislop_skills.length > 0}
+                  <div class="space-y-1.5 p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-200/80">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                      <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Anti-Slop Skills</span>
+                    </span>
+                    <div class="flex flex-wrap gap-1.5 pt-0.5">
+                      {#each arch.antislop_skills as skill}
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-white text-indigo-700 border-indigo-200 shadow-xs">
+                          {skill}
+                        </span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+
+              <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                <span>Archetype Spirit</span>
+                <span class="text-emerald-700 font-bold flex items-center gap-1">
+                  <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Active</span>
+                </span>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Soul Source Metadata Card -->
+      {#if soulData.path}
+        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 text-[11px] font-mono text-slate-600 flex items-center justify-between">
+          <span>Authoritative Source: {soulData.path}</span>
+          <span class="text-purple-700 font-bold font-sans">Synced Across All Coding Clients</span>
+        </div>
+      {/if}
+    {/if}
+  </div>
+{/if}
 </div>
 
 <!-- Add Memory 3D Glass Modal -->

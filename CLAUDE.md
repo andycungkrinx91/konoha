@@ -81,14 +81,19 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 | Domain / Description | Skill to Load | MCP Tool to Call |
 |---|---|---|
 | Standard Operating Procedures and router for MCP task triage, subagent selection, and orchestration. | `sannin-skill` | `mcp__konoha__sannin` (MCP Tool) |
+| Anti Slop: Rules for AI Coding Agents. The core filter. Load always to stop generic AI slop. | `antislop` | `mcp__konoha__sannin` (MCP Tool) |
 | Standard Operating Procedures for read-only codebase exploration, symbol search, dependency mapping, | `genin-skill` | `mcp__konoha__genin` (MCP Tool) |
 | ADHD-friendly output shaping for subagent responses. Lead with the next action, number multi-step ta | `i-have-adhd` | `mcp__konoha__genin` (MCP Tool) |
+| Human and accessibility skill for antislop. Contrast, keyboard, focus, and states for real people. I | `antislop-human` | `mcp__konoha__genin` (MCP Tool) |
+| Code comment hygiene for AI coding agents: remove generic AI-slop comments, keep the valuable ones,  | `antislop-code` | `mcp__konoha__genin` (MCP Tool) |
 | Standard Operating Procedures for architecture decisions, security audits, deep code analysis, risk  | `kage-skill` | `mcp__konoha__kage` (MCP Tool) |
-| Anti Slop: Rules for AI Coding Agents. The core filter. Load always to stop generic AI slop. | `antislop` | `mcp__konoha__kage` (MCP Tool) |
 | Standard Operating Procedures for web research, documentation lookup, evidence synthesis with citati | `chunin-skill` | `mcp__konoha__chunin` (MCP Tool) |
 | Standard Operating Procedures and router for premium UI development, design match comparison, compon | `jonin-skill` | `mcp__konoha__jonin` (MCP Tool) |
+| UI and visual skill for antislop. Use when building or editing any interface: color, layout, compone | `antislop-ui` | `mcp__konoha__jonin` (MCP Tool) |
+| Mobile layout skill for antislop. Use for layouts that reflow on small screens: grids, overflow, tap | `antislop-layoutmobile` | `mcp__konoha__jonin` (MCP Tool) |
 | Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `mcp__konoha__anbu` (MCP Tool) |
 | Standard Operating Procedures for technical writing, README creation, API specifications, runbooks,  | `tokubetsu-jonin-skill` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
+| Copy and text skill for antislop. Use when writing or editing prose: headlines, tone, CTAs, and anti | `antislop-copywriting` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
 
 <!-- KONOHA-CONTRACT-START -->

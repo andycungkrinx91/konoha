@@ -405,7 +405,8 @@ const TOOL_HANDLERS = {
   qa_codify: (args) => require('./qa_tools').qaCodify(args),
   qa_e2e_run: (args) => require('./qa_tools').qaE2eRun(args),
   use_skills: (args) => runNodeSkillTool('use_skills', args),
-  anti_slop: (args) => runNodeSkillTool('anti_slop', args)
+  anti_slop: (args) => runNodeSkillTool('anti_slop', args),
+  get_soul: (args) => runNodeSkillTool('get_soul', args)
 };
 
 function validateSchemaValue(value, schema, key) {

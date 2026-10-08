@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
 const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
@@ -181,11 +182,45 @@ function syncSkills() {
     prunedCount += pruneStaleFiles(m.dir, validTopLevels, validRelFiles, false);
   }
 
-  console.log(`✓ Skill sync complete: ${totalCount} files checked, ${updatedCount} copies updated, ${prunedCount} stray items pruned across ${1 + activeMirrors.length} trees.`);
+  const soulUpdated = syncSoul();
+
+  console.log(`✓ Skill sync complete: ${totalCount} files checked, ${updatedCount} copies updated, ${prunedCount} stray items pruned across ${1 + activeMirrors.length} trees (SOUL.md synced: ${soulUpdated} updated).`);
+}
+
+function syncSoul() {
+  const soulSrc = fs.existsSync(path.join(ROOT, '.agents', 'SOUL.md'))
+    ? path.join(ROOT, '.agents', 'SOUL.md')
+    : path.join(ROOT, 'src', 'templates', 'SOUL.md');
+
+  if (!fs.existsSync(soulSrc)) return 0;
+
+  let soulUpdated = 0;
+  const targets = [
+    path.join(ROOT, '.agents', 'SOUL.md'),
+    path.join(ROOT, 'src', 'templates', 'SOUL.md')
+  ];
+
+  for (const m of CLIENT_MIRRORS) {
+    if (fs.existsSync(m.parent)) {
+      targets.push(path.join(m.parent, 'SOUL.md'));
+    }
+  }
+
+  const homeAgents = path.join(os.homedir(), '.agents');
+  if (fs.existsSync(homeAgents)) {
+    targets.push(path.join(homeAgents, 'SOUL.md'));
+  }
+
+  for (const target of targets) {
+    if (copyFileIfChanged(soulSrc, target)) {
+      soulUpdated++;
+    }
+  }
+  return soulUpdated;
 }
 
 if (require.main === module) {
   syncSkills();
 }
 
-module.exports = { syncSkills };
+module.exports = { syncSkills, syncSoul };

@@ -17,9 +17,9 @@ This prevents high-volume, low-payload operational subagents from skewing the co
 
 | Period | Total Calls | Cumulative Bytes Saved | Tokens Saved (~/4) | Byte-Weighted Reduction |
 |:---|:---:|:---:|:---:|:---:|
-| **Today** | 368 | ~62.62 MB | ~16.42M tokens | **99%** |
-| **Last 7 Days** | 2,562 | ~196.41 MB | ~51.49M tokens | **97%** |
-| **All Time** | 3,176 | ~235.02 MB | ~61.61M tokens | **97%** |
+| **Today** | 1,054 | ~55.77 MB | ~14.62M tokens | **96%** |
+| **Last 7 Days** | 5,070 | ~349.42 MB | ~91.60M tokens | **97%** |
+| **All Time** | 7,878 | ~521.82 MB | ~136.79M tokens | **97%** |
 
 ---
 
@@ -29,25 +29,34 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 
 | # | Call Type | Calls | Baseline (MB) | Returned (MB) | Saved (MB) | Avg Base (KB) | Avg Ret (KB) | % Saved | Category Characterization |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `read_file_range` | 1873 | 145.22 MB | 4.47 MB | 140.77 MB | 79.39 KB | 2.44 KB | **96.9%** | Core bounded retrieval (83%–98% headline) |
-| 2 | `token_efficient_grep` | 564 | 61.81 MB | 0.3 MB | 61.51 MB | 112.22 KB | 0.55 KB | **99.5%** | Aggressive context pruning (> 98% reduction) |
-| 3 | `find_skill` | 296 | 4.63 MB | 0.55 MB | 4.09 MB | 16.03 KB | 1.89 KB | **88.2%** | Core bounded retrieval (83%–98% headline) |
-| 4 | `read_file_head` | 107 | 1.69 MB | 0.24 MB | 1.46 MB | 16.19 KB | 2.32 KB | **86%** | Core bounded retrieval (83%–98% headline) |
-| 5 | `find_files_clean` | 99 | 23.6 MB | 0.08 MB | 23.52 MB | 244.14 KB | 0.82 KB | **99.7%** | Aggressive context pruning (> 98% reduction) |
-| 6 | `file_info` | 76 | 1.72 MB | 0.01 MB | 1.7 MB | 23.13 KB | 0.2 KB | **99.2%** | Aggressive context pruning (> 98% reduction) |
-| 7 | `docs_ai_detector` | 62 | 0.16 MB | 0.04 MB | 0.12 MB | 2.66 KB | 0.61 KB | **77.1%** | Bounded section delivery & audit (55%–82%) |
-| 8 | `get_skill` | 32 | 1.17 MB | 0.32 MB | 0.85 MB | 37.41 KB | 10.08 KB | **73.1%** | Bounded section delivery & audit (55%–82%) |
-| 9 | `get_file_structure` | 22 | 0.91 MB | 0.01 MB | 0.9 MB | 42.13 KB | 0.43 KB | **99%** | Aggressive context pruning (> 98% reduction) |
-| 10 | `anbu` | 13 | 0.1 MB | 0.1 MB | 0 MB | 7.51 KB | 7.51 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 11 | `sannin` | 11 | 0.02 MB | 0.02 MB | 0 MB | 1.46 KB | 1.46 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 12 | `list_skills` | 6 | 0.2 MB | 0.09 MB | 0.11 MB | 34.18 KB | 15.53 KB | **54.6%** | Aggressive context pruning (> 98% reduction) |
-| 13 | `jonin` | 4 | 0.04 MB | 0.04 MB | 0 MB | 8.99 KB | 8.99 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 14 | `tokubetsu_jonin` | 3 | 0.02 MB | 0.02 MB | 0 MB | 7.54 KB | 7.54 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 15 | `get_resolved_task_dir` | 3 | 0 MB | 0 MB | 0 MB | 0.15 KB | 0.15 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 16 | `kage` | 2 | 0.02 MB | 0.02 MB | 0 MB | 7.82 KB | 7.82 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 17 | `build_from_text` | 2 | 0.04 MB | 0.04 MB | 0 MB | 19.09 KB | 19.09 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 18 | `build_from_source` | 2 | 0.04 MB | 0.04 MB | 0 MB | 20.5 KB | 20.5 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 19 | `genin` | 1 | 0.01 MB | 0.01 MB | 0 MB | 6.97 KB | 6.97 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 1 | `read_file_range` | 4533 | 296.15 MB | 10 MB | 286.19 MB | 66.9 KB | 2.26 KB | **96.6%** | Core bounded retrieval (83%–98% headline) |
+| 2 | `token_efficient_grep` | 1371 | 147.61 MB | 0.7 MB | 146.9 MB | 110.25 KB | 0.53 KB | **99.5%** | Aggressive context pruning (> 98% reduction) |
+| 3 | `find_skill` | 581 | 11.77 MB | 0.92 MB | 10.86 MB | 20.75 KB | 1.62 KB | **92.2%** | Core bounded retrieval (83%–98% headline) |
+| 4 | `read_file_head` | 426 | 6.69 MB | 0.89 MB | 5.83 MB | 16.08 KB | 2.14 KB | **87.1%** | Core bounded retrieval (83%–98% headline) |
+| 5 | `find_files_clean` | 255 | 60.8 MB | 0.23 MB | 60.57 MB | 244.14 KB | 0.93 KB | **99.6%** | Aggressive context pruning (> 98% reduction) |
+| 6 | `file_info` | 214 | 4.94 MB | 0.04 MB | 4.9 MB | 23.65 KB | 0.21 KB | **99.1%** | Aggressive context pruning (> 98% reduction) |
+| 7 | `get_skill` | 154 | 4.29 MB | 1.33 MB | 2.96 MB | 28.52 KB | 8.85 KB | **69%** | Bounded section delivery & audit (55%–82%) |
+| 8 | `docs_ai_detector` | 126 | 0.19 MB | 0.07 MB | 0.12 MB | 1.56 KB | 0.55 KB | **64.8%** | Bounded section delivery & audit (55%–82%) |
+| 9 | `get_file_structure` | 63 | 3.14 MB | 0.04 MB | 3.1 MB | 51.05 KB | 0.65 KB | **98.7%** | Aggressive context pruning (> 98% reduction) |
+| 10 | `list_skills` | 25 | 0.83 MB | 0.44 MB | 0.39 MB | 34.18 KB | 18.04 KB | **47.2%** | Aggressive context pruning (> 98% reduction) |
+| 11 | `anbu` | 19 | 0.14 MB | 0.14 MB | 0 MB | 7.57 KB | 7.57 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 12 | `build_from_text` | 17 | 0.34 MB | 0.34 MB | 0 MB | 20.28 KB | 20.28 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 13 | `build_from_source` | 17 | 0.36 MB | 0.36 MB | 0 MB | 21.76 KB | 21.76 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 14 | `kage` | 16 | 0.1 MB | 0.1 MB | 0 MB | 6.52 KB | 6.52 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 15 | `sannin` | 11 | 0.02 MB | 0.02 MB | 0 MB | 1.46 KB | 1.46 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 16 | `use_skills` | 8 | 0.12 MB | 0.12 MB | 0 MB | 14.87 KB | 14.87 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 17 | `qa_codify` | 7 | 0 MB | 0 MB | 0 MB | 0.07 KB | 0.07 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 18 | `anti_slop` | 7 | 0.01 MB | 0.01 MB | 0 MB | 1.22 KB | 1.22 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 19 | `get_slop_findings` | 5 | 0 MB | 0 MB | 0 MB | 0.03 KB | 0.03 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 20 | `migrate_skills` | 4 | 0 MB | 0 MB | 0 MB | 0.41 KB | 0.41 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 21 | `jonin` | 4 | 0.04 MB | 0.04 MB | 0 MB | 8.99 KB | 8.99 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 22 | `tokubetsu_jonin` | 3 | 0.02 MB | 0.02 MB | 0 MB | 7.54 KB | 7.54 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 23 | `qa_e2e_run` | 3 | 0 MB | 0 MB | 0 MB | 0.18 KB | 0.18 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 24 | `get_resolved_task_dir` | 3 | 0 MB | 0 MB | 0 MB | 0.15 KB | 0.15 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 25 | `website_ai_detector` | 2 | 0 MB | 0 MB | 0 MB | 0.04 KB | 0.04 KB | **0%** | Bounded section delivery & audit (55%–82%) |
+| 26 | `chunin` | 2 | 0.01 MB | 0.01 MB | 0 MB | 6.91 KB | 6.91 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 27 | `get_soul` | 1 | 0 MB | 0 MB | 0 MB | 0.03 KB | 0.03 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 28 | `genin` | 1 | 0.01 MB | 0.01 MB | 0 MB | 6.97 KB | 6.97 KB | **0%** | Operational router / spec generator (0% base=ret) |
 
 ### Precise Headline Scoping
 - **Core Bounded Retrieval (83%–98%)**: Primary file reading and skill search (`read_file_range` at ~94%, `find_skill` at ~86%, `read_file_head` at ~88%) operate strictly within the headline 83%–98% range.
@@ -65,8 +74,8 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 - **Transcript Cross-Check**: Empirical verification against `transcript.jsonl` (e.g. Step 3388) demonstrates that the text payload recorded in `tool_calls` (1,243 bytes) matches the prompt-injected transcript text (1,240 bytes) within **3 bytes (99.8% exact fidelity)**, with an 81-byte outer invocation timestamp header added by the CLI harness.
 
 ### B. Live Tiktoken (`cl100k_base`) Sampling vs. `/4` Heuristic
-- **Observed Byte-to-Token Ratio**: **4.001 bytes/token** across live JSON, markdown, and JavaScript source code payloads.
-- **Heuristic Divergence**: **±0%** relative to exact `cl100k_base` tokenization.
+- **Observed Byte-to-Token Ratio**: **4.024 bytes/token** across live JSON, markdown, and JavaScript source code payloads.
+- **Heuristic Divergence**: **±0.57%** relative to exact `cl100k_base` tokenization.
 - **Telemetry Status**: **HEALTHY** (mechanically verified by `src/token_sampler.js`).
 
 ---
@@ -91,7 +100,7 @@ Shell commands executed through the `rtk` wrapper are actively filtered, strippe
 
 | Scope | Commands Executed | Input Tokens | Output Tokens | Tokens Saved | Net Token Reduction |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Current Project (konoha)** | 5,107 | 13.44M | 6.16M | 9.38M | **69.8%** |
+| **Current Project (konoha)** | 7,227 | 25.25M | 8.10M | 19.25M | **76.2%** |
 | **Global Machine History** | 14,951 | 18.60M | 9.69M | 11.01M | **59.2%** |
 
 ### Command-Specific Empirical Reduction Distribution

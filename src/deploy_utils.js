@@ -68,9 +68,10 @@ function resolveWebUiDir(opts = {}) {
         cachedNpmGlobalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop() || "";
       }
       if (cachedNpmGlobalRoot) {
-        candidates.push(path.join(cachedNpmGlobalRoot, "konoha", "apps", "web"));
-        candidates.push(path.join(cachedNpmGlobalRoot, "Konoha", "apps", "web"));
-        candidates.push(path.join(cachedNpmGlobalRoot, "konohagakure", "apps", "web"));
+        const globalRoot = cachedNpmGlobalRoot;
+        candidates.push(path.join(globalRoot, "konoha", "apps", "web"));
+        candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
+        candidates.push(path.join(globalRoot, "konohagakure", "apps", "web"));
       }
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }

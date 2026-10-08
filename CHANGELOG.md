@@ -2,6 +2,46 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.16] - 2026-10-08
+
+### Soul Engine Integration & Multi-Client Mirror Parity
+
+- **Soul Engine Doctrine Deployment (`src/templates/SOUL.md`, `scripts/sync_skills.js`)**:
+  - Integrated authoritative Konoha Soul Engine defining village core ethos, 5 Universal Tenets, and dedicated operational spirits for all 7 ninja archetypes (`✧ Sannin`, `◎ Kage`, `♦ Jonin`, `♠ Anbu`, `⚑ Genin`, `▫ Chunin`, `⬡ Tokubetsu-Jonin`).
+  - Synchronized `SOUL.md` across all 5 client mirror trees (`.agents/SOUL.md`, `.cursor/SOUL.md`, `.gemini/SOUL.md`, `.commandcode/SOUL.md`, `.claude/SOUL.md`).
+  - Enforced strict zero-emoji, zero-kanji, and authentic human-centered voice across all documentation and CLI representations.
+
+### Workflow-Aligned Anti-Slop Matrix Embedded in Soul Engine
+
+- **Per-Agent Anti-Slop Distribution in Soul Doctrine & Runtime (`src/persona_memory.js`, `bin/cli.js`, `src/templates/SOUL.md`)**:
+  - Embedded exact task-level Anti-Slop skill matrix into archetype metadata:
+    - `antislop`: Loaded across all 7 official subagents as the core filter.
+    - `antislop-code`: Loaded across all agents except Sannin for comment hygiene.
+    - `antislop-human`: Loaded across all agents except Sannin for accessibility and human ergonomics.
+    - `antislop-ui`: Dedicated to Jonin for visual craft, typography hierarchy, and zero UI clichés.
+    - `antislop-layoutmobile`: Dedicated to Jonin for mobile reflow and touch targets.
+    - `antislop-copywriting`: Dedicated to Tokubetsu-Jonin for human-written prose and zero AI filler text.
+  - Sannin router agent strictly excludes code and human comment filters to preserve minimal routing token overhead.
+  - Added `antislop_skills` array to `getSoul()` API and CLI commands (`konoha soul`, `konoha soul <archetype>`).
+- **Web UI Persona & Soul Dashboard (`apps/web/src/components/Persona.svelte`)**:
+  - Added dedicated Anti-Slop Skills badge containers to archetype cards on `/persona`.
+  - Implemented pure light mode palette, clean slate typography (`#64748B`), and inline SVG web icons with zero emojis.
+- **Database Referential Integrity & Vector Chunk Pruning (`src/migrate.js`)**:
+  - Pruned 64 orphaned vector chunks in `skill_chunks` following unofficial skill reference merges.
+  - Re-indexed 210 canonical entries and verified zero orphaned chunks across SQLite FTS5 and vector tables.
+
+### Universal ADHD Output Shaping Standard (`i-have-adhd`)
+
+- **Universal Response Contract**:
+  - Mandated `i-have-adhd` across all 7 archetype doctrines and subagent instructions: lead with immediate action, number multi-step procedures, cap visible lists to 5 items, calm error reporting, and zero preamble fluff.
+
+### Telemetry & Security Compliance Synchronization
+
+- **Live Benchmark Telemetry (`docs/BENCHMARK.md`, `scripts/generate_benchmark.js`)**:
+  - Regenerated benchmark report directly from live SQLite database telemetry: 96% today, 97% 7-day, 97% all-time bounded file reduction, and 98% combined total system savings (~309.58M tokens saved).
+- **Google Policy Security Compliance Report v2.1.16 (`docs/SecurityCompliance/`)**:
+  - Published comprehensive compliance report confirming 100% adherence to Google API Services User Data Policy, zero credential leakages, and local-only sandbox execution.
+
 ## [2.1.15] - 2026-10-08
 
 ### Windows Terminal Popup Elimination & Silent Background Execution

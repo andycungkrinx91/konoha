@@ -1527,6 +1527,28 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "get_soul",
+      "description": "Retrieve the Soul of Konoha (Will of Fire), universal shinobi tenets, and archetype persona voice for agents.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Specific agent archetype to load (e.g. 'sannin', 'kage', 'jonin', 'anbu', 'genin', 'chunin', 'tokubetsu-jonin')."
+          },
+          "project_path": {
+            "type": "string",
+            "description": "Optional project path to check for workspace-specific SOUL.md override."
+          },
+          "raw": {
+            "type": "boolean",
+            "description": "Return raw markdown content instead of structured JSON."
+          }
+        },
+        "additionalProperties": false
+      }
     }
   ]
 }

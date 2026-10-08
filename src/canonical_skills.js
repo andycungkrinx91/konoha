@@ -33,6 +33,7 @@ const CANONICAL_SKILL_NAMES = new Set([
 // Explicit registry of skills that were consolidated into references inside ninja skills.
 // These must NEVER appear as standalone top-level skill folders in .agents/skills or any client.
 const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
+  'accidental-data-loss-prevention',
   'accessibility-testing-expert',
   'adaptive-model-cascade',
   'affective-computing-emotion-ai',
@@ -49,6 +50,7 @@ const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
   'angular-expert',
   'angular-ui-expert',
   'anthropic-cybersecurity-skills',
+  'anti-slop',
   'api-design-expert',
   'api-gateway-proxy-expert',
   'app-analyzer-optimizer',

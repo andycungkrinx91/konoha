@@ -295,6 +295,17 @@ function boundPersonaMemories(mems) {
       return JSON.stringify({ error: `Failed to delete memory: ${e.message}` });
     }
   }
+  if (toolName === 'get_soul') {
+    const agentName = args.agent_name || args.agent || null;
+    const projectPath = args.project_path || getWorkspaceRoot();
+    const raw = Boolean(args.raw);
+    try {
+      const soul = personaMemory.getSoul({ agentName, projectPath, raw });
+      return raw ? (soul.raw_markdown || '') : JSON.stringify(soul);
+    } catch (e) {
+      return JSON.stringify({ error: `Failed to load soul: ${e.message}` });
+    }
+  }
   if (toolName === 'check_readiness') {
     const sdlcManager = require('../sdlc_manager');
     const taskInput = args.task || args.prompt || args.description || '';
