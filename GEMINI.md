@@ -23,9 +23,11 @@
    - Under no circumstances modify, refactor, or touch logic, files, or configurations related to token savings telemetry, bounded file tool constraints, or baseline calculation flow logic in Konoha.
 7. **Socket Supply Chain Security Gate**:
    - When maintaining Konoha, Kage review must execute Socket CLI security scans (`rtk socket ci` or `rtk socket scan create ./package.json --report`). Delivery requires 0 High and 0 Medium severity alerts (excluding Low-level informational notices).
+8. **Mandatory Release Permission Gate (Zero Auto-Release Invariant)**:
+   - When updating or maintaining the codebase, the agent MUST ALWAYS ask the user for explicit confirmation before creating release commits, pushing tags to GitHub, or triggering npm publication. Never auto-release or push releases without explicit user permission. All changes must remain local-only until the user explicitly commands a release.
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.14-cross-client-1)
+## Konoha runtime contract (2.1.15-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

@@ -32,7 +32,7 @@ function ensureDir(d) {
 function checkPython() {
   for (const cmd of ['python3', 'python']) {
     try {
-      const r = spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+      const r = spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
       if (r.status === 0) return cmd;
     } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   }
@@ -42,7 +42,7 @@ function checkPython() {
 function getUvx() {
   const isWin = process.platform === 'win32';
   try {
-    spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000, shell: isWin });
+    spawnSync('uvx', ['--version'], { stdio: 'ignore', timeout: 5000, shell: isWin, windowsHide: true });
     return 'uvx';
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   // Windows installs put uvx.exe in %USERPROFILE%\.local\bin
@@ -54,7 +54,7 @@ function getUvx() {
 function isUvxUsable() {
   try {
     const uvx = getUvx();
-    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, shell: process.platform === 'win32' });
+    const r = spawnSync(uvx, ['--version'], { stdio: 'ignore', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
     return r.status === 0;
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
   return false;

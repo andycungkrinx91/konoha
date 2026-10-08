@@ -248,7 +248,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   let resolvedAislopCmd = npxExecutable;
   let resolvedAislopArgs = ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'];
   try {
-    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32' });
+    const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
     if (whichAislop.status === 0 && whichAislop.stdout.trim()) {
       resolvedAislopCmd = whichAislop.stdout.trim().split('\n')[0].trim();
       resolvedAislopArgs = [];
@@ -305,7 +305,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   // Only include semble when uvx is actually usable
   const uvxAvailable = (() => {
     try {
-      const res = spawnSync(resolvedUvx, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      const res = spawnSync(resolvedUvx, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
       return res.status === 0;
     } catch { return false; }
   })();
@@ -374,7 +374,7 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     const existing = readCodexConfig();
     let resolvedUvx = uvxCmd || 'uvx';
     try {
-      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32' });
+      const whichUvx = spawnSync(process.platform === 'win32' ? 'where' : 'which', [resolvedUvx], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
       if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
         resolvedUvx = whichUvx.stdout.trim().split('\n')[0].trim();
       }

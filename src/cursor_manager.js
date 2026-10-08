@@ -42,7 +42,8 @@ function deployCursorRtkRule(silent = true) {
       encoding: 'utf-8',
       timeout: 10000,
       stdio: silent ? 'ignore' : 'inherit',
-      shell: process.platform === 'win32'
+      shell: process.platform === 'win32',
+      windowsHide: true
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   if (!fileExists(CURSOR_RTK_RULE_SRC)) {
@@ -270,7 +271,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   // Only register semble when uvx is actually usable
   const uvxAvailable = (() => {
     try {
-      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32' });
+      const res = spawnSync(uvxCmd, ['--version'], { encoding: 'utf-8', timeout: 5000, shell: process.platform === 'win32', windowsHide: true });
       return res.status === 0;
     } catch { return false; }
   })();
@@ -290,7 +291,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
       let args = ['-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'];
       try {
         const whichCmd = isWin ? 'where' : 'which';
-        const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
+        const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000, windowsHide: true });
         if (whichRes.status === 0 && whichRes.stdout.trim()) {
           const binPath = whichRes.stdout.trim().split('\n')[0].trim();
           if (binPath && fileExists(binPath)) {

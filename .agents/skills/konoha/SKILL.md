@@ -463,4 +463,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
       * Zero dark colors (no black, dark gray, dark blue anywhere).
       * Typography pairing contracts: Georgia + Calibri (DOCX/reports), Segoe UI Semibold/Georgia + Segoe UI/Calibri (PPTX), Calibri (XLSX), Inter (PDF).
       * Mandatory Kage review gate for all generated documents.
+80. **Mandatory Release Permission Gate & Zero Auto-Release Invariant (v2.1.14+)**:
+    - **Explicit User Confirmation Required**: When maintaining, updating, or fixing the Konoha repository or any client configurations, the agent MUST ALWAYS explicitly ask the user for permission before executing any release action (creating git release commits, git tags, git pushes to release branches, or triggering npm publish / CI release workflows).
+    - **Zero Auto-Release Invariant**: Auto-releasing, automatic tagging, or unprompted publishing to npm or GitHub without prior explicit user request and authorization is strictly prohibited. Keep all changes local until explicitly instructed and approved by the user to release.
 

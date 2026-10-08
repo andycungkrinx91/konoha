@@ -1206,7 +1206,7 @@ function getCliVersion() {
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
   }
-  return '2.1.14';
+  return '2.1.15';
 }
 
 function drawLogo() {
@@ -1397,7 +1397,7 @@ ${C.bold}EXAMPLES${C.reset}
 function purgePackageCaches({ _ = false } = {}) {
   const isWin = process.platform === 'win32';
   const { env: childEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
-  const spawnOpts = { stdio: 'ignore', timeout: 15000, env: childEnv };
+  const spawnOpts = { stdio: 'ignore', timeout: 15000, env: childEnv, windowsHide: true };
   if (isWin) spawnOpts.shell = true;
 
   // 1. pnpm store prune
@@ -2159,7 +2159,7 @@ function refreshSemblePackage(silent = true) {
   const uvxCmd = getUvxCommand();
   try {
     const result = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', '--version'], {
-      encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit'
+      encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     return result.status === 0
       ? { ok: true, command: uvxCmd }
@@ -2185,7 +2185,7 @@ function getAgentBrowserCommand() {
   const isWin = process.platform === 'win32';
   const abCmd = isWin ? 'agent-browser.cmd' : 'agent-browser';
   try {
-    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin });
+    const res = spawnSync(abCmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
     if (res.status === 0) {
       return abCmd;
     }
@@ -2224,7 +2224,7 @@ function getAgentBrowserCommand() {
   for (const p of candidates) {
     if (p && fileExists(p)) {
       try {
-        const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin });
+        const res = spawnSync(p, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
         if (res.status === 0) {
           return p;
         }
@@ -2264,10 +2264,10 @@ function installAgentBrowser(silent = false) {
 
   for (const pm of pkgManagers) {
     try {
-      const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin });
+      const check = spawnSync(pm.cmd, ['--version'], { encoding: 'utf-8', shell: isWin, windowsHide: true });
       if (check.status === 0) {
         const stdioOpt = silent ? 'ignore' : 'inherit';
-        const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin });
+        const installRes = spawnSync(pm.cmd, pm.args, { stdio: stdioOpt, shell: isWin, windowsHide: true });
         if (installRes.status === 0) {
           if (!silent) success(`agent-browser installed successfully via ${pm.name}!`);
           return true;
@@ -2967,7 +2967,7 @@ function installCliRuntime() {
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
         if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.14', type: 'module', private: true }, null, 2) + '\n');
+          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.15', type: 'module', private: true }, null, 2) + '\n');
         }
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -2991,7 +2991,7 @@ function installCliRuntime() {
             const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
             const destWebPkg = path.join(destWebDir, 'package.json');
             if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.14', type: 'module', private: true }, null, 2) + '\n');
+              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.15', type: 'module', private: true }, null, 2) + '\n');
             }
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
             info(`Pre-built Web UI installed to ${webBuildDest}`);
@@ -3056,7 +3056,7 @@ function reconcileGlobalCommand() {
   const candidateDirs = new Set();
   try {
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
-    const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin });
+    const res = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8', timeout: 8000, shell: isWin, windowsHide: true });
     const prefix = ((res.stdout || '') + '').trim().split(/\r?\n/).filter(Boolean).pop();
     if (prefix && fs.existsSync(prefix)) {
       candidateDirs.add(isWin ? prefix : path.join(prefix, 'bin'));

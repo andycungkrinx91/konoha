@@ -114,7 +114,8 @@ function detectPython() {
     try {
       const res = spawnSync(candidate.command, [...candidate.args, '--version'], {
         encoding: 'utf-8',
-        shell: false
+        shell: false,
+        windowsHide: true
       });
       const version = `${res.stdout || ''}${res.stderr || ''}`;
       if (res.status === 0 && version.includes('Python 3')) {
@@ -167,20 +168,20 @@ function normalizeCommand(command) {
 function spawnPythonSync(pythonCmd, args = [], options = {}) {
   const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
   const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
-  return spawnSync(norm.executable, finalArgs, options);
+  return spawnSync(norm.executable, finalArgs, Object.assign({ windowsHide: true }, options));
 }
 
 function spawnPython(pythonCmd, args = [], options = {}) {
   const { spawn } = require('child_process');
   const norm = normalizeCommand(pythonCmd || detectPythonOrDefault());
   const finalArgs = [...norm.prefixArgs, ...(Array.isArray(args) ? args : [])];
-  return spawn(norm.executable, finalArgs, options);
+  return spawn(norm.executable, finalArgs, Object.assign({ windowsHide: true }, options));
 }
 
 
 function getUvCommand() {
   try {
-    const result = spawnSync('uv', ['--version'], { stdio: 'ignore' });
+    const result = spawnSync('uv', ['--version'], { stdio: 'ignore', windowsHide: true });
     if (result.status === 0) return 'uv';
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
@@ -200,7 +201,7 @@ function getUvCommand() {
   for (const p of localPaths) {
     if (p && fileExists(p)) {
       try {
-        const result = spawnSync(p, ['--version'], { stdio: 'ignore' });
+        const result = spawnSync(p, ['--version'], { stdio: 'ignore', windowsHide: true });
         if (result.status !== 0) throw new Error('uv probe failed');
         return p;
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -228,7 +229,8 @@ function isCommandAvailable(cmd) {
   try {
     const run = spawnSync(probe, [cmd], {
       encoding: 'utf-8',
-      shell: IS_WIN
+      shell: IS_WIN,
+      windowsHide: true
     });
     return run.status === 0 && Boolean((run.stdout || '').trim());
   } catch {
@@ -271,7 +273,7 @@ ensureUserBinInPath();
 function getRtkCommand() {
   ensureUserBinInPath();
   try {
-    const result = spawnSync('rtk', ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    const result = spawnSync('rtk', ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (result.status === 0) return 'rtk';
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
@@ -285,7 +287,7 @@ function getRtkCommand() {
     : [
         path.join(home, '.local', 'bin', 'rtk'),
         path.join(home, '.cargo', 'bin', 'rtk'),
-        '/usr/local/bin/rtk',
+        '/usr/local/bin',
         '/usr/bin/rtk',
         '/opt/homebrew/bin/rtk'
       ];
@@ -293,7 +295,7 @@ function getRtkCommand() {
   for (const p of localPaths) {
     if (p && fileExists(p)) {
       try {
-        const result = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+        const result = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
         if (result.status === 0) return p;
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }

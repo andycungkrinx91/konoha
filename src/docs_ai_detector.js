@@ -91,7 +91,8 @@ function readZipEntry(filePath, entryName) {
   try {
     const res = spawnSync('unzip', ['-p', filePath, entryName], {
       encoding: 'utf8',
-      maxBuffer: 15 * 1024 * 1024
+      maxBuffer: 15 * 1024 * 1024,
+      windowsHide: true
     });
     if (res.status === 0 && res.stdout) return res.stdout;
   } catch (_) { /* fallback */ }
@@ -105,7 +106,8 @@ with zipfile.ZipFile(sys.argv[1], 'r') as z:
             break`;
     const res = spawnSync('python3', ['-c', pyScript, filePath, entryName], {
       encoding: 'utf8',
-      maxBuffer: 15 * 1024 * 1024
+      maxBuffer: 15 * 1024 * 1024,
+      windowsHide: true
     });
     if (res.status === 0 && res.stdout) return res.stdout;
   } catch (_) { /* ignore */ }
@@ -118,7 +120,7 @@ with zipfile.ZipFile(sys.argv[1], 'r') as z:
  */
 function listZipEntries(filePath) {
   try {
-    const res = spawnSync('unzip', ['-l', filePath], { encoding: 'utf8' });
+    const res = spawnSync('unzip', ['-l', filePath], { encoding: 'utf8', windowsHide: true });
     if (res.status === 0 && res.stdout) {
       return res.stdout
         .split('\n')
@@ -132,7 +134,7 @@ function listZipEntries(filePath) {
 with zipfile.ZipFile(sys.argv[1], 'r') as z:
     for n in z.namelist():
         print(n)`;
-    const res = spawnSync('python3', ['-c', pyScript, filePath], { encoding: 'utf8' });
+    const res = spawnSync('python3', ['-c', pyScript, filePath], { encoding: 'utf8', windowsHide: true });
     if (res.status === 0 && res.stdout) {
       return res.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
     }
@@ -212,7 +214,8 @@ function extractPdf(filePath) {
   try {
     const res = spawnSync('pdftotext', [filePath, '-'], {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024
+      maxBuffer: 10 * 1024 * 1024,
+      windowsHide: true
     });
     if (res.status === 0 && res.stdout) {
       text = res.stdout;
@@ -220,7 +223,7 @@ function extractPdf(filePath) {
   } catch (_) { /* fallback */ }
 
   try {
-    const res = spawnSync('pdfinfo', [filePath], { encoding: 'utf8' });
+    const res = spawnSync('pdfinfo', [filePath], { encoding: 'utf8', windowsHide: true });
     if (res.status === 0 && res.stdout) {
       metadata = res.stdout;
     }

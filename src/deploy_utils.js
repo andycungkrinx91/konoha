@@ -31,27 +31,49 @@ const FILE_TOOLS_LAUNCHER_JS = path.join(
  * over a build-only copy — used by `konoha ui build`.
  * Returns null when the UI is unavailable on this machine.
  */
+let cachedNpmGlobalRoot = null;
+let cachedResolvedWebUiDir = null;
+
 function resolveWebUiDir(opts = {}) {
+  if (!opts.preferSources && cachedResolvedWebUiDir && fs.existsSync(cachedResolvedWebUiDir)) {
+    return cachedResolvedWebUiDir;
+  }
+
   const candidates = [
     path.resolve(process.cwd(), "apps", "web"),
     path.resolve(process.cwd()),
     path.join(HOME, ".konoha", "apps", "web"),
     path.resolve(__dirname, "..", "apps", "web")
   ];
-  try {
-    const isWin = process.platform === "win32";
-    const res = spawnSync(isWin ? "npm.cmd" : "npm", ["root", "-g"], {
-      encoding: "utf-8",
-      timeout: 8000,
-      shell: isWin
-    });
-    const globalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop();
-    if (globalRoot) {
-      candidates.push(path.join(globalRoot, "konoha", "apps", "web"));
-      candidates.push(path.join(globalRoot, "Konoha", "apps", "web"));
-      candidates.push(path.join(globalRoot, "konohagakure", "apps", "web"));
+
+  // Only probe npm global root if none of the standard local candidates exist
+  const hasLocalCandidate = candidates.some((dir) => {
+    try {
+      return fs.existsSync(path.join(dir, "package.json")) || fs.existsSync(path.join(dir, "build", "handler.js"));
+    } catch (_) {
+      return false;
     }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  });
+
+  if (!hasLocalCandidate) {
+    try {
+      if (cachedNpmGlobalRoot === null) {
+        const isWin = process.platform === "win32";
+        const res = spawnSync(isWin ? "npm.cmd" : "npm", ["root", "-g"], {
+          encoding: "utf-8",
+          timeout: 8000,
+          shell: isWin,
+          windowsHide: true
+        });
+        cachedNpmGlobalRoot = ((res.stdout || "") + "").trim().split(/\r?\n/).filter(Boolean).pop() || "";
+      }
+      if (cachedNpmGlobalRoot) {
+        candidates.push(path.join(cachedNpmGlobalRoot, "konoha", "apps", "web"));
+        candidates.push(path.join(cachedNpmGlobalRoot, "Konoha", "apps", "web"));
+        candidates.push(path.join(cachedNpmGlobalRoot, "konohagakure", "apps", "web"));
+      }
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
 
   const qualifying = [];
   const seen = new Set();
@@ -85,8 +107,9 @@ function resolveWebUiDir(opts = {}) {
     return null;
   }
   const withBuild = qualifying.find((c) => c.hasBuild);
-  if (withBuild) return withBuild.dir;
-  return qualifying[0].dir;
+  const selected = withBuild ? withBuild.dir : qualifying[0].dir;
+  cachedResolvedWebUiDir = selected;
+  return selected;
 }
 
 function copyFile(src, dest) {

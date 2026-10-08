@@ -38,8 +38,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.14 (2026-10-08)](CHANGELOG.md) — Deterministic skill resolution via `use_skills`, rule-based `anti_slop` verification pre-gate, canonical skill registry consolidation, mandatory agent anti-slop matrix, and Tokubetsu-Jonin human document design layer.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.14 — Konoha v2.1.14 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.14_2026-10-08.md)
+* **Latest Release:** [v2.1.15 (2026-10-08)](CHANGELOG.md) — Elimination of Windows Web UI terminal flashing via background directory resolution caching and process-wide `windowsHide` enforcement, plus full documentation synchronization.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.15 — Konoha v2.1.15 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.15_2026-10-08.md)
 
 <details open>
 <summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
@@ -528,7 +528,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.14) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.1.15) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |

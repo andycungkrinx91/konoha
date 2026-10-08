@@ -2,6 +2,37 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.1.15] - 2026-10-08
+
+### Windows Terminal Popup Elimination & Silent Background Execution
+
+- **Elimination of Web UI Route Navigation Terminal Flashes (`src/deploy_utils.js`, `src/web_server.js`)**:
+  - Identified root cause of Windows terminal (`cmd.exe`) popup flashing when navigating menus in the Web UI: unmemoized static asset directory resolution triggering `npm root -g` probes via `spawnSync(npm.cmd, ...)` with `shell: true` and missing `windowsHide: true`.
+  - Added module-level caching for `resolveWebUiDir()` (`cachedResolvedWebUiDir`) and global npm root (`cachedNpmGlobalRoot`) in `src/deploy_utils.js`.
+  - Added pre-checks for local candidates (`apps/web`, `~/.konoha/apps/web`) before executing external command probes.
+  - Added module-level caching for `getWebUiDir()` (`cachedWebUiDir`) and `getDistDir()` (`cachedDistDir`) in `src/web_server.js` to completely avoid child process execution during HTTP request routing.
+
+- **Process-Wide `windowsHide: true` Enforcement Across All Subsystems**:
+  - Enforced `windowsHide: true` on all background child process spawns (`spawn`, `spawnSync`, `execSync`):
+    - `src/deploy_utils.js`: `npm root -g` discovery.
+    - `src/web_server.js`: Gateway daemon start, restart, and skills reindexing.
+    - `src/platform_utils.js`: Python launcher detection, `spawnPythonSync`, `spawnPython`, `getUvCommand`, `isCommandAvailable`, and `getRtkCommand`.
+    - `src/antigravity_manager.js`: Antigravity IDE probe, RTK rule deployment, and RTK binary installations.
+    - `src/cursor_manager.js`: RTK initialization, uvx probe, and `aislop-mcp` resolver.
+    - `src/cursor_bootstrap.js`: Python detection, uvx availability checks.
+    - `src/codex_manager.js`: uvx executable probe and `aislop-mcp` resolution.
+    - `bin/lib/ui_commands.js`: Windows process cleanup (`taskkill`, `powershell`, `netstat`).
+    - `bin/cli.js`: Package cache pruning, `agent-browser` probes, and global npm prefix lookups.
+    - `src/docs_ai_detector.js`: Archive analysis and document metadata extraction.
+
+### Architecture & Governance Documentation Synchronization
+
+- **Mandatory Release Permission Gate & Policy Alignment (`docs/ARCHITECTURE.md`, `GEMINI.md`, `README.md`)**:
+  - Codified the Mandatory Release Permission Gate across global instructions, architecture documentation, and maintenance skills.
+  - Added Windows Silent Execution & Background Resolution Caching Invariant (Invariant 27) in `docs/ARCHITECTURE.md`.
+  - Published Google Policy Security Compliance Report v2.1.15 in `docs/SecurityCompliance/`.
+  - Synchronized CLI documentation, setup guides, and runtime contracts to v2.1.15.
+
 ## [2.1.14] - 2026-10-08
 
 ### Accurate Skill Resolution via `use_skills` MCP Tool

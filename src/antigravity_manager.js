@@ -20,7 +20,7 @@ function detectAntigravityIde(options = {}) {
   const commandAvailable = options.commandAvailable || ((command) => {
     const probe = process.platform === 'win32' ? 'where' : 'which';
     try {
-      return spawnSync(probe, [command], { encoding: 'utf8', shell: process.platform === 'win32' }).status === 0;
+      return spawnSync(probe, [command], { encoding: 'utf8', shell: process.platform === 'win32', windowsHide: true }).status === 0;
     } catch {
       return false;
     }
@@ -333,7 +333,8 @@ function deployAntigravityRtkRule(silent = true) {
     spawnSync(rtkCmd, ['init', '--agent', 'antigravity', '--auto-patch', '--trust-filters'], {
       encoding: 'utf-8',
       timeout: 10000,
-      stdio: silent ? 'ignore' : 'inherit'
+      stdio: silent ? 'ignore' : 'inherit',
+      windowsHide: true
     });
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   const src = path.join(__dirname, '..', '.agents', 'rules', 'rtk-rules.md');
@@ -522,12 +523,12 @@ function ensureAntigravityMcpSchemas() {
 function refreshRtk(silent = true) {
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
-    const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status !== 0) return { ok: false, reason: 'cargo-not-installed' };
     // Install from the official rtk-ai/rtk repo — the plain `cargo install rtk`
     // crate on crates.io is an unrelated project (Rust Type Kit name collision)
     const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked', '--force'], {
-      encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit'
+      encoding: 'utf-8', timeout: 600000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     if (result.status !== 0) return { ok: false, reason: 'rtk-refresh-failed' };
     const cargoBin = path.join(HOME, '.cargo', 'bin');
@@ -553,12 +554,13 @@ function ensureRtkInstalled(silent = true) {
   // 1. Preferred: cargo from official repo with locked dependencies
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
-    const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });
     if (available.status === 0) {
       const result = spawnSync(cargo, ['install', '--git', 'https://github.com/rtk-ai/rtk', '--tag', 'v0.51.0', '--locked'], {
         encoding: 'utf-8',
         timeout: 600000,
-        stdio: silent ? 'ignore' : 'inherit'
+        stdio: silent ? 'ignore' : 'inherit',
+        windowsHide: true
       });
       if (result.status === 0) {
         addToPath();

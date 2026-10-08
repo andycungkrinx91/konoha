@@ -19,15 +19,25 @@ const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
 // copy, npm global package) via deployUtils.resolveWebUiDir()
+let cachedWebUiDir = null;
+let cachedDistDir = null;
+
 function getWebUiDir() {
-  return deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web');
+  if (cachedWebUiDir) return cachedWebUiDir;
+  cachedWebUiDir = deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', 'apps', 'web');
+  return cachedWebUiDir;
 }
 
 function getDistDir() {
+  if (cachedDistDir) return cachedDistDir;
   const base = getWebUiDir();
   const buildClient = path.join(base, 'build', 'client');
-  if (fs.existsSync(buildClient)) return buildClient;
-  return path.join(base, 'dist');
+  if (fs.existsSync(buildClient)) {
+    cachedDistDir = buildClient;
+    return cachedDistDir;
+  }
+  cachedDistDir = path.join(base, 'dist');
+  return cachedDistDir;
 }
 
 const WEB_UI_DIR = getWebUiDir();
@@ -624,6 +634,7 @@ function createWebServer(options = {}) {
         const child = spawn(process.execPath || 'node', [mcpScript], {
           detached: true,
           stdio: 'ignore',
+          windowsHide: true,
           env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
         });
         child.unref();
@@ -694,6 +705,7 @@ function createWebServer(options = {}) {
         const child = spawn(process.execPath || 'node', [mcpScript], {
           detached: true,
           stdio: 'ignore',
+          windowsHide: true,
           env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
         });
         // aislop-ignore-next-line code-quality/duplicate-block (structurally similar handler boilerplate with contextual differences)
@@ -965,7 +977,7 @@ function createWebServer(options = {}) {
       try {
         const { spawnSync } = require('child_process');
         const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-        const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { encoding: 'utf8' });
+        const run = spawnSync(process.execPath || 'node', [cliPath, 'migrate'], { encoding: 'utf8', windowsHide: true });
         broadcastEvent('skills_updated', { action: 'reindex' });
         return sendJson(res, 200, { ok: true, output: (run.stdout || '').trim() });
       } catch (err) {

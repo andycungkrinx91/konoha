@@ -428,7 +428,7 @@ async function cmdUiStop(args = []) {
       if (Number.isFinite(pid) && pid > 0 && pidBelongsToPort(pid)) {
         try {
           if (process.platform === 'win32') {
-            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
           } else {
             process.kill(pid, 'SIGTERM');
           }
@@ -456,20 +456,20 @@ async function cmdUiStop(args = []) {
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   } else if (stillActive && process.platform === 'win32') {
     try {
-      execSync(`powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"`, { stdio: 'ignore' });
+      execSync(`powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort ${stopPort} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($p) { $p | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"`, { stdio: 'ignore', windowsHide: true });
       await new Promise((r) => setTimeout(r, 400));
       stillActive = await checkPortActive(stopPort);
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     if (stillActive) {
       try {
-        const netstat = execSync('netstat -ano -p tcp', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const netstat = execSync('netstat -ano -p tcp', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
         const lines = netstat.split('\n');
         for (const line of lines) {
           if (line.includes(`:${stopPort} `) && line.includes('LISTENING')) {
             const parts = line.trim().split(/\s+/);
             const pid = parseInt(parts[parts.length - 1], 10);
             if (Number.isFinite(pid) && pid > 0) {
-              try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' }); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+              try { execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true }); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
             }
           }
         }

@@ -249,6 +249,10 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Resolves and loads skill instructions directly from SQLite FTS5 database (`konoha.db`) by exact name or array of names, with automatic fallback warning to mirror directories (`.agents/skills/`, `~/.agents/skills/`). Eliminates skill misattribution and ensures precise subagent capability loading.
 25. **Rule-Based `anti_slop` Verification Pre-Gate & Tokubetsu-Jonin Human Document Design Layer (v2.1.14)**:
    - Adds `anti_slop` MCP tool executed in Kage pre-delivery review alongside `aislop_scan`. Enforces mandatory agent anti-slop skills matrix (`antislop`, `antislop-ui`, `antislop-copywriting`, `antislop-human`, `antislop-layoutmobile`, `antislop-code`). Refines Tokubetsu-Jonin design layer for generated documents (DOCX, PPTX, XLSX, PDF): 20 gradient themes (T01–T20), medium slate `#64748B` body text, zero dark colors, font pairing contracts, and mandatory Kage review before completion.
+26. **Mandatory Release Permission Gate & Zero Auto-Release Invariant (v2.1.14+)**:
+   - The agent MUST ALWAYS explicitly ask the user for permission before creating git release commits, creating tags, pushing to GitHub release branches, or triggering npm publication. Auto-releasing without prior explicit user request and authorization is strictly prohibited. All changes remain local until the user explicitly commands a release.
+27. **Windows Silent Execution & Background Resolution Caching Invariant (v2.1.15)**:
+   - Eliminates terminal window popping and command flashing on Windows by enforcing `windowsHide: true` across all background `child_process` spawns (`spawn`, `spawnSync`, `execSync`). Memoizes Web UI static asset directory resolution (`resolveWebUiDir`, `getDistDir`) and npm root lookups to prevent unneeded process executions during HTTP route navigation.
 
 ---
 
