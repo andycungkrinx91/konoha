@@ -605,17 +605,27 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
       }
 
       if (tokenSet.size > 0) {
-        const ftsQuery = Array.from(tokenSet).map(t => `"${t}"*`).join(" OR ");
-        const ftsSql = `
-          SELECT name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
-          FROM skills_fts
-          WHERE skills_fts MATCH ?
-          ORDER BY rank ASC
-          LIMIT ?
-        `;
-        const rows = conn.prepare(ftsSql).all(ftsQuery, candidateK);
-        for (const r of rows) {
-          ftsSkillNames.push(r.name);
+        let ftsSupported = true;
+        try {
+          const dbMod = require('./db');
+          if (dbMod.hasFts5Support && !dbMod.hasFts5Support(conn)) {
+            ftsSupported = false;
+          }
+        } catch (_) { /* intentional best-effort fallback */ }
+
+        if (ftsSupported) {
+          const ftsQuery = Array.from(tokenSet).map(t => `"${t}"*`).join(" OR ");
+          const ftsSql = `
+            SELECT name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
+            FROM skills_fts
+            WHERE skills_fts MATCH ?
+            ORDER BY rank ASC
+            LIMIT ?
+          `;
+          const rows = conn.prepare(ftsSql).all(ftsQuery, candidateK);
+          for (const r of rows) {
+            ftsSkillNames.push(r.name);
+          }
         }
       }
     }

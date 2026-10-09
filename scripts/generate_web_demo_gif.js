@@ -162,7 +162,12 @@ async function main() {
 
   // Set viewport + launch real browser
   console.log('▶ Launching Chromium with viewport 1280x800...');
-  const browser = await chromium.launch();
+  const cachedChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    [
+      path.join(process.env.HOME || '', '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
+      path.join(process.env.HOME || '', '.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'),
+    ].find((p) => p && fs.existsSync(p));
+  const browser = await chromium.launch(cachedChromium ? { executablePath: cachedChromium } : {});
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
   // (url, filename, display_url, badge, duration_ms)
@@ -179,7 +184,8 @@ async function main() {
     ['http://127.0.0.1:1404/tasks', '10_tasks.png', 'http://127.0.0.1:1404/tasks • SDLC Tasks & Governance', 'DOR GATES • ANTI-SLOP AUDIT', 2200],
     ['http://127.0.0.1:1404/clients', '11_clients.png', 'http://127.0.0.1:1404/clients • Client Setup', 'ANTIGRAVITY · PI · CURSOR', 2000],
     ['http://127.0.0.1:1404/detector', '12_detector.png', 'http://127.0.0.1:1404/detector • Website AI Detector', 'AI FINGERPRINTS • 0-20 HUMAN-BUILT', 3200],
-    ['http://127.0.0.1:1404/docs', '13_docs.png', 'http://127.0.0.1:1404/docs • Documentation', 'ARCHITECTURE • API • CLI REFERENCE', 2400],
+    ['http://127.0.0.1:1404/remote', '13_remote.png', 'http://127.0.0.1:1404/remote • Remote Access & Telegram Bot', 'TELEGRAM BOT · TUNNEL · PROMPT QUEUE', 3000],
+    ['http://127.0.0.1:1404/docs', '14_docs.png', 'http://127.0.0.1:1404/docs • Documentation', 'ARCHITECTURE • API • CLI REFERENCE', 2400],
   ];
 
   const frames = [];

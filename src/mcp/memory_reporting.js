@@ -297,6 +297,25 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
       "entries that include the command and its exit code or pass result (e.g. 'npm run build exited 0'). Do NOT claim completion without it."
     );
   }
+
+  // One-Way Telegram Notification: Dispatch whenever Kage final gate review passes in laptop session
+  if (cleanAgent === 'kage' && finalStatus === 'completed' && verified) {
+    try {
+      const notifier = require('../telegram/notifier');
+      const scoreMatch = (summary || '').match(/(?:confidence\s*score|overall\s*confidence)[:\s*]+(\d+)%/i);
+      const evaluatedScore = scoreMatch ? parseInt(scoreMatch[1], 10) : 100;
+      notifier.notifyKageReviewPassed({
+        title: `Kage Gate Review: ${evaluatedScore >= 98 ? 'APPROVED' : 'FAILED'}`,
+        taskId: effTaskId,
+        summary: summary && summary.length > 800 ? summary.slice(0, 800) + '...' : summary,
+        kageScore: evaluatedScore,
+        slopFindings: 0,
+        filesModified: filesModified || [],
+        client: (typeof actClient === 'string' && actClient) ? actClient : 'Laptop Session'
+      }).catch(() => {});
+    } catch (_) { /* intentional best-effort fallback: notification failure must never crash reporting */ }
+  }
+
   const res = JSON.stringify(result);
   logToolCall('report_from_agent', `agent=${cleanAgent} status=${finalStatus}`, res, cleanAgent);
   return res;

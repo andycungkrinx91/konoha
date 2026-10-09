@@ -59,11 +59,13 @@ for (const tree of trees) {
 // 5. Verify database indexing and bounded retrieval via skills module
 try {
   const skillsModule = require('../src/mcp/skills');
-  const getRes = skillsModule.getSkill('anbu-skill/qa-automation');
+  const rawGet = skillsModule.getSkill('anbu-skill/qa-automation');
+  const getRes = typeof rawGet === 'string' ? JSON.parse(rawGet) : rawGet;
   assert.ok(getRes && !getRes.error, 'get_skill must return qa-automation content');
   assert.strictEqual(getRes.name, 'anbu-skill/qa-automation');
 
-  const findRes = skillsModule.findSkill('qa automation');
+  const rawFind = skillsModule.findSkill('qa automation');
+  const findRes = typeof rawFind === 'string' ? JSON.parse(rawFind) : rawFind;
   assert.ok(findRes && findRes.results && findRes.results.length > 0, 'find_skill must find qa automation');
   const hasRef = findRes.results.some(r => r.id === 'anbu-skill/qa-automation' || r.name === 'anbu-skill/qa-automation');
   assert.ok(hasRef, 'find_skill results must include anbu-skill/qa-automation');

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Generates the four premium flow GIFs embedded in the README:
+// Generates the premium flow GIFs embedded in the README:
 //   assets/konoha-orchestration-flow.gif  — MCP orchestration & execution flow
 //   assets/konoha-jonin-flow.gif          — Jonin premium UI build pipeline
 //   assets/konoha-kage-gate.gif           — Kage final review gate
 //   assets/konoha-qa-flow.gif            — Anbu QA automation workflow
+//   assets/konoha-telegram-flow.gif      — Telegram remote workflow & Kage gate notifier
 'use strict';
 
 const {
@@ -113,7 +114,7 @@ function orchestrationScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
-      subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.0.2',
+      subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.1.17',
       badge: '83–98% TOKEN SAVINGS',
       footer: '40 canonical MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
     });
@@ -193,7 +194,7 @@ function joninScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'JONIN PREMIUM UI BUILD PIPELINE',
-      subtitle: 'build_from_text / build_from_source · Taste-Skill Design Engine · v2.0.2',
+      subtitle: 'build_from_text / build_from_source · Taste-Skill Design Engine · v2.1.17',
       badge: 'PREMIUM UI AGENT',
       footer: 'design match comparison · component architecture · 3D web experiences · Phosphor icons — never Lucide',
     });
@@ -259,7 +260,7 @@ function kageScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KAGE FINAL REVIEW GATE',
-      subtitle: 'PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v2.0.2',
+      subtitle: 'PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v2.1.17',
       badge: 'ZERO-AI-SLOP PRE-GATE',
       badgeAccent: THEME.amber,
       footer: 'aislop_scan → anti-slop rules → result / fixing · remediation loop ≤7 cycles · sannin synthesizes on APPROVED',
@@ -324,7 +325,7 @@ function qaScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'ANBU QA AUTOMATION WORKFLOW',
-      subtitle: 'agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v2.0.2',
+      subtitle: 'agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v2.1.17',
       badge: 'QA AUTOMATION PIPELINE',
       badgeAccent: THEME.emerald,
       footer: 'token-efficient browser QA · Playwright compilation · isolated preview port · 0 slop · Anbu owner',
@@ -358,6 +359,68 @@ function qaScene() {
   saveAsset(frames, 'konoha-qa-flow.gif');
 }
 
+/* ================================================================== *
+ * 5. Telegram Remote Workflow & Kage Gate Notifier
+ * ================================================================== */
+
+function telegramScene() {
+  const W = 1200;
+  const H = 760;
+
+  const steps = [
+    { title: '1. TELEGRAM INGRESS / PROMPT', detail: '/run <task> · /sh <cmd> · /session · /kage · plain text prompt', accent: THEME.blue },
+    { title: '2. CHAT_ID WHITELIST GATE', detail: 'outbound HTTPS long polling · unauthorized senders dropped', accent: THEME.cyan },
+    { title: '3. SECURITY GUARDRAILS', detail: 'isDangerousCommand blocks destructive patterns · safe workspace check', accent: THEME.cyan },
+    { title: '4. UNIFIED PROMPT QUEUE', detail: 'atomic SQLite state machine (pending) · ~/.konoha/inbox/ session mirror', accent: THEME.violet },
+    { title: '5. AUTONOMOUS WORKER', detail: 'operational branch (0 tokens) / AI coding branch (headless agy -p)', accent: THEME.violet },
+    { title: '6. TASK EXECUTION & EVIDENCE', detail: 'target workspace runner · token savings recorded (83%–98%)', accent: THEME.emerald },
+    { title: '7. KAGE REVIEW GATE', detail: '100/100 zero-AI-slop scan · verification evidence ≥98% confidence', accent: THEME.amber },
+    { title: '8. OUTBOUND TELEGRAM REPORT', detail: 'zero-emoji [KONOHA TASK REPORT] / [KAGE REVIEW GATE PASSED] delivered', accent: THEME.emerald },
+  ].map((d, i) => ({ ...d, x: 60, y: 96 + i * 78, w: 540, h: 58 }));
+
+  const BARS = [
+    { label: 'CHAT ID WHITELIST GATED', val: 100, accent: THEME.cyan },
+    { label: 'ZERO-EMOJI STANDARD', val: 100, accent: THEME.emerald },
+    { label: 'TOKEN REDUCTION (SAVED)', val: 97, accent: THEME.emerald },
+    { label: 'KAGE GATE CONFIDENCE', val: 100, accent: THEME.violet },
+  ];
+
+  const chrome = (ctx) =>
+    drawChrome(ctx, W, H, {
+      title: 'TELEGRAM REMOTE WORKFLOW & KAGE GATE NOTIFIER',
+      subtitle: 'Native Long Polling · Whitelist Gated · Dual-Mode Ingress · One-Way Gate Alert · v2.1.17',
+      badge: 'REMOTE AUTOMATION',
+      badgeAccent: THEME.cyan,
+      footer: '0 open ports · outbound HTTPS · zero-emoji reports · instant mobile delivery on Kage approval',
+    });
+
+  const paint = (opts) => (ctx) => {
+    chrome(ctx);
+    const { stepCount, dashOffset, pct = 0, approved = false } = opts;
+    for (let i = 0; i < stepCount - 1; i++) {
+      connector(ctx, [[330, steps[i].y + 58], [330, steps[i + 1].y]], { dashOffset, width: 1.8 });
+    }
+    for (let i = 0; i < stepCount; i++) glassCard(ctx, steps[i], {});
+    drawReviewMetricsPanel(ctx, {
+      cx: 890, cy: 240, r: 100, pct, threshold: 98, label: 'GATE CONFIDENCE',
+      bars: BARS, baseY: 410, fillDenom: 98, statusText: 'PROCESSING', statusY: 375,
+      approved, stampText: 'TELEGRAM DELIVERED', stampY: 595,
+    });
+  };
+
+  const frames = [];
+  frames.push(frame(W, H, paint({ stepCount: 0, dashOffset: 0 }), 1300));
+  for (let n = 1; n <= 8; n++) frames.push(frame(W, H, paint({ stepCount: n, dashOffset: 0 }), 380));
+  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: 0, pct: 0 }), 600));
+  const COUNT = 20;
+  for (let i = 1; i <= COUNT; i++) {
+    const pct = Math.round(easeOutCubic(i / COUNT) * 100);
+    frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -i * 8, pct, approved: pct >= 98 }), 110));
+  }
+  frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -80, pct: 100, approved: true }), 1300));
+  saveAsset(frames, 'konoha-telegram-flow.gif');
+}
+
 /* ------------------------------------------------------------------ */
 
 function main() {
@@ -366,6 +429,7 @@ function main() {
   joninScene();
   kageScene();
   qaScene();
+  telegramScene();
   console.log('✓ All premium flow GIFs generated.');
 }
 

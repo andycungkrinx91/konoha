@@ -74,7 +74,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
 - **Custom assets**: hand-craft favicon, OG image, and 404/error page with non-generic filenames (never `hero.webp`, `og-image.png`, `icon-1.svg`, scaffold-default names) — name them after the project brand.
 - **Icons**: Phosphor Icons or hand-exported inline SVGs only — never Lucide (see §7).
 - **No platform attribution badges** or "Deployed on X" links; keep the Build by Konoha footer credit exactly as-is.
-- **Hosting (advisory)**: when the user controls hosting, prefer self-hosted Node, Cloudflare Pages, or a VPS over Vercel/Netlify — Vercel/Netlify is itself scored as an AI-app-deployment signal.
+- **Hosting (advisory)**: when the user controls hosting, prefer self-hosted Node, Cloudflare Pages, or a VPS over Vercel/Netlify — Vercel/Netlify is itself scored by detectors as an automated deployment signal.
 - **Per-framework styling fingerprints**:
   - *Next.js*: hand-modified fully custom Tailwind theme (custom spacing/colors/radii/fonts, no stock scale); no shadcn/ui API shapes — own primitives under `components/primitives`, never `components/ui`.
   - *SvelteKit*: no Tailwind at all — scoped `<style>` blocks + one hand-written global stylesheet; no shadcn-svelte or Skeleton.
@@ -466,4 +466,33 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
 80. **Mandatory Release Permission Gate & Zero Auto-Release Invariant (v2.1.14+)**:
     - **Explicit User Confirmation Required**: When maintaining, updating, or fixing the Konoha repository or any client configurations, the agent MUST ALWAYS explicitly ask the user for permission before executing any release action (creating git release commits, git tags, git pushes to release branches, or triggering npm publish / CI release workflows).
     - **Zero Auto-Release Invariant**: Auto-releasing, automatic tagging, or unprompted publishing to npm or GitHub without prior explicit user request and authorization is strictly prohibited. Keep all changes local until explicitly instructed and approved by the user to release.
+81. **Telegram Bot Remote Notification & Outbound Reporter Invariants (v2.1.17)**:
+    - **Zero-Emoji Outbound Reporter**: Outbound task completion and error notifications via Telegram Bot API strictly adhere to the zero-emoji standard (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[FAILED]`, `[QUEUED]`, `[ERROR]`).
+    - **Configuration & Storage**: Bot token and target chat ID stored in `telegram_config` table in `~/.konoha/konoha.db`. Managed via CLI: `konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>`, `konoha telegram enable`, `konoha telegram disable`, and `konoha telegram test`.
+    - **Native Long Polling & Whitelist Gate**: Long polling daemon (`src/telegram/poller.js`) runs with strict `chat_id` whitelist authorization (`telegram_config.chat_id`). Unauthorized sender messages are immediately dropped.
+    - **Daemon Commands**: Supports `/run <prompt>`, `/status`, `/savings`, `/kage`, `/cancel`, `/help`.
+82. **Public Tunnel & Cloudflare Zero Trust Ingress Security Invariants (v2.1.17)**:
+    - **Quick Tunnel & Named Domain Ingress**: Child process supervisor (`src/tunnel/manager.js`) manages `cloudflared tunnel --url http://localhost:1404` (or `ngrok`) with process lifecycle tracking and live public URL extraction (`trycloudflare.com`).
+    - **Edge Identity Mode A (No PIN)**: Web server routes validate Cloudflare Zero Trust identity header `Cf-Access-Authenticated-User-Email` when accessed via public tunnel while allowing unauthenticated local access on `localhost:1404`.
+    - **CLI Management**: `konoha tunnel start`, `konoha tunnel stop`, `konoha tunnel status`, `konoha tunnel config`.
+83. **Unified Prompt Queue & Asynchronous Inbox Architecture (v2.1.17)**:
+    - **SQLite Queue Engine**: Table `prompt_queue` maintains atomic prompt state (`pending` -> `processing` -> `completed` / `failed`) with retry count and priority.
+    - **Filesystem Mirror**: Mirrored into `~/.konoha/inbox/<session_id>.json` and `~/.konoha/inbox/latest.json` for coding client pickup.
+    - **Remote Access Web UI**: Integrated into SvelteKit dashboard (`/remote` and `RemoteAccess.svelte`) providing live status cards for Telegram, Cloudflare Tunnel, and real-time Inbound Prompt Queue.
+84. **Interactive Shell Execution & Subagent Direct Dispatch Invariant (v2.1.17)**:
+    - **Interactive Shell Execution**: Commands dispatched via `/sh <cmd>` or `/exec <cmd>` execute in the target workspace using the user's interactive shell (`userShell -i -c`) with full alias expansion from `~/.bashrc` (`kubectl`, `kc*`, `helm`, etc.).
+    - **Security Guardrail**: Dangerous or destructive commands (`rm -rf /`, `mkfs`, `dd`, `drop database`, `truncate table`, etc.) are unconditionally rejected by `isDangerousCommand`.
+    - **Subagent Direct Dispatch**: Slash commands (`/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu_jonin`, `/sannin`) bypass general routing deliberation and directly assign prompts to specialized ninjas.
+    - **Multi-Client Workspace Switcher**: Manage and switch active client workspaces across Antigravity, Claude Code, Codex, Pi, OpenCode, and Command Code via `/session [number]` and register remote directories via `/session create <client> <path>`.
+85. **Operational vs. AI Routing in Autonomous Queue Worker (v2.1.17)**:
+    - **Operational Branch (0 LLM Tokens)**: Deterministic commands starting with `/sh`, direct commands (`kubectl`, `helm`, `docker`, `git`, `ssh`, etc.), or `kc*` shell aliases execute deterministically in interactive shell with 100% token elimination.
+    - **AI Coding Branch**: Complex coding and natural language prompts route through headless `agy -p ...` with structured task telemetry and Kage Reviewer confidence reporting.
+    - **Daemon Observability**: Structured diagnostic logging across poller (`src/telegram/poller.js`) and queue worker (`src/queue/worker.js`) ensures full audit visibility in `journalctl`.
+86. **Telegram One-Way Kage Gate Review Dispatch & Non-Blocking CLI Explorer (v2.1.17)**:
+    - **One-Way Kage Gate Notification**: In Telegram One-Way Mode (as well as Two-Way Mode), whenever any local workstation session (Antigravity IDE/CLI, terminal session, or background runner) passes Kage Final Gate Review (`APPROVED` with 100/100 zero-slop score and ≥98% confidence score), `notifyKageReviewPassed` in `src/telegram/notifier.js` is automatically triggered via `report_from_agent` in `src/mcp/memory_reporting.js`. The developer receives immediate, zero-polling completion notifications on their phone.
+    - **CLI Manual Notification**: Developers can test or trigger the gate notification via `konoha telegram notify-kage [summary]` or `konoha telegram test-gate`.
+    - **Non-Blocking Agent List**: `konoha agent list` renders a fast (<0.2s) static table by default. The interactive raw-mode terminal UI is strictly scoped behind `--tui`, `--interactive`, or `-i`, ensuring zero hangs in automated test runners, non-TTY environments, and PTY runners.
+    - **Safe Queue Worker Subprocesses**: `src/queue/worker.js` strictly executes tasks via `execFile(agyBin, agyArgs, ...)` with structured argument arrays and dynamic `resolveAgyBin()`, completely eliminating shell command injection risks.
+    - **Single Target Session Marker**: `src/telegram/session_manager.js` evaluates session indices to ensure strictly ONE session receives the `(CURRENT TARGET)` badge.
+
 

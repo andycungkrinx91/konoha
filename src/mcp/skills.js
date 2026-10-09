@@ -281,21 +281,23 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
     }
 
     if (!rows || rows.length === 0) {
-      const sanitizedKeyword = sanitizeFts5Query(normKeyword);
-      try {
-        rows = conn.prepare(`
-          SELECT s.name, s.skill_name, s.type, s.tags,
-                 s.content, s.byte_size, s.line_count, s.file_path,
-                 bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-          FROM skills_fts
-          JOIN skills s ON skills_fts.rowid = s.rowid
-          WHERE skills_fts MATCH ?
-          ORDER BY rank
-          LIMIT 50
-        `).all(sanitizedKeyword);
-      } catch (e) {
-        process.stderr.write(`  [Warning] FTS5 search failed: ${e.message}. Falling back to LIKE search.\n`);
-        rows = [];
+      if (!db.hasFts5Support || db.hasFts5Support(conn)) {
+        const sanitizedKeyword = sanitizeFts5Query(normKeyword);
+        try {
+          rows = conn.prepare(`
+            SELECT s.name, s.skill_name, s.type, s.tags,
+                   s.content, s.byte_size, s.line_count, s.file_path,
+                   bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
+            FROM skills_fts
+            JOIN skills s ON skills_fts.rowid = s.rowid
+            WHERE skills_fts MATCH ?
+            ORDER BY rank
+            LIMIT 50
+          `).all(sanitizedKeyword);
+        } catch (e) {
+          process.stderr.write(`  [Warning] FTS5 search failed: ${e.message}. Falling back to LIKE search.\n`);
+          rows = [];
+        }
       }
     }
 

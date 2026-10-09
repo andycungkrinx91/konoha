@@ -11,6 +11,9 @@
     { id: 'mcp', label: 'MCP Servers & Tools' },
     { id: 'sdlc', label: 'SDLC Lifecycle' },
     { id: 'slop-gate', label: 'Anti-Slop Delivery Gate' },
+    { id: 'remote', label: 'Remote Access & Telegram' },
+    { id: 'crypto', label: 'Crypto Vault & Security' },
+    { id: 'redteam', label: 'Cybersecurity & Red Teaming' },
     { id: 'api', label: 'Web API Reference' },
     { id: 'clients', label: 'Client Setup' },
     { id: 'cli', label: 'CLI Commands' }
@@ -48,6 +51,19 @@
     { method: 'POST', path: '/api/v1/sdlc/check-readiness', desc: 'Definition-of-Readiness check for task text' },
     { method: 'GET', path: '/api/v1/sdlc/config', desc: 'Project SDLC config (dor_mode, review_mode)' },
     { method: 'GET', path: '/api/v1/savings', desc: 'Token savings report (Konoha + Semble combined)' },
+    { method: 'GET', path: '/api/v1/telegram/config', desc: 'Telegram bot settings (AES-256 encrypted at rest, masked)' },
+    { method: 'POST', path: '/api/v1/telegram/config', desc: 'Update Telegram bot token, chat ID, mode & secret' },
+    { method: 'POST', path: '/api/v1/telegram/test', desc: 'Send test notification message to configured Telegram chat' },
+    { method: 'POST', path: '/api/v1/telegram/stop', desc: 'Stop active Telegram long-polling bot instance' },
+    { method: 'GET', path: '/api/v1/tunnel/status', desc: 'Cloudflare Zero Trust tunnel connection status & public URL' },
+    { method: 'GET', path: '/api/v1/tunnel/config', desc: 'Cloudflare tunnel settings (AES-256 encrypted at rest, masked)' },
+    { method: 'POST', path: '/api/v1/tunnel/config', desc: 'Save Cloudflare tunnel token and access PIN' },
+    { method: 'POST', path: '/api/v1/tunnel/start', desc: 'Start Cloudflare Quick Tunnel or Named Tunnel' },
+    { method: 'POST', path: '/api/v1/tunnel/stop', desc: 'Stop active Cloudflare tunnel daemon' },
+    { method: 'GET', path: '/api/v1/queue/status', desc: 'Prompt queue status (pending/processing/completed counts)' },
+    { method: 'GET', path: '/api/v1/queue/items', desc: 'List prompt queue jobs with agent assignments & state' },
+    { method: 'POST', path: '/api/v1/queue/enqueue', desc: 'Enqueue a remote prompt from Telegram or tunnel' },
+    { method: 'POST', path: '/api/v1/queue/retry', desc: 'Retry a failed prompt queue job' },
     { method: 'GET', path: '/api/v1/semble', desc: 'Semble MCP status' },
     { method: 'POST', path: '/api/v1/semble/search', desc: 'Semantic code search proxy' },
     { method: 'GET', path: '/api/v1/search/status', desc: 'SearXNG search engine status' },
@@ -246,6 +262,98 @@
         </div>
       </section>
 
+      <!-- Remote Access & Telegram -->
+      <section id="remote" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
+        <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Remote Access &amp; Telegram</h3>
+        <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
+          Konoha provides secure out-of-band remote operations via Cloudflare Zero Trust tunnels and a bidirectional
+          Telegram bot interface with persistent SQLite queuing.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">1-Way Alerts (Audit &amp; Gate Notifications)</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              When running locally on laptop/CLI, every completed task that passes the Kage Final Confidence Gate automatically
+              delivers structured verdict summaries, verification scores, and token telemetry directly to Telegram.
+            </p>
+          </div>
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">2-Way Interactive Bot &amp; Prompt Queue</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              Send prompts or commands directly to the Telegram bot (<code class="text-xs font-mono">/prompt &lt;task&gt;</code>, <code class="text-xs font-mono">/status</code>, <code class="text-xs font-mono">/agents</code>).
+              Prompts are safely enqueued in SQLite (<code class="text-xs font-mono">prompt_queue</code>) and executed by the background worker, streaming progress and deliverables back to your mobile chat.
+            </p>
+          </div>
+        </div>
+        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+          <p class="text-xs font-black mb-1" style="color: var(--color-primary);">Cloudflare Zero Trust Ingress (/remote)</p>
+          <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+            Exposes the local Konoha web interface securely without opening router ports or exposing public IPs. Supports both ephemeral
+            Quick Tunnels (<code class="text-xs font-mono">trycloudflare.com</code>) and enterprise Named Tunnels with mandatory PIN authentication.
+          </p>
+        </div>
+      </section>
+
+      <!-- Crypto Vault & Security -->
+      <section id="crypto" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
+        <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Crypto Vault &amp; Secret Sanitization</h3>
+        <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
+          Enterprise-grade secret management ensures zero plaintext API tokens, bot keys, or tunnel credentials exist in databases, logs, or network wire.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">AES-256-GCM AEAD Encryption</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              All sensitive values in <code class="text-xs font-mono">telegram_config</code> and <code class="text-xs font-mono">tunnel_config</code>
+              are encrypted at rest using AES-256-GCM with 96-bit unique IVs and 128-bit authentication tags (GMAC) preventing tampering.
+            </p>
+          </div>
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">PBKDF2 Key Derivation</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              Encryption keys are derived via PBKDF2 (100,000 SHA-256 iterations) with persistent machine salt and user environmental entropy.
+            </p>
+          </div>
+        </div>
+        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+          <p class="text-xs font-black mb-1" style="color: var(--color-text);">Strict Redaction Invariant</p>
+          <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+            All REST API responses, CLI outputs, and log transcripts automatically mask token values (<code class="text-xs font-mono">12345***:***abcd</code>)
+            to prevent credential leaks during pair programming or screen shares.
+          </p>
+        </div>
+      </section>
+
+      <!-- Cybersecurity & Red Teaming -->
+      <section id="redteam" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
+        <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Cybersecurity &amp; Red Teaming</h3>
+        <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
+          Konoha equips the <strong>Anbu</strong> Black Ops subagent with full offensive security, penetration testing, and MITRE ATT&amp;CK red-teaming tradecraft.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">817 Anthropic Cybersecurity Skills</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              Indexed into SQLite and vector search: Active Directory assessment, DPAPI extraction, privilege escalation, credential dumping,
+              network pivoting, reverse engineering, and defensive hardening.
+            </p>
+          </div>
+          <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+            <p class="text-xs font-black mb-1" style="color: var(--color-primary);">Development / Local Scope Invariant</p>
+            <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+              Penetration testing and vulnerability scanning are authorized in local dev environments (<code class="text-xs font-mono">localhost</code>, <code class="text-xs font-mono">127.0.0.1</code>, containers).
+              External production targets require explicit user authorization.
+            </p>
+          </div>
+        </div>
+        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+          <p class="text-xs font-black mb-1" style="color: var(--color-text);">Socket Supply Chain Security Gate</p>
+          <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
+            Integrated Socket CLI scanning (<code class="text-xs font-mono">socket ci</code>) enforces zero High or Medium severity supply chain vulnerabilities before delivery.
+          </p>
+        </div>
+      </section>
+
       <!-- API -->
       <section id="api" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Web API Reference</h3>
@@ -334,6 +442,22 @@
           <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
             <span class="font-bold" style="color: var(--color-primary);">konoha doctor [--repair]</span>
             <span style="color: var(--color-text-muted);"> — environment diagnostics and auto-repair</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha telegram &lt;status|start|stop|test|config&gt;</span>
+            <span style="color: var(--color-text-muted);"> — manage Telegram bot integration, polling, and alert delivery</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha tunnel &lt;status|start|stop|quick&gt;</span>
+            <span style="color: var(--color-text-muted);"> — configure and run Cloudflare Zero Trust secure tunnel</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha queue &lt;status|list|clear|retry&gt;</span>
+            <span style="color: var(--color-text-muted);"> — manage remote inbound prompt queue and offline worker jobs</span>
+          </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha agent &lt;list|check&gt;</span>
+            <span style="color: var(--color-text-muted);"> — list active ninja subagents and verify model provider bindings</span>
           </div>
         </div>
       </section>

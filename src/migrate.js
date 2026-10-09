@@ -296,6 +296,70 @@ function migrateSkill(conn, skillName, skillsOnly = false, skillsDir = SKILLS_DI
       log(`  ✓ references/${refNameRaw}.md (${rawSize.toLocaleString()} → ${byteSize.toLocaleString()} bytes, optimized ${pct.toFixed(1)}%)`);
       count += 1;
     }
+
+    // 2b. Migrate anthropic-cybersecurity-skills-assets if present under references/
+    const cyberSkillsDir = path.join(refsDir, "anthropic-cybersecurity-skills-assets", "skills");
+    if (!skillsOnly && fs.existsSync(cyberSkillsDir) && fs.statSync(cyberSkillsDir).isDirectory()) {
+      const subSkills = fs.readdirSync(cyberSkillsDir).sort();
+      let cyberCount = 0;
+      let totalCyberBytes = 0;
+
+      const deleteSkill = conn.prepare("DELETE FROM skills WHERE name = ?");
+      const insertSkill = conn.prepare(
+        "INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      );
+
+      const cyberBatch = conn.transaction((list) => {
+        for (const sub of list) {
+          const subSkillMd = path.join(cyberSkillsDir, sub, "SKILL.md");
+          if (!fs.existsSync(subSkillMd)) continue;
+
+          const rawContent = fs.readFileSync(subSkillMd, 'utf8');
+          const refKey = `${skillName}/${sub}`;
+
+          let extraTags = [];
+          if (rawContent.startsWith('---')) {
+            const endIdx = rawContent.indexOf('---', 3);
+            if (endIdx > 3) {
+              const fm = rawContent.slice(3, endIdx);
+              const tagMatches = fm.match(/tags:\s*([\s\S]*?)(?=\n[a-z_]+:|$)/i);
+              if (tagMatches) {
+                const lines = tagMatches[1].split('\n').map(l => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean);
+                extraTags.push(...lines);
+              }
+              const mitreMatches = fm.match(/mitre_attack:\s*([\s\S]*?)(?=\n[a-z_]+:|$)/i);
+              if (mitreMatches) {
+                const mLines = mitreMatches[1].split('\n').map(l => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean);
+                extraTags.push(...mLines);
+              }
+              const domainMatch = fm.match(/domain:\s*["']?(.*?)["']?\s*$/m);
+              if (domainMatch && domainMatch[1]) extraTags.push(domainMatch[1]);
+              const subDomainMatch = fm.match(/subdomain:\s*["']?(.*?)["']?\s*$/m);
+              if (subDomainMatch && subDomainMatch[1]) extraTags.push(subDomainMatch[1]);
+            }
+          }
+
+          const baseTags = [skillName, 'cybersecurity', 'pentest', 'red-team', sub.replace(/-/g, ' ')];
+          const allTags = Array.from(new Set([...baseTags, ...extraTags])).join(',');
+
+          const content = optimizeContent(rawContent);
+          const byteSize = Buffer.byteLength(content, 'utf8');
+          const lineCount = (content.match(/\n/g) || []).length + 1;
+
+          try {
+            conn.prepare("DELETE FROM skill_chunks WHERE skill_name = ?").run(refKey);
+          } catch (_) { /* best-effort cleanup */ }
+          deleteSkill.run(refKey);
+          insertSkill.run(refKey, skillName, "reference", allTags, content, subSkillMd, byteSize, lineCount);
+          cyberCount += 1;
+          totalCyberBytes += byteSize;
+        }
+      });
+
+      cyberBatch(subSkills);
+      log(`  ✓ anthropic-cybersecurity-skills-assets: ${cyberCount} structured cybersecurity skills migrated & indexed (${(totalCyberBytes / 1024 / 1024).toFixed(2)} MB)`);
+      count += cyberCount;
+    }
   }
 
   // 3. Migrate other .md files in root of skill directory
@@ -704,12 +768,16 @@ async function runMigration(options = {}) {
 
   // Verify FTS index
   log("\n🔍 Verifying FTS index...");
-  for (const testWord of ['security', 'terraform', 'svelte']) {
-    try {
-      const result = conn.prepare("SELECT COUNT(*) as cnt FROM skills_fts WHERE skills_fts MATCH ?").get(testWord);
-      log(`   FTS test query '${testWord}': ${result ? result.cnt : 0} matches`);
-    } catch (_) {
-      log(`   FTS test query '${testWord}': skipped (no matches)`);
+  if (db.hasFts5Support && !db.hasFts5Support(conn)) {
+    log("   FTS5 module not available on this platform. Fallback keyword search enabled.");
+  } else {
+    for (const testWord of ['security', 'terraform', 'svelte']) {
+      try {
+        const result = conn.prepare("SELECT COUNT(*) as cnt FROM skills_fts WHERE skills_fts MATCH ?").get(testWord);
+        log(`   FTS test query '${testWord}': ${result ? result.cnt : 0} matches`);
+      } catch (_) {
+        log(`   FTS test query '${testWord}': skipped (no matches)`);
+      }
     }
   }
 

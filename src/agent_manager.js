@@ -321,8 +321,7 @@ function loadAgents(reloadDefaults = false, silent = false) {
           'chunin': ['antislop', 'antislop-human', 'antislop-code'],
           'jonin': ['antislop', 'antislop-ui', 'antislop-human', 'antislop-layoutmobile', 'antislop-code'],
           'anbu': ['antislop', 'antislop-human', 'antislop-code'],
-          'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code'],
-          'tokubetsu_jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
+          'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
         };
 
         const mandatory = MANDATORY_AGENT_ANTISLOP_SKILLS[a.name];
@@ -443,6 +442,7 @@ function saveAgents(agents) {
 
   // 3. Invalidate cache so next loadAgents reads the fresh state
   __cachedAgents = null;
+  __cachedAgentsTs = null;
 }
 
 function buildAgentReferenceList(agents) {
@@ -1163,8 +1163,7 @@ function createSubagent(name, options = {}) {
     throw new Error(`Subagent creation locked: "${name}" is not an official subagent. Auto-creation of custom subagents is strictly prohibited by system guardrails. To override this manually, you must pass the --manual flag.`);
   }
 
-  // Auto-prefix with mcp_ for consistency with DB storage
-  const displayName = lowerName.startsWith('mcp_') ? lowerName : `mcp_${lowerName}`;
+  const displayName = lowerName.replace(/^(mcp_|_mcp_|mcp-)/, '');
 
   if (agents.some(a => a.name === lowerName || a.name === displayName)) {
     throw new Error(`Subagent with name "${name}" already exists.`);
@@ -1277,14 +1276,29 @@ function updateAgentModel(agentName, modelId) {
   return true;
 }
 
+const CANONICAL_OFFICIAL_NINJAS = [
+  'sannin',
+  'genin',
+  'kage',
+  'chunin',
+  'jonin',
+  'anbu',
+  'tokubetsu-jonin'
+];
+
 function getOfficialAgentNames() {
-  let defaults = [];
+  const names = new Set(CANONICAL_OFFICIAL_NINJAS);
   if (fs.existsSync(DEFAULT_AGENTS_YAML_PATH)) {
     try {
-      defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
+      const defaults = parseYaml(fs.readFileSync(DEFAULT_AGENTS_YAML_PATH, 'utf-8'));
+      if (Array.isArray(defaults)) {
+        defaults.forEach((a) => {
+          if (a && a.name) names.add(a.name.toLowerCase());
+        });
+      }
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  return defaults.map((a) => a.name.toLowerCase());
+  return Array.from(names);
 }
 
 // Delete a subagent entirely
@@ -1300,7 +1314,7 @@ function deleteAgent(name) {
 
   if (isOfficial) {
     throw new Error(
-      `Subagent "${name}" is a protected default Konoha ninja and cannot be deleted.`
+      `Subagent "${name}" is a protected official Konoha ninja agent and cannot be deleted.`
     );
   }
 
@@ -1316,9 +1330,61 @@ function deleteAgent(name) {
     throw new Error(`Subagent "${name}" not found.`);
   }
 
+  try {
+    const dbAgents = require('./db_agents');
+    dbAgents.deleteAgent(searchName);
+    dbAgents.deleteAgent(name);
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
   saveAgents(filtered);
   regenerateAndDeploy();
   return true;
+}
+
+// Update a custom subagent
+function updateAgent(name, updates = {}) {
+  const lowerName = name.toLowerCase();
+  const searchName = lowerName.replace(/^(mcp_|_mcp_|mcp-)/, '');
+  const official = getOfficialAgentNames();
+
+  const isOfficial = official.some(oName => {
+    const oBare = oName.toLowerCase().replace(/^(mcp_|_mcp_|mcp-)/, '');
+    return oName.toLowerCase() === lowerName || oBare === searchName;
+  });
+
+  if (isOfficial) {
+    throw new Error(
+      `Subagent "${name}" is a protected official Konoha ninja agent and cannot be modified directly.`
+    );
+  }
+
+  const agents = loadAgents();
+  const agent = agents.find(a => {
+    const aName = a.name.toLowerCase();
+    const aBare = aName.replace(/^(mcp_|_mcp_|mcp-)/, '');
+    return aName === lowerName || aBare === searchName;
+  });
+
+  if (!agent) {
+    throw new Error(`Subagent "${name}" not found.`);
+  }
+
+  if (updates.title) agent.title = String(updates.title).trim();
+  if (updates.purpose) agent.purpose = String(updates.purpose).trim();
+  if (updates.description) agent.description = String(updates.description).trim();
+  if (updates.instructions) agent.instructions = String(updates.instructions).trim();
+  if (updates.icon) agent.icon = String(updates.icon).trim();
+  if (updates.model !== undefined) {
+    if (updates.model) agent.model = String(updates.model).trim();
+    else delete agent.model;
+  }
+  if (Array.isArray(updates.skills)) {
+    agent.skills = updates.skills.map(s => String(s).trim()).filter(Boolean);
+  }
+
+  saveAgents(agents);
+  regenerateAndDeploy();
+  return agent;
 }
 
 module.exports = {
@@ -1326,6 +1392,7 @@ module.exports = {
   saveAgents,
   regenerateAndDeploy,
   createSubagent,
+  updateAgent,
   embedSkill,
   unembedSkill,
   updateAgentModel,

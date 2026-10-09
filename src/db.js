@@ -68,19 +68,43 @@ function getConnection(dbPath = null, loadVector = true) {
 }
 
 /**
+ * Detect whether SQLite has the FTS5 extension compiled and enabled.
+ * Uses an isolated temporary virtual table probe.
+ * @param {object} conn - SQLite database connection
+ * @returns {boolean}
+ */
+function hasFts5Support(conn) {
+  if (!conn || typeof conn.exec !== 'function') return false;
+  if (conn._mockFts5Disabled === true) return false;
+  try {
+    conn.exec('DROP TABLE IF EXISTS temp._konoha_fts5_probe; CREATE VIRTUAL TABLE temp._konoha_fts5_probe USING fts5(x); DROP TABLE IF EXISTS temp._konoha_fts5_probe;');
+    return true;
+  } catch (_) {
+    try {
+      conn.exec('DROP TABLE IF EXISTS temp._konoha_fts5_probe;');
+    } catch (_2) { /* intentional best-effort fallback */ }
+    return false;
+  }
+}
+
+/**
  * Single canonical executescript / exec containing every table, virtual table,
  * trigger, and index for Konoha (including vector search skill_chunks).
  */
 function setupSchema(conn) {
+  const ftsSupported = hasFts5Support(conn);
+
   // Drop legacy persona_memories_fts schemas that predate the project_hash
   // column. It is a derived index (external content) and is fully rebuilt at
   // the end of this function, so dropping loses nothing.
-  try {
-    const legacyFtsCols = conn.prepare("PRAGMA table_info(persona_memories_fts)").all().map(c => c.name);
-    if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
-      conn.exec('DROP TABLE persona_memories_fts');
-    }
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  if (ftsSupported) {
+    try {
+      const legacyFtsCols = conn.prepare("PRAGMA table_info(persona_memories_fts)").all().map(c => c.name);
+      if (legacyFtsCols.length > 0 && !legacyFtsCols.includes('project_hash')) {
+        conn.exec('DROP TABLE persona_memories_fts');
+      }
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
 
   conn.exec(`
     CREATE TABLE IF NOT EXISTS skills (
@@ -93,35 +117,6 @@ function setupSchema(conn) {
         byte_size INTEGER,
         line_count INTEGER
     );
-
-    -- FTS5 virtual table for full-text search
-    CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts
-    USING fts5(
-        name,
-        skill_name,
-        tags,
-        content,
-        content=skills,
-        content_rowid=rowid
-    );
-
-    -- Triggers to keep FTS index in sync
-    CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
-        INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-        VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
-        INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-        VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
-        INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
-        VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
-        INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
-        VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
-    END;
 
     -- Skill chunks table for semantic / vector search
     CREATE TABLE IF NOT EXISTS skill_chunks (
@@ -231,36 +226,138 @@ function setupSchema(conn) {
         updated_at TEXT NOT NULL
     );
 
-    -- FTS5 virtual table for persona memories
-    CREATE VIRTUAL TABLE IF NOT EXISTS persona_memories_fts USING fts5(
-        id UNINDEXED,
-        project_hash,
-        agent_name,
-        title,
-        content,
-        tags,
-        content='persona_memories',
-        content_rowid='rowid'
+    -- Telegram Bot Integration Configuration
+    CREATE TABLE IF NOT EXISTS telegram_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        enabled INTEGER DEFAULT 0,
+        mode TEXT CHECK (mode IN ('one_way', 'two_way')) DEFAULT 'one_way',
+        transport TEXT CHECK (transport IN ('polling', 'cloudflare', 'ngrok')) DEFAULT 'polling',
+        bot_token TEXT DEFAULT '',
+        chat_id TEXT DEFAULT '',
+        webhook_secret TEXT DEFAULT '',
+        last_notified_at TEXT,
+        updated_at TEXT NOT NULL
     );
 
-    -- Triggers to keep the external-content FTS index in sync
-    CREATE TRIGGER IF NOT EXISTS persona_memories_ai AFTER INSERT ON persona_memories BEGIN
-        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
-        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
-    END;
+    -- Public Tunnel Orchestrator Configuration
+    CREATE TABLE IF NOT EXISTS tunnel_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        enabled INTEGER DEFAULT 0,
+        provider TEXT CHECK (provider IN ('cloudflare', 'ngrok')) DEFAULT 'cloudflare',
+        mode TEXT CHECK (mode IN ('ephemeral', 'named')) DEFAULT 'ephemeral',
+        token TEXT DEFAULT '',
+        custom_domain TEXT DEFAULT '',
+        auth_pin TEXT DEFAULT '',
+        public_url TEXT DEFAULT '',
+        active_pid INTEGER DEFAULT 0,
+        started_at TEXT,
+        updated_at TEXT NOT NULL
+    );
 
-    CREATE TRIGGER IF NOT EXISTS persona_memories_ad AFTER DELETE ON persona_memories BEGIN
-        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
-        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
-    END;
+    -- Unified Inbound Prompt Queue
+    CREATE TABLE IF NOT EXISTS prompt_queue (
+        id TEXT PRIMARY KEY,
+        source TEXT CHECK (source IN ('web_ui', 'telegram', 'cli')) NOT NULL,
+        sender_info TEXT DEFAULT '',
+        prompt TEXT NOT NULL,
+        status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')) DEFAULT 'pending',
+        session_id TEXT DEFAULT '',
+        workspace_root TEXT DEFAULT '',
+        client TEXT DEFAULT '',
+        result_summary TEXT DEFAULT '',
+        token_savings_percent REAL DEFAULT 0,
+        kage_confidence_score INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        processed_at TEXT,
+        completed_at TEXT
+    );
 
-    CREATE TRIGGER IF NOT EXISTS persona_memories_au AFTER UPDATE ON persona_memories BEGIN
-        INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
-        VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
-        INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
-        VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
-    END;
+    -- Telegram selected session targets per chat_id
+    CREATE TABLE IF NOT EXISTS telegram_session_targets (
+        chat_id TEXT PRIMARY KEY,
+        client TEXT NOT NULL,
+        workspace_root TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+
+  if (ftsSupported) {
+    try {
+      conn.exec(`
+        -- FTS5 virtual table for full-text search
+        CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts
+        USING fts5(
+            name,
+            skill_name,
+            tags,
+            content,
+            content=skills,
+            content_rowid=rowid
+        );
+
+        -- Triggers to keep FTS index in sync
+        CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
+            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
+            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
+            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
+            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
+            INSERT INTO skills_fts(skills_fts, rowid, name, skill_name, tags, content)
+            VALUES('delete', old.rowid, old.name, old.skill_name, old.tags, old.content);
+            INSERT INTO skills_fts(rowid, name, skill_name, tags, content)
+            VALUES (new.rowid, new.name, new.skill_name, new.tags, new.content);
+        END;
+
+        -- FTS5 virtual table for persona memories
+        CREATE VIRTUAL TABLE IF NOT EXISTS persona_memories_fts USING fts5(
+            id UNINDEXED,
+            project_hash,
+            agent_name,
+            title,
+            content,
+            tags,
+            content='persona_memories',
+            content_rowid='rowid'
+        );
+
+        -- Triggers to keep the external-content FTS index in sync
+        CREATE TRIGGER IF NOT EXISTS persona_memories_ai AFTER INSERT ON persona_memories BEGIN
+            INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+            VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS persona_memories_ad AFTER DELETE ON persona_memories BEGIN
+            INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+            VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS persona_memories_au AFTER UPDATE ON persona_memories BEGIN
+            INSERT INTO persona_memories_fts(persona_memories_fts, rowid, id, project_hash, agent_name, title, content, tags)
+            VALUES('delete', old.rowid, old.id, old.project_hash, old.agent_name, old.title, old.content, old.tags);
+            INSERT INTO persona_memories_fts(rowid, id, project_hash, agent_name, title, content, tags)
+            VALUES (new.rowid, new.id, new.project_hash, new.agent_name, new.title, new.content, new.tags);
+        END;
+      `);
+    } catch (_) { /* intentional best-effort fallback if FTS5 creation fails */ }
+  } else {
+    // Drop sync triggers if they exist from a previous database migrated on another host
+    try {
+      conn.exec(`
+        DROP TRIGGER IF EXISTS skills_ai;
+        DROP TRIGGER IF EXISTS skills_ad;
+        DROP TRIGGER IF EXISTS skills_au;
+        DROP TRIGGER IF EXISTS persona_memories_ai;
+        DROP TRIGGER IF EXISTS persona_memories_ad;
+        DROP TRIGGER IF EXISTS persona_memories_au;
+      `);
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
 
   // Column additions / migration guards for existing databases
   const colSqls = [
@@ -299,7 +396,27 @@ function setupSchema(conn) {
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_project ON sdlc_tasks(project_path);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_session ON sdlc_tasks(session_id);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_client ON sdlc_tasks(client);
+    CREATE INDEX IF NOT EXISTS idx_prompt_queue_status ON prompt_queue(status);
+    CREATE INDEX IF NOT EXISTS idx_prompt_queue_created ON prompt_queue(created_at);
   `);
+
+  // Auto-migrate prompt_queue columns if missing in existing database
+  try {
+    const queueCols = conn.prepare("PRAGMA table_info(prompt_queue)").all().map(c => c.name);
+    if (!queueCols.includes('workspace_root')) {
+      conn.exec("ALTER TABLE prompt_queue ADD COLUMN workspace_root TEXT DEFAULT ''");
+    }
+    if (!queueCols.includes('client')) {
+      conn.exec("ALTER TABLE prompt_queue ADD COLUMN client TEXT DEFAULT ''");
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // Seed default configuration rows if missing
+  try {
+    const now = new Date().toISOString();
+    conn.prepare("INSERT OR IGNORE INTO telegram_config (id, enabled, mode, transport, updated_at) VALUES (1, 0, 'one_way', 'polling', ?)").run(now);
+    conn.prepare("INSERT OR IGNORE INTO tunnel_config (id, enabled, provider, mode, updated_at) VALUES (1, 0, 'cloudflare', 'ephemeral', ?)").run(now);
+  } catch (_) { /* intentional best-effort fallback */ }
 
   // Purge any legacy mcp_* agents from authoritative database
   try {
@@ -308,9 +425,11 @@ function setupSchema(conn) {
 
   // Rebuild the external-content FTS index to repair any corruption left by
   // earlier versions that synced deletes in the wrong order (content row gone first)
-  try {
-    conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  if (ftsSupported) {
+    try {
+      conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
 
   // Drop legacy agents columns that predate the canonical schema and are no
   // longer referenced by any code path (claude_model, cursor_model). Keeps
@@ -393,6 +512,8 @@ module.exports = {
   getConnection,
   get_connection: getConnection,
   getDb: getConnection,
+  hasFts5Support,
+  has_fts5_support: hasFts5Support,
   sanitizeFts5Query,
   sanitize_fts5_query: sanitizeFts5Query,
   setupSchema,

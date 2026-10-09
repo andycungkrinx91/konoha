@@ -27,7 +27,7 @@
    - When updating or maintaining the codebase, the agent MUST ALWAYS ask the user for explicit confirmation before creating release commits, pushing tags to GitHub, or triggering npm publication. Never auto-release or push releases without explicit user permission. All changes must remain local-only until the user explicitly commands a release.
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.1.16-cross-client-1)
+## Konoha runtime contract (2.1.17-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

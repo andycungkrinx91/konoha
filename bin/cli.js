@@ -250,7 +250,8 @@ function truncateVisual(str, maxLen) {
   const visLen = getVisualLength(clean);
   if (visLen <= maxLen) return clean;
 
-  let truncated = clean;
+  // Pre-truncate if clean is significantly longer than maxLen to avoid O(N^2) loop on large strings
+  let truncated = clean.length > maxLen + 8 ? clean.slice(0, maxLen + 8) : clean;
   while (getVisualLength(truncated + '...') > maxLen && truncated.length > 0) {
     const lastChar = truncated.charCodeAt(truncated.length - 1);
     if (lastChar >= 0xDC00 && lastChar <= 0xDFFF && truncated.length > 1) {
@@ -283,10 +284,13 @@ function stripAnsi(str) {
 function computeTableWidths(headers, rows, options = {}) {
   const { minWidths = [], maxWidths = [] } = options;
   return headers.map((header, colIdx) => {
+    const maxBound = maxWidths[colIdx] != null ? maxWidths[colIdx] * 2 : Infinity;
     let max = getVisualLength(stripAnsi(header));
     rows.forEach((row) => {
       const cell = row[colIdx] != null ? row[colIdx] : '';
-      max = Math.max(max, getVisualLength(stripAnsi(cell)));
+      const cellStr = stripAnsi(cell);
+      const boundedCell = cellStr.length > maxBound ? cellStr.slice(0, maxBound) : cellStr;
+      max = Math.max(max, getVisualLength(boundedCell));
     });
     if (minWidths[colIdx] != null) max = Math.max(max, minWidths[colIdx]);
     if (maxWidths[colIdx] != null) max = Math.min(max, maxWidths[colIdx]);
@@ -794,8 +798,20 @@ async function cmdAgentModels(subArgs) {
     return;
   }
 
-  // Non-TTY: print current assignments + guidance
-  if (!process.stdin || !process.stdin.isTTY) {
+  // Non-TTY / Non-interactive: print current assignments + guidance
+  const isPlainModels = subArgs.includes('--plain') || subArgs.includes('--table') || subArgs.includes('--no-tui');
+  const isInteractiveModels = Boolean(
+    process.stdin &&
+    process.stdin.isTTY &&
+    process.stdout &&
+    process.stdout.isTTY &&
+    typeof process.stdin.setRawMode === 'function' &&
+    !isPlainModels &&
+    !process.env.CI &&
+    !process.env.NON_INTERACTIVE
+  );
+
+  if (!isInteractiveModels) {
     header('Subagent Model Assignments');
     const headers = ['Subagent', 'Title', 'Current Model'];
     const rows = (targetAgent ? [targetAgent] : agents).map(a => [
@@ -4262,7 +4278,9 @@ async function cmdStatus(args = []) {
   agents.forEach(a => {
     const icon = a.icon || iconMap[a.name] || '👤';
     const displayName = `${icon} ${a.name.charAt(0).toUpperCase() + a.name.slice(1)}`;
-    const activeSkills = a.skills && a.skills.length > 0 ? a.skills.join(', ') : 'None';
+    const activeSkills = a.skills && a.skills.length > 0
+      ? (a.skills.length > 6 ? `${a.skills.slice(0, 6).join(', ')} (+${a.skills.length - 6} more)` : a.skills.join(', '))
+      : 'None';
 
     subRows.push([displayName, activeSkills]);
     subRowColors.push(['', '']);
@@ -6204,7 +6222,10 @@ async function cmdAgent(args) {
         break;
       }
 
-      if (!process.stdin.isTTY) {
+      const wantsTui = (subArgs.includes('--tui') || subArgs.includes('--interactive') || subArgs.includes('-i')) &&
+        process.stdin && process.stdin.isTTY && process.stdout && process.stdout.isTTY && typeof process.stdin.setRawMode === 'function';
+
+      if (!wantsTui) {
         header('Subagents List');
         const headers = ['Subagent', 'Title', 'Active Skills'];
         const aligns = ['left', 'left', 'left'];
@@ -7057,33 +7078,39 @@ ${C.bold}USAGE${C.reset}
   konoha <command> [options]
 
 ${C.bold}CORE COMMANDS${C.reset}
-  ${C.cyan}init${C.reset}          🚀 Setup MCP servers, migrate local skills, and configure supported clients.
-  ${C.cyan}migrate${C.reset}       🔄 Re-index/migrate your custom skills database (run after editing skills).
-  ${C.cyan}embed${C.reset}         ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
-  ${C.cyan}test${C.reset}          🧪 Perform verification tests on the MCP server.
-  ${C.cyan}status${C.reset}        🩺 Check installation health, database size, and loaded skills.
-  ${C.cyan}version${C.reset}       ✨ Display current version and check for updates from npm registry.
-  ${C.cyan}upgrade${C.reset}       🔄 Upgrade Konoha CLI to the latest version from npm registry.
-  ${C.cyan}savings${C.reset}       📊 View your total token savings (Today, 7 days, All time).
-  ${C.cyan}project${C.reset}       📁 Manage persistent project workspaces, detected stacks, and invariants.
-  ${C.cyan}task${C.reset}          📋 Native SDLC governance tasks, readiness gates, and audits.
-  ${C.cyan}data${C.reset}          🧠 Manage SQLite active session history, persona memories, and database size.
-  ${C.cyan}soul${C.reset}          Display Village Soul / Will of Fire doctrine, tenets, and archetype spirits.
-  ${C.cyan}doctor${C.reset}        🩺 Run environment diagnostics to detect/fix integration issues.
-  ${C.cyan}bridge${C.reset}        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
-  ${C.cyan}search, searxng${C.reset} 🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
-  ${C.cyan}ui, web${C.reset}       🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
-  ${C.cyan}clean${C.reset}         🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
-  ${C.cyan}uninstall${C.reset}     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
+  ${C.cyan}init, setup${C.reset}       🚀 Setup MCP servers, migrate local skills, and configure supported clients.
+  ${C.cyan}migrate${C.reset}           🔄 Re-index/migrate your custom skills database (run after editing skills).
+  ${C.cyan}embed${C.reset}             ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
+  ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
+  ${C.cyan}status${C.reset}            🩺 Check installation health, database size, and loaded skills.
+  ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
+  ${C.cyan}upgrade, update${C.reset}   🔄 Upgrade Konoha CLI to the latest version from npm registry.
+  ${C.cyan}savings, saving${C.reset}   📊 View your total token savings (Today, 7 days, All time).
+  ${C.cyan}detect-ai${C.reset}         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
+  ${C.cyan}detect-docs${C.reset}       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
+  ${C.cyan}project, context${C.reset}  📁 Manage persistent project workspaces, detected stacks, and invariants.
+  ${C.cyan}task, sdlc${C.reset}        📋 Native SDLC governance tasks, readiness gates, and audits.
+  ${C.cyan}data, persona${C.reset}     🧠 Manage SQLite active session history, persona memories, and database size.
+  ${C.cyan}soul${C.reset}              🔥 Display Village Soul / Will of Fire doctrine, tenets, and archetype spirits.
+  ${C.cyan}doctor${C.reset}            🩺 Run environment diagnostics to detect/fix integration issues.
+  ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+  ${C.cyan}search, searxng${C.reset}   🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
+  ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
+  ${C.cyan}service${C.reset}           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
+  ${C.cyan}telegram, tg${C.reset}      ✈️  Manage Telegram bot task reporting and two-way remote prompting.
+  ${C.cyan}tunnel, tunnels${C.reset}   🚇 Manage Cloudflare and ngrok public ingress tunnels.
+  ${C.cyan}clean, prune${C.reset}      🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
+  ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
 ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
-  ${C.cyan}skill${C.reset}         📚 Manage skills (list installed, search the public registry, add/remove).
-  ${C.cyan}agent${C.reset}         👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
-  ${C.cyan}help${C.reset}          ❓ Show this educational help menu.
+  ${C.cyan}skill${C.reset}             📚 Manage skills (list installed, search the public registry, add/remove).
+  ${C.cyan}agent, agents${C.reset}     👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
+  ${C.cyan}help, -h${C.reset}          ❓ Show this educational help menu.
 
 ${C.bold}GLOBAL OPTIONS${C.reset}
-  ${C.dim}--force${C.reset}        Force clean re-installation (used with init).
-  ${C.dim}--skills-dir${C.reset}   Specify a custom directory to scan for skill folders (used with migrate).
+  ${C.dim}--force${C.reset}            Force clean re-installation (used with init).
+  ${C.dim}--skills-dir${C.reset}       Specify a custom directory to scan for skill folders (used with migrate).
+  ${C.dim}--clean${C.reset}            Clean stale records before re-indexing (used with migrate).
 
 ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}1. Setup everything for the first time:${C.reset}
@@ -7095,17 +7122,28 @@ ${C.bold}QUICK-START EXAMPLES FOR BEGINNERS${C.reset}
   ${C.dim}3. Verify MCP server connection:${C.reset}
      konoha test
 
-  ${C.dim}4. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:${C.reset}
+  ${C.dim}4. Search for a custom skill on the registry and install it:${C.reset}
      konoha skill search golang
 
-  ${C.dim}5. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):${C.reset}
+  ${C.dim}5. Interactively configure subagent skills:${C.reset}
      konoha agent skill genin
 
-  ${C.dim}6. View how many tokens (and how much context window) you have saved:${C.reset}
+  ${C.dim}6. View byte-weighted token savings metrics:${C.reset}
      konoha savings
 
-  ${C.dim}5. View database disk space and active session size:${C.reset}
+  ${C.dim}7. Inspect database storage and session history:${C.reset}
      konoha data view
+
+  ${C.dim}8. Scan a website or document for AI markers:${C.reset}
+     konoha detect-ai https://example.com
+     konoha detect-docs report.pdf
+
+  ${C.dim}9. Configure Telegram remote task notifications:${C.reset}
+     konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>
+     konoha telegram test
+
+  ${C.dim}10. Start Cloudflare public tunnel for remote Web UI access:${C.reset}
+     konoha tunnel start
 
 `);
 }
@@ -8819,6 +8857,320 @@ async function cmdSearch(args = []) {
   }
 }
 
+async function cmdTelegram(args) {
+  const sub = args[0] || 'status';
+  const subArgs = args.slice(1);
+  const tgConfig = require('../src/telegram/config');
+  const tgNotifier = require('../src/telegram/notifier');
+  const tgPoller = require('../src/telegram/poller');
+
+  if (sub === 'help' || sub === '--help' || sub === '-h') {
+    info('Usage: konoha telegram <command>');
+    info('Commands:');
+    info('  status                   Show current Telegram integration status');
+    info('  config [options]         Configure bot token, chat ID, and mode');
+    info('    --token <bot_token>    Set Telegram Bot API token');
+    info('    --chat-id <id>         Set authorized recipient chat ID');
+    info('    --mode <one_way|two_way> Set operating mode (one_way or two_way)');
+    info('  test                     Send an immediate verification test message');
+    info('  enable                   Enable Telegram notifications');
+    info('  disable                  Disable Telegram notifications');
+    info('  start-poller             Start Two-Way inbound polling listener');
+    info('  stop-poller              Stop inbound polling listener');
+    return;
+  }
+
+  if (sub === 'status') {
+    const cfg = tgConfig.getTelegramConfig();
+    header('Telegram Bot Integration Status');
+    info(`Enabled:       ${cfg.enabled ? 'Yes [ACTIVE]' : 'No [DISABLED]'}`);
+    info(`Mode:          ${cfg.mode === 'two_way' ? 'Two-Way (Alerts + Inbound Prompting)' : 'One-Way (Alerts Only)'}`);
+    info(`Transport:     ${cfg.transport}`);
+    info(`Bot Token:     ${cfg.bot_token ? `${cfg.bot_token.slice(0, 10)}...` : '(not configured)'}`);
+    info(`Chat ID:       ${cfg.chat_id || '(not configured)'}`);
+    info(`Poller:        ${tgPoller.isPollerRunning() ? 'Running' : 'Stopped'}`);
+    info(`Last Notified: ${cfg.last_notified_at || 'Never'}`);
+    return;
+  }
+
+  if (sub === 'config' || sub === 'edit') {
+    let token = undefined;
+    let chatId = undefined;
+    let mode = undefined;
+    let transport = undefined;
+    let enableFlag = undefined;
+
+    for (let i = 0; i < subArgs.length; i++) {
+      if ((subArgs[i] === '--token' || subArgs[i] === '-t') && subArgs[i + 1]) {
+        token = subArgs[++i];
+      } else if ((subArgs[i] === '--chat-id' || subArgs[i] === '-c') && subArgs[i + 1]) {
+        chatId = subArgs[++i];
+      } else if ((subArgs[i] === '--mode' || subArgs[i] === '-m') && subArgs[i + 1]) {
+        mode = subArgs[++i];
+      } else if (subArgs[i] === '--transport' && subArgs[i + 1]) {
+        transport = subArgs[++i];
+      } else if (subArgs[i] === '--enable') {
+        enableFlag = true;
+      } else if (subArgs[i] === '--disable') {
+        enableFlag = false;
+      }
+    }
+
+    const updated = tgConfig.saveTelegramConfig({
+      bot_token: token,
+      chat_id: chatId,
+      mode: mode,
+      transport: transport,
+      enabled: enableFlag
+    });
+
+    success('Telegram configuration updated successfully.');
+    info(`Mode: ${updated.mode} | Enabled: ${updated.enabled ? 'Yes' : 'No'} | Chat ID: ${updated.chat_id || '(none)'}`);
+    return;
+  }
+
+  if (sub === 'enable') {
+    tgConfig.setTelegramEnabled(true);
+    success('Telegram integration enabled.');
+    return;
+  }
+
+  if (sub === 'disable') {
+    tgConfig.setTelegramEnabled(false);
+    tgPoller.stopPoller();
+    success('Telegram integration disabled.');
+    return;
+  }
+
+  if (sub === 'test') {
+    info('Dispatching test notification to configured Telegram chat...');
+    const res = await tgNotifier.sendTestPing();
+    if (res.ok) {
+      success('Test message sent successfully! Check your Telegram chat.');
+    } else {
+      error(`Failed to send test message: ${res.error || 'Unknown error'}`);
+    }
+    return;
+  }
+
+  if (sub === 'notify-kage' || sub === 'test-gate') {
+    info('Dispatching Kage final gate review notification to Telegram...');
+    const summaryArg = subArgs.join(' ') || 'Kage Review Gate verified: APPROVED (100% confidence, 0 AI slop findings).';
+    const res = await tgNotifier.notifyKageReviewPassed({
+      title: 'Kage Final Gate Review: APPROVED',
+      summary: summaryArg,
+      kageScore: 100,
+      slopFindings: 0
+    });
+    if (res.ok) {
+      success('Kage review gate notification delivered to Telegram!');
+    } else {
+      error(`Failed to send gate notification: ${res.error || 'Unknown error'}`);
+    }
+    return;
+  }
+
+  if (sub === 'start-poller') {
+    tgPoller.startPoller();
+    success('Telegram polling listener started.');
+    return;
+  }
+
+  if (sub === 'stop-poller') {
+    tgPoller.stopPoller();
+    success('Telegram polling listener stopped.');
+    return;
+  }
+
+  error(`Unknown telegram command: ${sub}. Run "konoha telegram help" for usage.`);
+}
+
+async function cmdTunnel(args) {
+  const sub = args[0] || 'status';
+  const subArgs = args.slice(1);
+  const tunnelMgr = require('../src/tunnel/manager');
+  const tunnelCfg = require('../src/tunnel/config');
+
+  if (sub === 'help' || sub === '--help' || sub === '-h') {
+    info('Usage: konoha tunnel <command>');
+    info('Commands:');
+    info('  status                   Show active tunnel status and public URL');
+    info('  start [options]          Start public ingress tunnel (default: cloudflare)');
+    info('    --token <token>        Cloudflare Tunnel token (run via cloudflared tunnel run --token <token>)');
+    info('    --provider <cf|ngrok>  Select provider (cloudflare or ngrok)');
+    info('    --port <port>          Target local port (default: 1404)');
+    info('    --domain <domain>      Named custom domain');
+    info('    --pin <pin>            Optional security PIN');
+    info('  stop                     Stop active ingress tunnel');
+    info('  config [options]         Configure tunnel options');
+    info('    --token <token>        Set default tunnel token');
+    return;
+  }
+
+  if (sub === 'status') {
+    const status = tunnelMgr.getTunnelStatus();
+    header('Public Ingress Tunnel Status');
+    info(`Status:     ${status.enabled ? 'Active [CONNECTED]' : 'Inactive [STOPPED]'}`);
+    info(`Provider:   ${status.provider}`);
+    info(`Public URL: ${status.public_url || '(none)'}`);
+    info(`PID:        ${status.active_pid || 0}`);
+    return;
+  }
+
+  if (sub === 'start') {
+    let provider = 'cloudflare';
+    let port = 1404;
+    let customDomain = undefined;
+    let pin = undefined;
+    let token = undefined;
+
+    for (let i = 0; i < subArgs.length; i++) {
+      if ((subArgs[i] === '--provider' || subArgs[i] === '-p') && subArgs[i + 1]) {
+        provider = subArgs[++i];
+      } else if (subArgs[i] === '--port' && subArgs[i + 1]) {
+        port = parseInt(subArgs[++i], 10) || 1404;
+      } else if (subArgs[i] === '--domain' && subArgs[i + 1]) {
+        customDomain = subArgs[++i];
+      } else if (subArgs[i] === '--pin' && subArgs[i + 1]) {
+        pin = subArgs[++i];
+      } else if ((subArgs[i] === '--token' || subArgs[i] === '-t') && subArgs[i + 1]) {
+        token = subArgs[++i];
+      }
+    }
+
+    if (customDomain || pin || token) {
+      tunnelCfg.saveTunnelConfig({
+        custom_domain: customDomain,
+        auth_pin: pin,
+        token: token
+      });
+    }
+
+    info(`Starting ${provider} tunnel...`);
+    try {
+      const res = await tunnelMgr.startTunnel({ provider, port, token, domain: customDomain });
+      success('Tunnel established successfully!');
+      if (res.public_url) {
+        info(`Public URL: ${res.public_url}`);
+      }
+    } catch (err) {
+      error(`Failed to start tunnel: ${err.message}`);
+    }
+    return;
+  }
+
+  if (sub === 'stop') {
+    tunnelMgr.stopTunnel();
+    success('Tunnel stopped.');
+    return;
+  }
+
+  if (sub === 'config') {
+    let provider = undefined;
+    let customDomain = undefined;
+    let pin = undefined;
+    let token = undefined;
+
+    for (let i = 0; i < subArgs.length; i++) {
+      if (subArgs[i] === '--provider' && subArgs[i + 1]) provider = subArgs[++i];
+      else if (subArgs[i] === '--domain' && subArgs[i + 1]) customDomain = subArgs[++i];
+      else if (subArgs[i] === '--pin' && subArgs[i + 1]) pin = subArgs[++i];
+      else if (subArgs[i] === '--token' && subArgs[i + 1]) token = subArgs[++i];
+    }
+
+    tunnelCfg.saveTunnelConfig({
+      provider,
+      custom_domain: customDomain,
+      auth_pin: pin,
+      token
+    });
+    success('Tunnel configuration updated.');
+    return;
+  }
+
+  error(`Unknown tunnel command: ${sub}. Run "konoha tunnel help" for usage.`);
+}
+
+async function cmdQueue(args) {
+  const sub = args[0] || 'list';
+  const inbox = require('../src/queue/inbox');
+
+  if (sub === 'help' || sub === '--help' || sub === '-h') {
+    info('Usage: konoha queue <command>');
+    info('Commands:');
+    info('  list                     List recent prompt queue tasks');
+    info('  next                     Print next pending prompt for execution');
+    info('  run                      Process and execute next pending prompt');
+    info('  start-worker             Run autonomous background queue worker');
+    info('  complete <id> [summary]  Mark prompt task as completed');
+    info('  cancel <id>              Cancel a pending task');
+    return;
+  }
+
+  if (sub === 'run') {
+    const worker = require('../src/queue/worker');
+    await worker.pollAndExecute();
+    success('Queue execution tick finished.');
+    return;
+  }
+
+  if (sub === 'start-worker') {
+    const worker = require('../src/queue/worker');
+    worker.startWorker();
+    success('Autonomous queue worker started. Press Ctrl+C to exit.');
+    return;
+  }
+
+  if (sub === 'list') {
+    const prompts = inbox.listPrompts({ limit: 20 });
+    header('Inbound Prompt Queue');
+    if (prompts.length === 0) {
+      info('No prompts in queue.');
+      return;
+    }
+    prompts.forEach(p => {
+      const statusColor = p.status === 'completed' ? C.green : (p.status === 'pending' ? C.yellow : C.red);
+      log(`  ${C.cyan}${p.id}${C.reset} [${statusColor}${p.status.toUpperCase()}${C.reset}] (${p.source}): ${p.prompt.slice(0, 60)}...`);
+    });
+    return;
+  }
+
+  if (sub === 'next') {
+    const next = inbox.getNextPendingPrompt();
+    if (!next) {
+      info('No pending prompts in queue.');
+      return;
+    }
+    log(JSON.stringify(next, null, 2));
+    return;
+  }
+
+  if (sub === 'complete') {
+    const id = args[1];
+    if (!id) {
+      error('Usage: konoha queue complete <task_id> [result_summary]');
+      return;
+    }
+    const summary = args.slice(2).join(' ') || 'Completed via CLI';
+    inbox.completePrompt(id, { status: 'completed', result_summary: summary });
+    success(`Task ${id} marked as completed.`);
+    return;
+  }
+
+  if (sub === 'cancel') {
+    const id = args[1];
+    if (!id) {
+      error('Usage: konoha queue cancel <task_id>');
+      return;
+    }
+    inbox.completePrompt(id, { status: 'cancelled', result_summary: 'Cancelled via CLI' });
+    success(`Task ${id} cancelled.`);
+    return;
+  }
+
+  error(`Unknown queue command: ${sub}. Run "konoha queue help" for usage.`);
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 const command = process.argv[2];
@@ -8951,6 +9303,18 @@ async function main() {
       case 'searxng':
       case 'web-search':
         await cmdSearch(args);
+        break;
+      case 'telegram':
+      case 'tg':
+        await cmdTelegram(args);
+        break;
+      case 'tunnel':
+      case 'tunnels':
+        await cmdTunnel(args);
+        break;
+      case 'queue':
+      case 'inbox':
+        await cmdQueue(args);
         break;
       case 'help':
       case '--help':

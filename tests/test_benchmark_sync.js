@@ -41,6 +41,7 @@ console.log('  ✓ scripts/generate_benchmark.js --check exits with code 0.');
 assert.ok(originalContent.includes('Combined Optimization Impact'), 'Must contain Combined Optimization Impact section');
 assert.ok(originalContent.includes('Wire-Level Verification & Tiktoken Tokenization Accuracy'), 'Must contain Wire-Level and Tiktoken section');
 assert.ok(originalContent.includes('RTK (Rust Token Killer) Empirical Savings'), 'Must contain RTK Empirical Savings section');
+assert.ok(originalContent.includes('Real CPU & Memory Usage Telemetry'), 'Must contain Real CPU & Memory Usage Telemetry section');
 assert.ok(originalContent.includes('Appendix — Superseded Historical Snapshot'), 'Must contain Appendix');
 assert.ok(originalContent.includes('read_file_range'), 'Must list read_file_range in call-type table');
 assert.ok(originalContent.includes('find_skill'), 'Must list find_skill in call-type table');

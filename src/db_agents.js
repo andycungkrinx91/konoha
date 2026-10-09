@@ -176,7 +176,7 @@ function deleteAgent(name, dbPath = null) {
   const conn = getDbConnection(dbPath);
   try {
     autoMigrateYamlToDb(conn);
-    conn.prepare("DELETE FROM agents WHERE name = ?").run(name);
+    conn.prepare("DELETE FROM agents WHERE name = ? OR LOWER(name) = ?").run(name, (name || '').toLowerCase());
     syncDbToYaml(conn);
   } finally {
     conn.close();

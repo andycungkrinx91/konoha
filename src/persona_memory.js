@@ -488,7 +488,7 @@ function queryMemories(
     if (query && query.trim()) {
       const cleanQ = query.replace(/[^\p{L}\p{N}\s]/gu, ' ');
       const tokens = cleanQ.split(/\s+/).filter(t => t.length > 1 && !['and', 'or', 'not'].includes(t.toLowerCase()));
-      if (tokens.length) {
+      if (tokens.length && (!db.hasFts5Support || db.hasFts5Support(conn))) {
         const ftsExpr = tokens.map(t => `"${t}"`).join(" OR ");
         try {
           let sql;

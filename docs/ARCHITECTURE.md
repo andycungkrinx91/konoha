@@ -105,7 +105,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`)**: Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`).
+3. **Unified Schema DDL (`setupSchema`)**: Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks compiled FTS5 modules (e.g. Windows).
 
 ---
 
@@ -253,8 +253,22 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - The agent MUST ALWAYS explicitly ask the user for permission before creating git release commits, creating tags, pushing to GitHub release branches, or triggering npm publication. Auto-releasing without prior explicit user request and authorization is strictly prohibited. All changes remain local until the user explicitly commands a release.
 27. **Windows Silent Execution & Background Resolution Caching Invariant (v2.1.15)**:
    - Eliminates terminal window popping and command flashing on Windows by enforcing `windowsHide: true` across all background `child_process` spawns (`spawn`, `spawnSync`, `execSync`). Memoizes Web UI static asset directory resolution (`resolveWebUiDir`, `getDistDir`) and npm root lookups to prevent unneeded process executions during HTTP route navigation.
+28. **Telegram Remote Task Reporting & Whitelist Long Polling Invariant (v2.1.17)**:
+   - Implements outbound asynchronous task reports (`src/telegram/notifier.js`) and inbound long polling daemon (`src/telegram/poller.js`) adhering strictly to the zero-emoji standard (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[FAILED]`, `[QUEUED]`, `[ERROR]`). All inbound prompts are strictly gated behind authorized chat ID whitelisting (`telegram_config.chat_id`), immediately dropping unauthorized interactions. Supports commands `/run`, `/status`, `/savings`, `/kage`, `/cancel`, `/help`.
+29. **Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Invariant (v2.1.17)**:
+   - Employs process-supervised Cloudflare Quick Tunnel (`cloudflared tunnel --url http://localhost:1404`) with edge identity authentication (`Cf-Access-Authenticated-User-Email`) via `src/tunnel/security.js` (Mode A) with zero PIN friction. All inbound prompts are staged into SQLite `prompt_queue` and mirrored into `~/.konoha/inbox/latest.json` for asynchronous client pickup, fully monitored via the SvelteKit Remote Access dashboard (`/remote`).
+30. **Telegram One-Way Local Session Kage Review Gate Notification & Agent List Non-Blocking Invariant (v2.1.17)**:
+   - In Telegram One-Way Mode, whenever a local workstation session (terminal, IDE, CLI) passes the Kage Final Gate Review (`APPROVED` with 100/100 zero-slop and ≥98% confidence score), `notifyKageReviewPassed` in `src/telegram/notifier.js` is automatically triggered via `src/mcp/memory_reporting.js` to dispatch outbound real-time notifications to Telegram.
+   - `konoha agent list` renders a fast non-blocking table (<0.2s) by default, while interactive raw-mode TUI is strictly scoped behind `--tui`, `--interactive`, or `-i`, ensuring zero hangs in automated test runners and PTY environments.
+   - Headless task execution in `src/queue/worker.js` enforces `execFile(agyBin, agyArgs, ...)` with structured arguments and dynamic `resolveAgyBin()`, completely eliminating command injection risks.
+31. **Crypto Vault & AES-256-GCM Secret Encryption at Rest (v2.1.17)**:
+   - Provides authenticated symmetric encryption (`src/crypto_vault.js`) for sensitive credentials stored in SQLite at rest, including Telegram Bot tokens (`telegram_config.bot_token`), webhook secrets, and Cloudflare Tunnel tokens (`tunnel_config.token`, `tunnel_config.auth_pin`).
+   - Uses NIST-standard AES-256-GCM AEAD with 96-bit unique random initialization vectors and 128-bit GMAC authentication tags (`enc:v1:<iv>:<tag>:<ciphertext>`).
+   - Key derivation leverages persistent host machine identity (`~/.konoha/.vault_key` with `0600` permissions, scrypt PBKDF fallback, or explicit `KONOHA_MASTER_KEY` override).
+   - Features transparent decryption on read, automatic re-encryption on save, tampering rejection, and legacy plaintext backward-compatibility without breaking existing workflows or external dependencies.
 
 ---
+
 
 ## 🔄 8-Phase Multi-Agent Workflow & Native SDLC Governance Lifecycle
 
@@ -364,4 +378,12 @@ flowchart TD
    - Modularized command execution in `bin/lib/ui_commands.js` provides cross-platform background daemon controls (`start`, `stop`, `restart`, `status`, `daemon`, `service`, `build`, `preview`, `open`).
    - Hardened for Windows with `windowsHide: true` on browser and daemon spawn, 30-attempt port polling, port-scoped process tree cleanup (`taskkill /F /T /PID`), PowerShell `-Unique` ownership kill, and `netstat -ano` fallback. Supports Windows `SIGBREAK` alongside POSIX `SIGINT`/`SIGTERM`.
    - Native OS background daemon service support via Linux `systemd --user` (`konoha-ui.service`) and macOS `launchd` (`com.konoha.ui.plist`).
+
+7. **Remote Access, Bi-Directional Telegram Ingress & Zero-Trust Tunnel Architecture (v2.1.17)**:
+   - **Dual-Mode Telegram Bot Engine (`src/telegram/`)**: Outbound Zero-Emoji task completion reports, telemetry, and Kage Reviewer confidence badges. Inbound native HTTPS long polling (`getUpdates`) with numeric chat ID whitelist enforcement (`telegram_config.chat_id`).
+   - **Interactive Remote Shell (`/sh <cmd>`)**: Executes shell commands in the target workspace via user interactive shell (`bash -i -c`), enabling full access to `~/.bashrc` aliases (`kubectl`, `kc*`, `helm`, etc.) with strict `isDangerousCommand` security guardrails blocking destructive commands.
+   - **Multi-Client Workspace Switcher (`/session`)**: Select and target active client sessions and project directories across Antigravity, Claude Code, Codex, Pi, OpenCode, and Command Code (`/session <number>` and `/session create <client> <path>`).
+   - **Direct Subagent Dispatch**: Dedicated slash commands (`/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu-jonin`, `/sannin`) bypass general routing deliberation and directly assign prompts to specialized ninja agents.
+   - **Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)**: SQLite table `prompt_queue` maintains atomic states (`pending` -> `processing` -> `completed` / `failed`) with filesystem mirroring (`~/.konoha/inbox/<session>.json`). Worker executes operational commands deterministically with 100% token elimination (0 LLM tokens) and AI coding tasks via headless `agy -p ...`.
+   - **Cloudflare Zero Trust Ingress Tunnel (`src/tunnel/`)**: Background supervisor for `cloudflared` managing public ingress without opening inbound firewall ports. Validates Mode A edge identity headers (`Cf-Access-Authenticated-User-Email`) with local loopback protection on `127.0.0.1:1404`.
 

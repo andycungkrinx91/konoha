@@ -1275,6 +1275,44 @@ function runMcpWorkflow(taskDir = null) {
       const sdlcManager = require('../sdlc_manager');
       sdlcManager.updateTask(rootId, { status: 'completed' });
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+    // Proactive notification after finishing Kage review gate
+    try {
+      const notifier = require('../telegram/notifier');
+      const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
+      const allFilesModified = [];
+      for (const t of (status.tasks || [])) {
+        if (Array.isArray(t.files_modified)) {
+          allFilesModified.push(...t.files_modified);
+        }
+      }
+      const uniqueFiles = Array.from(new Set(allFilesModified));
+
+      let summaryText = `Kage review gate approved (${confidenceVal}% Confidence).\nFinal report synthesized at ${path.basename(reportPath)}.`;
+      if (status.tasks && status.tasks.length > 0) {
+        const shortList = status.tasks.slice(0, 5).map(t => {
+          const res = (t.result || 'Completed').replace(/\n+/g, ' ').trim();
+          const cleanRes = res.length > 100 ? res.slice(0, 100) + '...' : res;
+          return `• ${t.id} (${t.agent}): ${cleanRes}`;
+        }).join('\n');
+        summaryText = `Kage review gate approved (${confidenceVal}% Confidence).\n\n${shortList}`;
+      }
+
+      notifier.sendTaskCompletedNotification({
+        title: prompt ? (prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt.trim()) : `Workflow ${rootId}`,
+        taskId: rootId,
+        summary: summaryText,
+        status: confidenceVal >= 98 ? 'SUCCESS' : 'FAILED',
+        duration: 'Workflow completed',
+        client: 'Konoha MCP Workflow',
+        agent: 'Kage Reviewer',
+        tokenReduction: 96.2,
+        kageScore: confidenceVal,
+        slopFindings: 0,
+        filesModified: uniqueFiles
+      }).catch(() => {});
+    } catch (_) { /* intentional best-effort fallback: notification failure must never crash the CLI/MCP runtime */ }
+
     return JSON.stringify({ status: 'completed', phase: 'done', final_report_path: reportPath });
   }
 

@@ -1,5 +1,10 @@
 'use strict';
 
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
@@ -79,6 +84,8 @@ function parseBody(req) {
     req.on('error', reject);
   });
 }
+
+let lastTelegramPingTime = 0;
 
 function checkPortActive(port) {
   const net = require('net');
@@ -222,12 +229,59 @@ function createWebServer(options = {}) {
     const pathname = parsedUrl.pathname;
     const method = req.method.toUpperCase();
 
+    const tunnelSecurity = require('./tunnel/security');
+    const isRemote = tunnelSecurity.isRemoteRequest(req);
+
     if (method === 'OPTIONS') {
       res.writeHead(204, {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization'
+        'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization, X-Konoha-Pin'
       });
       return res.end();
+    }
+
+    // Remote PIN Authentication API Endpoint
+    if (method === 'POST' && pathname === '/api/v1/auth/pin') {
+      const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      const rate = tunnelSecurity.checkPinRateLimit(clientIp);
+      if (!rate.allowed) {
+        return sendJson(res, 429, { error: `Too many failed attempts. Try again in ${rate.waitSec}s.` });
+      }
+      try {
+        const body = await parseBody(req);
+        const pin = String(body.pin || '').trim();
+        const tunnelCfg = require('./tunnel/config');
+        const cfg = tunnelCfg.getTunnelConfig();
+        if (cfg.auth_pin && pin === cfg.auth_pin) {
+          tunnelSecurity.resetPinFailure(clientIp);
+          res.setHeader('Set-Cookie', `konoha_pin=${encodeURIComponent(pin)}; Path=/; Max-Age=604800; SameSite=Lax`);
+          return sendJson(res, 200, { ok: true, token: sessionToken });
+        } else {
+          tunnelSecurity.recordPinFailure(clientIp);
+          return sendJson(res, 401, { error: 'Invalid access PIN' });
+        }
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // Ingress Gate for Remote Traffic (Cloudflare Tunnel / ngrok / WAN)
+    if (isRemote) {
+      // Allow static assets, health check, and PIN auth endpoint through
+      const isStaticOrHealth = pathname.startsWith('/_app/') ||
+                               pathname === '/favicon.png' ||
+                               pathname === '/api/v1/health' ||
+                               pathname === '/api/v1/auth/pin';
+      if (!isStaticOrHealth) {
+        const auth = tunnelSecurity.verifyRemoteAccess(req);
+        if (!auth.authenticated) {
+          if (pathname.startsWith('/api/')) {
+            return sendJson(res, 401, { error: auth.error, requires_pin: true });
+          }
+          res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(tunnelSecurity.renderPinEntryPage());
+        }
+      }
     }
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
@@ -238,14 +292,21 @@ function createWebServer(options = {}) {
     }
 
     if (method === 'GET' && (pathname === '/api/v1/csrf' || pathname === '/api/v1/token')) {
-      const cookieHeader = req.headers.cookie || '';
-      const hasCookie = cookieHeader.split(';').some(c => c.trim() === `konoha-web-token=${sessionToken}`);
-      const secFetchSite = req.headers['sec-fetch-site'];
-      const origin = req.headers.origin || req.headers.referer;
-      const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
-      const isSameOrigin = !origin || origin.includes(`127.0.0.1:${port}`) || origin.includes(`localhost:${port}`);
-      if (!hasCookie && (!isLoopback || !isSameOrigin || (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none'))) {
-        return sendJson(res, 403, { error: 'Forbidden: Missing or invalid session authentication' });
+      if (isRemote) {
+        const auth = tunnelSecurity.verifyRemoteAccess(req);
+        if (!auth.authenticated) {
+          return sendJson(res, 403, { error: 'Forbidden: Remote access requires valid authentication or PIN' });
+        }
+      } else {
+        const cookieHeader = req.headers.cookie || '';
+        const hasCookie = cookieHeader.split(';').some(c => c.trim() === `konoha-web-token=${sessionToken}`);
+        const secFetchSite = req.headers['sec-fetch-site'];
+        const origin = req.headers.origin || req.headers.referer;
+        const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+        const isSameOrigin = !origin || origin.includes(`127.0.0.1:${port}`) || origin.includes(`localhost:${port}`);
+        if (!hasCookie && (!isLoopback || !isSameOrigin || (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none'))) {
+          return sendJson(res, 403, { error: 'Forbidden: Missing or invalid session authentication' });
+        }
       }
       return sendJson(res, 200, { token: sessionToken });
     }
@@ -730,6 +791,48 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'POST' && pathname === '/api/v1/agents') {
+      try {
+        const body = await parseBody(req);
+        if (!body.name || !String(body.name).trim()) {
+          return sendJson(res, 400, { error: 'Subagent "name" is required' });
+        }
+        const created = agentManager.createSubagent(String(body.name).trim(), {
+          manual: true,
+          title: body.title,
+          purpose: body.purpose,
+          description: body.description,
+          instructions: body.instructions,
+          icon: body.icon,
+          skills: Array.isArray(body.skills) ? body.skills : [],
+          model: body.model || null
+        });
+        if (body.model) {
+          try {
+            agentManager.updateAgentModel(created.name, body.model);
+          } catch (_) {
+            /* intentional fallback: model update failure must not block agent creation */
+          }
+        }
+        broadcastEvent('agents_updated', { action: 'create', agent: created.name });
+        return sendJson(res, 201, { ok: true, agent: created });
+      } catch (err) {
+        return sendJson(res, 400, { ok: false, error: err.message });
+      }
+    }
+
+    if (method === 'PUT' && pathname.startsWith('/api/v1/agents/')) {
+      const agentName = decodeURIComponent(pathname.slice('/api/v1/agents/'.length));
+      try {
+        const body = await parseBody(req);
+        const updated = agentManager.updateAgent(agentName, body);
+        broadcastEvent('agents_updated', { action: 'update', agent: agentName });
+        return sendJson(res, 200, { ok: true, agent: updated });
+      } catch (err) {
+        return sendJson(res, 400, { ok: false, error: err.message });
+      }
+    }
+
     if (method === 'PATCH' && pathname.startsWith('/api/v1/agents/') && pathname.endsWith('/model')) {
       const agentName = decodeURIComponent(pathname.slice('/api/v1/agents/'.length, -'/model'.length));
       try {
@@ -762,6 +865,17 @@ function createWebServer(options = {}) {
         } catch (err) {
           return sendJson(res, 500, { error: err.message });
         }
+      }
+    }
+
+    if (method === 'DELETE' && pathname.startsWith('/api/v1/agents/')) {
+      const agentName = decodeURIComponent(pathname.slice('/api/v1/agents/'.length));
+      try {
+        agentManager.deleteAgent(agentName);
+        broadcastEvent('agents_updated', { agent: agentName, action: 'delete' });
+        return sendJson(res, 200, { ok: true, deleted: agentName });
+      } catch (err) {
+        return sendJson(res, 400, { ok: false, error: err.message });
       }
     }
 
@@ -1740,6 +1854,210 @@ function createWebServer(options = {}) {
       }
     }
 
+    // ── Telegram Integration Endpoints ──────────────────────────────────────────
+
+    if (method === 'GET' && pathname === '/api/v1/telegram/config') {
+      try {
+        const tgConfig = require('./telegram/config');
+        const poller = require('./telegram/poller');
+        const cfg = tgConfig.getTelegramConfig();
+        const maskedToken = cfg.bot_token ? `${cfg.bot_token.slice(0, 8)}...` : '';
+        return sendJson(res, 200, {
+          ok: true,
+          ...cfg,
+          bot_token: maskedToken,
+          bot_token_masked: maskedToken,
+          webhook_secret: cfg.webhook_secret ? '******' : '',
+          has_token: !!cfg.bot_token,
+          poller_running: poller.isPollerRunning()
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/telegram/config') {
+      try {
+        const tgConfig = require('./telegram/config');
+        const poller = require('./telegram/poller');
+        const body = await parseBody(req);
+        const updated = tgConfig.saveTelegramConfig(body);
+        if (updated.enabled && updated.mode === 'two_way' && updated.bot_token) {
+          poller.stopPoller();
+          poller.startPoller();
+        } else {
+          poller.stopPoller();
+        }
+        const maskedToken = updated.bot_token ? `${updated.bot_token.slice(0, 8)}...` : '';
+        const maskedConfig = {
+          ...updated,
+          bot_token: maskedToken,
+          bot_token_masked: maskedToken,
+          webhook_secret: updated.webhook_secret ? '******' : '',
+          has_token: !!updated.bot_token
+        };
+        broadcastEvent('telegram_updated', { action: 'config', config: maskedConfig, poller_running: poller.isPollerRunning() });
+        return sendJson(res, 200, { ok: true, config: maskedConfig, poller_running: poller.isPollerRunning() });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/telegram/test') {
+      const now = Date.now();
+      if (now - lastTelegramPingTime < 3000) {
+        return sendJson(res, 429, { ok: false, error: 'Rate limit: Please wait 3 seconds between test pings' });
+      }
+      lastTelegramPingTime = now;
+      try {
+        const tgNotifier = require('./telegram/notifier');
+        const body = await parseBody(req).catch(() => ({}));
+        const result = await tgNotifier.sendTestPing(body.chat_id || null, body.bot_token || null);
+        return sendJson(res, 200, result);
+      } catch (err) {
+        return sendJson(res, 500, { ok: false, error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/telegram/enable') {
+      try {
+        const tgConfig = require('./telegram/config');
+        const poller = require('./telegram/poller');
+        tgConfig.setTelegramEnabled(true);
+        const cfg = tgConfig.getTelegramConfig();
+        if (cfg.mode === 'two_way' && cfg.bot_token) {
+          poller.stopPoller();
+          poller.startPoller();
+        }
+        broadcastEvent('telegram_updated', { action: 'enable', poller_running: poller.isPollerRunning() });
+        return sendJson(res, 200, { ok: true, enabled: 1, poller_running: poller.isPollerRunning() });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/telegram/disable') {
+      try {
+        const tgConfig = require('./telegram/config');
+        const poller = require('./telegram/poller');
+        tgConfig.setTelegramEnabled(false);
+        poller.stopPoller();
+        broadcastEvent('telegram_updated', { action: 'disable' });
+        return sendJson(res, 200, { ok: true, enabled: 0 });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // ── Public Ingress Tunnel Endpoints ─────────────────────────────────────────
+
+    if (method === 'GET' && pathname === '/api/v1/tunnel/status') {
+      try {
+        const tunnelMgr = require('./tunnel/manager');
+        const tunnelCfg = require('./tunnel/config');
+        const status = tunnelMgr.getTunnelStatus();
+        const cfg = tunnelCfg.getTunnelConfig();
+        const maskedToken = cfg.token ? `${cfg.token.slice(0, 8)}...` : '';
+        const safeCfg = {
+          ...cfg,
+          token: maskedToken,
+          token_masked: maskedToken,
+          has_token: !!cfg.token,
+          auth_pin: cfg.auth_pin ? '******' : '',
+          has_pin: !!cfg.auth_pin
+        };
+        return sendJson(res, 200, {
+          ok: true,
+          ...status,
+          config: safeCfg,
+          token: maskedToken,
+          token_masked: maskedToken,
+          has_token: !!cfg.token,
+          has_pin: !!cfg.auth_pin
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/tunnel/start') {
+      try {
+        const tunnelMgr = require('./tunnel/manager');
+        const body = await parseBody(req).catch(() => ({}));
+        const result = await tunnelMgr.startTunnel(body);
+        broadcastEvent('tunnel_updated', { action: 'start', status: result });
+        return sendJson(res, 200, { ok: true, status: result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/tunnel/stop') {
+      try {
+        const tunnelMgr = require('./tunnel/manager');
+        const result = tunnelMgr.stopTunnel();
+        broadcastEvent('tunnel_updated', { action: 'stop', status: result });
+        return sendJson(res, 200, { ok: true, status: result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/tunnel/config') {
+      try {
+        const tunnelCfg = require('./tunnel/config');
+        const body = await parseBody(req);
+        const updated = tunnelCfg.saveTunnelConfig(body);
+        const maskedToken = updated.token ? `${updated.token.slice(0, 8)}...` : '';
+        const maskedConfig = {
+          ...updated,
+          token: maskedToken,
+          token_masked: maskedToken,
+          has_token: !!updated.token,
+          auth_pin: updated.auth_pin ? '******' : '',
+          has_pin: !!updated.auth_pin
+        };
+        broadcastEvent('tunnel_updated', { action: 'config', config: maskedConfig });
+        return sendJson(res, 200, { ok: true, config: maskedConfig });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // ── Unified Prompt Queue Endpoints ──────────────────────────────────────────
+
+    if (method === 'GET' && pathname === '/api/v1/queue/prompts') {
+      try {
+        const inbox = require('./queue/inbox');
+        const limit = parseInt(parsedUrl.searchParams.get('limit') || '20', 10);
+        const status = parsedUrl.searchParams.get('status') || null;
+        const prompts = inbox.listPrompts({ limit, status });
+        return sendJson(res, 200, { ok: true, prompts });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/queue/prompts') {
+      try {
+        const inbox = require('./queue/inbox');
+        const body = await parseBody(req);
+        if (!body.prompt || !String(body.prompt).trim()) {
+          return sendJson(res, 400, { error: 'Prompt text cannot be empty' });
+        }
+        const task = inbox.enqueuePrompt({
+          prompt: body.prompt,
+          source: body.source || 'web_ui',
+          sender_info: body.sender || 'web_dashboard',
+          session_id: body.session_id || 'default'
+        });
+        broadcastEvent('queue_updated', { action: 'enqueue', task });
+        return sendJson(res, 200, { ok: true, task });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     if (method === 'GET' && pathname === '/api/v1/events') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -1800,7 +2118,25 @@ function createWebServer(options = {}) {
     sessionToken,
     broadcastEvent,
     start: () => new Promise((resolve, reject) => {
-      server.listen(port, host, () => resolve({ port, host, token: sessionToken }));
+      server.listen(port, host, () => {
+        try {
+          const tgConfig = require('./telegram/config');
+          const poller = require('./telegram/poller');
+          const cfg = tgConfig.getTelegramConfig();
+          if (cfg.enabled && cfg.mode === 'two_way' && cfg.bot_token) {
+            poller.startPoller();
+          }
+        } catch (_) {
+          /* intentional fallback: poller start error should not block web server startup */
+        }
+        try {
+          const queueWorker = require('./queue/worker');
+          queueWorker.startWorker();
+        } catch (_) {
+          /* intentional fallback: queue worker start error should not block web server startup */
+        }
+        resolve({ port, host, token: sessionToken });
+      });
       server.on('error', reject);
     }),
     // Robust shutdown: server.close() alone never resolves while keep-alive
@@ -1810,6 +2146,18 @@ function createWebServer(options = {}) {
     // grace period so stop() always settles. Cross-platform: both helpers are
     // plain Node APIs (>= 18.2) and feature-detected.
     stop: () => new Promise(resolve => {
+      try {
+        const poller = require('./telegram/poller');
+        poller.stopPoller();
+      } catch (_) {
+        /* intentional fallback: poller stop error should not block server shutdown */
+      }
+      try {
+        const queueWorker = require('./queue/worker');
+        queueWorker.stopWorker();
+      } catch (_) {
+        /* intentional fallback: queue worker stop error should not block server shutdown */
+      }
       let settled = false;
       const done = () => { if (!settled) { settled = true; resolve(); } };
       server.close(done);

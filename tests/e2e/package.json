@@ -1,0 +1,5 @@
+{
+  "name": "konoha-e2e-tests",
+  "private": true,
+  "type": "module"
+}

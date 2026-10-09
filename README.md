@@ -2,6 +2,7 @@
   <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
+[![Release](https://img.shields.io/badge/Release-v2.1.17-blue.svg)](CHANGELOG.md)
 [![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=rocket&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
@@ -9,13 +10,21 @@
 [![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue)](README.md)
 [![Codex](https://img.shields.io/badge/Codex-CLI-purple)](README.md)
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange)](README.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20Tools-40%20Canonical-10b981)](README.md)
-[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
-[![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
+[![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
+[![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
+[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
+[![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
+[![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Zero%20Trust%20Tunnel-F38020?logo=cloudflare&logoColor=white)](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+[![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red)](README.md)
+[![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981)](README.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.1.17-blue)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+[![Tests](https://img.shields.io/badge/Tests-115%20Passing-brightgreen)](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
 ---
@@ -38,11 +47,11 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.16 (2026-10-08)](CHANGELOG.md) — Soul Engine integration across all 5 coding client trees, Anti-Slop workflow matrix in Soul doctrine and Web UI, universal i-have-adhd output standard, and complete telemetry synchronization.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.16 — Konoha v2.1.16 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.16_2026-10-08.md)
+* **Latest Release:** [v2.1.17 (2026-10-08)](CHANGELOG.md) — Dual-mode Telegram Bot integration, Cloudflare Zero Trust public ingress tunnel, unified prompt queue, and remote Web UI dashboard.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.17 — Konoha v2.1.17 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
 
 <details open>
-<summary><b>🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
+<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
 <br>
 
 <p align="center">
@@ -58,198 +67,95 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
   <img src="assets/demo-web.gif" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
 </p>
 </details>
+<br>
 
-<details open>
-<summary><b>📦 Skill Creation & Subagent Embedding Flow (<code>demo-skill-embed.gif</code>)</b></summary>
+<details>
+<summary><h2 style="display:inline">🔄 Konoha Workflow Preview</h2></summary>
+<br>
+
+<details>
+<summary><b>✧ Sannin Multi-Agent Orchestration & Task Routing Flow (<code>konoha-orchestration-flow.gif</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/demo-skill-embed.gif" alt="Konoha Skill Creation & Agent Embedding Demo" width="100%">
+  <img src="assets/konoha-orchestration-flow.gif" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>🧪 Full QA & Verification Suite (<code>testing.gif</code>)</b></summary>
+<summary><b>♦ Jonin + Taste-Skill Anti-Slop Frontend Engineering Flow (<code>konoha-jonin-flow.gif</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/testing.gif" alt="Konoha Test Suite QA Demo" width="100%">
+  <img src="assets/konoha-jonin-flow.gif" alt="Jonin Frontend Engineering Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>🥷 Real Coding Agent Client Demos (7 Clients)</b></summary>
+<summary><b>◎ Kage Reviewer 98% Minimum Confidence & Zero-AI-Slop Delivery Gate (<code>konoha-kage-gate.gif</code>)</b></summary>
 <br>
 
-<details>
-<summary><b>🟣 Antigravity CLI Prompting & Delegation (<code>demo-agy.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-agy.gif" alt="Antigravity CLI Demo" width="100%">
+<p align="center">
+  <img src="assets/konoha-kage-gate.gif" alt="Kage Reviewer Confidence Gate Flow" width="100%">
+</p>
 </details>
 
 <details>
-<summary><b>💻 Command Code Prompting & Delegation (<code>demo-commandcode.gif</code>)</b></summary>
+<summary><b>🧪 Token-Efficient QA Automation & Playwright E2E Self-Healing (<code>konoha-qa-flow.gif</code>)</b></summary>
 <br>
-<img src="assets/demo-commandcode.gif" alt="Command Code Demo" width="100%">
+
+<p align="center">
+  <img src="assets/konoha-qa-flow.gif" alt="QA Automation E2E Verification Flow" width="100%">
+</p>
 </details>
 
 <details>
-<summary><b>🤖 OpenAI Codex CLI Prompting & Delegation (<code>demo-codex.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-codex.gif" alt="Codex CLI Demo" width="100%">
-</details>
-
-<details>
-<summary><b>🟩 OpenCode IDE Prompting & Delegation (<code>demo-opencode.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-opencode.gif" alt="OpenCode IDE Demo" width="100%">
-</details>
-
-<details>
-<summary><b>🟠 Claude Code Prompting & Delegation (<code>demo-claude.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-claude.gif" alt="Claude Code Demo" width="100%">
-</details>
-
-<details>
-<summary><b>⚡ Cursor Agent Prompting & Delegation (<code>demo-cursor.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-cursor.gif" alt="Cursor Agent Demo" width="100%">
-</details>
-
-<details>
-<summary><b>🥧 Pi Coding Agent (pi.dev) Prompting & Delegation (<code>demo-pi.gif</code>)</b></summary>
-<br>
-<img src="assets/demo-pi.gif" alt="Pi Coding Agent Demo" width="100%">
-</details>
-
-</details>
-
-<details>
-<summary><b>📸 CLI Command Screenshots & Dashboards (15 Images)</b></summary>
+<summary><b>📱 Dual-Mode Telegram Bot & Cloudflare Tunnel Remote Ingress Flow (<code>konoha-telegram-flow.gif</code>)</b></summary>
 <br>
 
-<details>
-<summary><b>📊 Database & Village Status (<code>konoha status</code>)</b></summary>
-<br>
-<img src="assets/konoha-status.png" alt="konoha status" width="100%">
+<p align="center">
+  <img src="assets/konoha-telegram-flow.gif" alt="Telegram Bot & Cloudflare Tunnel Ingress Flow" width="100%">
+</p>
+</details>
 </details>
 
-<details>
-<summary><b>🥷 Subagent Team Telemetry (<code>konoha agent status</code>)</b></summary>
-<br>
-<img src="assets/konoha-agent-status.png" alt="konoha agent status" width="100%">
-</details>
+---
 
-<details>
-<summary><b>📜 Installed Skills Registry (<code>konoha skill list</code>)</b></summary>
-<br>
-<img src="assets/konoha-skill-list.png" alt="konoha skill list" width="100%">
-</details>
+## 🌟 Master Architectural Feature Matrix
 
-<details>
-<summary><b>📈 Token Savings Dashboard (<code>konoha savings</code>)</b></summary>
-<br>
-<img src="assets/konoha-savings.png" alt="konoha savings" width="100%">
-</details>
-
-<details>
-<summary><b>❓ CLI Educational Help Menu (<code>konoha help</code>)</b></summary>
-<br>
-<img src="assets/konoha-help.png" alt="konoha help" width="100%">
-</details>
-
-<details>
-<summary><b>🚀 First-Time Interactive Init (<code>konoha init</code>)</b></summary>
-<br>
-<img src="assets/konoha-init.png" alt="konoha init" width="100%">
-</details>
-
-<details>
-<summary><b>🔄 Skills Database Migration & FTS5 Re-index (<code>konoha migrate</code>)</b></summary>
-<br>
-<img src="assets/konoha-migrate.png" alt="konoha migrate" width="100%">
-</details>
-
-<details>
-<summary><b>🧪 Verification Tests & Feature Suite (<code>konoha test</code>)</b></summary>
-<br>
-<img src="assets/konoha-test.png" alt="konoha test" width="100%">
-</details>
-
-<details>
-<summary><b>✨ Version & GitHub Release Sync (<code>konoha version</code>)</b></summary>
-<br>
-<img src="assets/konoha-version.png" alt="konoha version" width="100%">
-</details>
-
-<details>
-<summary><b>🔄 CLI Auto-Upgrade (<code>konoha upgrade</code>)</b></summary>
-<br>
-
-Konoha features an interactive, real-time terminal Progress Bar (`KonohaProgressBar`) providing live visual progress through a 7-stage upgrade pipeline with active elapsed timers and milestone verification:
-
-```text
-🔄 Upgrading Konoha
-════════════════════════════════════════════════════════════
-  Preparing to upgrade Konoha to the latest version...
-
-  ✓ Package manager ready: pnpm
-  ✓ Latest Konoha release installed from npm registry (konoha-mcp) via pnpm
-  [████████████████░░░░░░░░░░░░]  57%  [Stage 5/7] Skills Index: Seeding subagent skills into SQLite FTS5 database
-  ✓ Subagent skills and references seeded to SQLite FTS5
-  [████████████████████░░░░░░░░]  71%  [Stage 6/7] MCP Clients: Configuring Cursor, Claude Code, OpenCode, Command Code, Codex, Pi
-  ✓ All 7 agentic IDE/CLI client configurations synchronized
-  [████████████████████████░░░░]  86%  [Stage 7/7] Verifying Konoha Bridge extension and browser CLI...
-  ✓ Konoha Bridge extension & browser tools verified
-  [████████████████████████████] 100%  Konoha has been successfully upgraded to the latest version!
-  ✓ Konoha has been successfully upgraded to the latest version!
-```
-
-<img src="assets/konoha-upgrade.png" alt="konoha upgrade" width="100%">
-
-Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive fallback chain — full migration → retry with `--skip-embeddings` → `--skills-only` (seeding `SKILL.md` entries only) — and the migration loop itself honors a `KONOHA_MIGRATE_TIME_BUDGET` (default 150s) that defers non-required skills gracefully. Upgrades and fresh installs never fail from a slow migration; deferred references complete on the next `konoha migrate` or via on-demand indexing.
-
-> **🛡️ Strict Non-Destructive Preservation Invariant (v2.0.2)**: Upgrades (`konoha upgrade`) and fresh installations (`konoha init`) are strictly non-destructive. Pre-existing user skills in all 7 client skill directories are never pruned or removed (`copySkillsDirFast` additive sync only). `konoha.db` retains all existing skills via additive upserts (`INSERT OR REPLACE`), instruction configurations (`GEMINI.md`, `AGENTS.md`, `CODEX.md`, `instructions.md`) inject Konoha directives within managed boundary tags (`<!-- KONOHA-START -->...<!-- KONOHA-END -->`) preserving 100% of user custom rules and prompts, and `agents.yaml` merges default ninja personas while keeping custom user agents completely intact.
-</details>
-
-<details>
-<summary><b>📁 Persistent Workspaces & Invariants (<code>konoha project</code>)</b></summary>
-<br>
-<img src="assets/konoha-project.png" alt="konoha project" width="100%">
-</details>
-
-<details>
-<summary><b>🧠 SQLite Sessions & Memory Storage (<code>konoha data</code>)</b></summary>
-<br>
-<img src="assets/konoha-data.png" alt="konoha data" width="100%">
-</details>
-
-<details>
-<summary><b>🩺 Cross-Client Diagnostics & Self-Healing (<code>konoha doctor</code>)</b></summary>
-<br>
-<img src="assets/konoha-doctor.png" alt="konoha doctor" width="100%">
-</details>
-
-<details>
-<summary><b>🌉 Local LLM Bridge Router Gateway (<code>konoha bridge</code>)</b></summary>
-<br>
-<img src="assets/konoha-bridge.png" alt="konoha bridge" width="100%">
-</details>
-
-<details>
-<summary><b>🌉 Bridge-Served Models (<code>konoha bridge models</code>) & Subagent Model Config (<code>konoha agent models config</code>)</b></summary>
-<br>
-<img src="assets/konoha-models.png" alt="konoha bridge models" width="100%">
-</details>
-
-<details>
-<summary><b>🗑️ Safe Uninstaller (<code>konoha uninstall</code>)</b></summary>
-<br>
-<img src="assets/konoha-uninstall.png" alt="konoha uninstall" width="100%">
-</details>
-
-</details>
+| Category | Capability / Feature | Subsystem / Engine | Key Invariant & Contract | Status |
+|:---|:---|:---|:---|:---:|
+| **Orchestration & Personas** | **✧ Sannin Router** | `src/mcp/tool_dispatch.js` | Top-level triage, domain routing, zero inline implementation | ✅ `ACTIVE` |
+| | **⚑ Genin Scout** | `genin-skill` | Read-only symbol search, codepath tracing, zero file mutations | ✅ `ACTIVE` |
+| | **◎ Kage Governor** | `kage-skill` | Architecture decisions, security auditing, 98% Confidence Gate | ✅ `ACTIVE` |
+| | **♦ Jonin Builder** | `jonin-skill` | Taste-Skill UI across Next.js, Nuxt, SvelteKit, Angular | ✅ `ACTIVE` |
+| | **♠ Anbu Black Ops** | `anbu-skill` | Backend dev, bug fixes, DevOps, 817 offensive security skills | ✅ `ACTIVE` |
+| | **▫ Chunin Intel** | `chunin-skill` | Zero-API-key web research (SearXNG + Wikipedia OpenSearch) | ✅ `ACTIVE` |
+| | **⬡ Tokubetsu-Jonin** | `tokubetsu-jonin-skill` | Technical documentation, API specs, runbooks, README sync | ✅ `ACTIVE` |
+| **Token & Context Optimization** | **Bounded File I/O** | `src/file_tools_router.js` | `read_file_range`, `read_file_head` (50–100 line caps, 83–98% savings) | ✅ `ACTIVE` |
+| | **Semantic Code Search** | `semble` MCP | Vector embeddings & line spans replace full repository dumps | ✅ `ACTIVE` |
+| | **Shell Output Compaction** | `rtk` (Rust Token Killer) | Global CLI proxy compresses noisy command outputs (60–95% savings) | ✅ `ACTIVE` |
+| | **Auto-Compaction** | `src/mcp/runtime_state.js` | Automatic badge compaction on turn ≥ 2 (preserves tech stack) | ✅ `ACTIVE` |
+| | **Hybrid Vector RAG** | `src/vector_search.js` | IBM Granite multilingual + MS MARCO MiniLM neural reranker | ✅ `ACTIVE` |
+| **SDLC Quality Gates** | **Definition-of-Readiness (DoR)** | `src/sdlc_dor.js` | Enforced/advisory check blocks unready, ambiguous prompts | ✅ `ACTIVE` |
+| | **Two-Step Zero-AI-Slop Gate** | `aislop_scan` + `anti_slop` | Mechanically requires 100/100 scan & 0 findings before synthesis | ✅ `ACTIVE` |
+| | **Kage Confidence Gate** | `src/workflow_gates.js` | Strict ≥ 98% verification score required across all categories | ✅ `ACTIVE` |
+| | **Supply-Chain Security Gate** | Socket CLI (`socket ci`) | Mechanical blocker on High/Medium dependency vulnerabilities | ✅ `ACTIVE` |
+| | **Autonomous Remediation Loop**| `src/sdlc_remediation.js` | Bounded circuit breaker (7 cycles) for auto-fixing slop findings | ✅ `ACTIVE` |
+| **Frontend & UI Engine** | **Taste-Skill v2 Dials** | `Leonxlnx/taste-skill` | `DESIGN_VARIANCE`, `MOTION_INTENSITY`, `VISUAL_DENSITY` | ✅ `ACTIVE` |
+| | **4 Supported Frameworks** | `src/mcp/build_spec.js` | Official CLI scaffolding: Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+ | ✅ `ACTIVE` |
+| | **10 Light-Mode Themes** | `apps/web/src/` | Pure light-mode first class; floating bottom-left theme popup | ✅ `ACTIVE` |
+| | **Image Mockup Replication** | `build_from_source` | 100% exact layout, spacing, typography, and asset replication | ✅ `ACTIVE` |
+| | **AI-Website Fingerprint Detector**| `src/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
+| **Remote Operations & Mobile** | **Cloudflare Zero Trust Ingress**| `src/tunnel/` | Out-of-band tunnel (`/remote`) with Edge PIN & Cloudflare Access | ✅ `ACTIVE` |
+| | **1-Way Gate Telegram Alerts** | `src/telegram/` | Real-time task deliverable & audit dispatch upon Kage pass | ✅ `ACTIVE` |
+| | **2-Way Remote Prompting Bot** | `src/telegram/` | Inbound mobile commands (`/run`, `/sh`, `/session`, `/status`) | ✅ `ACTIVE` |
+| | **Persistent Prompt Queue** | `src/queue/` | SQLite atomic state machine (`pending` -> `processing` -> `completed`) | ✅ `ACTIVE` |
+| **Security & Cryptography** | **AES-256-GCM Crypto Vault** | `src/crypto_vault.js` | AEAD authenticated encryption at rest for tokens & credentials | ✅ `ACTIVE` |
+| | **PBKDF2 Key Derivation** | `src/crypto_vault.js` | 100,000 SHA-256 iterations with host-fingerprint salt | ✅ `ACTIVE` |
+| | **Zero Plaintext Secrets Invariant**| Whole repo | Automatic masking (`12345***:***abcd`) across APIs, logs, and TUI | ✅ `ACTIVE` |
+| | **Offensive Red-Teaming Skills** | `anbu-skill` | 817 Anthropic cybersecurity skills & MITRE ATT&CK techniques | ✅ `ACTIVE` |
+| **Cross-Client Ecosystem** | **7 Supported Coding Clients** | `src/client_detection.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi | ✅ `ACTIVE` |
 
 ---
 
@@ -267,26 +173,22 @@ Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive f
 * [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 * [System Architecture](docs/ARCHITECTURE.md)
 
-## ⚠️ The Problem
+## ⚠️ The Problem & 💡 The Solution
 
+### Architectural Comparison: The Vibe Coding Dilemma vs. Autonomous Agentic Rigor
 
-| Component | Size | Context Overhead |
-|:---|:---:|:---|
-| `SKILL.md` Files (×5) | ~72 KB | Core agent instructions |
-| Reference Guides (×88) | ~478 KB | API documentation, guides |
-| Helper Scripts (×23) | ~547 KB | Utility code, automation |
-| **Total Startup Payload** | **~1.1 MB** | **~800,000+ API tokens** |
-
-> [!WARNING]
-> This "disk-dump" approach wastes tokens on content that is irrelevant to the current task, inflates API usage bills, increases latency, and risks hitting LLM context window limits.
-
-## 💡 The Solution
-
-**Konoha** establishes a high-performance local SQLite FTS5 Model Context Protocol (MCP) server that:
-
-1. **Indexes** all skill content (`SKILL.md` + references + scripts) into a full-text search database.
-2. **Serves on-demand** — agents invoke `find_skill("keyword")` to retrieve only the matching ~4 KB content block.
-3. **Optimizes context** — replaces the redundant "load SKILL.md → parse router → load reference" chain.
+| Developer Challenge & Problem | Traditional / Naive Approach | Konoha Enterprise Solution | Key Impact & Metric |
+|:---|:---|:---|:---|
+| **Vibe Coder Career Dilemma**<br>*(Newbi Vibe Coder is confused about how to reach the higher level in this AI era so konoha appear as solution for one shot setup)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **One-Shot Setup (`konoha init --force`)**: Turnkey initialization instantly provisioning 7 specialized ninja subagents, 1,027 domain skills, and 40 canonical MCP tools across 7 major IDEs/clients with zero manual glue code. | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
+| **Context Window Flooding & High API Costs** | Dumping entire skill trees, unindexed files, and massive prompt boilerplates at startup (~1.1 MB payload / 800,000+ tokens). | **On-Demand SQLite FTS5 Indexing & Bounded File I/O**: `find_skill` and bounded file operations slice context to exact 50–100 line spans. | **83%–98% token reduction**; sub-millisecond retrieval (0.61 ms); eliminates context bloat and LLM amnesia. |
+| **Terminal Output Noise & Shell Explosion** | Build tools, test runners, and linters dump hundreds of noisy progress bars and logs directly into model context. | **RTK (Rust Token Killer) Global CLI Proxy**: Transparently intercepts terminal commands, compresses noisy outputs, and preserves critical error signals. | **60%–95% terminal output compression**; saves thousands of tokens per command execution. |
+| **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, center-aligned hero clutter, broken mobile layouts, and excessive emoji decor. | **Jonin + Taste-Skill v2 Anti-Slop Frontend Engine**: Strict typography standards (Geist, Cabinet Grotesk), bento CSS grids, 10 light-mode gradient themes, bottom mobile dock, and zero emoji policy. | **100/100 `aislop` scan compliance**; production-grade, human-crafted aesthetic fidelity. |
+| **Hallucinated Passes & Broken Builds** | Agents claiming tasks are complete without running tests, silently introducing type regressions and breaking dependencies. | **Kage Reviewer 98% Minimum Confidence Gate & Playwright QA**: Two-step Zero-AI-Slop gate (`aislop_scan` + anti-slop rules), automated E2E test generation (`qa_codify` / `qa_e2e_run`), and strict rejection below 98% confidence. | Mechanical delivery gate; **≥ 98% confidence invariant** across architecture, tests, and security. |
+| **Mobile & Remote Workflow Disconnection** | Developers chained to their desks; inability to monitor, review, or trigger agent runs remotely; local servers trapped behind NATs. | **Dual-Mode Telegram Bot & Cloudflare Tunnel**: Full remote control over mobile with two-way conversational prompting and one-way post-Kage completion notifications, secured by Cloudflare Zero Trust public ingress. | Anywhere, anytime autonomous agent interaction with real-time push alerts. |
+| **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens, bot tokens, and tunnel credentials in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & Cloudflare secrets. |
+| **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu Black Ops**: Integrated MITRE ATT&CK techniques, penetration testing, exploit analysis, container hardening, and enterprise defense capabilities in dev/local environments. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
+| **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (`delegate.md`/`result.md`), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
+| **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 7 premier AI coding environments. |
 
 > [!TIP]
 > **Optimization Result**: Konoha and Semble retrieve bounded, task-relevant context instead of full skill trees. See [BENCHMARK.md](docs/BENCHMARK.md) for historical snapshots and reproducible `konoha savings` output; latency and cost reductions are environment-dependent and are not guaranteed.
@@ -297,12 +199,20 @@ Stage 5 (skills indexing) is timeout-proof: it escalates through a progressive f
 For a detailed breakdown of Konoha's internal mechanics, including system layers, data flows, and query lifecycle sequence diagrams, please see the [System Architecture Guide](docs/ARCHITECTURE.md).
 
 
-### 🚀 Direct Structured MCP Delegation & Zero-Loop Reporting
+<details>
+<summary><b>🚀 Direct Structured MCP Delegation & Zero-Loop Reporting</b></summary>
+<br>
+
 Konoha subagents execute inline via direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`) or specialized aliases (`delegate_to_jonin`, `delegate_to_anbu`, `delegate_to_kage`, etc.):
 - **Eliminates Scratch Loops**: Replaces multi-step disk file reading (`delegate.md` and `result.md`) with direct in-memory structured context passing.
 - **Auto-Checkpointing (`report_from_agent`)**: Automatically distills key architectural learnings and records them into persistent project memory upon task completion.
 
-### 🎨 Jonin + Taste-Skill Anti-Slop Frontend Engine (tasteskill.dev)
+</details>
+
+<details>
+<summary><b>🎨 Jonin + Taste-Skill Anti-Slop Frontend Engine (tasteskill.dev)</b></summary>
+<br>
+
 Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leonxlnx/taste-skill`) design directives:
 - **Deterministic High-End Typography**: Enforces Geist, Cabinet Grotesk, Outfit, Satoshi, and Clash Display. Generic Inter defaults are forbidden.
 - **Cinematic Chapter Pacing**: Enforces generous vertical section rhythm (`py-24`, `py-32`, or `py-48`).
@@ -315,24 +225,38 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
   <img src="assets/konoha-jonin-flow.gif" alt="Jonin Premium UI Build Pipeline" width="100%" />
 </p>
 
-### 🏢 Persistent Project-Level Context & Memory (Zero Hallucination)
+</details>
+
+<details>
+<summary><b>🏢 Persistent Project-Level Context & Memory (Zero Hallucination)</b></summary>
+<br>
+
 - **Workspace Stack Profiler**: Automatically detects frameworks (Next.js, SvelteKit, Nuxt 3, Angular), styling engines (Tailwind v4, CSS Modules), and package managers (`pnpm`).
 - **Project-Scoped Memory**: Persists architectural invariants, rules, and episodic learnings per repository workspace in SQLite (`~/.konoha/konoha.db`).
 - **Zero Session Amnesia**: Context and invariants are preserved and automatically injected across consecutive sessions.
 - **CLI Commands**: `konoha project context`, `konoha project list`, `konoha project add`, `konoha project memory`.
 
-### 🧠 Hybrid Vector Search & Multilingual Retrieval (IBM Granite + MS MARCO MiniLM Neural Reranker)
+</details>
+
+<details>
+<summary><b>🧠 Hybrid Vector Search & Multilingual Retrieval (IBM Granite + MS MARCO MiniLM Neural Reranker)</b></summary>
+<br>
+
 Konoha integrates hybrid semantic retrieval combining **SQLite FTS5 BM25**, **IBM Granite 97M Multilingual Embeddings (ONNX)**, and **MS MARCO MiniLM Neural Cross-Encoder Reranker**:
 - **Offline Bundled Models**: Both embedding and neural reranker models are pre-bundled directly in `assets/models/` (<100 MB each), enabling 100% offline installs and zero-download instant execution.
 - **Dual-Stage Reranking & RAG Retrieval**: Combines sub-millisecond Reciprocal Rank Fusion (RRF, k=60) for candidate ranking with neural cross-encoder passage reranking (`searchChunksRAG()`) for high-precision RAG context retrieval.
 - **Cross-Lingual Recall**: Queries in multilingual text retrieve the relevant skill documentation with **97.5% Recall@5** and **0.885 MRR@5**.
 - **Zero-Config Default & Opt-in Semantic Search**: By default, Konoha runs zero-config with ultra-fast SQLite FTS5. Semantic search and neural reranking are optionally enabled via `KONOHA_SEMANTIC_SEARCH=1`.
-- **Graceful Fallback**: If models are unavailable or semantic search is toggled off, retrieval falls back to FTS5 / LIKE search without crashing.
+- **Graceful Fallback**: If models are unavailable, semantic search is toggled off, or the host SQLite binary lacks compiled FTS5 (e.g. Windows), retrieval seamlessly falls back to FTS5 / LIKE search without crashing.
 - **4-Tier Embedding Feature Deduplication**: Markdown heading-aware chunk hashing, in-memory `_EMBED_CACHE` (512 entries), database-level binary blob reuse across skills, and candidate nearest-chunk deduplication.
 - **Persistent Persona & Project Memory**: Idempotent memory storage preventing duplicate SQLite rows, zero-hallucination factual extraction, and auto-compact turn-based prompt badges (< 120 tokens on turn >= 2).
 - **Cross-Platform `agent-browser` Lifecycle**: Automated multi-package-manager detection and self-healing doctor auto-repair across Windows (`agent-browser.cmd`), Linux, and macOS.
 
-### Workflow: Forced MCP Delegation
+</details>
+
+<details>
+<summary><b>🔄 Workflow: Forced MCP Delegation & Subagent Routing</b></summary>
+<br>
 
 All non-trivial work on a Konoha-configured host **MUST** flow through the Konoha MCP and Semble MCP tools and be delegated to a konoha subagent — never executed solo by the main orchestrator.
 
@@ -351,6 +275,8 @@ All non-trivial work on a Konoha-configured host **MUST** flow through the Konoh
   - `@tokubetsu-jonin` — technical writing, docs, runbooks, READMEs
 
 **The main orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates.** Trivial edits on a known file may run inline; everything else routes through a subagent.
+
+</details>
 
 ---
 
@@ -428,7 +354,34 @@ flowchart TB
 ### Why Konoha Uses the MCP Tools Orchestrator Model
 
 1. 🚀 **Zero Process Cold-Start**: Subagents execute in-flight as standard MCP tools without waiting for multi-second process initialization.
+2. 💡 **Direct Structured Context**: Passes tasks, constraints, skills, and taste dials in-memory via MCP tool arguments without filesystem disk-thrashing loops.
 3. 🛡️ **Seamless Conversation Resumption**: Re-evaluates state and enforces subagent delegation workflow on every resume or multi-turn request.
+
+### 🔄 Structured Delegation and Legacy Task Fallback
+
+Konoha passes `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` directly to subagent MCP tools. Hosts that cannot send structured arguments may use isolated legacy artifacts:
+
+| Path | Purpose |
+|------|---------|
+| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/delegate.md` | Legacy task instructions only |
+| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/result.md` | Legacy result exchange only |
+
+Structured reports use `report_from_agent` to return summaries, changed files, and project-scoped learnings. Legacy task directories remain outside the project workspace and are cleaned after use.
+
+### Skill Resolution
+
+When a subagent runs, `run_mcp_agent` resolves skills in three layers:
+
+1. **Exact match** — `agents.skills` (per-agent YAML) is queried against `skills.skill_name` and `references.name`.
+2. **Fuzzy match** — if a skill name has no exact hit, Levenshtein distance ≤ 3 finds close names. Example: `devsecops-enginer` → `devsecops-engineer`.
+3. **Prompt-driven autoload** — when the agent's `skills` list is empty, the prompt is tokenized and matched against `skill_name` + the first 200 chars of each skill's content. The top 3 token-coverage matches are auto-loaded and embedded into the agent instructions.
+
+The mismatch is reported on stderr (`fuzzy-resolved skill 'x' -> 'y'`) so the orchestrator can spot recurring typos and update the YAML.
+
+### Workspace Hygiene
+
+Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/mcp/runtime_state.js` and covered by `tests/test_scratch_path.js`.
+
 
 ---
 
@@ -509,6 +462,9 @@ konoha status
 - **Node.js** ≥ 22.16.0 (via nvm, Homebrew, or system package; pure Node.js runtime with built-in `node:sqlite` + FTS5, zero Python dependency)
 - **Agent skills** in `~/.agents/skills/` (with `SKILL.md` files); Konoha indexes and serves skill content through SQLite FTS5 without filesystem mirrors
 - **Cross-platform**: Linux, macOS, Windows (native and WSL)
+<details>
+<summary><h2 style="display:inline">🛠️ CLI Commands & Hard Guardrail Enforcement (v2.0.0) Reference</h2></summary>
+<br>
 
 ## 🛠️ CLI Commands
 
@@ -528,7 +484,7 @@ Once installed, the following CLI commands are available:
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
-| `konoha version` | Display current local version (2.1.16) and check for updates from npm registry |
+| `konoha version` | Display current local version (2.1.17) and check for updates from npm registry |
 | `konoha upgrade` | Upgrade Konoha CLI to latest release with interactive real-time Progress Bar (`--yes` for headless); also re-reconciles the global `konoha` command shim |
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
@@ -545,6 +501,9 @@ Once installed, the following CLI commands are available:
 | `konoha project set dor-mode <advisory\|enforced>` | Configure project Definition-of-Readiness gate mode |
 | `konoha project set review-mode <self\|cross-provider>` | Configure project review independence mode |
 | `konoha bridge <subcommand>` | Manage Konoha Bridge Router (`status`, `list`, `models`, `create`, `delete`, `enable`, `disable`) |
+| `konoha telegram <subcommand>` | Dual-mode Telegram Bot manager (`status`, `config`, `test`, `enable`, `disable`, `start-poller`, `stop-poller`, `notify-kage`, `test-gate`) |
+| `konoha tunnel <subcommand>` | Cloudflare Zero Trust Ingress tunnel manager (`status`, `start`, `stop`, `config`) |
+| `konoha queue <subcommand>` | Unified Inbound Prompt Queue manager (`list`, `enqueue`, `cancel`, `complete`, `status`) |
 | `konoha help` | Show help |
 
 ## 🔄 8-Phase Multi-Agent Workflow Engine
@@ -646,6 +605,39 @@ flowchart TD
 ```
 
 </details>
+
+## 📱 Remote Access & Dual-Mode Telegram Automation
+
+> **Canonical editable diagrams:** [14 Remote Access & Telegram Inbound/Outbound](docs/diagrams/konoha-architecture.drawio) · [15 Cloudflare Zero Trust Ingress & Prompt Queue](docs/diagrams/konoha-architecture.drawio)  
+> **Dedicated Guides:** [Telegram Integration Guide](docs/TELEGRAM_INTEGRATION_GUIDE.md) · [Cloudflare Tunnel Guide](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
+
+Konoha features an autonomous **Remote Access & Telegram Automation Engine** that enables remote interaction, task dispatch, and real-time execution reporting directly from your mobile device or chat client without opening inbound firewall ports:
+
+<p align="center">
+  <img src="assets/konoha-telegram-flow.gif" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
+</p>
+
+### 1. Dual-Mode Telegram Bot Engine (`src/telegram/`)
+- **One-Way Notification Mode**: Automatically delivers structured task completion reports, execution duration, token reduction telemetry (83%-98%), and Kage Reviewer confidence scores over outbound HTTPS (`getUpdates` & `sendMessage`). When prompting locally on a workstation (laptop, terminal, IDE), any session passing Kage Final Gate Review (`APPROVED` with 100/100 score and ≥98% confidence) immediately dispatches an outbound Telegram notification to keep the developer updated remotely.
+- **Two-Way Remote Prompting Mode**: Accepts commands directly from Telegram:
+  - `/session [number]` — View and switch active target client sessions across Antigravity, Claude Code, Codex, Pi, OpenCode, and Command Code.
+  - `/session create <client> <path>` — Register and immediately target a remote project directory.
+  - `/sh <cmd>` — Execute shell commands directly in the active target workspace via interactive shell (`bash -i -c`) with full support for `~/.bashrc` aliases (`kubectl`, `kc*`, `helm`, etc.) and security guardrails (`isDangerousCommand` blocking destructive patterns).
+  - `/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu-jonin`, `/sannin` — Direct subagent dispatch bypassing general triage.
+  - `/run <prompt>` or plain text — Enqueue coding tasks into the unified prompt inbox.
+  - `/status`, `/savings`, `/cancel`, `/help` — Live daemon telemetry, token savings metrics, and queue cancellation.
+- **Strict Security Invariant**: Enforces a strict numeric `chat_id` whitelist (`telegram_config.chat_id`) dropping unauthorized messages immediately.
+- **Zero Emojis Standard**: All notifications use clean bracketed tags (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[QUEUED]`, `[KAGE REVIEW GATE PASSED]`).
+
+### 2. Cloudflare Zero Trust Ingress Tunnel (`src/tunnel/`)
+- **Zero Inbound Ports**: Background supervisor managing `cloudflared` (or `ngrok`) targeting Web UI port `1404` with automated binary provisioning and live URL detection (`trycloudflare.com` or custom domains).
+- **Mode A: Cloudflare Zero Trust Edge Authentication**: Validates Cloudflare Access identity headers (`Cf-Access-Authenticated-User-Email`) with zero in-app PIN friction while maintaining unauthenticated local access on `localhost:1404`.
+
+### 3. Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)
+- **Atomic SQLite State Machine**: Table `prompt_queue` tracks atomic prompt states (`pending` -> `processing` -> `completed` / `failed` / `cancelled`) with filesystem session mirroring (`~/.konoha/inbox/<session>.json`).
+- **Autonomous Queue Worker (`src/queue/worker.js`)**:
+  - **Operational Branch (0 LLM Tokens)**: Deterministic shell commands (`kubectl`, `helm`, `docker`, `git`, `ssh`, `/sh`, etc.) execute via interactive shell (`bash -i -c`) with 100% token elimination.
+  - **Autonomous AI Coding Branch**: Natural language and complex coding tasks execute via headless `agy -p ...` with structured task telemetry and Kage Reviewer confidence reporting.
 
 ## 🛰️ Cross-Platform Install
 
@@ -1005,11 +997,11 @@ The destructive-command, git-safety, secret-protection, and MCP read-bypass guar
 
 Blocked command categories: **destructive** (`rm -rf /`, `mkfs`, `dd of=/dev/…`, `DROP DATABASE`, `chmod 777`, recursive `chown`, `curl | sh`), **destructive-git** (`git reset --hard`, `git push --force`, `git clean -f`, `git checkout -- .`, `git rebase -i`), **secrets** (`.env*`, `secrets.yaml`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa`, `credentials` — never `rtk`-exempt), and **read-bypass** (bare `cat`/`grep`/`find`/`rg`/… — retry with `rtk <command>` or use the konoha/semble MCP tools).
 
+</details>
+
 ---
 
-##
-
-### 📊 Benchmark: Token Footprint & Optimization
+## 📊 Benchmark: Token Footprint & Optimization
 
 The following charts demonstrate the context footprint savings per conversation session achieved by moving from full-disk loading to SQLite FTS5 on-demand retrieval:
 
@@ -1092,31 +1084,6 @@ flowchart TB
 
 > [!TIP]
 > Read the complete auto-generated [Token Savings & Optimization Benchmark Report](docs/BENCHMARK.md) for full metrics breakdown and analysis.
-
-### 🔄 Structured Delegation and Legacy Task Fallback
-
-Konoha passes `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` directly to subagent MCP tools. Hosts that cannot send structured arguments may use isolated legacy artifacts:
-
-| Path | Purpose |
-|------|---------|
-| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/delegate.md` | Legacy task instructions only |
-| `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/result.md` | Legacy result exchange only |
-
-Structured reports use `report_from_agent` to return summaries, changed files, and project-scoped learnings. Legacy task directories remain outside the project workspace and are cleaned after use.
-
-### Skill Resolution
-
-When a subagent runs, `run_mcp_agent` resolves skills in three layers:
-
-1. **Exact match** — `agents.skills` (per-agent YAML) is queried against `skills.skill_name` and `references.name`.
-2. **Fuzzy match** — if a skill name has no exact hit, Levenshtein distance ≤ 3 finds close names. Example: `devsecops-enginer` → `devsecops-engineer`.
-3. **Prompt-driven autoload** — when the agent's `skills` list is empty, the prompt is tokenized and matched against `skill_name` + the first 200 chars of each skill's content. The top 3 token-coverage matches are auto-loaded and embedded into the agent instructions.
-
-The mismatch is reported on stderr (`fuzzy-resolved skill 'x' -> 'y'`) so the orchestrator can spot recurring typos and update the YAML.
-
-### Workspace Hygiene
-
-Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, etc.) are written **outside** the project tree at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`. If `~/.konoha` is not writable, the resolver falls back to `/tmp/konoha-<pid>-<ts>/`. The path is **never** rooted under `WORKSPACE_ROOT`, so `git add .` cannot accidentally commit agent scratch files. This is enforced by `src/mcp/runtime_state.js` and covered by `tests/test_scratch_path.js`.
 
 ### Detailed Before vs After Comparison
 

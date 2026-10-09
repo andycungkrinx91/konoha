@@ -186,14 +186,53 @@ async function main() {
     const { transcriptPath, artifactDirectoryPath } = context;
     if (!transcriptPath) process.exit(0);
 
+async function appendPendingInboxPrompts(artifactDirectoryPath) {
+  if (!artifactDirectoryPath) return null;
+  try {
+    const inbox = require('./queue/inbox');
+    const sessionId = path.basename(artifactDirectoryPath);
+    const pending = inbox.claimNextPendingPrompt({ client: 'antigravity', session_id: sessionId });
+    if (!pending) return null;
+    const promptFilePath = path.join(artifactDirectoryPath, 'prompt.md');
+    if (!fs.existsSync(promptFilePath)) return null;
+    const existing = fs.readFileSync(promptFilePath, 'utf-8');
+    if (existing.includes(pending.id)) return null;
+    const followUpCount = (existing.match(/^## Follow-up /gm) || []).length;
+    const stamp = new Date().toISOString();
+    const content = `\n\n## Follow-up ${followUpCount + 1} (${stamp}) [Inbound Queue: ${pending.id} from ${pending.source}]\n\n<USER_REQUEST>\n${pending.prompt}\n</USER_REQUEST>\n`;
+    fs.appendFileSync(promptFilePath, content, 'utf-8');
+    return pending;
+  } catch (_) {
+    /* intentional fallback: queue file append error must not crash prompt hook */
+    return null;
+  }
+}
+
     const { lastInput, isNewInput } = await getLastUserInput(transcriptPath);
     await writePromptFile(lastInput, artifactDirectoryPath);
+    const queuedTask = await appendPendingInboxPrompts(artifactDirectoryPath);
+
+    // Inject pending inbox/telegram prompt notification if queued
+    let pendingInboxMsg = null;
+    try {
+      const inbox = require('./queue/inbox');
+      const pending = queuedTask || inbox.getNextPendingPrompt();
+      if (pending) {
+        pendingInboxMsg = `[INBOUND PROMPT QUEUE] Task #${pending.id} waiting from ${pending.source}: "${pending.prompt}". Execute via Konoha subagents.`;
+      }
+    } catch (_) {
+      /* intentional fallback: queue failure must never crash prompt hook */
+    }
 
     // ONLY inject the self ephemeral for CONFIRMED self sessions
     // AND only when this is a NEW user input awaiting its initial response.
     // Suppresses repetitive nudges on subsequent tool calls and steps within the turn.
     if (isNewInput && isConfirmedSelf(transcriptPath)) {
-      console.log(JSON.stringify(SELF_NUDGE));
+      const nudge = JSON.parse(JSON.stringify(SELF_NUDGE));
+      if (pendingInboxMsg) {
+        nudge.injectSteps.push({ ephemeralMessage: pendingInboxMsg });
+      }
+      console.log(JSON.stringify(nudge));
     }
   } catch {
     process.exit(0);

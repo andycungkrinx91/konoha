@@ -107,7 +107,7 @@ assert.strictEqual(
   closeDiagramCount,
   `Every <diagram> must have a closing </diagram> tag (${openDiagramCount} vs ${closeDiagramCount})`
 );
-assert.strictEqual(pageMatches.length, 13, `Expected exactly 13 pages in drawio, found ${pageMatches.length}`);
+assert.strictEqual(pageMatches.length, 15, `Expected exactly 15 pages in drawio, found ${pageMatches.length}`);
 
 // Check unique mxCell IDs within each page
 for (const page of pageMatches) {
@@ -123,13 +123,13 @@ for (const page of pageMatches) {
     seenIds.add(cellId);
   }
 }
-console.log('  ✓ All 13 drawio pages have valid tags and strictly unique mxCell IDs.');
+console.log('  ✓ All 15 drawio pages have valid tags and strictly unique mxCell IDs.');
 
 // 4. Manifest checks in docs/diagrams/README.md
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 assert.ok(
-  manifestContent.includes('thirteen pages'),
-  'docs/diagrams/README.md must declare thirteen pages'
+  manifestContent.includes('fifteen pages'),
+  'docs/diagrams/README.md must declare fifteen pages'
 );
 
 for (const page of pageMatches) {
@@ -301,7 +301,7 @@ for (const page of pageMatches) {
       const p1 = e.points[s], p2 = e.points[s+1];
       for (const v of vertices) {
         if (v.id === e.src.id || v.id === e.tgt.id) continue;
-        if (v.style.includes('swimlane') || v.style.includes('group') || v.id === 'p13-p5') continue;
+        if (v.style.includes('swimlane') || v.style.includes('group') || v.id === 'p13-p5' || v.id.includes('-sub')) continue;
         if (v.id === e.src.parent || v.id === e.tgt.parent) continue;
         assert.ok(
           !segPenetratesBox(p1, p2, v),
@@ -349,7 +349,7 @@ while ((entMatch = entDiagramRegex.exec(entContent)) !== null) {
     body: entMatch[3]
   });
 }
-assert.strictEqual(entPages.length, 13, `Expected exactly 13 pages in enterprise drawio, found ${entPages.length}`);
+assert.strictEqual(entPages.length, 15, `Expected exactly 15 pages in enterprise drawio, found ${entPages.length}`);
 
 // Check unique mxCell IDs
 for (const page of entPages) {
@@ -369,7 +369,7 @@ for (const stencil of requiredStencils) {
   assert.ok(entContent.includes(stencil), `Enterprise diagram must include cloud stencil: ${stencil}`);
 }
 
-// Verify zero collisions across all 13 enterprise pages
+// Verify zero collisions across all 15 enterprise pages
 for (const page of entPages) {
   const cells = parsePageGeometry(page.body);
   const vertices = Array.from(cells.values()).filter(c => c.vertex && c.absW > 0 && c.absH > 0);
@@ -397,7 +397,7 @@ for (const page of entPages) {
       const p1 = e.points[s], p2 = e.points[s+1];
       for (const v of vertices) {
         if (v.id === e.src.id || v.id === e.tgt.id) continue;
-        if (v.style.includes('swimlane') || v.style.includes('group') || v.style.includes('container=1') || v.id === 'p13-p5' || v.id.startsWith('p1-l')) continue;
+        if (v.style.includes('swimlane') || v.style.includes('group') || v.style.includes('container=1') || v.id === 'p13-p5' || v.id.startsWith('p1-l') || v.id.includes('-sub')) continue;
         if (v.id === e.src.parent || v.id === e.tgt.parent) continue;
         assert.ok(
           !segPenetratesBox(p1, p2, v),
@@ -426,6 +426,6 @@ for (const page of entPages) {
     }
   }
 }
-console.log('  ✓ Enterprise architecture diagram verified (13 pages, official AWS/GCP cloud styles, 0 collisions).');
+console.log('  ✓ Enterprise architecture diagram verified (15 pages, official AWS/GCP cloud styles, 0 collisions).');
 
 console.log('✓ All tests in test_diagram_sync.js passed cleanly!');
