@@ -889,7 +889,7 @@ Load **semble** when project source code search is needed — do NOT load it for
 
 | MCP | Command | Load When |
 |---|---|---|
-| **semble** | \`uvx --from semble[mcp] semble\` | Project source code search needed |
+| **semble** | \`uvx --from semble[mcp]==0.6.2 semble\` | Project source code search needed |
 | **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
 | cloudrun | \`npx -y @google-cloud/cloud-run-mcp\` | GCP deployments |
 `;
