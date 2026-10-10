@@ -17,9 +17,9 @@ This prevents high-volume, low-payload operational subagents from skewing the co
 
 | Period | Total Calls | Cumulative Bytes Saved | Tokens Saved (~/4) | Byte-Weighted Reduction |
 |:---|:---:|:---:|:---:|:---:|
-| **Today** | 595 | ~33.96 MB | ~8.90M tokens | **96%** |
-| **Last 7 Days** | 595 | ~33.96 MB | ~8.90M tokens | **96%** |
-| **All Time** | 595 | ~33.96 MB | ~8.90M tokens | **96%** |
+| **Today** | 252 | ~18.68 MB | ~4.90M tokens | **98%** |
+| **Last 7 Days** | 1,096 | ~69.40 MB | ~18.19M tokens | **97%** |
+| **All Time** | 1,096 | ~69.40 MB | ~18.19M tokens | **97%** |
 
 ---
 
@@ -29,20 +29,22 @@ The table below presents the **complete, unfiltered live database telemetry** ac
 
 | # | Call Type | Calls | Baseline (MB) | Returned (MB) | Saved (MB) | Avg Base (KB) | Avg Ret (KB) | % Saved | Category Characterization |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `read_file_range` | 349 | 20.78 MB | 0.92 MB | 19.86 MB | 60.96 KB | 2.7 KB | **95.6%** | Core bounded retrieval (83%–98% headline) |
-| 2 | `token_efficient_grep` | 58 | 7.27 MB | 0.02 MB | 7.25 MB | 128.35 KB | 0.4 KB | **99.7%** | Aggressive context pruning (> 98% reduction) |
-| 3 | `find_skill` | 50 | 1.06 MB | 0.07 MB | 0.99 MB | 21.65 KB | 1.38 KB | **93.6%** | Core bounded retrieval (83%–98% headline) |
-| 4 | `read_file_head` | 41 | 0.9 MB | 0.13 MB | 0.77 MB | 22.47 KB | 3.22 KB | **86%** | Core bounded retrieval (83%–98% headline) |
-| 5 | `anti_slop` | 24 | 0.01 MB | 0.01 MB | 0 MB | 0.59 KB | 0.59 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 6 | `get_skill` | 19 | 0.4 MB | 0.14 MB | 0.26 MB | 21.65 KB | 7.55 KB | **65.1%** | Bounded section delivery & audit (55%–82%) |
-| 7 | `find_files_clean` | 19 | 4.53 MB | 0.01 MB | 4.52 MB | 244.14 KB | 0.71 KB | **99.7%** | Aggressive context pruning (> 98% reduction) |
-| 8 | `file_info` | 19 | 0.24 MB | 0 MB | 0.24 MB | 12.95 KB | 0.21 KB | **98.4%** | Aggressive context pruning (> 98% reduction) |
-| 9 | `docs_ai_detector` | 6 | 0 MB | 0 MB | 0 MB | 0.49 KB | 0.49 KB | **0%** | Bounded section delivery & audit (55%–82%) |
-| 10 | `report_from_agent` | 2 | 0 MB | 0 MB | 0 MB | 0.56 KB | 0.56 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 11 | `list_skills` | 2 | 0.07 MB | 0.03 MB | 0.04 MB | 34.18 KB | 15.11 KB | **55.8%** | Aggressive context pruning (> 98% reduction) |
-| 12 | `get_file_structure` | 2 | 0.04 MB | 0 MB | 0.04 MB | 22.36 KB | 1 KB | **95.5%** | Aggressive context pruning (> 98% reduction) |
-| 13 | `build_from_text` | 2 | 0.04 MB | 0.04 MB | 0 MB | 19.2 KB | 19.2 KB | **0%** | Operational router / spec generator (0% base=ret) |
-| 14 | `build_from_source` | 2 | 0.04 MB | 0.04 MB | 0 MB | 20.61 KB | 20.61 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 1 | `read_file_range` | 562 | 38.27 MB | 1.54 MB | 36.73 MB | 69.73 KB | 2.81 KB | **96%** | Core bounded retrieval (83%–98% headline) |
+| 2 | `token_efficient_grep` | 164 | 14.69 MB | 0.12 MB | 14.57 MB | 91.75 KB | 0.76 KB | **99.2%** | Aggressive context pruning (> 98% reduction) |
+| 3 | `find_skill` | 108 | 2.26 MB | 0.16 MB | 2.1 MB | 21.45 KB | 1.51 KB | **93%** | Core bounded retrieval (83%–98% headline) |
+| 4 | `read_file_head` | 74 | 1.89 MB | 0.18 MB | 1.72 MB | 26.2 KB | 2.5 KB | **90.6%** | Core bounded retrieval (83%–98% headline) |
+| 5 | `find_files_clean` | 52 | 12.4 MB | 0.04 MB | 12.36 MB | 244.14 KB | 0.71 KB | **99.7%** | Aggressive context pruning (> 98% reduction) |
+| 6 | `anti_slop` | 38 | 0.09 MB | 0.09 MB | 0 MB | 2.35 KB | 2.35 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 7 | `file_info` | 33 | 1.3 MB | 0.01 MB | 1.29 MB | 40.24 KB | 0.21 KB | **99.5%** | Aggressive context pruning (> 98% reduction) |
+| 8 | `get_skill` | 26 | 0.44 MB | 0.17 MB | 0.26 MB | 17.18 KB | 6.88 KB | **59.9%** | Bounded section delivery & audit (55%–82%) |
+| 9 | `docs_ai_detector` | 22 | 0.01 MB | 0.01 MB | 0 MB | 0.49 KB | 0.49 KB | **0%** | Bounded section delivery & audit (55%–82%) |
+| 10 | `get_file_structure` | 5 | 0.33 MB | 0 MB | 0.33 MB | 67.54 KB | 0.48 KB | **99.3%** | Aggressive context pruning (> 98% reduction) |
+| 11 | `report_from_agent` | 2 | 0 MB | 0 MB | 0 MB | 0.56 KB | 0.56 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 12 | `list_skills` | 2 | 0.07 MB | 0.03 MB | 0.04 MB | 34.18 KB | 15.11 KB | **55.8%** | Aggressive context pruning (> 98% reduction) |
+| 13 | `get_slop_findings` | 2 | 0 MB | 0 MB | 0 MB | 0.03 KB | 0.03 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 14 | `build_from_text` | 2 | 0.04 MB | 0.04 MB | 0 MB | 19.2 KB | 19.2 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 15 | `build_from_source` | 2 | 0.04 MB | 0.04 MB | 0 MB | 20.61 KB | 20.61 KB | **0%** | Operational router / spec generator (0% base=ret) |
+| 16 | `anbu` | 2 | 0.01 MB | 0.01 MB | 0 MB | 7.49 KB | 7.49 KB | **0%** | Operational router / spec generator (0% base=ret) |
 
 ### Precise Headline Scoping
 - **Core Bounded Retrieval (83%–98%)**: Primary file reading and skill search (`read_file_range` at ~94%, `find_skill` at ~86%, `read_file_head` at ~88%) operate strictly within the headline 83%–98% range.
@@ -76,7 +78,7 @@ Semble provides semantic vector search and line-range previews, replacing direct
 | **Last 7 Days** | 261 | **~12.3M tokens** | 99% |
 | **All Time** | 3,200 | **~158.4M tokens** | 98% |
 
-*Source: `uvx --from semble[mcp]@latest semble savings` (3.2k queries, 98% efficiency).*
+*Source: `uvx --from semble[mcp]==0.6.2 semble savings` (3.2k queries, 98% efficiency).*
 
 ---
 
@@ -86,7 +88,7 @@ Shell commands executed through the `rtk` wrapper are actively filtered, strippe
 
 | Scope | Commands Executed | Input Tokens | Output Tokens | Tokens Saved | Net Token Reduction |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Current Project (konoha)** | 7,953 | 25.54M | 8.12M | 19.51M | **76.4%** |
+| **Current Project (konoha)** | 8,210 | 26.10M | 8.57M | 19.64M | **75.2%** |
 | **Global Machine History** | 14,951 | 18.60M | 9.69M | 11.01M | **59.2%** |
 
 ### Command-Specific Empirical Reduction Distribution
@@ -109,16 +111,16 @@ Konoha's single-process Node.js runtime and in-process SQLite driver eliminate t
 ### 📊 Process Memory Footprint
 | Metric | Resident Size (MB) | Characterization |
 |:---|:---:|:---|
-| **Resident Set Size (RSS)** | **126.7 MB** | Total process memory including runtime, shared libraries, and SQLite |
-| **V8 Heap Allocated** | **58.1 MB** | V8 memory committed by Node.js runtime |
-| **V8 Heap Used** | **44.3 MB** | Active working JavaScript objects (agents, router, session caches) |
+| **Resident Set Size (RSS)** | **129.9 MB** | Total process memory including runtime, shared libraries, and SQLite |
+| **V8 Heap Allocated** | **60.9 MB** | V8 memory committed by Node.js runtime |
+| **V8 Heap Used** | **47.0 MB** | Active working JavaScript objects (agents, router, session caches) |
 | **External Buffer Memory** | **1.7 MB** | Native buffers and SQLite prepared statement handles |
 
 ### ⚡ Subsystem Execution Throughput & Latency
 | Subsystem & Operation | Sample Set | Throughput | Mean Latency | Characterization |
 |:---|:---:|:---:|:---:|:---|
-| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **1,828 queries/sec** | **0.55 ms** | In-process relational + BM25 ranking |
-| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **26,728 ops/sec** | **0.037 ms** | Authenticated GMAC encryption at rest |
+| **SQLite FTS5 Skill Search** (`skills` index) | 500 ops | **1,859 queries/sec** | **0.54 ms** | In-process relational + BM25 ranking |
+| **AES-256-GCM Crypto Vault** (AEAD cycle) | 2,000 ops | **25,310 ops/sec** | **0.040 ms** | Authenticated GMAC encryption at rest |
 | **MCP Tool Dispatch** (Bounded File Read) | 500 ops | **2,820 calls/sec** | **0.35 ms** | Zero-copy slice with boundary token caps |
 | **Web Server API Health & Metrics** | 1,000 ops | **4,150 req/sec** | **0.24 ms** | In-memory cached system metrics endpoint |
 

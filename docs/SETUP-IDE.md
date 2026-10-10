@@ -191,7 +191,7 @@ This is configured inside `~/.gemini/config/mcp_config.json`. Example structure 
     },
     "semble": {
       "command": "uvx",
-      "args": ["--from", "semble[mcp]@latest", "semble", "--content", "all"],
+      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"],
       "autoApprove": ["*", "search", "find_related"]
     },
     "aislop": {
