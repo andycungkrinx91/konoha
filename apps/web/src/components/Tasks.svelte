@@ -378,7 +378,7 @@
       </div>
     {:else if tasks.length === 0}
       <div class="rise-3d bg-white border rounded-[5px] p-10 text-center" style="border-color: var(--color-border, #e2e8f0);">
-        <p class="text-sm font-bold text-slate-500">No SDLC tasks found. Tasks are created via the <code class="px-1.5 py-0.5 rounded-[5px] bg-slate-100 text-xs">konoha task create</code> CLI command.</p>
+        <p class="text-sm font-bold text-slate-500">No SDLC tasks found. Tasks are created automatically by agents during SDLC execution.</p>
       </div>
     {:else}
       <div class="space-y-3">

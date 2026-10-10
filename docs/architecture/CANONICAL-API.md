@@ -101,6 +101,6 @@ All database tables reside inside SQLite database `~/.konoha/konoha.db` using `W
 * `konoha search <query>`
 * `konoha ui {start|status|stop}`
 * `konoha bridge {list|status|create|enable|disable|delete|start}`
-* `konoha sdlc {tasks|evidence|status}`
+* `konoha task {list|show|slop|delete|clear}`
 * `konoha agent {list|status}`
 * `konoha skill {list|add}`

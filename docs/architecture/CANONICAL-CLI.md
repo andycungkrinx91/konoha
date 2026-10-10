@@ -48,10 +48,9 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha bridge delete <name>` — Remove a bridge configuration.
 - `konoha bridge start` — Start the proxy gateway listening on port 19999.
 
-### 2.3 SDLC Governance (`konoha sdlc`)
-- `konoha sdlc tasks [--status <status>]` — List managed development tasks.
-- `konoha sdlc evidence <task_id>` — Display collected validation and review evidence.
-- `konoha sdlc status` — Display current SDLC governance summary.
+### 2.3 SDLC Governance (`konoha task`)
+- `konoha task list [--status <status>]` — List managed development tasks.
+- `konoha task show <task_id>` — Display collected validation and review evidence.
 
 ### 2.4 Agent Management (`konoha agent`)
 - `konoha agent list` — List all 7 official ninja subagents and their assigned models.

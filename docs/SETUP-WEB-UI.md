@@ -131,19 +131,19 @@ konoha web
   - Filter and search memories across all 7 ninja agents.
   - Add new episodic memories with importance ratings (1–10).
   - Edit or delete memories with real-time SQLite persistence.
-  - 100% parity with `konoha persona` CLI.
+  - 100% parity with `konoha data memory` CLI.
 
 ### 6. 💾 Project Context Memory Screen (`Context.svelte`)
 - Per-project context memory explorer (`/context`):
   - View persistent project tech stack (`framework`, `styling`, `package_manager`).
   - Inspect verified architectural invariants and episodic learnings.
-  - Edit project notes directly in the browser matching `konoha context` CLI.
+  - Edit project notes directly in the browser matching `konoha project` CLI.
 
 ### 7. 🔍 SearXNG Web Search Screen (`Search.svelte`)
 - Dedicated web search interface powered by local SearXNG instance (`/search`).
 - Zero API-key search across multiple upstream providers with privacy preservation.
 - Instant search results with title, URL, snippet, and category badges.
-- 100% parity with `konoha search` / `konoha searxng` CLI.
+- 100% parity with `konoha search` CLI.
 
 ### 8. 🎨 10 Light-Mode Themes & Chidori Azure 4-Gradient Aesthetic
 - **Default Theme: Chidori Azure**: Default out-of-the-box palette configured to `chidori` (Chidori Azure Light) for crackling sky-blue clarity and lightning focus.

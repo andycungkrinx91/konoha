@@ -152,7 +152,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Canonical Implementation:** `src/sdlc_tasks.js`, `src/sdlc_manager.js`, `src/ai_detector.js`, `src/docs_ai_detector.js`, `src/mcp/workflow.js`.
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
-  - CLI: `konoha sdlc`.
+  - CLI: `konoha task`.
   - Web API: `/api/v1/sdlc`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.

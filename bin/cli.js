@@ -7078,33 +7078,34 @@ ${C.bold}USAGE${C.reset}
   konoha <command> [options]
 
 ${C.bold}CORE COMMANDS${C.reset}
-  ${C.cyan}init, setup${C.reset}       🚀 Setup MCP servers, migrate local skills, and configure supported clients.
+  ${C.cyan}init${C.reset}              🚀 Setup MCP servers, migrate local skills, and configure supported clients.
   ${C.cyan}migrate${C.reset}           🔄 Re-index/migrate your custom skills database (run after editing skills).
   ${C.cyan}embed${C.reset}             ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
   ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
   ${C.cyan}status${C.reset}            🩺 Check installation health, database size, and loaded skills.
   ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
-  ${C.cyan}upgrade, update${C.reset}   🔄 Upgrade Konoha CLI to the latest version from npm registry.
-  ${C.cyan}savings, saving${C.reset}   📊 View your total token savings (Today, 7 days, All time).
+  ${C.cyan}upgrade${C.reset}           🔄 Upgrade Konoha CLI to the latest version from npm registry.
+  ${C.cyan}savings${C.reset}           📊 View your total token savings (Today, 7 days, All time).
   ${C.cyan}detect-ai${C.reset}         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
   ${C.cyan}detect-docs${C.reset}       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
-  ${C.cyan}project, context${C.reset}  📁 Manage persistent project workspaces, detected stacks, and invariants.
-  ${C.cyan}task, sdlc${C.reset}        📋 Native SDLC governance tasks, readiness gates, and audits.
-  ${C.cyan}data, persona${C.reset}     🧠 Manage SQLite active session history, persona memories, and database size.
+  ${C.cyan}project${C.reset}           📁 Manage persistent project workspaces, detected stacks, and invariants.
+  ${C.cyan}task${C.reset}              📋 Native SDLC governance tasks, readiness gates, and audits.
+  ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
   ${C.cyan}soul${C.reset}              🔥 Display Village Soul / Will of Fire doctrine, tenets, and archetype spirits.
   ${C.cyan}doctor${C.reset}            🩺 Run environment diagnostics to detect/fix integration issues.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
-  ${C.cyan}search, searxng${C.reset}   🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
+  ${C.cyan}search${C.reset}            🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
   ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}service${C.reset}           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
-  ${C.cyan}telegram, tg${C.reset}      ✈️  Manage Telegram bot task reporting and two-way remote prompting.
-  ${C.cyan}tunnel, tunnels${C.reset}   🚇 Manage Cloudflare and ngrok public ingress tunnels.
-  ${C.cyan}clean, prune${C.reset}      🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
+  ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
+  ${C.cyan}tunnel${C.reset}            🚇 Manage Cloudflare and ngrok public ingress tunnels.
+  ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
+  ${C.cyan}queue${C.reset}             📬 Background task prompt queue and execution worker.
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
 
 ${C.bold}SUBAGENT & SKILL MANAGEMENT COMMANDS${C.reset}
   ${C.cyan}skill${C.reset}             📚 Manage skills (list installed, search the public registry, add/remove).
-  ${C.cyan}agent, agents${C.reset}     👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
+  ${C.cyan}agent${C.reset}             👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
   ${C.cyan}help, -h${C.reset}          ❓ Show this educational help menu.
 
 ${C.bold}GLOBAL OPTIONS${C.reset}
@@ -8804,7 +8805,7 @@ async function cmdSearch(args = []) {
   if (!query) {
     header('🔍 Konoha Multi-Source Web Search');
     log(`  ${C.yellow}Usage:${C.reset}  konoha search <query> [options]`);
-    log(`  ${C.yellow}        konoha searxng [status|prune]`);
+    log(`  ${C.yellow}        konoha search [status|prune]`);
     log('');
     log(`  ${C.cyan}Options:${C.reset}`);
     log(`    --num=<n>         Number of results (default: 5)`);
@@ -8814,7 +8815,7 @@ async function cmdSearch(args = []) {
     log(`  ${C.cyan}Examples:${C.reset}`);
     log(`    konoha search "SvelteKit 5 runes tutorial"`);
     log(`    konoha search "Rust RTK token killer" --num=8`);
-    log(`    konoha searxng status`);
+    log(`    konoha search status`);
     log('');
     return;
   }
@@ -9200,7 +9201,6 @@ async function main() {
   try {
     switch (command) {
       case 'init':
-      case 'setup':
       case 'reinstall':
         if (command === 'reinstall' && !args.includes('--force')) {
           args.push('--force');
@@ -9222,7 +9222,6 @@ async function main() {
       case 'status':
         await cmdStatus(args);
         break;
-      case 'saving':
       case 'savings':
         await cmdSavings(args);
         break;
@@ -9236,7 +9235,6 @@ async function main() {
         await cmdDoctor(args);
         break;
       case 'clean':
-      case 'prune':
         await cmdClean(args);
         break;
       case 'uninstall':
@@ -9257,44 +9255,36 @@ async function main() {
         await cmdVersion(args);
         break;
       case 'upgrade':
-      case 'update':
         await cmdUpgrade(args);
         break;
       case 'skill':
         await cmdSkill(args);
         break;
       case 'agent':
-      case 'agents':
         await cmdAgent(args);
         break;
       case 'data':
-      case 'persona':
         await cmdData(args);
         break;
       case 'soul':
         await cmdSoul(args);
         break;
       case 'project':
-      case 'context':
         await cmdProject(args);
         break;
       case 'task':
-      case 'sdlc':
         await cmdTask(args);
         break;
       case 'bridge':
         await cmdBridge(args);
         break;
       case 'search':
-      case 'searxng':
         await cmdSearch(args);
         break;
       case 'telegram':
-      case 'tg':
         await cmdTelegram(args);
         break;
       case 'tunnel':
-      case 'tunnels':
         await cmdTunnel(args);
         break;
       case 'queue':

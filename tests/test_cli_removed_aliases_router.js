@@ -24,7 +24,18 @@ const removedLabels = [
   'web-search',
   'inbox',
   'install',
-  'memory'
+  'memory',
+  'setup',
+  'update',
+  'saving',
+  'agents',
+  'tg',
+  'tunnels',
+  'prune',
+  'context',
+  'persona',
+  'searxng',
+  'sdlc'
 ];
 
 const canonicalHelpCommands = [
@@ -120,8 +131,41 @@ try {
   const pidFile = path.join(dotKonoha, 'ui.pid');
   assert.strictEqual(fs.existsSync(pidFile), false, 'Daemon pid file should not exist');
 
-  console.log('✓ All 16 removed aliases cleanly rejected with exit code 1 and Unknown command message.');
+  // 6. Assert cmdHelp lists canonical names and queue, and lists none of the 11 removed labels
+  const coreStart = cliSrc.indexOf('${C.bold}CORE COMMANDS${C.reset}');
+  const coreEnd = cliSrc.indexOf('${C.bold}GLOBAL OPTIONS${C.reset}');
+  assert.ok(coreStart !== -1 && coreEnd !== -1, 'Could not find CORE COMMANDS in bin/cli.js');
+  const topLevelListing = cliSrc.slice(coreStart, coreEnd);
+  const topCommands = [...topLevelListing.matchAll(/\${C\.cyan}([^\$]+)\${C\.reset}/g)].map(m => m[1]);
+
+  const expectedCanonicals = [
+    'init', 'migrate', 'embed', 'test', 'status', 'version',
+    'upgrade', 'savings', 'detect-ai', 'detect-docs', 'project',
+    'task', 'data', 'soul', 'doctor', 'bridge', 'search',
+    'ui', 'service', 'telegram', 'tunnel', 'clean', 'queue',
+    'uninstall', 'skill', 'agent', 'help'
+  ];
+  for (const name of expectedCanonicals) {
+    assert.ok(
+      topCommands.some(c => c.split(',').map(s => s.trim()).includes(name)),
+      `cmdHelp must list canonical command '${name}'`
+    );
+  }
+
+  const batch43Labels = [
+    'setup', 'update', 'saving', 'agents', 'tg', 'tunnels',
+    'prune', 'context', 'persona', 'searxng', 'sdlc'
+  ];
+  for (const label of batch43Labels) {
+    assert.ok(
+      !topCommands.some(c => c.split(',').map(s => s.trim()).includes(label)),
+      `cmdHelp must not list removed alias '${label}' in top-level commands`
+    );
+  }
+
+  console.log('✓ All 27 removed aliases cleanly rejected with exit code 1 and Unknown command message.');
   console.log('✓ Canonical commands correctly routed to their handlers.');
+  console.log('✓ cmdHelp contract verified (canonical names + queue present, removed aliases absent).');
   console.log('✓ No background daemon leaked into test environment.');
 } finally {
   try {
