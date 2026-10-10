@@ -9201,7 +9201,6 @@ async function main() {
     switch (command) {
       case 'init':
       case 'setup':
-      case 'install':
       case 'reinstall':
         if (command === 'reinstall' && !args.includes('--force')) {
           args.push('--force');
@@ -9212,7 +9211,6 @@ async function main() {
         await cmdMigrate(args);
         break;
       case 'embed':
-      case 'embeddings':
         if (!args.includes('--rebuild-embeddings')) {
           args.push('--rebuild-embeddings');
         }
@@ -9229,14 +9227,9 @@ async function main() {
         await cmdSavings(args);
         break;
       case 'detect-ai':
-      case 'detect_ai':
-      case 'ai-detector':
         await cmdDetectAi(args);
         break;
       case 'detect-docs':
-      case 'detect_docs':
-      case 'docs-detector':
-      case 'detect-doc':
         await cmdDetectDocs(args);
         break;
       case 'doctor':
@@ -9276,23 +9269,16 @@ async function main() {
         break;
       case 'data':
       case 'persona':
-      case 'personas':
-      case 'memory':
-      case 'memories':
         await cmdData(args);
         break;
       case 'soul':
-      case 'spirit':
-      case 'will-of-fire':
         await cmdSoul(args);
         break;
       case 'project':
-      case 'projects':
       case 'context':
         await cmdProject(args);
         break;
       case 'task':
-      case 'tasks':
       case 'sdlc':
         await cmdTask(args);
         break;
@@ -9301,7 +9287,6 @@ async function main() {
         break;
       case 'search':
       case 'searxng':
-      case 'web-search':
         await cmdSearch(args);
         break;
       case 'telegram':
@@ -9313,7 +9298,6 @@ async function main() {
         await cmdTunnel(args);
         break;
       case 'queue':
-      case 'inbox':
         await cmdQueue(args);
         break;
       case 'help':

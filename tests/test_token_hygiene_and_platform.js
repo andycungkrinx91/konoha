@@ -93,7 +93,7 @@ try {
   const cliSrc = fs.readFileSync(path.join(repoDir, 'bin', 'cli.js'), 'utf8');
   assert.ok(cliSrc.includes("checkAndRepairFile('tools_savings_logger.js'"), 'cmdDoctor must check and repair tools_savings_logger.js');
   assert.ok(cliSrc.includes("case 'reinstall':"), 'CLI must support reinstall command alias');
-  assert.ok(cliSrc.includes("case 'install':"), 'CLI must support install command alias');
+  assert.ok(cliSrc.includes("case 'init':"), 'CLI must support init command');
   assert.ok(cliSrc.includes('force: force || versionChanged'), 'ensureAutoSetup must force redeploy on version change');
   assert.ok(cliSrc.includes('syncTemplateSkills()'), 'ensureAutoSetup must sync template skills');
 } finally {
