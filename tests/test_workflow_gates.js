@@ -213,6 +213,108 @@ async function run() {
     fs.rmSync(root6, { recursive: true, force: true });
   }
 
+  // 7. Canonical workflow phase sequence & WORKFLOW_PHASES constant validation
+  const root7 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_'));
+  server.WORKSPACE_ROOT = root7;
+  try {
+    const workflow = require('../src/mcp/workflow');
+    assert.ok(Array.isArray(workflow.WORKFLOW_PHASES), 'WORKFLOW_PHASES must be exported as an array');
+    assert.deepStrictEqual(
+      workflow.WORKFLOW_PHASES,
+      ['route', 'explore', 'plan', 'research', 'execute', 'document', 'review', 'synthesize', 'done'],
+      'WORKFLOW_PHASES must define exactly the 8 execution phases + done terminal state'
+    );
+    assert.ok(Object.isFrozen(workflow.WORKFLOW_PHASES), 'WORKFLOW_PHASES must be immutable (frozen)');
+
+    // Pin the real phase sequence against state machine behavior
+    const observedPhases = [];
+
+    // Phase 1: route -> explore
+    write(root7, 'prompt.md', 'Research and execute full feature lifecycle');
+    const s1 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s1.phase, 'explore');
+    observedPhases.push('route', s1.phase);
+
+    // Phase 2: explore -> plan
+    write(root7, 'findings.md', 'Initial exploration findings.');
+    write(root7, 'result.md', 'Genin exploration complete.');
+    const s2 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s2.phase, 'plan');
+    observedPhases.push(s2.phase);
+
+    // Phase 3: plan -> research (needs_research: true)
+    write(root7, 'plan.md', 'needs_research: true\nInvestigate third-party API specification.');
+    write(root7, 'result.md', 'Kage marked plan as needing research.');
+    const s3 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s3.phase, 'research');
+    observedPhases.push(s3.phase);
+
+    // Phase 4: research -> plan (research completed)
+    write(root7, 'findings.md', 'Chunin researched API documentation.');
+    write(root7, 'result.md', 'Research completed with citations.');
+    const s4 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s4.phase, 'plan');
+
+    // Phase 5: plan -> execute
+    write(root7, 'plan.md', '- [jonin]: Build frontend component\n');
+    write(root7, 'result.md', 'Kage finalized implementation plan.');
+    const s5 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s5.phase, 'execute');
+    observedPhases.push(s5.phase);
+
+    // Phase 6: execute -> document
+    const repStr = server.reportFromAgent('jonin', 'Frontend UI built', 'completed', null, null, null, null, root7, s5.dispatch_id, ['npm run build passed']);
+    assert.strictEqual(JSON.parse(repStr).status, 'recorded');
+    const s6 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s6.phase, 'document');
+    observedPhases.push(s6.phase);
+
+    // Phase 7: document -> review
+    write(root7, 'result.md', 'Documentation written by Tokubetsu Jonin.');
+    const s7 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s7.phase, 'review');
+    observedPhases.push(s7.phase);
+
+    // Phase 8 & 9: review -> synthesize -> done
+    write(root7, 'kage_review.json', JSON.stringify({
+      approved: true,
+      verified_task_ids: ['task-1'],
+      validation: ['all tests passed'],
+      security_reviewed: true,
+      rollback_reviewed: true,
+      ai_slop_findings: 0,
+      ai_slop_clean: true,
+      confidence: 100,
+      findings: []
+    }));
+    write(root7, 'result.md', 'Kage review approved delivery.');
+    const s8 = JSON.parse(server.runMcpWorkflow(root7));
+    assert.strictEqual(s8.status, 'completed');
+    assert.strictEqual(s8.phase, 'done');
+    observedPhases.push('synthesize', 'done');
+
+    // Verify final report generated and history recorded synthesize phase
+    assert.ok(fs.existsSync(path.join(root7, 'final_report.md')));
+    const finalStatus = JSON.parse(fs.readFileSync(path.join(root7, 'status.json'), 'utf8'));
+    assert.strictEqual(finalStatus.phase, 'done');
+    assert.ok(finalStatus.history.some(h => h.phase === 'synthesize' && h.agent === 'sannin'), 'History must record synthesize phase');
+
+    // Verify all 9 phases in order match WORKFLOW_PHASES exactly
+    assert.deepStrictEqual(observedPhases, [...workflow.WORKFLOW_PHASES]);
+
+    // Test rejection of invalid phase transitions in saveWorkflowStatus
+    const invalidStatus = { phase: 'invalid_bogus_phase' };
+    assert.throws(
+      () => workflow.saveWorkflowStatus(root7, invalidStatus),
+      /Invalid workflow phase: "invalid_bogus_phase"/
+    );
+
+    console.log('✓ Canonical workflow phase sequence & WORKFLOW_PHASES constant validation passed');
+  } finally {
+    server.WORKSPACE_ROOT = prevRoot;
+    fs.rmSync(root7, { recursive: true, force: true });
+  }
+
   console.log('\nAll test_workflow_gates passed cleanly!');
 }
 

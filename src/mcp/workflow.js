@@ -12,6 +12,21 @@ const { getDb } = require('../db');
 const { getKonohaTmpRoot } = require('./client_detection');
 const { logToolCall } = require('./skills');
 
+/**
+ * Canonical 8-phase workflow state machine lifecycle phases plus terminal 'done' state.
+ */
+const WORKFLOW_PHASES = Object.freeze([
+  'route',
+  'explore',
+  'plan',
+  'research',
+  'execute',
+  'document',
+  'review',
+  'synthesize',
+  'done'
+]);
+
 function getResolvedTaskDir(taskDir = null, projectPath = null, sessionId = null) {
   const tmpRoot = getKonohaTmpRoot(projectPath, sessionId);
   const tasksDir = path.join(tmpRoot, 'scratch', 'tasks');
@@ -215,6 +230,9 @@ function loadWorkflowStatus(taskDir) {
 }
 
 function saveWorkflowStatus(taskDir, status) {
+  if (status && status.phase && !WORKFLOW_PHASES.includes(status.phase)) {
+    throw new Error(`Invalid workflow phase: "${status.phase}". Must be one of: ${WORKFLOW_PHASES.join(', ')}`);
+  }
   const statusPath = path.join(taskDir, 'status.json');
   fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), 'utf8');
 }
@@ -1320,6 +1338,7 @@ function runMcpWorkflow(taskDir = null) {
 }
 
 module.exports = {
+  WORKFLOW_PHASES,
   getResolvedTaskDir,
   readFileSafe,
   runAislopGate,
