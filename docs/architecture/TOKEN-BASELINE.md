@@ -44,7 +44,7 @@ Total Active Schemas:        4,163 tokens       4,016 tokens       3,439 tokens 
 
 ### Optimizations Applied & Drift Prevention:
 1. **Schema Description Trimming**: Condensed verbose multi-line tool descriptions across canonical tools (`website_ai_detector`, `docs_ai_detector`, `check_readiness`, `get_slop_findings`, `get_task_evidence`, `find_skill`) while preserving parameter typing and semantic routing.
-2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`, `delegate_to_*`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
+2. **Hidden Aliases Preserved**: Deprecated aliases (`find_skills`, `build_with_image_design`) remain hidden from `tools/list` dispatch and contribute 0 tokens to the initial schema prompt.
 3. **Structured Parameter Exposure**: Live schemas explicitly declare `"task_id"` in `find_skill` and `"token_budget"`, `"section"`, `"task_id"` in `get_skill`.
 4. **Automated Synchronization & Drift Lock**: `scripts/sync_canonical_api.js` automatically generates Section 1 of `CANONICAL-API.md` directly from `listToolSchemas()`, and `tests/test_canonical_api_sync.js` asserts 0 drift and exactly 40 canonical tools in CI/CD.
 5. **Tool Count Historical Sequence**: Tool count was previously unlocked and shifted across documents (44 → 38 until locked at exactly 35 historically, subsequently expanded to 37, then 40) until locked at exactly 40 canonical tools in `src/file_tools_router.js`.

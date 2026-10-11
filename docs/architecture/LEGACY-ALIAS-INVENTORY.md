@@ -14,7 +14,7 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 |---|---|---|---|---|
 | `find_skills` | **MIGRATE_THEN_REMOVE** | MCP tool alias | `find_skill` | Migrate client instructions and router; deprecate alias |
 | `build_with_image_design` | **MIGRATE_THEN_REMOVE** | MCP tool alias | `build_from_source` | Remove from manifest and router schemas |
-| `delegate_to_<agent>` (7 tools) | **MIGRATE_THEN_REMOVE** | MCP tool aliases | Direct agent tools (`sannin`, `kage`, etc.) | Remove duplicate schema listings |
+| `delegate_to_<agent>` (7 tools) | **COMPLETED / REMOVED** | MCP tool aliases | Direct agent tools (`sannin`, `kage`, etc.) | Removed in Batch 4.6 (commit 576e50b) |
 | `tokubetsu_jonin` vs `tokubetsu-jonin` | **CANONICAL_MAPPING** | Identifier syntax | `tokubetsu-jonin` (agent) / `tokubetsu_jonin` (MCP tool) | Maintain strict 1:1 bidirectional normalizer |
 | `task_dir` / `delegate.md` / `result.md` | **ISOLATED_FALLBACK** | File-based fallback | Direct structured MCP argument passing | Keep isolated in `~/.konoha/tmp/` for non-MCP fallback |
 | `skills.db` | **MIGRATE_THEN_REMOVE** | Storage filename | `konoha.db` | Auto-migrate legacy DB file on startup |
@@ -72,14 +72,14 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
   - `delegate_to_tokubetsu_jonin`
   - `delegate_to_genin`
 * **Type:** MCP Tool Aliases
-* **Current Usage:** Listed in `src/mcp_tool_manifest.json`, forwarded to `runNodeSkillTool` in `src/file_tools_router.js`, marked deprecated in `DEPRECATED_LEGACY_TOOL_NAMES`.
+* **Current Usage:** Removed in Batch 4.6 (commit 576e50b); previously listed in `src/mcp_tool_manifest.json` and router.
 * **Canonical Replacement:** Direct agent tools (`sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`).
 * **Internal Consumers:** None.
 * **External Consumers:** Legacy prompt examples in older documentation.
-* **Migration Required:** Ensure all client templates use direct agent tool calls; prune alias entries from manifest.
-* **Removal Condition:** Zero internal/client references.
-* **Risk:** Low (already filtered out of live schemas via `DEPRECATED_LEGACY_TOOL_NAMES`).
-* **Status:** Ready for canonical removal.
+* **Migration Required:** Completed in Batch 4.6 (commit 576e50b).
+* **Removal Condition:** Satisfied in Batch 4.6.
+* **Risk:** Low (already filtered out of live schemas; removed in Batch 4.6).
+* **Status:** COMPLETED / REMOVED in Batch 4.6 (commit 576e50b). Catalog entry retained for historical tracking.
 
 ---
 

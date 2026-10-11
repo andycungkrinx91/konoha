@@ -73,8 +73,8 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Tests:** `tests/test_structured_delegation.js`, `tests/test_agent_delegation.js`, `tests/test_cross_client_contract.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `GEMINI.md`.
 * **Dependencies:** `js-yaml`, `better-sqlite3`.
-* **Known Legacy Paths:** `delegate_to_sannin`, `delegate_to_kage`, `delegate_to_jonin`, `delegate_to_anbu`, `delegate_to_chunin`, `delegate_to_tokubetsu_jonin`, `delegate_to_genin`; legacy disk fallback `task_dir`, `delegate.md`, `result.md`.
-* **Known Duplication:** Redundant `delegate_to_*` tool wrappers in manifest and router.
+* **Known Legacy Paths:** Legacy disk fallback `task_dir`, `delegate.md`, `result.md` (`delegate_to_*` aliases removed in Batch 4.6).
+* **Known Duplication:** None (`delegate_to_*` tool wrappers removed in Batch 4.6).
 
 ---
 
