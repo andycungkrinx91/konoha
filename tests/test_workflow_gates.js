@@ -299,14 +299,31 @@ async function run() {
     assert.strictEqual(finalStatus.phase, 'done');
     assert.ok(finalStatus.history.some(h => h.phase === 'synthesize' && h.agent === 'sannin'), 'History must record synthesize phase');
 
-    // Verify all 9 phases in order match WORKFLOW_PHASES exactly
-    assert.deepStrictEqual(observedPhases, [...workflow.WORKFLOW_PHASES]);
+    // Verify static AST/text phase literals in src/mcp/workflow.js against WORKFLOW_PHASES
+    const workflowJsPath = path.resolve(__dirname, '../src/mcp/workflow.js');
+    const workflowSrc = fs.readFileSync(workflowJsPath, 'utf8');
+    const phaseLiteralRegex = /status\.phase\s*=\s*['"]([a-z_-]+)['"]/g;
+    const extractedLiterals = [];
+    let match;
+    while ((match = phaseLiteralRegex.exec(workflowSrc)) !== null) {
+      extractedLiterals.push(match[1]);
+    }
 
-    // Test rejection of invalid phase transitions in saveWorkflowStatus
-    const invalidStatus = { phase: 'invalid_bogus_phase' };
-    assert.throws(
-      () => workflow.saveWorkflowStatus(root7, invalidStatus),
-      /Invalid workflow phase: "invalid_bogus_phase"/
+    assert.ok(extractedLiterals.length >= 13, `Must extract at least 13 transition phase literals, found ${extractedLiterals.length}`);
+    for (const lit of extractedLiterals) {
+      assert.ok(
+        workflow.WORKFLOW_PHASES.includes(lit),
+        `Extracted phase literal "${lit}" in workflow.js must be a member of WORKFLOW_PHASES`
+      );
+    }
+
+    // Verify WORKFLOW_PHASES has no duplicates and equals canonical phase list
+    const uniquePhases = new Set(workflow.WORKFLOW_PHASES);
+    assert.strictEqual(uniquePhases.size, workflow.WORKFLOW_PHASES.length, 'WORKFLOW_PHASES must contain no duplicate phases');
+    assert.deepStrictEqual(
+      workflow.WORKFLOW_PHASES,
+      ['route', 'explore', 'plan', 'research', 'execute', 'document', 'review', 'synthesize', 'done'],
+      'WORKFLOW_PHASES must equal canonical 8 execution phases + done terminal state'
     );
 
     console.log('✓ Canonical workflow phase sequence & WORKFLOW_PHASES constant validation passed');

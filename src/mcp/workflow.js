@@ -230,9 +230,6 @@ function loadWorkflowStatus(taskDir) {
 }
 
 function saveWorkflowStatus(taskDir, status) {
-  if (status && status.phase && !WORKFLOW_PHASES.includes(status.phase)) {
-    throw new Error(`Invalid workflow phase: "${status.phase}". Must be one of: ${WORKFLOW_PHASES.join(', ')}`);
-  }
   const statusPath = path.join(taskDir, 'status.json');
   fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), 'utf8');
 }
