@@ -21,7 +21,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { cleanKonohaRuntimeDir } = require('../src/deploy_utils');
+const { cleanKonohaRuntimeDir, mirrorSkillsDirectory, syncCursorSkillsFromAgents } = require('../src/deploy_utils');
 const { SRC_DIR } = require('../bin/lib/paths');
 
 function runTest() {
@@ -162,5 +162,99 @@ function runTest() {
   }
 }
 
+function testPristineReinstallContract() {
+  console.log('\n--- Testing Pristine Reinstallation Contract (Decision D2) ---');
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-pristine-reinstall-test-'));
+  const mockKonoha = path.join(sandboxDir, '.konoha');
+  fs.mkdirSync(mockKonoha, { recursive: true });
+
+  try {
+    // 1. Initial clean pass on runtime directory
+    cleanKonohaRuntimeDir({
+      targetDir: mockKonoha,
+      srcDir: SRC_DIR,
+      silent: true,
+      vacuumDatabase: false,
+    });
+
+    // 2. Simulate pristine installation / runtime deployment in sandbox
+    fs.writeFileSync(path.join(mockKonoha, 'server.js'), '// canonical server\n', 'utf8');
+    fs.writeFileSync(path.join(mockKonoha, 'package.json'), '{"name":"konoha"}\n', 'utf8');
+    fs.mkdirSync(path.join(mockKonoha, 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(mockKonoha, 'bin', 'cli.js'), '#!/usr/bin/env node\n', 'utf8');
+
+    // Invoke skill mirror functions to assert they remain strict no-ops
+    const mirrorRes = mirrorSkillsDirectory(path.join(SRC_DIR, 'templates', 'skills'), path.join(mockKonoha, 'skills_mirror'));
+    assert.strictEqual(mirrorRes, 0, 'mirrorSkillsDirectory must be a no-op returning 0');
+    const syncRes = syncCursorSkillsFromAgents({
+      projectRoot: sandboxDir,
+      deployProject: true,
+      silent: true,
+    });
+    assert.strictEqual(syncRes, 0, 'syncCursorSkillsFromAgents must be a no-op returning 0');
+
+    // 3. Verify that pristine reinstallation strictly forbids legacy D2 artifacts
+    const forbiddenLegacyArtifacts = [
+      // Old separate agent and skill directories
+      path.join(mockKonoha, 'agents'),
+      path.join(mockKonoha, 'skills'),
+      // Legacy filesystem skill mirrors
+      path.join(mockKonoha, 'skills_mirror'),
+      path.join(mockKonoha, '.mirror-test'),
+      path.join(sandboxDir, '.cursor', 'skills'),
+      path.join(sandboxDir, '.claude', 'skills'),
+      // Legacy separate SQLite databases
+      path.join(mockKonoha, 'skills.db'),
+      path.join(mockKonoha, 'skills.db-wal'),
+      path.join(mockKonoha, 'skills.db-shm'),
+      // Legacy Python scripts in root
+      path.join(mockKonoha, 'server.py'),
+      path.join(mockKonoha, 'vector_search.py'),
+      path.join(mockKonoha, 'tools_savings_logger.py'),
+      path.join(mockKonoha, 'db_agents.py'),
+      path.join(mockKonoha, 'yaml_parser.py'),
+      // Legacy hooks and wrappers
+      path.join(mockKonoha, 'hook-wrapper'),
+      path.join(mockKonoha, 'konoha-subagent-hook'),
+      // Stale backup files
+      path.join(mockKonoha, 'konoha.db.bak'),
+      path.join(mockKonoha, 'skills.db.bak'),
+    ];
+
+    for (const artifact of forbiddenLegacyArtifacts) {
+      assert.strictEqual(
+        fs.existsSync(artifact),
+        false,
+        `Pristine reinstallation must NOT recreate legacy D2 artifact: ${path.relative(sandboxDir, artifact)}`
+      );
+    }
+
+    // 4. Verify that if any legacy artifact is reintroduced, cleanKonohaRuntimeDir purges it
+    fs.mkdirSync(path.join(mockKonoha, '__pycache__'), { recursive: true });
+    fs.writeFileSync(path.join(mockKonoha, 'skills.db'), 'stale db', 'utf8');
+    fs.writeFileSync(path.join(mockKonoha, 'server.py'), '# stale python', 'utf8');
+    fs.writeFileSync(path.join(mockKonoha, 'konoha.db.bak-test'), 'backup', 'utf8');
+
+    const cleanRes = cleanKonohaRuntimeDir({
+      targetDir: mockKonoha,
+      srcDir: SRC_DIR,
+      silent: true,
+      vacuumDatabase: false,
+    });
+
+    assert.ok(cleanRes.purgedFiles >= 4, 'Cleaning pass must purge reintroduced legacy artifacts');
+    assert.strictEqual(fs.existsSync(path.join(mockKonoha, 'skills.db')), false);
+    assert.strictEqual(fs.existsSync(path.join(mockKonoha, 'server.py')), false);
+    assert.strictEqual(fs.existsSync(path.join(mockKonoha, 'konoha.db.bak-test')), false);
+
+    console.log('  ✓ Pristine reinstallation contract verified: zero legacy D2 artifacts recreated');
+  } finally {
+    try {
+      fs.rmSync(sandboxDir, { recursive: true, force: true });
+    } catch (_) {}
+  }
+}
+
 runTest();
+testPristineReinstallContract();
 console.log('All clean reinstall tests passed.\n');
