@@ -278,7 +278,7 @@ function buildSceneFrames(cmdStr, cmdArgs, badge, opts = {}) {
 /**
  * Simulate authentic interactive AI agent session step-by-step:
  *   1. Typing prompt command
- *   2. Tool executions (Bash test, konoha/find_skill, konoha/delegate_to_kage, ...)
+ *   2. Tool executions (Bash test, konoha/find_skill, konoha/kage, ...)
  *   3. Final verified verdict with Kage review
  */
 function buildClientDelegationScene(cmdStr, delegationSteps, badge, opts = {}) {

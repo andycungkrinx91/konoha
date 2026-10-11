@@ -203,7 +203,7 @@ For a detailed breakdown of Konoha's internal mechanics, including system layers
 <summary><b>🚀 Direct Structured MCP Delegation & Zero-Loop Reporting</b></summary>
 <br>
 
-Konoha subagents execute inline via direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`) or specialized aliases (`delegate_to_jonin`, `delegate_to_anbu`, `delegate_to_kage`, etc.):
+Konoha subagents execute inline via direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`) using direct specialist tools (`jonin`, `anbu`, `kage`, `genin`, etc.):
 - **Eliminates Scratch Loops**: Replaces multi-step disk file reading (`delegate.md` and `result.md`) with direct in-memory structured context passing.
 - **Auto-Checkpointing (`report_from_agent`)**: Automatically distills key architectural learnings and records them into persistent project memory upon task completion.
 
@@ -320,7 +320,7 @@ flowchart TB
     Prompt["User Prompt / Resume"] --> Orchestrator["Primary Orchestrator<br/>(Main Agent)"]
     Orchestrator --> Context["1. Project Memory & Context<br/>(Detect stack & auto-inject invariants)"]
     Orchestrator --> Discover["2. Discover & Resolve Skills<br/>(konoha.find_skill · konoha.use_skills · semble.search)"]
-    Context --> Delegate["3. Structured MCP Delegation<br/>(delegate_to_jonin / anbu / kage)"]
+    Context --> Delegate["3. Structured MCP Delegation<br/>(jonin / anbu / kage)"]
     Discover --> Delegate
     Delegate --> Agent["4. Specialist Ninja Agent<br/>(genin · kage · jonin · anbu · chunin · tokubetsu)"]
     Agent --> Report["5. Structured Result & Checkpoint<br/>(report_from_agent)"]

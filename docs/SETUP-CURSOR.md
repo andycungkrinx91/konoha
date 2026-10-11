@@ -74,7 +74,7 @@ Close and reopen Cursor (or start a new agent session) so MCP servers reload.
 1. **Orchestrator** (main agent) reads `.cursor/rules/konoha.mdc`.
 2. **Skills first**: Call `konoha.find_skill`.
 3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
-4. **Delegate** via structured MCP tools served by `konoha` (for example, `delegate_to_jonin` or `delegate_to_anbu`) with task context and Taste-Skill dials. Use `task_dir` only for legacy fallback hosts.
+4. **Delegate** via structured MCP tools served by `konoha` (for example, `jonin` or `anbu`) with task context and Taste-Skill dials. Use `task_dir` only for legacy fallback hosts.
 5. **Skills from MCP**: Konoha keeps `~/.agents/skills/` as the canonical source and indexes it in SQLite. Cursor agents load skill **content** via `konoha` MCP; Konoha does not create `.cursor/skills/` mirrors or symlinks.
 
 ### Default search / grep / find → semble

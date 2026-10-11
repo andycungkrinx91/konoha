@@ -691,13 +691,6 @@ function ensureAntigravityPermissions(silent = true) {
     'mcp(konoha/chunin)',
     'mcp(konoha/tokubetsu_jonin)',
     'mcp(konoha/genin)',
-    'mcp(konoha/delegate_to_sannin)',
-    'mcp(konoha/delegate_to_kage)',
-    'mcp(konoha/delegate_to_jonin)',
-    'mcp(konoha/delegate_to_anbu)',
-    'mcp(konoha/delegate_to_chunin)',
-    'mcp(konoha/delegate_to_tokubetsu_jonin)',
-    'mcp(konoha/delegate_to_genin)',
     'mcp(konoha/report_from_agent)',
     'mcp(konoha/get_project_context)',
     'mcp(konoha/save_project_context)',
@@ -754,6 +747,15 @@ function ensureAntigravityPermissions(silent = true) {
       settings.permissions.allow = Array.isArray(allowRaw) ? allowRaw : [];
 
       let modified = false;
+
+      const initialAllowLen = settings.permissions.allow.length;
+      settings.permissions.allow = settings.permissions.allow.filter(g =>
+        typeof g !== 'string' || !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g)
+      );
+      if (settings.permissions.allow.length !== initialAllowLen) {
+        modified = true;
+      }
+
       for (const grant of requiredGrants) {
         if (!settings.permissions.allow.includes(grant)) {
           settings.permissions.allow.push(grant);
@@ -777,6 +779,13 @@ function ensureAntigravityPermissions(silent = true) {
       ];
       if (!Array.isArray(settings.autoApprove)) {
         settings.autoApprove = [];
+      }
+      const initialAutoLen = settings.autoApprove.length;
+      settings.autoApprove = settings.autoApprove.filter(g =>
+        typeof g !== 'string' || !/^mcp\(konoha\/(?:delegate_to_|delegated_to_)/.test(g)
+      );
+      if (settings.autoApprove.length !== initialAutoLen) {
+        modified = true;
       }
       for (const grant of safeAutoApprove) {
         if (!settings.autoApprove.includes(grant)) {

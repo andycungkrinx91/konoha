@@ -215,7 +215,6 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
   }
 
   let cleanAgent = (agentName || '').toLowerCase().trim();
-  if (cleanAgent.startsWith('delegate_to_')) cleanAgent = cleanAgent.substring(12);
   if (cleanAgent.startsWith('mcp_')) cleanAgent = cleanAgent.substring(4);
   cleanAgent = cleanAgent.replace(/_/g, '-');
 
@@ -477,7 +476,6 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   }
 
   let dbAgentName = agentName;
-  if (dbAgentName.startsWith('delegate_to_')) dbAgentName = dbAgentName.substring(12);
   if (dbAgentName.startsWith('mcp_')) dbAgentName = dbAgentName.substring(4);
   dbAgentName = dbAgentName.replace(/_/g, '-');
 

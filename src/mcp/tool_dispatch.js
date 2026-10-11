@@ -124,7 +124,7 @@ function _executeToolInternal(toolName, args, agent) {
     const sessId = args.session_id || args.sessionId;
     return JSON.stringify({ status: 'ok', task_dir: getResolvedTaskDir(args.task_dir, projPath, sessId) });
   }
-  if (toolName === 'sannin' || toolName === 'delegate_to_sannin' || toolName === 'delegated_to_sannin') {
+  if (toolName === 'sannin') {
     const prompt = args.prompt || args.task || args.instructions;
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
@@ -132,11 +132,7 @@ function _executeToolInternal(toolName, args, agent) {
   }
   if (
     [
-      'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin',
-      'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
-      'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
-      'delegated_to_kage', 'delegated_to_jonin', 'delegated_to_anbu',
-      'delegated_to_chunin', 'delegated_to_tokubetsu_jonin', 'delegated_to_genin'
+      'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin'
     ].includes(toolName)
   ) {
     const task = args.task || args.prompt || args.instructions;
@@ -148,12 +144,8 @@ function _executeToolInternal(toolName, args, agent) {
     const taskDir = args.task_dir;
     const sessId = args.session_id || args.sessionId;
 
-    let cleanSubagent = toolName;
-    if (cleanSubagent.startsWith('delegated_to_')) cleanSubagent = cleanSubagent.substring(13);
-    else if (cleanSubagent.startsWith('delegate_to_')) cleanSubagent = cleanSubagent.substring(12);
-
     return runMcpAgent(
-      cleanSubagent,
+      toolName,
       task,
       context,
       constraints,

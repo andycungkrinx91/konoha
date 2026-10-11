@@ -8,7 +8,7 @@ require('./helpers/isolate_db');
  * tests/test_sdlc_cross_provider.js — Tests Cross-Provider Review Independence.
  * Covers Phase 4, Phase 5, Phase 9 of PLAN_NATIVE_SDLC.md:
  * - detectReviewIndependence logic (different models -> cross-provider, same model -> self)
- * - Prefix and naming normalization (mcp_anbu, delegate_to_anbu)
+ * - Prefix and naming normalization (mcp_anbu, tokubetsu_jonin)
  * - Project config review_mode persistence
  * - CLI konoha project set review-mode
  * - Doctor checks for cross-provider bridge setup and anti-slop skill
@@ -64,6 +64,7 @@ async function run() {
         ('kage', 'anthropic/claude-3-7-sonnet', 'kage-skill, anti-slop'),
         ('anbu', 'openai/gpt-4o', 'anbu-skill'),
         ('jonin', 'openai/gpt-4o', 'jonin-skill'),
+        ('tokubetsu-jonin', 'openai/gpt-4o', 'tokubetsu-jonin-skill'),
         ('genin', 'anthropic/claude-3-7-sonnet', 'genin-skill')
     `).run();
 
@@ -82,10 +83,10 @@ async function run() {
     assert.strictEqual(sameRes.reviewMode, 'self');
     console.log('✓ Same-provider fallback to self passed');
 
-    // 3. Prefix handling (mcp_anbu, delegate_to_jonin)
+    // 3. Prefix handling (mcp_anbu, tokubetsu_jonin)
     const prefixRes1 = sdlc.detectReviewIndependence('mcp_anbu', 'kage', testDbPath);
     assert.strictEqual(prefixRes1.isCrossProvider, true);
-    const prefixRes2 = sdlc.detectReviewIndependence('delegate_to_jonin', 'kage', testDbPath);
+    const prefixRes2 = sdlc.detectReviewIndependence('tokubetsu_jonin', 'kage', testDbPath);
     assert.strictEqual(prefixRes2.isCrossProvider, true);
     console.log('✓ Agent prefix normalization passed');
 

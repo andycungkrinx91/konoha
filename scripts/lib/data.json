@@ -1671,7 +1671,7 @@
    [
     [
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
-     "● konoha/delegate_to_kage(Delegate audit to kage)",
+     "● konoha/kage(Delegate audit to kage)",
      "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
      ""
     ],
@@ -1725,7 +1725,7 @@
    [
     [
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
-     "⚡ Tool Call: konoha/delegate_to_kage(task=\"Audit security compliance\")",
+     "⚡ Tool Call: konoha/kage(task=\"Audit security compliance\")",
      "  ⎿  [◎ kage] Confidence score: 100% (STATUS: PASSED)",
      "",
      "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
@@ -1750,7 +1750,7 @@
    [
     [
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
-     "● konoha/delegate_to_kage({\"task\": \"Audit codebase architecture\"})",
+     "● konoha/kage({\"task\": \"Audit codebase architecture\"})",
      "  ⎿  [◎ kage] Architecture review complete. Confidence: 100%.",
      ""
     ],
@@ -1784,7 +1784,7 @@
    ],
    [
     [
-     "│  ● konoha:delegate_to_kage task=\"Verify codebase\"           │",
+     "│  ● konoha:kage task=\"Verify codebase\"                       │",
      "│    → [◎ kage] Review completed: Confidence 100% (PASSED)   │",
      "│                                                             │",
      "│  ● konoha:read_file_range path=\"tests/run_all.js\"           │",
@@ -1813,7 +1813,7 @@
    ],
    [
     [
-     "│  ● konoha__delegate_to_kage({ task: \"Audit architecture & test suite\" })   │",
+     "│  ● konoha__kage({ task: \"Audit architecture & test suite\" })               │",
      "│    [◎ kage] Architectural review complete. Confidence: 100%.               │",
      "│                                                                            │",
      "│  ● konoha__read_file_range({ path: \"tests/test_docs_currency.py\" })        │",
@@ -1842,7 +1842,7 @@
    ],
    [
     [
-     "[tool call] konoha/delegate_to_kage(task=\"Architecture audit\")",
+     "[tool call] konoha/kage(task=\"Architecture audit\")",
      "  ↳ [◎ kage] Confidence score: 100% (APPROVED)",
      "",
      "[tool call] konoha/read_file_head(path=\"src/file_tools_router.js\", max_lines=20)",
@@ -1871,7 +1871,7 @@
    [
     [
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
-     "⚡ Tool Call: konoha/delegate_to_kage(task=\"Security & Architecture audit\")",
+     "⚡ Tool Call: konoha/kage(task=\"Security & Architecture audit\")",
      "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
      "",
      "● konoha/read_file_head(path=\"package.json\", max_lines=20)",

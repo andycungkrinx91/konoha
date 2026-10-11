@@ -42,6 +42,28 @@ for (const tool of BANNED_FROM_TOOL_LIST) {
   );
 }
 
+const DELEGATE_ALIASES = [
+  'delegate_to_sannin',
+  'delegate_to_kage',
+  'delegate_to_jonin',
+  'delegate_to_anbu',
+  'delegate_to_chunin',
+  'delegate_to_tokubetsu_jonin',
+  'delegate_to_genin'
+];
+
+for (const tool of DELEGATE_ALIASES) {
+  assert.ok(
+    !fileToolsRouter.MCP_MANIFEST.tools.some((t) => t.name === tool),
+    `Removed alias "${tool}" must not exist in MCP_MANIFEST.tools`
+  );
+  assert.strictEqual(
+    fileToolsRouter.TOOL_HANDLERS[tool],
+    undefined,
+    `Removed alias "${tool}" must not exist in TOOL_HANDLERS`
+  );
+}
+
 // 2. Canonical tools must be present in active schemas
 const CANONICAL_REQUIRED_TOOLS = [
   'find_skill',

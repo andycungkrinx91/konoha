@@ -80,7 +80,7 @@ function orchestrationScene() {
     orch: { x: 330, y: 92, w: 250, h: 68, accent: THEME.violet, title: 'PRIMARY ORCHESTRATOR', detail: 'main agent · 7 coding clients' },
     ctx: { x: 60, y: 205, w: 350, h: 58, accent: THEME.emerald, title: '1. PROJECT MEMORY & CONTEXT', detail: 'stack detect · auto-inject invariants' },
     disc: { x: 500, y: 205, w: 350, h: 58, accent: THEME.cyan, title: '2. DISCOVER SKILL & HYGIENE', detail: 'find_skill · semble.search · aislop_scan' },
-    dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'delegate_to_jonin / anbu / kage' },
+    dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'jonin / anbu / kage' },
     agents: { x: 345, y: 418, w: 510, h: 74, accent: THEME.violet, title: '4. SPECIALIST NINJA AGENTS', detail: 'single-thread persona adoption', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu'] },
     report: { x: 60, y: 545, w: 170, h: 52, accent: THEME.emerald, title: '5. REPORT', detail: 'report_from_agent' },
     kage: { x: 285, y: 535, w: 240, h: 62, accent: THEME.amber, title: '6. KAGE REVIEW GATE', detail: 'zero-AI-slop · ≥98% conf' },

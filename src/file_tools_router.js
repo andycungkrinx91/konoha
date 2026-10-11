@@ -379,13 +379,6 @@ const TOOL_HANDLERS = {
   chunin: (args) => runNodeSkillTool('chunin', args),
   tokubetsu_jonin: (args) => runNodeSkillTool('tokubetsu_jonin', args),
   genin: (args) => runNodeSkillTool('genin', args),
-  delegate_to_sannin: (args) => runNodeSkillTool('delegate_to_sannin', args),
-  delegate_to_kage: (args) => runNodeSkillTool('delegate_to_kage', args),
-  delegate_to_jonin: (args) => runNodeSkillTool('delegate_to_jonin', args),
-  delegate_to_anbu: (args) => runNodeSkillTool('delegate_to_anbu', args),
-  delegate_to_chunin: (args) => runNodeSkillTool('delegate_to_chunin', args),
-  delegate_to_tokubetsu_jonin: (args) => runNodeSkillTool('delegate_to_tokubetsu_jonin', args),
-  delegate_to_genin: (args) => runNodeSkillTool('delegate_to_genin', args),
   report_from_agent: (args) => runNodeSkillTool('report_from_agent', args),
   get_project_context: (args) => runNodeSkillTool('get_project_context', args),
   save_project_context: (args) => runNodeSkillTool('save_project_context', args),
@@ -525,8 +518,6 @@ function dispatchTool(name, rawArgs) {
 // Deprecated compatibility tool names — hidden from tools/list to slim the
 // per-session schema payload; dispatch paths remain functional for direct calls.
 const DEPRECATED_LEGACY_TOOL_NAMES = new Set([
-  'delegate_to_sannin', 'delegate_to_kage', 'delegate_to_jonin', 'delegate_to_anbu',
-  'delegate_to_chunin', 'delegate_to_tokubetsu_jonin', 'delegate_to_genin',
   'build_with_image_design',
   'find_skills',
 ]);

@@ -469,7 +469,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 ### Delegation Protocol
 
 To delegate a task:
-1. **Direct Structured MCP Delegation (Recommended & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`delegate_to_jonin\`, or \`delegate_to_anbu\`) with \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`. This executes inline without scratch-file read/write loops.
+1. **Direct Structured MCP Delegation (Recommended & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`kage\`, or \`genin\`) with \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`. This executes inline without scratch-file read/write loops.
 2. **File-Based Delegation (Legacy Fallback)**: If the host cannot send structured arguments, resolve a task directory via \`konoha.get_resolved_task_dir\` (under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\`, never inside the project workspace) and create a fresh subdirectory.
 3. Write \`delegate.md\` only for that legacy fallback, including task details, context, skill reference names, and constraints.
 4. Call the corresponding MCP tool with the legacy \`task_dir\` argument. Read \`result.md\` only when the task-directory fallback was used.

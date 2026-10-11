@@ -546,8 +546,8 @@ function checkReadiness(taskInput, projectPath = null) {
 // Cross-Provider Independence Detection
 
 function detectReviewIndependence(implementingAgent, reviewerAgent = 'kage', dbPath = null) {
-  const cleanImpl = (implementingAgent || '').toLowerCase().replace(/^mcp_|^delegate_to_/, '').replace(/_/g, '-');
-  const cleanRev = (reviewerAgent || 'kage').toLowerCase().replace(/^mcp_|^delegate_to_/, '').replace(/_/g, '-');
+  const cleanImpl = (implementingAgent || '').toLowerCase().replace(/^mcp_/, '').replace(/_/g, '-');
+  const cleanRev = (reviewerAgent || 'kage').toLowerCase().replace(/^mcp_/, '').replace(/_/g, '-');
 
   const conn = getDbConn(dbPath);
   let reviewerModel = null;
