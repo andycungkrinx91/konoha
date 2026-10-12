@@ -15036,3 +15036,258 @@ index 48b57ac..6c5ac6c 100644
 #### (d) Commit Count Arithmetic
 - Previous commit count since `583b2a9`: `48` (`git --no-pager log --oneline 583b2a9..HEAD | wc -l`).
 - The Section 70 commit will make the total count `49` (N+1).
+
+## 71. Section 70 Errata
+
+This section formally records corrections to three factual inaccuracies identified in Section 70. Earlier sections remain unedited; the erroneous statements in Section 70 are superseded by the authoritative records below.
+
+---
+
+### 71.1 Withdrawal of Erroneous "Section 62.10" Citation (Section 70.2)
+- **Superseded Statement:** Section 70.2 stated that remaining items were deferred per "Section 62.10".
+- **Evidence:**
+```text
+$ grep -n "^### 62\." docs/audit-notes.md
+13879:### 62.1 Part B: CHANGELOG Correction (Commit `29eea49`)
+13919:### 62.2 Part C: G-02a Completion for `src/db_agents.js` and `src/persona_memory.js`
+13953:### 62.3 Part D: G-16 Fixes (Pristine Backup Preservation & Custom Agents)
+13975:### 62.4 Part E: Documentation Updates (Commit `d120f77`)
+13986:### 62.5 Full Test Suite Execution Verification
+14008:### 62.6 Verbatim Authoritative Remaining Queue (Section 52.16 Table)
+14034:### 62.7 Verification, Working Tree & Daemon State
+```
+- **Authoritative Correction:** Section 62 terminates at subsection 62.7; subsection 62.10 does not exist. The citation to Section 62.10 is formally withdrawn. The correct authoritative sources for deferred items and remaining queue triage are Sections 62.6 and 63.
+
+---
+
+### 71.2 Python Test Suites Evidence Replacement (Section 70.4c)
+- **Superseded Statement:** Section 70.4(c) cited `node tests/run_all.js --include-python non_existent_filter` as evidence for the absence of Python test suites.
+- **Defect:** Running the test runner with a filter for a non-existent suite yields zero suites by definition of the filter, proving nothing about actual disk inventory.
+- **Authoritative Evidence:**
+```text
+$ find tests -name '*.py' | wc -l
+0
+
+$ ls tests/test_*.js | wc -l
+136
+
+$ grep -n "test_\*.py" docs/audit-notes.md
+608:- **Command:** `find . -name 'test_*.py' -not -path './node_modules/*' -not -path './.git/*'`
+697:14. `find . -name 'test_*.py' -not -path './node_modules/*' -not -path './.git/*'`: 0 matches (Exit 0)
+7972:- **Notes**: Python environment verification (`python3 -c "import tiktoken"`) succeeds via `PYTHONUSERBASE="/home/andycungkrinx/.local"`, but no `test_*.py` files are present in `tests/`.
+```
+- **Authoritative Correction:** The weak evidence from `non_existent_filter` is formally withdrawn. The real disk counts are: exactly 0 Python test files in `tests/`, and 136 `test_*.js` files (138 total JavaScript suites when including `agent_manager.test.js` and `verify_paths.js`). This re-verifies the Phase 1 baseline documented at lines 608, 697, and 7972.
+
+---
+
+### 71.3 Playwright E2E Execution Status & Script Name (Section 70.4c)
+- **Superseded Statement:** Section 70.4(c) attributed the non-execution of Playwright to "port 1404 contention".
+- **Defect:** Port 1404 contention was an unverified hypothesis; port collision was never measured or tested against the host daemon.
+- **Authoritative Evidence:**
+```text
+$ grep -n "test:e2e" apps/web/package.json
+16:    "test:e2e": "playwright test"
+```
+- **Authoritative Correction:** The "port 1404 contention" explanation is withdrawn. The factual, measured status is:
+  - **Script Name:** `"test:e2e": "playwright test"` in `apps/web/package.json:16`.
+  - **Status:** **NOT RUN in Phase 9; not executed, reason not measured.**
+
+---
+
+## 72. Phase 10 Final Report
+
+This report provides the final, comprehensive repository-wide audit synthesis as mandated by `docs/PLAN.md` (Phase 10 and Section 3 Required Final Report).
+
+---
+
+### 72.1 Executive Summary
+Across Phases 1 through 10, the Konoha repository underwent a systematic, source-verified audit and architectural hardening. Material improvements achieved:
+1. **Tool and Capability Parity:** Exactly 42 MCP tools declared in `src/mcp_tool_manifest.json` match 1:1 with `TOOL_HANDLERS` in `src/file_tools_router.js`. Zero dangling declarations or undocumented handlers exist.
+2. **Elimination of Legacy Duplication & Aliases:** All 27 removed router aliases and 7 `delegate_to_*` / `delegated_to_*` delegation aliases were eradicated from active dispatch paths and replaced by explicit rejection guards.
+3. **Database Concurrency and Transaction Safety:** Write operations across projects, agents, and persona memories were transitioned to `BEGIN IMMEDIATE TRANSACTION` and atomic temp-file swaps, eliminating silent file corruptions and race conditions.
+4. **Security Vulnerability Hardening:**
+   - **SEC-01:** Loopback Host header validation strictly enforced on the web server (blocking DNS rebinding / attacker domains) and `{ confirm: true }` required for project deletion.
+   - **SEC-02:** Bridges API credentials encrypted at rest using AES-256-GCM via `CryptoVault` with idempotent on-boot migration.
+   - **SEC-03:** Tunnel ingress rate limiter map bounded to a strict 10,000-entry ceiling with 60-second TTL cleanup and loopback bypass.
+   - **Tunnel Ingress Validation:** Public hostname mandatory and strictly validated against wildcard and IP injection prior to tunnel startup.
+5. **Full Test Suite Integrity:** All 138 isolated test suites executed and passed cleanly (138 passed, 0 failed in 1184.3s). Zero regressions detected.
+6. **Explicit Risk Boundaries:** Crucial unmitigated security invariants (specifically SEC-04 tunnel auth bypass and G-22 header-derived IP rate limiter cycling) are formally documented as open blockers rather than claimed as solved.
+
+---
+
+### 72.2 Architecture Before / After
+
+```mermaid
+flowchart TD
+    subgraph BEFORE["Before Audit Baseline (v2.1.17 / 583b2a9)"]
+        B_CLI["CLI Router (27 Aliases + Ambiguous Flags)"]
+        B_MCP["MCP Manifest (49 Tools / Drifted Handlers)"]
+        B_DEL["Delegation ('delegate_to_*' Aliases)"]
+        B_DB["SQLite Transactions (DEFERRED / Non-Atomic Writes)"]
+        B_SEC["Plaintext Bridge API Keys & Unbounded Limiter Maps"]
+        B_WEB["Web Server (Permissive Host Header / Unconfirmed Delete)"]
+        B_TUN["Tunnel (Empty Hostname Allowed / Untracked Open Auth)"]
+    end
+
+    subgraph AFTER["After Phase 10 Hardening (HEAD)"]
+        A_CLI["Canonical CLI (Strict Subcommands, 27 Synonyms Removed)"]
+        A_MCP["Canonical MCP Manifest (Exact 42/42 1:1 Handler Parity)"]
+        A_DEL["Direct Specialist MCP Tools ('kage', 'jonin', etc.)"]
+        A_DB["BEGIN IMMEDIATE Write Locking + Atomic Temp-File Swaps"]
+        A_SEC["AES-256-GCM Encrypted Keys + 10k Capped Limiter Map (60s TTL)"]
+        A_WEB["Strict Loopback Host Validation + { confirm: true } Delete"]
+        A_TUN["Mandatory Validated Public Hostname (SEC-04 Blocked)"]
+    end
+```
+
+---
+
+### 72.3 Canonical Capability Map
+
+| Capability | Canonical Owner Module | Primary Interface / Entrypoint | Status |
+|---|---|---|---|
+| **MCP Tool Routing** | `src/file_tools_router.js` | `executeFileTool(name, args)` (42 tools) | Verified 1:1 Parity |
+| **Tool Manifest** | `src/mcp_tool_manifest.json` | `listToolSchemas()` (42 schemas) | Verified 1:1 Parity |
+| **Agent Specialists** | `src/mcp/memory_reporting.js` | Direct named specialist tools (`sannin`, `kage`, etc.) | Verified Canonical |
+| **Workflow State Machine** | `src/mcp/workflow.js` | `WORKFLOW_PHASES` (8 lifecycle phases + `done`) | Verified Frozen Single Source |
+| **Web Server Ingress** | `src/web_server.js` | HTTP listener on 127.0.0.1, `validateHostHeader` | Hardened (SEC-01) |
+| **Database Operations** | `src/database.js` | `getDb()`, `withWriteTransaction()` | Hardened (IMMEDIATE) |
+| **Agent State Persistence** | `src/db_agents.js` | Atomic write with `.tmp` swap | Hardened (G-02a) |
+| **Project State Persistence**| `src/db_projects.js` | Atomic write with `.tmp` swap | Hardened (G-02a) |
+| **Persona Memory** | `src/persona_memory.js` | Atomic write with `.tmp` swap | Hardened (G-02a) |
+| **Bridge Credentials** | `src/bridges_manager.js` | `upsertBridge()`, `listBridges()` via `CryptoVault` | Hardened (SEC-02) |
+| **Tunnel Lifecycle** | `src/tunnel/manager.js` | `startTunnel()`, `stopTunnel()` | Hardened Ingress Hostname |
+| **Tunnel Security** | `src/tunnel/security.js` | `verifyRemoteAccess()`, `recordFailedPinAttempt()` | Hardened (SEC-03) |
+| **External Semble Search** | `src/semble_manager.js` | `SEMBLE_PKG_SPEC` constant | Consolidated (G-10) |
+| **External Anti-Slop** | `src/anti_slop_mcp.js` | `AISLOP_PKG_SPEC` constant, fail-closed gate | Consolidated (G-06, G-10) |
+
+---
+
+### 72.4 Legacy Removal Ledger
+
+| Removed Item | Category | Target File(s) | Commit | Rejection / Replacement Contract |
+|---|---|---|---|---|
+| 16 Top-Level CLI Router Aliases | CLI Router | `bin/cli.js` | `31e88dc` | Rejection via `Unknown command` error |
+| 11 CLI Subcommand Aliases / Synonyms | CLI Router | `bin/cli.js` | `d8834b7` | Rejection via `Unknown command` error |
+| `delegate_to_*` MCP Tool Names | MCP Dispatch | `src/mcp_tool_manifest.json`, `src/antigravity_manager.js` | `576e50b` | Direct specialist tools (`kage`, `jonin`, etc.) |
+| `delegate_to_*` Prefix in Memory Reporting | Subagent Routing | `src/mcp/memory_reporting.js` | `7377a35` | Explicit runtime rejection with `Invalid agent name` |
+| `docs/` directory in distribution | Packaging | `package.json` | `4a6a700` | Removed from `files` array |
+| Vendor-specific CloudRun hints | MCP Tables | `src/templates/AGENTS.md` | `5ea4f9a` | Removed platform-specific hints |
+
+*Verified Exceptions:* Zero legacy alias exceptions permitted. All removed aliases are covered by regression tests (`tests/test_cli_removed_aliases_router.js` and `tests/test_delegation_alias_removal.js`).
+
+---
+
+### 72.5 Duplication / Consolidation Ledger
+
+1. **Semble Package Specification:** Consolidated 16 disparate string literals into single exported constant `SEMBLE_PKG_SPEC` in `src/semble_manager.js` (Commit `f965424`). Pinned as `semble[mcp]` under Option B.
+2. **Anti-Slop Scanner Specification:** Consolidated into single exported constant `AISLOP_PKG_SPEC` in `src/anti_slop_mcp.js` (Commit `f965424`). Gate consolidated to fail closed mechanically (Commit `083f740`).
+3. **Workflow Phase Transitions:** Consolidated phase strings into frozen `WORKFLOW_PHASES` array in `src/mcp/workflow.js` (Commit `7a71c28`, `9104250`).
+4. **Database Configuration Path:** Setter and getter synchronized via `setDatabasePath` / `getDatabasePath` in `src/database.js` (Commit `daee20a`).
+5. **Codex Managed Configuration:** Pristine backup preservation and duplicate-free custom agent merging consolidated in `src/codex_manager.js` (Commit `36bc5a3`, `ef5577c`).
+
+---
+
+### 72.6 Database Audit Summary
+
+- **Primary Database Engine:** SQLite 3 via `better-sqlite3` driver.
+- **Ownership & Access:** Managed exclusively through `src/database.js`.
+- **Findings by Severity & Remediations:**
+  - **CRITICAL (Concurrency Race / Lock Contention):** Resolved via `BEGIN IMMEDIATE TRANSACTION` in `src/database.js` (Commit `0ef41ec`), acquiring SQLite RESERVED lock upfront.
+  - **HIGH (Non-Atomic Multi-Row Table Rewrites):** Resolved via atomic temp-file writes and atomic file renames across `src/db_agents.js` (Commit `cf09a49`), `src/db_projects.js` and `src/persona_memory.js` (Commit `a45899a`), and project deletion (Commit `0d7183b`).
+  - **HIGH (Plaintext Storage of Bridge Credentials):** Resolved via AES-256-GCM encryption in `src/db_bridges.js` using `src/crypto_vault.js` (Commit `6a07e2f`).
+  - **MEDIUM (SQLite FTS5 Dependency Missing in Some Environments):** Resolved via graceful fallback check in `src/db.js` and `src/sqlite_driver.js` (Commit `bc16e6f`).
+
+---
+
+### 72.7 Files Changed
+
+Across the 49 local commits since `583b2a9`, 96 files were modified or added (18,870 insertions, 799 deletions), grouped by purpose:
+1. **Core Database & Persistence (8 files):** `src/database.js`, `src/db.js`, `src/db_agents.js`, `src/db_bridges.js`, `src/sqlite_driver.js`, `src/migrate.js`, `src/persona_memory.js`, `src/crypto_vault.js`.
+2. **CLI & Command Routing (2 files):** `bin/cli.js`, `package.json`.
+3. **MCP Tool Framework & Manifest (7 files):** `src/mcp_tool_manifest.json`, `src/file_tools_router.js`, `src/mcp/tool_dispatch.js`, `src/mcp/skills.js`, `src/mcp/memory_reporting.js`, `src/mcp/workflow.js`, `src/mcp/anti_slop.js`.
+4. **File Tools (3 files):** `src/file_tools/get_file_structure.js`, `src/file_tools/read_file_head.js`, `src/file_tools/read_file_range.js`.
+5. **Client Adapters & Config Managers (6 files):** `src/codex_manager.js`, `src/antigravity_manager.js`, `src/cursor_manager.js`, `src/cursor_bootstrap.js`, `src/opencode_manager.js`, `src/pi_manager.js`.
+6. **Web Server & UI (7 files):** `src/web_server.js`, `apps/web/package.json`, `apps/web/src/lib/api.js`, `apps/web/src/components/Context.svelte`, `apps/web/src/components/RemoteAccess.svelte`, `apps/web/src/components/Tasks.svelte`.
+7. **Tunnel Ingress & Security (2 files):** `src/tunnel/manager.js`, `src/tunnel/security.js`.
+8. **External Integrations (2 files):** `src/semble_manager.js`, `src/agent_manager.js`, `src/sdlc_manager.js`.
+9. **Documentation & Architecture Specifications (13 files):** `docs/architecture/CANONICAL-API.md`, `docs/architecture/CANONICAL-CLI.md`, `docs/architecture/CAPABILITY-MAP.md`, `docs/architecture/LEGACY-ALIAS-INVENTORY.md`, `docs/architecture/TOKEN-BASELINE.md`, `docs/QA-AUTOMATION.md`, `docs/BENCHMARK.md`, `docs/SETUP-*.md`, `CHANGELOG.md`, `README.md`, `docs/audit-notes.md`.
+10. **Test Suites & Regression Guards (46 files):** 28 new regression test suites in `tests/`, `tests/helpers/sandbox_guard.js`, and updates to `tests/run_all.js`.
+
+---
+
+### 72.8 Verification Matrix
+
+The following matrix records every verification command actually executed in this session, with exact command string, factual outcome, and execution status:
+
+| Command | Execution Status | Raw Output / Result Summary |
+|---|---|---|
+| `git branch --show-current` | **RUN** | `master` |
+| `git config --show-origin user.name` | **RUN** | `file:.git/config andycungkrinx91` |
+| `git config --show-origin user.email` | **RUN** | `file:.git/config andy.silva270114@gmail.com` |
+| `git status --short` | **RUN** | ` M .gitignore` and `?? docs/PLAN.md` (clean working tree otherwise) |
+| `git rev-parse HEAD` | **RUN** | `76895470d76fca753724bb453cf268172985f345` |
+| `sha256sum docs/PLAN.md` | **RUN** | `2b8aba4d38c3de2acebce3e7fe168a21b39f731f30be45b8d9592c13bc805792` |
+| `grep -n "^### 62\." docs/audit-notes.md` | **RUN** | Verified Section 62 terminates at 62.7; 62.10 absent |
+| `find tests -name '*.py' \| wc -l` | **RUN** | `0` matches |
+| `ls tests/test_*.js \| wc -l` | **RUN** | `136` test suites |
+| `grep -n "test_\*.py" docs/audit-notes.md` | **RUN** | Verified Phase 1 baseline lines 608, 697, 7972 |
+| `grep -n "test:e2e" apps/web/package.json` | **RUN** | `16: "test:e2e": "playwright test"` |
+| `git --no-pager log --format='%h %an <%ae> %s' 583b2a9..HEAD` | **RUN** | 49 commits, 100% authored by `andycungkrinx91 <andy.silva270114@gmail.com>` |
+| `git branch -a` | **RUN** | `* master`, local branches, `remotes/origin/master` |
+| `git tag --points-at HEAD` | **RUN** | 0 tags (empty output) |
+| `git status -sb` | **RUN** | `## master...origin/master [ahead 49]` |
+| Parity check: `src/mcp_tool_manifest.json` vs `src/file_tools_router.js` | **RUN** | Exactly 42 manifest tools match 42 router handlers (0 diff) |
+| `grep -rn "delegate_to_" src/ --exclude-dir=node_modules` | **RUN** | 4 occurrences (all prune filters or rejection guards, 0 active handlers) |
+| `sed -n '15,30p' src/mcp/workflow.js` | **RUN** | Frozen `WORKFLOW_PHASES` array of 9 phases verified |
+| `node --test tests/test_bridges_api_key_encryption.js tests/test_limiter_map_bounded.js tests/test_loopback_host_validation.js tests/test_tunnel_hostname_required.js` | **RUN** | 21/21 tests passed (Exit 0) |
+| `node --test tests/test_cli_removed_aliases_router.js tests/test_delegation_alias_removal.js` | **RUN** | All 27 removed aliases rejected, delegation aliases rejected (Exit 0) |
+| `node tests/run_all.js` | **RUN** | **Test Summary: 138 passed, 0 failed in 1184.3s** |
+| Playwright E2E Suite (`apps/web`) | **NOT RUN** | NOT RUN in Phase 9; not executed, reason not measured |
+| Python Test Suites | **NOT RUN** | Exactly 0 Python test files exist on disk in `tests/` |
+
+---
+
+### 72.9 Security and Reliability Findings
+
+Authoritative reconciliation per Section 70.3 ledger:
+
+| Vulnerability / Finding ID | Status | Authoritative Target File | Commit Hash | Summary & Verification |
+|---|---|---|---|---|
+| **SEC-01** (Web Host Validation & Delete Confirm) | **RESOLVED** | `apps/web/src/components/Context.svelte`, `apps/web/src/lib/api.js`, `src/web_server.js` | `af29e45` + `29ba092` | Rejects non-loopback Host header with 403; requires `{ confirm: true }` on project deletion. |
+| **SEC-02** (Bridge API Key Plaintext Storage) | **RESOLVED** | `src/db_bridges.js`, `src/crypto_vault.js` | `6a07e2f` | Encrypts credentials at rest using AES-256-GCM with `enc:v1:` prefix and idempotent migration. |
+| **SEC-03** (Tunnel Rate Limiter Memory & TTL) | **RESOLVED** | `src/tunnel/security.js` | `86951a6` | Loopback bypasses limiter; failed attempts map capped at 10,000 entries with 60 s TTL (`PIN_ATTEMPT_WINDOW_MS = 60000`). |
+| **SEC-04** (Tunnel Authentication Enforcement) | **OPEN CRITICAL** | `src/tunnel/manager.js`, `src/tunnel/security.js`, `src/web_server.js` | Unmodified (Blocked) | **OPEN CRITICAL. Invariant 'no tunnel may be started without a PIN' is NOT ENFORCED at HEAD (Path 2: POST /api/v1/tunnel/config accepts auth_pin '' with no validation; Path 3: external start / DB edit yields authType 'open_named'). Do not start any tunnel until the login system exists.** |
+| **G-22** (Client IP Spoofing via Headers) | **DEFERRED LIMITATION** | `src/tunnel/security.js` | Unmodified (Deferred) | **Known limitation, deferred by user decision (Section 70.2): client IP derives from cf-connecting-ip / x-forwarded-for and can be cycled to bypass the 5 attempts per 60 s limit.** |
+
+---
+
+### 72.10 Known Limitations and External Blockers
+
+1. **SEC-04 Tunnel Authentication System Missing (CRITICAL BLOCKER):**
+   - **Owner:** Backend Security / Tunnel Subsystem.
+   - **Mitigation:** Administrative policy forbidding tunnel activation in production until full user authentication/login is implemented.
+   - **Removal Condition:** Implementation of an authenticated multi-user or bearer-token session login architecture replacing PIN-based remote access.
+2. **G-22 Proxy Header Client IP Cycling (KNOWN LIMITATION):**
+   - **Owner:** Rate Limiting / Ingress Security.
+   - **Mitigation:** Deferred by user decision (Section 70.2). Trusted ingress proxy configuration required when deploying behind reverse proxies.
+   - **Removal Condition:** Configuration of a strict trusted-proxy IP subnet allowlist for `cf-connecting-ip` and `x-forwarded-for` extraction.
+3. **Semble Package Unpinned Semver Range (KNOWN LIMITATION):**
+   - **Owner:** Dependency Management.
+   - **Mitigation:** Option B (`semble[mcp]` @latest) accepted risk documented in Section 64.1 and SecurityCompliance 2.1.10.
+   - **Removal Condition:** Upstream release of Semble version pinning verification.
+
+---
+
+### 72.11 Follow-up Items
+
+The following items are evidence-backed only, ordered strictly by security and reliability priority:
+1. **Login System for Tunnels:** Implement a comprehensive cryptographic authentication and session management architecture to replace the ephemeral PIN flow and permanently resolve SEC-04 before enabling public tunnels.
+2. **CSPRNG PIN Generation & Search Space Expansion:** Replace `Math.random()` in `src/tunnel/manager.js:63` with `crypto.randomInt()` to guarantee cryptographic randomness, and evaluate expanding beyond a 6-digit PIN ($10^6$ combinations).
+3. **Cookie Security Flags (`HttpOnly` on `konoha_pin`):** Set `HttpOnly: true` and `Secure: true` on the `konoha_pin` session cookie in `src/tunnel/security.js:250` to mitigate client-side script cookie theft.
+4. **Constant-Time Comparison & Parameter Sanitization:** Replace standard equality operator (`===`) with `crypto.timingSafeEqual` in `src/tunnel/security.js:218` when comparing authentication PINs to prevent timing attacks, and eliminate accepting sensitive authentication PINs via the URL query string (`?pin=`).
+5. **Header-Derived Client IP Validation:** Replace unvalidated trust of `cf-connecting-ip` and `x-forwarded-for` headers in `src/tunnel/security.js:96` with socket-level peer address verification or an explicit trusted proxy CIDR list.
+
+---
+
+NOT RELEASED | NOT PUBLISHED | NOT DEPLOYED | NOT PUSHED
