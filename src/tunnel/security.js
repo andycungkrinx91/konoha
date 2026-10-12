@@ -127,34 +127,80 @@ function verifyRemoteAccess(req) {
   };
 }
 
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', 'localhost', '::ffff:127.0.0.1']);
+const MAX_PIN_ENTRIES = 10000;
+const PIN_ATTEMPT_WINDOW_MS = 60000;
+const MAX_FAILED_ATTEMPTS = 5;
+
+function isLoopbackIp(ip) {
+  if (!ip) return false;
+  const s = String(ip).trim().toLowerCase();
+  return LOOPBACK_IPS.has(s);
+}
+
+function pruneFailedAttempts(now = Date.now()) {
+  // First pass: prune expired entries
+  for (const [key, record] of failedPinAttempts.entries()) {
+    if (now - record.lastAttempt > PIN_ATTEMPT_WINDOW_MS) {
+      failedPinAttempts.delete(key);
+    }
+  }
+  // Second pass: if still at or above capacity, evict oldest entries
+  while (failedPinAttempts.size >= MAX_PIN_ENTRIES) {
+    const oldestKey = failedPinAttempts.keys().next().value;
+    failedPinAttempts.delete(oldestKey);
+  }
+}
+
 /**
  * Rate limit check for brute-force PIN attempts (max 5 failures per minute).
+ * Loopback, MCP, and internal agent traffic bypasses rate-limiting.
  */
 function checkPinRateLimit(ip) {
+  if (!ip || isLoopbackIp(ip)) {
+    return { allowed: true };
+  }
   const now = Date.now();
   const record = failedPinAttempts.get(ip);
   if (!record) return { allowed: true };
-  if (now - record.lastAttempt > 60000) {
+  if (now - record.lastAttempt > PIN_ATTEMPT_WINDOW_MS) {
     failedPinAttempts.delete(ip);
     return { allowed: true };
   }
-  if (record.count >= 5) {
-    const waitSec = Math.ceil((60000 - (now - record.lastAttempt)) / 1000);
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
+    const waitSec = Math.ceil((PIN_ATTEMPT_WINDOW_MS - (now - record.lastAttempt)) / 1000);
     return { allowed: false, waitSec };
   }
   return { allowed: true };
 }
 
 function recordPinFailure(ip) {
+  if (!ip || isLoopbackIp(ip)) {
+    return;
+  }
   const now = Date.now();
+  if (!failedPinAttempts.has(ip) && failedPinAttempts.size >= MAX_PIN_ENTRIES) {
+    pruneFailedAttempts(now);
+  }
   const record = failedPinAttempts.get(ip) || { count: 0, lastAttempt: now };
   record.count += 1;
   record.lastAttempt = now;
+  // Re-insert to refresh insertion order for LRU eviction
+  failedPinAttempts.delete(ip);
   failedPinAttempts.set(ip, record);
 }
 
 function resetPinFailure(ip) {
+  if (!ip || isLoopbackIp(ip)) return;
   failedPinAttempts.delete(ip);
+}
+
+function getFailedAttemptsSize() {
+  return failedPinAttempts.size;
+}
+
+function hasPinFailure(ip) {
+  return failedPinAttempts.has(ip);
 }
 
 /**
@@ -221,5 +267,7 @@ module.exports = {
   checkPinRateLimit,
   recordPinFailure,
   resetPinFailure,
-  renderPinEntryPage
+  renderPinEntryPage,
+  getFailedAttemptsSize,
+  hasPinFailure
 };
