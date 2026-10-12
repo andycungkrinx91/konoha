@@ -274,12 +274,15 @@ function deleteProject(projectPathOrHash, deleteAssociatedMemories = true, dbPat
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const res = conn.prepare("DELETE FROM projects WHERE project_hash = ? OR project_path = ?").run(pHash, target);
-    const deleted = res.changes > 0;
-    if (deleteAssociatedMemories) {
-      conn.prepare("DELETE FROM persona_memories WHERE project_hash = ?").run(pHash);
-    }
-    return deleted;
+    const tx = conn.transaction(() => {
+      const res = conn.prepare("DELETE FROM projects WHERE project_hash = ? OR project_path = ?").run(pHash, target);
+      const deleted = res.changes > 0;
+      if (deleteAssociatedMemories) {
+        conn.prepare("DELETE FROM persona_memories WHERE project_hash = ?").run(pHash);
+      }
+      return deleted;
+    });
+    return tx();
   } finally {
     conn.close();
   }
@@ -295,15 +298,18 @@ function pruneAllProjects(options = {}, dbPath = DB_PATH) {
       sql += " AND project_hash != ?";
       params.push(options.currentHash);
     }
-    const res = conn.prepare(sql).run(...params);
-    if (options.deleteAssociatedMemories !== false) {
-      if (options.keepCurrent && options.currentHash) {
-        conn.prepare("DELETE FROM persona_memories WHERE project_hash != ? AND project_hash != ''").run(options.currentHash);
-      } else {
-        conn.prepare("DELETE FROM persona_memories WHERE project_hash IS NOT NULL AND project_hash != ''").run();
+    const tx = conn.transaction(() => {
+      const res = conn.prepare(sql).run(...params);
+      if (options.deleteAssociatedMemories !== false) {
+        if (options.keepCurrent && options.currentHash) {
+          conn.prepare("DELETE FROM persona_memories WHERE project_hash != ? AND project_hash != ''").run(options.currentHash);
+        } else {
+          conn.prepare("DELETE FROM persona_memories WHERE project_hash IS NOT NULL AND project_hash != ''").run();
+        }
       }
-    }
-    return { deleted: res.changes };
+      return { deleted: res.changes };
+    });
+    return tx();
   } finally {
     conn.close();
   }
@@ -703,13 +709,16 @@ function pruneProjectMemories(projectPathOrHash, options = {}, dbPath = DB_PATH)
       params.push(String(options.memoryType).trim().toLowerCase());
     }
 
-    const res = conn.prepare(sql).run(...params);
-    let invariantsCleared = false;
-    if (options.clearInvariants || options.all) {
-      conn.prepare("UPDATE projects SET context_summary = '' WHERE project_hash = ?").run(pHash);
-      invariantsCleared = true;
-    }
-    return { deleted: res.changes, project_hash: pHash, invariants_cleared: invariantsCleared };
+    const tx = conn.transaction(() => {
+      const res = conn.prepare(sql).run(...params);
+      let invariantsCleared = false;
+      if (options.clearInvariants || options.all) {
+        conn.prepare("UPDATE projects SET context_summary = '' WHERE project_hash = ?").run(pHash);
+        invariantsCleared = true;
+      }
+      return { deleted: res.changes, project_hash: pHash, invariants_cleared: invariantsCleared };
+    });
+    return tx();
   } finally {
     conn.close();
   }
