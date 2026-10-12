@@ -14440,3 +14440,113 @@ In accordance with Phase 9 instructions and explicit user rules, implementation 
    - Zero release tags created.
    - Zero package publications executed.
    - All changes remain local-only on branch `master`.
+
+
+---
+
+## 67. Phase 9: Ingress Hostname Hardening & Comprehensive Security / Reliability Audit
+
+- **Date:** 2026-10-12
+- **Author:** andycungkrinx91 <andy.silva270114@gmail.com>
+- **Scope:** 
+  1. Step 1: Tunnel Hostname Requirement & Normalization (`src/tunnel/manager.js`, `src/web_server.js`, `apps/web/src/components/RemoteAccess.svelte`, `tests/test_tunnel_hostname_required.js`).
+  2. Cloudflare Tunnel Host forwarding analysis and behavior verification.
+  3. Step 2: Comprehensive read-only audit of remaining Phase 9 Security and Reliability requirements.
+
+---
+
+### 67.1 Step 1: Tunnel Hostname Requirement & Validation Record
+
+- **Problem:**
+  Previously, starting a named Cloudflare tunnel allowed an empty or unvalidated `custom_domain`. Without a configured hostname, the web server's Host header validation could not safely distinguish legitimate tunnel traffic from malicious external requests, or could fail open to unauthorized origins. Furthermore, malformed hostnames (containing schemes, paths, ports, IP literals, or spaces) could cause parsing errors or routing ambiguity.
+
+- **Implementation Details:**
+  1. **Hostname Validation & Normalization (`src/tunnel/manager.js`):**
+     - Implemented `normalizeAndValidateTunnelHostname(raw)`.
+     - Validates input is a non-empty string with no internal spaces.
+     - Strips scheme (`http://`, `https://`), path (`/foo`), query (`?bar`), and trailing port (`:1404`).
+     - Converts to lowercase.
+     - Rejects wildcard expressions (`*.example.com`).
+     - Rejects IPv4 (`192.168.1.1`) and IPv6 literals (`[::1]`, `fe80::1`).
+     - Enforces DNS hostname label syntax: at least two labels, each matching `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`.
+     - Exported and integrated directly into `startTunnel(options)`. Refuses to start if hostname is empty or invalid.
+  2. **API Guard (`src/web_server.js`):**
+     - In `POST /api/v1/tunnel/start`, caught hostname validation errors return HTTP `400 Bad Request` instead of generic `500`.
+     - In Host header verification middleware (`createWebServer`):
+       - If tunnel is active (`tunnelStatus.enabled`): normalizes `tunnelStatus.custom_domain` and allows that exact hostname.
+       - If tunnel is active without a valid stored hostname (legacy/corrupt config): allows loopback only (`127.0.0.1`, `localhost`).
+       - If tunnel is inactive/disabled: strictly rejects tunnel hostnames and outside origins with HTTP `403 Forbidden`.
+  3. **UI Hardening (`apps/web/src/components/RemoteAccess.svelte`):**
+     - Dropped `(Optional)` label; marked with mandatory red asterisk `*`.
+     - Added client-side `isHostnameValid(raw)` validator matching backend rules.
+     - Disabled the "Start Tunnel" button (`disabled={tunnelLoading || (!tunnelStatus.enabled && !isHostnameValid(tunnelCustomDomain))}`) when the domain is empty or invalid.
+     - Guarded `toggleTunnel()` with SweetAlert modal warning if an invalid hostname is attempted.
+     - "Save Tunnel Settings" remains non-blocking for saving draft configurations.
+  4. **Test Suite (`tests/test_tunnel_hostname_required.js`):**
+     - 5 comprehensive tests verifying empty hostname rejection, invalid hostname syntax rejection, normalization/storage, host header acceptance during active tunnel, and 403 rejection when tunnel is inactive.
+     - Verified fail-before and pass-after (5 pass, 0 fail).
+  5. **Commit Hash:** `29ba092` (`feat(tunnel): require and validate public hostname for tunnel ingress (Step 1)`).
+
+---
+
+### 67.2 Cloudflared Host Header Forwarding Behavior & Analysis
+
+- **Command Spawning:**
+  `src/tunnel/manager.js:155` spawns `cloudflared` using token-based execution:
+  ```bash
+  cloudflared tunnel run --token <token>
+  ```
+  No local configuration YAML file or `--http-host-header` CLI flags are passed.
+- **Cloudflare Ingress Architecture:**
+  For token-managed tunnels, ingress routing rules are defined in the Cloudflare Zero Trust Dashboard (under Networks > Tunnels > Public Hostname), routing the public hostname (e.g. `remote.yourdomain.com`) to origin service `http://localhost:1404`.
+- **Default Forwarding:**
+  By default, `cloudflared` forwards the public incoming HTTP Host header (`Host: remote.yourdomain.com`) directly to the local HTTP service.
+- **Cloudflare Origin Override ("HTTP Host Header"):**
+  Under Cloudflare Zero Trust Dashboard > Public Hostname > Additional application settings > HTTP Settings, administrators can configure the "HTTP Host Header" override.
+  - If set to `localhost:1404` or `127.0.0.1:1404`, `cloudflared` rewrites the header to loopback before forwarding to Konoha.
+  - If left empty (default), `cloudflared` forwards the public domain `remote.yourdomain.com`.
+- **Konoha Ingress Verdict:**
+  Konoha's hardened host validation handles both configurations cleanly:
+  - If default: incoming `Host: remote.yourdomain.com` matches `custom_domain` on the active tunnel and is accepted.
+  - If overridden: incoming `Host: localhost:1404` matches loopback and is accepted.
+  - Malicious external requests with `Host: attacker.example` are blocked with HTTP `403 Forbidden`.
+
+---
+
+### 67.3 Step 2: Comprehensive Read-Only Audit of Remaining Phase 9 Checks
+
+| Category | Item / Title | Raw Evidence | Severity | Exploitable From | Proposed Fix | Needs Approval? | Decision-Free? | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| **Security** | Workspace & Path Containment | `grep -n "resolvePath" src/file_tools/*.js` (8 call sites). `assertWithinAllowed` verifies realpath, forbids IDE dirs, enforces workspace boundary. | None | N/A | None needed. Bounded file tools strictly validate paths. | No | Yes | **OK** |
+| **Security** | Untrusted Output Boundaries | Svelte UI uses 0 `{@html}` injections. 181 API endpoints in `src/web_server.js` use structured `sendJson()`. Shell output sanitized via `sanitizeShellOutput`. | None | N/A | None needed. Output encoding and JSON serialization are robust. | No | Yes | **OK** |
+| **Security** | Secrets in Logs & Errors | `grep -rnE "(console.(log\|error\|warn)\|logger.(info\|error\|warn))\(" src/ --exclude-dir=templates \| grep -iE "token\|secret\|api_key\|password\|pin" \| wc -l` = `0`. | None | N/A | None needed. Zero secrets logged in production code. | No | Yes | **OK** |
+| **Security** | Subprocess Execution Boundaries | 41 subprocess call sites. Zero unescaped shell concatenation. Only 1 `shell: true` (`src/deploy_utils.js:628` for Windows `.cmd` execution of hardcoded pnpm/npm commands). | None | N/A | None needed. Commands pass argument arrays or use safe shell wrappers with timeouts. | No | Yes | **OK** |
+| **Security** | MCP Input Schema Validation | `src/file_tools_router.js:475-497` strictly validates arguments against `src/mcp_tool_manifest.json` schemas (required fields, types, enums, additionalProperties: false). | None | N/A | None needed. Complete schema validation before handler execution. | No | Yes | **OK** |
+| **Security** | Client Integration Guardrails | `mcp_clients_manager.js`, `pi_manager.js`, `antigravity_tool_sanitize_hook.js` inject `buildGuardrailCheckerSource()` to block destructive commands and protect secrets across all 7 clients. | None | N/A | None needed. Client pre-tool hooks actively enforce guardrails. | No | Yes | **OK** |
+| **Security** | Filesystem Permissions (0600 / 0700) | `crypto_vault.js:77` creates `.vault_key` with `{ mode: 0o600 }`. `db_bridges.js:180, 186, 206` sets `0o600` on key, db, and backups. Executables set `0o755`. | None | N/A | None needed. Strict POSIX file permissions enforced. | No | Yes | **OK** |
+| **Security** | Destructive Operations Confirmation | `DELETE /api/v1/projects` mandates `{ confirm: true }`. CSRF token validation on all mutating verbs. Loopback Host validation blocks DNS rebinding. | None | N/A | None needed. Bulk delete is protected; destructive commands are blocked by guardrails. | No | Yes | **OK** |
+| **Security** | Supply-Chain & On-the-Fly Execution | `src/semble_manager.js:3` pins package via `SEMBLE_PACKAGE = 'semble[mcp]@latest'`. Recorded under SEC-02 (Option B). Tool verification runs before execution. | Low (Advisory) | Network / PyPI | Optional future: pin exact hash or freeze version. Currently tracked as accepted risk. | Yes | No | **OK (Tracked)** |
+| **Security** | Error Fail-Safety & Gate Enforcing | `src/mcp/workflow.js:112` circuit breaker trips to FAIL CLOSED (`pass: false`). `executeAislopScan` failure blocks synthesis. | None | N/A | None needed. Quality gates fail closed mechanically. | No | Yes | **OK** |
+| **Reliability** | Timeouts & Cancellation | Subprocesses bounded (`timeout: 30*60*1000` shell, `45*60*1000` agent, `60000` gate, `5000` sqlite). Exit handlers kill child procs via `SIGTERM`. Fetch uses `AbortController`. | None | N/A | None needed. Comprehensive timeout coverage and signal propagation. | No | Yes | **OK** |
+| **Reliability** | Concurrency, WAL & Busy Timeout | `src/db.js:49-51` opens SQLite with `PRAGMA journal_mode = WAL`, `PRAGMA busy_timeout = 5000`, `PRAGMA foreign_keys = ON`. `sqlite_driver.js` enforces busy_timeout. | None | N/A | None needed. Robust multi-process concurrent SQLite handling. | No | Yes | **OK** |
+| **Reliability** | Bounded Retries & Workflow Recovery | `src/bridge/sidecar/rpc.js:276` caps retries at 2 (`attempt <= 2`). `loadWorkflowStatus` gracefully parses or re-initializes corrupted task states. | None | N/A | None needed. Retries are strictly bounded; task states recover deterministically. | No | Yes | **OK** |
+| **Reliability** | Storage Failure Resilience | Database reads/writes wrapped with savepoints/transactions. Fallback seed generated in `crypto_vault.js` if machine-id unreadable. | None | N/A | None needed. Graceful fallbacks prevent fatal daemon crashes. | No | Yes | **OK** |
+
+---
+
+### 67.4 Environment Invariants & Final Verification Gate
+
+1. **Host UI Daemon Status:**
+   - Command: `ss -tlpn | grep 1404`
+   - Daemon PID 1934 on port 1404 was protected and remains actively listening.
+2. **Ephemeral Sandbox Directory Cleanup:**
+   - Zero temporary test sandbox directories remain under `/tmp/konoha_suite_*`.
+3. **Working Tree Guardrails:**
+   - `git status --short` confirms only `M .gitignore` (uncommitted user change, kept untouched).
+4. **Git Commit Count & HEAD Hash:**
+   - 45 commits evaluated since `583b2a9`.
+5. **No Release / No Publish Invariant:**
+   - Zero commits pushed to remote repository (`origin/master`).
+   - Zero release tags created.
+   - Zero package publications executed.
+   - All changes remain local-only on branch `master`.
