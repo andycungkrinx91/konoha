@@ -11,7 +11,7 @@
   "tools": [
     {
       "name": "read_file_head",
-      "description": "Read the first N lines of a file.",
+      "description": "Read the first N lines of a file. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -52,7 +52,7 @@
     },
     {
       "name": "read_file_range",
-      "description": "Read a bounded inclusive line range.",
+      "description": "Read a bounded inclusive line range. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -185,7 +185,7 @@
     },
     {
       "name": "get_file_structure",
-      "description": "Return a compact class and function signature map.",
+      "description": "Return a compact class and function signature map. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges.",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -1,63 +1,66 @@
 /**
  * Extract compact structural signatures (classes/functions) from a source file or directory.
- * Pure Node.js in-process implementation.
+ * Pure Node.js in-process implementation with pagination.
  */
 
 const fs = require('fs');
 const path = require('path');
 const common = require('./common');
 
-
 function structureFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const ext = path.extname(filePath).toLowerCase();
-  const lines = [];
+  const fileLines = content.split(/\r?\n/);
+  const totalLines = fileLines.length;
+  const symbols = [];
 
   if (ext === '.py') {
-    const fileLines = content.split(/\r?\n/);
     fileLines.forEach((line, idx) => {
       const lineNo = idx + 1;
       const classMatch = line.match(/^\s*class\s+([a-zA-Z0-9_]+)(?:\((.*?)\))?:/);
       if (classMatch) {
         const bases = classMatch[2] ? `(${classMatch[2]})` : '';
-        lines.push(`class ${classMatch[1]}${bases}:  # L${lineNo}`);
+        symbols.push({ name: `class ${classMatch[1]}${bases}`, start_line: lineNo });
       } else {
         const fnMatch = line.match(/^\s*(async\s+)?def\s+([a-zA-Z0-9_]+)\s*\((.*?)\):/);
         if (fnMatch) {
           const prefix = fnMatch[1] ? 'async def' : 'def';
-          lines.push(`${prefix} ${fnMatch[2]}(${fnMatch[3]}):  # L${lineNo}`);
+          symbols.push({ name: `${prefix} ${fnMatch[2]}(${fnMatch[3]})`, start_line: lineNo });
         }
       }
     });
   } else if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.vue', '.svelte'].includes(ext)) {
-    const fileLines = content.split(/\r?\n/);
     fileLines.forEach((line, idx) => {
       const lineNo = idx + 1;
       const match = line.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s+(\w+)|class\s+(\w+)|const\s+(\w+)\s*=\s*(?:async\s*)?\(|(?:interface|type)\s+(\w+))/);
       if (match) {
         let snippet = line.trim();
         if (snippet.length > 100) snippet = snippet.substring(0, 100) + '…';
-        lines.push(`${snippet}  # L${lineNo}`);
+        symbols.push({ name: snippet, start_line: lineNo });
       }
     });
   } else {
-    const fileLines = content.split(/\r?\n/);
     fileLines.forEach((line, idx) => {
       const lineNo = idx + 1;
       const match = line.match(/^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|class|struct|enum|interface|type)\s+(\w+)/);
       if (match) {
         let snippet = line.trim();
         if (snippet.length > 100) snippet = snippet.substring(0, 100) + '…';
-        lines.push(`${snippet}  # L${lineNo}`);
+        symbols.push({ name: snippet, start_line: lineNo });
       }
     });
   }
 
-  return lines.slice(0, 200);
+  for (let i = 0; i < symbols.length; i++) {
+    const nextStart = i + 1 < symbols.length ? symbols[i + 1].start_line - 1 : totalLines;
+    symbols[i].end_line = Math.max(symbols[i].start_line, nextStart);
+  }
+
+  return { symbols, totalLines };
 }
 
 function getFileStructure(args = {}) {
-  const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;
+  const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path || args.dir_path || args.dir || args.DirectoryPath || '.';
   const targetPath = common.resolvePath(rawPath, args.workspace, args.dev_root);
 
   if (!fs.existsSync(targetPath)) {
@@ -92,17 +95,57 @@ function getFileStructure(args = {}) {
       path: targetPath,
       is_directory: true,
       count: outputLines.length,
+      total_lines: outputLines.length,
+      returned_range: [1, outputLines.length],
+      complete: true,
+      next_range: null,
+      remaining_lines: 0,
       structure: text,
       text
     };
   }
 
-  const lines = structureFile(targetPath);
-  const text = lines.join('\n');
+  const { symbols, totalLines } = structureFile(targetPath);
+  const totalSymbols = symbols.length;
+  const pageSize = parseInt(args.limit || args.page_size || args.max_entries || 200, 10);
+  const page = parseInt(args.page || 1, 10);
+  const totalPages = Math.max(1, Math.ceil(totalSymbols / pageSize));
+
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(totalSymbols, startIdx + pageSize);
+  const pageSymbols = symbols.slice(startIdx, endIdx);
+
+  const formattedLines = pageSymbols.map(s => {
+    return `${s.name}  # L${s.start_line}-L${s.end_line}`;
+  });
+
+  const complete = endIdx >= totalSymbols;
+  let truncationNotice = null;
+  if (!complete) {
+    truncationNotice = `[Truncation Notice: Showing symbols ${startIdx + 1}-${endIdx} of ${totalSymbols} (page ${page}/${totalPages}). Use outline first, then request page: ${page + 1} or read ranges aligned to symbols.]`;
+    formattedLines.push(truncationNotice);
+  }
+
+  const firstLine = pageSymbols.length > 0 ? pageSymbols[0].start_line : 1;
+  const lastLine = pageSymbols.length > 0 ? pageSymbols[pageSymbols.length - 1].end_line : totalLines;
+  const remainingLines = Math.max(0, totalLines - lastLine);
+
+  const text = formattedLines.join('\n');
   return {
     path: targetPath,
     is_directory: false,
-    line_count: lines.length,
+    line_count: pageSymbols.length,
+    total_lines: totalLines,
+    total_symbols: totalSymbols,
+    page,
+    page_size: pageSize,
+    total_pages: totalPages,
+    returned_range: [firstLine, lastLine],
+    complete,
+    next_page: complete ? null : page + 1,
+    next_range: complete ? null : [lastLine + 1, Math.min(totalLines, lastLine + 250)],
+    remaining_lines: remainingLines,
+    truncation_notice: truncationNotice,
     structure: text,
     text
   };
