@@ -32,7 +32,7 @@ const EXCLUDE_DIRS = new Set([
 const BANNED_PATTERNS = [
   {
     rule: 'placeholder-code',
-    regex: new RegExp('\\b(?:' + ['TODO:?\\s*implement', 'FIXME:?\\s*implement', '\\/\\/\\s*placeholder', '\\/\\*\\s*placeholder\\s*\\*\\/', '\\.\\.\\.rest of code\\.\\.\\.', 'NotImplementedError\\s*\\(\\s*["\']implement'].join('|') + ')', 'i'),
+    regex: new RegExp('(?:\\b(?:TODO:?\\s*implement|FIXME:?\\s*implement|NotImplementedError\\s*\\(\\s*["\']implement)|\\/\\/\\s*placeholder|\\/\\*\\s*placeholder\\s*\\*\\/|\\.\\.\\.rest of code\\.\\.\\.)', 'i'),
     message: 'Forbidden lazy placeholder or unimplemented stub detected.'
   },
   {
@@ -277,5 +277,6 @@ function runAntiSlopAudit(args = {}, agentName = null) {
 }
 
 module.exports = {
+  BANNED_PATTERNS,
   runAntiSlopAudit
 };
