@@ -22,7 +22,10 @@ let currentDbPath = process.env.KONOHA_DB_PATH
  * synchronous=NORMAL, and conditionally loads sqlite-vector extension if present and enabled.
  */
 function getConnection(dbPath = null, loadVector = true) {
-  const targetPath = path.normalize(dbPath !== null ? dbPath : currentDbPath);
+  const activePath = dbPath !== null
+    ? dbPath
+    : (process.env.KONOHA_DB_PATH ? path.normalize(process.env.KONOHA_DB_PATH) : currentDbPath);
+  const targetPath = path.normalize(activePath);
   const dir = path.dirname(path.resolve(targetPath));
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -75,7 +78,7 @@ function getConnection(dbPath = null, loadVector = true) {
  */
 function hasFts5Support(conn) {
   if (!conn || typeof conn.exec !== 'function') return false;
-  if (conn._mockFts5Disabled === true) return false;
+  if (conn._mockFts5Disabled === true || globalThis.__KONOHA_MOCK_FTS5_DISABLED === true) return false;
   try {
     conn.exec('DROP TABLE IF EXISTS temp._konoha_fts5_probe; CREATE VIRTUAL TABLE temp._konoha_fts5_probe USING fts5(x); DROP TABLE IF EXISTS temp._konoha_fts5_probe;');
     return true;

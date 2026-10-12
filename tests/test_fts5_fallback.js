@@ -97,6 +97,48 @@ function runTests() {
   migratedConn.close();
   noFtsConn.close();
 
+  // Test 6: optimizeReport gracefully falls back without emitting FTS5 query failure warnings when FTS5 is absent
+  const testDbFile = path.join(require('os').tmpdir(), `konoha_fts5_test_${Date.now()}.db`);
+  try {
+    process.env.KONOHA_DB_PATH = testDbFile;
+    globalThis.__KONOHA_MOCK_FTS5_DISABLED = true;
+    const testConn = getDb(testDbFile);
+    setupSchema(testConn);
+    testConn.prepare(`
+      INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('kage-skill', 'kage-skill', 'skill', 'kage,architecture', '# Architecture Guide\n\nHigh-level architectural review.', '/skills/kage/SKILL.md', 100, 10);
+    testConn.close();
+
+    let capturedStderr = '';
+    const origWrite = process.stderr.write;
+    process.stderr.write = (chunk) => {
+      capturedStderr += chunk;
+      return true;
+    };
+
+    try {
+      const { optimizeReport } = require('../src/mcp/skills');
+      const optStr = optimizeReport('architecture');
+      const optRes = JSON.parse(optStr);
+      assert.strictEqual(optRes.found, 1, 'optimizeReport must find skill via fallback search');
+
+      assert.strictEqual(
+        capturedStderr.includes('FTS5 optimize_report query failed'),
+        false,
+        `optimizeReport must not emit FTS5 query failure warning when FTS5 is absent. Stderr: ${capturedStderr}`
+      );
+    } finally {
+      process.stderr.write = origWrite;
+    }
+  } finally {
+    delete process.env.KONOHA_DB_PATH;
+    delete globalThis.__KONOHA_MOCK_FTS5_DISABLED;
+    try { fs.unlinkSync(testDbFile); } catch (_) {}
+    try { fs.unlinkSync(testDbFile + '-wal'); } catch (_) {}
+    try { fs.unlinkSync(testDbFile + '-shm'); } catch (_) {}
+  }
+
   console.log('  ✓ All FTS5 fallback and non-FTS SQLite compatibility assertions passed.');
 }
 

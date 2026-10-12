@@ -770,6 +770,14 @@ async function runMigration(options = {}) {
   log("\n🔍 Verifying FTS index...");
   if (db.hasFts5Support && !db.hasFts5Support(conn)) {
     log("   FTS5 module not available on this platform. Fallback keyword search enabled.");
+    for (const testWord of ['security', 'terraform', 'svelte']) {
+      try {
+        const result = conn.prepare("SELECT COUNT(*) as cnt FROM skills WHERE tags LIKE ? OR content LIKE ?").get(`%${testWord}%`, `%${testWord}%`);
+        log(`   Keyword fallback test query '${testWord}': ${result ? result.cnt : 0} matches`);
+      } catch (_) {
+        log(`   Keyword fallback test query '${testWord}': skipped (no matches)`);
+      }
+    }
   } else {
     for (const testWord of ['security', 'terraform', 'svelte']) {
       try {
