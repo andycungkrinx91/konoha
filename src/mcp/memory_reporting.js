@@ -708,8 +708,9 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     const constraintsBlock = `Constraints: ${truncatedConstraints}\n\n`;
 
     const instructionsPrefix = 'Instructions: ';
+    const TRUNCATE_SUFFIX_LEN = 16; // ' ...[truncated]'.length appended by truncateAtBoundary
     const baseOverhead = prefix.length + constraintsBlock.length + instructionsPrefix.length + 1;
-    const remainingBudget = MAX_PERSONA_BYTES - baseOverhead;
+    const remainingBudget = MAX_PERSONA_BYTES - baseOverhead - TRUNCATE_SUFFIX_LEN;
 
     let instructionsLine = '';
     if (remainingBudget > 0) {

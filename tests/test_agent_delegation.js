@@ -149,6 +149,15 @@ async function run() {
     const officialAgents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin', 'sannin'];
     const { runMcpAgent } = require('../src/mcp/memory_reporting');
 
+    // Seed realistic instructions and constraints to test compact budget under load
+    const connSeed = db.getConnection(DB_PATH);
+    for (const ag of officialAgents) {
+      const dbName = ag.replace('_', '-');
+      connSeed.prepare("UPDATE agents SET instructions = ?, constraints_text = ? WHERE name = ?")
+        .run("Word ".repeat(400), "Rule ".repeat(50), dbName);
+    }
+    connSeed.close();
+
     for (const ag of officialAgents) {
       const taskComp = setupTask(taskRoot, `compact_${ag}`, null, 'Task payload for compaction check.\n');
       const statusFile = path.join(taskComp, 'status.json');
@@ -170,8 +179,8 @@ async function run() {
         const constraintsLen = constraintsMatch ? constraintsMatch[1].length : 0;
         if (constraintsLen <= 600) {
           assert.ok(
-            personaBlock.length <= 1450,
-            `Persona block for @${ag} exceeds cap: ${personaBlock.length} > 1450`
+            personaBlock.length <= 1400,
+            `Persona block for @${ag} exceeds cap: ${personaBlock.length} > 1400`
           );
         }
       }
