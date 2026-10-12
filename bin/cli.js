@@ -7670,6 +7670,7 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}export${C.reset}            📤 Export indexed skills and database knowledge into a Markdown report.
   ${C.cyan}prune${C.reset}             🧹 Clean up old active sessions and usage logs (preserves memories), then vacuum.
   ${C.cyan}vacuum${C.reset}            ⚡ Defragment and compress SQLite database file directly.
+  ${C.cyan}rebuild-fts${C.reset}       🔄 Rebuild FTS5 full-text search indexes for skills and persona memories.
 
 ${C.bold}EXAMPLES${C.reset}
   ${C.dim}1. View current database statistics:${C.reset}
@@ -7726,6 +7727,9 @@ async function cmdData(args) {
       break;
     case 'vacuum':
       await cmdDataVacuum();
+      break;
+    case 'rebuild-fts':
+      await cmdDataRebuildFts();
       break;
     case 'memories':
     case 'list':
@@ -8437,6 +8441,26 @@ async function cmdDataVacuum() {
     }
   } catch (err) {
     error(`Failed to vacuum database: ${err.message}`);
+  }
+}
+
+async function cmdDataRebuildFts() {
+  try {
+    const { getConnection, rebuildAllFts } = require('../src/db');
+    const conn = getConnection(DB_PATH);
+    try {
+      const res = rebuildAllFts(conn);
+      if (res.rebuilt) {
+        success(`Successfully rebuilt FTS5 full-text indexes: ${res.tables.join(', ')}.`);
+      } else {
+        warn(`FTS5 rebuild skipped: ${res.reason || 'not supported'}.`);
+      }
+    } finally {
+      try { conn.close(); } catch (_) {}
+    }
+  } catch (err) {
+    error(`Failed to rebuild FTS5 indexes: ${err.message}`);
+    process.exit(1);
   }
 }
 

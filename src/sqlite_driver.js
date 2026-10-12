@@ -136,6 +136,7 @@ class Database {
     this.memory = filename === ':memory:';
     const timeout = Number.isInteger(options.timeout) ? options.timeout : DEFAULT_BUSY_TIMEOUT_MS;
     this._db.exec(`PRAGMA busy_timeout = ${timeout}`);
+    this._db.exec('PRAGMA foreign_keys = ON');
   }
 
   get open() {

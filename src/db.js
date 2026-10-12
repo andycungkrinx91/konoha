@@ -214,7 +214,7 @@ function setupSchema(conn) {
     -- Persona memories table
     CREATE TABLE IF NOT EXISTS persona_memories (
         id TEXT PRIMARY KEY,
-        project_hash TEXT DEFAULT '',
+        project_hash TEXT DEFAULT NULL,
         session_id TEXT DEFAULT '',
         agent_name TEXT NOT NULL,
         memory_type TEXT NOT NULL,
@@ -223,7 +223,8 @@ function setupSchema(conn) {
         tags TEXT,
         importance INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
     );
 
     -- Telegram Bot Integration Configuration
@@ -281,6 +282,37 @@ function setupSchema(conn) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Auto-migrate persona_memories to enforce foreign key cascade on projects
+  try {
+    const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
+    const hasProjectFk = memFks.some(fk => fk.table === 'projects');
+    if (!hasProjectFk) {
+      conn.exec(`
+        CREATE TABLE IF NOT EXISTS persona_memories_migrated (
+            id TEXT PRIMARY KEY,
+            project_hash TEXT DEFAULT NULL,
+            session_id TEXT DEFAULT '',
+            agent_name TEXT NOT NULL,
+            memory_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags TEXT,
+            importance INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
+        );
+        INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
+        SELECT id,
+               CASE WHEN project_hash = '' OR project_hash IS NULL OR project_hash NOT IN (SELECT project_hash FROM projects) THEN NULL ELSE project_hash END,
+               session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
+        FROM persona_memories;
+        DROP TABLE persona_memories;
+        ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
+      `);
+    }
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
   if (ftsSupported) {
     try {
@@ -506,6 +538,37 @@ function sanitizeFts5Query(query) {
   return sanitizedWords.join(' ');
 }
 
+/**
+ * Rebuilds all FTS5 full-text search indexes (skills_fts and persona_memories_fts).
+ * Safe against missing tables or environments lacking FTS5 support.
+ */
+function rebuildAllFts(conn = null) {
+  let shouldClose = false;
+  if (!conn) {
+    conn = getConnection();
+    shouldClose = true;
+  }
+  try {
+    if (!hasFts5Support(conn)) {
+      return { rebuilt: false, reason: 'fts5_not_supported', tables: [] };
+    }
+    const rebuiltTables = [];
+    try {
+      conn.exec("INSERT INTO skills_fts(skills_fts) VALUES('rebuild')");
+      rebuiltTables.push('skills_fts');
+    } catch (_) { /* skills_fts may not exist yet */ }
+    try {
+      conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
+      rebuiltTables.push('persona_memories_fts');
+    } catch (_) { /* persona_memories_fts may not exist yet */ }
+    return { rebuilt: rebuiltTables.length > 0, tables: rebuiltTables };
+  } finally {
+    if (shouldClose && conn) {
+      try { conn.close(); } catch (_) {}
+    }
+  }
+}
+
 module.exports = {
   get DB_PATH() { return currentDbPath; },
   set DB_PATH(val) {
@@ -518,6 +581,9 @@ module.exports = {
   getDb: getConnection,
   hasFts5Support,
   has_fts5_support: hasFts5Support,
+  rebuildAllFts,
+  rebuild_all_fts: rebuildAllFts,
+  rebuildSkillsFts: rebuildAllFts,
   sanitizeFts5Query,
   sanitize_fts5_query: sanitizeFts5Query,
   setupSchema,

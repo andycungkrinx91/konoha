@@ -361,11 +361,11 @@ function saveMemory(
     cleanAgent = cleanAgent.substring(4);
   }
 
-  let pHash = "";
+  let pHash = null;
   if (projectHash) {
-    pHash = String(projectHash).trim();
+    pHash = String(projectHash).trim() || null;
   } else if (projectPath) {
-    pHash = computeProjectHash(projectPath);
+    pHash = computeProjectHash(projectPath) || null;
     try {
       saveOrUpdateProject(projectPath, "", null, dbPath);
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -394,9 +394,16 @@ function saveMemory(
     initMemoryTables(conn);
     let finalId = null;
     const tx = conn.transaction(() => {
+      if (pHash) {
+        conn.prepare(`
+          INSERT OR IGNORE INTO projects (project_hash, project_path, project_name, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(pHash, projectPath || pHash, projectPath ? path.basename(projectPath) : pHash, now, now);
+      }
+
       const existing = conn.prepare(`
         SELECT id FROM persona_memories
-        WHERE agent_name = ? AND content = ? AND project_hash = ? AND session_id = ?
+        WHERE agent_name = ? AND content = ? AND project_hash IS ? AND session_id = ?
         LIMIT 1
       `).get(cleanAgent, safeContent, pHash, sessId);
 
@@ -529,12 +536,12 @@ function queryMemories(
           }
 
           if (pHash) {
-            sql += " AND (m.project_hash = ? OR m.project_hash = '')";
+            sql += " AND (m.project_hash = ? OR m.project_hash = '' OR m.project_hash IS NULL)";
             params.push(pHash);
           }
 
           if (sessId) {
-            sql += " AND (m.session_id = ? OR (m.session_id = '' AND m.project_hash = ''))";
+            sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
             params.push(sessId);
           }
 
@@ -555,7 +562,11 @@ function queryMemories(
           if (rows && rows.length) {
             return rows;
           }
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        } catch (err) {
+          if (err && String(err.message).toLowerCase().includes('fts5')) {
+            try { db.rebuildAllFts(conn); } catch (_) {}
+          }
+        }
       }
     }
 
@@ -571,12 +582,12 @@ function queryMemories(
     }
 
     if (pHash) {
-      sql += " AND (project_hash = ? OR project_hash = '')";
+      sql += " AND (project_hash = ? OR project_hash = '' OR project_hash IS NULL)";
       params.push(pHash);
     }
 
     if (sessId) {
-      sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
+      sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
       params.push(sessId);
     }
 
