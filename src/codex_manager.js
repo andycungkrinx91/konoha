@@ -111,6 +111,11 @@ function readCodexConfig() {
 function writeCodexConfig(content) {
   const configPath = getCodexConfigPath();
   ensureDir(path.dirname(configPath));
+  if (fileExists(configPath)) {
+    try {
+      fs.copyFileSync(configPath, `${configPath}.bak`);
+    } catch (_) { /* intentional best-effort backup */ }
+  }
   fs.writeFileSync(configPath, content, 'utf-8');
 }
 
@@ -343,8 +348,12 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
   };
 
+  const OFFICIAL_NINJA_NAMES = new Set([
+    'sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'tokubetsu_jonin'
+  ]);
+
   const agentBlocks = agents
-    .filter(a => a && a.name && VALID_AGENT_NAME.test(a.name) && !a.name.startsWith('mcp_') && !a.name.startsWith('cli-test-'))
+    .filter(a => a && a.name && OFFICIAL_NINJA_NAMES.has(a.name) && VALID_AGENT_NAME.test(a.name))
     .map(a => {
       const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
       return [
