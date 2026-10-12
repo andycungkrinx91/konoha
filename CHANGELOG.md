@@ -2,13 +2,23 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [Unreleased]
+
+### CLI & MCP Surface Consolidation (Phase 4)
+
+- **Removed 27 Top-Level CLI Aliases**: Router switch labels removed and restricted to canonical command syntax: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`.
+- **Specialist Subagent MCP Tools**: Removed deprecated `delegate_to_*` tool wrappers and configuration grants across all client integrations (`claude`, `cursor`, `opencode`, `codex`, `antigravity`), consolidating MCP dispatch directly to specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
+
+### Security, Robustness & Delegation Hardening (Phase 8)
+
+- **Report Caller Validation (G-18)**: Clients calling `report_from_agent` with legacy `delegate_to_<agent>` caller names are rejected with an explicit error and must invoke the direct agent name (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
+- **Compact Persona Prompt Budget (G-03)**: Truncate instructions to remaining budget while strictly keeping Constraints intact, adhering to the 1,400-byte cap including section separators and truncation margins.
+- **Anti-Slop Pattern Boundary Tightening (G-07)**: Tightened placeholder comment patterns to `\/\/\s*placeholder\s*(?:$|[.:!\-\n])` to prevent false positives on descriptive comments while reliably catching stubs.
+- **SQLite Concurrency Locking & Write Atomicity (G-08 & G-02a)**: SQLite driver write transactions acquire write locks upfront via `BEGIN IMMEDIATE` to eliminate read-modify-write deadlocks; project deletion operations in `persona_memory.js` are wrapped in atomic transactions.
+- **Client Configuration Preservation & Backup (G-16)**: Preserve user-owned custom agent tables in Codex `config.toml` and create `.bak` backups before modifying `config.toml` and `opencode.json`.
+- **Test Runner Isolation & Guard Hardening (G-01 & G-17)**: Fully isolate test suites in ephemeral seeded sandbox HOME directories with strict guardrails preventing test runs against the real user HOME.
+
 ## [2.1.17] - 2026-10-08
-
-### Subagent Delegation, Anti-Slop Boundary & Persona Prompt Hardening
-
-- **Report Caller Validation (G-18)**: Clients still calling `report_from_agent` with `delegate_to_<agent>` now receive an error and must use the direct agent name (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
-- **Anti-Slop Pattern Boundary Tightening (G-07)**: Tightened placeholder comment patterns to `\/\/\s*placeholder\s*(?:$|[.:!\-\n])` to cut false positives on descriptive comments while reliably catching stubs.
-- **Strict Compact Persona Cap (G-03)**: Enforce the compact persona cap including separators and truncation margin so compact prompts keep Constraints and strictly respect the 1,400-byte cap.
 
 ### Telegram Bot Integration & Remote Automation
 
