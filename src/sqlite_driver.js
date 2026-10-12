@@ -171,7 +171,7 @@ class Database {
   _runInTransaction(fn, thisArg, args) {
     const nested = this._db.isTransaction;
     const savepoint = `konoha_sp_${this._savepointDepth}`;
-    this._db.exec(nested ? `SAVEPOINT ${savepoint}` : 'BEGIN');
+    this._db.exec(nested ? `SAVEPOINT ${savepoint}` : 'BEGIN IMMEDIATE');
     this._savepointDepth += 1;
     try {
       const result = fn.apply(thisArg, args);
