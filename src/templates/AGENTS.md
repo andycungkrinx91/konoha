@@ -203,7 +203,6 @@ Load **semble** when project source code search is needed — do NOT load it for
 |---|---|---|
 | **semble** | `uvx --from semble[mcp]==0.6.2 semble` | Project source code search needed |
 | **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
-| cloudrun | `pnpm dlx @google-cloud/cloud-run-mcp` | GCP deployments |
 
 ## Custom Agent Rules for Konoha
 
