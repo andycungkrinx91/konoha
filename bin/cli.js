@@ -7229,7 +7229,13 @@ async function cmdProject(args) {
     } catch (e) {
       error(`Failed to list projects: ${e.message}`);
     }
-  } else if (sub === 'context' || sub === 'show') {
+  } else if (sub === 'show') {
+    error("Unknown subcommand 'show' for 'konoha project'. Use canonical subcommand 'konoha project context'.");
+    process.exit(1);
+  } else if (sub === 'rm') {
+    error("Unknown subcommand 'rm' for 'konoha project'. Use canonical subcommand 'konoha project delete'.");
+    process.exit(1);
+  } else if (sub === 'context') {
     const targetPath = subArgs[0] || process.cwd();
     try {
       let profile = personaMemory.getProjectProfile(targetPath, DB_PATH);
@@ -7261,7 +7267,11 @@ async function cmdProject(args) {
       error(`Failed to get project context: ${e.message}`);
     }
   } else if (sub === 'memory') {
-    if (subArgs[0] === 'delete' || subArgs[0] === 'rm') {
+    if (subArgs[0] === 'rm') {
+      error("Unknown subcommand 'rm' for 'konoha project memory'. Use canonical subcommand 'konoha project memory delete'.");
+      process.exit(1);
+    }
+    if (subArgs[0] === 'delete') {
       const memId = subArgs[1];
       if (!memId) {
         error('Usage: konoha project memory delete <id>');
@@ -7593,7 +7603,10 @@ async function cmdTask(args) {
     } catch (e) {
       error(`Failed to get slop report for task: ${e.message}`);
     }
-  } else if (sub === 'delete' || sub === 'rm') {
+  } else if (sub === 'rm') {
+    error("Unknown subcommand 'rm' for 'konoha task'. Use canonical subcommand 'konoha task delete'.");
+    process.exit(1);
+  } else if (sub === 'delete') {
     const { allFlag, statusFilter, projectFilter, targetId } = parseTaskFilterFlags(subArgs);
 
     if (!targetId && !allFlag && !statusFilter && !projectFilter) {
@@ -7694,21 +7707,15 @@ async function cmdData(args) {
       await cmdDataView();
       break;
     case 'memory':
-    case 'memories':
-    case 'list':
       await cmdDataMemory(subArgs);
       break;
     case 'add':
-    case 'save':
       await cmdDataAdd(subArgs);
       break;
     case 'search':
-    case 'find':
       await cmdDataSearch(subArgs);
       break;
     case 'delete':
-    case 'remove':
-    case 'rm':
       await cmdDataDelete(subArgs);
       break;
     case 'prune':
@@ -7720,6 +7727,20 @@ async function cmdData(args) {
     case 'vacuum':
       await cmdDataVacuum();
       break;
+    case 'memories':
+    case 'list':
+      error(`Unknown subcommand '${subcommand}' for 'konoha data'. Use canonical subcommand 'konoha data memory'.`);
+      process.exit(1);
+    case 'save':
+      error(`Unknown subcommand 'save' for 'konoha data'. Use canonical subcommand 'konoha data add'.`);
+      process.exit(1);
+    case 'find':
+      error(`Unknown subcommand 'find' for 'konoha data'. Use canonical subcommand 'konoha data search'.`);
+      process.exit(1);
+    case 'remove':
+    case 'rm':
+      error(`Unknown subcommand '${subcommand}' for 'konoha data'. Use canonical subcommand 'konoha data delete'.`);
+      process.exit(1);
     default:
       error(`Unknown data subcommand: ${subcommand}`);
       cmdDataHelp();
@@ -8897,7 +8918,12 @@ async function cmdTelegram(args) {
     return;
   }
 
-  if (sub === 'config' || sub === 'edit') {
+  if (sub === 'edit') {
+    error("Unknown subcommand 'edit' for 'konoha telegram'. Use canonical subcommand 'konoha telegram config'.");
+    process.exit(1);
+  }
+
+  if (sub === 'config') {
     let token = undefined;
     let chatId = undefined;
     let mode = undefined;
