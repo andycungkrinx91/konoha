@@ -14802,3 +14802,237 @@ Tracing every possible code path:
 | **Untrusted Output** | `0 @html`, `181 sendJson` | N/A | `grep -rn "{@html" apps/web/src/` = 0; `grep -n "sendJson(" src/web_server.js` = 181 | **Verified Match** |
 | **Secrets in Logs** | `0 matches` | N/A | `grep -rnE "(console.(log\|error\|warn)\|logger.(info\|error\|warn))\(" src/ --exclude-dir=templates \| grep -iE "token\|secret\|api_key\|password\|pin"` = 0 | **Verified Match** |
 | **Subprocess Boundaries** | `1 shell: true` | N/A | `src/deploy_utils.js:628` (`shell: isWin` for `.cmd` execution of npm/pnpm) | **Verified Match** |
+
+
+---
+
+## 70. Pre-Phase-10 Reconciliation
+
+- **Date:** 2026-10-12
+- **Author:** andycungkrinx91 <andy.silva270114@gmail.com>
+- **Scope:** Documentation reconciliation prior to Phase 10 final audit. Zero code changes.
+
+---
+
+### 70.1 Task 1: SEC-04 Re-Verification at HEAD
+
+- **Current Repository HEAD:**
+  ```text
+  $ git rev-parse HEAD
+  3d72216f8a08ad9883064edf3c9cef04dbce0141
+  ```
+
+#### (a) Source Ranges at HEAD
+
+##### `src/tunnel/manager.js` (lines 110–145)
+```text
+$ sed -n '110,145p' src/tunnel/manager.js
+  const config = configModule.getTunnelConfig();
+  const provider = options.provider || config.provider || 'cloudflare';
+  const port = options.port || 1404;
+  const token = options.token !== undefined ? options.token : config.token;
+  const rawDomain = options.custom_domain || options.domain || config.custom_domain;
+  const domain = normalizeAndValidateTunnelHostname(rawDomain);
+
+  // Enforce zero unauthenticated tunnels: auto-generate secure PIN if none configured
+  let authPin = config.auth_pin;
+  if (!authPin) {
+    authPin = String(Math.floor(100000 + Math.random() * 900000));
+    configModule.saveTunnelConfig({ auth_pin: authPin });
+  }
+
+  if (options.token !== undefined || options.domain !== undefined || options.custom_domain !== undefined) {
+    configModule.saveTunnelConfig({
+      token,
+      custom_domain: domain,
+      provider,
+      auth_pin: authPin
+    });
+  }
+
+  let cmd = 'cloudflared';
+  let args = [];
+
+  if (provider === 'cloudflare') {
+    if (token) {
+      args = ['tunnel', 'run', '--token', token];
+    } else {
+      args = ['tunnel', '--url', `http://127.0.0.1:${port}`];
+    }
+  } else if (provider === 'ngrok') {
+    cmd = 'ngrok';
+    args = ['http', String(port)];
+  } else {
+    throw new Error(`Unsupported tunnel provider: ${provider}`);
+  }
+```
+
+##### `src/tunnel/security.js` (lines 95–128)
+```text
+$ sed -n '95,128p' src/tunnel/security.js
+  const config = configModule.getTunnelConfig();
+  const requiredPin = config.auth_pin;
+
+  // Extract candidate PIN from headers, cookies, or query
+  const authHeader = req.headers['authorization'] || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const cookiePin = (req.headers['cookie'] || '').match(/konoha_pin=([^;]+)/)?.[1];
+  const queryPin = req.query?.pin;
+  const headerPin = req.headers['x-konoha-pin'];
+
+  const candidatePin = bearerToken || (cookiePin ? decodeURIComponent(cookiePin) : '') || queryPin || headerPin;
+
+  if (requiredPin && candidatePin && String(candidatePin).trim() === String(requiredPin).trim()) {
+    return {
+      authenticated: true,
+      authType: 'pin'
+    };
+  }
+
+  // If tunnel is named (custom domain) and explicitly configured with no PIN
+  if (!requiredPin && !isTryCloudflare && config.mode === 'named') {
+    return {
+      authenticated: true,
+      authType: 'open_named'
+    };
+  }
+
+  return {
+    authenticated: false,
+    error: 'Access denied: Valid PIN or Cloudflare Zero Trust authentication required',
+    requiresPin: true
+  };
+}
+```
+
+#### (b) Path 1: `startTunnel()` from UI
+- **Question:** Does `startTunnel()` still auto-generate a PIN at HEAD?
+- **Answer:** YES. Lines 120–125 of `src/tunnel/manager.js` check `if (!authPin)` and auto-generate a 6-digit random PIN, calling `configModule.saveTunnelConfig({ auth_pin: authPin })` before starting `cloudflared`.
+
+#### (c) Path 2: `POST /api/v1/tunnel/config` Handler & `saveTunnelConfig`
+- **Handler (`src/web_server.js:2055-2070`):**
+  ```javascript
+  if (method === 'POST' && pathname === '/api/v1/tunnel/config') {
+    const tunnelCfg = require('./tunnel/config');
+    const body = await parseBody(req);
+    const updated = tunnelCfg.saveTunnelConfig(body);
+    ...
+  }
+  ```
+- **Persistence (`src/tunnel/config.js:57-58`):**
+  ```javascript
+  const isMaskedPin = typeof auth_pin === 'string' && auth_pin.includes('***');
+  const newPin = (auth_pin !== undefined && !isMaskedPin) ? String(auth_pin).trim() : existing.auth_pin;
+  ```
+- **Experimental Proof via Disposable Test:**
+  An isolated in-memory test (temp HOME, temp `KONOHA_DB_PATH`, free port, zero touching of daemon on port 1404, PID 1934) executed:
+  ```text
+  Before saveTunnelConfig empty PIN: { enabled: 1, mode: 'named', auth_pin: '123456' }
+  verifyRemoteAccess before clearing PIN: {
+    authenticated: false,
+    error: 'Access denied: Valid PIN or Cloudflare Zero Trust authentication required',
+    requiresPin: true
+  }
+  After saveTunnelConfig empty PIN: { enabled: 1, mode: 'named', auth_pin: '' }
+  verifyRemoteAccess after clearing PIN: { authenticated: true, authType: 'open_named' }
+  ```
+  **Result:** When `{ auth_pin: "" }` is posted while a named tunnel is running, `auth_pin` is saved as empty, and `verifyRemoteAccess()` immediately returns `authType: 'open_named'`, completely bypassing authentication.
+
+#### (d) Path 3: External Start / Direct SQLite Modification
+In `src/tunnel/security.js:115-121`, `verifyRemoteAccess()` checks:
+```javascript
+if (!requiredPin && !isTryCloudflare && config.mode === 'named') {
+  return { authenticated: true, authType: 'open_named' };
+}
+```
+If an operator runs `cloudflared` externally, or if the database is configured with an empty `auth_pin` in SQLite (`mode = 'named'`), incoming requests matching the hostname return `authType: 'open_named'` without any PIN prompt.
+
+#### (e) SEC-04 Path Status Table at HEAD
+
+| Path | Status at HEAD | Evidence (Command + Output) |
+|---|---|---|
+| **Path 1: `startTunnel()` from UI** | **CLOSED** | `sed -n '120,125p' src/tunnel/manager.js` shows auto-generation of 6-digit PIN before process launch. |
+| **Path 2: `POST /api/v1/tunnel/config` runtime update** | **OPEN** | Disposable test running `saveTunnelConfig({ auth_pin: "" })` on running named tunnel proved `verifyRemoteAccess` transitions from rejecting to `{ authenticated: true, authType: 'open_named' }`. |
+| **Path 3: External start / direct DB edit** | **OPEN** | `sed -n '115,121p' src/tunnel/security.js` shows explicit return of `{ authenticated: true, authType: 'open_named' }` whenever `!requiredPin && !isTryCloudflare && config.mode === 'named'`. |
+
+#### (f) Invariant Status Declaration
+- **Supersession Notice:** Section 68.1 and 68.2 wording claiming *"Mitigation: startTunnel auto-generates a PIN"* is formally **SUPERSEDED**.
+- **PLAN Invariant Determination:** The PLAN.md invariant *"no tunnel may be started without a PIN"* is **NOT ENFORCED** at HEAD because a running tunnel's PIN can be dynamically stripped via `POST /api/v1/tunnel/config` to activate `open_named`, and external starts bypass `startTunnel()` entirely.
+- Zero code changes were applied for SEC-04 per directive.
+
+---
+
+### 70.2 Task 2: G-22 (Header-Derived Client IP) Status
+
+- **Review of Prior Notes:**
+  Grepping `docs/audit-notes.md` for user approval of G-22 deferral:
+  ```text
+  $ grep -n -C 2 "G-22" docs/audit-notes.md | grep -i "approved"
+  13643:| **G-22** | Cat 1, P1 | Tunnel PIN rate limiter bypass via header spoofing | High / High | **Fix now** | **Yes** | Security filter / auth bypass | Header spoofing auth test | `src/web_server.js` |
+  14016:| **G-22** | Cat 1, P1 | Tunnel PIN rate limiter bypass via header spoofing | High / High | **Fix now** | **Yes** | Security filter / auth bypass | Header spoofing auth test | `src/web_server.js` |
+  ```
+  Prior to Section 69, G-22 was marked in Section 62.6 and 63 as "Fix now, approval required", and deferred in Section 62.10 pending user decision. No explicit user approval to defer G-22 existed in earlier audit notes.
+- **Formal Status:** **DEFERRED PENDING USER DECISION** (not "approved for later").
+- **USER DECISION (Verbatim):**
+  > *"USER DECISION: Defer G-22 to post-audit backlog, tied to the future login system. Record as a known limitation: x-forwarded-for / cf-connecting-ip can be cycled to bypass the 5-attempts-per-60s limit."*
+
+---
+
+### 70.3 Task 3: Authoritative Corrections Ledger for Section 68
+
+The Phase 10 final audit report MUST use the following authoritative values rather than the superseded rows in Section 68.1:
+
+| Item | Wrong Value in Section 68 | Correct Authoritative Value | Evidence (Command / Section) |
+|---|---|---|---|
+| **SEC-01 Commit Hash** | `08204fc` | `af29e45` and `29ba092` | `git cat-file -t 08204fc` exits with error ("Not a valid object name"). `git cat-file -t af29e45` returns `commit`. |
+| **SEC-01 Affected Files** | Included `apps/web/src/components/ProjectList.svelte` | `apps/web/src/components/Context.svelte`, `apps/web/src/lib/api.js`, `src/web_server.js`, tests | `git --no-pager show --stat af29e45` shows exact 5 files changed; `ProjectList.svelte` was never modified. |
+| **SEC-03 Target File** | `src/web_server.js` | `src/tunnel/security.js` | `git --no-pager show --stat 86951a6` shows only `src/tunnel/security.js` and `tests/test_limiter_map_bounded.js`. |
+| **SEC-03 TTL Window** | `15 minutes` | `60 seconds` (`PIN_ATTEMPT_WINDOW_MS = 60000`) | `grep -n "PIN_ATTEMPT_WINDOW_MS" src/tunnel/security.js` shows line 132: `const PIN_ATTEMPT_WINDOW_MS = 60000;`. |
+| **SEC-03 Commit Hash** | `86951a6` | `86951a6` | `git cat-file -t 86951a6` returns `commit`. |
+| **Section 68.4 Item 9 Working Tree Claim** | "working tree clean (except untouched .gitignore)" | Modified `.gitignore` and untracked `docs/PLAN.md` | `git --no-pager status --short` shows ` M .gitignore` and `?? docs/PLAN.md`. |
+
+---
+
+### 70.4 Task 4: Working Tree, Docs & Unrun Test Suites
+
+#### (a) Working Tree & `.gitignore` State
+```text
+$ git --no-pager status --short
+ M .gitignore
+?? docs/PLAN.md
+
+$ git --no-pager diff -- .gitignore
+diff --git a/.gitignore b/.gitignore
+index 48b57ac..6c5ac6c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -119,4 +119,3 @@ playwright/.cache/
+ # Obsolete standalone skills (consolidated into ninja references)
+ **/helm-chart-scaffolding/
+ helm-chart-scaffolding/
+-agent/
+```
+- **Description:** Line 122 (`agent/`) was removed from `.gitignore`. This modification is unrelated to the Phase 9 audit scope.
+- **USER DECISION for `.gitignore` (Verbatim):**
+  > *"USER DECISION for .gitignore: I will handle it myself outside this session. Do not commit, stage, revert or edit .gitignore yourself either way."*
+
+#### (b) Untracked `docs/PLAN.md` Integrity
+- `docs/PLAN.md` is modified by the user and untracked by design.
+- **SHA-256 Checksum:** `2b8aba4d38c3de2acebce3e7fe168a21b39f731f30be45b8d9592c13bc805792`
+- **Line Count:** `789` (`wc -l docs/PLAN.md`)
+
+#### (c) Test-Suite Reconciliation & Unrun Suites
+1. **Python Test Suites Reconciliation:**
+   - Section 43.2 correctly noted "0 Python test suites".
+   - Section 52.12 formally retracted the earlier claim of "71/71 pytest passed" after verifying that `tests/` contains exactly zero `.py` files.
+   - Discovery verification via `node tests/run_all.js --include-python non_existent_filter` confirms:
+     `Discovered 0 JS test suites and 0 Python suites (sequential mode).`
+   - Real test suite inventory: Exactly 138 JavaScript test suites in `tests/`, zero Python suites.
+2. **Playwright E2E Test Suite Status:**
+   - Script in `apps/web/package.json` line 16: `"test:e2e": "playwright test"`.
+   - **Status:** **NOT RUN** in Phase 9.
+   - **Exact Reason:** Phase 9 scope was strictly backend HTTP/tunnel hardening and SQLite persistence security. Running Playwright requires launching Vite dev/preview web servers and headless browsers, which would contend for network ports (specifically port 1404 where the host UI daemon PID 1934 is actively listening), violating the invariant to protect live daemons.
+
+#### (d) Commit Count Arithmetic
+- Previous commit count since `583b2a9`: `48` (`git --no-pager log --oneline 583b2a9..HEAD | wc -l`).
+- The Section 70 commit will make the total count `49` (N+1).
