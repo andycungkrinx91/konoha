@@ -14550,3 +14550,77 @@ In accordance with Phase 9 instructions and explicit user rules, implementation 
    - Zero release tags created.
    - Zero package publications executed.
    - All changes remain local-only on branch `master`.
+
+
+---
+
+## 68. Phase 9 Exit Report: Security & Reliability Hardening
+
+- **Date:** 2026-10-12
+- **Author:** andycungkrinx91 <andy.silva270114@gmail.com>
+- **Scope:** Formal Phase 9 Exit Evaluation across all security, reliability, and hardening requirements.
+
+---
+
+### 68.1 Table of Phase 9 Findings & Final Status
+
+| Finding ID / Title | Affected Files / Subsystems | Final Status | Commit Hash / Reference | Approval Recorded | Blocker / Mitigation / Follow-up Details |
+|---|---|---|---|---|---|
+| **SEC-01: Loopback Host Header Validation & Project Deletion Confirmation** | `src/web_server.js`, `apps/web/src/components/ProjectList.svelte` | Fixed | `08204fc`, `29ba092` | Explicitly approved (Prompt 5/6) | Blocks DNS rebinding attacks against loopback API; requires `{ confirm: true }` on `DELETE /api/v1/projects`. Validates Host against loopback and active tunnel domain. |
+| **SEC-02: Bridges API Key Encryption at Rest** | `src/db_bridges.js`, `src/crypto_vault.js` | Fixed | `6a07e2f` | Explicitly approved (Prompt 5/6) | Encrypts `bridges.api_key` with AES-256-GCM via `crypto_vault`; provides idempotent database migration; sets `0600` permissions on key and database backups. |
+| **SEC-03: Limiter Map Bounded Storage & Loopback Bypass** | `src/web_server.js` | Fixed | `86951a6` | Explicitly approved (Prompt 5/6) | Bypasses rate limiting for loopback/MCP traffic; enforces a strict 10,000-entry memory cap and 15-minute TTL per entry to eliminate memory exhaustion / DoS risks. |
+| **SEC-04: Tunnel Authentication (Named Tunnel Empty PIN)** | `src/tunnel/manager.js`, `src/tunnel/security.js` | Documented Blocker with Mitigation | Section 65, Section 66.3 | Deferred by operator decision | **Open Blocker for Named Tunnels:** Starting a named tunnel without authentication exposes the local web server to the public internet. Mitigation: `startTunnel` auto-generates a secure 6-digit PIN if none is configured. Full authentication overhaul (SSO / one-time link) deferred to future login system. |
+| **Ingress Hostname Requirement & Normalization** | `src/tunnel/manager.js`, `src/web_server.js`, `apps/web/src/components/RemoteAccess.svelte` | Fixed | `29ba092` | Explicitly approved (Prompt 8/9) | Requires and normalizes public DNS hostname before starting tunnel; validates Host header against stored active tunnel domain; rejects inactive tunnel domain with 403 Forbidden. |
+| **Workspace & Path Containment** | `src/file_tools/common.js`, `src/file_tools/*.js` | Audited OK | Verified (8 call sites) | Approved (Section 67) | Strict `fs.realpathSync` path resolution, boundary checks preventing traversal outside workspace, IDE installation directory protection. |
+| **Untrusted Output Boundaries** | Svelte components, `src/web_server.js`, `src/telegram/poller.js` | Audited OK | Verified (0 `@html`, 181 `sendJson`) | Approved (Section 67) | Zero raw HTML interpolation in Svelte UI; all endpoints return typed JSON; shell preamble and interactive escape sequences stripped before display. |
+| **Secrets in Logs & Error Traces** | `src/*.js` (excluding reference template assets) | Audited OK | Verified (0 matches) | Approved (Section 67) | Zero tokens, passwords, keys, or PINs logged in application code. |
+| **Subprocess Execution Boundaries** | `src/queue/worker.js`, `src/tunnel/manager.js`, `src/deploy_utils.js` | Audited OK | Verified (1 `shell: true` on Win `.cmd`) | Approved (Section 67) | Direct executable execution with explicit argument arrays, maxBuffer limits, and execution timeouts. |
+| **MCP Input Schema Validation** | `src/file_tools_router.js`, `src/mcp_tool_manifest.json` | Audited OK | Verified (`inputSchema`) | Approved (Section 67) | Complete JSON Schema validation verifying required properties, types, enum values, and disallowing extra properties before dispatch. |
+| **Client Integration Guardrails** | `src/mcp_clients_manager.js`, `src/pi_manager.js`, `src/antigravity_tool_sanitize_hook.js` | Audited OK | Verified | Approved (Section 67) | Enforces unified command guardrails and secret protection hooks across all 7 supported coding clients. |
+| **Filesystem Permissions (0600 / 0700)** | `src/crypto_vault.js`, `src/db_bridges.js` | Audited OK | Verified | Approved (Section 67) | Secret keys and backups written with `0o600` permissions; launchers set `0o755`. |
+| **Destructive Operations Confirmation** | `src/web_server.js`, `src/guardrails.js` | Audited OK | Verified | Approved (Section 67) | Destructive shell commands blocked by guardrails; bulk project deletion requires explicit `{ confirm: true }`. |
+| **Supply-Chain & On-the-Fly Execution** | `src/semble_manager.js` | Accepted Risk | Section 64, Section 65 | Approved (Option B: `@latest`) | Pinned to `semble[mcp]@latest`. Tool verification runs prior to execution. Accepted operational risk. |
+| **Error Fail-Safety & Gate Enforcing** | `src/mcp/workflow.js` | Audited OK | Verified (`runAislopGate`) | Approved (Section 67) | Circuit breakers and quality gates fail-closed (`pass: false`) when tools time out or fail. |
+| **Timeouts, Retries & Cancellation** | `src/queue/worker.js`, `src/bridge/sidecar/rpc.js` | Audited OK | Verified | Approved (Section 67) | Bounded retries (capped at 2), execution timeouts, and `AbortController` cancellation signal propagation. |
+| **Concurrency, WAL & Storage Resilience** | `src/db.js`, `src/sqlite_driver.js` | Audited OK | Verified | Approved (Section 67) | SQLite WAL mode (`PRAGMA journal_mode = WAL`), 5,000ms busy timeout, foreign key enforcement, transaction rollbacks. |
+
+---
+
+### 68.2 Residual Risks & Untested Threat Scenarios
+
+1. **SEC-04 Open Blocker (Tunnel Ingress with Empty PIN):**
+   - As documented in Section 65 and Section 66.3, starting a named Cloudflare tunnel with an empty PIN exposes the local management web server to the public internet without an identity provider.
+   - **Current Mitigation:** Konoha automatically generates a secure PIN if none is supplied. However, static PINs remain vulnerable to shoulder surfing or weak brute-force protection if exposed.
+   - **Follow-up Required:** Implementation of a proper identity / SSO provider (Cloudflare Zero Trust Access JWT validation or magic link authentication) prior to enabling tunnels in untrusted production environments.
+2. **PyPI / NPM Upstream Supply Chain (`@latest` Resolution):**
+   - Package installations and CLI executions using `@latest` (such as `semble[mcp]@latest` or framework scaffolding commands `npx`, `pnpm dlx`) depend on upstream registry integrity.
+   - **Mitigation:** Subprocess executions use isolated runners and verify package binaries before registering them.
+3. **Multi-Tenant / Shared Host Boundaries:**
+   - Konoha is architected as a single-user developer tooling daemon listening on `127.0.0.1:1404`. While Host header verification, CSRF tokens, and path containment protect against cross-origin browser attacks, it does not sandbox against other local POSIX user accounts on a shared multi-user server if permissions on parent directories are permissive.
+
+---
+
+### 68.3 Formal Disclaimer Regarding Static Analysis & Scans
+
+> **Explicit Security Notice:**
+> No claim of "absolute security" or "unconditional production readiness" is made solely on the basis of static analysis, automated linting, or passing test suites. Software security is an ongoing operational discipline. While known architectural vulnerabilities (DNS rebinding, plaintext secrets at rest, unbounded memory structures, path traversals) have been resolved and verified with reproducible automated tests, operational deployment over public networks must always be coupled with transport security, network firewalls, and least-privilege infrastructure controls.
+
+---
+
+### 68.4 Phase 9 Exit Criteria Verification
+
+- **PLAN.md Phase 9 Exit Criterion:**
+  > *"High-priority, evidence-backed vulnerabilities and reliability defects are fixed or explicitly documented as blockers with mitigations and follow-up actions."*
+
+- **Verification Evidence:**
+  1. **SEC-01 (High):** Fixed and verified (`08204fc`, `29ba092`). Host header DNS rebinding blocked; `{ confirm: true }` enforced.
+  2. **SEC-02 (High):** Fixed and verified (`6a07e2f`). Plaintext API keys encrypted at rest with AES-256-GCM.
+  3. **SEC-03 (Medium):** Fixed and verified (`86951a6`). Limiter map bounded with 10k cap and TTL.
+  4. **SEC-04 (Critical Blocker):** Formally documented as open blocker with auto-generated PIN mitigation; implementation deferred to future login system.
+  5. **Step 1 Tunnel Hostname (High):** Fixed and verified (`29ba092`). Hostname required and validated.
+  6. **Comprehensive Security & Reliability Audit:** All 14 areas audited, evidenced, and documented in Section 67.
+  7. **Full Test Suite:** 138 test suites passed cleanly with 0 failures in isolated sequential execution (`Test Summary: 138 passed, 0 failed in 1175.5s`).
+  8. **Daemon Invariant:** Host UI daemon on `127.0.0.1:1404` (PID 1934) actively listening and unharmed.
+  9. **Repository State:** Working tree clean (except untouched `.gitignore`), zero pushes, zero tags, zero releases.
+
+**PHASE 9 EXIT GATE: PASSED**
