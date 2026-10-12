@@ -569,6 +569,58 @@ function rebuildAllFts(conn = null) {
   }
 }
 
+/**
+ * Creates an online SQLite database backup using VACUUM INTO.
+ * Safe to execute concurrently while the daemon or transactions are active.
+ * @param {string} targetPath - File path where the backup database will be saved.
+ * @param {string|null} sourceDbPath - Optional path to the source database.
+ * @param {boolean} overwrite - Whether to overwrite an existing backup file.
+ * @returns {{ success: boolean, targetPath: string, sizeBytes: number }}
+ */
+function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true) {
+  const src = path.normalize(sourceDbPath || currentDbPath);
+  if (!fs.existsSync(src)) {
+    throw new Error(`Source database does not exist: ${src}`);
+  }
+
+  let dest = targetPath;
+  if (!dest) {
+    const backupDir = path.join(path.dirname(src), 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    dest = path.join(backupDir, `konoha_backup_${timestamp}.db`);
+  }
+
+  dest = path.resolve(dest);
+  const destDir = path.dirname(dest);
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
+
+  if (fs.existsSync(dest)) {
+    if (overwrite) {
+      fs.unlinkSync(dest);
+    } else {
+      throw new Error(`Backup target file already exists: ${dest}`);
+    }
+  }
+
+  const conn = getConnection(src, false);
+  try {
+    conn.prepare("VACUUM INTO ?").run(dest);
+    const stat = fs.statSync(dest);
+    return {
+      success: true,
+      targetPath: dest,
+      sizeBytes: stat.size
+    };
+  } finally {
+    try { conn.close(); } catch (_) {}
+  }
+}
+
 module.exports = {
   get DB_PATH() { return currentDbPath; },
   set DB_PATH(val) {
@@ -576,6 +628,8 @@ module.exports = {
     if (val) process.env.KONOHA_DB_PATH = val;
     else delete process.env.KONOHA_DB_PATH;
   },
+  backupDatabase,
+  backup_database: backupDatabase,
   getConnection,
   get_connection: getConnection,
   getDb: getConnection,

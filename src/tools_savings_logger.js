@@ -153,6 +153,28 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
   }
 }
 
+/**
+ * Prunes tool_calls records older than the given retention period (default 90 days).
+ * @param {number} retentionDays - Number of days to retain (default: 90).
+ * @param {string|null} dbPath - Optional path to the database file.
+ * @returns {{ deleted: number, retentionDays: number }}
+ */
+function pruneToolCalls(retentionDays = 90, dbPath = null) {
+  const days = Math.max(Number(retentionDays) || 90, 1);
+  const conn = getDb(dbPath || DB_PATH);
+  try {
+    const res = conn.prepare(`
+      DELETE FROM tool_calls
+      WHERE timestamp < datetime('now', '-' || ? || ' days')
+    `).run(days);
+    return { deleted: res.changes || 0, retentionDays: days };
+  } catch (err) {
+    return { deleted: 0, retentionDays: days, error: err.message };
+  } finally {
+    try { conn.close(); } catch (_) {}
+  }
+}
+
 if (require.main === module) {
   if (process.argv.length < 5) {
     process.stderr.write('usage: tools_savings_logger.js <tool> <query> <returned_bytes> [client] [baseline_bytes]\n');
@@ -173,6 +195,8 @@ if (require.main === module) {
 
 module.exports = {
   log,
+  pruneToolCalls,
+  prune_tool_calls: pruneToolCalls,
   detectActiveClient,
   DEFAULT_BASELINE,
   DB_PATH

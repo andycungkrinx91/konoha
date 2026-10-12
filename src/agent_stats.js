@@ -31,6 +31,24 @@ if (process.argv.includes('--prune')) {
   }
 }
 
+function normalizeAgentName(rawName) {
+  if (!rawName || typeof rawName !== 'string') return '(direct)';
+  let n = rawName.toLowerCase().trim();
+  if (!n) return '(direct)';
+
+  // Strip prefixes
+  if (n.startsWith('mcp_')) n = n.slice(4);
+  if (n.startsWith('delegate-to-')) n = n.slice(12);
+  if (n.startsWith('delegate_to_')) n = n.slice(12);
+  if (n.startsWith('delegate_')) n = n.slice(9);
+  if (n.startsWith('delegate-')) n = n.slice(9);
+
+  // Normalize underscores to hyphens for known agents
+  if (n === 'tokubetsu_jonin') n = 'tokubetsu-jonin';
+
+  return n || '(direct)';
+}
+
 function getAgentStats(targetDbPath = dbPath) {
   if (!fs.existsSync(targetDbPath)) {
     return { error: `Database not found at ${targetDbPath}` };
@@ -65,12 +83,17 @@ function getAgentStats(targetDbPath = dbPath) {
     const rows = conn.prepare(query).all();
     const results = {};
     for (const row of rows) {
-      const agentName = row.agent_key ? row.agent_key : "(direct)";
-      results[agentName] = {
-        today: row.today,
-        last7days: row.last7days,
-        alltime: row.alltime
-      };
+      const canonicalName = normalizeAgentName(row.agent_key);
+      if (!results[canonicalName]) {
+        results[canonicalName] = {
+          today: 0,
+          last7days: 0,
+          alltime: 0
+        };
+      }
+      results[canonicalName].today += (row.today || 0);
+      results[canonicalName].last7days += (row.last7days || 0);
+      results[canonicalName].alltime += (row.alltime || 0);
     }
     return results;
   } catch (e) {
@@ -83,8 +106,15 @@ function pruneAgentStats(agentToPrune, targetDbPath = dbPath) {
     if (!fs.existsSync(targetDbPath)) {
       return { error: `Database not found at ${targetDbPath}` };
     }
+    const norm = normalizeAgentName(agentToPrune);
     const conn = getDb(targetDbPath);
-    const info = conn.prepare("DELETE FROM tool_calls WHERE LOWER(agent) = LOWER(?)").run(agentToPrune);
+    const info = conn.prepare(`
+      DELETE FROM tool_calls
+      WHERE LOWER(agent) = LOWER(?)
+         OR LOWER(agent) = 'delegate-to-' || LOWER(?)
+         OR LOWER(agent) = 'delegate_to_' || LOWER(?)
+         OR LOWER(agent) = 'mcp_' || LOWER(?)
+    `).run(norm, norm, norm, norm);
     return { success: true, deleted_count: info.changes };
   } catch (e) {
     return { error: e.message };
@@ -100,5 +130,7 @@ if (require.main === module) {
 module.exports = {
   getAgentStats,
   computeStats: getAgentStats,
+  normalizeAgentName,
+  normalize_agent_name: normalizeAgentName,
   pruneAgentStats
 };

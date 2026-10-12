@@ -7670,6 +7670,7 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}export${C.reset}            📤 Export indexed skills and database knowledge into a Markdown report.
   ${C.cyan}prune${C.reset}             🧹 Clean up old active sessions and usage logs (preserves memories), then vacuum.
   ${C.cyan}vacuum${C.reset}            ⚡ Defragment and compress SQLite database file directly.
+  ${C.cyan}backup [path]${C.reset}     💾 Create an online, consistent SQLite database snapshot using VACUUM INTO.
   ${C.cyan}rebuild-fts${C.reset}       🔄 Rebuild FTS5 full-text search indexes for skills and persona memories.
 
 ${C.bold}EXAMPLES${C.reset}
@@ -7727,6 +7728,9 @@ async function cmdData(args) {
       break;
     case 'vacuum':
       await cmdDataVacuum();
+      break;
+    case 'backup':
+      await cmdDataBackup(subArgs);
       break;
     case 'rebuild-fts':
       await cmdDataRebuildFts();
@@ -8376,11 +8380,22 @@ async function cmdDataPrune(args = []) {
         }
       }
 
+      const retentionIdx = args.findIndex(a => a === '--retention' || a === '--days');
+      const hasRetention = retentionIdx !== -1 && args[retentionIdx + 1];
+      const retentionDays = hasRetention ? (parseInt(args[retentionIdx + 1], 10) || 90) : null;
+
       info('Pruning database (clearing session history, old usage logs)...');
       const sizeBefore = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
       const { getDb } = require('../src/db');
       const conn = getDb(DB_PATH);
-      try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      if (hasRetention) {
+        try {
+          const { pruneToolCalls } = require('../src/tools_savings_logger');
+          pruneToolCalls(retentionDays, DB_PATH);
+        } catch (_) { /* intentional best-effort fallback */ }
+      } else {
+        try { conn.prepare("DELETE FROM tool_calls;").run(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      }
       try { conn.prepare("DELETE FROM active_sessions;").run(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       try { conn.exec("VACUUM"); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       const sizeAfter = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0;
@@ -8460,6 +8475,21 @@ async function cmdDataRebuildFts() {
     }
   } catch (err) {
     error(`Failed to rebuild FTS5 indexes: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdDataBackup(args = []) {
+  try {
+    const { backupDatabase } = require('../src/db');
+    const targetPath = args[0] || null;
+    info('Creating online SQLite database backup...');
+    const result = backupDatabase(targetPath, DB_PATH);
+    const sizeMb = (result.sizeBytes / (1024 * 1024)).toFixed(2);
+    success(`Successfully created database backup (${sizeMb} MB)!`);
+    log(`  ${C.bold}Destination:${C.reset} ${result.targetPath}`);
+  } catch (err) {
+    error(`Failed to create database backup: ${err.message}`);
     process.exit(1);
   }
 }
