@@ -131,6 +131,5 @@ module.exports = {
   getAgentStats,
   computeStats: getAgentStats,
   normalizeAgentName,
-  normalize_agent_name: normalizeAgentName,
   pruneAgentStats
 };

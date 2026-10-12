@@ -196,7 +196,6 @@ if (require.main === module) {
 module.exports = {
   log,
   pruneToolCalls,
-  prune_tool_calls: pruneToolCalls,
   detectActiveClient,
   DEFAULT_BASELINE,
   DB_PATH
