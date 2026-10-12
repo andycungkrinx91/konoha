@@ -176,6 +176,14 @@ function assessValidationEvidence(validation) {
 }
 
 function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, filesModified = null, learnings = null, projectPath = null, taskDir = null, dispatchId = null, validation = null, taskId = null) {
+  const rawAgent = (agentName || '').toLowerCase().trim();
+  if (rawAgent.startsWith('delegate_to_') || rawAgent.startsWith('delegated_to_')) {
+    return JSON.stringify({
+      status: 'error',
+      message: `Invalid agent name: "${agentName}". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.`
+    });
+  }
+
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   let workflowStatus = null;
 
