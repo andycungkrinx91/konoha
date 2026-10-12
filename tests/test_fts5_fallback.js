@@ -99,8 +99,9 @@ function runTests() {
 
   // Test 6: optimizeReport gracefully falls back without emitting FTS5 query failure warnings when FTS5 is absent
   const testDbFile = path.join(require('os').tmpdir(), `konoha_fts5_test_${Date.now()}.db`);
+  const prevDbPath = db.DB_PATH;
   try {
-    process.env.KONOHA_DB_PATH = testDbFile;
+    db.DB_PATH = testDbFile;
     globalThis.__KONOHA_MOCK_FTS5_DISABLED = true;
     const testConn = getDb(testDbFile);
     setupSchema(testConn);
@@ -132,7 +133,7 @@ function runTests() {
       process.stderr.write = origWrite;
     }
   } finally {
-    delete process.env.KONOHA_DB_PATH;
+    db.DB_PATH = prevDbPath;
     delete globalThis.__KONOHA_MOCK_FTS5_DISABLED;
     try { fs.unlinkSync(testDbFile); } catch (_) {}
     try { fs.unlinkSync(testDbFile + '-wal'); } catch (_) {}

@@ -12,11 +12,11 @@ All tools (40 active) are served through the `konoha` MCP server over stdio JSON
 
 | Tool Name | Parameters | Purpose | Return Schema |
 |---|---|---|---|
-| `read_file_head` | `path?: string, file_path?: string, filepath?: string, max_lines?: number` | Read the first N lines of a file. | Line-numbered text content |
-| `read_file_range` | `path?: string, file_path?: string, filepath?: string, start_line?: number, end_line?: number` | Read a bounded inclusive line range. | Line-numbered text content |
+| `read_file_head` | `path?: string, file_path?: string, filepath?: string, max_lines?: number` | Read the first N lines of a file. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges. | Line-numbered text content |
+| `read_file_range` | `path?: string, file_path?: string, filepath?: string, start_line?: number, end_line?: number` | Read a bounded inclusive line range. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges. | Line-numbered text content |
 | `file_info` | `path?: string, file_path?: string, filepath?: string` | Return file metadata. | JSON metadata object |
 | `token_efficient_grep` | `pattern: string, dir?: string, path?: string, file_path?: string, filepath?: string, glob?: string, file_glob?: string, ignore_case?: boolean, max_matches?: number` | Search text with a bounded result count. | JSON match array with line numbers |
-| `get_file_structure` | `path?: string, dir?: string, dir_path?: string` | Return a compact class and function signature map. | ASCII directory tree |
+| `get_file_structure` | `path?: string, dir?: string, dir_path?: string` | Return a compact class and function signature map. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges. | ASCII directory tree |
 | `find_files_clean` | `pattern?: string, dir?: string, path?: string, limit?: number` | Find files while skipping build and VCS noise. | JSON file list object |
 | `website_ai_detector` | `target?: string, path?: string, url?: string` | Scan a website directory or URL for AI-generation fingerprints. | Heuristic score object |
 | `docs_ai_detector` | `file_path?: string, target?: string` | Scan a document for AI-generation fingerprints and return a 0-100 score. | Heuristic score object (0-100) |

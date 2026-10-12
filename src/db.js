@@ -22,10 +22,7 @@ let currentDbPath = process.env.KONOHA_DB_PATH
  * synchronous=NORMAL, and conditionally loads sqlite-vector extension if present and enabled.
  */
 function getConnection(dbPath = null, loadVector = true) {
-  const activePath = dbPath !== null
-    ? dbPath
-    : (process.env.KONOHA_DB_PATH ? path.normalize(process.env.KONOHA_DB_PATH) : currentDbPath);
-  const targetPath = path.normalize(activePath);
+  const targetPath = path.normalize(dbPath !== null ? dbPath : currentDbPath);
   const dir = path.dirname(path.resolve(targetPath));
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -511,7 +508,11 @@ function sanitizeFts5Query(query) {
 
 module.exports = {
   get DB_PATH() { return currentDbPath; },
-  set DB_PATH(val) { currentDbPath = val; },
+  set DB_PATH(val) {
+    currentDbPath = val;
+    if (val) process.env.KONOHA_DB_PATH = val;
+    else delete process.env.KONOHA_DB_PATH;
+  },
   getConnection,
   get_connection: getConnection,
   getDb: getConnection,
