@@ -31,6 +31,7 @@ const opencodeManager = require('../src/opencode_manager');
 const codexManager = require('../src/codex_manager');
 const piManager = require('../src/pi_manager');
 const deployUtils = require('../src/deploy_utils');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../src/semble_manager');
 const antigravityManager = require('../src/antigravity_manager');
 const { runSplashScreen } = require('../src/splash');
 const platform = require('../src/platform_utils');
@@ -2175,7 +2176,7 @@ function getUvCommand() {
 function refreshSemblePackage(silent = true) {
   const uvxCmd = getUvxCommand();
   try {
-    const result = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', '--version'], {
+    const result = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', '--version'], {
       encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
     });
     return result.status === 0
@@ -2612,7 +2613,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
 
   const sembleConfig = {
     command: uvxCmd,
-    args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all']
+    args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all']
   };
   if (allowAutoApprove) {
     sembleConfig.autoApprove = ['search', 'find_related'];
@@ -2621,7 +2622,7 @@ function registerMcp(_python, silent = false, allowAutoApprove = true) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const aislopConfig = {
     command: npxCmd,
-    args: ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp']
+    args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp']
   };
   if (allowAutoApprove) {
     aislopConfig.autoApprove = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
@@ -4620,8 +4621,8 @@ async function cmdDoctor(args = []) {
 
   // 7. MCP Configuration
   const nodeCmd = process.execPath;
-  const expectedSembleArgs = ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'];
-  const expectedAislopArgs = ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'];
+  const expectedSembleArgs = ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'];
+  const expectedAislopArgs = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   let mcpHealthy = false;
   if (fileExists(MCP_CONFIG_PATH)) {
     try {
@@ -5860,7 +5861,7 @@ async function cmdSavings(args = []) {
       });
     }
     if (!runSemble || runSemble.status !== 0 || runSemble.error) {
-      runSemble = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', 'savings'], {
+      runSemble = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', 'savings'], {
         encoding: 'utf-8',
         timeout: 5000,
         shell: process.platform === 'win32'

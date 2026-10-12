@@ -1,5 +1,8 @@
 'use strict';
 
+const SEMBLE_PACKAGE = 'semble[mcp]@latest';
+const AISLOP_PACKAGE = 'aislop@0.18.1';
+
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -50,9 +53,9 @@ function getSembleStatus() {
 
   return {
     name: 'Semble MCP',
-    package: 'semble[mcp]==0.6.2',
+    package: SEMBLE_PACKAGE,
     engine: 'Semantic Code Search (Neural Embedding + Vector Index)',
-    command: `${uvxCmd} --from semble[mcp]==0.6.2 semble`,
+    command: `${uvxCmd} --from ${SEMBLE_PACKAGE} semble`,
     configured,
     available: isUvxUsable(uvxCmd),
     features: ['search', 'find_related'],
@@ -76,7 +79,7 @@ function getSembleSavings() {
   const candidates = [
     { cmd: 'semble', args: ['savings'], timeout: 1500 },
     { cmd: uvxCmd, args: ['semble', 'savings'], timeout: 2000 },
-    { cmd: uvxCmd, args: ['--from', 'semble[mcp]==0.6.2', 'semble', 'savings'], timeout: 3000 }
+    { cmd: uvxCmd, args: ['--from', SEMBLE_PACKAGE, 'semble', 'savings'], timeout: 3000 }
   ];
 
   for (const c of candidates) {
@@ -204,6 +207,8 @@ function searchSemble(query, searchPath = process.cwd(), topK = 5) {
 }
 
 module.exports = {
+  SEMBLE_PACKAGE,
+  AISLOP_PACKAGE,
   getSembleStatus,
   getSembleSavings,
   searchSemble

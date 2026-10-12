@@ -5,6 +5,7 @@ const os = require('os');
 const platform = require('./platform_utils');
 const cursorManager = require('./cursor_manager');
 const antigravityManager = require('./antigravity_manager');
+const { SEMBLE_PACKAGE } = require('./semble_manager');
 const mcpClientsManager = require('./mcp_clients_manager');
 const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
@@ -889,7 +890,7 @@ Load **semble** when project source code search is needed — do NOT load it for
 
 | MCP | Command | Load When |
 |---|---|---|
-| **semble** | \`uvx --from semble[mcp]==0.6.2 semble\` | Project source code search needed |
+| **semble** | \`uvx --from ${SEMBLE_PACKAGE} semble\` | Project source code search needed |
 | **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
 `;
 

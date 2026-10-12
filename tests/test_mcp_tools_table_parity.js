@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
+const { SEMBLE_PACKAGE } = require("../src/semble_manager");
 
 function extractMcpTable(content) {
   const marker = "## Available MCP Tools";
@@ -25,7 +26,7 @@ test("Available MCP Tools table has zero cloudrun rows and maintains strict pari
   assert.doesNotMatch(tmContent, /cloudrun|cloud-run/i, "src/templates/AGENTS.md must not contain cloudrun hint");
 
   // Both tables must have identical rows
-  const amTable = extractMcpTable(amContent);
+  const amTable = extractMcpTable(amContent).replace(/\${SEMBLE_PACKAGE}/g, SEMBLE_PACKAGE);
   const tmTable = extractMcpTable(tmContent);
 
   assert.strictEqual(amTable, tmTable, "Available MCP Tools table must maintain strict parity between agent_manager.js and templates/AGENTS.md");

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
 
 const {
@@ -257,7 +258,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
   // Resolve aislop-mcp path
   let resolvedAislopCmd = npxExecutable;
-  let resolvedAislopArgs = ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp'];
+  let resolvedAislopArgs = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
     const whichAislop = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', windowsHide: true });
     if (whichAislop.status === 0 && whichAislop.stdout.trim()) {
@@ -291,7 +292,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   const sembleBlock = [
     '[mcp_servers.semble]',
     `command = ${tomlStr(resolvedUvx)}`,
-    'args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]',
+    `args = ["--from", "${SEMBLE_PACKAGE}", "semble", "--content", "all"]`,
     'startup_timeout_sec = 30',
     'tool_timeout_sec = 60',
     'default_tools_approval_mode = "auto"'

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
 const {
   buildSembleSearchPolicy,
@@ -280,7 +281,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
       semble: {
         type: 'stdio',
         command: uvxCmd,
-        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
         autoApprove: ['search', 'find_related'],
         auto_approve: true
       }
@@ -288,7 +289,7 @@ function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
     aislop: (() => {
       const isWin = process.platform === 'win32';
       let cmd = npxCmd;
-      let args = ['-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'];
+      let args = ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
       try {
         const whichCmd = isWin ? 'where' : 'which';
         const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: isWin, timeout: 3000, windowsHide: true });

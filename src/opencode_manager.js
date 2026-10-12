@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
 
 const {
@@ -142,7 +143,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   if (uvxAvailable) {
     config.mcp['semble'] = {
       type: 'local',
-      command: [uvxCmd || 'uvx', '--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+      command: [uvxCmd || 'uvx', '--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
       environment: {
         ACTIVE_CLIENT: 'opencode',
         OPENCODE_CLIENT: '1',
@@ -154,7 +155,7 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
 
   // Aislop MCP registration
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'];
+  let aislopCommand = [npxCmd, '-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   try {
     const whichCmd = process.platform === 'win32' ? 'where' : 'which';
     const whichRes = spawnSync(whichCmd, ['aislop-mcp'], { encoding: 'utf-8', shell: process.platform === 'win32', timeout: 3000 });

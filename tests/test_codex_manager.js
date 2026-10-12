@@ -31,7 +31,7 @@ args = ["/home/user/.konoha/server.py"]
 
 [mcp_servers.semble]
 command = "uvx"
-args = ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
+args = ["--from", "semble[mcp]@latest", "semble", "--content", "all"]
 
 [user]
 name = "Ninja"
@@ -44,7 +44,7 @@ assert.deepStrictEqual(parsed.mcp_servers.konoha.args, ['/home/user/.konoha/serv
 
 assert.ok(parsed.mcp_servers.semble, 'Should parse semble server');
 assert.strictEqual(parsed.mcp_servers.semble.command, 'uvx');
-assert.deepStrictEqual(parsed.mcp_servers.semble.args, ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all']);
+assert.deepStrictEqual(parsed.mcp_servers.semble.args, ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']);
 
 // Test 3: Updating / injecting MCP servers in TOML
 const updatedToml = updateCodexTomlMcp(

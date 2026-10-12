@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
@@ -143,7 +144,7 @@ function resolveAislopMcpConfig() {
   return {
     type: 'stdio',
     command: isWin ? 'npx.cmd' : 'npx',
-    args: ['-y', '--prefer-offline', '-p', 'aislop@0.18.1', 'aislop-mcp'],
+    args: ['-y', '--prefer-offline', '-p', AISLOP_PACKAGE, 'aislop-mcp'],
     autoApprove: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'],
     auto_approve: true
   };
@@ -172,7 +173,7 @@ function buildStdioMcpServers(options = {}) {
       semble: {
         type: 'stdio',
         command: uvxCmd,
-        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all'],
+        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
         autoApprove: ['search', 'find_related'],
         auto_approve: true
       }

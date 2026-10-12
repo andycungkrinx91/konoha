@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
@@ -528,12 +529,12 @@ function registerPiMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
     if (uvxAvailable) {
       config.mcpServers['semble'] = {
         command: uvxCmd || 'uvx',
-        args: ['--from', 'semble[mcp]==0.6.2', 'semble', '--content', 'all']
+        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all']
       };
     }
     config.mcpServers['aislop'] = {
       command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', '-p', 'aislop@0.18.1', 'aislop-mcp']
+      args: ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp']
     };
 
     fs.writeFileSync(PI_MCP_CONFIG, JSON.stringify(config, null, 2) + '\n', 'utf-8');
