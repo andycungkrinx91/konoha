@@ -148,6 +148,7 @@ function maskSecret(value, visibleCount = 8) {
 }
 
 module.exports = {
+  getKeyFilePath,
   encryptSecret,
   decryptSecret,
   isEncrypted,

@@ -9,6 +9,7 @@ const path = require('path');
 const os = require('os');
 const { URL } = require('url');
 const db = require('./db');
+const vault = require('./crypto_vault');
 
 const BRIDGES_JSON_PATH = path.normalize(path.join(os.homedir(), '.konoha', 'bridges.json'));
 const DEFAULT_BRIDGES = [];
@@ -21,6 +22,31 @@ function getDbConnection(dbPath = null) {
   const conn = db.getConnection(target, false);
   db.setupSchema(conn);
   return conn;
+}
+
+
+function decryptApiKey(rawKey) {
+  if (!rawKey) return null;
+  if (!vault.isEncrypted(rawKey)) {
+    return rawKey;
+  }
+  const decrypted = vault.decryptSecret(rawKey);
+  if (!decrypted && rawKey) {
+    throw new Error('Crypto vault key unavailable or corrupted: failed to decrypt bridge api_key');
+  }
+  return decrypted;
+}
+
+function encryptApiKey(rawKey) {
+  if (!rawKey) return null;
+  if (vault.isEncrypted(rawKey)) {
+    return rawKey;
+  }
+  const encrypted = vault.encryptSecret(rawKey);
+  if (!encrypted) {
+    throw new Error('Crypto vault key unavailable: failed to encrypt bridge api_key');
+  }
+  return encrypted;
 }
 
 function autoMigrateJsonIfNeeded(conn) {
@@ -73,7 +99,8 @@ function autoMigrateJsonIfNeeded(conn) {
         continue;
       }
     }
-    const apiKey = b.apiKey || b.api_key || null;
+    const rawKey = b.apiKey || b.api_key || null;
+    const apiKey = encryptApiKey(rawKey);
     stmt.run(name, port, provider, enabled, targetUrl, apiKey);
   }
 }
@@ -95,7 +122,7 @@ function listBridges(dbPath = null) {
         item.targetUrl = r.target_url;
       }
       if (r.api_key) {
-        item.apiKey = r.api_key;
+        item.apiKey = decryptApiKey(r.api_key);
       }
       result.push(item);
     }
@@ -130,12 +157,67 @@ function upsertBridge(bridgeDict, dbPath = null) {
         throw new Error(`${EXTERNAL_ANTIGRAVITY_PROVIDER} targetUrl must be a loopback http URL`);
       }
     }
-    const apiKey = bridgeDict.apiKey || bridgeDict.api_key || null;
+    const rawKey = bridgeDict.apiKey || bridgeDict.api_key || null;
+    const apiKey = encryptApiKey(rawKey);
 
     conn.prepare(`
       INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(name, port, provider, enabled, targetUrl, apiKey);
+  } finally {
+    conn.close();
+  }
+}
+
+
+function migrateBridgesEncryption(dbPath = null) {
+  const target = dbPath !== null ? dbPath : db.DB_PATH;
+  if (!fs.existsSync(target)) {
+    return { migrated: 0, backedUp: false };
+  }
+
+  try {
+    fs.chmodSync(target, 0o600);
+  } catch (_) {}
+
+  try {
+    const keyPath = vault.getKeyFilePath ? vault.getKeyFilePath() : path.join(path.dirname(target), '.vault_key');
+    if (fs.existsSync(keyPath)) {
+      fs.chmodSync(keyPath, 0o600);
+    }
+  } catch (_) {}
+
+  const conn = getDbConnection(target);
+  try {
+    const unencryptedRows = conn.prepare(`
+      SELECT name, api_key FROM bridges
+      WHERE api_key IS NOT NULL AND api_key != '' AND api_key NOT LIKE 'enc:v1:%'
+    `).all();
+
+    if (unencryptedRows.length === 0) {
+      return { migrated: 0, backedUp: false };
+    }
+
+    const backupDir = path.dirname(target);
+    const backupName = `${path.basename(target)}.backup.${Date.now()}`;
+    const backupPath = path.join(backupDir, backupName);
+    try {
+      conn.prepare(`VACUUM INTO ?`).run(backupPath);
+      try { fs.chmodSync(backupPath, 0o600); } catch (_) {}
+    } catch (err) {
+      throw new Error(`Failed to create database backup before bridges migration: ${err.message}`);
+    }
+
+    const updateStmt = conn.prepare(`UPDATE bridges SET api_key = ? WHERE name = ?`);
+    const tx = conn.transaction(() => {
+      for (const row of unencryptedRows) {
+        const encrypted = encryptApiKey(row.api_key);
+        updateStmt.run(encrypted, row.name);
+      }
+    });
+    tx();
+
+    return { migrated: unencryptedRows.length, backedUp: true, backupPath };
   } finally {
     conn.close();
   }
@@ -218,5 +300,7 @@ module.exports = {
   autoMigrateJsonIfNeeded,
   auto_migrate_json_if_needed: autoMigrateJsonIfNeeded,
   getDbConnection,
-  get_db_connection: getDbConnection
+  get_db_connection: getDbConnection,
+  migrateBridgesEncryption,
+  migrate_bridges_encryption: migrateBridgesEncryption
 };
