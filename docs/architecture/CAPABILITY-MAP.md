@@ -73,7 +73,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Tests:** `tests/test_structured_delegation.js`, `tests/test_agent_delegation.js`, `tests/test_cross_client_contract.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `GEMINI.md`.
 * **Dependencies:** `js-yaml`, `better-sqlite3`.
-* **Known Legacy Paths:** Legacy disk fallback `task_dir`, `delegate.md`, `result.md` (`delegate_to_*` aliases removed in Batch 4.6).
+* **Known Legacy Paths:** Legacy disk fallback `task_dir`, `delegate.md`, `result.md` (`delegate_to_*` aliases removed in Batch 4.6; `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes under G-18, requiring direct specialist names; compact prompts preserve `Constraints:` within the strict 1,400-byte cap under G-03).
 * **Known Duplication:** None (`delegate_to_*` tool wrappers removed in Batch 4.6).
 
 ---
@@ -156,7 +156,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - Web API: `/api/v1/sdlc`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
-* **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`.
+* **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
 * **Tests:** `tests/test_sdlc_dor.js`, `tests/test_sdlc_tasks.js`, `tests/test_anti_slop_gate.js`, `tests/test_ai_detector.js`, `tests/test_docs_ai_detector.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/SecurityCompliance/`.
 * **Dependencies:** `better-sqlite3`, `aislop` CLI.

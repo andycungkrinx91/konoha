@@ -4,6 +4,12 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [2.1.17] - 2026-10-08
 
+### Subagent Delegation, Anti-Slop Boundary & Persona Prompt Hardening
+
+- **Report Caller Validation (G-18)**: Clients still calling `report_from_agent` with `delegate_to_<agent>` now receive an error and must use the direct agent name (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
+- **Anti-Slop Pattern Boundary Tightening (G-07)**: Tightened placeholder comment patterns to `\/\/\s*placeholder\s*(?:$|[.:!\-\n])` to cut false positives on descriptive comments while reliably catching stubs.
+- **Strict Compact Persona Cap (G-03)**: Enforce the compact persona cap including separators and truncation margin so compact prompts keep Constraints and strictly respect the 1,400-byte cap.
+
 ### Telegram Bot Integration & Remote Automation
 
 - **Dual-Mode Telegram Bot Engine (`src/telegram/config.js`, `src/telegram/notifier.js`, `src/telegram/poller.js`)**:

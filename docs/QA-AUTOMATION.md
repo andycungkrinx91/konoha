@@ -135,6 +135,11 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 - No weakening assertions or increasing timeouts to force a passing run.
 - Tests failing due to application defects must be resolved in application code.
 
+### Anti-Slop & Persona Prompt Invariants
+- **Placeholder Detection Boundary (G-07):** The placeholder comment regex strictly matches standalone stubs (`// placeholder`, `// placeholder.`, `// placeholder - stub`, `/* placeholder */`) while preserving descriptive English comments (`// Placeholder regex markers...`).
+- **Compact Persona Budget (G-03):** Compact mode system prompts mathematically enforce a strict 1,400-byte cap for the agent persona block (including headers, Instructions, Constraints, and the 16-character truncation suffix margin), guaranteeing that Constraints are permanently preserved and never pushed out of context.
+- **Direct Specialist Delegation & Reporting (G-18):** `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes, requiring direct specialist names (`anbu`, `jonin`, etc.).
+
 ---
 
 ## MCP Tools Reference
