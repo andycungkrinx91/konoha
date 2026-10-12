@@ -140,6 +140,11 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 - **Compact Persona Budget (G-03):** Compact mode system prompts mathematically enforce a strict 1,400-byte cap for the agent persona block (including headers, Instructions, Constraints, and the 16-character truncation suffix margin), guaranteeing that Constraints are permanently preserved and never pushed out of context.
 - **Direct Specialist Delegation & Reporting (G-18):** `report_from_agent` strictly rejects callers with `delegate_to_*` prefixes, requiring direct specialist names (`anbu`, `jonin`, etc.).
 
+### Database Concurrency, Mutation Atomicity & Client Config Preservation (G-08, G-02a, G-16)
+- **SQLite Concurrency & Upfront Write Locking (G-08):** `Database.prototype.transaction()` acquires a write lock upfront at transaction entry using `BEGIN IMMEDIATE`. In SQLite WAL mode, this prevents concurrent processes from interleaving read-modify-write workflows, eliminating `SQLITE_BUSY` ("database is locked") deadlocks. Nested transaction calls cleanly map to SQLite savepoints (`SAVEPOINT konoha_sp_${depth}`).
+- **Atomic Multi-Statement Writes (G-02a):** Multi-statement data modifications across `src/persona_memory.js` (`saveOrUpdateProject`, `saveMemory`, `deleteProject`, `pruneAllProjects`, `pruneProjectMemories`) and `src/db_agents.js` (`importYamlToDb`, `autoMigrateYamlToDb`, `bulkImportAgents`) execute inside atomic transactions (`conn.transaction(...)`), preventing partial mutations or table wipeouts on process interruption or transient failures.
+- **Client Configuration Preservation & Pristine Backup (G-16):** Writers for OpenAI Codex (`~/.codex/config.toml`) and OpenCode (`~/.config/opencode/opencode.json`) automatically create a pristine backup copy (`.bak`) before modifying developer configurations, creating the backup only if it does not already exist so that subsequent runs never overwrite the initial user backup. Furthermore, Codex config generation preserves user-defined custom agent tables and top-level user settings byte-for-byte without emitting duplicate tables.
+
 ---
 
 ## MCP Tools Reference

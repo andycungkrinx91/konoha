@@ -129,6 +129,9 @@ konoha doctor --yes
 
 **Verify:** Open OpenCode IDE or run `opencode run` — should start cleanly with zero schema validation warnings and show `konoha`, `semble`, and `aislop` active.
 
+> **Configuration Preservation & Backup**:
+> When configuring `~/.config/opencode/opencode.json`, Konoha automatically creates a backup at `~/.config/opencode/opencode.json.bak` before making changes. The backup is created only if it does not already exist, permanently preserving the developer's original pre-setup configuration.
+
 ---
 
 ## Codex CLI / IDE (global)
@@ -169,6 +172,9 @@ approval_mode = "auto"
 ```
 
 **Verify:** Run `codex mcp list` or inspect `~/.codex/config.toml` — should show `konoha`, `semble`, and `aislop`.
+
+> **Configuration Preservation & Backup**:
+> When configuring `~/.codex/config.toml`, Konoha automatically creates a backup at `~/.codex/config.toml.bak` before making changes. The backup is created only if it does not already exist, preserving the pristine original configuration across multiple setup runs. Any user-defined custom agent tables (`[agents.<custom>]`) and top-level user settings are preserved byte-for-byte, and custom subagents from `~/.agents/agents.yaml` are written without duplicating tables.
 
 ---
 
