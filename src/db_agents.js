@@ -49,26 +49,29 @@ function autoMigrateYamlToDb(conn) {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        for (const a of data) {
-          const name = a.name;
-          if (!name || name.startsWith('mcp_')) continue;
-          const skillsStr = JSON.stringify(a.skills || []);
-          stmt.run(
-            name,
-            a.icon || null,
-            a.title || null,
-            a.model || null,
-            a.purpose || null,
-            skillsStr,
-            a.delegateWhen || a.delegate_when || null,
-            a.constraints || a.constraints_text || null,
-            a.workflow || null,
-            a.description || null,
-            a.instructions || null,
-            a.delegationKeywords || a.delegation_keywords || null,
-            (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
-          );
-        }
+        const tx = conn.transaction(() => {
+          for (const a of data) {
+            const name = a.name;
+            if (!name || name.startsWith('mcp_')) continue;
+            const skillsStr = JSON.stringify(a.skills || []);
+            stmt.run(
+              name,
+              a.icon || null,
+              a.title || null,
+              a.model || null,
+              a.purpose || null,
+              skillsStr,
+              a.delegateWhen || a.delegate_when || null,
+              a.constraints || a.constraints_text || null,
+              a.workflow || null,
+              a.description || null,
+              a.instructions || null,
+              a.delegationKeywords || a.delegation_keywords || null,
+              (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
+            );
+          }
+        });
+        tx();
       }
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
@@ -200,36 +203,39 @@ function importYamlToDb(dbPath = null) {
     }
 
     if (data !== null) {
-      conn.prepare("DELETE FROM agents").run();
-      const stmt = conn.prepare(`
-        INSERT OR REPLACE INTO agents (
-          name, icon, title, model, purpose, skills, delegate_when,
-          constraints_text, workflow, description, instructions, delegation_keywords,
-          enable_mcp_tools
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      const tx = conn.transaction(() => {
+        conn.prepare("DELETE FROM agents").run();
+        const stmt = conn.prepare(`
+          INSERT OR REPLACE INTO agents (
+            name, icon, title, model, purpose, skills, delegate_when,
+            constraints_text, workflow, description, instructions, delegation_keywords,
+            enable_mcp_tools
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-      for (const a of data) {
-        const name = a.name;
-        if (!name) continue;
-        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
-        const skillsStr = JSON.stringify(a.skills || []);
-        stmt.run(
-          name,
-          a.icon || null,
-          a.title || null,
-          a.model || null,
-          a.purpose || null,
-          skillsStr,
-          a.delegateWhen || a.delegate_when || null,
-          a.constraints || a.constraints_text || null,
-          a.workflow || null,
-          a.description || null,
-          a.instructions || null,
-          a.delegationKeywords || a.delegation_keywords || null,
-          (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
-        );
-      }
+        for (const a of data) {
+          const name = a.name;
+          if (!name) continue;
+          // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
+          const skillsStr = JSON.stringify(a.skills || []);
+          stmt.run(
+            name,
+            a.icon || null,
+            a.title || null,
+            a.model || null,
+            a.purpose || null,
+            skillsStr,
+            a.delegateWhen || a.delegate_when || null,
+            a.constraints || a.constraints_text || null,
+            a.workflow || null,
+            a.description || null,
+            a.instructions || null,
+            a.delegationKeywords || a.delegation_keywords || null,
+            (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
+          );
+        }
+      });
+      tx();
     }
   } finally {
     conn.close();
