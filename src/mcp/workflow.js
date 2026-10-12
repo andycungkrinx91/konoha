@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { getDb } = require('../db');
 const { getKonohaTmpRoot } = require('./client_detection');
 const { logToolCall } = require('./skills');
+const { executeAislopScan } = require('./anti_slop');
 
 /**
  * Canonical 8-phase workflow state machine lifecycle phases plus terminal 'done' state.
@@ -102,111 +103,62 @@ const FRAMEWORK_MODULE_EXCLUSIONS = [
 ].join(',');
 
 function runAislopGate(projectPath, status) {
-  if (process.env.KONOHA_DB_PATH) return { enforced: false, reason: 'test isolation' };
-
-  // Cache invalidation: check file mtimes against cached_at timestamp
-  if (status && status.aislop_gate && status.aislop_gate.ok) {
-    const cachedAt = status.aislop_gate.cached_at || 0;
-    const changedFiles = (status && Array.isArray(status.changed_files)) ? status.changed_files : [];
-    const maxMtime = getMaxMtime(projectPath, changedFiles);
-    if (maxMtime <= cachedAt) {
-      return status.aislop_gate;
-    }
-    // Files changed since last scan — invalidate cache and re-scan
+  // Test mock breaker support
+  if (status && status._forceBreakerOpen) {
+    return { enforced: true, ok: false, pass: false, reason: 'circuit_breaker_open', error: 'circuit_breaker_open' };
   }
 
-  // Circuit breaker: if aislop gate has failed repeatedly, degrade to advisory
+  // Circuit breaker: if tripped, strictly FAIL CLOSED
   if (!_aislopBreaker.allowRequest()) {
-    const advisory = { enforced: false, ok: false, reason: 'aislop gate circuit open — degraded to advisory after repeated failures', advisory: true };
-    if (status) status.aislop_gate = advisory;
-    return advisory;
+    return {
+      enforced: true,
+      ok: false,
+      pass: false,
+      reason: 'circuit_breaker_open',
+      error: 'aislop gate circuit breaker tripped after repeated failures'
+    };
   }
 
-  let result;
-  try {
-    const { spawnSync } = require('child_process');
-    const isWin = process.platform === 'win32';
-    let scanCmd = isWin ? 'npx.cmd' : 'npx';
-    let scanArgs = ['-y', '--prefer-offline', 'aislop', 'scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
+  // Allow test suites running under ephemeral /tmp test isolation to pass workflow state checks
+  if (process.env.KONOHA_DB_PATH && (process.env.KONOHA_DB_PATH.includes('/tmp/') || process.env.KONOHA_DB_PATH.includes('\\tmp\\')) && !process.env.KONOHA_FORCE_AISLOP_GATE) {
+    return { enforced: false, ok: true, pass: true, reason: 'test isolation' };
+  }
 
-    // Cross-platform binary detection with timeout guard
-    try {
-      const whichCmd = isWin ? 'where' : 'which';
-      const rtkRes = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
-      if (rtkRes.status === 0 && rtkRes.stdout.trim()) {
-        scanCmd = 'rtk';
-        scanArgs = ['aislop', 'scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
-      } else {
-        const whichRes = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 3000 });
-        if (whichRes.status === 0 && whichRes.stdout.trim()) {
-          const binPath = whichRes.stdout.trim().split('\n')[0].trim();
-          if (binPath && fs.existsSync(binPath)) {
-            scanCmd = binPath;
-            scanArgs = ['scan', '--json', '--exclude', FRAMEWORK_MODULE_EXCLUSIONS];
-          }
-        }
-      }
-    } catch (_) { /* fallback to npx */ }
+  const changedFiles = (status && Array.isArray(status.changed_files)) ? status.changed_files : [];
+  const scanResult = executeAislopScan(projectPath, {
+    changedFiles,
+    timeoutMs: AISLOP_GATE_TIMEOUT_MS
+  });
 
-    if (status && Array.isArray(status.changed_files) && status.changed_files.length > 0) {
-      const filteredFiles = status.changed_files.filter(f => {
-        const norm = f.replace(/\\/g, '/');
-        return !norm.includes('node_modules/') &&
-               !norm.includes('vendor/') &&
-               !norm.includes('.venv/') &&
-               !norm.includes('venv/') &&
-               !norm.includes('site-packages/') &&
-               !norm.includes('Pods/') &&
-               !norm.includes('target/');
-      });
-      scanArgs.push(...filteredFiles);
-    } else {
-      // Scope to changed files to prevent massive multi-megabyte full-repo token burns
-      scanArgs.push('--changes');
-    }
-    let res = spawnSync(scanCmd, scanArgs, {
-      cwd: projectPath,
-      encoding: 'utf8',
-      timeout: AISLOP_GATE_TIMEOUT_MS,
-      shell: isWin,
-      killSignal: 'SIGTERM',
-    });
-    // Fail closed if --changes cannot run (e.g. non-git directory): never fall
-    // back to an unscoped full-repo scan — that violates the strict changed-files
-    // token-hygiene mandate.
-    if (res.status !== 0 && (res.stderr || '').includes('git')) {
-      _aislopBreaker.recordFailure();
-      if (status) status.aislop_gate = { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
-      return status ? status.aislop_gate : { enforced: true, ok: false, reason: 'changed-files scope unavailable (git error); refusing unscoped full-repo scan' };
-    }
-    const out = (res.stdout || '');
-    const jsonStart = out.indexOf('{');
-    if (jsonStart === -1) {
-      _aislopBreaker.recordFailure();
-      result = { enforced: true, ok: false, reason: 'aislop scanner unavailable' };
-    } else {
-      const parsed = JSON.parse(out.slice(jsonStart));
-      const findings = (parsed.diagnostics || []).length;
-      result = {
-        enforced: true,
-        ok: parsed.score === AISLOP_TARGET_SCORE && findings === 0,
-        score: parsed.score,
-        findings,
-        label: parsed.label || null,
-        cached_at: Date.now(),
-      };
-      if (result.ok) {
-        _aislopBreaker.recordSuccess();
-      } else {
-        _aislopBreaker.recordFailure();
-      }
-    }
-  } catch (e) {
+  if (!scanResult.ok) {
     _aislopBreaker.recordFailure();
-    result = { enforced: true, ok: false, reason: 'gate error: ' + e.message };
+    const failureGate = {
+      enforced: true,
+      ok: false,
+      pass: false,
+      score: scanResult.score,
+      errors: scanResult.errors,
+      warnings: scanResult.warnings,
+      findings: scanResult.findings,
+      reason: scanResult.error || 'Zero-AI-Slop gate failed: findings > 0 or score < 100'
+    };
+    if (status) status.aislop_gate = failureGate;
+    return failureGate;
   }
-  if (status) status.aislop_gate = result;
-  return result;
+
+  _aislopBreaker.recordSuccess();
+  const passGate = {
+    enforced: true,
+    ok: true,
+    pass: true,
+    score: 100,
+    findings: [],
+    errors: 0,
+    warnings: 0,
+    cached_at: Date.now()
+  };
+  if (status) status.aislop_gate = passGate;
+  return passGate;
 }
 
 function loadWorkflowStatus(taskDir) {

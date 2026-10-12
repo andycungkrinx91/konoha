@@ -14,6 +14,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { logToolCall } = require('./skills');
+const { AISLOP_PACKAGE } = require('../semble_manager');
 
 const EXCLUDE_DIRS = new Set([
   'node_modules',
@@ -80,28 +81,95 @@ function collectCandidateFiles(dir, maxFiles = 100) {
   return results;
 }
 
-function runAislopScanEngine(projectPath, targetFiles = []) {
-  const isWin = process.platform === 'win32';
-  let scanCmd = isWin ? 'npx.cmd' : 'npx';
-  let scanArgs = ['-y', '--prefer-offline', 'aislop', 'scan', '--json'];
-
-  try {
-    const whichCmd = isWin ? 'where' : 'which';
-    const rtkRes = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
-    if (rtkRes.status === 0 && rtkRes.stdout.trim()) {
-      scanCmd = 'rtk';
-      scanArgs = ['aislop', 'scan', '--json'];
-    } else {
-      const whichRes = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
-      if (whichRes.status === 0 && whichRes.stdout.trim()) {
-        scanCmd = whichRes.stdout.trim().split('\n')[0].trim();
-        scanArgs = ['scan', '--json'];
-      }
+function executeAislopScan(projectPath, options = {}) {
+  // Support mock output injection for testing
+  if (options.mockOutput !== undefined) {
+    const raw = String(options.mockOutput).trim();
+    const jsonStart = raw.indexOf('{');
+    const jsonEnd = raw.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      return {
+        ok: false,
+        pass: false,
+        available: true,
+        score: 0,
+        errors: 1,
+        warnings: 0,
+        findings: [{ rule: 'invalid_scanner_output', message: 'Corrupt or non-JSON scanner output', severity: 'error' }],
+        error: 'invalid_json_output'
+      };
     }
-  } catch (_) { /* fallback to npx */ }
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+      const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+      const score = typeof parsed.score === 'number' ? parsed.score : 100;
+      const errors = findings.filter(f => f.severity === 'error' || f.level === 'error').length;
+      const warnings = findings.filter(f => f.severity === 'warning' || f.level === 'warning').length;
+      const totalIssues = findings.length;
+      const pass = totalIssues === 0 && score === 100;
+      return {
+        ok: pass,
+        pass,
+        available: true,
+        score,
+        findings,
+        errors,
+        warnings,
+        total_issues: totalIssues,
+        error: null
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        pass: false,
+        available: true,
+        score: 0,
+        errors: 1,
+        warnings: 0,
+        findings: [{ rule: 'invalid_scanner_output', message: e.message, severity: 'error' }],
+        error: e.message
+      };
+    }
+  }
 
-  if (targetFiles.length > 0) {
-    scanArgs.push(...targetFiles);
+  const isWin = process.platform === 'win32';
+  let scanCmd = options.customCmd || (isWin ? 'npx.cmd' : 'npx');
+  let scanArgs = ['-y', '--prefer-offline', AISLOP_PACKAGE, 'scan', '--json'];
+
+  if (!options.customCmd) {
+    try {
+      const whichCmd = isWin ? 'where' : 'which';
+      const aislopWhich = spawnSync(whichCmd, ['aislop'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+      const hasAislop = aislopWhich.status === 0 && Boolean(aislopWhich.stdout.trim());
+      const rtkWhich = spawnSync(whichCmd, ['rtk'], { encoding: 'utf-8', shell: isWin, timeout: 2000 });
+      const hasRtk = rtkWhich.status === 0 && Boolean(rtkWhich.stdout.trim());
+
+      if (hasRtk && hasAislop) {
+        scanCmd = 'rtk';
+        scanArgs = ['aislop', 'scan', '--json'];
+      } else if (hasAislop) {
+        const binPath = aislopWhich.stdout.trim().split('\n')[0].trim();
+        if (binPath && fs.existsSync(binPath)) {
+          scanCmd = binPath;
+          scanArgs = ['scan', '--json'];
+        }
+      }
+    } catch (_) { /* fallback to npx */ }
+  }
+
+  const targetFiles = options.targetFiles || options.changedFiles || [];
+  if (Array.isArray(targetFiles) && targetFiles.length > 0) {
+    const filteredFiles = targetFiles.filter(f => {
+      const norm = f.replace(/\\/g, '/');
+      return !norm.includes('node_modules/') &&
+             !norm.includes('vendor/') &&
+             !norm.includes('.venv/') &&
+             !norm.includes('venv/') &&
+             !norm.includes('site-packages/') &&
+             !norm.includes('Pods/') &&
+             !norm.includes('target/');
+    });
+    scanArgs.push(...filteredFiles);
   } else {
     scanArgs.push('--changes');
   }
@@ -110,41 +178,90 @@ function runAislopScanEngine(projectPath, targetFiles = []) {
     const res = spawnSync(scanCmd, scanArgs, {
       cwd: projectPath,
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: options.timeoutMs || 30000,
       maxBuffer: 10 * 1024 * 1024,
       shell: isWin
     });
 
-    const output = (res.stdout || '').trim();
-    if (output) {
-      // Find JSON block in output
-      const jsonStart = output.indexOf('{');
-      const jsonEnd = output.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        const jsonStr = output.slice(jsonStart, jsonEnd + 1);
-        const parsed = JSON.parse(jsonStr);
-        return {
-          available: true,
-          score: typeof parsed.score === 'number' ? parsed.score : 100,
-          findings: Array.isArray(parsed.findings) ? parsed.findings : [],
-          error: null
-        };
-      }
+    if (res.error) {
+      return {
+        ok: false,
+        pass: false,
+        available: false,
+        score: 0,
+        errors: 1,
+        warnings: 0,
+        findings: [{ rule: 'scanner_execution_failed', message: res.error.message, severity: 'error' }],
+        error: res.error.message
+      };
     }
+
+    if (res.status !== 0 && (!res.stdout || !res.stdout.includes('{'))) {
+      const errMsg = (res.stderr || '').trim() || `Scanner exited with status ${res.status}`;
+      return {
+        ok: false,
+        pass: false,
+        available: false,
+        score: 0,
+        errors: 1,
+        warnings: 0,
+        findings: [{ rule: 'scanner_nonzero_exit', message: errMsg, severity: 'error' }],
+        error: errMsg
+      };
+    }
+
+    const output = (res.stdout || '').trim();
+    const jsonStart = output.indexOf('{');
+    const jsonEnd = output.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      return {
+        ok: false,
+        pass: false,
+        available: true,
+        score: 0,
+        errors: 1,
+        warnings: 0,
+        findings: [{ rule: 'invalid_scanner_output', message: 'No valid JSON found in scanner output', severity: 'error' }],
+        error: 'invalid_json_output'
+      };
+    }
+
+    const jsonStr = output.slice(jsonStart, jsonEnd + 1);
+    const parsed = JSON.parse(jsonStr);
+    const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+    const score = typeof parsed.score === 'number' ? parsed.score : 100;
+    const errors = findings.filter(f => f.severity === 'error' || f.level === 'error').length;
+    const warnings = findings.filter(f => f.severity === 'warning' || f.level === 'warning').length;
+    const totalIssues = findings.length;
+    const pass = totalIssues === 0 && score === 100;
+
     return {
+      ok: pass,
+      pass,
       available: true,
-      score: 100,
-      findings: [],
+      score,
+      findings,
+      errors,
+      warnings,
+      total_issues: totalIssues,
       error: null
     };
   } catch (err) {
     return {
+      ok: false,
+      pass: false,
       available: false,
-      score: 100,
-      findings: [],
+      score: 0,
+      errors: 1,
+      warnings: 0,
+      findings: [{ rule: 'scanner_failure', message: err.message, severity: 'error' }],
       error: err.message
     };
   }
+}
+
+function runAislopScanEngine(projectPath, targetFiles = []) {
+  return executeAislopScan(projectPath, { targetFiles });
 }
 
 function runSemanticAntiSlopCheck(filePath) {
@@ -278,5 +395,7 @@ function runAntiSlopAudit(args = {}, agentName = null) {
 
 module.exports = {
   BANNED_PATTERNS,
-  runAntiSlopAudit
+  runAntiSlopAudit,
+  executeAislopScan,
+  runAislopScanEngine
 };
