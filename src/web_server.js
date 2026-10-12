@@ -162,7 +162,7 @@ function isClientConfigured(id) {
 
 // aislop-ignore-next-line complexity/function-too-long (orchestrator web server factory hosting full API route tree and SvelteKit handler)
 function createWebServer(options = {}) {
-  const port = options.port || 1404;
+  const port = options.port !== undefined ? options.port : 1404;
   const host = options.host || '127.0.0.1';
   let sessionToken = options.token;
   const tokenFile = path.join(SKILLS_DB_DIR, 'web_token');
@@ -228,6 +228,47 @@ function createWebServer(options = {}) {
     const parsedUrl = new URL(req.url, 'http://' + host + ':' + port);
     const pathname = parsedUrl.pathname;
     const method = req.method.toUpperCase();
+
+    // Loopback Host validation & active tunnel hostname verification
+    const rawHost = req.headers['host'];
+    let hostWithoutPort = '';
+    if (rawHost) {
+      const hStr = String(rawHost).trim().toLowerCase();
+      if (hStr.startsWith('[')) {
+        const endBracket = hStr.indexOf(']');
+        hostWithoutPort = endBracket !== -1 ? hStr.slice(0, endBracket + 1) : hStr;
+      } else {
+        hostWithoutPort = hStr.split(':')[0];
+      }
+    }
+
+    const isLoopbackHost = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(hostWithoutPort);
+    let isAllowedTunnelHost = false;
+    if (!isLoopbackHost && hostWithoutPort) {
+      try {
+        const tunnelMgr = require('./tunnel/manager');
+        const tunnelStatus = tunnelMgr.getTunnelStatus();
+        if (tunnelStatus && tunnelStatus.enabled) {
+          const allowedHosts = new Set();
+          if (tunnelStatus.public_url) {
+            try {
+              const u = new URL(tunnelStatus.public_url);
+              if (u.hostname) allowedHosts.add(u.hostname.toLowerCase());
+            } catch (_) {}
+          }
+          if (tunnelStatus.custom_domain) {
+            allowedHosts.add(tunnelStatus.custom_domain.trim().toLowerCase());
+          }
+          if (allowedHosts.has(hostWithoutPort)) {
+            isAllowedTunnelHost = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!isLoopbackHost && !isAllowedTunnelHost) {
+      return sendJson(res, 403, { error: 'Forbidden: Invalid or untrusted Host header' });
+    }
 
     const tunnelSecurity = require('./tunnel/security');
     const isRemote = tunnelSecurity.isRemoteRequest(req);
@@ -1831,6 +1872,16 @@ function createWebServer(options = {}) {
 
     if (method === 'DELETE' && (pathname === '/api/v1/projects' || pathname === '/api/v1/projects/')) {
       try {
+        let body = {};
+        try {
+          body = await parseBody(req);
+        } catch (_) {}
+        const isConfirmed = body.confirm === true || parsedUrl.searchParams.get('confirm') === 'true';
+        if (!isConfirmed) {
+          return sendJson(res, 400, {
+            error: 'Confirmation required: body must contain { confirm: true } to delete all projects'
+          });
+        }
         const personaMemory = require('./persona_memory');
         const keepCurrent = parsedUrl.searchParams.get('keepCurrent') === 'true';
         const currentHash = parsedUrl.searchParams.get('currentHash') || '';
@@ -2135,7 +2186,8 @@ function createWebServer(options = {}) {
         } catch (_) {
           /* intentional fallback: queue worker start error should not block web server startup */
         }
-        resolve({ port, host, token: sessionToken });
+        const actualPort = server.address() ? server.address().port : port;
+        resolve({ port: actualPort, host, token: sessionToken });
       });
       server.on('error', reject);
     }),

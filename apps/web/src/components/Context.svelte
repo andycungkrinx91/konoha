@@ -272,7 +272,7 @@
     if (!confirmed) return;
 
     try {
-      const res = await api.delete("/api/v1/projects");
+      const res = await api.delete("/api/v1/projects", { confirm: true });
       allProjects = [];
       await sweetAlert.fire({
         title: "Workspaces Pruned",
@@ -303,7 +303,7 @@
     if (!confirmed) return;
 
     try {
-      const resProjects = await api.delete("/api/v1/projects");
+      const resProjects = await api.delete("/api/v1/projects", { confirm: true });
       const hash = currentProject?.project_hash || "current";
       await api.post(`/api/v1/projects/${hash}/prune`, { clearInvariants: true });
       contextSummary = "";

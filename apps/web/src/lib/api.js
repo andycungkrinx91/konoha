@@ -84,6 +84,6 @@ export const api = {
   post: (url, body) => apiRequest(url, { method: 'POST', body: JSON.stringify(body) }),
   put: (url, body) => apiRequest(url, { method: 'PUT', body: JSON.stringify(body) }),
   patch: (url, body) => apiRequest(url, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: (url) => apiRequest(url, { method: 'DELETE' }),
-  del: (url) => apiRequest(url, { method: 'DELETE' })
+  delete: (url, body) => apiRequest(url, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }),
+  del: (url, body) => apiRequest(url, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
 };

@@ -22,7 +22,13 @@ const { startWebServer } = require('../src/web_server');
 
 function makeRequest(options, postData = null) {
   return new Promise((resolve, reject) => {
-    const req = http.request(options, (res) => {
+    let payload = null;
+    const reqOptions = { ...options, headers: { ...(options.headers || {}) } };
+    if (postData) {
+      payload = typeof postData === 'object' ? JSON.stringify(postData) : String(postData);
+      reqOptions.headers['Content-Length'] = Buffer.byteLength(payload);
+    }
+    const req = http.request(reqOptions, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -32,12 +38,8 @@ function makeRequest(options, postData = null) {
       });
     });
     req.on('error', reject);
-    if (postData) {
-      if (typeof postData === 'object') {
-        req.write(JSON.stringify(postData));
-      } else {
-        req.write(postData);
-      }
+    if (payload) {
+      req.write(payload);
     }
     req.end();
   });
@@ -201,7 +203,7 @@ async function run() {
       path: '/api/v1/projects',
       method: 'DELETE',
       headers: authHeaders
-    });
+    }, { confirm: true });
     assert.strictEqual(pruneAllWsRes.status, 200, 'DELETE /api/v1/projects should return 200');
     assert.ok(pruneAllWsRes.data.deleted >= 1, 'Should report at least 1 deleted project');
 
