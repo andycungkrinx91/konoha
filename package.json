@@ -44,6 +44,8 @@
   },
   "scripts": {
     "build": "node bin/cli.js ui build",
+    "lint": "node scripts/lint.js",
+    "start": "node bin/cli.js web",
     "test": "node tests/run_all.js",
     "test:e2e": "pnpm --dir apps/web run test:e2e",
     "test:parallel": "node tests/run_all.js --parallel",

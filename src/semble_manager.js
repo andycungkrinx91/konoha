@@ -1,6 +1,6 @@
 'use strict';
 
-const SEMBLE_PACKAGE = 'semble[mcp]@latest';
+const SEMBLE_PACKAGE = 'semble[mcp]==0.6.2';
 const AISLOP_PACKAGE = 'aislop@0.18.1';
 
 const path = require('path');
@@ -174,7 +174,7 @@ function searchSemble(query, searchPath = process.cwd(), topK = 5) {
   const k = Math.min(Math.max(parseInt(topK, 10) || 5, 1), 20);
 
   try {
-    const res = spawnSync(uvxCmd, ['--from', 'semble[mcp]==0.6.2', 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {
+    const res = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', 'search', query.trim(), searchPath, '-k', String(k)], {
       encoding: 'utf-8',
       timeout: 8000,
       shell: process.platform === 'win32'
