@@ -16,6 +16,11 @@ function getDefaultDbPath() {
 }
 
 function getDb(dbPath = null) {
+  if (dbPath && typeof dbPath === 'object' && typeof dbPath.prepare === 'function') {
+    return Object.create(dbPath, {
+      close: { value: () => {}, writable: true }
+    });
+  }
   return db.getConnection(dbPath || getDefaultDbPath(), false);
 }
 
@@ -172,44 +177,47 @@ function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null,
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const existing = conn.prepare("SELECT * FROM projects WHERE project_hash = ?").get(pHash);
-    const trimmedSummary = (contextSummary && typeof contextSummary === 'string') ? contextSummary.trim() : '';
-    const safeSummary = trimmedSummary.length > 1000 ? trimmedSummary.substring(0, 1000) : trimmedSummary;
-    if (existing) {
-      const newSummary = safeSummary || existing.context_summary;
-      conn.prepare(`
-        UPDATE projects
-        SET project_path = ?, project_name = ?, framework = ?, styling = ?, package_manager = ?,
-            context_summary = ?, tech_stack = ?, updated_at = ?
-        WHERE project_hash = ?
-      `).run(
-        canonical,
-        detected.project_name || existing.project_name,
-        detected.framework || existing.framework,
-        detected.styling || existing.styling,
-        detected.package_manager || existing.package_manager,
-        newSummary,
-        JSON.stringify(detected),
-        now,
-        pHash
-      );
-    } else {
-      conn.prepare(`
-        INSERT INTO projects (project_hash, project_path, project_name, framework, styling, package_manager, context_summary, tech_stack, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        pHash,
-        canonical,
-        detected.project_name || path.basename(canonical),
-        detected.framework || "Unknown",
-        detected.styling || "Standard CSS",
-        detected.package_manager || "pnpm",
-        safeSummary,
-        JSON.stringify(detected),
-        now,
-        now
-      );
-    }
+    const tx = conn.transaction(() => {
+      const existing = conn.prepare("SELECT * FROM projects WHERE project_hash = ?").get(pHash);
+      const trimmedSummary = (contextSummary && typeof contextSummary === 'string') ? contextSummary.trim() : '';
+      const safeSummary = trimmedSummary.length > 1000 ? trimmedSummary.substring(0, 1000) : trimmedSummary;
+      if (existing) {
+        const newSummary = safeSummary || existing.context_summary;
+        conn.prepare(`
+          UPDATE projects
+          SET project_path = ?, project_name = ?, framework = ?, styling = ?, package_manager = ?,
+              context_summary = ?, tech_stack = ?, updated_at = ?
+          WHERE project_hash = ?
+        `).run(
+          canonical,
+          detected.project_name || existing.project_name,
+          detected.framework || existing.framework,
+          detected.styling || existing.styling,
+          detected.package_manager || existing.package_manager,
+          newSummary,
+          JSON.stringify(detected),
+          now,
+          pHash
+        );
+      } else {
+        conn.prepare(`
+          INSERT INTO projects (project_hash, project_path, project_name, framework, styling, package_manager, context_summary, tech_stack, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          pHash,
+          canonical,
+          detected.project_name || path.basename(canonical),
+          detected.framework || "Unknown",
+          detected.styling || "Standard CSS",
+          detected.package_manager || "pnpm",
+          safeSummary,
+          JSON.stringify(detected),
+          now,
+          now
+        );
+      }
+    });
+    tx();
     return pHash;
   } finally {
     conn.close();
@@ -384,28 +392,32 @@ function saveMemory(
   const conn = getDb(dbPath);
   try {
     initMemoryTables(conn);
-    const existing = conn.prepare(`
-      SELECT id FROM persona_memories
-      WHERE agent_name = ? AND content = ? AND project_hash = ? AND session_id = ?
-      LIMIT 1
-    `).get(cleanAgent, safeContent, pHash, sessId);
+    let finalId = null;
+    const tx = conn.transaction(() => {
+      const existing = conn.prepare(`
+        SELECT id FROM persona_memories
+        WHERE agent_name = ? AND content = ? AND project_hash = ? AND session_id = ?
+        LIMIT 1
+      `).get(cleanAgent, safeContent, pHash, sessId);
 
-    if (existing) {
-      const existingId = existing.id;
+      if (existing) {
+        finalId = existing.id;
+        conn.prepare(`
+          UPDATE persona_memories
+          SET updated_at = ?, importance = MAX(importance, ?), title = CASE WHEN ? != '' THEN ? ELSE title END
+          WHERE id = ?
+        `).run(now, importance, finalTitle, finalTitle, finalId);
+        return;
+      }
+
       conn.prepare(`
-        UPDATE persona_memories
-        SET updated_at = ?, importance = MAX(importance, ?), title = CASE WHEN ? != '' THEN ? ELSE title END
-        WHERE id = ?
-      `).run(now, importance, finalTitle, finalTitle, existingId);
-      return existingId;
-    }
-
-    conn.prepare(`
-      INSERT INTO persona_memories (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(memId, pHash, sessId, cleanAgent, memoryType, finalTitle, safeContent, tags, importance, now, now);
-
-    return memId;
+        INSERT INTO persona_memories (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(memId, pHash, sessId, cleanAgent, memoryType, finalTitle, safeContent, tags, importance, now, now);
+      finalId = memId;
+    });
+    tx();
+    return finalId;
   } finally {
     conn.close();
   }
