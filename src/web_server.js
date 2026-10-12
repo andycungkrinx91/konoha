@@ -250,14 +250,11 @@ function createWebServer(options = {}) {
         const tunnelStatus = tunnelMgr.getTunnelStatus();
         if (tunnelStatus && tunnelStatus.enabled) {
           const allowedHosts = new Set();
-          if (tunnelStatus.public_url) {
-            try {
-              const u = new URL(tunnelStatus.public_url);
-              if (u.hostname) allowedHosts.add(u.hostname.toLowerCase());
-            } catch (_) {}
-          }
           if (tunnelStatus.custom_domain) {
-            allowedHosts.add(tunnelStatus.custom_domain.trim().toLowerCase());
+            try {
+              const normHost = tunnelMgr.normalizeAndValidateTunnelHostname(tunnelStatus.custom_domain);
+              allowedHosts.add(normHost);
+            } catch (_) {}
           }
           if (allowedHosts.has(hostWithoutPort)) {
             isAllowedTunnelHost = true;
@@ -2039,7 +2036,8 @@ function createWebServer(options = {}) {
         broadcastEvent('tunnel_updated', { action: 'start', status: result });
         return sendJson(res, 200, { ok: true, status: result });
       } catch (err) {
-        return sendJson(res, 500, { error: err.message });
+        const isClientError = err.message && (err.message.includes('hostname') || err.message.includes('required'));
+        return sendJson(res, isClientError ? 400 : 500, { error: err.message });
       }
     }
 

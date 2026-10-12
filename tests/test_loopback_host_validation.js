@@ -114,9 +114,10 @@ test("Loopback Host Validation and Project Deletion Confirmation", async (t) => 
   await t.test("Accepts tunnel hostname when tunnel is active", async () => {
     // Save active tunnel config pointing to current PID
     tunnelConfig.saveTunnelConfig({
+      custom_domain: "active-tunnel.trycloudflare.com",
       public_url: "https://active-tunnel.trycloudflare.com",
       active_pid: process.pid,
-      mode: "quick"
+      mode: "named"
     });
 
     const res = await makeRequest(port, {

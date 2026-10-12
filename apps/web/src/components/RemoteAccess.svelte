@@ -175,6 +175,22 @@
     }
   }
 
+    function isHostnameValid(raw) {
+    if (!raw || typeof raw !== "string") return false;
+    let str = raw.trim();
+    if (!str || /\s/.test(str)) return false;
+    if (str.includes("://")) {
+      try { str = new URL(str).host; } catch (_) { str = str.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, ""); }
+    }
+    str = str.split("/")[0].split("?")[0].split("#")[0].split(":")[0].toLowerCase().trim();
+    if (!str || str.includes("*")) return false;
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(str)) return false;
+    if (/^[0-9a-fA-F:]+$/.test(str) && str.includes(":")) return false;
+    const labels = str.split(".");
+    if (labels.length < 2) return false;
+    return labels.every(l => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(l));
+  }
+
   async function saveTunnelSettings() {
     tunnelSaving = true;
     try {
@@ -214,6 +230,14 @@
           icon: "success"
         });
       } else {
+        if (!isHostnameValid(tunnelCustomDomain)) {
+          await sweetAlert.fire({
+            title: "Hostname Required",
+            text: "A valid Public Hostname / Domain (e.g. remote.yourdomain.com) is required to start the tunnel.",
+            icon: "error"
+          });
+          return;
+        }
         const payload = {
           provider: tunnelProvider,
           token: tunnelTokenInput.trim() || undefined,
@@ -580,7 +604,7 @@
 
         <div>
           <label for="tunnel-custom-domain" class="text-xs font-bold block mb-1" style="color: var(--color-text);">
-            Public Hostname / Domain (Optional)
+            Public Hostname / Domain <span class="text-rose-500">*</span>
           </label>
           <input
             id="tunnel-custom-domain"
@@ -608,7 +632,7 @@
         <button
           type="button"
           onclick={toggleTunnel}
-          disabled={tunnelLoading}
+          disabled={tunnelLoading || (!tunnelStatus.enabled && !isHostnameValid(tunnelCustomDomain))}
           class={`btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer transition-colors ${
             tunnelStatus.enabled
               ? "bg-rose-600 hover:bg-rose-700"

@@ -9,6 +9,66 @@
 const { spawn } = require('child_process');
 const configModule = require('./config');
 
+const DNS_LABEL_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function normalizeAndValidateTunnelHostname(raw) {
+  if (!raw || typeof raw !== "string") {
+    throw new Error("Tunnel hostname is required to start a tunnel");
+  }
+
+  let str = raw.trim();
+  if (!str) {
+    throw new Error("Tunnel hostname is required to start a tunnel");
+  }
+
+  if (/\s/.test(str)) {
+    throw new Error("Invalid tunnel hostname: spaces are not allowed");
+  }
+
+  if (str.includes("://")) {
+    try {
+      const u = new URL(str);
+      str = u.host;
+    } catch (_) {
+      str = str.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "");
+    }
+  }
+
+  str = str.split("/")[0].split("?")[0].split("#")[0];
+
+  if (str.includes(":")) {
+    if (str.startsWith("[") || (str.match(/:/g) || []).length > 1) {
+      throw new Error("Invalid tunnel hostname: IP literals are not allowed");
+    }
+    str = str.split(":")[0];
+  }
+
+  str = str.toLowerCase().trim();
+
+  if (!str) {
+    throw new Error("Tunnel hostname is required to start a tunnel");
+  }
+
+  if (str.includes("*")) {
+    throw new Error("Invalid tunnel hostname: wildcards are not allowed");
+  }
+
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(str)) {
+    throw new Error("Invalid tunnel hostname: IP literals are not allowed");
+  }
+
+  if (/^[0-9a-fA-F:]+$/.test(str) && str.includes(":")) {
+    throw new Error("Invalid tunnel hostname: IP literals are not allowed");
+  }
+
+  const labels = str.split(".");
+  if (labels.length < 2 || !labels.every(l => DNS_LABEL_REGEX.test(l))) {
+    throw new Error("Invalid tunnel hostname: must be a valid DNS hostname");
+  }
+
+  return str;
+}
+
 let activeChild = null;
 let currentPublicUrl = '';
 
@@ -53,7 +113,8 @@ async function startTunnel(options = {}) {
   const provider = options.provider || config.provider || 'cloudflare';
   const port = options.port || 1404;
   const token = options.token !== undefined ? options.token : config.token;
-  const domain = options.custom_domain || options.domain || config.custom_domain;
+  const rawDomain = options.custom_domain || options.domain || config.custom_domain;
+  const domain = normalizeAndValidateTunnelHostname(rawDomain);
 
   // Enforce zero unauthenticated tunnels: auto-generate secure PIN if none configured
   let authPin = config.auth_pin;
@@ -212,5 +273,6 @@ process.on('exit', () => {
 module.exports = {
   getTunnelStatus,
   startTunnel,
-  stopTunnel
+  stopTunnel,
+  normalizeAndValidateTunnelHostname
 };
