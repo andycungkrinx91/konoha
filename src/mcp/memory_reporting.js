@@ -702,17 +702,24 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       'discovered error. If you find an additional bug while fixing, fix the ORIGINAL ' +
       'task first, then report the new finding — do not abandon or delete prior work.\n\n'
     );
-    systemPrompt = (
-      `${compactHeader}You are @${dbAgentName} (${title}).\n` +
-      `Purpose: ${purpose}\n` +
-      `Instructions: ${truncateAtBoundary(personaInstructions, 1200)}\n` +
-      `Constraints: ${truncateAtBoundary(agentConstraints, 600)}\n\n`
-    );
-    // P4: cap the persona/context portion (never the MCP block, skills, or task instructions)
     const MAX_PERSONA_BYTES = 1400;
-    if (systemPrompt.length > MAX_PERSONA_BYTES) {
-      systemPrompt = truncateAtBoundary(systemPrompt, MAX_PERSONA_BYTES) + '\n';
+    const prefix = `${compactHeader}You are @${dbAgentName} (${title}).\nPurpose: ${purpose}\n`;
+    const truncatedConstraints = truncateAtBoundary(agentConstraints, 600);
+    const constraintsBlock = `Constraints: ${truncatedConstraints}\n\n`;
+
+    const instructionsPrefix = 'Instructions: ';
+    const baseOverhead = prefix.length + constraintsBlock.length + instructionsPrefix.length + 1;
+    const remainingBudget = MAX_PERSONA_BYTES - baseOverhead;
+
+    let instructionsLine = '';
+    if (remainingBudget > 0) {
+      const truncatedInstructions = truncateAtBoundary(personaInstructions, remainingBudget);
+      instructionsLine = `${instructionsPrefix}${truncatedInstructions}\n`;
+    } else {
+      // If the prefix plus Constraints alone exceed the cap, keep Constraints and drop Instructions
+      instructionsLine = '';
     }
+    systemPrompt = `${prefix}${instructionsLine}${constraintsBlock}`;
     if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
     if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
     systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';

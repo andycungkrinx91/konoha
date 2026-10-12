@@ -144,6 +144,40 @@ async function run() {
     assert.strictEqual(String(row.client).toLowerCase(), 'claudecode');
     console.log('✓ Phase 4 client attribution passed');
 
+    // Phase 5: Compact Mode Persona Budget & Constraints Invariant
+    console.log('Testing Phase 5: Compact mode Constraints preservation across all official agents...');
+    const officialAgents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin', 'sannin'];
+    const { runMcpAgent } = require('../src/mcp/memory_reporting');
+
+    for (const ag of officialAgents) {
+      const taskComp = setupTask(taskRoot, `compact_${ag}`, null, 'Task payload for compaction check.\n');
+      const statusFile = path.join(taskComp, 'status.json');
+      fs.writeFileSync(statusFile, JSON.stringify({ turn: 2, tasks: [] }), 'utf8');
+
+      const resComp = JSON.parse(runMcpAgent(ag, null, null, null, null, null, null, taskComp));
+      assert.strictEqual(resComp.status, 'ready');
+      const instr = resComp.instructions;
+
+      assert.ok(
+        instr.includes('Constraints:'),
+        `Constraints: must be present in compact mode for agent @${ag}`
+      );
+
+      const personaMatch = instr.match(/(\[Konoha Auto-Compact:[\s\S]*?Constraints:[\s\S]*?\n\n)/);
+      if (personaMatch) {
+        const personaBlock = personaMatch[1];
+        const constraintsMatch = personaBlock.match(/Constraints: ([\s\S]*?)\n\n$/);
+        const constraintsLen = constraintsMatch ? constraintsMatch[1].length : 0;
+        if (constraintsLen <= 600) {
+          assert.ok(
+            personaBlock.length <= 1450,
+            `Persona block for @${ag} exceeds cap: ${personaBlock.length} > 1450`
+          );
+        }
+      }
+    }
+    console.log('✓ Phase 5 compact mode Constraints preservation passed');
+
     console.log('\nAll test_agent_delegation checks passed cleanly!');
   } finally {
     fs.rmSync(taskRoot, { recursive: true, force: true });
