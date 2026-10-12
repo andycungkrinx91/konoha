@@ -79,15 +79,50 @@ try {
     'User-owned agent table must not be duplicated'
   );
 
-  // 4. Verify old managed table was stripped and replaced by official Konoha agent
+  // 5. Test D3: Second rewrite keeps the FIRST backup
+  // Make a modification to config.toml before 2nd rewrite
+  fs.appendFileSync(configPath, '\nsecond_edit = true\n', 'utf-8');
+  const result2 = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
+  assert.strictEqual(result2.ok, true, 'Second registerCodexMcp must return ok');
+
+  const bakContentAfterSecond = fs.readFileSync(bakPath, 'utf-8');
   assert.strictEqual(
-    updatedContent.includes('Old obsolete kage description'),
-    false,
-    'Old managed agent table must be stripped'
+    bakContentAfterSecond,
+    initialUserToml,
+    'Second rewrite must keep the FIRST pristine backup byte-for-byte, not overwrite it'
   );
+
+  // 6. Test D3: Custom agents from agents.yaml are written without duplicate tables
+  const yamlDir = path.join(tmpHome, '.agents');
+  fs.mkdirSync(yamlDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(yamlDir, 'agents.yaml'),
+    '- name: yaml_custom_agent\n  purpose: Custom specialized agent from yaml\n'
+  );
+
+  // 3rd rewrite with custom agent in yaml
+  const result3 = codexManager.registerCodexMcp('python3', '/path/to/server.js', 'uvx', true);
+  assert.strictEqual(result3.ok, true, 'Third registerCodexMcp must return ok');
+
+  const contentAfterThird = fs.readFileSync(configPath, 'utf-8');
   assert.ok(
-    updatedContent.includes('Village Leader for architecture decisions'),
-    'Official managed kage agent must be configured'
+    contentAfterThird.includes('[agents.yaml_custom_agent]'),
+    'Custom agent from agents.yaml must be written to config.toml'
+  );
+
+  const customAgentMatchesAfterThird = contentAfterThird.match(/\[agents\.yaml_custom_agent\]/g) || [];
+  assert.strictEqual(
+    customAgentMatchesAfterThird.length,
+    1,
+    'Custom agent from agents.yaml must be present exactly once (no duplicate tables)'
+  );
+
+  // Assert user-owned table is still present exactly once after 3 rewrites
+  const userAgentMatchesAfterThird = contentAfterThird.match(/\[agents\.my_custom_agent\]/g) || [];
+  assert.strictEqual(
+    userAgentMatchesAfterThird.length,
+    1,
+    'User-owned agent table must be present exactly once after 3 rewrites'
   );
 
   console.log('test_codex_config_preservation: PASS');

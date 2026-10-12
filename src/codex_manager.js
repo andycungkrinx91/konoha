@@ -111,9 +111,10 @@ function readCodexConfig() {
 function writeCodexConfig(content) {
   const configPath = getCodexConfigPath();
   ensureDir(path.dirname(configPath));
-  if (fileExists(configPath)) {
+  const bakPath = `${configPath}.bak`;
+  if (fileExists(configPath) && !fileExists(bakPath)) {
     try {
-      fs.copyFileSync(configPath, `${configPath}.bak`);
+      fs.copyFileSync(configPath, bakPath);
     } catch (_) { /* intentional best-effort backup */ }
   }
   fs.writeFileSync(configPath, content, 'utf-8');
@@ -162,6 +163,7 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
   // Remove existing managed blocks ([mcp_servers.*], [mcp.*], [agents.*]) and top-level managed keys
   const lines = (existingToml || '').split('\n');
   const preservedLines = [];
+  const userOwnedAgentNames = new Set();
   let skippingManagedSection = false;
   let hasSeenSection = false;
 
@@ -214,6 +216,10 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
         continue;
       } else {
         skippingManagedSection = false;
+        const userAgentMatch = rawLine.match(/^\[agents\.([a-zA-Z0-9_-]+)(?:\..*)?\]/i);
+        if (userAgentMatch) {
+          userOwnedAgentNames.add(userAgentMatch[1]);
+        }
         preservedLines.push(lines[i]);
         continue;
       }
@@ -352,8 +358,16 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'tokubetsu_jonin'
   ]);
 
+  const emittedAgentNames = new Set();
   const agentBlocks = agents
-    .filter(a => a && a.name && OFFICIAL_NINJA_NAMES.has(a.name) && VALID_AGENT_NAME.test(a.name))
+    .filter(a => {
+      if (!a || !a.name || !VALID_AGENT_NAME.test(a.name)) return false;
+      if (a.name.startsWith('mcp_') || a.name.startsWith('cli-test-')) return false;
+      if (userOwnedAgentNames.has(a.name)) return false;
+      if (emittedAgentNames.has(a.name)) return false;
+      emittedAgentNames.add(a.name);
+      return true;
+    })
     .map(a => {
       const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
       return [

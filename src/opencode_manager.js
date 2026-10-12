@@ -84,9 +84,10 @@ function readOpenCodeConfig() {
 function writeOpenCodeConfig(config) {
   const configPath = getOpenCodeConfigPath();
   ensureDir(path.dirname(configPath));
-  if (fileExists(configPath)) {
+  const bakPath = `${configPath}.bak`;
+  if (fileExists(configPath) && !fileExists(bakPath)) {
     try {
-      fs.copyFileSync(configPath, `${configPath}.bak`);
+      fs.copyFileSync(configPath, bakPath);
     } catch (_) { /* intentional best-effort backup */ }
   }
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
