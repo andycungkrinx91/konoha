@@ -118,8 +118,9 @@ async function startTunnel(options = {}) {
 
   // Enforce zero unauthenticated tunnels: auto-generate secure PIN if none configured
   let authPin = config.auth_pin;
-  if (!authPin) {
-    authPin = String(Math.floor(100000 + Math.random() * 900000));
+  if (!authPin || typeof authPin !== 'string' || !authPin.trim()) {
+    const crypto = require('crypto');
+    authPin = String(crypto.randomInt(100000, 1000000));
     configModule.saveTunnelConfig({ auth_pin: authPin });
   }
 

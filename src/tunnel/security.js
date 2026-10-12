@@ -6,6 +6,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const configModule = require('./config');
 
 const failedPinAttempts = new Map(); // ip -> { count, lastAttempt }
@@ -96,28 +97,23 @@ function verifyRemoteAccess(req) {
   const config = configModule.getTunnelConfig();
   const requiredPin = config.auth_pin;
 
-  // Extract candidate PIN from headers, cookies, or query
+  // Extract candidate PIN from Authorization Bearer, Cookie, or X-Konoha-Pin header (query string disallowed)
   const authHeader = req.headers['authorization'] || '';
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   const cookiePin = (req.headers['cookie'] || '').match(/konoha_pin=([^;]+)/)?.[1];
-  const queryPin = req.query?.pin;
   const headerPin = req.headers['x-konoha-pin'];
 
-  const candidatePin = bearerToken || (cookiePin ? decodeURIComponent(cookiePin) : '') || queryPin || headerPin;
+  const candidatePin = bearerToken || (cookiePin ? decodeURIComponent(cookiePin) : '') || headerPin;
 
-  if (requiredPin && candidatePin && String(candidatePin).trim() === String(requiredPin).trim()) {
-    return {
-      authenticated: true,
-      authType: 'pin'
-    };
-  }
-
-  // If tunnel is named (custom domain) and explicitly configured with no PIN
-  if (!requiredPin && !isTryCloudflare && config.mode === 'named') {
-    return {
-      authenticated: true,
-      authType: 'open_named'
-    };
+  if (requiredPin && candidatePin) {
+    const candidateBuf = Buffer.from(String(candidatePin).trim());
+    const requiredBuf = Buffer.from(String(requiredPin).trim());
+    if (candidateBuf.length === requiredBuf.length && crypto.timingSafeEqual(candidateBuf, requiredBuf)) {
+      return {
+        authenticated: true,
+        authType: 'pin'
+      };
+    }
   }
 
   return {

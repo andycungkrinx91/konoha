@@ -55,7 +55,14 @@ function saveTunnelConfig({
   const newToken = (token !== undefined && !isMaskedToken) ? String(token).trim() : existing.token;
   const newDomain = custom_domain !== undefined ? String(custom_domain).trim() : existing.custom_domain;
   const isMaskedPin = typeof auth_pin === 'string' && auth_pin.includes('***');
-  const newPin = (auth_pin !== undefined && !isMaskedPin) ? String(auth_pin).trim() : existing.auth_pin;
+  let newPin = existing.auth_pin;
+  if (auth_pin !== undefined && !isMaskedPin) {
+    const trimmedPin = String(auth_pin).trim();
+    if ((newEnabled === 1 || existing.enabled === 1) && !trimmedPin) {
+      throw new Error('Authentication PIN cannot be empty for an active tunnel');
+    }
+    newPin = trimmedPin;
+  }
   const newUrl = public_url !== undefined ? String(public_url).trim() : existing.public_url;
   const newPid = active_pid !== undefined ? Number(active_pid) || 0 : existing.active_pid;
   const newStartedAt = started_at !== undefined ? started_at : existing.started_at;

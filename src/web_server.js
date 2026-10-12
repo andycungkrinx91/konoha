@@ -160,6 +160,18 @@ function isClientConfigured(id) {
   return false;
 }
 
+function getTrustedClientIp(req) {
+  const remoteIp = req.socket?.remoteAddress || '';
+  const isLoopbackOrTrusted = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteIp);
+  if (isLoopbackOrTrusted) {
+    const cfIp = req.headers['cf-connecting-ip'];
+    const xff = req.headers['x-forwarded-for'];
+    if (cfIp && typeof cfIp === 'string') return cfIp.trim();
+    if (xff && typeof xff === 'string') return xff.split(',')[0].trim();
+  }
+  return remoteIp || '127.0.0.1';
+}
+
 // aislop-ignore-next-line complexity/function-too-long (orchestrator web server factory hosting full API route tree and SvelteKit handler)
 function createWebServer(options = {}) {
   const port = options.port !== undefined ? options.port : 1404;
@@ -280,7 +292,7 @@ function createWebServer(options = {}) {
 
     // Remote PIN Authentication API Endpoint
     if (method === 'POST' && pathname === '/api/v1/auth/pin') {
-      const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      const clientIp = getTrustedClientIp(req);
       const rate = tunnelSecurity.checkPinRateLimit(clientIp);
       if (!rate.allowed) {
         return sendJson(res, 429, { error: `Too many failed attempts. Try again in ${rate.waitSec}s.` });
@@ -290,9 +302,17 @@ function createWebServer(options = {}) {
         const pin = String(body.pin || '').trim();
         const tunnelCfg = require('./tunnel/config');
         const cfg = tunnelCfg.getTunnelConfig();
-        if (cfg.auth_pin && pin === cfg.auth_pin) {
+        let isPinValid = false;
+        if (cfg.auth_pin && pin) {
+          const pinBuf = Buffer.from(pin);
+          const expectedBuf = Buffer.from(String(cfg.auth_pin).trim());
+          if (pinBuf.length === expectedBuf.length && crypto.timingSafeEqual(pinBuf, expectedBuf)) {
+            isPinValid = true;
+          }
+        }
+        if (isPinValid) {
           tunnelSecurity.resetPinFailure(clientIp);
-          res.setHeader('Set-Cookie', `konoha_pin=${encodeURIComponent(pin)}; Path=/; Max-Age=604800; SameSite=Lax`);
+          res.setHeader('Set-Cookie', `konoha_pin=${encodeURIComponent(pin)}; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly; Secure`);
           return sendJson(res, 200, { ok: true, token: sessionToken });
         } else {
           tunnelSecurity.recordPinFailure(clientIp);
@@ -2056,6 +2076,12 @@ function createWebServer(options = {}) {
       try {
         const tunnelCfg = require('./tunnel/config');
         const body = await parseBody(req);
+        if (body.auth_pin !== undefined) {
+          const isMasked = typeof body.auth_pin === 'string' && body.auth_pin.includes('***');
+          if (!isMasked && typeof body.auth_pin === 'string' && body.auth_pin.trim() === '') {
+            return sendJson(res, 400, { error: 'Authentication PIN cannot be empty' });
+          }
+        }
         const updated = tunnelCfg.saveTunnelConfig(body);
         const maskedToken = updated.token ? `${updated.token.slice(0, 8)}...` : '';
         const maskedConfig = {
@@ -2069,7 +2095,8 @@ function createWebServer(options = {}) {
         broadcastEvent('tunnel_updated', { action: 'config', config: maskedConfig });
         return sendJson(res, 200, { ok: true, config: maskedConfig });
       } catch (err) {
-        return sendJson(res, 500, { error: err.message });
+        const isClientError = err.message && err.message.includes('PIN cannot be empty');
+        return sendJson(res, isClientError ? 400 : 500, { error: err.message });
       }
     }
 
@@ -2239,5 +2266,6 @@ if (require.main === module) {
 
 module.exports = {
   createWebServer,
-  startWebServer
+  startWebServer,
+  getTrustedClientIp
 };
