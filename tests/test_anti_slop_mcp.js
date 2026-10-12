@@ -10,6 +10,9 @@ const placeholderRegex = placeholderRule.regex;
 // The 7 reproduction test cases that MUST match (positive cases):
 const positiveCases = [
   "// placeholder",
+  "// placeholder.",
+  "// placeholder!",
+  "// placeholder - stub",
   "/* placeholder */",
   "...rest of code...",
   "//   placeholder",
@@ -23,6 +26,7 @@ const negativeCases = [
   "const placeholder = 'test';",
   "const placeholderValue = 123;",
   "// This is a placeholder description in docs",
+  "// Placeholder regex markers to reject in DoR check",
   "function placeholder() {}"
 ];
 
