@@ -28,7 +28,6 @@
   "files": [
     "bin/",
     "src/",
-    "docs/",
     "apps/web/build/",
     "apps/web/package.json",
     ".agents/",
