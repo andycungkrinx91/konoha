@@ -195,3 +195,28 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 2. **Git Project Check**: Verified by checking for `.git` directory or file in `project_path` or ancestor directories. Non-git folders are never modified.
 3. **Opt-Out**: Disable automated `.gitignore` injection by setting `KONOHA_QA_GITIGNORE=0`.
 4. **Pre-Existing Committed Files Limit**: Adding an entry to `.gitignore` does not untrack files that have already been committed to git history. Users must untrack previously committed artifact directories manually.
+
+---
+
+## Test Suite Runner & Isolation Contract (G-01, G-17)
+
+Konoha's test runner (`tests/run_all.js`, executed via `npm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation:
+
+1. **Golden Seed & Snapshot Isolation (G-01)**:
+   - The runner initializes or reuses a seeded template environment (`/tmp/konoha_golden_seed` containing pre-configured `konoha.db` and runtime files).
+   - Before launching each test suite, the runner creates a dedicated, ephemeral snapshot directory (`/tmp/konoha_suite_*`) via `cp -a --reflink=auto`.
+   - Each suite process is executed with isolated environment overrides:
+     - `HOME`: points to the ephemeral suite snapshot directory.
+     - `KONOHA_DB_PATH`: points to `$HOME/.konoha/konoha.db`.
+     - `KONOHA_UI_AUTOSTART`: set to `'0'` by default (omitted only for autostart-specific suites).
+     - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
+     - `KONOHA_TEST_SANDBOX`: set to `'1'`.
+   - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.
+
+2. **Standalone Guard for Mutating Test Suites (G-17)**:
+   - Mutating test suites (`test_web_ui.js`, `test_official_agent_protection.js`, `test_telegram_session_manager.js`, `test_telegram_integration.js`) invoke `assertSandbox()` from `tests/helpers/sandbox_guard.js` at entry.
+   - If executed directly against the real user `$HOME` without `KONOHA_TEST_SANDBOX=1` or with `HOME === os.userInfo().homedir`, the suite throws an `Error` and terminates immediately.
+   - To run a mutating test suite standalone in manual debugging, developers must supply a sandboxed HOME:
+     ```bash
+     HOME=$(mktemp -d) KONOHA_TEST_SANDBOX=1 node tests/test_web_ui.js
+     ```

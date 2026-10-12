@@ -8,10 +8,81 @@ const path = require('path');
 const os = require('os');
 const { spawnSync, spawn } = require('child_process');
 
-const konohaModules = path.join(os.homedir(), '.konoha', 'node_modules');
-const existingNodePath = process.env.NODE_PATH || '';
-const testNodePath = existingNodePath ? `${konohaModules}${path.delimiter}${existingNodePath}` : konohaModules;
-const testEnv = { ...process.env, NODE_PATH: testNodePath };
+let goldenSeedInfo = null;
+
+function getGoldenSeed() {
+  if (goldenSeedInfo) return goldenSeedInfo;
+  const existingSeed = '/tmp/konoha_golden_seed';
+  if (fs.existsSync(path.join(existingSeed, '.konoha', 'konoha.db')) &&
+      fs.existsSync(path.join(existingSeed, '.konoha', 'server.js'))) {
+    goldenSeedInfo = { dir: existingSeed, isTemp: false };
+    return goldenSeedInfo;
+  }
+  const seedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
+  const env = {
+    ...process.env,
+    HOME: seedDir,
+    KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
+    KONOHA_UI_AUTOSTART: '0'
+  };
+  spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'status'], {
+    env,
+    encoding: 'utf-8',
+    timeout: 120000
+  });
+  goldenSeedInfo = { dir: seedDir, isTemp: true };
+  return goldenSeedInfo;
+}
+
+function createSuiteSnapshot(name) {
+  const seed = getGoldenSeed();
+  const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
+  try {
+    spawnSync('cp', ['-a', '--reflink=auto', `${seed.dir}/.`, `${suiteHome}/`], {
+      encoding: 'utf-8'
+    });
+  } catch (_) {
+    spawnSync('cp', ['-a', `${seed.dir}/.`, `${suiteHome}/`], {
+      encoding: 'utf-8'
+    });
+  }
+
+  const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');
+  const existingNodePath = process.env.NODE_PATH || '';
+  const suiteNodePath = existingNodePath ? `${konohaModules}${path.delimiter}${existingNodePath}` : konohaModules;
+
+  const realUserBase = (() => {
+    try {
+      return path.join(os.userInfo().homedir, '.local');
+    } catch (_) {
+      return path.join(os.homedir(), '.local');
+    }
+  })();
+
+  const env = {
+    ...process.env,
+    HOME: suiteHome,
+    KONOHA_DB_PATH: path.join(suiteHome, '.konoha', 'konoha.db'),
+    KONOHA_UI_AUTOSTART: '0',
+    PYTHONUSERBASE: process.env.PYTHONUSERBASE || realUserBase,
+    KONOHA_TEST_SANDBOX: '1',
+    NODE_PATH: suiteNodePath
+  };
+
+  if (name === 'test_ui_autostart.js') {
+    delete env.KONOHA_UI_AUTOSTART;
+  }
+
+  return {
+    home: suiteHome,
+    env,
+    cleanup: () => {
+      try {
+        fs.rmSync(suiteHome, { recursive: true, force: true });
+      } catch (_) {}
+    }
+  };
+}
 
 const testsDir = __dirname;
 const files = fs.readdirSync(testsDir);
@@ -46,29 +117,35 @@ const startTime = Date.now();
 function runSuiteSync(cmd, args, name) {
   process.stdout.write(`[SUITE] Running: ${name} ... `);
   const start = Date.now();
-  const res = spawnSync(cmd, args, {
-    encoding: 'utf-8',
-    env: testEnv,
-    shell: process.platform === 'win32'
-  });
-  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-  if (res.status === 0) {
-    console.log(`PASS (${elapsed}s)`);
-    passed++;
-  } else {
-    console.log(`FAIL (exit code ${res.status})`);
-    if (res.stdout) console.log(res.stdout);
-    if (res.stderr) console.error(res.stderr);
-    failed++;
-    failList.push(name);
+  const snapshot = createSuiteSnapshot(name);
+  try {
+    const res = spawnSync(cmd, args, {
+      encoding: 'utf-8',
+      env: snapshot.env,
+      shell: process.platform === 'win32'
+    });
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    if (res.status === 0) {
+      console.log(`PASS (${elapsed}s)`);
+      passed++;
+    } else {
+      console.log(`FAIL (exit code ${res.status})`);
+      if (res.stdout) console.log(res.stdout);
+      if (res.stderr) console.error(res.stderr);
+      failed++;
+      failList.push(name);
+    }
+  } finally {
+    snapshot.cleanup();
   }
 }
 
 function runSuiteAsync(cmd, args, name) {
   return new Promise((resolve) => {
     const start = Date.now();
+    const snapshot = createSuiteSnapshot(name);
     const child = spawn(cmd, args, {
-      env: testEnv,
+      env: snapshot.env,
       shell: process.platform === 'win32'
     });
     let out = '';
@@ -86,6 +163,7 @@ function runSuiteAsync(cmd, args, name) {
     child.on('close', (status) => {
       settled = true;
       clearTimeout(timer);
+      snapshot.cleanup();
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       if (status === 0) {
         console.log(`[SUITE] Running: ${name} ... PASS (${elapsed}s)`);
