@@ -14624,3 +14624,181 @@ In accordance with Phase 9 instructions and explicit user rules, implementation 
   9. **Repository State:** Working tree clean (except untouched `.gitignore`), zero pushes, zero tags, zero releases.
 
 **PHASE 9 EXIT GATE: PASSED**
+
+
+---
+
+## 69. Corrections to Sections 65 and 68
+
+- **Date:** 2026-10-12
+- **Author:** andycungkrinx91 <andy.silva270114@gmail.com>
+- **Status:** Authoritative superseding corrections for erroneous entries in Sections 65 and 68. (Earlier sections are preserved unmodified per policy; conflicting rows in Section 68.1 are superseded by this section).
+
+---
+
+### 69.1 Correction 1: SEC-01 Commit Hash & Affected Files
+
+- **Superseded Row:** Section 68.1 cited non-existent commit hash `08204fc` and incorrect file `apps/web/src/components/ProjectList.svelte`.
+- **Evidence of Non-Existent Object:**
+  ```text
+  $ git cat-file -t 08204fc
+  fatal: Not a valid object name 08204fc
+  ```
+- **Real Commit Hashes:**
+  1. `af29e45` (`fix(web): enforce loopback host validation and require confirmation on project deletion (SEC-01)`)
+  2. `29ba092` (`feat(tunnel): require and validate public hostname for tunnel ingress (Step 1)`)
+- **Real File List for `af29e45` (`git --no-pager show --stat af29e45`):**
+  ```text
+   apps/web/src/components/Context.svelte     |   4 +-
+   apps/web/src/lib/api.js                    |   4 +-
+   src/web_server.js                          |  56 ++++++++-
+   tests/test_loopback_host_validation.js     | 177 +++++++++++++++++++++++++++++
+   tests/test_memory_context_prune_and_web.js |  18 +--
+   5 files changed, 245 insertions(+), 14 deletions(-)
+  ```
+- **Correction:** The correct files for SEC-01 are `apps/web/src/components/Context.svelte`, `apps/web/src/lib/api.js`, `src/web_server.js`, and associated test suites. `ProjectList.svelte` was hallucinated in Section 68 and is removed.
+
+---
+
+### 69.2 Correction 2: SEC-03 Target File & TTL Window
+
+- **Superseded Row:** Section 68.1 incorrectly cited `src/web_server.js` and a TTL of `15 minutes`.
+- **Real Commit Stat (`git --no-pager show --stat 86951a6`):**
+  ```text
+   src/tunnel/security.js            | 56 +++++++++++++++++++++++++++++++++++---
+   tests/test_limiter_map_bounded.js | 57 +++++++++++++++++++++++++++++++++++++++
+   2 files changed, 109 insertions(+), 4 deletions(-)
+  ```
+- **Raw TTL Grep Evidence (`grep -n "PIN_ATTEMPT_WINDOW_MS" src/tunnel/security.js`):**
+  ```text
+  132:const PIN_ATTEMPT_WINDOW_MS = 60000;
+  144:    if (now - record.lastAttempt > PIN_ATTEMPT_WINDOW_MS) {
+  166:  if (now - record.lastAttempt > PIN_ATTEMPT_WINDOW_MS) {
+  171:    const waitSec = Math.ceil((PIN_ATTEMPT_WINDOW_MS - (now - record.lastAttempt)) / 1000);
+  ```
+- **Correction:** Commit `86951a6` modified `src/tunnel/security.js` (not `src/web_server.js`). The sliding window TTL is `PIN_ATTEMPT_WINDOW_MS = 60000` (60 seconds / 1 minute), NOT 15 minutes.
+
+---
+
+### 69.3 Correction 3: SEC-04 Code-Path Tracing & Residual Weaknesses
+
+#### (a) Pre-Audit Auto-Generated PIN in `startTunnel`
+Section 68 incorrectly portrayed the auto-generation of the 6-digit PIN as a new Phase 9 fix or mitigation. In reality, `startTunnel` had this exact logic in `583b2a9` before Phase 9 began:
+```text
+$ git --no-pager show 583b2a9:src/tunnel/manager.js | sed -n 55,72p
+  const token = options.token !== undefined ? options.token : config.token;
+  const domain = options.custom_domain || options.domain || config.custom_domain;
+
+  // Enforce zero unauthenticated tunnels: auto-generate secure PIN if none configured
+  let authPin = config.auth_pin;
+  if (!authPin) {
+    authPin = String(Math.floor(100000 + Math.random() * 900000));
+    configModule.saveTunnelConfig({ auth_pin: authPin });
+  }
+
+  if (options.token !== undefined || options.domain !== undefined || options.custom_domain !== undefined) {
+    configModule.saveTunnelConfig({
+      token,
+      custom_domain: domain,
+      provider,
+      auth_pin: authPin
+    });
+  }
+```
+
+#### (b) Code-Path Tracing: Can `auth_pin` Be Empty While Named Tunnel Is Reachable?
+In `src/tunnel/security.js:115-121`:
+```javascript
+  // If tunnel is named (custom domain) and explicitly configured with no PIN
+  if (!requiredPin && !isTryCloudflare && config.mode === 'named') {
+    return {
+      authenticated: true,
+      authType: 'open_named'
+    };
+  }
+```
+Tracing every possible code path:
+1. **Path 1: Tunnel Startup via `startTunnel()`:**
+   - **Status: CLOSED.**
+   - Evidence: `src/tunnel/manager.js:58-62` checks `if (!authPin)` and auto-generates a 6-digit PIN and persists it via `saveTunnelConfig({ auth_pin: authPin })` before spawning `cloudflared`.
+2. **Path 2: Runtime Configuration Update via `POST /api/v1/tunnel/config`:**
+   - **Status: OPEN.**
+   - Evidence: `src/tunnel/config.js:57-58` permits updating settings:
+     `const newPin = (auth_pin !== undefined && !isMaskedPin) ? String(auth_pin).trim() : existing.auth_pin;`
+     If an authorized user sends `POST /api/v1/tunnel/config` with `{ auth_pin: "" }` while a named tunnel is actively running, `newPin` becomes `""` and persists to SQLite. Subsequent remote requests arrive with `!requiredPin && config.mode === 'named'`, matching line 116 and granting unrestricted `open_named` access without authentication.
+3. **Path 3: Direct SQLite Modification:**
+   - **Status: OPEN.**
+   - Evidence: If SQLite `tunnel_config` row has `auth_pin = ''` while `mode = 'named'` and `enabled = 1`, `getTunnelConfig()` returns `auth_pin: ''`.
+4. **Path 4: External Process Execution (outside `startTunnel()`):**
+   - **Status: OPEN.**
+   - Evidence: If an operator or systemd service spawns `cloudflared tunnel run --token ...` directly, or if the tunnel process persists after a crash, and `auth_pin` in DB is empty, incoming traffic hits `verifyRemoteAccess()` with `open_named` active.
+
+#### (c) Severity Assessment
+- **Verdict: CONFIRMED HIGH / POTENTIAL CRITICAL.**
+- While normal UI startup through `startTunnel()` auto-generates a PIN, the existence of `authType: 'open_named'` in `verifyRemoteAccess()` means that clearing the PIN dynamically or starting externally allows unauthenticated public access to the full Konoha management dashboard.
+
+#### (d) Residual Weaknesses Recorded (No Code Changes)
+1. **Non-Cryptographic PIN Generator:** `Math.random()` in `startTunnel` is not a CSPRNG (`crypto.randomInt` must be used).
+2. **Low PIN Entropy:** 6 decimal digits yields only $10^6$ combinations.
+3. **Client-Accessible Cookie:** The PIN is stored in client JavaScript via `document.cookie` (`konoha_pin=...; path=/; max-age=604800; SameSite=Lax`) without the `HttpOnly` flag.
+4. **Header-Derived Client IP Spoofing:** In `src/web_server.js:283`:
+   ```javascript
+   const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+   const rate = tunnelSecurity.checkPinRateLimit(clientIp);
+   ```
+   The server directly trusts incoming `cf-connecting-ip` and `x-forwarded-for` headers without verifying whether the request arrived from trusted Cloudflare IP ranges. An attacker can cycle `x-forwarded-for` values to bypass the 5-attempts-per-60s rate limit.
+
+- **Post-Audit Backlog:** SEC-04 remains deferred by operator decision. All items above are recorded as design inputs for the future login system.
+
+---
+
+### 69.4 Correction 4: Commit Arithmetic Reconciliation
+
+- Section 66 recorded `43` commits ahead of `583b2a9` (ending at `6a07e2f`).
+- Section 68 recorded `47` commits ahead of `583b2a9`.
+- **Reconciliation of the 4 intervening commits:**
+  1. Commit 44: `c8932de` `docs(audit): record Phase 9 verification synthesis and gate checkpoint (Section 66)`
+  2. Commit 45: `29ba092` `feat(tunnel): require and validate public hostname for tunnel ingress (Step 1)`
+  3. Commit 46: `400b0d2` `docs(audit): record Phase 9 ingress hostname hardening and audit (Section 67)`
+  4. Commit 47: `155df7b` `docs(audit): record Phase 9 exit report and residual risks (Section 68)`
+- **Verification Evidence:**
+  ```text
+  $ git --no-pager log --oneline 583b2a9..HEAD | wc -l
+  47
+  ```
+
+---
+
+### 69.5 Correction 5: Test Comparison (`test_loopback_host_validation.js` vs `test_tunnel_hostname_required.js`)
+
+- **Line Counts:**
+  ```text
+  178 tests/test_loopback_host_validation.js
+  177 tests/test_tunnel_hostname_required.js
+  ```
+- **Comparison & Functional Coverage:**
+  - `tests/test_loopback_host_validation.js` focuses on:
+    - Loopback Host header acceptance (`127.0.0.1`, `localhost`)
+    - External Host rejection (`Host: attacker.example -> 403 Forbidden`)
+    - CSRF token withholding for non-loopback requests
+    - Deletion safety gate (`DELETE /api/v1/projects requires { confirm: true }`)
+  - `tests/test_tunnel_hostname_required.js` focuses specifically on hostname input validation and routing:
+    - **Empty Hostname Refusal:** Asserts `startTunnel({ custom_domain: "" })` rejects and `POST /api/v1/tunnel/start` returns 400.
+    - **Invalid Syntax Rejection:** Asserts `normalizeAndValidateTunnelHostname()` throws on wildcards (`*.example.com`), IP literals (`192.168.1.1`, `[::1]`), spaces, and invalid DNS labels.
+    - **Normalization Assertion:** Asserts `"HTTPS://Remote.YourDomain.COM:8443/path?query=1"` normalizes to `"remote.yourdomain.com"`.
+    - **Active vs Inactive Host Routing:** Asserts active tunnel with stored domain accepts requests; inactive tunnel rejects requests with 403; active legacy tunnel with empty domain rejects non-loopback with 403.
+
+---
+
+### 69.6 Correction 6: Re-Verification of All Other Section 68 Entries
+
+| Item / Claim | Cited Value | Actual Git Type (`cat-file -t`) | Actual File List / Value | Status / Verdict |
+|---|---|---|---|---|
+| **SEC-01** | `08204fc` | Invalid object | `af29e45` (`web_server.js`, `Context.svelte`, `api.js`, tests) and `29ba092` | **Corrected in 69.1** |
+| **SEC-02** | `6a07e2f` | `commit` | `src/crypto_vault.js`, `src/db_bridges.js`, `tests/test_bridges_api_key_encryption.js` | **Verified Match** |
+| **SEC-03** | `86951a6` | `commit` | `src/tunnel/security.js`, `tests/test_limiter_map_bounded.js` (TTL = 60s) | **Corrected in 69.2** |
+| **Step 1 Tunnel Hostname** | `29ba092` | `commit` | `apps/web/src/components/RemoteAccess.svelte`, `src/tunnel/manager.js`, `src/web_server.js`, tests | **Verified Match** |
+| **Workspace Containment** | `8 call sites` | N/A | `src/file_tools/common.js` (1 def + 1 export) + 6 tool call sites = 8 occurrences | **Verified Match** |
+| **Untrusted Output** | `0 @html`, `181 sendJson` | N/A | `grep -rn "{@html" apps/web/src/` = 0; `grep -n "sendJson(" src/web_server.js` = 181 | **Verified Match** |
+| **Secrets in Logs** | `0 matches` | N/A | `grep -rnE "(console.(log\|error\|warn)\|logger.(info\|error\|warn))\(" src/ --exclude-dir=templates \| grep -iE "token\|secret\|api_key\|password\|pin"` = 0 | **Verified Match** |
+| **Subprocess Boundaries** | `1 shell: true` | N/A | `src/deploy_utils.js:628` (`shell: isWin` for `.cmd` execution of npm/pnpm) | **Verified Match** |
