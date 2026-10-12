@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const { assertSandbox } = require('./helpers/sandbox_guard');
+assertSandbox();
+
 const assert = require('assert');
 const http = require('http');
 const { startWebServer } = require('../src/web_server');

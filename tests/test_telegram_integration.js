@@ -1,5 +1,8 @@
 'use strict';
 
+const { assertSandbox } = require('./helpers/sandbox_guard');
+assertSandbox();
+
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
