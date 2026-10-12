@@ -481,7 +481,8 @@ Once installed, the following CLI commands are available:
 |:---|:---|
 | `konoha init` | Full install: self-contained CLI runtime (`~/.konoha/bin/cli.js`) + server + migration + MCP config + GEMINI.md + global `konoha` command reconciliation (npm/pnpm/yarn shims on Linux, macOS, and Windows) |
 | `konoha migrate` | Re-index/migrate skills database into SQLite FTS5 (supports `--clean`, `--rebuild-embeddings`, `--skip-embeddings`, `--skills-dir`) |
-| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (IBM Granite Multilingual + MS MARCO MiniLM Reranker) |
+| `konoha reinstall` | Force clean re-installation and configuration replacement (implies `--force`) |
+| `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
 | `konoha test` | Test MCP server with sample searches |
 | `konoha status` | Show installation status and DB stats |
 | `konoha version` | Display current local version (2.1.17) and check for updates from npm registry |

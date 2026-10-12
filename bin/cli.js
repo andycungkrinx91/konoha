@@ -1407,6 +1407,7 @@ ${C.bold}EXAMPLES${C.reset}
   konoha init
   konoha init --yes
   konoha init --force
+  konoha reinstall  # (implies --force)
 `);
 }
 
@@ -3611,7 +3612,7 @@ ${C.bold}OPTIONS${C.reset}
 ${C.bold}EXAMPLES${C.reset}
   konoha migrate
   konoha migrate --clean --rebuild-embeddings
-  konoha embed
+  konoha embed  # (implies --rebuild-embeddings)
   konoha migrate --force
   konoha migrate --skills-dir ./my-skills
 `);
@@ -7079,8 +7080,9 @@ ${C.bold}USAGE${C.reset}
 
 ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}init${C.reset}              🚀 Setup MCP servers, migrate local skills, and configure supported clients.
+  ${C.cyan}reinstall${C.reset}         🚀 Force clean re-installation and replace existing configuration (implies --force).
   ${C.cyan}migrate${C.reset}           🔄 Re-index/migrate your custom skills database (run after editing skills).
-  ${C.cyan}embed${C.reset}             ⚡ Rebuild vector embeddings for all skills (hybrid search & neural RAG).
+  ${C.cyan}embed${C.reset}             ⚡ Rebuild vector embeddings for all skills (implies --rebuild-embeddings).
   ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
   ${C.cyan}status${C.reset}            🩺 Check installation health, database size, and loaded skills.
   ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.
