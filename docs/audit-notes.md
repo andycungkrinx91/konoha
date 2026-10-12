@@ -14280,3 +14280,79 @@ A skill's vector embeddings in `skill_chunks` should be classified as **STALE** 
    - Zero release tags created.
    - Zero package publications executed.
    - All changes remain local-only on branch `master`.
+
+---
+
+## 65. Phase 9 Security and Reliability Audit Findings
+
+**Execution Date:** 2026-10-12  
+**Audit Scope:** Real-world runtime behavior and attack surface of `src/web_server.js`, `src/tunnel/security.js`, `src/tunnel/manager.js`, `src/crypto_vault.js`, and `src/db_bridges.js`.  
+**Repository State:** `6d47a64` on `master`  
+**Host UI Daemon State:** Active on `127.0.0.1:1404` (PID 1934)  
+
+### 65.1 Security Audit Findings Table
+
+| ID | Finding Title | Evidence (Raw Code & Analysis) | Severity | Exploitable From | Proposed Remediation | Approval Status |
+|---|---|---|---|---|---|---|
+| **SEC-01** | **Unvalidated Loopback Host Header (DNS Rebinding & CSRF Bypass)** | `src/web_server.js:228` constructs URL from local variables without validating incoming `req.headers.host`. A malicious site binding a domain to `127.0.0.1` connects with `Host: attacker.example` and can request `GET /api/v1/csrf` (lines 294–312). Furthermore, `DELETE /api/v1/projects` (lines 1832–1843) deletes all workspace context without requiring a confirmation payload. | **High** | Loopback (Browser DNS Rebinding) / LAN / Tunnel | 1. Validate `req.headers.host` on all incoming HTTP requests. Reject non-loopback Host headers (`127.0.0.1:1404`, `localhost:1404`, `[::1]:1404`) with **403 Forbidden**, unless matching the active configured tunnel hostname.<br>2. Update `DELETE /api/v1/projects` to require `{ confirm: true }` in request body; update `apps/web` (`Context.svelte` & `api.js`) to send it. | **Approved** |
+| **SEC-02** | **Unencrypted Bridges API Keys at Rest (`bridges.api_key`)** | `src/db_bridges.js:46–77` and `upsertBridge` insert and update `api_key` as plaintext strings into SQLite table `bridges`. `listBridges` (lines 85–103) returns plaintext. While Telegram bot tokens and tunnel tokens are encrypted with AES-256-GCM via `src/crypto_vault.js`, bridge LLM provider API keys remain exposed in plaintext in the database file. | **High** | Local filesystem / Backup exposure / Database leak | 1. Use `src/crypto_vault.js` to encrypt `api_key` using AES-256-GCM on insert/update and decrypt on read.<br>2. Provide an idempotent migration function with `VACUUM INTO` backup of the database before encryption.<br>3. Enforce 0600 file modes on vault key and database files.<br>4. Throw an explicit, descriptive error if the vault key is missing or corrupted (never fail silently). | **Approved** |
+| **SEC-03** | **Unbounded Rate Limiter Map Memory Growth (Denial of Service)** | `src/tunnel/security.js:10` declares `const failedPinAttempts = new Map();`. `recordPinFailure` (lines 148–154) continuously sets new IP entries without an upper bound limit. Expired entries are only deleted if the exact same IP issues another request after 60s. An attacker sending requests with forged/spoofed IPs can exhaust Node.js heap memory. | **Medium** | Tunnel / Remote Ingress | 1. Bypass rate-limiting for loopback (`127.0.0.1`, `::1`, `localhost`) and internal MCP/agent requests.<br>2. Track only failed authentication attempts from non-loopback sources.<br>3. Cap `failedPinAttempts` at 10,000 entries.<br>4. Implement periodic eviction and TTL expiry (60s) for stale entries to guarantee bounded memory. | **Approved** |
+| **SEC-04** | **Unauthenticated Public Exposure via Named Tunnels without PIN** | `src/tunnel/security.js:114–120` explicitly returns `{ authenticated: true, authType: "open_named" }` if `config.mode === "named"` and `config.auth_pin` is empty/null. When a custom domain tunnel is started without a PIN, all remote requests are marked authenticated. Lines 294–301 in `src/web_server.js` allow retrieval of `sessionToken` from `GET /api/v1/csrf`, exposing all mutating endpoints (`DELETE /api/v1/projects`, `bridges`, `agents`, `skills`, `tasks`, UI) to the open internet. In Quick Tunnels (`trycloudflare.com`), no-PIN mode bricks access completely because no valid PIN exists to satisfy `requiresPin: true`. | **CRITICAL** | Tunnel (Public Internet) | **Decision Required (Approval Gate):** Propose 3 design options and STOP before implementation. Do NOT implement until user explicitly selects and approves an option. | **PENDING USER APPROVAL (STOP GATE)** |
+
+### 65.2 Tunnel Authentication Deep-Dive: Exposed Routes & Behavior Analysis
+
+#### 65.2.1 Routes Exposed by `src/web_server.js`
+When traffic enters via public tunnel, the following endpoints are reachable:
+1. **Unauthenticated Public Assets (Lines 271–275):**
+   - `/_app/*` (SvelteKit UI bundles)
+   - `/favicon.png`
+   - `/api/v1/health` (System metadata, version, skills count, bridge status)
+   - `/api/v1/auth/pin` (PIN verification endpoint)
+2. **Session & Security Boundary Endpoints (Lines 294–312):**
+   - `/api/v1/csrf` and `/api/v1/token`: Yields `sessionToken` (`X-Konoha-Web-Token`) to authenticated remote callers.
+3. **Mutating Control Endpoints (Protected only by `sessionToken`):**
+   - `POST /api/v1/bridges`, `DELETE /api/v1/bridges/:name`
+   - `POST /api/v1/agents`, `DELETE /api/v1/agents/:name`
+   - `POST /api/v1/skills`, `DELETE /api/v1/skills/:name`
+   - `DELETE /api/v1/projects` (Total project registry wipe)
+   - `POST /api/v1/projects/:hash/prune` (Context invariant clearing)
+   - `POST /api/v1/sdlc/tasks`, `DELETE /api/v1/sdlc/tasks`
+
+#### 65.2.2 Current Behavior When No PIN Is Configured
+1. **Named Tunnels (`mode: "named"`, e.g. custom Cloudflare Tunnel):**
+   - `verifyRemoteAccess()` evaluates:
+     ```javascript
+     if (!requiredPin && !isTryCloudflare && config.mode === 'named') {
+       return { authenticated: true, authType: 'open_named' };
+     }
+     ```
+   - Result: **COMPLETELY OPEN TO THE PUBLIC INTERNET.** Any remote caller can load the UI, retrieve the CSRF token via `/api/v1/csrf`, and invoke any destructive administrative API.
+2. **Quick Tunnels (`trycloudflare.com`):**
+   - `verifyRemoteAccess()` falls through to:
+     ```javascript
+     return {
+       authenticated: false,
+       error: 'Access denied: Valid PIN or Cloudflare Zero Trust authentication required',
+       requiresPin: true
+     };
+     ```
+   - Result: **LOCKED OUT / INOPERABLE.** The browser is redirected to the PIN entry page, but because `cfg.auth_pin` is empty, every submitted PIN is rejected (`401 Invalid access PIN`). Legitimate operators cannot authenticate.
+
+#### 65.2.3 Three Proposed Options for Tunnel Authentication (Awaiting User Decision)
+- **Option 1 (One-Time Random Access Token / Magic Link):**
+  - On tunnel initialization, if no static PIN is configured, generate a high-entropy cryptographically secure random token (e.g. 256-bit hex).
+  - Print a one-time login URL in the terminal (e.g. `https://<tunnel-url>/?auth_token=<random>`).
+  - Visiting this URL validates the token once and issues a secure, `HttpOnly`, `SameSite=Lax` session cookie (`konoha_remote_session`).
+  - *Trade-off:* User does not need to memorize a PIN; access is seamless via terminal output, and unauthenticated internet traffic is rejected.
+- **Option 2 (Cloudflare Zero Trust Access with Mandatory JWT Verification):**
+  - Mandate Cloudflare Access for named tunnels when no PIN is set.
+  - Require and cryptographically verify the `Cf-Access-Jwt-Assertion` header against Cloudflare public keys / aud tag.
+  - Reject all incoming requests lacking a valid Cloudflare Access assertion with **403 Forbidden**.
+  - *Trade-off:* Enterprise-grade zero-trust identity (Google/GitHub SSO, email OTP), but requires configuring Cloudflare Zero Trust Access policies in Cloudflare dashboard.
+- **Option 3 (Strict Webhook-Only Ingress / UI Kept on Loopback):**
+  - Public tunnel ingress is strictly restricted to designated external webhook paths only (e.g. `/api/v1/telegram/webhook/:secret`).
+  - All Web UI assets and management APIs (`/api/v1/*`, `/_app/*`) strictly reject remote ingress and remain accessible exclusively over loopback (`127.0.0.1:1404`).
+  - *Trade-off:* Zero remote UI attack surface; remote access to management capabilities is completely eliminated, but remote web dashboard viewing is disabled.
+
+*Header Trust Invariant:* Under all options, header-derived client addresses (`cf-connecting-ip`, `x-forwarded-for`) must never be trusted unless the request is provably forwarded by the local tunnel daemon.
+
