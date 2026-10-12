@@ -19,21 +19,33 @@ function evaluateSandboxGuard(env = process.env, realHome = null, marker = 'KONO
     }
   }
 
-  // 1. If explicit sandbox marker is set, allow execution
-  if (env && env[marker] === '1') {
-    return { allowed: true };
-  }
-
-  // 2. If HOME is isolated / different from realHome, allow execution
   const currentHome = env ? env.HOME : undefined;
-  if (currentHome && realHome && currentHome !== realHome) {
+
+  // 1. Refuse whenever HOME matches real user home, regardless of marker
+  if (realHome && currentHome === realHome) {
+    return {
+      allowed: false,
+      reason: "Refusing to run standalone test against real $HOME without sandbox. Run via the sandboxed runner: node tests/run_all.js, or set HOME to a seeded temp directory."
+    };
+  }
+
+  // 2. Refuse if HOME is missing
+  if (!currentHome) {
+    return {
+      allowed: false,
+      reason: "Refusing to run standalone test against real $HOME without sandbox. Run via the sandboxed runner: node tests/run_all.js, or set HOME to a seeded temp directory."
+    };
+  }
+
+  // 3. Allow when HOME is isolated / different from realHome
+  if (realHome && currentHome !== realHome) {
     return { allowed: true };
   }
 
-  // 3. Otherwise, refuse execution to prevent real HOME mutation
+  // Fallback refusal
   return {
     allowed: false,
-    reason: "Refusing to run standalone test against real $HOME without sandbox. Run via 'npm test' or set KONOHA_TEST_SANDBOX=1."
+    reason: "Refusing to run standalone test against real $HOME without sandbox. Run via the sandboxed runner: node tests/run_all.js, or set HOME to a seeded temp directory."
   };
 }
 

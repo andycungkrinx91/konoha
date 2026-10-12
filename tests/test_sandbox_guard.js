@@ -9,7 +9,7 @@ const res1 = evaluateSandboxGuard(
 assert.strictEqual(res1.allowed, false, 'Must refuse when HOME equals realHome without marker');
 assert.strictEqual(
   res1.reason,
-  "Refusing to run standalone test against real $HOME without sandbox. Run via 'npm test' or set KONOHA_TEST_SANDBOX=1."
+  "Refusing to run standalone test against real $HOME without sandbox. Run via the sandboxed runner: node tests/run_all.js, or set HOME to a seeded temp directory."
 );
 
 // Test 2: Sandboxed HOME allows execution
@@ -19,12 +19,16 @@ const res2 = evaluateSandboxGuard(
 );
 assert.strictEqual(res2.allowed, true, 'Must allow when HOME is different from realHome');
 
-// Test 3: Sandbox marker allows execution even if HOME equals realHome
+// Test 3: Real HOME WITH sandbox marker must STILL refuse (marker cannot override real HOME)
 const res3 = evaluateSandboxGuard(
   { HOME: '/home/testuser', KONOHA_TEST_SANDBOX: '1' },
   '/home/testuser'
 );
-assert.strictEqual(res3.allowed, true, 'Must allow when KONOHA_TEST_SANDBOX=1');
+assert.strictEqual(res3.allowed, false, 'Must refuse when HOME equals realHome even with marker');
+assert.strictEqual(
+  res3.reason,
+  "Refusing to run standalone test against real $HOME without sandbox. Run via the sandboxed runner: node tests/run_all.js, or set HOME to a seeded temp directory."
+);
 
 // Test 4: Missing realHome edge case
 const res4 = evaluateSandboxGuard({ HOME: '/tmp/test' }, null);
