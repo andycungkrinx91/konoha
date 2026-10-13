@@ -499,6 +499,7 @@ function queryMemories(
 
   const explicitSession = Boolean(sessionId && sessionId !== 'all' && sessionId !== '*');
   const allSessions = Boolean((typeof agentName === 'object' && agentName && (agentName.allSessions || agentName.all_sessions)) || sessionId === 'all' || sessionId === '*');
+  const strictSession = Boolean(typeof agentName === 'object' && agentName && (agentName.strictSession || agentName.strict_session));
 
   let activeSessId = sessionId;
   if (!activeSessId) {
@@ -543,7 +544,7 @@ function queryMemories(
             params.push(pHash);
           }
 
-          if (explicitSession && !allSessions) {
+          if (explicitSession && !allSessions && (!pHash || strictSession)) {
             sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
             params.push(String(sessionId).trim());
           }
@@ -589,7 +590,7 @@ function queryMemories(
       params.push(pHash);
     }
 
-    if (explicitSession && !allSessions) {
+    if (explicitSession && !allSessions && (!pHash || strictSession)) {
       sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
       params.push(String(sessionId).trim());
     }
