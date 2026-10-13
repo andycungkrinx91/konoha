@@ -9,7 +9,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
-const { detectActiveAgent } = require('./client_detection');
+const { detectActiveAgent, getActiveSessionId } = require('./client_detection');
 const { findSkill, listSkills, getSkill, useSkills, optimizeReport } = require('./skills');
 const { runAntiSlopAudit } = require('./anti_slop');
 const { buildFromSource, buildFromText } = require('./build_spec');
@@ -239,7 +239,8 @@ function boundPersonaMemories(mems) {
     const memoryType = args.memory_type;
     const limit = Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10);
     const projectPath = args.project_path || getWorkspaceRoot();
-    const sessionId = args.session_id;
+    const sessionId = args.session_id || getActiveSessionId(projectPath);
+    const allSessions = Boolean(args.all_sessions || args.allSessions);
     try {
       const mems = personaMemory.queryMemories({
         agentName: targetAgent,
@@ -247,6 +248,7 @@ function boundPersonaMemories(mems) {
         memoryType,
         projectPath,
         sessionId,
+        allSessions,
         limit
       });
       const boundedMems = boundPersonaMemories(mems);
@@ -260,13 +262,15 @@ function boundPersonaMemories(mems) {
     const memoryType = args.memory_type;
     const limit = Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20);
     const projectPath = args.project_path || getWorkspaceRoot();
-    const sessionId = args.session_id;
+    const sessionId = args.session_id || getActiveSessionId(projectPath);
+    const allSessions = Boolean(args.all_sessions || args.allSessions);
     try {
       const mems = personaMemory.listMemories({
         agentName: targetAgent,
         memoryType,
         projectPath,
         sessionId,
+        allSessions,
         limit
       });
       const boundedMems = boundPersonaMemories(mems);

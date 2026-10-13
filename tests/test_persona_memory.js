@@ -216,6 +216,23 @@ async function run() {
       dbPath: testDbPath
     });
     assert.ok(webUiQuery.some(m => m.content.includes('port 9001')), 'Web UI query with allSessions: true finds memories across sessions');
+
+    // Agent-facing query where sessionId is completely omitted/unknown
+    const memsOmittedSession = personaMemory.queryMemories({
+      agentName: 'anbu',
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+    assert.strictEqual(
+      memsOmittedSession.some(m => m.content.includes('port 9001')),
+      false,
+      'When sessionId is omitted, episodic memory must NOT be returned'
+    );
+    assert.strictEqual(
+      memsOmittedSession.some(m => m.content.includes('PostgreSQL 16')),
+      true,
+      'When sessionId is omitted, project-level non-episodic rule must still be returned'
+    );
     console.log('✓ Session isolation contract (Decision A) verified');
 
     console.log('\nAll test_persona_memory tests passed!');

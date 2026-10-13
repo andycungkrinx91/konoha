@@ -549,13 +549,17 @@ function queryMemories(
             params.push(pHash);
           }
 
-          if (explicitSession && !allSessions) {
-            if (pHash && !strictSession) {
-              sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)) OR (m.project_hash = ? AND m.memory_type != 'episodic'))";
-              params.push(String(sessionId).trim(), pHash);
+          if (!allSessions) {
+            if (explicitSession) {
+              if (pHash && !strictSession) {
+                sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)) OR (m.project_hash = ? AND m.memory_type != 'episodic'))";
+                params.push(String(sessionId).trim(), pHash);
+              } else {
+                sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
+                params.push(String(sessionId).trim());
+              }
             } else {
-              sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
-              params.push(String(sessionId).trim());
+              sql += " AND (m.memory_type != 'episodic' OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
             }
           }
 
@@ -600,13 +604,17 @@ function queryMemories(
       params.push(pHash);
     }
 
-    if (explicitSession && !allSessions) {
-      if (pHash && !strictSession) {
-        sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)) OR (project_hash = ? AND memory_type != 'episodic'))";
-        params.push(String(sessionId).trim(), pHash);
+    if (!allSessions) {
+      if (explicitSession) {
+        if (pHash && !strictSession) {
+          sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)) OR (project_hash = ? AND memory_type != 'episodic'))";
+          params.push(String(sessionId).trim(), pHash);
+        } else {
+          sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
+          params.push(String(sessionId).trim());
+        }
       } else {
-        sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
-        params.push(String(sessionId).trim());
+        sql += " AND (memory_type != 'episodic' OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
       }
     }
 
@@ -690,13 +698,17 @@ function listMemories(
       params.push(pHash);
     }
 
-    if (explicitSession && !allSessions) {
-      if (pHash) {
-        sql += " AND (session_id = ? OR (session_id = '' AND project_hash = '') OR (project_hash = ? AND memory_type != 'episodic'))";
-        params.push(String(sessionId).trim(), pHash);
+    if (!allSessions) {
+      if (explicitSession) {
+        if (pHash) {
+          sql += " AND (session_id = ? OR (session_id = '' AND project_hash = '') OR (project_hash = ? AND memory_type != 'episodic'))";
+          params.push(String(sessionId).trim(), pHash);
+        } else {
+          sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
+          params.push(String(sessionId).trim());
+        }
       } else {
-        sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
-        params.push(String(sessionId).trim());
+        sql += " AND (memory_type != 'episodic' OR (session_id = '' AND project_hash = ''))";
       }
     }
 

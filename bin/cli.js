@@ -7253,7 +7253,7 @@ async function cmdProject(args) {
         const pHash = personaMemory.saveOrUpdateProject(targetPath, '', null, DB_PATH);
         profile = personaMemory.getProjectProfile(pHash, DB_PATH);
       }
-      const mems = personaMemory.listMemories({ projectPath: targetPath, limit: 10, dbPath: DB_PATH });
+      const mems = personaMemory.listMemories({ projectPath: targetPath, limit: 10, allSessions: true, dbPath: DB_PATH });
       const p = profile || {};
       header(`🏢 Project Workspace Context: ${p.project_name || 'Active Project'}`);
       log(`  ${C.bold}Project Path:${C.reset}     ${p.project_path || targetPath}`);
@@ -8612,6 +8612,7 @@ async function cmdDataMemory(args) {
         agentName: agentFilter || null,
         projectPath: projectFilter || null,
         limit: 50,
+        allSessions: true,
         dbPath: DB_PATH
       });
       const filterLabel = projectFilter ? `(Project: ${path.basename(projectFilter)})` : (agentFilter ? `(@${agentFilter})` : '');
@@ -8706,6 +8707,7 @@ async function cmdDataSearch(args) {
         agentName: agentFilter,
         query,
         limit: 10,
+        allSessions: true,
         dbPath: DB_PATH
       });
       header(`🔍 Search Results for "${query}"`);
