@@ -497,14 +497,17 @@ function queryMemories(
     pHash = computeProjectHash(projectPath);
   }
 
-  let sessId = sessionId;
-  if (sessId === null || sessId === undefined) {
+  const explicitSession = Boolean(sessionId && sessionId !== 'all' && sessionId !== '*');
+  const allSessions = Boolean((typeof agentName === 'object' && agentName && (agentName.allSessions || agentName.all_sessions)) || sessionId === 'all' || sessionId === '*');
+
+  let activeSessId = sessionId;
+  if (!activeSessId) {
     try {
       const { getActiveSessionId } = require('./mcp/client_detection');
-      sessId = getActiveSessionId(projectPath);
+      activeSessId = getActiveSessionId(projectPath);
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  sessId = String(sessId || "").trim();
+  activeSessId = String(activeSessId || "").trim();
 
   const conn = getDb(dbPath);
   try {
@@ -540,9 +543,9 @@ function queryMemories(
             params.push(pHash);
           }
 
-          if (sessId) {
+          if (explicitSession && !allSessions) {
             sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
-            params.push(sessId);
+            params.push(String(sessionId).trim());
           }
 
           if (memoryType) {
@@ -550,9 +553,9 @@ function queryMemories(
             params.push(memoryType);
           }
 
-          if (sessId) {
+          if (activeSessId) {
             sql += " ORDER BY (CASE WHEN m.session_id = ? THEN 3 WHEN m.project_hash = ? THEN 2 ELSE 1 END) DESC, m.importance DESC, m.updated_at DESC LIMIT ?";
-            params.push(sessId, pHash, limit);
+            params.push(activeSessId, pHash, limit);
           } else {
             sql += " ORDER BY (CASE WHEN m.project_hash = ? THEN 2 ELSE 1 END) DESC, m.importance DESC, m.updated_at DESC LIMIT ?";
             params.push(pHash, limit);
@@ -586,9 +589,9 @@ function queryMemories(
       params.push(pHash);
     }
 
-    if (sessId) {
+    if (explicitSession && !allSessions) {
       sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
-      params.push(sessId);
+      params.push(String(sessionId).trim());
     }
 
     if (memoryType) {
@@ -596,9 +599,9 @@ function queryMemories(
       params.push(memoryType);
     }
 
-    if (sessId) {
+    if (activeSessId) {
       sql += " ORDER BY (CASE WHEN session_id = ? THEN 3 WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, importance DESC, updated_at DESC LIMIT ?";
-      params.push(sessId, pHash, limit);
+      params.push(activeSessId, pHash, limit);
     } else {
       sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, importance DESC, updated_at DESC LIMIT ?";
       params.push(pHash, limit);
@@ -630,14 +633,17 @@ function listMemories(
     agentName = opts.agentName || opts.agent_name || null;
   }
 
-  let sessId = sessionId;
-  if (sessId === null || sessId === undefined) {
+  const explicitSession = Boolean(sessionId && sessionId !== 'all' && sessionId !== '*');
+  const allSessions = Boolean((typeof agentName === 'object' && agentName && (agentName.allSessions || agentName.all_sessions)) || sessionId === 'all' || sessionId === '*');
+
+  let activeSessId = sessionId;
+  if (!activeSessId) {
     try {
       const { getActiveSessionId } = require('./mcp/client_detection');
-      sessId = getActiveSessionId(projectPath);
+      activeSessId = getActiveSessionId(projectPath);
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
-  sessId = String(sessId || "").trim();
+  activeSessId = String(activeSessId || "").trim();
 
   const conn = getDb(dbPath);
   try {
@@ -664,9 +670,9 @@ function listMemories(
       params.push(pHash);
     }
 
-    if (sessId) {
+    if (explicitSession && !allSessions) {
       sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
-      params.push(sessId);
+      params.push(String(sessionId).trim());
     }
 
     if (memoryType) {
@@ -674,9 +680,9 @@ function listMemories(
       params.push(memoryType);
     }
 
-    if (sessId) {
+    if (activeSessId) {
       sql += " ORDER BY (CASE WHEN session_id = ? THEN 3 WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, agent_name ASC, importance DESC, updated_at DESC LIMIT ?";
-      params.push(sessId, pHash, limit);
+      params.push(activeSessId, pHash, limit);
     } else {
       sql += " ORDER BY (CASE WHEN project_hash = ? THEN 2 ELSE 1 END) DESC, agent_name ASC, importance DESC, updated_at DESC LIMIT ?";
       params.push(pHash, limit);
