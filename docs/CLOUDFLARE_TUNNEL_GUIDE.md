@@ -12,8 +12,12 @@
 
 Cloudflare Tunnel (`cloudflared`) allows you to securely expose the Konoha Web UI (`localhost:1404`) to the public internet without opening inbound firewall ports or configuring router port forwarding.
 
-### Core Security Architecture: Mode A (Zero Trust Edge Authentication)
-- **Zero In-App PIN**: Access to the Konoha dashboard is protected at the Cloudflare Edge using **Cloudflare Zero Trust Access** (Google SSO, GitHub, or Email OTP).
+### Core Security Architecture
+- **Mode A (Zero Trust Edge Authentication)**: Access to the Konoha dashboard is protected at the Cloudflare Edge using **Cloudflare Zero Trust Access** (Google SSO, GitHub, or Email OTP). Requests pass edge identity assertions (`Cf-Access-Jwt-Assertion` and `Cf-Access-Authenticated-User-Email`).
+- **Mode B (Mandatory Authentication PIN Hardening — SEC-04)**: For quick/ephemeral tunnels (`*.trycloudflare.com`) or when Cloudflare Zero Trust headers are absent, an authentication PIN (`auth_pin`) is strictly required. Empty PINs are rejected with HTTP 400.
+  - **Constant-Time Verification**: Compared using `crypto.timingSafeEqual()` to mitigate timing side-channel attacks.
+  - **Secure Transport**: Accepts PIN via `Authorization: Bearer <PIN>`, `X-Konoha-Pin` header, or `konoha_pin` cookie (`HttpOnly: true`, `SameSite: Lax`). Passing PINs in URL query parameters (`?pin=`) is blocked.
+  - **Trusted Proxy IP Whitelist**: Ingress forwarding headers (`CF-Connecting-IP`, `X-Forwarded-For`) are validated against trusted proxy IP addresses to prevent client IP spoofing.
 - **Zero Inbound Ports**: The `cloudflared` daemon creates an outbound-only encrypted tunnel to Cloudflare's nearest edge data center.
 - **Bot & Scanner Defense**: Unauthenticated visitors and crawlers are blocked at the Cloudflare edge before reaching your machine.
 

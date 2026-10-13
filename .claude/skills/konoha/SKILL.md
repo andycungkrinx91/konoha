@@ -494,5 +494,16 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Non-Blocking Agent List**: `konoha agent list` renders a fast (<0.2s) static table by default. The interactive raw-mode terminal UI is strictly scoped behind `--tui`, `--interactive`, or `-i`, ensuring zero hangs in automated test runners, non-TTY environments, and PTY runners.
     - **Safe Queue Worker Subprocesses**: `src/queue/worker.js` strictly executes tasks via `execFile(agyBin, agyArgs, ...)` with structured argument arrays and dynamic `resolveAgyBin()`, completely eliminating shell command injection risks.
     - **Single Target Session Marker**: `src/telegram/session_manager.js` evaluates session indices to ensure strictly ONE session receives the `(CURRENT TARGET)` badge.
+87. **Operational Database Maintenance & Telemetry Pruning Invariants (v2.1.17+)**:
+    - **Zero-Downtime Backup (`konoha data backup [path]`)**: Performs online SQLite snapshot using native `VACUUM INTO` without blocking concurrent reads/writes. Defaults to `~/.konoha/backups/konoha_backup_<timestamp>.db`.
+    - **FTS5 Self-Healing (`konoha data rebuild-fts`)**: Rebuilds virtual full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
+    - **Automated Retention Pruning (`konoha data prune --retention <days>`)**: Prunes granular `tool_calls` telemetry older than the retention threshold (default 90 days) while preserving all-time summary statistics.
+    - **Agent Telemetry Normalization (`normalizeAgentName`)**: Maps runtime tool prefixes (`mcp_`, `delegate_to_`, `delegate-`) and legacy aliases to canonical agent names.
+    - **Cascading Foreign Key Integrity**: Enforces `PRAGMA foreign_keys = ON` with cascading deletes (`ON DELETE CASCADE`) from `projects` to `persona_memories`.
+88. **Session Sandbox Isolation & Persona Memory Scoping Contract (Decision A)**:
+    - **Strict Per-Session Episodic Isolation**: When an explicit `session_id` is supplied without `allSessions: true`, `queryMemories` isolates episodic memories strictly to that session.
+    - **Project-Level Rule Visibility**: Project-scoped memories that are non-episodic (`memory_type != 'episodic'`) remain visible across sessions within the same project.
+    - **Explicit Cross-Session Opt-In**: The Web UI and administrative tools pass `allSessions: true` (or `crossSession: true`) to list and inspect memories across all sessions.
+    - **Options Shadowing Guard**: Variable re-assignment in memory handlers does not shadow caller query options (`allSessions`, `persona`, `project_hash`).
 
 

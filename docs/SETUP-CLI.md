@@ -264,6 +264,28 @@ The subagent configurations are stored in a structured format, enabling you to i
   ```
   Deletes a **custom** subagent from `agents.yaml` and prunes its `tool_calls` metrics. The seven official ninja agents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) are **protected** and cannot be deleted.
 
+### Database Maintenance & Telemetry Pruning (`konoha data`)
+
+- **Online Zero-Downtime Backup**:
+  ```bash
+  konoha data backup
+  # Or specify target backup destination:
+  konoha data backup /path/to/custom_backup.db
+  ```
+  Creates an atomic, non-blocking snapshot using SQLite `VACUUM INTO` while the database is actively handling requests.
+
+- **Rebuild FTS5 Search Indexes**:
+  ```bash
+  konoha data rebuild-fts
+  ```
+  Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables.
+
+- **Prune Historical Telemetry**:
+  ```bash
+  konoha data prune --retention 90
+  ```
+  Prunes execution records from `tool_calls` older than the retention threshold (default 90 days) while preserving all-time summary metrics.
+
 ### SDLC Task Governance & Quality Gates (v2.0.2)
 
 Konoha includes a built-in SDLC governance layer tracking tasks, Definition of Readiness (DoR), cross-provider reviews, and anti-slop compliance in the `sdlc_tasks` SQLite table:

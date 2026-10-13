@@ -106,6 +106,12 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
 3. **Unified Schema DDL (`setupSchema`)**: Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks compiled FTS5 modules (e.g. Windows).
+4. **Operational Maintenance & Recovery Routines**:
+   - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
+   - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
+   - **Retention Pruning (`konoha data prune --retention <days>`)**: Prunes older execution logs from `tool_calls` beyond the retention window (default 90 days) while preserving all-time summary counters.
+   - **Agent Name Normalization (`normalizeAgentName`)**: Maps runtime aliases (e.g. `mcp_kage`, `delegate_to_jonin`) to canonical agent identities across telemetry reporting.
+   - **Foreign Key Cascade Integrity**: Enforces `ON DELETE CASCADE` from `projects` to `persona_memories` with `PRAGMA foreign_keys = ON`, eliminating orphaned records.
 
 ---
 
@@ -387,4 +393,12 @@ flowchart TD
    - **Direct Subagent Dispatch**: Dedicated slash commands (`/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu-jonin`, `/sannin`) bypass general routing deliberation and directly assign prompts to specialized ninja agents.
    - **Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)**: SQLite table `prompt_queue` maintains atomic states (`pending` -> `processing` -> `completed` / `failed`) with filesystem mirroring (`~/.konoha/inbox/<session>.json`). Worker executes operational commands deterministically with 100% token elimination (0 LLM tokens) and AI coding tasks via headless `agy -p ...`.
    - **Cloudflare Zero Trust Ingress Tunnel (`src/tunnel/`)**: Background supervisor for `cloudflared` managing public ingress without opening inbound firewall ports. Validates Mode A edge identity headers (`Cf-Access-Authenticated-User-Email`) with local loopback protection on `127.0.0.1:1404`.
+   - **Tunnel Ingress PIN & Authentication Hardening (SEC-04)**: Mandatory `auth_pin` enforcement when Cloudflare Zero Trust headers are absent or running quick/ephemeral tunnels. Empty PINs are strictly rejected across both API (`POST /api/v1/tunnel/config`) and persistence (`saveTunnelConfig`). Evaluates PINs using CSPRNG generation (`crypto.randomInt()`), constant-time matching (`crypto.timingSafeEqual()`), secure cookie flags (`HttpOnly`, `SameSite: Lax`), and disallows query string exposure (`?pin=`). Unauthenticated open access modes (`open_named`) are permanently eradicated.
+   - **Trusted Proxy IP Whitelist**: Ingress forwarding headers (`CF-Connecting-IP`, `X-Forwarded-For`) are only honored when originating from trusted socket peer IPs, eliminating spoofed remote client addresses.
+
+8. **Session Sandbox Isolation & Persona Memory Scoping (Decision A Contract)**:
+   - **Strict Per-Session Episodic Isolation**: When an explicit `session_id` is passed without `allSessions: true`, `queryMemories` isolates episodic memories strictly to the calling session to prevent cross-session contamination.
+   - **Project-Level Rule Visibility**: Project-scoped memories that are non-episodic (`memory_type != 'episodic'`) remain visible across sessions within the same project directory.
+   - **Explicit Cross-Session Opt-In**: Web UI endpoints (`/api/v1/persona`, `/api/v1/projects/:hash`) and administrative tools pass `allSessions: true` (or `crossSession: true`) to list and inspect memories across all sessions.
+   - **Options Shadowing Defense**: Prevents variable re-scoping bugs from inadvertently dropping `allSessions` or query filtering parameters.
 
