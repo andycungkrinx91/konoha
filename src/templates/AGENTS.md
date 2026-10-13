@@ -201,7 +201,7 @@ Load **semble** when project source code search is needed — do NOT load it for
 
 | MCP | Command | Load When |
 |---|---|---|
-| **semble** | `uvx --from semble[mcp]@latest semble` | Project source code search needed |
+| **semble** | `uvx --from semble[mcp]==0.6.2 semble` | Project source code search needed |
 | **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
 
 ## Custom Agent Rules for Konoha

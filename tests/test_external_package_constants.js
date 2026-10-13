@@ -7,7 +7,7 @@ const { execFileSync } = require("child_process");
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require("../src/semble_manager");
 
 test("SEMBLE_PACKAGE and AISLOP_PACKAGE are exported from semble_manager and no bare literals remain in production code", () => {
-  assert.strictEqual(SEMBLE_PACKAGE, "semble[mcp]@latest");
+  assert.strictEqual(SEMBLE_PACKAGE, "semble[mcp]==0.6.2");
   assert.strictEqual(AISLOP_PACKAGE, "aislop@0.18.1");
 
   const root = path.resolve(__dirname, "..");

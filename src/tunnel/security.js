@@ -243,7 +243,6 @@ function renderPinEntryPage() {
     '      });',
     '      const data = await res.json();',
     '      if (data.ok) {',
-    '        document.cookie = "konoha_pin=" + encodeURIComponent(pin) + "; path=/; max-age=604800; SameSite=Lax";',
     '        window.location.reload();',
     '      } else {',
     '        const err = document.getElementById("errMsg");',
