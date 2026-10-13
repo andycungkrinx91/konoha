@@ -8,7 +8,7 @@ description: Token-efficient QA automation workflow with agent-browser and Playw
 Token-efficient QA automation owned by **Anbu**. Explore once with scoped `agent-browser`, codify deterministically to Playwright Test, and re-run for zero LLM browsing tokens.
 
 > [!NOTE]
-> Architecture and diagrams are documented in [`docs/QA-AUTOMATION.md`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/docs/QA-AUTOMATION.md).
+> Architecture and diagrams are documented in [`docs/QA-AUTOMATION.md`](docs/QA-AUTOMATION.md).
 
 ## Tool Selection Matrix
 
