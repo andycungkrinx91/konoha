@@ -459,6 +459,10 @@
             <span class="font-bold" style="color: var(--color-primary);">konoha agent &lt;list|check&gt;</span>
             <span style="color: var(--color-text-muted);"> — list active ninja subagents and verify model provider bindings</span>
           </div>
+          <div class="rounded-xl border px-4 py-3" style="border-color: var(--color-border);">
+            <span class="font-bold" style="color: var(--color-primary);">konoha data &lt;backup|rebuild-fts|prune&gt;</span>
+            <span style="color: var(--color-text-muted);"> — manage SQLite online backups, rebuild search indexes, and prune telemetry</span>
+          </div>
         </div>
       </section>
     </div>
