@@ -289,6 +289,7 @@ function setupSchema(conn) {
     const hasProjectFk = memFks.some(fk => fk.table === 'projects');
     if (!hasProjectFk) {
       conn.exec(`
+        BEGIN TRANSACTION;
         CREATE TABLE IF NOT EXISTS persona_memories_migrated (
             id TEXT PRIMARY KEY,
             project_hash TEXT DEFAULT NULL,
@@ -310,6 +311,7 @@ function setupSchema(conn) {
         FROM persona_memories;
         DROP TABLE persona_memories;
         ALTER TABLE persona_memories_migrated RENAME TO persona_memories;
+        COMMIT;
       `);
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
@@ -587,7 +589,9 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
   if (!dest) {
     const backupDir = path.join(path.dirname(src), 'backups');
     if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+      fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+    } else {
+      try { fs.chmodSync(backupDir, 0o700); } catch (_) {}
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     dest = path.join(backupDir, `konoha_backup_${timestamp}.db`);
@@ -596,7 +600,9 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
   dest = path.resolve(dest);
   const destDir = path.dirname(dest);
   if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
+    fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
+  } else {
+    try { fs.chmodSync(destDir, 0o700); } catch (_) {}
   }
 
   if (fs.existsSync(dest)) {
@@ -610,6 +616,7 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
   const conn = getConnection(src, false);
   try {
     conn.prepare("VACUUM INTO ?").run(dest);
+    try { fs.chmodSync(dest, 0o600); } catch (_) {}
     const stat = fs.statSync(dest);
     return {
       success: true,
