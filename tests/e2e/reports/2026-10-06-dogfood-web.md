@@ -21,11 +21,11 @@ Both routes redirect and mount cleanly with 0 console errors and 0 runtime excep
 ### Executed Flow Specifications
 
 1. **Routes Load & Redirect Flow**:
-   - Flow Spec: [`tests/e2e/flows/routes_load.json`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/e2e/flows/routes_load.json)
-   - Test Spec: [`tests/e2e/routes_load.spec.js`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/e2e/routes_load.spec.js)
+   - Flow Spec: [`tests/e2e/flows/routes_load.json`](../flows/routes_load.json)
+   - Test Spec: [`tests/e2e/routes_load.spec.js`](../routes_load.spec.js)
    - Status: GREEN
 
 2. **Document AI Detector Flow**:
-   - Flow Spec: [`tests/e2e/flows/detector_flow.json`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/e2e/flows/detector_flow.json)
-   - Test Spec: [`tests/e2e/detector_flow.spec.js`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/e2e/detector_flow.spec.js)
+   - Flow Spec: [`tests/e2e/flows/detector_flow.json`](../flows/detector_flow.json)
+   - Test Spec: [`tests/e2e/detector_flow.spec.js`](../detector_flow.spec.js)
    - Status: GREEN

@@ -92,7 +92,7 @@ This report evaluates and certifies the architectural security, deterministic wo
 
 ### 3.2 Auditability & Provenance
 * **Deterministic Migrations**: All changes to `konoha.db` during installation and upgrades are traceable through SQLite transactional operations without unconstrained destructive drops.
-* **Transparent Testing**: Automated test suites [`tests/test_preserve_old_skills_and_config.js`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/test_preserve_old_skills_and_config.js) and [`tests/test_e2e_install_upgrade_reinstall.js`](file:///home/andycungkrinx/experiment/portofolio/data/konoha/tests/test_e2e_install_upgrade_reinstall.js) verify idempotence and preservation in isolated sandbox environments.
+* **Transparent Testing**: Automated test suites [`tests/test_preserve_old_skills_and_config.js`](../../tests/test_preserve_old_skills_and_config.js) and [`tests/test_e2e_install_upgrade_reinstall.js`](../../tests/test_e2e_install_upgrade_reinstall.js) verify idempotence and preservation in isolated sandbox environments.
 
 ---
 

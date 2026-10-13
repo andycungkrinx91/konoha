@@ -1672,7 +1672,7 @@
     [
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
      "● konoha/kage(Delegate audit to kage)",
-     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     "  ⎿  file://~/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
      ""
     ],
     1800
@@ -1682,7 +1682,7 @@
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
      "",
      "● konoha/read_file_range(Read Kage audit report lines 1-40)",
-     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     "  ⎿  file://~/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
      ""
     ],
     1700
@@ -1692,7 +1692,7 @@
      "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
      "",
      "● konoha/read_file_range(Read Kage audit report lines 1-25)",
-     "  ⎿  file:///home/andycungkrinx/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
+     "  ⎿  file://~/.gemini/antigravity-cli/brain/9f6d785d-e10e-4f9e-bc95... (ctrl+o to collapse)",
      "  [◎ kage] active. Calling konoha.find_skill('kage-skill')",
      "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
     ],

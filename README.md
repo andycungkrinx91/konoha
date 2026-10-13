@@ -408,10 +408,11 @@ npx konoha-mcp init
 
 > [!IMPORTANT]
 > **Breaking Changes Notice (Post-v2.1.17)**:
-> - **Direct Specialist MCP Tools**: Deprecated `delegate_to_<agent>` MCP tool wrappers are removed in favor of direct specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
-> - **Canonical CLI Syntax**: 27 legacy undocumented CLI aliases have been pruned; canonical subcommands (`konoha task`, `konoha data`, `konoha skill`, `konoha tunnel`, `konoha agent`, etc.) are strictly enforced.
-> - **Mandatory Ingress PIN**: Quick and custom tunnels strictly require an authentication PIN (`auth_pin`) when Cloudflare Zero Trust headers are absent; unauthenticated named tunnel access is removed.
-> - **Session Sandbox Isolation**: Strict per-session isolation partitions episodic memories by `session_id` (Decision A contract).
+> - **Direct Specialist MCP Tools**: Deprecated `delegate_to_<agent>` MCP tool wrappers are removed in favor of direct specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`). External callers using legacy delegate prefixes on `report_from_agent` are rejected.
+> - **Canonical CLI Syntax (27 Removed Aliases)**: 27 legacy undocumented CLI aliases have been pruned: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`. Canonical subcommands (`konoha task`, `konoha data`, `konoha skill`, `konoha tunnel`, `konoha agent`, `konoha status`, etc.) are strictly enforced.
+> - **Operational Database Management (`konoha data`)**: Added canonical subcommands `konoha data backup [path]`, `konoha data rebuild-fts`, and `konoha data prune [--retention <days>]`. Note: `konoha data prune` clears historical telemetry and active sessions without interactive confirmation; take a backup before pruning.
+> - **Mandatory Ingress PIN & Security**: Quick and custom tunnels strictly require an authentication PIN (`auth_pin`) when Cloudflare Zero Trust headers are absent; unauthenticated named tunnel access (`open_named`) is removed.
+> - **Session Sandbox Isolation Contract (Decision A)**: Strict per-session isolation partitions episodic memories by `session_id`; agent-facing queries without a session ID do not receive foreign episodic memories while retaining workspace project rules. Administrative listings and Web UI pass `allSessions: true`.
 
 ### 📦 Source / Clone Onboarding
 
