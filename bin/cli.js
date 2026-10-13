@@ -3070,6 +3070,16 @@ function reconcileGlobalCommand() {
   const nodeCmd = process.execPath;
   const homeDir = os.homedir();
 
+  // Protect host PATH shims: never modify global shims when running inside a test sandbox or temporary HOME
+  const tmpRoot = path.resolve(os.tmpdir());
+  if (
+    process.env.KONOHA_TEST_SANDBOX === '1' ||
+    path.resolve(SKILLS_DB_DIR).startsWith(tmpRoot) ||
+    path.resolve(homeDir).startsWith(tmpRoot)
+  ) {
+    return report;
+  }
+
   // 1. Discover candidate global bin directories
   const candidateDirs = new Set();
   try {
