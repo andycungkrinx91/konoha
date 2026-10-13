@@ -28,7 +28,8 @@ function getGoldenSeed() {
   spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'status'], {
     env,
     encoding: 'utf-8',
-    timeout: 120000
+    // First-run initialization on a clean HOME can take several minutes
+    timeout: 1800000
   });
   goldenSeedInfo = { dir: seedDir, isTemp: true };
   return goldenSeedInfo;
