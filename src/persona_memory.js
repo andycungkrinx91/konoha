@@ -698,17 +698,13 @@ function listMemories(
       params.push(pHash);
     }
 
-    if (!allSessions) {
-      if (explicitSession) {
-        if (pHash) {
-          sql += " AND (session_id = ? OR (session_id = '' AND project_hash = '') OR (project_hash = ? AND memory_type != 'episodic'))";
-          params.push(String(sessionId).trim(), pHash);
-        } else {
-          sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
-          params.push(String(sessionId).trim());
-        }
+    if (explicitSession && !allSessions) {
+      if (pHash) {
+        sql += " AND (session_id = ? OR (session_id = '' AND project_hash = '') OR (project_hash = ? AND memory_type != 'episodic'))";
+        params.push(String(sessionId).trim(), pHash);
       } else {
-        sql += " AND (memory_type != 'episodic' OR (session_id = '' AND project_hash = ''))";
+        sql += " AND (session_id = ? OR (session_id = '' AND project_hash = ''))";
+        params.push(String(sessionId).trim());
       }
     }
 
