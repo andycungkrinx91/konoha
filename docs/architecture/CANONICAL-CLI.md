@@ -120,7 +120,9 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha data search <query>` — Search saved knowledge and memories across agents.
 - `konoha data delete <id>` — Remove a saved memory item by ID.
 - `konoha data export` — Export indexed skills and database knowledge to a Markdown report.
-- `konoha data prune` — Clean old sessions and logs while preserving memories.
+- `konoha data backup [path]` — Non-blocking online SQLite database snapshot via `VACUUM INTO`.
+- `konoha data rebuild-fts` — Rebuild all FTS5 full-text search indexes (`skills_fts`, `persona_memories_fts`).
+- `konoha data prune [--retention <days>]` — Clean old sessions and prune `tool_calls` older than retention period (default 90 days) while preserving memories.
 - `konoha data vacuum` — Defragment and compress SQLite database file.
 
 ### 2.9 Web Search (`konoha search`)

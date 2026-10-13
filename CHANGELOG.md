@@ -18,6 +18,15 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Client Configuration Preservation & Backup (G-16)**: Preserve user-owned custom agent tables in Codex `config.toml` and create `.bak` backups before modifying `config.toml` and `opencode.json`.
 - **Test Runner Isolation & Guard Hardening (G-01 & G-17)**: Fully isolate test suites in ephemeral seeded sandbox HOME directories with strict guardrails preventing test runs against the real user HOME.
 
+### Database Maintenance & Ingress Hardening (Phase 10 & Late Batches)
+
+- **Operational Database CLI (`konoha data`)**: Added canonical subcommands `konoha data backup [path]` (atomic online SQLite snapshot via native `VACUUM INTO`), `konoha data rebuild-fts` (rebuilds `skills_fts` and `persona_memories_fts` indexes), and `konoha data prune --retention <days>` (prunes historical `tool_calls` older than specified retention window, default 90 days).
+- **Foreign Key Cascade & Schema Upgrades (`df960ea`)**: Enforced `PRAGMA foreign_keys = ON;` on all SQLite connections; table `persona_memories` recreated with `FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE`, eliminating orphaned project memories.
+- **Tunnel Authentication & PIN Hardening (SEC-04 / `de4d79a`)** [BREAKING]: Removed unauthenticated `open_named` bypass. Mandatory `auth_pin` required when accessing without Cloudflare Zero Trust headers. Empty PIN values strictly rejected with HTTP 400. Replaced timing-vulnerable string matching with constant-time `crypto.timingSafeEqual()`, enforced CSPRNG PIN generation via `crypto.randomInt()`, disallowed query string exposure (`?pin=`), and added trusted proxy IP allowlist validation for ingress forwarding headers (`CF-Connecting-IP`, `X-Forwarded-For`).
+- **Session Sandbox Isolation Contract (Decision A / `49cc26c`)** [BREAKING]: Enforced strict per-session partitioning for episodic memory when an explicit `session_id` is supplied without `allSessions: true`. Non-episodic project rules (`memory_type != 'episodic'`) remain visible across sessions for the same workspace. Web UI and administrative listings pass explicit `allSessions: true`.
+- **Backend Static Analysis Linter (`scripts/lint.js` / `ea23041`)**: Added standalone zero-dependency static analysis pipeline covering all 265 JavaScript files across `bin/`, `src/`, `tests/`, and `scripts/` via `npm run lint`.
+- **Sandboxed Test Runner Timeout Overhead (`e59574e`)**: Raised golden-seed creation spawn timeout in `tests/run_all.js` from 120s to 1800s to accommodate clean first-run initialization without timing out.
+
 ## [2.1.17] - 2026-10-08
 
 ### Telegram Bot Integration & Remote Automation
