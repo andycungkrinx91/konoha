@@ -126,6 +126,98 @@ async function run() {
     conn.close();
     console.log('✓ DB schema integrity passed');
 
+    // 8. Session isolation contract (Decision A)
+    const projPath = '/tmp/proj_iso_test_' + Date.now();
+    const sess1 = 'sess-iso-alpha-001';
+    const sess2 = 'sess-iso-beta-002';
+
+    // Session 1: saves an episodic memory and a project rule
+    personaMemory.saveMemory({
+      agentName: 'anbu',
+      content: 'Session 1 debug findings: port 9001 used',
+      title: 'Sess1 finding',
+      memoryType: 'episodic',
+      sessionId: sess1,
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+
+    personaMemory.saveMemory({
+      agentName: 'anbu',
+      content: 'Project architecture rule: use PostgreSQL 16',
+      title: 'Sess1 rule',
+      memoryType: 'rule',
+      sessionId: sess1,
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+
+    // Agent-facing queryMemories from Session 2:
+    // Episodic memory from Session 1 must NOT leak into Session 2
+    const memsAgentQuery = personaMemory.queryMemories({
+      agentName: 'anbu',
+      sessionId: sess2,
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+    const hasSess1Episodic = memsAgentQuery.some(m => m.content.includes('port 9001'));
+    const hasSess1Rule = memsAgentQuery.some(m => m.content.includes('PostgreSQL 16'));
+    assert.strictEqual(hasSess1Episodic, false, 'Agent-facing queryMemories must NOT leak episodic memory across sessions');
+    assert.strictEqual(hasSess1Rule, true, 'Agent-facing queryMemories may share non-episodic project rules across sessions');
+
+    // Agent-facing targeted query for the episodic term stays per-session
+    const memsEpisodicSearch = personaMemory.queryMemories({
+      agentName: 'anbu',
+      query: 'port 9001',
+      sessionId: sess2,
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+    const hasEpisInSearch = memsEpisodicSearch.some(m => m.content.includes('port 9001'));
+    assert.strictEqual(hasEpisInSearch, false, 'Targeted search for foreign session episodic memory must not return foreign episodic memory');
+
+    // Cross-session listing requires explicit option (allSessions / crossSession)
+    const listWithoutOption = personaMemory.listMemories({
+      sessionId: sess2,
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+    assert.strictEqual(listWithoutOption.some(m => m.content.includes('port 9001')), false,
+      'Listing without allSessions/crossSession must not leak foreign episodic memory');
+
+    const listWithAllSessions = personaMemory.listMemories({
+      sessionId: sess2,
+      projectPath: projPath,
+      allSessions: true,
+      dbPath: testDbPath
+    });
+    assert.strictEqual(listWithAllSessions.some(m => m.content.includes('port 9001')), true,
+      'Listing with explicit allSessions: true must include memories across all sessions');
+
+    const listWithCrossSession = personaMemory.listMemories({
+      sessionId: sess2,
+      projectPath: projPath,
+      crossSession: true,
+      dbPath: testDbPath
+    });
+    assert.strictEqual(listWithCrossSession.some(m => m.content.includes('port 9001')), true,
+      'Listing with explicit crossSession: true must include memories across all sessions');
+
+    // Web UI listing pattern (explicit allSessions: true) shows memories across sessions
+    const webUiList = personaMemory.listMemories({
+      allSessions: true,
+      dbPath: testDbPath
+    });
+    assert.ok(webUiList.some(m => m.content.includes('port 9001')), 'Web UI listing with allSessions: true shows memories across sessions');
+
+    const webUiQuery = personaMemory.queryMemories({
+      query: 'port 9001',
+      allSessions: true,
+      dbPath: testDbPath
+    });
+    assert.ok(webUiQuery.some(m => m.content.includes('port 9001')), 'Web UI query with allSessions: true finds memories across sessions');
+    console.log('✓ Session isolation contract (Decision A) verified');
+
     console.log('\nAll test_persona_memory tests passed!');
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

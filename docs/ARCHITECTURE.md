@@ -193,6 +193,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 7. **Episodic Learnings & Memory Hygiene**:
    - Only learnings from verified tasks (`verified = True`) are persisted to episodic memory in `persona_memory.js`.
    - `memory_content_exists()` performs deduplication against the SQLite database, preventing corrupted or hallucinated diagnoses from polluting future prompts.
+   - **Session Isolation Contract (Decision A)**: Episodic memories are strictly isolated per active session in agent-facing `queryMemories` and `listMemories`. Cross-session visibility is permitted only via explicit opt-in (`allSessions: true` or `crossSession: true`) used by Web UI listings and CLI management commands, and for non-episodic project-scoped memories (rules, architecture, preferences, patterns).
 8. **Authorized Penetration Testing in Dev/Local Environments**:
    - `anbu` is authorized to conduct penetration testing and vulnerability assessments in dev/local environments (`localhost`, `127.0.0.1`, dev containers, local clusters).
    - The workflow review gate utilizes pentest-aware validation (`_is_pentest_task`, `_is_clean_validation`) allowing diagnostic exploit checks and HTTP error responses without false rejection, while strictly prohibiting unhandled fatal crash exceptions.

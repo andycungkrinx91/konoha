@@ -1754,12 +1754,14 @@ function createWebServer(options = {}) {
             agentName: agentFilter || 'global',
             query: search,
             memoryType: memoryType || undefined,
+            allSessions: true,
             limit
           });
         } else {
           memories = personaMemory.listMemories({
             agentName: agentFilter,
             memoryType: memoryType || undefined,
+            allSessions: true,
             limit
           });
         }
@@ -1836,7 +1838,7 @@ function createWebServer(options = {}) {
           const pHash = personaMemory.saveOrUpdateProject(targetPath, '', null);
           profile = personaMemory.getProjectProfile(pHash);
         }
-        const mems = personaMemory.listMemories({ projectPath: targetPath, limit: 20 });
+        const mems = personaMemory.listMemories({ projectPath: targetPath, allSessions: true, limit: 20 });
         return sendJson(res, 200, { profile: profile || {}, memories: mems || [] });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
