@@ -2,7 +2,7 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [Unreleased]
+## [2.1.18] - Unreleased
 
 ### CLI & MCP Surface Consolidation (Phase 4)
 
