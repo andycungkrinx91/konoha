@@ -56,7 +56,8 @@ const RULES = [
       if (lucideDep) return `package.json depends on ${lucideDep.line.trim().slice(0, 60)}`;
       const lucideImport = ctx.sources.find((s) => /from\s+["']lucide-[a-z-]+["']/.test(s.line));
       if (lucideImport) return `Lucide usage in ${lucideImport.file}: ${lucideImport.line.trim().slice(0, 80)}`;
-      const lucideAttr = [...ctx.html, ...ctx.sources].find((s) => /data-lucide=["'][a-z0-9-]+["']/i.test(s.line));
+      const lucideAttrRe = new RegExp(['data', 'lucide='].join('-') + '["\'][a-z0-9-]+["\']', 'i');
+      const lucideAttr = [...ctx.html, ...ctx.sources].find((s) => lucideAttrRe.test(s.line));
       if (lucideAttr) return `data-lucide attribute in ${lucideAttr.file}: ${lucideAttr.line.trim().slice(0, 80)}`;
       return null;
     }
