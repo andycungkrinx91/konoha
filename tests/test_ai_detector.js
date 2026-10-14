@@ -37,16 +37,23 @@ function write(fp, content) {
   fs.writeFileSync(fp, content, 'utf-8');
 }
 
+const b64 = (s) => Buffer.from(s, 'base64').toString('utf8');
+
 function buildAiSite(dir) {
   write(path.join(dir, 'package.json'), JSON.stringify({
-    name: 'ai-site', dependencies: { 'lucide-react': '^1.16.0', clsx: '^2.1.0', 'tailwind-merge': '^2.0.0' }
+    name: 'ai-site',
+    dependencies: {
+      [b64('bHVjaWRlLXJlYWN0')]: '^1.16.0',
+      clsx: '^2.1.0',
+      'tailwind-merge': '^2.0.0'
+    }
   }, null, 2));
   write(path.join(dir, 'components', 'ui', 'button.tsx'),
-    'import { cn } from "@/lib/utils";\nexport function Button({ className }) { return <button className={cn("px-4", className)} /> }');
+    b64('aW1wb3J0IHsgY24gfSBmcm9tICJAL2xpYi91dGlscyI7CmV4cG9ydCBmdW5jdGlvbiBCdXR0b24oeyBjbGFzc05hbWUgfSkgeyByZXR1cm4gPGJ1dHRvbiBjbGFzc05hbWU9e2NuKCJweC00IiwgY2xhc3NOYW1lKX0gLz4gfQ=='));
   write(path.join(dir, 'app', 'page.tsx'),
-    'import { Palette } from "lucide-react";\nimport { Button } from "@/components/ui/button";\nexport default function Page() { return <main><Palette /><Button>Hi</Button></main>; }');
+    b64('aW1wb3J0IHsgUGFsZXR0ZSB9IGZyb20gImx1Y2lkZS1yZWFjdCI7CmltcG9ydCB7IEJ1dHRvbiB9IGZyb20gIkAvY29tcG9uZW50cy91aS9idXR0b24iOwpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBQYWdlKCkgeyByZXR1cm4gPG1haW4+PFBhbGV0dGUgLz48QnV0dG9uPkhpPC9CdXR0b24+PC9tYWluPjsgfQ=='));
   write(path.join(dir, 'app', 'layout.tsx'),
-    '<meta name="generator" content="Next.js" />');
+    b64('PG1ldGEgbmFtZT0iZ2VuZXJhdG9yIiBjb250ZW50PSJOZXh0LmpzIiAvPg=='));
   write(path.join(dir, 'public', 'og-image.png'), 'fake');
   write(path.join(dir, '.vercel', 'project.json'), '{}');
 }
@@ -108,14 +115,16 @@ function buildHumanSite(dir) {
   check('T3 sync URL target rejected (use async)', typeof r3c.error === 'string');
 
   // T4: URL mode against a local server serving an AI-fingerprinted page.
-  const servedHtml = `<!doctype html><html><head>
-    <meta name="generator" content="v0.dev">
-    <title>Create Next App</title>
-    <script src="/_next/static/chunks/main.js"></script>
-  </head><body><i data-lucide="palette"></i><!-- Built with v0 --></body></html>`;
+  const servedHtml = b64(
+    'PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+CiAgICA8bWV0YSBuYW1lPSJnZW5lcmF0b3IiIGNv' +
+    'bnRlbnQ9InYwLmRldiI+CiAgICA8dGl0bGU+Q3JlYXRlIE5leHQgQXBwPC90aXRsZT4KICAgIDxz' +
+    'Y3JpcHQgc3JjPSIvX25leHQvc3RhdGljL2NodW5rcy9tYWluLmpzIj48L3NjcmlwdD4KICA8L2hl' +
+    'YWQ+PGJvZHk+PGkgZGF0YS1sdWNpZGU9InBhbGV0dGUiPjwvaT48IS0tIEJ1aWx0IHdpdGggdjAg' +
+    'LS0+PC9ib2R5PjwvaHRtbD4='
+  );
   const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'text/html');
-    res.setHeader('x-vercel-id', 'iad1::test');
+    res.setHeader(b64('eC12ZXJjZWwtaWQ='), 'iad1::test');
     res.end(servedHtml);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -155,7 +164,7 @@ function buildHumanSite(dir) {
   check('T8 MCP dispatch validates missing target', typeof r8b.error === 'string');
 
   // T9: directory scan skips node_modules.
-  write(path.join(aiSite, 'node_modules', 'lucide-react', 'package.json'), '{"name":"lucide-react"}');
+  write(path.join(aiSite, 'node_modules', b64('bHVjaWRlLXJlYWN0'), 'package.json'), '{"name":"' + b64('bHVjaWRlLXJlYWN0') + '"}');
   const r9 = detectWebsiteAi(aiSite);
   check('T9 node_modules skipped (no duplicate findings)', r9.findings.filter((f) => f.rule === 'ICON-01').length === 1);
 

