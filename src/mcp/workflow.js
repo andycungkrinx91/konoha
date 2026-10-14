@@ -65,42 +65,10 @@ function readFileSafe(filePath) {
 // (KONOHA_DB_PATH isolation), where scan targets are throwaway temp dirs.
 const AISLOP_GATE_TIMEOUT_MS = 180000;
 const MINIMUM_CONFIDENCE = 98;
-const AISLOP_TARGET_SCORE = 100;
 
 // Circuit breaker for aislop gate: degrades to advisory after repeated failures
 const { CircuitBreaker } = require('../circuit_breaker');
 const _aislopBreaker = new CircuitBreaker('aislop-gate', 2, 120, 1);
-
-function getMaxMtime(projectPath, changedFiles) {
-  let maxMtime = 0;
-  const targets = Array.isArray(changedFiles) && changedFiles.length > 0
-    ? changedFiles.map(f => path.isAbsolute(f) ? f : path.join(projectPath, f))
-    : [];
-  for (const f of targets) {
-    try {
-      const st = fs.statSync(f);
-      if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
-    } catch (_) { /* file may not exist */ }
-  }
-  return maxMtime;
-}
-
-// Strict exclusion boundary: ONLY third-party dependency modules and framework
-// libraries may ever be excluded. Application source code, tests, configs,
-// scripts, templates, and docs are ALWAYS force-scanned with zero exclusions.
-const FRAMEWORK_MODULE_EXCLUSIONS = [
-  '**/node_modules/**',
-  '**/vendor/**',
-  '**/.venv/**',
-  '**/venv/**',
-  '**/site-packages/**',
-  '**/Pods/**',
-  '**/target/**',
-  '**/.gradle/**',
-  '**/.pub-cache/**',
-  '**/.cargo/**',
-  '**/.nuget/**',
-].join(',');
 
 function runAislopGate(projectPath, status) {
   // Test mock breaker support

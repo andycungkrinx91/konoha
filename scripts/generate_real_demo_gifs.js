@@ -355,42 +355,43 @@ function main() {
     }
   })();
 
+  const generateFramesForScenes = (scenes, titlePrefix, badgeResolver) => {
+    const frames = [];
+    for (const [cmdStr, cmdArgs, badge, extraEnv, scroll, cwd, pdir] of scenes) {
+      console.log(`  • Running ${titlePrefix.includes('test') ? 'test' : 'command'}: ${cmdStr}`);
+      const resolvedBadge = badgeResolver(cmdStr, badge);
+      const sceneFrames = buildSceneFrames(cmdStr, cmdArgs, resolvedBadge, {
+        titlePrefix,
+        extraEnv,
+        scrollSteps: scroll,
+        cwd,
+        promptDir: pdir,
+      });
+      frames.push(...sceneFrames);
+    }
+    return frames;
+  };
+
   // 1. FLAGSHIP DEMO GIF: assets/demo.gif — ALL COMMANDS FROM THE HELP MENU.
   console.log('▶ Generating Flagship Demo GIF: assets/demo.gif (ALL 18 HELP COMMANDS) ...');
-  const allDemoFrames = [];
-  for (const [cmdStr, cmdArgs, badge, extraEnv, scroll, cwd, pdir] of G.demo_scenes) {
-    console.log(`  • Running command: ${cmdStr}`);
-    const resolvedBadge = (cmdStr.includes('version') && typeof badge === 'string' && badge.includes('RELEASE'))
+  const allDemoFrames = generateFramesForScenes(
+    G.demo_scenes,
+    'konoha',
+    (cmdStr, badge) => (cmdStr.includes('version') && typeof badge === 'string' && badge.includes('RELEASE'))
       ? `RELEASE v${pkgVersion}`
-      : badge;
-    const frames = buildSceneFrames(cmdStr, cmdArgs, resolvedBadge, {
-      titlePrefix: 'konoha',
-      extraEnv,
-      scrollSteps: scroll,
-      cwd,
-      promptDir: pdir,
-    });
-    allDemoFrames.push(...frames);
-  }
+      : badge
+  );
   saveOptimizedGif(allDemoFrames, path.join(ASSETS_DIR, 'demo.gif'));
 
   // 2. DEDICATED TESTING COVERAGE GIF: assets/testing.gif.
   console.log('\n▶ Generating Dedicated Testing Coverage GIF: assets/testing.gif ...');
-  const testingFrames = [];
-  for (const [cmdStr, cmdArgs, badge, extraEnv, scroll, cwd, pdir] of G.test_scenes) {
-    console.log(`  • Running test: ${cmdStr}`);
-    const resolvedBadge = (cmdStr.includes('run_all.js') && typeof badge === 'string' && badge.includes('TEST SUITES PASSING'))
+  const testingFrames = generateFramesForScenes(
+    G.test_scenes,
+    'konoha test',
+    (cmdStr, badge) => (cmdStr.includes('run_all.js') && typeof badge === 'string' && badge.includes('TEST SUITES PASSING'))
       ? `${suiteCount} TEST SUITES PASSING (100% OK)`
-      : badge;
-    const frames = buildSceneFrames(cmdStr, cmdArgs, resolvedBadge, {
-      titlePrefix: 'konoha test',
-      extraEnv,
-      scrollSteps: scroll,
-      cwd,
-      promptDir: pdir,
-    });
-    testingFrames.push(...frames);
-  }
+      : badge
+  );
   saveOptimizedGif(testingFrames, path.join(ASSETS_DIR, 'testing.gif'));
 
   // 3. INDIVIDUAL REAL CODING AGENT CLIENT DEMO GIFS.

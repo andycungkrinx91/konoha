@@ -3,6 +3,9 @@ ci:
   failBelow: 100
 rules:
   ai-slop/*: error
+imports:
+  provided:
+    - vscode
 # Complexity calibration for the Konoha single-runtime architecture:
   # - bin/cli.js is the documented self-contained CLI (all commands in one file
   #   for cross-platform shim simplicity).

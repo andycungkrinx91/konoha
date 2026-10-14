@@ -462,6 +462,29 @@ function memoryContentExists(content, agentName = null, projectPath = null, proj
   }
 }
 
+function appendSessionFilter(options) {
+  const { allSessions, explicitSession, pHash, strictSession, sessionId, prefix = '' } = options;
+  if (allSessions) return { clause: '', params: [] };
+  const col = prefix ? `${prefix}.` : '';
+  const sid = String(sessionId).trim();
+  if (explicitSession) {
+    if (pHash && !strictSession) {
+      return {
+        clause: ` AND (${col}session_id = ? OR (${col}session_id = '' AND (${col}project_hash = '' OR ${col}project_hash IS NULL)) OR (${col}project_hash = ? AND ${col}memory_type != 'episodic'))`,
+        params: [sid, pHash]
+      };
+    }
+    return {
+      clause: ` AND (${col}session_id = ? OR (${col}session_id = '' AND (${col}project_hash = '' OR ${col}project_hash IS NULL)))`,
+      params: [sid]
+    };
+  }
+  return {
+    clause: ` AND (${col}memory_type != 'episodic' OR (${col}session_id = '' AND (${col}project_hash = '' OR ${col}project_hash IS NULL)))`,
+    params: []
+  };
+}
+
 function queryMemories(
   agentName = null,
   query = "",
@@ -549,19 +572,9 @@ function queryMemories(
             params.push(pHash);
           }
 
-          if (!allSessions) {
-            if (explicitSession) {
-              if (pHash && !strictSession) {
-                sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)) OR (m.project_hash = ? AND m.memory_type != 'episodic'))";
-                params.push(String(sessionId).trim(), pHash);
-              } else {
-                sql += " AND (m.session_id = ? OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
-                params.push(String(sessionId).trim());
-              }
-            } else {
-              sql += " AND (m.memory_type != 'episodic' OR (m.session_id = '' AND (m.project_hash = '' OR m.project_hash IS NULL)))";
-            }
-          }
+          const sessFilter1 = appendSessionFilter({ allSessions, explicitSession, pHash, strictSession, sessionId, prefix: 'm' });
+          sql += sessFilter1.clause;
+          params.push(...sessFilter1.params);
 
           if (memoryType) {
             sql += " AND m.memory_type = ?";
@@ -582,7 +595,7 @@ function queryMemories(
           }
         } catch (err) {
           if (err && String(err.message).toLowerCase().includes('fts5')) {
-            try { db.rebuildAllFts(conn); } catch (_) {}
+            try { db.rebuildAllFts(conn); } catch (_) { /* intentional ignore */ }
           }
         }
       }
@@ -604,19 +617,9 @@ function queryMemories(
       params.push(pHash);
     }
 
-    if (!allSessions) {
-      if (explicitSession) {
-        if (pHash && !strictSession) {
-          sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)) OR (project_hash = ? AND memory_type != 'episodic'))";
-          params.push(String(sessionId).trim(), pHash);
-        } else {
-          sql += " AND (session_id = ? OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
-          params.push(String(sessionId).trim());
-        }
-      } else {
-        sql += " AND (memory_type != 'episodic' OR (session_id = '' AND (project_hash = '' OR project_hash IS NULL)))";
-      }
-    }
+    const sessFilter2 = appendSessionFilter({ allSessions, explicitSession, pHash, strictSession, sessionId });
+    sql += sessFilter2.clause;
+    params.push(...sessFilter2.params);
 
     if (memoryType) {
       sql += " AND memory_type = ?";

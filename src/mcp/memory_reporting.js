@@ -270,10 +270,11 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
 
   const effTaskId = taskId || (workflowStatus && workflowStatus.current_dispatch ? workflowStatus.current_dispatch.task_id : null) || (taskDir ? path.basename(taskDir) : null) || 'task_active';
 
+  let actClient = '';
   try {
     const sdlcManager = require('../sdlc_manager');
     const cd = require('./client_detection');
-    const actClient = cd.getActiveClient() || cd.detectActiveClient() || '';
+    actClient = cd.getActiveClient() || cd.detectActiveClient() || '';
     const sessId = cd.getActiveSessionId(pPath);
     const evidenceData = {
       verified,
@@ -604,6 +605,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     'tokubetsu_jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
   };
 
+  const cleanAgentName = (dbAgentName || agentName || '').toLowerCase().trim().replace(/_/g, '-');
   const forcedSkills = MANDATORY_AGENT_ANTISLOP_SKILLS[dbAgentName] || MANDATORY_AGENT_ANTISLOP_SKILLS[cleanAgentName];
   if (forcedSkills) {
     for (const fsItem of forcedSkills) {

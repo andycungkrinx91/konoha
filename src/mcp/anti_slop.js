@@ -43,7 +43,7 @@ const BANNED_PATTERNS = [
   },
   {
     rule: 'syntax-narration-comment',
-    regex: new RegExp('(?:\/\\/\\s*Import (?:the )?[a-zA-Z0-9_-]+ (?:library|module|package)|\\/\\/\\s*Define (?:the )?[a-zA-Z0-9_-]+ (?:variable|constant|function)|\\/\\/\\s*Return (?:the )?result|\\/\\/\\s*Constructor function)\\b', 'i'),
+    regex: new RegExp('(?:\\/\\/\\s*Import (?:the )?[a-zA-Z0-9_-]+ (?:library|module|package)|\\/\\/\\s*Define (?:the )?[a-zA-Z0-9_-]+ (?:variable|constant|function)|\\/\\/\\s*Return (?:the )?result|\\/\\/\\s*Constructor function)\\b', 'i'),
     message: 'Low-value AI syntax narration comment detected.'
   }
 ];
@@ -81,55 +81,60 @@ function collectCandidateFiles(dir, maxFiles = 100) {
   return results;
 }
 
+function parseScannerJsonOutput(raw, defaultErrorMsg) {
+  const rawStr = String(raw || '').trim();
+  const jsonStart = rawStr.indexOf('{');
+  const jsonEnd = rawStr.lastIndexOf('}');
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    return {
+      ok: false,
+      pass: false,
+      available: true,
+      score: 0,
+      errors: 1,
+      warnings: 0,
+      findings: [{ rule: 'invalid_scanner_output', message: defaultErrorMsg, severity: 'error' }],
+      error: 'invalid_json_output'
+    };
+  }
+  try {
+    const jsonStr = rawStr.slice(jsonStart, jsonEnd + 1);
+    const parsed = JSON.parse(jsonStr);
+    const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+    const score = typeof parsed.score === 'number' ? parsed.score : 100;
+    const errors = findings.filter(f => f.severity === 'error' || f.level === 'error').length;
+    const warnings = findings.filter(f => f.severity === 'warning' || f.level === 'warning').length;
+    const totalIssues = findings.length;
+    const pass = totalIssues === 0 && score === 100;
+    return {
+      ok: pass,
+      pass,
+      available: true,
+      score,
+      findings,
+      errors,
+      warnings,
+      total_issues: totalIssues,
+      error: null
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      pass: false,
+      available: true,
+      score: 0,
+      errors: 1,
+      warnings: 0,
+      findings: [{ rule: 'invalid_scanner_output', message: e.message, severity: 'error' }],
+      error: e.message
+    };
+  }
+}
+
 function executeAislopScan(projectPath, options = {}) {
   // Support mock output injection for testing
   if (options.mockOutput !== undefined) {
-    const raw = String(options.mockOutput).trim();
-    const jsonStart = raw.indexOf('{');
-    const jsonEnd = raw.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-      return {
-        ok: false,
-        pass: false,
-        available: true,
-        score: 0,
-        errors: 1,
-        warnings: 0,
-        findings: [{ rule: 'invalid_scanner_output', message: 'Corrupt or non-JSON scanner output', severity: 'error' }],
-        error: 'invalid_json_output'
-      };
-    }
-    try {
-      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-      const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-      const score = typeof parsed.score === 'number' ? parsed.score : 100;
-      const errors = findings.filter(f => f.severity === 'error' || f.level === 'error').length;
-      const warnings = findings.filter(f => f.severity === 'warning' || f.level === 'warning').length;
-      const totalIssues = findings.length;
-      const pass = totalIssues === 0 && score === 100;
-      return {
-        ok: pass,
-        pass,
-        available: true,
-        score,
-        findings,
-        errors,
-        warnings,
-        total_issues: totalIssues,
-        error: null
-      };
-    } catch (e) {
-      return {
-        ok: false,
-        pass: false,
-        available: true,
-        score: 0,
-        errors: 1,
-        warnings: 0,
-        findings: [{ rule: 'invalid_scanner_output', message: e.message, severity: 'error' }],
-        error: e.message
-      };
-    }
+    return parseScannerJsonOutput(options.mockOutput, 'Corrupt or non-JSON scanner output');
   }
 
   const isWin = process.platform === 'win32';
@@ -157,8 +162,10 @@ function executeAislopScan(projectPath, options = {}) {
     } catch (_) { /* fallback to npx */ }
   }
 
-  const targetFiles = options.targetFiles || options.changedFiles || [];
-  if (Array.isArray(targetFiles) && targetFiles.length > 0) {
+  const targetFiles = Array.isArray(options.targetFiles)
+    ? options.targetFiles
+    : (Array.isArray(options.changedFiles) ? options.changedFiles : []);
+  if (targetFiles.length > 0) {
     const filteredFiles = targetFiles.filter(f => {
       const norm = f.replace(/\\/g, '/');
       return !norm.includes('node_modules/') &&
@@ -210,42 +217,7 @@ function executeAislopScan(projectPath, options = {}) {
       };
     }
 
-    const output = (res.stdout || '').trim();
-    const jsonStart = output.indexOf('{');
-    const jsonEnd = output.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-      return {
-        ok: false,
-        pass: false,
-        available: true,
-        score: 0,
-        errors: 1,
-        warnings: 0,
-        findings: [{ rule: 'invalid_scanner_output', message: 'No valid JSON found in scanner output', severity: 'error' }],
-        error: 'invalid_json_output'
-      };
-    }
-
-    const jsonStr = output.slice(jsonStart, jsonEnd + 1);
-    const parsed = JSON.parse(jsonStr);
-    const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-    const score = typeof parsed.score === 'number' ? parsed.score : 100;
-    const errors = findings.filter(f => f.severity === 'error' || f.level === 'error').length;
-    const warnings = findings.filter(f => f.severity === 'warning' || f.level === 'warning').length;
-    const totalIssues = findings.length;
-    const pass = totalIssues === 0 && score === 100;
-
-    return {
-      ok: pass,
-      pass,
-      available: true,
-      score,
-      findings,
-      errors,
-      warnings,
-      total_issues: totalIssues,
-      error: null
-    };
+    return parseScannerJsonOutput(res.stdout, 'No valid JSON found in scanner output');
   } catch (err) {
     return {
       ok: false,
@@ -339,10 +311,10 @@ function runAntiSlopAudit(args = {}, agentName = null) {
     .map(f => path.isAbsolute(f) ? f : path.resolve(root, f))
     .filter(f => fs.existsSync(f) && fs.statSync(f).isFile());
 
-  // Step 1: Scanner verification
+  // Scanner verification
   const engineResult = runAislopScanEngine(root, resolvedFiles);
 
-  // Step 2: Semantic anti-slop rules review
+  // Semantic anti-slop rules review
   const semanticFindings = [];
   for (const rf of resolvedFiles) {
     const ff = runSemanticAntiSlopCheck(rf);

@@ -355,9 +355,6 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
   };
 
-  const OFFICIAL_NINJA_NAMES = new Set([
-    'sannin', 'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'tokubetsu_jonin'
-  ]);
 
   const emittedAgentNames = new Set();
   const agentBlocks = agents

@@ -76,7 +76,9 @@ function getSystemTelemetry() {
       dbQueriesPerSec = Math.round(100 / (dbMs / 1000));
       dbAvgLatencyMs = (dbMs / 100).toFixed(2);
     }
-  } catch (_) {}
+  } catch (_) {
+    /* intentional ignore */
+  }
 
   try {
     const { encryptSecret, decryptSecret } = require('../src/crypto_vault');
@@ -91,7 +93,9 @@ function getSystemTelemetry() {
       cryptoOpsPerSec = Math.round(200 / (cMs / 1000));
       cryptoAvgLatencyMs = (cMs / 200).toFixed(3);
     }
-  } catch (_) {}
+  } catch (_) {
+    /* intentional ignore */
+  }
 
   return {
     platform: `${os.platform()} ${os.arch()}`,

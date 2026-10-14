@@ -301,17 +301,9 @@ function setupSchema(conn) {
           AND project_hash NOT IN (SELECT project_hash FROM projects);
 
         CREATE TABLE IF NOT EXISTS persona_memories_migrated (
-            id TEXT PRIMARY KEY,
-            project_hash TEXT DEFAULT NULL,
-            session_id TEXT DEFAULT '',
-            agent_name TEXT NOT NULL,
-            memory_type TEXT NOT NULL,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            tags TEXT,
-            importance INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
+            id TEXT PRIMARY KEY, project_hash TEXT DEFAULT NULL, session_id TEXT DEFAULT '',
+            agent_name TEXT NOT NULL, memory_type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+            tags TEXT, importance INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
             FOREIGN KEY (project_hash) REFERENCES projects(project_hash) ON DELETE CASCADE
         );
         INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
@@ -576,7 +568,7 @@ function rebuildAllFts(conn = null) {
     return { rebuilt: rebuiltTables.length > 0, tables: rebuiltTables };
   } finally {
     if (shouldClose && conn) {
-      try { conn.close(); } catch (_) {}
+      try { conn.close(); } catch (_) { /* ignore close error */ }
     }
   }
 }
@@ -601,7 +593,7 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
     } else {
-      try { fs.chmodSync(backupDir, 0o700); } catch (_) {}
+      try { fs.chmodSync(backupDir, 0o700); } catch (_) { /* ignore chmod error */ }
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     dest = path.join(backupDir, `konoha_backup_${timestamp}.db`);
@@ -612,7 +604,7 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
   } else {
-    try { fs.chmodSync(destDir, 0o700); } catch (_) {}
+    try { fs.chmodSync(destDir, 0o700); } catch (_) { /* ignore chmod error */ }
   }
 
   if (fs.existsSync(dest)) {
@@ -626,7 +618,7 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
   const conn = getConnection(src, false);
   try {
     conn.prepare("VACUUM INTO ?").run(dest);
-    try { fs.chmodSync(dest, 0o600); } catch (_) {}
+    try { fs.chmodSync(dest, 0o600); } catch (_) { /* ignore chmod error */ }
     const stat = fs.statSync(dest);
     return {
       success: true,
@@ -634,7 +626,7 @@ function backupDatabase(targetPath = null, sourceDbPath = null, overwrite = true
       sizeBytes: stat.size
     };
   } finally {
-    try { conn.close(); } catch (_) {}
+    try { conn.close(); } catch (_) { /* ignore close error */ }
   }
 }
 

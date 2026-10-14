@@ -266,13 +266,17 @@ function createWebServer(options = {}) {
             try {
               const normHost = tunnelMgr.normalizeAndValidateTunnelHostname(tunnelStatus.custom_domain);
               allowedHosts.add(normHost);
-            } catch (_) {}
+            } catch (_) {
+              /* invalid custom domain */
+            }
           }
           if (allowedHosts.has(hostWithoutPort)) {
             isAllowedTunnelHost = true;
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        /* tunnel manager unavailable */
+      }
     }
 
     if (!isLoopbackHost && !isAllowedTunnelHost) {
@@ -1894,7 +1898,9 @@ function createWebServer(options = {}) {
         let body = {};
         try {
           body = await parseBody(req);
-        } catch (_) {}
+        } catch (_) {
+          /* default to empty body */
+        }
         const isConfirmed = body.confirm === true || parsedUrl.searchParams.get('confirm') === 'true';
         if (!isConfirmed) {
           return sendJson(res, 400, {

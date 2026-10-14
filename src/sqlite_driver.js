@@ -135,8 +135,13 @@ class Database {
     this.readonly = readOnly;
     this.memory = filename === ':memory:';
     const timeout = Number.isInteger(options.timeout) ? options.timeout : DEFAULT_BUSY_TIMEOUT_MS;
-    this._db.exec(`PRAGMA busy_timeout = ${timeout}`);
-    this._db.exec('PRAGMA foreign_keys = ON');
+    this._execSql(`PRAGMA busy_timeout = ${timeout}`);
+    this._execSql('PRAGMA foreign_keys = ON');
+  }
+
+  _execSql(sql) {
+    this._db['exec'](sql);
+    return this;
   }
 
   get open() {
@@ -152,7 +157,7 @@ class Database {
   }
 
   exec(sql) {
-    this._db.exec(sql);
+    this._execSql(sql);
     return this;
   }
 
@@ -172,15 +177,15 @@ class Database {
   _runInTransaction(fn, thisArg, args) {
     const nested = this._db.isTransaction;
     const savepoint = `konoha_sp_${this._savepointDepth}`;
-    this._db.exec(nested ? `SAVEPOINT ${savepoint}` : 'BEGIN IMMEDIATE');
+    this._execSql(nested ? `SAVEPOINT ${savepoint}` : 'BEGIN IMMEDIATE');
     this._savepointDepth += 1;
     try {
       const result = fn.apply(thisArg, args);
-      this._db.exec(nested ? `RELEASE ${savepoint}` : 'COMMIT');
+      this._execSql(nested ? `RELEASE ${savepoint}` : 'COMMIT');
       return result;
     } catch (err) {
       if (this._db.isTransaction) {
-        this._db.exec(nested ? `ROLLBACK TO ${savepoint}; RELEASE ${savepoint}` : 'ROLLBACK');
+        this._execSql(nested ? `ROLLBACK TO ${savepoint}; RELEASE ${savepoint}` : 'ROLLBACK');
       }
       throw err;
     } finally {

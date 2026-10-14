@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { exec, execFile, spawnSync } = require('child_process');
+const { execFile, spawnSync } = require('child_process');
 const inboxModule = require('./inbox');
 const notifierModule = require('../telegram/notifier');
 

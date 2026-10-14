@@ -171,7 +171,7 @@ function pruneToolCalls(retentionDays = 90, dbPath = null) {
   } catch (err) {
     return { deleted: 0, retentionDays: days, error: err.message };
   } finally {
-    try { conn.close(); } catch (_) {}
+    try { conn.close(); } catch (_) { /* ignore close error */ }
   }
 }
 

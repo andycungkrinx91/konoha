@@ -17,7 +17,7 @@
  * Cross-platform: Linux, macOS, Windows
  */
 
-const { C, log, error, header, drawLogo, chidoriTransition } = require('./lib/format');
+const { C, log, error, drawLogo, chidoriTransition } = require('./lib/format');
 const { closeReadline } = require('./lib/prompt');
 const {
   ensureAutoSetup,

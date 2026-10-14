@@ -178,14 +178,18 @@ function migrateBridgesEncryption(dbPath = null) {
 
   try {
     fs.chmodSync(target, 0o600);
-  } catch (_) {}
+  } catch (_) {
+    /* intentional best-effort chmod */
+  }
 
   try {
     const keyPath = vault.getKeyFilePath ? vault.getKeyFilePath() : path.join(path.dirname(target), '.vault_key');
     if (fs.existsSync(keyPath)) {
       fs.chmodSync(keyPath, 0o600);
     }
-  } catch (_) {}
+  } catch (_) {
+    /* intentional best-effort chmod */
+  }
 
   const conn = getDbConnection(target);
   try {
@@ -203,7 +207,11 @@ function migrateBridgesEncryption(dbPath = null) {
     const backupPath = path.join(backupDir, backupName);
     try {
       conn.prepare(`VACUUM INTO ?`).run(backupPath);
-      try { fs.chmodSync(backupPath, 0o600); } catch (_) {}
+      try {
+        fs.chmodSync(backupPath, 0o600);
+      } catch (_) {
+        /* intentional best-effort chmod */
+      }
     } catch (err) {
       throw new Error(`Failed to create database backup before bridges migration: ${err.message}`);
     }
