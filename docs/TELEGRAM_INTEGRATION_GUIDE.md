@@ -1,6 +1,6 @@
 # Telegram Bot Integration Guide: Remote Notifications & Inbound Prompting
 
-**Konoha MCP Version:** v2.1.17  
+**Konoha MCP Version:** v2.1.18  
 **Module:** `src/telegram/`  
 **CLI Interface:** `konoha telegram <command>`  
 **Web UI Route:** `/remote`
