@@ -808,10 +808,11 @@ Executes the specified subagent inline with structured task context, dynamic ski
 Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.
 
 #### `website_ai_detector(target)`
-Website AI-fingerprint detector (anonymiz.com-style). Scans a site directory or http(s) URL for generator meta tags, Lucide icon packages, shadcn/ui component shapes, Vercel/Netlify hosting signals, AI-tool attribution comments, scaffold boilerplate, and generic template asset names. Returns a 0-100 score with evidence-backed findings — **0-20 = Human-Built** (the PLAN_HUMAN_BUILT.md target band). Also available as `konoha detect-ai <target> [--json]` and in the Web UI at `/detector`.
+Website AI-fingerprint detector (anonymiz.com-style). Scans a site directory, file, or http(s) URL for generator meta tags, Lucide icon packages, shadcn/ui component shapes, Vercel/Netlify hosting signals, AI-tool attribution comments, scaffold boilerplate, and generic template asset names. Returns a 0-100 score with evidence-backed findings — **0-20 = Human-Built** (the PLAN_HUMAN_BUILT.md target band). Also available as `konoha detect-ai <target> [--json]` and in the Web UI at `/detector`.
 
 ```
 website_ai_detector({ target: "./my-portfolio" })        → score, label, findings
+website_ai_detector({ target: "package.json" })           → file mode (dependencies & patterns)
 website_ai_detector({ target: "https://example.com" })   → URL mode (headers + HTML)
 ```
 

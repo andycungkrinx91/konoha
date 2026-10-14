@@ -190,6 +190,44 @@ function collectDirectorySignals(rootDir) {
   return { ctx, filesScanned, bytesScanned };
 }
 
+// ── File collection ───────────────────────────────────────────────────────────
+function collectFileSignals(filePath) {
+  const ctx = {
+    html: [], sources: [], packageJsons: [],
+    assets: [], componentUiDirs: [], vercelDir: null
+  };
+  const baseName = path.basename(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const rel = baseName;
+
+  if (/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(baseName)) {
+    ctx.assets.push(baseName);
+    return { ctx, filesScanned: 1, bytesScanned: 0 };
+  }
+
+  let content;
+  try {
+    const st = fs.statSync(filePath);
+    if (st.size > MAX_FILE_BYTES) return { ctx, filesScanned: 0, bytesScanned: 0 };
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch (_) {
+    return { ctx, filesScanned: 0, bytesScanned: 0 };
+  }
+
+  const bytesScanned = Buffer.byteLength(content, 'utf-8');
+  const isHtml = ext === '.html' || ext === '.htm' || ext === '.astro';
+  const bucket = baseName === 'package.json' ? ctx.packageJsons : (isHtml ? ctx.html : ctx.sources);
+  const lines = content.split('\n').slice(0, 400);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].slice(0, 300);
+    if (line.trim()) bucket.push({ file: rel, line_no: i + 1, line });
+  }
+  if (/components[\\/]ui[\\/]/.test(filePath) || /^(ui|ui-components)$/.test(path.basename(path.dirname(filePath)))) {
+    ctx.componentUiDirs.push(rel);
+  }
+  return { ctx, filesScanned: 1, bytesScanned };
+}
+
 // ── URL collection ───────────────────────────────────────────────────────────
 async function collectUrlSignals(url) {
   const ctx = {
@@ -272,18 +310,23 @@ function detectWebsiteAi(target) {
     return { error: 'Use detectWebsiteAiAsync for URL targets' };
   }
 
-  const dir = path.resolve(trimmed);
+  const targetPath = path.resolve(trimmed);
   let st;
-  try { st = fs.statSync(dir); } catch (_) {
+  try { st = fs.statSync(targetPath); } catch (_) {
     return { error: `Target not found: ${trimmed}` };
   }
-  if (!st.isDirectory()) {
-    return { error: `Target is not a directory: ${trimmed}` };
+  if (!st.isDirectory() && !st.isFile()) {
+    return { error: `Target is not a directory or file: ${trimmed}` };
   }
 
-  const result = buildDetectionResult(trimmed, 'directory', collectDirectorySignals(dir), started);
+  const isFile = st.isFile();
+  const mode = isFile ? 'file' : 'directory';
+  const signals = isFile ? collectFileSignals(targetPath) : collectDirectorySignals(targetPath);
+  const result = buildDetectionResult(trimmed, mode, signals, started);
   if (result.stats.files_scanned === 0) {
-    result.hint = 'No scannable files found. If this is a build output parent, point the target directly at the build directory — generated dirs (build/, dist/, .next/, node_modules/) nested inside the target are skipped by design.';
+    result.hint = isFile
+      ? 'File could not be scanned (exceeds size limit or unreadable).'
+      : 'No scannable files found. If this is a build output parent, point the target directly at the build directory — generated dirs (build/, dist/, .next/, node_modules/) nested inside the target are skipped by design.';
   }
   return result;
 }
@@ -311,5 +354,5 @@ module.exports = {
   evaluateRules,
   classify,
   RULES,
-  _internals: { collectDirectorySignals, SKIP_DIRS, SCAN_EXTENSIONS }
+  _internals: { collectDirectorySignals, collectFileSignals, SKIP_DIRS, SCAN_EXTENSIONS }
 };

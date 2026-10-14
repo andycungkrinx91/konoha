@@ -246,17 +246,17 @@
     },
     {
       "name": "website_ai_detector",
-      "description": "Scan a website directory or URL for AI-generation fingerprints.",
+      "description": "Scan a website directory, file, or URL for AI-generation fingerprints.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "target": {
             "type": "string",
-            "description": "Site directory path or http(s) URL to scan"
+            "description": "Site directory path, file path, or http(s) URL to scan"
           },
           "path": {
             "type": "string",
-            "description": "Alias for target: site directory path"
+            "description": "Alias for target: site directory or file path"
           },
           "url": {
             "type": "string",

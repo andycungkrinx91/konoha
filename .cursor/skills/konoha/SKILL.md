@@ -505,5 +505,18 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Project-Level Rule Visibility**: Project-scoped memories that are non-episodic (`memory_type != 'episodic'`) remain visible across sessions within the same project.
     - **Explicit Cross-Session Opt-In**: The Web UI and administrative tools pass `allSessions: true` (or `crossSession: true`) to list and inspect memories across all sessions.
     - **Options Shadowing Guard**: Variable re-assignment in memory handlers does not shadow caller query options (`allSessions`, `persona`, `project_hash`).
+89. **CLI Router Consolidation & Direct Specialist Dispatch Invariants (v2.1.18)**:
+    - **Removed 27 Top-Level CLI Aliases**: All legacy router aliases (`embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`) are removed; they strictly exit with code 1 and error `Unknown command: <alias>`.
+    - **Specialist Subagent Direct Dispatch**: Deprecated `delegate_to_*` tool wrappers and configuration grants are removed across all client integrations (`claude`, `cursor`, `opencode`, `codex`, `antigravity`), consolidating MCP dispatch directly to specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`).
+    - **Report Caller Name Validation (G-18)**: `report_from_agent` strictly rejects legacy `delegate_to_*` caller names and requires direct agent names.
+90. **Website AI Detector Dual Target Support (Directory & File) (v2.1.18)**:
+    - `konoha detect-ai <target>` and MCP tool `website_ai_detector` support both directory targets and single-file targets (such as `package.json`, `.html`, source code files). Single-file targets collect signals via `collectFileSignals` with bounded line extraction and file type routing.
+91. **Database Schema & Foreign Key Migration (v2.1.18)**:
+    - Table rebuild with foreign key constraints takes an atomic backup before migration; orphaned project memories (`project_hash` non-empty and absent in `projects`) are safely deleted upon migration instead of leaking to global scope.
+92. **Immediate Deletion Warning for `konoha data prune` (v2.1.18)**:
+    - `konoha data prune` performs immediate deletion of historical tool calls without interactive confirmation or automatic backup.
+93. **Standalone Static Analysis Linter (v2.1.18)**:
+    - `npm run lint` (`scripts/lint.js`) checks all JavaScript files across `bin/`, `src/`, `tests/`, and `scripts/` without external npm dependencies.
+
 
 

@@ -159,6 +159,22 @@ function buildHumanSite(dir) {
   const r9 = detectWebsiteAi(aiSite);
   check('T9 node_modules skipped (no duplicate findings)', r9.findings.filter((f) => f.rule === 'ICON-01').length === 1);
 
+  // T10: single file target (file mode).
+  const r10a = detectWebsiteAi(path.join(aiSite, 'package.json'));
+  check('T10a package.json file scan succeeds', !r10a.error, JSON.stringify(r10a.error || ''));
+  check('T10a mode is file', r10a.mode === 'file');
+  check('T10a files_scanned is 1', r10a.stats && r10a.stats.files_scanned === 1);
+  check('T10a ICON-01 detected in package.json', r10a.findings && r10a.findings.some((f) => f.rule === 'ICON-01'));
+
+  const r10b = detectWebsiteAi(path.join(humanSite, 'index.html'));
+  check('T10b single html file scan succeeds', !r10b.error, JSON.stringify(r10b.error || ''));
+  check('T10b mode is file', r10b.mode === 'file');
+  check('T10b score within Human-Built band', r10b.score <= 20);
+
+  const r10c = detectWebsiteAi('package.json');
+  check('T10c repo root package.json scan succeeds', !r10c.error, JSON.stringify(r10c.error || ''));
+  check('T10c mode is file', r10c.mode === 'file');
+
   fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(`\n${passed} passed, ${failed} failed`);

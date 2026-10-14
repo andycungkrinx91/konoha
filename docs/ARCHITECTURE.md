@@ -273,6 +273,12 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Uses NIST-standard AES-256-GCM AEAD with 96-bit unique random initialization vectors and 128-bit GMAC authentication tags (`enc:v1:<iv>:<tag>:<ciphertext>`).
    - Key derivation leverages persistent host machine identity (`~/.konoha/.vault_key` with `0600` permissions, scrypt PBKDF fallback, or explicit `KONOHA_MASTER_KEY` override).
    - Features transparent decryption on read, automatic re-encryption on save, tampering rejection, and legacy plaintext backward-compatibility without breaking existing workflows or external dependencies.
+32. **CLI Router Consolidation & Direct Subagent MCP Invocation (v2.1.18)**:
+   - Removed 27 legacy top-level router aliases in `bin/cli.js`, requiring canonical command syntax and exiting with code 1 for unknown aliases.
+   - Consolidated MCP subagent dispatch directly into specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`), eliminating deprecated `delegate_to_*` wrappers and enforcing strict caller validation in `report_from_agent`.
+33. **Dual-Target Website AI Detector & Operational Database Hardening (v2.1.18)**:
+   - `konoha detect-ai` and `website_ai_detector` support both directory trees and single-file targets (`package.json`, source files, `.html`, assets) with bounded line extraction.
+   - Added database operational tools (`konoha data backup`, `rebuild-fts`, `prune`), atomic backup on foreign key migration, and clean cascading deletion of orphaned project memories.
 
 ---
 
