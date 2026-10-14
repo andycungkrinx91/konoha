@@ -24,6 +24,17 @@ const {
   saveAsset,
 } = require('./lib/premium_gif');
 
+const fs = require('fs');
+const path = require('path');
+const ROOT_DIR = path.resolve(__dirname, '..');
+const PKG_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.1.18';
+  } catch (_) {
+    return '2.1.18';
+  }
+})();
+
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
 function frame(W, H, paint, duration) {
@@ -114,7 +125,7 @@ function orchestrationScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
-      subtitle: 'Single-Thread Persona Adoption via MCP Tools · v2.1.17',
+      subtitle: `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`,
       badge: '83–98% TOKEN SAVINGS',
       footer: '40 canonical MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
     });
@@ -194,7 +205,7 @@ function joninScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'JONIN PREMIUM UI BUILD PIPELINE',
-      subtitle: 'build_from_text / build_from_source · Taste-Skill Design Engine · v2.1.17',
+      subtitle: `build_from_text / build_from_source · Taste-Skill Design Engine · v${PKG_VERSION}`,
       badge: 'PREMIUM UI AGENT',
       footer: 'design match comparison · component architecture · 3D web experiences · Phosphor icons — never Lucide',
     });
@@ -260,7 +271,7 @@ function kageScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'KAGE FINAL REVIEW GATE',
-      subtitle: 'PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v2.1.17',
+      subtitle: `PLAN_NATIVE_SDLC §2.4 · hard-mandatory delivery gate · v${PKG_VERSION}`,
       badge: 'ZERO-AI-SLOP PRE-GATE',
       badgeAccent: THEME.amber,
       footer: 'aislop_scan → anti-slop rules → result / fixing · remediation loop ≤7 cycles · sannin synthesizes on APPROVED',
@@ -325,7 +336,7 @@ function qaScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'ANBU QA AUTOMATION WORKFLOW',
-      subtitle: 'agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v2.1.17',
+      subtitle: `agent-browser scoped exploration · flows/*.json · qa_codify · qa_e2e_run loop · v${PKG_VERSION}`,
       badge: 'QA AUTOMATION PIPELINE',
       badgeAccent: THEME.emerald,
       footer: 'token-efficient browser QA · Playwright compilation · isolated preview port · 0 slop · Anbu owner',
@@ -388,7 +399,7 @@ function telegramScene() {
   const chrome = (ctx) =>
     drawChrome(ctx, W, H, {
       title: 'TELEGRAM REMOTE WORKFLOW & KAGE GATE NOTIFIER',
-      subtitle: 'Native Long Polling · Whitelist Gated · Dual-Mode Ingress · One-Way Gate Alert · v2.1.17',
+      subtitle: `Native Long Polling · Whitelist Gated · Dual-Mode Ingress · One-Way Gate Alert · v${PKG_VERSION}`,
       badge: 'REMOTE AUTOMATION',
       badgeAccent: THEME.cyan,
       footer: '0 open ports · outbound HTTPS · zero-emoji reports · instant mobile delivery on Kage approval',

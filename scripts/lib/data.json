@@ -168,11 +168,11 @@
    "assets/konoha-version.png": {
     "title": "konoha version — check version & git updates",
     "cmd": "konoha version",
-    "badge": "RELEASE v2.0.0",
+    "badge": "RELEASE v2.1.18",
     "lines": [
      "[green]✨ Konoha Version Inspector[/green]",
      "[muted]========================================================================[/muted]",
-     "  • [bold]Installed Version[/bold]   : [cyan]v2.0.0 (cross-client unified)[/cyan]",
+     "  • [bold]Installed Version[/bold]   : [cyan]v2.1.18 (cross-client unified)[/cyan]",
      "  • [bold]Git Commit[/bold]          : [purple]master@9f8c12a[/purple] (clean tree)",
      "  • [bold]Node.js Engine[/bold]      : [green]v20.18.0 (pnpm supported)[/green]",
      "  • [bold]Runtime Mode[/bold]        : [green]Pure Node.js (Single-Runtime)[/green]",
@@ -193,7 +193,7 @@
      "[muted]========================================================================[/muted]",
      "  › Fetching latest release manifest from GitHub...",
      "  › Installing latest package via pnpm...",
-     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.0.0[/cyan]",
+     "    [cyan]pnpm add --global github:andycungkrinx91/konoha#v2.1.18[/cyan]",
      "",
      "  › Re-syncing SQLite FTS5 database schemas...",
      "  › Refreshing 6-client MCP configurations & RTK rules...",
@@ -204,7 +204,7 @@
      "    [green]✓ Command Code updated[/green]",
      "    [green]✓ Codex IDE / CLI updated[/green]",
      "",
-     "[green]✨ Konoha successfully upgraded to v2.0.0! All clients re-synced.[/green]"
+     "[green]✨ Konoha successfully upgraded to v2.1.18! All clients re-synced.[/green]"
     ]
    },
    "assets/konoha-savings.png": {
@@ -1045,7 +1045,7 @@
      "bin/cli.js",
      "version"
     ],
-    "RELEASE v2.0.0"
+    "RELEASE v2.1.18"
    ],
    [
     "assets/konoha-upgrade.png",
@@ -1642,7 +1642,7 @@
      "node",
      "tests/run_all.js"
     ],
-    "69 TEST SUITES PASSING (100% OK)",
+    "142 TEST SUITES PASSING (100% OK)",
     null,
     true,
     null,
@@ -1816,7 +1816,7 @@
      "│  ● konoha__kage({ task: \"Audit architecture & test suite\" })               │",
      "│    [◎ kage] Architectural review complete. Confidence: 100%.               │",
      "│                                                                            │",
-     "│  ● konoha__read_file_range({ path: \"tests/test_docs_currency.py\" })        │",
+     "│  ● konoha__read_file_range({ path: \"tests/test_docs_currency.js\" })        │",
      "│    ✓ All documentation is consistent with source code                      │",
      "│                                                                            │",
      "│  [◎ kage] active. Calling konoha.find_skill('kage-skill')                  │",
@@ -1917,7 +1917,7 @@
     "http://127.0.0.1:1404/",
     "01_home.png",
     "http://127.0.0.1:1404/ • Village Overview",
-    "KONOHA WEB • v2.0.0",
+    "KONOHA WEB • v2.1.18",
     2200
    ],
    [

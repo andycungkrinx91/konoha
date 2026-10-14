@@ -334,12 +334,36 @@ function main() {
   // 0. Prepare per-client scratch directories.
   for (const td of G.test_dirs) fs.mkdirSync(td, { recursive: true });
 
+  const pkgVersion = (() => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.1.18';
+    } catch (_) {
+      return '2.1.18';
+    }
+  })();
+
+  const suiteCount = (() => {
+    try {
+      const testsDir = path.join(ROOT_DIR, 'tests');
+      return fs.readdirSync(testsDir).filter(f =>
+        (f.endsWith('.test.js') || f.startsWith('test_') || f.startsWith('verify_')) &&
+        f.endsWith('.js') &&
+        f !== 'run_all.js'
+      ).length;
+    } catch (_) {
+      return 142;
+    }
+  })();
+
   // 1. FLAGSHIP DEMO GIF: assets/demo.gif — ALL COMMANDS FROM THE HELP MENU.
   console.log('▶ Generating Flagship Demo GIF: assets/demo.gif (ALL 18 HELP COMMANDS) ...');
   const allDemoFrames = [];
   for (const [cmdStr, cmdArgs, badge, extraEnv, scroll, cwd, pdir] of G.demo_scenes) {
     console.log(`  • Running command: ${cmdStr}`);
-    const frames = buildSceneFrames(cmdStr, cmdArgs, badge, {
+    const resolvedBadge = (cmdStr.includes('version') && typeof badge === 'string' && badge.includes('RELEASE'))
+      ? `RELEASE v${pkgVersion}`
+      : badge;
+    const frames = buildSceneFrames(cmdStr, cmdArgs, resolvedBadge, {
       titlePrefix: 'konoha',
       extraEnv,
       scrollSteps: scroll,
@@ -355,7 +379,10 @@ function main() {
   const testingFrames = [];
   for (const [cmdStr, cmdArgs, badge, extraEnv, scroll, cwd, pdir] of G.test_scenes) {
     console.log(`  • Running test: ${cmdStr}`);
-    const frames = buildSceneFrames(cmdStr, cmdArgs, badge, {
+    const resolvedBadge = (cmdStr.includes('run_all.js') && typeof badge === 'string' && badge.includes('TEST SUITES PASSING'))
+      ? `${suiteCount} TEST SUITES PASSING (100% OK)`
+      : badge;
+    const frames = buildSceneFrames(cmdStr, cmdArgs, resolvedBadge, {
       titlePrefix: 'konoha test',
       extraEnv,
       scrollSteps: scroll,
