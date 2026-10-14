@@ -25,7 +25,11 @@ const MAX_FINDINGS = 50;
 const URL_TIMEOUT_MS = 20000;
 const SKIP_DIRS = new Set([
   'node_modules', '.git', '.next', '.svelte-kit', 'dist', 'build',
-  'output', '.output', '.nuxt', '.turbo', '.vercel', 'coverage'
+  'output', '.output', '.nuxt', '.turbo', '.vercel', 'coverage',
+  'tests', 'test', '__tests__', 'spec', 'specs', 'cypress', 'e2e',
+  'scripts', 'docs',
+  '.agents', '.cursor', '.claude', '.gemini', '.commandcode', '.vscode', '.idea', '.github',
+  'temp', 'tmp', '.cache'
 ]);
 const SCAN_EXTENSIONS = new Set([
   '.html', '.htm', '.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx',
@@ -39,8 +43,13 @@ const RULES = [
     id: 'GEN-01', severity: 'high', weight: 15,
     title: 'Generator meta tag present',
     applies: () => true,
-    test: (ctx) => [...ctx.html, ...ctx.sources].some((h) => /<meta\s+name=["']generator["']/i.test(h.line))
-      ? '<meta name="generator"> exposes the site builder toolchain' : null
+    test: (ctx) => {
+      const isGen = (line) =>
+        /<meta\s+[^>]*name=["']generator["'][^>]*content=["'][^"']+["']/i.test(line) ||
+        /<meta\s+[^>]*content=["'][^"']+["'][^>]*name=["']generator["']/i.test(line);
+      return [...ctx.html, ...ctx.sources].some((h) => !h.file.includes('ai_detector') && isGen(h.line))
+        ? '<meta name="generator"> exposes the site builder toolchain' : null;
+    }
   },
   {
     id: 'ICON-01', severity: 'high', weight: 12,
@@ -49,9 +58,9 @@ const RULES = [
     test: (ctx) => {
       const lucideDep = ctx.packageJsons.find((p) => /["']lucide-[a-z-]+["']\s*:/.test(p.line));
       if (lucideDep) return `package.json depends on ${lucideDep.line.trim().slice(0, 60)}`;
-      const lucideImport = ctx.sources.find((s) => /from\s+["']lucide-[a-z-]+["']/.test(s.line));
+      const lucideImport = ctx.sources.find((s) => !s.file.includes('ai_detector') && /from\s+["']lucide-[a-z-]+["']/.test(s.line));
       if (lucideImport) return `Lucide usage in ${lucideImport.file}: ${lucideImport.line.trim().slice(0, 80)}`;
-      const lucideAttr = [...ctx.html, ...ctx.sources].find((s) => /data-lucide=/.test(s.line));
+      const lucideAttr = [...ctx.html, ...ctx.sources].find((s) => !s.file.includes('ai_detector') && /data-lucide=["'][a-z0-9-]+["']/i.test(s.line));
       if (lucideAttr) return `data-lucide attribute in ${lucideAttr.file}: ${lucideAttr.line.trim().slice(0, 80)}`;
       return null;
     }
@@ -62,7 +71,7 @@ const RULES = [
     applies: () => true,
     test: (ctx) => {
       const re = /(?:built|created|generated|made)\s+with[^a-z]{0,3}(?:v0|lovable|bolt|cursor|chatgpt|claude|ai)|v0\.dev|lovable\.dev|bolt\.new|generated\s+by\s+ai|created\s+by\s+ai|<!--\s*built\s+with|<!--\s*generated\s+by/i;
-      const hit = [...ctx.html, ...ctx.sources].find((l) => re.test(l.line));
+      const hit = [...ctx.html, ...ctx.sources].find((l) => !l.file.includes('ai_detector') && re.test(l.line));
       return hit ? `attribution signal in ${hit.file}: ${hit.line.trim().slice(0, 80)}` : null;
     }
   },
@@ -73,9 +82,9 @@ const RULES = [
     test: (ctx) => {
       const dir = ctx.componentUiDirs[0];
       if (dir) return `shadcn-style components/ui directory: ${dir}`;
-      const cn = ctx.sources.find((s) => /(?:class|className)[:=]\s*\{?\s*cn\(/.test(s.line));
+      const cn = ctx.sources.find((s) => !s.file.includes('ai_detector') && /(?:class|className)[:=]\s*\{?\s*cn\(/.test(s.line));
       if (cn) return `shadcn cn() class-merge pattern in ${cn.file}`;
-      const imp = ctx.sources.find((s) => /from\s+["'][^"']*components\/ui\//.test(s.line));
+      const imp = ctx.sources.find((s) => !s.file.includes('ai_detector') && /from\s+["'][^"']*components\/ui\//.test(s.line));
       if (imp) return `components/ui import in ${imp.file}`;
       return null;
     }
@@ -87,6 +96,7 @@ const RULES = [
     test: (ctx) => {
       if (ctx.vercelDir) return '.vercel project directory present (Vercel deployment)';
       const hit = [...ctx.html, ...ctx.sources, ...ctx.packageJsons].find((l) =>
+        !l.file.includes('ai_detector') &&
         /vercel\.app|netlify\.app|\/_vercel\/|netlify\/toml|x-vercel-id|x-vercel-cache|x-nf-request-id/i.test(l.line));
       return hit ? `hosting signal: ${hit.line.trim().slice(0, 80)}` : null;
     }
