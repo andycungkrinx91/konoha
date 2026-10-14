@@ -122,7 +122,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha data export` — Export indexed skills and database knowledge to a Markdown report.
 - `konoha data backup [path]` — Non-blocking online SQLite database snapshot via `VACUUM INTO`.
 - `konoha data rebuild-fts` — Rebuild all FTS5 full-text search indexes (`skills_fts`, `persona_memories_fts`).
-- `konoha data prune [--retention <days>]` — Clean old sessions and prune `tool_calls` older than retention period (default 90 days) while preserving memories. Note: `konoha data prune` reduces the cumulative "alltime" count in `getAgentStats()` to data recorded since the last prune. It does not prompt for interactive confirmation and does not automatically take a backup; use `konoha data backup` prior to pruning if historical telemetry must be preserved.
+- `konoha data prune [--retention <days>]` — Clean old sessions and prune `tool_calls` older than retention period (default 90 days) while preserving memories. Note: `konoha data prune` deletes immediately, with no confirmation and no automatic backup (take `konoha data backup` first). The cumulative "alltime" count in `getAgentStats()` counts only data recorded since the last prune.
 - `konoha data vacuum` — Defragment and compress SQLite database file.
 
 ### 2.9 Web Search (`konoha search`)
