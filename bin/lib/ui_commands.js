@@ -29,16 +29,16 @@ const C = {
   white: '\x1b[37m'
 };
 
-function log(msg) { console.log(msg); }
+function log(msg) { process.stdout.write((msg !== undefined ? String(msg) : '') + '\n'); }
 function header(title) {
-  console.log(`\n${C.bold}${C.cyan}${title}${C.reset}\n${'═'.repeat(60)}`);
+  process.stdout.write(`\n${C.bold}${C.cyan}${title}${C.reset}\n${'═'.repeat(60)}\n`);
 }
-function info(msg) { console.log(`  \x1b[38;2;0;200;255mϟ\x1b[0m ${msg}`); }
-function success(msg) { console.log(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${msg}`); }
-function warn(msg) { console.log(`  \x1b[38;2;255;200;0m↯\x1b[0m ${msg}`); }
-function error(msg) { console.log(`  ${C.red}✗${C.reset} ${msg}`); }
+function info(msg) { process.stdout.write(`  \x1b[38;2;0;200;255mϟ\x1b[0m ${msg}\n`); }
+function success(msg) { process.stdout.write(`  \x1b[38;2;0;255;255m⚡\x1b[0m ${msg}\n`); }
+function warn(msg) { process.stdout.write(`  \x1b[38;2;255;200;0m↯\x1b[0m ${msg}\n`); }
+function error(msg) { process.stdout.write(`  ${C.red}✗${C.reset} ${msg}\n`); }
 function drawLogo() {
-  console.log('🍃 \x1b[1m\x1b[32mKonoha\x1b[0m');
+  process.stdout.write('🍃 \x1b[1m\x1b[32mKonoha\x1b[0m\n');
 }
 
 function fileExists(p) {

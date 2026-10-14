@@ -82,7 +82,8 @@ try {
   console.log('  ✓ cursor_manager removeCursorConfig purges konoha-bridge extension from Cursor.');
 
   // 4. Test bin/cli.js invariants: installExtensionViaCli refusal for non-antigravity
-  const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli.js'), 'utf8');
+  const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli.js'), 'utf8') +
+    fs.readFileSync(path.join(__dirname, '..', 'bin', 'lib', 'extension.js'), 'utf8');
   assert.match(cliSource, /if\s*\(cliName\s*!==\s*'antigravity'\)/, 'installExtensionViaCli must guard against non-antigravity CLI');
   assert.match(cliSource, /Refusing to install konoha-bridge \(Antigravity IDE only\)/, 'Refusal warning must be present');
   console.log('  ✓ bin/cli.js installExtensionViaCli antigravity-only guard verified.');

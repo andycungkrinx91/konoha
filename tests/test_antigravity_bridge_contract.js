@@ -84,7 +84,8 @@ try {
   fs.rmSync(tempHome, { recursive: true, force: true });
 }
 
-const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8');
+const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8') +
+  fs.readFileSync(path.join(root, 'bin', 'lib', 'extension.js'), 'utf8');
 assert.match(cliSource, /KONOHA_BRIDGE_REF = 'master'/);
 assert.match(cliSource, /andycungkrinx91\.konoha-bridge-master-universal/);
 assert.match(cliSource, /antigravity-ide-not-detected/);

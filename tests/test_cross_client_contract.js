@@ -71,7 +71,10 @@ assert.doesNotMatch(cursorBootstrap, /syncCursorSkills\(\)/, 'Cursor bootstrap m
 assert.match(cursorBootstrap, /CURSOR_RTK_RULE/);
 assert.match(cursorBootstrap, /CURSOR_RULE/);
 
-const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8');
+const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8') +
+  fs.readFileSync(path.join(root, 'bin', 'lib', 'runtime.js'), 'utf8') +
+  fs.readFileSync(path.join(root, 'bin', 'lib', 'extension.js'), 'utf8') +
+  fs.readFileSync(path.join(root, 'bin', 'commands', 'init.js'), 'utf8');
 assert.match(cliSource, /refreshSemblePackage/);
 assert.match(cliSource, /refreshRtk/);
 assert.match(cliSource, /agent_contract\.js/);

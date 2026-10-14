@@ -41,9 +41,7 @@ function coerceScalar(val) {
 }
 
 
-// ────────────────────────────────────────────────────────────────────
 // parseYaml — extracted verbatim from src/agent_manager.js (lines 33–180).
-// ────────────────────────────────────────────────────────────────────
 
 function parseYaml(yamlStr) {
   if (!yamlStr) return null;
@@ -169,9 +167,7 @@ function parseYaml(yamlStr) {
   return isRootArray ? rootArray : root;
 }
 
-// ────────────────────────────────────────────────────────────────────
 // stringifyYaml — extracted verbatim from src/agent_manager.js (lines 182–221).
-// ────────────────────────────────────────────────────────────────────
 
 function stringifyYaml(val, indent = 0) {
   const spaces = ' '.repeat(indent);

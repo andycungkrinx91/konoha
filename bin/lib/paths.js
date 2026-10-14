@@ -24,7 +24,6 @@
 const path = require('path');
 const os = require('os');
 
-// ──────────────── Base roots ────────────────
 
 /** Home directory (~) */
 const HOME = os.homedir();
@@ -38,13 +37,15 @@ const BIN_DIR = path.resolve(LIB_DIR, '..');
 /** Parent dir relative to bin/ (project root) */
 const PROJECT_ROOT = path.resolve(BIN_DIR, '..');
 
-// ──────────────── Core Konoha ~/.konoha ────────────────
 
 const KONOHA = path.join(HOME, '.konoha');
 const SKILLS_DB_DIR = KONOHA;
 
 /** Main server entry point */
 const SERVER_PATH = path.join(KONOHA, 'server.js');
+
+/** Migration entry point */
+const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
 
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
@@ -75,7 +76,7 @@ const FILE_TOOLS_PYTHON_CMD_FILE = path.join(KONOHA, '.python_cmd');
 /** Node.js executable cache file */
 const FILE_TOOLS_NODE_PATH_FILE = path.join(KONOHA, '.node_exec_path');
 
-/** Konoha temp/scratch base (used by RPC task dispatcher) */
+/** Konoha temp/scratch base */
 const TMP_DIR = path.join(KONOHA, 'tmp');
 
 /** file_tools_router.js in ~/.konoha */
@@ -87,7 +88,6 @@ const FILE_TOOLS_PY_DIR = FILE_TOOLS_DIR;
 /** file_tools/ dir next to router.js (src/file_tools/) — different from ~/.konoha/file_tools */
 const TOOL_WORKERS_DIR = path.resolve(LIB_DIR, '..', '..', 'src', 'file_tools');
 
-// ──────────────── Agent definitions ~/.agents ────────────────
 
 const AGENTS = path.join(HOME, '.agents');
 const AGENTS_SKILLS = path.join(AGENTS, 'skills');
@@ -98,7 +98,6 @@ const USER_AGENTS_YAML_PATH = path.join(AGENTS, 'agents.yaml');
 /** Global agent docs */
 const AGENTS_MD_PATH = path.join(AGENTS, 'AGENTS.md');
 
-// ──────────────── Templates (bundled with konoha) ────────────────
 
 /** Source directory (src/) — relative to bin/lib paths.js */
 const SRC_DIR = path.resolve(LIB_DIR, '..', '..', 'src');
@@ -116,7 +115,6 @@ const DOCS_DIR = path.resolve(BIN_DIR, '..', 'docs');
 /** Docs templates directory (docs/templates/) */
 const DOCS_TEMPLATES_DIR = path.join(DOCS_DIR, 'templates');
 
-// ──────────────── .gemini — Gemini/Google toolchain ────────────────
 
 const GEMINI = path.join(HOME, '.gemini');
 const GEMINI_MD_PATH = path.join(GEMINI, 'GEMINI.md');
@@ -183,7 +181,6 @@ const GLOBAL_IDE_AGENTS_DIR = path.join(ANTIGRAVITY_IDE, 'agents');
 /** Legacy alias for antigravity_subagent_hook.js */
 const GLOBAL_CONFIG_AGENTS_DIR = path.join(GEMINI_CONFIG, 'agents');
 
-// ──────────────── Cursor integration ────────────────
 
 const CURSOR_DIR = path.join(HOME, '.cursor');
 const CURSOR_MCP = path.join(CURSOR_DIR, 'mcp.json');
@@ -197,7 +194,6 @@ const CURSOR_HOOKS_GLOBAL = path.join(CURSOR_DIR, 'hooks.json');
 const CURSOR_CLI_CONFIG = path.join(CURSOR_DIR, 'cli-config.json');
 const CURSOR_BOOTSTRAP_PATH = path.join(KONOHA, 'cursor_bootstrap.js');
 
-// ──────────────── VS Code / Claude Code ────────────────
 // Claude Code v2.1+ stores global MCP servers in ~/.claude.json (not settings.json).
 // We write to BOTH for backward compatibility (legacy ~/.claude.yaml).
 
@@ -205,26 +201,21 @@ const CLAUDE_JSON = path.join(HOME, '.claude.json');
 const CLAUDE_SETTINGS = path.join(HOME, '.claude', 'settings.json');
 const CLAUDE_JSON_LEGACY = path.join(HOME, '.claude.yaml');
 
-// ──────────────── Command Code ────────────────
 const COMMANDCODE_DIR = path.join(HOME, '.commandcode');
 const COMMANDCODE_JSON = path.join(COMMANDCODE_DIR, 'mcp.json');
 
-// ──────────────── OpenCode ────────────────
 const OPENCODE_DIR = path.join(HOME, '.config', 'opencode');
 const OPENCODE_CONFIG = path.join(OPENCODE_DIR, 'opencode.json');
 const OPENCODE_LEGACY_DIR = path.join(HOME, '.opencode');
 const OPENCODE_LEGACY_CONFIG = path.join(OPENCODE_LEGACY_DIR, 'config.json');
 
-// ──────────────── Codex ────────────────
 const CODEX_DIR = path.join(HOME, '.codex');
 const CODEX_CONFIG = path.join(CODEX_DIR, 'config.toml');
 const CODEX_AGENTS_MD = path.join(CODEX_DIR, 'AGENTS.md');
 const CODEX_RULES_DIR = path.join(CODEX_DIR, 'rules');
 const CODEX_RTK_RULE = path.join(CODEX_RULES_DIR, 'rtk.md');
 
-// ──────────────── Migration paths ────────────────
 
-// ──────────────── Exports ────────────────
 module.exports = {
   // Base roots
   HOME,
@@ -235,6 +226,7 @@ module.exports = {
   KONOHA,
   SKILLS_DB_DIR,
   SERVER_PATH,
+  MIGRATE_PATH,
   DB_PATH,
   FINGERPRINT_PATH,
   BRIDGES_JSON_PATH,
