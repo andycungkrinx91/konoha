@@ -52,7 +52,7 @@
                 <mxCell id="p1-l4" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#9a3412;fontStyle=1;" value="Persistence and workspace boundary" vertex="1">
                     <mxGeometry height="180" width="1520" x="40" y="720" as="geometry"/>
                 </mxCell>
-                <mxCell id="p1-db" parent="p1-l4" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" value="SQLite konoha.db (src/db.js)&#xa;skills | skill_chunks | agents | bridges | memories | telemetry | sessions" vertex="1">
+                <mxCell id="p1-db" parent="p1-l4" style="shape=cylinder3;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;;overflow=visible;" value="SQLite konoha.db (src/db.js)&#xa;skills | skill_chunks | agents | bridges | memories | telemetry | sessions&#xa;CLI: data backup (VACUUM INTO), rebuild-fts, prune" vertex="1">
                     <mxGeometry height="90" width="400" x="160" y="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="p1-fts" parent="p1-l4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;" value="SQLite FTS5 &amp; Vector Search (src/vector_search.js)&#xa;BM25-ranked index + IBM Granite 97M Embeddings + MS MARCO MiniLM Neural Reranker + RRF" vertex="1">
@@ -265,7 +265,7 @@
                 <mxCell id="p3-toku" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#4f46e5;;overflow=visible;" value="tokubetsu-jonin&#xa;tokubetsu-jonin-skill + pptx (Scribe)" vertex="1">
                     <mxGeometry height="60" width="280" x="651" y="710" as="geometry"/>
                 </mxCell>
-                <mxCell id="p3-mcp" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Konoha MCP&#xa;find_skill / get_skill / agent tools" vertex="1">
+                <mxCell id="p3-mcp" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;;overflow=visible;" value="Konoha MCP&#xa;find_skill / get_skill / direct specialist tools" vertex="1">
                     <mxGeometry height="80" width="320" x="1080" y="290" as="geometry"/>
                 </mxCell>
                 <mxCell id="p3-semble" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ccfbf1;strokeColor=#0f766e;fontStyle=1;;overflow=visible;" value="Semble MCP&#xa;search / find_related" vertex="1">
@@ -817,7 +817,7 @@
                 <mxCell id="p10-profiler" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="Project Context Profiler&#xa;• Stack Detection (Framework, Styling, PkgMgr)&#xa;• Invariants &amp; Episodic Learnings Storage" vertex="1">
                     <mxGeometry height="130" width="320" x="400" y="240" as="geometry"/>
                 </mxCell>
-                <mxCell id="p10-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" value="SQLite Database (~/.konoha/konoha.db)&#xa;• projects table (path, hash, name, framework)&#xa;• persona_memories table (scoped by project_path)" vertex="1">
+                <mxCell id="p10-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" value="SQLite Database (~/.konoha/konoha.db)&#xa;• projects table (path, hash, name, framework)&#xa;• persona_memories table (per-session episodic memory rule)&#xa;• Maintenance: data backup, rebuild-fts, prune" vertex="1">
                     <mxGeometry height="120" width="280" x="420" y="470" as="geometry"/>
                 </mxCell>
                 <mxCell id="p10-compactor" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" value="2-Prompt Auto-Compaction Engine&#xa;• Turn 1: Full context with Taste directives (~1,800 tokens)&#xa;• Turn 2+: Compact badge mode (&lt; 450 tokens)&#xa;• On-demand skills served via konoha.get_skill&#xa;• Permanent memory continuity without hallucination" vertex="1">
@@ -840,7 +840,7 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha 8-Phase Orchestration Pipeline &amp; Kage Reviewer Gate" vertex="1">
+                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha WORKFLOW_PHASES Orchestration Pipeline &amp; Kage Reviewer Gate" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="1. Route Phase&#xa;(Prompt Analysis &amp; DoR Gate)" vertex="1">
@@ -1014,7 +1014,7 @@
                 <mxCell id="p13-qfu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;align=center;" value="Jonin: fix UI code&#xa;(Taste-Skill design tokens)" vertex="1">
                     <mxGeometry height="50" width="170" x="960" y="325" as="geometry"/>
                 </mxCell>
-                <mxCell id="p13-q4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="Re-run Playwright&#xa;qa_e2e_run (isolated cache)" vertex="1">
+                <mxCell id="p13-q4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="Re-run Playwright&#xa;qa_e2e_run (sandboxed runner)" vertex="1">
                     <mxGeometry height="55" width="180" x="760" y="420" as="geometry"/>
                 </mxCell>
                 <mxCell id="p13-q5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="rtk aislop scan --changes&#xa;verify 0 AI slop defects" vertex="1">
