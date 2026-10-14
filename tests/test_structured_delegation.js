@@ -96,7 +96,7 @@ async function testStructuredDelegation() {
     assert.ok(rep.verified !== false);
     assert.strictEqual(rep.learnings_saved_count, 2);
 
-    const mems = personaMemory.listMemories({ project_path: projectDir, db_path: dbPath });
+    const mems = personaMemory.listMemories({ project_path: projectDir, db_path: dbPath, allSessions: true });
     assert.strictEqual(mems.length, 2);
     const contents = mems.map(m => m.content);
     assert.ok(contents.includes('Showroom uses CSS Grid 12-column layout with max-w-[1400px]'));
@@ -108,7 +108,7 @@ async function testStructuredDelegation() {
     ], projectDir, null, null, ['pnpm run build exited 0']);
     const repDup = JSON.parse(repDupJson);
     assert.strictEqual(repDup.learnings_saved_count, 0);
-    const memsAfter = personaMemory.listMemories({ project_path: projectDir, db_path: dbPath });
+    const memsAfter = personaMemory.listMemories({ project_path: projectDir, db_path: dbPath, allSessions: true });
     assert.strictEqual(memsAfter.length, 2);
 
     // 4. Unverified report defers learnings

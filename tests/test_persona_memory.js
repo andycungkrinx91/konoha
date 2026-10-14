@@ -233,6 +233,22 @@ async function run() {
       true,
       'When sessionId is omitted, project-level non-episodic rule must still be returned'
     );
+
+    // Listing without any sessionId and without allSessions must NOT leak foreign episodic memory
+    const listNoSessionNoOpt = personaMemory.listMemories({
+      projectPath: projPath,
+      dbPath: testDbPath
+    });
+    assert.strictEqual(
+      listNoSessionNoOpt.some(m => m.content.includes('port 9001')),
+      false,
+      'Listing without sessionId and without allSessions must NOT return foreign episodic memory'
+    );
+    assert.strictEqual(
+      listNoSessionNoOpt.some(m => m.content.includes('PostgreSQL 16')),
+      true,
+      'Listing without sessionId must still return non-episodic project rules'
+    );
     console.log('✓ Session isolation contract (Decision A) verified');
 
     console.log('\nAll test_persona_memory tests passed!');
