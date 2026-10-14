@@ -288,8 +288,18 @@ function setupSchema(conn) {
     const memFks = conn.prepare("PRAGMA foreign_key_list(persona_memories)").all();
     const hasProjectFk = memFks.some(fk => fk.table === 'projects');
     if (!hasProjectFk) {
+      if (conn.name && conn.name !== ':memory:' && fs.existsSync(conn.name)) {
+        try {
+          backupDatabase(null, conn.name);
+        } catch (_) { /* backup helper fallback */ }
+      }
       conn.exec(`
         BEGIN TRANSACTION;
+        DELETE FROM persona_memories
+        WHERE project_hash IS NOT NULL
+          AND project_hash != ''
+          AND project_hash NOT IN (SELECT project_hash FROM projects);
+
         CREATE TABLE IF NOT EXISTS persona_memories_migrated (
             id TEXT PRIMARY KEY,
             project_hash TEXT DEFAULT NULL,
@@ -306,7 +316,7 @@ function setupSchema(conn) {
         );
         INSERT INTO persona_memories_migrated (id, project_hash, session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at)
         SELECT id,
-               CASE WHEN project_hash = '' OR project_hash IS NULL OR project_hash NOT IN (SELECT project_hash FROM projects) THEN NULL ELSE project_hash END,
+               CASE WHEN project_hash = '' OR project_hash IS NULL THEN NULL ELSE project_hash END,
                session_id, agent_name, memory_type, title, content, tags, importance, created_at, updated_at
         FROM persona_memories;
         DROP TABLE persona_memories;

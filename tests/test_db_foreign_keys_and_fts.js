@@ -142,7 +142,16 @@ test('Batch 2: setupSchema safely migrates legacy persona_memories table without
     const m2 = conn.prepare("SELECT * FROM persona_memories WHERE id = 'm_global'").get();
     assert.strictEqual(m2.project_hash, null, 'Empty project_hash should be migrated to null');
     const m3 = conn.prepare("SELECT * FROM persona_memories WHERE id = 'm_orphan'").get();
-    assert.strictEqual(m3.project_hash, null, 'Orphaned project_hash should be migrated to null');
+    assert.strictEqual(m3, undefined, 'Orphaned project_hash rows must be deleted during migration');
+
+    // Verify backup created and FK check clean
+    const backupDir = path.join(tmpDir, 'backups');
+    assert.ok(fs.existsSync(backupDir), 'Backup directory must exist');
+    const backups = fs.readdirSync(backupDir).filter(f => f.endsWith('.db'));
+    assert.ok(backups.length >= 1, 'Backup snapshot must be created before table rebuild');
+
+    const fkViolations = conn.prepare("PRAGMA foreign_key_check").all();
+    assert.strictEqual(fkViolations.length, 0, 'Foreign key check must have 0 violations');
 
     conn.close();
   } finally {
