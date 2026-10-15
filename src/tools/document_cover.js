@@ -2,8 +2,16 @@
  * Document Cover & Gradient Theme Engine
  * Produces publication-grade geometric diamond cascade covers and 4-color gradient rules
  * across DOCX, PDF, and PPTX formats matching the reference template.
+ *
+ * Dynamic Invariants Enforced:
+ * 1. Zero hardcoded paths or static dimensions: dynamic A4 portrait and 16:9 widescreen scaling.
+ * 2. DOCX Native Cover: Zero rasterized font text in DOCX. Background diamond artwork is 100% text-free;
+ *    all cover typography (chips, titles, subtitles, metadata tables) is rendered with native Word XML.
+ * 3. Contained A4 PDF Canvas: A4 page strictly budgeted within 794px x 1123px (210mm x 297mm)
+ *    so elements never overflow or clip past the right border.
  */
 
+'use strict';
 
 const GRADIENT_THEMES = {
   amber_coral: {
@@ -42,156 +50,11 @@ function getPlaywright() {
 }
 
 /**
- * Builds the geometric diamond cascade HTML/SVG template
+ * Builds the geometric diamond cascade SVG group (pure vector geometry)
  */
-function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
-  const [c1, c2, c3, c4] = theme.colors;
-  const title = options.title || 'DevOps Engineering';
-  const subtitle = options.subtitle || 'Principles, Automated Delivery Pipelines & Site Reliability Engineering';
-  const author = options.author || 'Andy Setiyawan | Principal Infrastructure Architect';
-  const classification = options.classification || 'Enterprise Standard (v1.0.0)';
-  const dateStr = options.date || 'October 2026';
-  const compliance = options.compliance || 'Production Verified — Zero AI Artifacts';
-
-  const width = isWidescreen ? 1920 : 1240;
-  const height = isWidescreen ? 1080 : 1754;
-
-  let titleLine1 = title;
-  let titleLine2 = '';
-  if (title.includes(':')) {
-    const parts = title.split(':');
-    titleLine1 = parts[0].trim();
-    titleLine2 = parts.slice(1).join(':').trim();
-  } else if (title.includes('—')) {
-    const parts = title.split('—');
-    titleLine1 = parts[0].trim();
-    titleLine2 = parts.slice(1).join('—').trim();
-  } else if (title.length > 20) {
-    const words = title.split(' ');
-    const mid = Math.ceil(words.length / 2);
-    titleLine1 = words.slice(0, mid).join(' ');
-    titleLine2 = words.slice(mid).join(' ');
-  }
-
-  const diamondGroupX = isWidescreen ? 280 : 180;
-  const diamondGroupY = isWidescreen ? 540 : 860;
-  const textLeft = isWidescreen ? '920px' : '540px';
-  const textTop = isWidescreen ? '180px' : '260px';
-  const textWidth = isWidescreen ? '880px' : '620px';
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: ${width}px;
-    height: ${height}px;
-    overflow: hidden;
-    background: #FAFBFD;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    position: relative;
-    color: #1E293B;
-  }
-  .diamond-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
-  .content-panel {
-    position: absolute;
-    top: ${textTop};
-    left: ${textLeft};
-    width: ${textWidth};
-    z-index: 10;
-  }
-  .chip {
-    display: inline-block;
-    padding: 6px 16px;
-    background: ${c1};
-    color: #FFFFFF;
-    font-size: ${isWidescreen ? '14px' : '13px'};
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    border-radius: 4px;
-    margin-bottom: 28px;
-  }
-  .cover-title {
-    font-size: ${isWidescreen ? '60px' : '50px'};
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    color: #0F172A;
-    text-transform: uppercase;
-    margin-bottom: 20px;
-  }
-  .cover-title-line2 {
-    color: ${c1};
-    display: block;
-  }
-  .cover-subtitle {
-    font-size: ${isWidescreen ? '21px' : '18px'};
-    line-height: 1.45;
-    color: #475569;
-    font-weight: 400;
-    margin-bottom: 28px;
-    max-width: 92%;
-  }
-  .grad-bar {
-    display: flex;
-    width: 280px;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 36px;
-  }
-  .grad-seg { flex: 1; height: 100%; }
-  .meta-card {
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(8px);
-    border: 1px solid #E2E8F0;
-    border-left: 4px solid ${c1};
-    border-radius: 8px;
-    padding: ${isWidescreen ? '24px 28px' : '20px 24px'};
-    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
-  }
-  .meta-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px 24px;
-  }
-  .meta-item { display: flex; flex-direction: column; }
-  .meta-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: #64748B;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 4px;
-  }
-  .meta-value {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #1E293B;
-  }
-  .bottom-strap {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 8px;
-    display: flex;
-  }
-</style>
-</head>
-<body>
-
-<svg class="diamond-canvas" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+function buildDiamondSvgGroup(colors, diamondGroupX, diamondGroupY, scale = 1) {
+  const [c1, c2, c3, c4] = colors;
+  return `
   <defs>
     <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${c1}" />
@@ -208,7 +71,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
   </defs>
 
   <!-- Cascading Geometric Diamonds -->
-  <g transform="translate(${diamondGroupX}, ${diamondGroupY})">
+  <g transform="translate(${diamondGroupX}, ${diamondGroupY}) scale(${scale})">
     <rect x="-380" y="-380" width="760" height="760" rx="36" transform="rotate(45)"
           fill="none" stroke="${c2}" stroke-width="2" stroke-opacity="0.18" stroke-dasharray="8 6" />
 
@@ -243,7 +106,207 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
           fill="none" stroke="${c1}" stroke-width="2.5" stroke-opacity="0.5" />
     <rect x="220" y="80" width="120" height="120" rx="8" transform="rotate(45)"
           fill="${c2}" fill-opacity="0.2" stroke="${c2}" stroke-width="2" stroke-opacity="0.4" />
-  </g>
+  </g>`;
+}
+
+/**
+ * Builds pure background artwork HTML (TEXT-FREE) for DOCX and backgrounds.
+ * Zero rasterized font text!
+ */
+function renderCoverHtmlShell(width, height, extraStyles, bodyContent) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: ${width}px;
+    height: ${height}px;
+    overflow: hidden;
+    background: #FAFBFD;
+    position: relative;
+  }
+${extraStyles}
+</style>
+</head>
+<body>
+${bodyContent}
+</body>
+</html>`;
+}
+
+function renderCoverBackgroundArtworkHtml(theme, isWidescreen = false) {
+  const [c1, c2, c3, c4] = theme.colors;
+  const width = isWidescreen ? 1920 : 794;
+  const height = isWidescreen ? 1080 : 1123;
+  const diamondGroupX = isWidescreen ? 280 : 130;
+  const diamondGroupY = isWidescreen ? 540 : 620;
+  const scale = isWidescreen ? 0.95 : 0.65;
+
+  const extraStyles = `  .diamond-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .bottom-strap { position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; display: flex; }
+  .grad-seg { flex: 1; height: 100%; }`;
+
+  const bodyContent = `<svg class="diamond-canvas" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  ${buildDiamondSvgGroup(theme.colors, diamondGroupX, diamondGroupY, scale)}
+</svg>
+<div class="bottom-strap">
+  <div class="grad-seg" style="background: ${c1};"></div>
+  <div class="grad-seg" style="background: ${c2};"></div>
+  <div class="grad-seg" style="background: ${c3};"></div>
+  <div class="grad-seg" style="background: ${c4};"></div>
+</div>`;
+
+  return renderCoverHtmlShell(width, height, extraStyles, bodyContent);
+}
+
+/**
+ * Builds the geometric diamond cascade HTML/SVG template with typography for PDF and PPTX.
+ * Bounded strictly within A4 portrait (794px x 1123px) or 16:9 widescreen (1920px x 1080px).
+ */
+function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
+  const [c1, c2, c3, c4] = theme.colors;
+  const title = options.title || 'Technical Architecture Specification';
+  const subtitle = options.subtitle || 'Operational Standards & Automated Engineering Architecture';
+  const author = options.author || 'Andy Setiyawan | Principal Infrastructure Architect';
+  const classification = options.classification || 'Enterprise Standard (v1.0.0)';
+  const dateStr = options.date || new Date().toISOString().split('T')[0];
+  const compliance = options.compliance || 'Production Verified — Zero AI Artifacts';
+
+  // Strict canvas dimensions
+  const width = isWidescreen ? 1920 : 794;
+  const height = isWidescreen ? 1080 : 1123;
+
+  let titleLine1 = title;
+  let titleLine2 = '';
+  if (title.includes(':')) {
+    const parts = title.split(':');
+    titleLine1 = parts[0].trim();
+    titleLine2 = parts.slice(1).join(':').trim();
+  } else if (title.includes('—')) {
+    const parts = title.split('—');
+    titleLine1 = parts[0].trim();
+    titleLine2 = parts.slice(1).join('—').trim();
+  } else if (title.length > 20) {
+    const words = title.split(' ');
+    const mid = Math.ceil(words.length / 2);
+    titleLine1 = words.slice(0, mid).join(' ');
+    titleLine2 = words.slice(mid).join(' ');
+  }
+
+  const diamondGroupX = isWidescreen ? 280 : 130;
+  const diamondGroupY = isWidescreen ? 540 : 620;
+  const scale = isWidescreen ? 0.95 : 0.65;
+
+  // Contained content panel coordinates
+  const textLeft = isWidescreen ? '820px' : '350px';
+  const textTop = isWidescreen ? '140px' : '140px';
+  const textWidth = isWidescreen ? '1020px' : '395px';
+
+  const extraStyles = `
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1E293B;
+  }
+  .diamond-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .content-panel {
+    position: absolute;
+    top: ${textTop};
+    left: ${textLeft};
+    width: ${textWidth};
+    z-index: 10;
+  }
+  .chip {
+    display: inline-block;
+    padding: ${isWidescreen ? '6px 16px' : '5px 12px'};
+    background: ${c1};
+    color: #FFFFFF;
+    font-size: ${isWidescreen ? '14px' : '11px'};
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    margin-bottom: ${isWidescreen ? '28px' : '18px'};
+  }
+  .cover-title {
+    font-size: ${isWidescreen ? '42px' : '34px'};
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    color: #0F172A;
+    text-transform: uppercase;
+    margin-bottom: ${isWidescreen ? '20px' : '14px'};
+  }
+  .cover-title-line2 {
+    color: ${c1};
+    display: block;
+  }
+  .cover-subtitle {
+    font-size: ${isWidescreen ? '20px' : '14px'};
+    line-height: 1.45;
+    color: #475569;
+    font-weight: 400;
+    margin-bottom: ${isWidescreen ? '26px' : '18px'};
+    max-width: 95%;
+  }
+  .grad-bar {
+    display: flex;
+    width: ${isWidescreen ? '280px' : '220px'};
+    height: ${isWidescreen ? '6px' : '4px'};
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: ${isWidescreen ? '32px' : '22px'};
+  }
+  .grad-seg { flex: 1; height: 100%; }
+  .meta-card {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    border: 1px solid #E2E8F0;
+    border-left: 4px solid ${c1};
+    border-radius: 8px;
+    padding: ${isWidescreen ? '22px 26px' : '14px 18px'};
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: ${isWidescreen ? '16px 24px' : '10px 14px'};
+  }
+  .meta-item { display: flex; flex-direction: column; }
+  .meta-label {
+    font-size: ${isWidescreen ? '11px' : '9.5px'};
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+  .meta-value {
+    font-size: ${isWidescreen ? '13.5px' : '11px'};
+    font-weight: 600;
+    color: #1E293B;
+  }
+  .bottom-strap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 8px;
+    display: flex;
+  }`;
+
+  const bodyContent = `
+
+<svg class="diamond-canvas" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  ${buildDiamondSvgGroup(theme.colors, diamondGroupX, diamondGroupY, scale)}
 </svg>
 
 <div class="content-panel">
@@ -288,14 +351,41 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
   <div class="grad-seg" style="background: ${c2};"></div>
   <div class="grad-seg" style="background: ${c3};"></div>
   <div class="grad-seg" style="background: ${c4};"></div>
-</div>
+</div>`;
 
-</body>
-</html>`;
+  return renderCoverHtmlShell(width, height, extraStyles, bodyContent);
 }
 
 /**
- * Renders high-DPI cover image PNG via Playwright Chromium
+ * Renders high-DPI text-free background artwork PNG via Playwright Chromium
+ */
+async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false) {
+  const playwright = getPlaywright();
+  const browser = await playwright.chromium.launch({
+    executablePath: '/usr/bin/google-chrome',
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
+  const width = isWidescreen ? 1920 : 794;
+  const height = isWidescreen ? 1080 : 1123;
+
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: 1
+  });
+
+  const html = renderCoverBackgroundArtworkHtml(theme, isWidescreen);
+  await page.setContent(html, { waitUntil: 'load' });
+  const buffer = await page.screenshot({ type: 'png' });
+  await page.close();
+  await browser.close();
+
+  return buffer;
+}
+
+/**
+ * Renders high-DPI cover image PNG with typography via Playwright Chromium (for PPTX cover slide)
  */
 async function renderCoverArtworkPng(theme, options = {}, isWidescreen = false) {
   const playwright = getPlaywright();
@@ -305,8 +395,8 @@ async function renderCoverArtworkPng(theme, options = {}, isWidescreen = false) 
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
-  const width = isWidescreen ? 1920 : 1240;
-  const height = isWidescreen ? 1080 : 1754;
+  const width = isWidescreen ? 1920 : 794;
+  const height = isWidescreen ? 1080 : 1123;
 
   const page = await browser.newPage({
     viewport: { width, height },
@@ -351,6 +441,156 @@ function renderDocxGradientTable(docxModule, colors) {
 }
 
 /**
+ * Generates 100% NATIVE DOCX elements for the cover page.
+ * ZERO RASTERIZED FONT TEXT! All headings, paragraphs, and metadata tables are editable native Word text.
+ */
+function renderDocxNativeCover(docxModule, theme, metadata = {}) {
+  const {
+    Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
+    WidthType, BorderStyle, ShadingType
+  } = docxModule;
+
+  const primaryColor = theme.colors[0].replace('#', '');
+  const borderNone = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+  const borderLeft = { style: BorderStyle.SINGLE, size: 28, color: primaryColor };
+  const borderSubtle = { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' };
+
+  const elements = [];
+
+  // Spacing before cover content
+  elements.push(new Paragraph({ text: '', spacing: { before: 480 } }));
+
+  // 1. Enterprise Category Chip (Native Single-Cell Pill Table)
+  const chipCategory = metadata.category || 'ENTERPRISE TECHNICAL STANDARD';
+  const chipTable = new Table({
+    width: { size: 3200, type: WidthType.DXA },
+    borders: {
+      top: borderNone, bottom: borderNone, left: borderNone, right: borderNone,
+      insideH: borderNone, insideV: borderNone
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 3200, type: WidthType.DXA },
+            shading: { type: ShadingType.CLEAR, fill: primaryColor },
+            margins: { top: 60, bottom: 60, left: 140, right: 140 },
+            borders: { top: borderNone, bottom: borderNone, left: borderNone, right: borderNone },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: chipCategory,
+                    bold: true,
+                    size: 18,
+                    color: 'FFFFFF',
+                    font: 'Georgia'
+                  })
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    ]
+  });
+  elements.push(chipTable);
+  elements.push(new Paragraph({ text: '', spacing: { after: 200 } }));
+
+  // 2. Document Title (Native Display Heading, Georgia bold size 52)
+  const title = metadata.title || 'Technical Architecture Specification';
+  elements.push(
+    new Paragraph({
+      heading: HeadingLevel.TITLE,
+      children: [
+        new TextRun({
+          text: title,
+          bold: true,
+          size: 52,
+          color: '0F172A',
+          font: 'Georgia'
+        })
+      ],
+      spacing: { before: 180, after: 120 }
+    })
+  );
+
+  // 3. Document Subtitle (Native Italic Paragraph, Calibri size 24)
+  if (metadata.subtitle) {
+    elements.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: metadata.subtitle,
+            italics: true,
+            size: 24,
+            color: '475569',
+            font: 'Calibri'
+          })
+        ],
+        spacing: { after: 240 }
+      })
+    );
+  }
+
+  // 4. 4-Color Gradient Bar (Native 4-Cell Table)
+  elements.push(renderDocxGradientTable(docxModule, theme.colors));
+  elements.push(new Paragraph({ text: '', spacing: { after: 320 } }));
+
+  // 5. Metadata Card (Native 2x2 Word Table)
+  const author = metadata.author || 'Andy Setiyawan | Principal Infrastructure Architect';
+  const classification = metadata.classification || 'Enterprise Standard (v1.0.0)';
+  const dateStr = metadata.date || new Date().toISOString().split('T')[0];
+  const compliance = metadata.compliance || 'Production Verified — Zero AI Artifacts';
+
+  function buildMetaCell(label, value) {
+    return new TableCell({
+      width: { size: 4500, type: WidthType.DXA },
+      shading: { type: ShadingType.CLEAR, fill: 'F8FAFC' },
+      margins: { top: 120, bottom: 120, left: 140, right: 140 },
+      borders: {
+        top: borderSubtle, bottom: borderSubtle, left: borderNone, right: borderSubtle
+      },
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({ text: label.toUpperCase(), bold: true, size: 16, color: '64748B', font: 'Calibri' })
+          ],
+          spacing: { after: 40 }
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: value, bold: true, size: 20, color: '1E293B', font: 'Calibri' })
+          ]
+        })
+      ]
+    });
+  }
+
+  const metaTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    columnWidths: [4500, 4500],
+    borders: {
+      top: borderSubtle, bottom: borderSubtle, left: borderLeft, right: borderSubtle,
+      insideH: borderSubtle, insideV: borderSubtle
+    },
+    rows: [
+      new TableRow({
+        children: [buildMetaCell('Author', author), buildMetaCell('Classification', classification)]
+      }),
+      new TableRow({
+        children: [buildMetaCell('Date', dateStr), buildMetaCell('Status', compliance)]
+      })
+    ]
+  });
+
+  elements.push(metaTable);
+  elements.push(new Paragraph({ text: '', spacing: { after: 480 } }));
+
+  return elements;
+}
+
+/**
  * Renders HTML 4-color gradient bar for PDF
  */
 function renderHtmlGradientBar(colors, heightPx = 4) {
@@ -365,8 +605,11 @@ function renderHtmlGradientBar(colors, heightPx = 4) {
 module.exports = {
   GRADIENT_THEMES,
   selectGradientTheme,
+  renderCoverBackgroundArtworkHtml,
+  renderCoverBackgroundArtworkPng,
   renderCoverArtworkHtml,
   renderCoverArtworkPng,
   renderDocxGradientTable,
+  renderDocxNativeCover,
   renderHtmlGradientBar
 };

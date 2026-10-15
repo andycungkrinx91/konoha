@@ -254,7 +254,7 @@ Across all generated and refined documents (DOCX, PPTX, XLSX, PDF), adhere stric
 - **Strict Page Budget Invariant**: For an exact N-page document (e.g. 10 pages), each page must be strictly allocated to fit within physical boundaries, terminating with an explicit page break (`doc.add_page_break()`) up to page N-1.
 
 ### PDF (.pdf)
-- **CSS Paged Media**: `@page { size: A4 portrait; margin: 16mm 18mm 16mm 18mm; @top-right { ... } @bottom-right { content: "Halaman " counter(page) " dari " counter(pages); } }`.
+- **CSS Paged Media**: `@page { size: A4 portrait; margin: 16mm 18mm 16mm 18mm; @top-right { ... } @bottom-right { content: "Page " counter(page) " of " counter(pages); } }`.
 - **Page Isolation**: Wrap every page section in `<div class="page">` styled with `page-break-after: always; box-sizing: border-box;`. Ensure `.page:last-child { page-break-after: avoid; }`.
 
 ### PowerPoint (.pptx)

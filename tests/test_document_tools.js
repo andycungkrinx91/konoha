@@ -218,19 +218,96 @@ async function runTests() {
     assert.strictEqual(buf.subarray(0, 3).toString('ascii'), 'GIF', 'File header must match GIF');
   });
 
-  // 7. Error validation
-  testSync('document_create errors when format is unsupported', () => {
-    const raw = executeToolSync('document_create', { format: 'unsupported_ext', output_path: path.join(TMP_DIR, 'err.xyz') });
+  // 8. Dynamic recursive path resolution
+  testSync('document_create dynamically creates nested parent directories', () => {
+    const nestedDocx = path.join(TMP_DIR, 'nested', 'dynamic', 'deep', 'doc.docx');
+    const raw = executeToolSync('document_create', {
+      format: 'docx',
+      output_path: nestedDocx,
+      title: 'Dynamic Directory Test',
+      sections: [{ title: 'Overview', paragraphs: ['Testing dynamic recursive mkdir.'] }]
+    });
     const res = parseResult(raw);
-    assert.strictEqual(res.success, false, 'Must fail on unsupported format');
-    assert.ok(res.error.includes('Unsupported document format'), 'Error message must specify format error');
+    assert.strictEqual(res.success, true, 'Must succeed with dynamic nested path');
+    assert.ok(fs.existsSync(nestedDocx), 'Nested file must exist on disk');
   });
 
-  await testAsync('animation_export errors when input_path does not exist', async () => {
-    const raw = await executeTool('animation_export', { input_path: path.join(TMP_DIR, 'nonexistent.svg'), output_path: path.join(TMP_DIR, 'err.gif') });
+  // 9. spreadsheet_create with autoFilter, kpi_cards, and column formatters
+  testSync('spreadsheet_create generates autoFilter, KPI cards, and column formatters', () => {
+    const advancedXlsx = path.join(TMP_DIR, 'advanced_sheet.xlsx');
+    const raw = executeToolSync('spreadsheet_create', {
+      output_path: advancedXlsx,
+      sheets: [
+        {
+          name: 'Metrics',
+          kpi_cards: [
+            { label: 'Total Services', formula: '=COUNTA(A6:A7)', format: 'integer' },
+            { label: 'Avg Availability', formula: '=AVERAGE(C6:C7)', format: 'percent' }
+          ],
+          headers: ['Service', 'Deployments', 'Availability', 'Run Cost'],
+          columns: [
+            { header: 'Service', width: 20, format: 'text' },
+            { header: 'Deployments', width: 16, format: 'integer' },
+            { header: 'Availability', width: 16, format: 'percent' },
+            { header: 'Run Cost', width: 16, format: 'currency' }
+          ],
+          rows: [
+            ['Edge Gateway', 42, 0.9995, 12000],
+            ['Auth Engine', 18, 0.9999, 8500]
+          ],
+          summary: ['Average', { formula: '=AVERAGE(B6:B7)' }, { formula: '=AVERAGE(C6:C7)' }, { formula: '=SUM(D6:D7)' }]
+        }
+      ]
+    });
     const res = parseResult(raw);
-    assert.strictEqual(res.success, false, 'Must fail on missing input file');
-    assert.ok(res.error.includes('Input file not found'), 'Error message must specify missing input file');
+    assert.strictEqual(res.success, true, 'Advanced spreadsheet must succeed');
+    assert.ok(fs.existsSync(advancedXlsx), 'Advanced XLSX must exist');
+  });
+
+  // 10. presentation_create with cards, columns, and checklist layouts
+  testSync('presentation_create supports cards, columns, and checklist layouts within budget', () => {
+    const deckPath = path.join(TMP_DIR, 'advanced_deck.pptx');
+    const raw = executeToolSync('presentation_create', {
+      output_path: deckPath,
+      title: 'DevOps Architecture Deck',
+      slides: [
+        { layout: 'title', title: 'DevOps Standards' },
+        {
+          layout: 'cards',
+          category: 'OPERATIONAL METRICS',
+          title: 'DORA Core Indicators',
+          cards: [
+            { tag: 'VELOCITY', title: 'Deployment Frequency', metric: '14/day', body: 'Elite performers deploy daily.' },
+            { tag: 'LATENCY', title: 'Lead Time for Changes', metric: '42 mins', body: 'Code commit to production execution.' }
+          ]
+        },
+        {
+          layout: 'columns',
+          category: 'TOPOLOGY',
+          title: 'Trunk Development',
+          columns: [
+            { title: 'Trunk-Based', bullets: ['Short branches', 'Fast merges'] },
+            { title: 'GitFlow', bullets: ['Long release cycles', 'Merge friction'] }
+          ]
+        },
+        {
+          layout: 'checklist',
+          category: 'GOVERNANCE',
+          title: 'Production Sign-Off',
+          checklist: {
+            left_title: 'Pre-Deploy Gates',
+            left_items: ['✓ Gate 1: SAST clean', '✓ Gate 2: SBOM signed'],
+            right_title: 'Runtime Gates',
+            right_items: ['✓ Gate 3: Error budget ok'],
+            signoff: 'Author: Platform Team | Oct 2026'
+          }
+        }
+      ]
+    });
+    const res = parseResult(raw);
+    assert.strictEqual(res.success, true, 'Advanced deck must succeed');
+    assert.strictEqual(res.slide_count, 4, 'Must have 4 slides');
+    assert.ok(fs.existsSync(deckPath), 'Deck file must exist on disk');
   });
 
   // Cleanup

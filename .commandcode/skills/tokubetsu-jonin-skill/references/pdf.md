@@ -43,12 +43,13 @@ When creating executive PDFs:
   - **T18**: `linear-gradient(90deg,#3A8DDE,#8A4FD0,#D6459E,#F2705F)`
   - **T19**: `linear-gradient(90deg,#17B3A3,#8BCB4A,#F7C948,#F08A24)`
   - **T20**: `linear-gradient(90deg,#E85DA0,#F08A24,#F7C948,#17B3A3)`
+- **Contained A4 Scaling & Cover Invariant**: Standardize on A4 portrait (`794px x 1123px` / `210mm x 297mm` at 96 DPI). Position cover text panel at `left: 350px, width: 395px` (leaving a generous 49px right margin), strictly preventing any text clipping or edge overflow. Running 4-color gradient headers and footers with English pagination (`Page X of Y`).
 - **Dynamic Two-Pass Pagination**: Every multi-page PDF must include running headers/footers with dynamic page numbering in the exact format: `Page X of Y`. Hardcoded single numbers (`Page 1`) signal naive generation.
 - **Strict Typography Contract**: PDF/digital deliverables strictly use **Inter (headings and body)** (fallback: Helvetica/Arial). Body copy at 10–10.5pt with 14–15pt leading in medium slate `#64748B`. Headlines in bold, authoritative hierarchy (H1: 22–26pt, H2: 15–18pt, H3: 12–14pt) in medium slate `#64748B`.
 - **Executive Data Tables**: Table headers use light executive fills (`#F1F5F9`) with `#64748B` typography. Subtle grid borders (`#CBD5E1` / `#E2E8F0`). Alternating rows use pearl shading (`#F8FAFC`).
 - **Executive Callout Boxes**: Light tinted fill (`#F8FAFC`) with a 4-color gradient accent bar along the left edge.
 - **Strict Zero Watermark Invariant**: Under NO circumstances should generated, styled, or compiled PDFs include watermarks, diagonal background stamps ("DRAFT", "CONFIDENTIAL", "SAMPLE"), translucent overlay text, or evaluation markings. All pages must be crisp, unblemished, executive-class documents.
-- **Metadata Scrubbing**: Author, Title, and Subject fields must be sanitized to human executive attributes; automated generator tags (e.g. `ReportLab PDF Library`, `WeasyPrint`) must be purged.
+- **Metadata Scrubbing**: Author, Title, and Subject fields must be sanitized to human executive attributes; automated generator tags (`Playwright`, `ReportLab`, `WeasyPrint`) must be purged.
 - **Mandatory Kage Review Gate**: Every generated PDF document must undergo Kage review before completion.
 
 ---

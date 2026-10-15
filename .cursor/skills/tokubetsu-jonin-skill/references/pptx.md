@@ -50,7 +50,8 @@ When creating slide presentations:
   - *Good (Human)*: Bold metric card + 1 actionable sentence + visual architecture schematic or supporting data table.
 - **Stat Callouts as Visuals**: When presenting performance, savings, or metrics, render the number in massive 44–60pt bold font with a concise 12pt label below it.
 - **Asymmetric 2-Column Layouts**: Use 60/40 or 70/30 split layouts (e.g. left side big takeaway and key metrics, right side data table or architectural diagram).
-- **16:9 Widescreen Standard**: Always format for 16:9 widescreen (`layout: 'LAYOUT_16x9'` in pptxgenjs; `slide_width = Inches(13.333)`, `slide_height = Inches(7.5)` in python-pptx).
+- **16:9 Widescreen Standard**: Always format for 16:9 widescreen (`layout: 'LAYOUT_WIDE'` in pptxgenjs, producing standard 13.333" x 7.5" slides; `slide_width = Inches(13.333)`, `slide_height = Inches(7.5)` in python-pptx). Note: `LAYOUT_16x9` in pptxgenjs defaults to 10" x 5.625" and must be avoided.
+- **Strict Coordinate Budget (Zero Canvas Spill)**: Constrain all slide content strictly between `y: 1.45"` and `6.05"` with cards/columns, placing footers at `y: 6.55"` to prevent canvas overflow.
 - **Strict Zero Watermark Invariant**: Under NO circumstances should presentation slide decks contain watermarks, translucent stamps, or background evaluation watermarks.
 - **Metadata Scrubbing**: Set core presentation properties (`creator`, `lastModifiedBy`, `title`) to the human author or project name; remove `python-pptx` and `pptxgenjs` tags.
 - **Mandatory Kage Review Gate**: Always use Kage review on every generated PPTX presentation.
@@ -76,7 +77,7 @@ When creating slide presentations:
 const pptxgen = require('pptxgenjs');
 
 const pres = new pptxgen();
-pres.layout = 'LAYOUT_16x9';
+pres.layout = 'LAYOUT_WIDE'; // Standard Office 16:9 widescreen (13.333" x 7.5")
 pres.author = 'Andy Setiyawan | Architecture Principal';
 pres.company = 'Konoha Engineering';
 pres.title = 'Production Cloud Migration Q3';
