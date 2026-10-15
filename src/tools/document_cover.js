@@ -459,8 +459,8 @@ function renderDocxNativeCover(docxModule, theme, metadata = {}) {
 
   const elements = [];
 
-  // Spacing before cover content (places typography in lower half over background artwork)
-  elements.push(new Paragraph({ text: '', spacing: { before: 5200 } }));
+  // Spacing before cover content (places typography firmly in lower half over background artwork)
+  elements.push(new Paragraph({ text: '', spacing: { before: 7200 } }));
 
   // 1. Enterprise Category Chip (Native Single-Cell Pill Table)
   const chipCategory = metadata.category || 'ENTERPRISE TECHNICAL STANDARD';

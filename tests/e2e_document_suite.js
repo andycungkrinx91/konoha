@@ -395,11 +395,11 @@ const PRESENTATION_SLIDES = [
 
 // 4. Structured Architecture Diagram Specification
 const DIAGRAM_NODES = [
-  { id: 'git', label: 'Git Repository', sublabel: 'Trunk Branch + PRs', x: 80, y: 360, width: 220, height: 90, color: '#4F46E5' },
-  { id: 'ci', label: 'Hermetic CI Engine', sublabel: 'Ephemeral Runners', x: 380, y: 360, width: 220, height: 90, color: '#0EA5E9' },
-  { id: 'sec', label: 'DevSecOps Gate', sublabel: 'SAST + SBOM + Cosign', x: 680, y: 360, width: 220, height: 90, color: '#F59E0B' },
-  { id: 'reg', label: 'Artifact Registry', sublabel: 'Signed OCI Images', x: 980, y: 360, width: 220, height: 90, color: '#10B981' },
-  { id: 'k8s', label: 'Production Fleet', sublabel: 'Canary ArgoCD Sync', x: 1280, y: 360, width: 220, height: 90, color: '#6366F1' }
+  { id: 'git', label: 'Git Repository', sublabel: 'Trunk Branch + PRs', x: 80, y: 380, width: 220, height: 90, color: '#4F46E5' },
+  { id: 'ci', label: 'Hermetic CI Engine', sublabel: 'Ephemeral Runners', x: 390, y: 380, width: 220, height: 90, color: '#0EA5E9' },
+  { id: 'sec', label: 'DevSecOps Gate', sublabel: 'SAST + SBOM + Cosign', x: 700, y: 380, width: 220, height: 90, color: '#F59E0B' },
+  { id: 'reg', label: 'Artifact Registry', sublabel: 'Signed OCI Images', x: 1010, y: 380, width: 220, height: 90, color: '#10B981' },
+  { id: 'k8s', label: 'Production Fleet', sublabel: 'Canary ArgoCD Sync', x: 1320, y: 380, width: 200, height: 90, color: '#6366F1' }
 ];
 
 const DIAGRAM_EDGES = [

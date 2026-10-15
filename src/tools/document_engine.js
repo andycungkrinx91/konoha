@@ -363,11 +363,13 @@ async function documentCreate(options = {}) {
       title, subtitle, author, classification, date: dateStr, compliance
     }, false);
 
-    // Extract body content from cover HTML
+    // Extract style and body content from cover HTML
+    const styleMatch = coverHtmlInner.match(/<style>([\s\S]*?)<\/style>/i);
+    const coverStyles = styleMatch ? styleMatch[1] : '';
     const match = coverHtmlInner.match(/<body>([\s\S]*?)<\/body>/i);
     const coverContent = match ? match[1] : coverHtmlInner;
 
-    pagesHtml += `<div class="cover-page page">${coverContent}</div>`;
+    pagesHtml += `<div class="cover-page page">${coverStyles ? `<style>${coverStyles}</style>` : ''}${coverContent}</div>`;
   }
 
   // Body Pages
@@ -476,9 +478,9 @@ async function documentCreate(options = {}) {
   }
   .content-panel {
     position: absolute;
-    top: 140px;
-    left: 350px;
-    width: 395px;
+    top: 570px;
+    left: 60px;
+    width: 674px;
     z-index: 10;
   }
   .chip {
@@ -491,51 +493,53 @@ async function documentCreate(options = {}) {
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border-radius: 4px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
   }
   .cover-title {
-    font-size: 34px;
+    font-size: 32px;
     font-weight: 900;
-    line-height: 1.08;
+    line-height: 1.12;
     letter-spacing: -0.02em;
     color: #0F172A;
     text-transform: uppercase;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .cover-title-line2 {
     color: ${theme.colors[0]};
     display: block;
+    font-size: 26px;
+    margin-top: 4px;
   }
   .cover-subtitle {
-    font-size: 14px;
+    font-size: 14.5px;
     line-height: 1.45;
     color: #475569;
     font-weight: 400;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     max-width: 95%;
   }
   .grad-bar {
     display: flex;
-    width: 220px;
+    width: 260px;
     height: 4px;
-    border-radius: 2px;
+    border-radius: 3px;
     overflow: hidden;
-    margin-bottom: 22px;
+    margin-bottom: 20px;
   }
   .grad-seg { flex: 1; height: 100%; }
   .meta-card {
-    background: rgba(255, 255, 255, 0.94);
+    background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(8px);
     border: 1px solid #E2E8F0;
     border-left: 4px solid ${theme.colors[0]};
     border-radius: 8px;
-    padding: 14px 18px;
+    padding: 14px 20px;
     box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
   }
   .meta-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px 14px;
+    gap: 10px 20px;
   }
   .meta-item { display: flex; flex-direction: column; }
   .meta-label {
@@ -1306,8 +1310,8 @@ async function diagramCreate(options = {}) {
           <animateMotion path="${pathD}" dur="2.4s" repeatCount="indefinite" />
         </circle>
         ${e.label ? `
-        <g transform="translate(${midX}, ${(fy + ty) / 2 - 10})">
-          <rect x="-44" y="-12" width="88" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
+        <g transform="translate(${midX}, ${Math.min(fy, ty) - 24})">
+          <rect x="-48" y="-12" width="96" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
           <text x="0" y="3" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#334155">${e.label}</text>
         </g>` : ''}
       </g>`;
@@ -1371,6 +1375,14 @@ async function animationExport(options = {}) {
   const durationSec = options.duration_sec || 3;
   const fps = options.fps || 15;
 
+  const content = fs.readFileSync(inputPath, 'utf8');
+
+  // Dynamically detect SVG dimensions from viewBox or width/height attributes
+  const widthMatch = content.match(/viewBox=["']\s*0\s+0\s+(\d+)\s+(\d+)\s*["']/i) ||
+                     content.match(/width=["'](\d+)["'].*?height=["'](\d+)["']/i);
+  const animWidth = widthMatch ? parseInt(widthMatch[1], 10) : (options.width || 1600);
+  const animHeight = widthMatch ? parseInt(widthMatch[2], 10) : (options.height || 900);
+
   const playwright = getPlaywright();
   const browser = await playwright.chromium.launch({
     executablePath: '/usr/bin/google-chrome',
@@ -1379,12 +1391,11 @@ async function animationExport(options = {}) {
   });
 
   const page = await browser.newPage({
-    viewport: { width: 1200, height: 675 },
+    viewport: { width: animWidth, height: animHeight },
     deviceScaleFactor: 1
   });
 
-  const content = fs.readFileSync(inputPath, 'utf8');
-  await page.setContent(`<!DOCTYPE html><html><body style="margin:0;padding:0;overflow:hidden;background:#FAFBFD;">${content}</body></html>`);
+  await page.setContent(`<!DOCTYPE html><html><body style="margin:0;padding:0;width:${animWidth}px;height:${animHeight}px;overflow:hidden;background:#FAFBFD;">${content}</body></html>`);
 
   const tmpFramesDir = path.join(os.tmpdir(), `konoha_anim_${Date.now()}`);
   fs.mkdirSync(tmpFramesDir, { recursive: true });
