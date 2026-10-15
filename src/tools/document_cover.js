@@ -14,29 +14,83 @@
 'use strict';
 
 const GRADIENT_THEMES = {
-  amber_coral: {
-    name: 'Amber Coral',
-    colors: ['#D95338', '#EA580C', '#D97706', '#8B5CF6'],
+  theme_01: {
+    name: 'Electric Azure & Amber',
+    colors: ['#3B82F6', '#14B8A6', '#8B5CF6', '#F97316'],
     bg: '#FAFBFD'
   },
-  cyber_indigo: {
-    name: 'Cyber Indigo',
-    colors: ['#4F46E5', '#7C3AED', '#9333EA', '#06B6D4'],
+  theme_02: {
+    name: 'Sunfire Rose & Lime',
+    colors: ['#EAB308', '#EC4899', '#84CC16', '#06B6D4'],
     bg: '#FAFBFD'
   },
-  ocean_teal: {
-    name: 'Oceanic Teal',
-    colors: ['#0F766E', '#0D9488', '#10B981', '#3B82F6'],
+  theme_03: {
+    name: 'Indigo Flamingo & Gold',
+    colors: ['#6366F1', '#F43F5E', '#3B82F6', '#EAB308'],
     bg: '#FAFBFD'
   },
-  nordic_crimson: {
-    name: 'Nordic Crimson',
-    colors: ['#BE123C', '#E11D48', '#6366F1', '#0EA5E9'],
+  theme_04: {
+    name: 'Cyber Violet & Coral',
+    colors: ['#8B5CF6', '#06B6D4', '#F97316', '#EC4899'],
+    bg: '#FAFBFD'
+  },
+  theme_05: {
+    name: 'Teal Lime & Crimson',
+    colors: ['#14B8A6', '#84CC16', '#6366F1', '#F43F5E'],
+    bg: '#FAFBFD'
+  },
+  theme_06: {
+    name: 'Tangerine Sun & Neon Pink',
+    colors: ['#F97316', '#EAB308', '#3B82F6', '#EC4899'],
+    bg: '#FAFBFD'
+  },
+  theme_07: {
+    name: 'Cyan Amethyst & Indigo',
+    colors: ['#06B6D4', '#8B5CF6', '#14B8A6', '#6366F1'],
+    bg: '#FAFBFD'
+  },
+  theme_08: {
+    name: 'Berry Rose & Citrus Lime',
+    colors: ['#EC4899', '#F43F5E', '#EAB308', '#84CC16'],
+    bg: '#FAFBFD'
+  },
+  theme_09: {
+    name: 'Blue Velvet & Sunset Ruby',
+    colors: ['#3B82F6', '#6366F1', '#06B6D4', '#F43F5E'],
+    bg: '#FAFBFD'
+  },
+  theme_10: {
+    name: 'Spring Emerald & Iris Gold',
+    colors: ['#84CC16', '#14B8A6', '#EAB308', '#8B5CF6'],
     bg: '#FAFBFD'
   }
 };
 
+const THEME_ALIASES = {
+  amber_coral: 'theme_06',
+  cyber_indigo: 'theme_03',
+  ocean_teal: 'theme_01',
+  nordic_crimson: 'theme_08'
+};
+
+const COVER_MODELS = [
+  'geometric_polyhedra',
+  'contour_wave_ribbons',
+  'isometric_tech_monoliths',
+  'orbital_quantum_rings'
+];
+
+function selectCoverModel(model) {
+  if (model && COVER_MODELS.includes(model)) {
+    return model;
+  }
+  return COVER_MODELS[Math.floor(Math.random() * COVER_MODELS.length)];
+}
+
 function selectGradientTheme(themeKey) {
+  if (themeKey && THEME_ALIASES[themeKey]) {
+    themeKey = THEME_ALIASES[themeKey];
+  }
   if (themeKey && GRADIENT_THEMES[themeKey]) {
     return { key: themeKey, ...GRADIENT_THEMES[themeKey] };
   }
@@ -50,63 +104,264 @@ function getPlaywright() {
 }
 
 /**
- * Builds the geometric diamond cascade SVG group (pure vector geometry)
+ * Model 1: Generates cascading multifaceted geometric diamonds & prisms
  */
-function buildDiamondSvgGroup(colors, diamondGroupX, diamondGroupY, scale = 1) {
+function buildGeometricPolyhedraSvg(colors, width, height, isWidescreen = false) {
   const [c1, c2, c3, c4] = colors;
+  const cx = isWidescreen ? 420 : 220;
+  const cy = isWidescreen ? 340 : 270;
+  const scale = isWidescreen ? 0.95 : 0.72;
+
   return `
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="polyGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${c1}" />
       <stop offset="100%" stop-color="${c2}" />
     </linearGradient>
-    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="polyGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${c2}" />
       <stop offset="100%" stop-color="${c3}" />
     </linearGradient>
-    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="polyGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${c3}" />
       <stop offset="100%" stop-color="${c4}" />
     </linearGradient>
   </defs>
 
-  <!-- Cascading Geometric Diamonds -->
-  <g transform="translate(${diamondGroupX}, ${diamondGroupY}) scale(${scale})">
+  <g transform="translate(${cx}, ${cy}) scale(${scale})">
     <rect x="-380" y="-380" width="760" height="760" rx="36" transform="rotate(45)"
           fill="none" stroke="${c2}" stroke-width="2" stroke-opacity="0.18" stroke-dasharray="8 6" />
-
     <rect x="-320" y="-320" width="640" height="640" rx="28" transform="rotate(45)"
           fill="${c1}" fill-opacity="0.08" stroke="${c1}" stroke-width="2.5" stroke-opacity="0.35" />
-
-    <rect x="-350" y="-460" width="460" height="460" rx="20" transform="rotate(45)"
-          fill="${c2}" fill-opacity="0.12" stroke="${c2}" stroke-width="2" stroke-opacity="0.4" />
-
+    <rect x="-350" y="-460" width="460" height="460" rx="20" transform="rotate(30)"
+          fill="${c2}" fill-opacity="0.14" stroke="${c2}" stroke-width="2" stroke-opacity="0.4" />
     <rect x="-240" y="-240" width="480" height="480" rx="24" transform="rotate(45)"
-          fill="url(#grad1)" fill-opacity="0.92" />
-
+          fill="url(#polyGrad1)" fill-opacity="0.92" />
     <rect x="-170" y="-170" width="340" height="340" rx="16" transform="rotate(45)"
           fill="${c1}" fill-opacity="0.95" />
-
-    <rect x="-40" y="40" width="320" height="320" rx="16" transform="rotate(45)"
-          fill="url(#grad2)" fill-opacity="0.85" />
-
+    <rect x="-40" y="40" width="320" height="320" rx="16" transform="rotate(60)"
+          fill="url(#polyGrad2)" fill-opacity="0.88" />
     <rect x="-290" y="20" width="220" height="220" rx="12" transform="rotate(45)"
-          fill="${c4}" fill-opacity="0.88" />
-
+          fill="${c4}" fill-opacity="0.90" />
     <rect x="-90" y="-280" width="260" height="260" rx="14" transform="rotate(45)"
-          fill="${c3}" fill-opacity="0.80" />
-
+          fill="${c3}" fill-opacity="0.82" />
     <rect x="-120" y="-120" width="240" height="240" rx="10" transform="rotate(45)"
           fill="none" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.85" />
-
     <rect x="-30" y="-30" width="60" height="60" rx="6" transform="rotate(45)"
-          fill="#FFFFFF" fill-opacity="0.9" />
-
-    <rect x="180" y="-180" width="160" height="160" rx="10" transform="rotate(45)"
+          fill="#FFFFFF" fill-opacity="0.95" />
+    <rect x="180" y="-180" width="160" height="160" rx="10" transform="rotate(35)"
           fill="none" stroke="${c1}" stroke-width="2.5" stroke-opacity="0.5" />
     <rect x="220" y="80" width="120" height="120" rx="8" transform="rotate(45)"
-          fill="${c2}" fill-opacity="0.2" stroke="${c2}" stroke-width="2" stroke-opacity="0.4" />
+          fill="${c2}" fill-opacity="0.25" stroke="${c2}" stroke-width="2" stroke-opacity="0.4" />
+    <circle cx="140" cy="-120" r="14" fill="${c1}" fill-opacity="0.75" />
+    <circle cx="-160" cy="180" r="10" fill="${c4}" fill-opacity="0.85" />
   </g>`;
+}
+
+/**
+ * Model 2: Generates sweeping sinusoidal & cubic Bézier wave ribbons
+ */
+function buildWaveRibbonSvg(colors, width, height, isWidescreen = false) {
+  const [c1, c2, c3, c4] = colors;
+  const w = width;
+  const baseY = isWidescreen ? 360 : 310;
+
+  return `
+  <defs>
+    <linearGradient id="waveGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${c1}" />
+      <stop offset="50%" stop-color="${c2}" />
+      <stop offset="100%" stop-color="${c3}" />
+    </linearGradient>
+    <linearGradient id="waveGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c2}" />
+      <stop offset="100%" stop-color="${c4}" />
+    </linearGradient>
+    <linearGradient id="waveGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${c3}" />
+      <stop offset="100%" stop-color="${c1}" />
+    </linearGradient>
+  </defs>
+
+  <path d="M -60 -40 L ${w + 60} -40 L ${w + 60} ${baseY + 40} C ${w * 0.75} ${baseY + 120}, ${w * 0.45} ${baseY - 140}, -60 ${baseY - 20} Z"
+        fill="${c1}" fill-opacity="0.07" />
+
+  <path d="M -80 ${baseY - 120} C ${w * 0.25} ${baseY - 260}, ${w * 0.55} ${baseY + 60}, ${w + 80} ${baseY - 140} L ${w + 80} ${baseY - 60} C ${w * 0.55} ${baseY + 140}, ${w * 0.25} ${baseY - 180}, -80 ${baseY - 40} Z"
+        fill="url(#waveGrad1)" fill-opacity="0.92" />
+
+  <path d="M -80 ${baseY + 40} C ${w * 0.3} ${baseY + 140}, ${w * 0.65} ${baseY - 180}, ${w + 80} ${baseY + 20} L ${w + 80} ${baseY + 100} C ${w * 0.65} ${baseY - 100}, ${w * 0.3} ${baseY + 220}, -80 ${baseY + 120} Z"
+        fill="url(#waveGrad2)" fill-opacity="0.86" />
+
+  <path d="M -80 ${baseY - 40} C ${w * 0.2} ${baseY + 40}, ${w * 0.5} ${baseY - 90}, ${w * 0.8} ${baseY + 30} C ${w * 0.9} ${baseY + 70}, ${w + 60} ${baseY - 10}, ${w + 60} ${baseY - 50} C ${w * 0.8} ${baseY - 10}, ${w * 0.5} ${baseY - 130}, -80 ${baseY - 80} Z"
+        fill="url(#waveGrad3)" fill-opacity="0.78" />
+
+  <path d="M -60 ${baseY - 160} C ${w * 0.25} ${baseY - 300}, ${w * 0.55} ${baseY + 20}, ${w + 60} ${baseY - 180}"
+        fill="none" stroke="${c2}" stroke-width="2" stroke-dasharray="6 6" stroke-opacity="0.45" />
+  <path d="M -60 ${baseY + 80} C ${w * 0.3} ${baseY + 180}, ${w * 0.65} ${baseY - 140}, ${w + 60} ${baseY + 60}"
+        fill="none" stroke="${c3}" stroke-width="2" stroke-opacity="0.5" />
+
+  <circle cx="${Math.round(w * 0.32)}" cy="${baseY - 110}" r="12" fill="${c1}" fill-opacity="0.9" />
+  <circle cx="${Math.round(w * 0.32)}" cy="${baseY - 110}" r="6" fill="#FFFFFF" />
+  <circle cx="${Math.round(w * 0.68)}" cy="${baseY - 60}" r="10" fill="${c4}" fill-opacity="0.9" />
+  <circle cx="${Math.round(w * 0.68)}" cy="${baseY - 60}" r="5" fill="#FFFFFF" />
+  <circle cx="${Math.round(w * 0.84)}" cy="${baseY - 110}" r="7" fill="${c2}" fill-opacity="0.85" />`;
+}
+
+/**
+ * Model 3: Generates 3D isometric infrastructure monoliths & coordinate grids
+ */
+function buildIsometricMonolithSvg(colors, width, height, isWidescreen = false) {
+  const [c1, c2, c3, c4] = colors;
+  const originX = isWidescreen ? 480 : 340;
+  const originY = isWidescreen ? 360 : 300;
+  const s = isWidescreen ? 1.05 : 0.82;
+
+  const makeIsoBlock = (gx, gy, bw, bh, baseColor, topGradId) => {
+    const bx = (gx - gy) * 58 * s;
+    const by = (gx + gy) * 33 * s;
+    const w = bw * s;
+    const h = bh * s;
+    const skewY = 30 * (Math.PI / 180);
+    const hy = w * Math.sin(skewY);
+    const hx = w * Math.cos(skewY);
+
+    return `
+    <g transform="translate(${bx}, ${by})">
+      <path d="M 0 0 L 0 ${h} L ${-hx} ${h - hy} L ${-hx} ${-hy} Z"
+            fill="${baseColor}" fill-opacity="0.88" stroke="${baseColor}" stroke-width="1.5" />
+      <path d="M 0 0 L 0 ${h} L ${hx} ${h - hy} L ${hx} ${-hy} Z"
+            fill="${baseColor}" fill-opacity="0.68" stroke="${baseColor}" stroke-width="1.5" />
+      <path d="M 0 0 L ${hx} ${-hy} L 0 ${-2 * hy} L ${-hx} ${-hy} Z"
+            fill="url(#${topGradId})" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.9" />
+      <circle cx="0" cy="${-2 * hy}" r="${5 * s}" fill="#FFFFFF" />
+    </g>`;
+  };
+
+  return `
+  <defs>
+    <linearGradient id="isoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c1}" />
+      <stop offset="100%" stop-color="${c2}" />
+    </linearGradient>
+    <linearGradient id="isoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c2}" />
+      <stop offset="100%" stop-color="${c3}" />
+    </linearGradient>
+    <linearGradient id="isoGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c3}" />
+      <stop offset="100%" stop-color="${c4}" />
+    </linearGradient>
+    <linearGradient id="isoGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c4}" />
+      <stop offset="100%" stop-color="${c1}" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(${originX}, ${originY})">
+    <path d="M -360 0 L 0 -208 L 360 0 L 0 208 Z"
+          fill="${c1}" fill-opacity="0.05" stroke="${c2}" stroke-width="1.5" stroke-dasharray="8 6" stroke-opacity="0.3" />
+    <path d="M -240 0 L 0 -138 L 240 0 L 0 138 Z"
+          fill="none" stroke="${c1}" stroke-width="1.5" stroke-opacity="0.25" />
+
+    ${makeIsoBlock(-2, 0, 70, 110, c1, 'isoGrad1')}
+    ${makeIsoBlock(0, -2, 60, 150, c2, 'isoGrad2')}
+    ${makeIsoBlock(0, 0, 80, 190, c3, 'isoGrad3')}
+    ${makeIsoBlock(2, 0, 65, 130, c4, 'isoGrad4')}
+    ${makeIsoBlock(0, 2, 55, 90, c2, 'isoGrad1')}
+    ${makeIsoBlock(-1, 2, 50, 70, c1, 'isoGrad2')}
+
+    <line x1="-120" y1="-80" x2="0" y2="-210" stroke="${c2}" stroke-width="2" stroke-dasharray="4 4" stroke-opacity="0.6" />
+    <line x1="0" y1="-210" x2="130" y2="-90" stroke="${c3}" stroke-width="2" stroke-dasharray="4 4" stroke-opacity="0.6" />
+    <circle cx="-120" cy="-80" r="8" fill="${c1}" />
+    <circle cx="130" cy="-90" r="8" fill="${c4}" />
+  </g>`;
+}
+
+/**
+ * Model 4: Generates orbital quantum rings & radiant planetary nodes
+ */
+function buildOrbitalRingsSvg(colors, width, height, isWidescreen = false) {
+  const [c1, c2, c3, c4] = colors;
+  const cx = isWidescreen ? 480 : 360;
+  const cy = isWidescreen ? 340 : 280;
+  const s = isWidescreen ? 1.0 : 0.75;
+
+  return `
+  <defs>
+    <linearGradient id="ringGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c1}" />
+      <stop offset="100%" stop-color="${c2}" />
+    </linearGradient>
+    <linearGradient id="ringGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${c2}" />
+      <stop offset="100%" stop-color="${c3}" />
+    </linearGradient>
+    <linearGradient id="ringGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${c3}" />
+      <stop offset="100%" stop-color="${c4}" />
+    </linearGradient>
+    <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="${c1}" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="${c2}" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="${c3}" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <g transform="translate(${cx}, ${cy}) scale(${s})">
+    <circle cx="0" cy="0" r="280" fill="url(#coreAura)" />
+    <circle cx="0" cy="0" r="320" fill="none" stroke="${c2}" stroke-width="1.5" stroke-dasharray="6 8" stroke-opacity="0.3" />
+
+    <ellipse cx="0" cy="0" rx="340" ry="120" transform="rotate(-24)"
+             fill="none" stroke="url(#ringGrad1)" stroke-width="3" stroke-opacity="0.95" />
+    <ellipse cx="0" cy="0" rx="280" ry="90" transform="rotate(32)"
+             fill="none" stroke="url(#ringGrad2)" stroke-width="2.5" stroke-dasharray="12 6" stroke-opacity="0.85" />
+    <ellipse cx="0" cy="0" rx="230" ry="70" transform="rotate(-62)"
+             fill="none" stroke="url(#ringGrad3)" stroke-width="2" stroke-opacity="0.8" />
+    <ellipse cx="0" cy="0" rx="170" ry="50" transform="rotate(12)"
+             fill="none" stroke="${c4}" stroke-width="2" stroke-opacity="0.75" />
+
+    <line x1="-360" y1="0" x2="360" y2="0" stroke="${c1}" stroke-width="1.5" stroke-dasharray="4 8" stroke-opacity="0.35" />
+    <line x1="0" y1="-260" x2="0" y2="260" stroke="${c1}" stroke-width="1.5" stroke-dasharray="4 8" stroke-opacity="0.35" />
+
+    <circle cx="0" cy="0" r="46" fill="url(#ringGrad1)" stroke="#FFFFFF" stroke-width="3" />
+    <circle cx="0" cy="0" r="16" fill="#FFFFFF" />
+
+    <g transform="rotate(-24)">
+      <circle cx="340" cy="0" r="14" fill="${c1}" stroke="#FFFFFF" stroke-width="2.5" />
+      <circle cx="-340" cy="0" r="10" fill="${c2}" stroke="#FFFFFF" stroke-width="2" />
+      <circle cx="120" cy="112" r="8" fill="${c3}" stroke="#FFFFFF" stroke-width="1.5" />
+    </g>
+    <g transform="rotate(32)">
+      <circle cx="280" cy="0" r="12" fill="${c2}" stroke="#FFFFFF" stroke-width="2" />
+      <circle cx="-280" cy="0" r="9" fill="${c4}" stroke="#FFFFFF" stroke-width="1.5" />
+    </g>
+    <g transform="rotate(-62)">
+      <circle cx="0" cy="70" r="10" fill="${c3}" stroke="#FFFFFF" stroke-width="2" />
+      <circle cx="0" cy="-70" r="8" fill="${c1}" stroke="#FFFFFF" stroke-width="1.5" />
+    </g>
+  </g>`;
+}
+
+/**
+ * Builds procedural generative cover artwork SVG based on chosen model
+ */
+function buildGenerativeCoverArtSvg(colors, width, height, isWidescreen = false, modelType = null) {
+  const chosenModel = selectCoverModel(modelType);
+  if (chosenModel === 'contour_wave_ribbons') {
+    return buildWaveRibbonSvg(colors, width, height, isWidescreen);
+  } else if (chosenModel === 'isometric_tech_monoliths') {
+    return buildIsometricMonolithSvg(colors, width, height, isWidescreen);
+  } else if (chosenModel === 'orbital_quantum_rings') {
+    return buildOrbitalRingsSvg(colors, width, height, isWidescreen);
+  }
+  return buildGeometricPolyhedraSvg(colors, width, height, isWidescreen);
+}
+
+/**
+ * Backward compatibility alias for buildDiamondSvgGroup
+ */
+function buildDiamondSvgGroup(colors, diamondGroupX, diamondGroupY, scale = 1) {
+  return buildGeometricPolyhedraSvg(colors, 794, 1123, false);
 }
 
 /**
@@ -136,20 +391,17 @@ ${bodyContent}
 </html>`;
 }
 
-function renderCoverBackgroundArtworkHtml(theme, isWidescreen = false) {
+function renderCoverBackgroundArtworkHtml(theme, isWidescreen = false, options = {}) {
   const [c1, c2, c3, c4] = theme.colors;
   const width = isWidescreen ? 1920 : 794;
   const height = isWidescreen ? 1080 : 1123;
-  const diamondGroupX = isWidescreen ? 320 : 180;
-  const diamondGroupY = isWidescreen ? 320 : 260;
-  const scale = isWidescreen ? 0.85 : 0.65;
 
   const extraStyles = `  .diamond-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   .bottom-strap { position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; display: flex; }
   .grad-seg { flex: 1; height: 100%; }`;
 
   const bodyContent = `<svg class="diamond-canvas" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  ${buildDiamondSvgGroup(theme.colors, diamondGroupX, diamondGroupY, scale)}
+  ${buildGenerativeCoverArtSvg(theme.colors, width, height, isWidescreen, options.cover_model)}
 </svg>
 <div class="bottom-strap">
   <div class="grad-seg" style="background: ${c1};"></div>
@@ -199,9 +451,9 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
   const diamondGroupY = isWidescreen ? 320 : 260;
   const scale = isWidescreen ? 0.85 : 0.65;
 
-  // Contained content panel coordinates (bottom placement for PDF & PPTX)
+  // Contained content panel coordinates (~15% from bottom for PDF & PPTX)
   const textLeft = isWidescreen ? '780px' : '60px';
-  const textTop = isWidescreen ? '460px' : '570px';
+  const textTop = isWidescreen ? '540px' : '700px';
   const textWidth = isWidescreen ? '1060px' : '674px';
 
   const extraStyles = `
@@ -308,7 +560,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
   const bodyContent = `
 
 <svg class="diamond-canvas" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  ${buildDiamondSvgGroup(theme.colors, diamondGroupX, diamondGroupY, scale)}
+  ${buildGenerativeCoverArtSvg(theme.colors, width, height, isWidescreen, options.cover_model)}
 </svg>
 
 <div class="content-panel">
@@ -361,7 +613,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
 /**
  * Renders high-DPI text-free background artwork PNG via Playwright Chromium
  */
-async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false) {
+async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false, options = {}) {
   const playwright = getPlaywright();
   const browser = await playwright.chromium.launch({
     executablePath: '/usr/bin/google-chrome',
@@ -377,7 +629,7 @@ async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false) {
     deviceScaleFactor: 1
   });
 
-  const html = renderCoverBackgroundArtworkHtml(theme, isWidescreen);
+  const html = renderCoverBackgroundArtworkHtml(theme, isWidescreen, options);
   await page.setContent(html, { waitUntil: 'load' });
   const buffer = await page.screenshot({ type: 'png' });
   await page.close();
@@ -606,7 +858,10 @@ function renderHtmlGradientBar(colors, heightPx = 4) {
 
 module.exports = {
   GRADIENT_THEMES,
+  COVER_MODELS,
+  selectCoverModel,
   selectGradientTheme,
+  buildGenerativeCoverArtSvg,
   renderCoverBackgroundArtworkHtml,
   renderCoverBackgroundArtworkPng,
   renderCoverArtworkHtml,

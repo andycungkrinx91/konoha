@@ -26,6 +26,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const {
   selectGradientTheme,
+  buildGenerativeCoverArtSvg,
   renderCoverBackgroundArtworkPng,
   renderCoverArtworkHtml,
   renderCoverArtworkPng,
@@ -33,6 +34,12 @@ const {
   renderDocxNativeCover,
   renderHtmlGradientBar
 } = require('./document_cover');
+
+const EXCEL_PALETTE_HEX = [
+  '#3B82F6', '#14B8A6', '#8B5CF6', '#F97316', '#EAB308',
+  '#EC4899', '#84CC16', '#06B6D4', '#6366F1', '#F43F5E'
+];
+const EXCEL_PALETTE_ARGB = EXCEL_PALETTE_HEX.map((h) => 'FF' + h.replace('#', ''));
 
 function getDocx() {
   return require('docx');
@@ -267,7 +274,9 @@ async function documentCreate(options = {}) {
     if (includeCover) {
       try {
         // Generate text-free background artwork PNG (strictly zero text inside image)
-        const bgArtworkBuffer = await renderCoverBackgroundArtworkPng(theme, false);
+        const bgArtworkBuffer = await renderCoverBackgroundArtworkPng(theme, false, {
+          cover_model: options.cover_model
+        });
 
         // Native Word XML Cover Typography (100% editable native text)
         const nativeCoverElements = renderDocxNativeCover(docxModule, theme, {
@@ -360,7 +369,8 @@ async function documentCreate(options = {}) {
   // Page 1: Contained A4 Cover Page
   if (includeCover) {
     const coverHtmlInner = renderCoverArtworkHtml(theme, {
-      title, subtitle, author, classification, date: dateStr, compliance
+      title, subtitle, author, classification, date: dateStr, compliance,
+      cover_model: options.cover_model
     }, false);
 
     // Extract style and body content from cover HTML
@@ -478,7 +488,7 @@ async function documentCreate(options = {}) {
   }
   .content-panel {
     position: absolute;
-    top: 570px;
+    top: 700px;
     left: 60px;
     width: 674px;
     z-index: 10;
@@ -752,9 +762,9 @@ async function spreadsheetCreate(options = {}) {
       currentRow++; // Blank spacer row
     }
 
-    // Optional 2-Row Top KPI Summary Cards (EulerOS Audit style)
+    // Optional 2-Row Top KPI Summary Cards (EulerOS Audit style with random user 10-color choice)
     if (sheetDef.kpi_cards && Array.isArray(sheetDef.kpi_cards) && sheetDef.kpi_cards.length > 0) {
-      const kpiAccentColors = ['FF3730A3', 'FF0369A1', 'FFB91C1C', 'FF15803D', 'FFD97706', 'FF7C3AED'];
+      const kpiAccentColors = [...EXCEL_PALETTE_ARGB].sort(() => Math.random() - 0.5);
       const mergeTwoCols = sheetDef.kpi_cards.length <= 4 && headers.length >= 6;
 
       sheet.getRow(currentRow).height = 18;
@@ -1030,7 +1040,8 @@ async function presentationCreate(options = {}) {
           subtitle: sDef.subtitle || pptx.subject,
           author: options.author || pptx.author,
           classification: options.classification || 'Enterprise Technical Standard',
-          date: options.date || new Date().toISOString().split('T')[0]
+          date: options.date || new Date().toISOString().split('T')[0],
+          cover_model: options.cover_model
         }, true);
 
         slide.addImage({
@@ -1233,8 +1244,11 @@ async function diagramCreate(options = {}) {
   const edges = options.edges || [];
   const theme = selectGradientTheme(options.theme);
 
-  const width = options.width || 1600;
-  const height = options.height || 900;
+  const orientation = (options.orientation || options.layout || 'horizontal').toLowerCase();
+  const isVertical = orientation === 'vertical';
+
+  const width = options.width || (isVertical ? 900 : 1600);
+  const height = options.height || (isVertical ? 1400 : 900);
 
   // Collect color palette for premium arrowheads & glow filters
   const colorPalette = new Set();
@@ -1269,10 +1283,10 @@ async function diagramCreate(options = {}) {
 
   let nodesSvg = '';
   nodes.forEach((n, idx) => {
-    const nx = n.x !== undefined ? n.x : 80 + idx * 300;
-    const ny = n.y !== undefined ? n.y : 380;
-    const nw = n.width || 220;
+    const nw = n.width || (isVertical ? 260 : 220);
     const nh = n.height || 90;
+    const nx = n.x !== undefined ? n.x : (isVertical ? Math.round((width - nw) / 2) : 80 + idx * 300);
+    const ny = n.y !== undefined ? n.y : (isVertical ? 130 + idx * 230 : 380);
     const col = n.color || theme.colors[idx % theme.colors.length];
 
     nodesSvg += `
@@ -1286,16 +1300,44 @@ async function diagramCreate(options = {}) {
 
   let edgesSvg = '';
   edges.forEach((e, eIdx) => {
-    const fromNode = nodes.find((n) => n.id === e.from);
-    const toNode = nodes.find((n) => n.id === e.to);
+    const fromIdx = nodes.findIndex((n) => n.id === e.from);
+    const toIdx = nodes.findIndex((n) => n.id === e.to);
+    const fromNode = fromIdx >= 0 ? nodes[fromIdx] : null;
+    const toNode = toIdx >= 0 ? nodes[toIdx] : null;
     if (fromNode && toNode) {
-      const fx = (fromNode.x !== undefined ? fromNode.x : 80) + (fromNode.width || 220);
-      const fy = (fromNode.y !== undefined ? fromNode.y : 380) + (fromNode.height || 90) / 2;
-      const tx = toNode.x !== undefined ? toNode.x : 0;
-      const ty = (toNode.y !== undefined ? toNode.y : 380) + (toNode.height || 90) / 2;
+      const fromNw = fromNode.width || (isVertical ? 260 : 220);
+      const fromNh = fromNode.height || 90;
+      const fromNx = fromNode.x !== undefined ? fromNode.x : (isVertical ? Math.round((width - fromNw) / 2) : 80 + fromIdx * 300);
+      const fromNy = fromNode.y !== undefined ? fromNode.y : (isVertical ? 130 + fromIdx * 230 : 380);
 
-      const midX = (fx + tx) / 2;
-      const pathD = `M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}`;
+      const toNw = toNode.width || (isVertical ? 260 : 220);
+      const toNh = toNode.height || 90;
+      const toNx = toNode.x !== undefined ? toNode.x : (isVertical ? Math.round((width - toNw) / 2) : 80 + toIdx * 300);
+      const toNy = toNode.y !== undefined ? toNode.y : (isVertical ? 130 + toIdx * 230 : 380);
+
+      let fx, fy, tx, ty, pathD, labelTransform;
+
+      if (isVertical) {
+        fx = fromNx + fromNw / 2;
+        fy = fromNy + fromNh;
+        tx = toNx + toNw / 2;
+        ty = toNy;
+        const midY = (fy + ty) / 2;
+        pathD = `M ${fx} ${fy} C ${fx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
+        // Position label offset to the right of the vertical curve so it NEVER obscures the arrow line
+        const labelX = Math.max(fx, tx) + 64;
+        const labelY = midY;
+        labelTransform = `transform="translate(${labelX}, ${labelY})"`;
+      } else {
+        fx = fromNx + fromNw;
+        fy = fromNy + fromNh / 2;
+        tx = toNx;
+        ty = toNy + toNh / 2;
+        const midX = (fx + tx) / 2;
+        pathD = `M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}`;
+        labelTransform = `transform="translate(${midX}, ${Math.min(fy, ty) - 24})"`;
+      }
+
       const edgeCol = e.color || fromNode.color || theme.colors[eIdx % theme.colors.length];
       const cleanCol = edgeCol.replace('#', '');
 
@@ -1310,7 +1352,7 @@ async function diagramCreate(options = {}) {
           <animateMotion path="${pathD}" dur="2.4s" repeatCount="indefinite" />
         </circle>
         ${e.label ? `
-        <g transform="translate(${midX}, ${Math.min(fy, ty) - 24})">
+        <g ${labelTransform}>
           <rect x="-48" y="-12" width="96" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
           <text x="0" y="3" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#334155">${e.label}</text>
         </g>` : ''}

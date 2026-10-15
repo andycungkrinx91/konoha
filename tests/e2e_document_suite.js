@@ -35,7 +35,7 @@ const OUTPUT_DIR = path.resolve(
   path.join(process.cwd(), 'output')
 );
 
-const SUITE_THEME = 'amber_coral';
+const SUITE_THEME = process.env.SUITE_THEME || 'random';
 const SUITE_AUTHOR = 'Andy Setiyawan | Principal Infrastructure Architect';
 const SUITE_CLASSIFICATION = 'Enterprise Technical Standard (v1.0.0)';
 const SUITE_DATE = 'October 2026';
@@ -409,6 +409,14 @@ const DIAGRAM_EDGES = [
   { from: 'reg', to: 'k8s', label: 'Progressive Deploy' }
 ];
 
+const VERTICAL_DIAGRAM_NODES = [
+  { id: 'git', label: 'Git Repository', sublabel: 'Trunk Branch + PRs', color: '#4F46E5' },
+  { id: 'ci', label: 'Hermetic CI Engine', sublabel: 'Ephemeral Runners', color: '#0EA5E9' },
+  { id: 'sec', label: 'DevSecOps Gate', sublabel: 'SAST + SBOM + Cosign', color: '#F59E0B' },
+  { id: 'reg', label: 'Artifact Registry', sublabel: 'Signed OCI Images', color: '#10B981' },
+  { id: 'k8s', label: 'Production Fleet', sublabel: 'Canary ArgoCD Sync', color: '#6366F1' }
+];
+
 // 5. Generator: Markdown & Plain Text
 function generateMarkdownAndText(outputDir) {
   let mdContent = `# DevOps Engineering: Principles, Pipelines & Site Reliability\n\n`;
@@ -508,19 +516,20 @@ async function main() {
   });
   console.log('✓ Generated sample.pptx');
 
-  // 5. SVG via diagramCreate
-  console.log('5/6: Generating sample.svg via diagramCreate...');
+  // 5a. SVG via diagramCreate (Horizontal Layout)
+  console.log('5a/8: Generating sample.svg (horizontal) via diagramCreate...');
   await diagramCreate({
     output_path: path.join(OUTPUT_DIR, 'sample.svg'),
-    title: 'Hermetic CI/CD & DevSecOps Architecture',
+    orientation: 'horizontal',
+    title: 'Hermetic CI/CD & DevSecOps Architecture (Horizontal Flow)',
     theme: SUITE_THEME,
     nodes: DIAGRAM_NODES,
     edges: DIAGRAM_EDGES
   });
   console.log('✓ Generated sample.svg');
 
-  // 6. GIF via animationExport
-  console.log('6/6: Generating sample.gif via animationExport...');
+  // 5b. GIF via animationExport (Horizontal Animation)
+  console.log('5b/8: Generating sample.gif (horizontal) via animationExport...');
   await animationExport({
     input_path: path.join(OUTPUT_DIR, 'sample.svg'),
     output_path: path.join(OUTPUT_DIR, 'sample.gif'),
@@ -529,11 +538,33 @@ async function main() {
   });
   console.log('✓ Generated sample.gif');
 
+  // 6a. SVG via diagramCreate (Vertical Layout)
+  console.log('6a/8: Generating sample_vertical.svg (vertical) via diagramCreate...');
+  await diagramCreate({
+    output_path: path.join(OUTPUT_DIR, 'sample_vertical.svg'),
+    orientation: 'vertical',
+    title: 'Hermetic CI/CD & DevSecOps Architecture (Vertical Flow)',
+    theme: SUITE_THEME,
+    nodes: VERTICAL_DIAGRAM_NODES,
+    edges: DIAGRAM_EDGES
+  });
+  console.log('✓ Generated sample_vertical.svg');
+
+  // 6b. GIF via animationExport (Vertical Animation)
+  console.log('6b/8: Generating sample_vertical.gif (vertical) via animationExport...');
+  await animationExport({
+    input_path: path.join(OUTPUT_DIR, 'sample_vertical.svg'),
+    output_path: path.join(OUTPUT_DIR, 'sample_vertical.gif'),
+    duration_sec: 3,
+    fps: 15
+  });
+  console.log('✓ Generated sample_vertical.gif');
+
   // 7 & 8. Markdown & Text
   generateMarkdownAndText(OUTPUT_DIR);
   console.log('✓ Generated sample.md and sample.txt');
 
-  console.log(`\n🎉 All 8 deliverable files generated successfully in: ${OUTPUT_DIR}\n`);
+  console.log(`\n🎉 All deliverable files (including horizontal & vertical animated GIFs) generated successfully in: ${OUTPUT_DIR}\n`);
 }
 
 if (require.main === module) {
