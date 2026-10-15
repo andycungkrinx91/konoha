@@ -52,6 +52,7 @@ When creating slide presentations:
 - **Asymmetric 2-Column Layouts**: Use 60/40 or 70/30 split layouts (e.g. left side big takeaway and key metrics, right side data table or architectural diagram).
 - **16:9 Widescreen Standard**: Always format for 16:9 widescreen (`layout: 'LAYOUT_WIDE'` in pptxgenjs, producing standard 13.333" x 7.5" slides; `slide_width = Inches(13.333)`, `slide_height = Inches(7.5)` in python-pptx). Note: `LAYOUT_16x9` in pptxgenjs defaults to 10" x 5.625" and must be avoided.
 - **Strict Coordinate Budget (Zero Canvas Spill)**: Constrain all slide content strictly between `y: 1.45"` and `6.05"` with cards/columns, placing footers at `y: 6.55"` to prevent canvas overflow.
+- **16:9 Widescreen Bottom Cover Invariant**: Title cover typography and metadata cards are anchored in the lower canvas (`top: 460px, left: 780px, width: 1060px`), with cascading diamond artwork floating in the upper half (`y: 320px, x: 320px`), ensuring clean whitespace and zero canvas spill.
 - **Strict Zero Watermark Invariant**: Under NO circumstances should presentation slide decks contain watermarks, translucent stamps, or background evaluation watermarks.
 - **Metadata Scrubbing**: Set core presentation properties (`creator`, `lastModifiedBy`, `title`) to the human author or project name; remove `python-pptx` and `pptxgenjs` tags.
 - **Mandatory Kage Review Gate**: Always use Kage review on every generated PPTX presentation.

@@ -87,7 +87,9 @@ async function documentCreate(options = {}) {
     const {
       Document, Packer, Paragraph, TextRun, HeadingLevel, Table,
       TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-      Header, Footer, PageNumber, ImageRun
+      Header, Footer, PageNumber, ImageRun,
+      HorizontalPositionRelativeFrom, HorizontalPositionAlign,
+      VerticalPositionRelativeFrom, VerticalPositionAlign, TextWrappingType
     } = docxModule;
 
     const bodyChildren = [];
@@ -279,16 +281,28 @@ async function documentCreate(options = {}) {
           headers: { default: new Header({ children: [] }) },
           footers: { default: new Footer({ children: [] }) },
           children: [
-            // Background artwork banner
+            // Background artwork floating behind document
             new Paragraph({
               children: [
                 new ImageRun({
                   data: bgArtworkBuffer,
-                  transformation: { width: 500, height: 260 }
+                  transformation: { width: 794, height: 1123 },
+                  floating: {
+                    horizontalPosition: {
+                      relative: HorizontalPositionRelativeFrom.PAGE,
+                      align: HorizontalPositionAlign.CENTER
+                    },
+                    verticalPosition: {
+                      relative: VerticalPositionRelativeFrom.PAGE,
+                      align: VerticalPositionAlign.TOP
+                    },
+                    wrap: {
+                      type: TextWrappingType.NONE
+                    },
+                    behindDocument: true
+                  }
                 })
-              ],
-              alignment: 'center',
-              spacing: { after: 200 }
+              ]
             }),
             ...nativeCoverElements
           ]
@@ -676,7 +690,6 @@ async function spreadsheetCreate(options = {}) {
   workbook.modified = new Date();
 
   const _theme = selectGradientTheme(options.theme);
-  const themeHeaderArgb = 'FF1E293B'; // Professional dark slate header
 
   const sheets = options.sheets || [
     {
@@ -692,9 +705,16 @@ async function spreadsheetCreate(options = {}) {
   ];
 
   for (const sheetDef of sheets) {
+    const headers = sheetDef.headers || [];
+    const rows = sheetDef.rows || [];
+
+    // Calculate frozen row split based on layout elements
     let ySplit = 1;
-    if (sheetDef.kpi_cards && sheetDef.kpi_cards.length > 0) ySplit = 5;
-    else if (sheetDef.title) ySplit = 4;
+    if (sheetDef.kpi_cards && sheetDef.kpi_cards.length > 0) {
+      ySplit = sheetDef.title ? 6 : 4;
+    } else if (sheetDef.title) {
+      ySplit = sheetDef.subtitle ? 4 : 3;
+    }
 
     const sheet = workbook.addWorksheet(sheetDef.name, {
       views: [{ showGridLines: true, state: 'frozen', ySplit }]
@@ -702,20 +722,68 @@ async function spreadsheetCreate(options = {}) {
 
     let currentRow = 1;
 
-    // Optional Top KPI Summary Cards (Rows 1-3)
-    if (sheetDef.kpi_cards && Array.isArray(sheetDef.kpi_cards) && sheetDef.kpi_cards.length > 0) {
-      sheetDef.kpi_cards.forEach((kpi, kIdx) => {
-        const startCol = 1 + kIdx * 2;
-        const endCol = startCol + 1;
+    // Optional Title Banner (EulerOS Audit style)
+    if (sheetDef.title) {
+      const endColLetter = String.fromCharCode(64 + Math.max(headers.length, 5));
+      sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
+      const titleCell = sheet.getCell(`A${currentRow}`);
+      titleCell.value = sheetDef.title;
+      titleCell.font = { name: 'Segoe UI', size: 12.5, bold: true, color: { argb: 'FF1E293B' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
+      titleCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      sheet.getRow(currentRow).height = 24;
+      currentRow++;
 
-        sheet.mergeCells(currentRow, startCol, currentRow, endCol);
-        sheet.mergeCells(currentRow + 1, startCol, currentRow + 1, endCol);
+      if (sheetDef.subtitle) {
+        sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
+        const subCell = sheet.getCell(`A${currentRow}`);
+        subCell.value = sheetDef.subtitle;
+        subCell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF64748B' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF5FF' } };
+        subCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        sheet.getRow(currentRow).height = 20;
+        currentRow++;
+      }
+      sheet.getRow(currentRow).height = 10;
+      currentRow++; // Blank spacer row
+    }
+
+    // Optional 2-Row Top KPI Summary Cards (EulerOS Audit style)
+    if (sheetDef.kpi_cards && Array.isArray(sheetDef.kpi_cards) && sheetDef.kpi_cards.length > 0) {
+      const kpiAccentColors = ['FF3730A3', 'FF0369A1', 'FFB91C1C', 'FF15803D', 'FFD97706', 'FF7C3AED'];
+      const mergeTwoCols = sheetDef.kpi_cards.length <= 4 && headers.length >= 6;
+
+      sheet.getRow(currentRow).height = 18;
+      sheet.getRow(currentRow + 1).height = 28;
+
+      sheetDef.kpi_cards.forEach((kpi, kIdx) => {
+        const startCol = mergeTwoCols ? (1 + kIdx * 2) : (1 + kIdx);
+        const endCol = mergeTwoCols ? (startCol + 1) : startCol;
+        const accentColor = kpiAccentColors[kIdx % kpiAccentColors.length];
+
+        if (mergeTwoCols) {
+          sheet.mergeCells(currentRow, startCol, currentRow, endCol);
+          sheet.mergeCells(currentRow + 1, startCol, currentRow + 1, endCol);
+        }
 
         const labelCell = sheet.getRow(currentRow).getCell(startCol);
         labelCell.value = (kpi.label || '').toUpperCase();
-        labelCell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF64748B' } };
-        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        labelCell.font = { name: 'Segoe UI', size: 8, bold: true, color: { argb: 'FF64748B' } };
+        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        labelCell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+
+        if (mergeTwoCols) {
+          const rCell = sheet.getRow(currentRow).getCell(endCol);
+          rCell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+          };
+        }
 
         const valCell = sheet.getRow(currentRow + 1).getCell(startCol);
         if (typeof kpi.formula === 'string') {
@@ -725,54 +793,70 @@ async function spreadsheetCreate(options = {}) {
           valCell.value = kpi.value;
         }
 
-        valCell.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FF0F172A' } };
-        valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        valCell.font = { name: 'Segoe UI', size: 15, bold: true, color: { argb: accentColor } };
+        valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         valCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        valCell.border = {
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'medium', color: { argb: accentColor } }
+        };
+
+        if (mergeTwoCols) {
+          const rValCell = sheet.getRow(currentRow + 1).getCell(endCol);
+          rValCell.border = {
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'medium', color: { argb: accentColor } }
+          };
+        }
 
         if (kpi.format === 'currency') valCell.numFmt = '"$"#,##0';
         else if (kpi.format === 'percent') valCell.numFmt = '0.0%';
         else if (kpi.format === 'integer') valCell.numFmt = '#,##0';
       });
 
-      currentRow += 3; // Leaves blank row after KPI cards
-    } else if (sheetDef.title) {
-      // Title Banner
-      const endColLetter = String.fromCharCode(64 + Math.max(sheetDef.headers ? sheetDef.headers.length : 5, 5));
-      sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
-      const titleCell = sheet.getCell(`A${currentRow}`);
-      titleCell.value = sheetDef.title;
-      titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FF1E293B' } };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      currentRow++;
-
-      if (sheetDef.subtitle) {
-        sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
-        const subCell = sheet.getCell(`A${currentRow}`);
-        subCell.value = sheetDef.subtitle;
-        subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
-        currentRow++;
-      }
-      currentRow++; // Blank row
+      currentRow += 2;
+      sheet.getRow(currentRow).height = 12;
+      currentRow++; // Spacer row
     }
 
-    // Table Header Row
+    // Optional Section Title (EulerOS Audit row 9)
+    if (sheetDef.section_title) {
+      const secCell = sheet.getRow(currentRow).getCell(1);
+      secCell.value = sheetDef.section_title;
+      secCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF1E293B' } };
+      sheet.getRow(currentRow).height = 24;
+      currentRow++;
+    }
+
+    // Table Header Row (EulerOS Audit row 10: #EEF2F6 fill, 9pt bold, medium #94A3B8 bottom border)
     const headerRowIdx = currentRow;
-    const headers = sheetDef.headers || [];
     const headerRow = sheet.getRow(headerRowIdx);
     headerRow.values = headers;
-    headerRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: themeHeaderArgb } };
-    headerRow.height = 24;
+    headerRow.height = 26;
+
+    for (let cIdx = 1; cIdx <= headers.length; cIdx++) {
+      const hCell = headerRow.getCell(cIdx);
+      hCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF1E293B' } };
+      hCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F6' } };
+      hCell.border = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'medium', color: { argb: 'FF94A3B8' } }
+      };
+      hCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    }
 
     currentRow++;
 
-    // Data Rows
-    const rows = sheetDef.rows || [];
-    const _startDataRow = currentRow;
-
+    // Data Rows with Zebra Striping, Thin Borders, and Status Pill Badge Tints
     for (let rIdx = 0; rIdx < rows.length; rIdx++) {
       const rowData = rows[rIdx];
       const row = sheet.getRow(currentRow);
+      row.height = 20;
+
+      const zebraBg = rIdx % 2 === 1 ? 'FFF8FAFC' : 'FFFFFFFF';
 
       for (let cIdx = 0; cIdx < rowData.length; cIdx++) {
         const cellVal = rowData[cIdx];
@@ -785,27 +869,66 @@ async function spreadsheetCreate(options = {}) {
           cell.value = cellVal;
         }
 
-        cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF334155' } };
+        cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF0F172A' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-        // Column-specific number formatters
+        // Column formatters
         if (sheetDef.columns && sheetDef.columns[cIdx] && sheetDef.columns[cIdx].format) {
           const fmt = sheetDef.columns[cIdx].format;
-          if (fmt === 'currency') cell.numFmt = '"$"#,##0';
-          else if (fmt === 'percent') cell.numFmt = '0.0%';
-          else if (fmt === 'integer') cell.numFmt = '#,##0';
-          else if (fmt === 'duration_hrs') cell.numFmt = '0.0 "hrs"';
-          else if (fmt === 'duration_mins') cell.numFmt = '0 "mins"';
+          if (fmt === 'currency') {
+            cell.numFmt = '"$"#,##0';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (fmt === 'percent') {
+            cell.numFmt = '0.0%';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (fmt === 'integer') {
+            cell.numFmt = '#,##0';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (fmt === 'duration_hrs') {
+            cell.numFmt = '0.0 "hrs"';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (fmt === 'duration_mins') {
+            cell.numFmt = '0 "mins"';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
         } else if (typeof cellVal === 'number') {
-          if (cellVal > 0 && cellVal < 1) cell.numFmt = '0.0%';
-          else if (Number.isInteger(cellVal)) cell.numFmt = '#,##0';
+          if (cellVal > 0 && cellVal < 1) {
+            cell.numFmt = '0.0%';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (Number.isInteger(cellVal)) {
+            cell.numFmt = '#,##0';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+        }
+
+        // Status Badge Tinting (EulerOS Lifecycle pill style)
+        const strVal = String(cellVal || '');
+        if (/(?:DEPRECATED|CRITICAL|FAILED|HIGH|ERROR|EOS|EOL)/i.test(strVal)) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF991B1B' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (/(?:ACTIVE|HEALTHY|OPERATIONAL|SUCCESS|PASSED|STABLE)/i.test(strVal)) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF166534' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (/(?:TIER|CORE|PRIMARY)/i.test(strVal)) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
+          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF3730A3' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (/(?:WARNING|PENDING|MIGRATING|SPOT)/i.test(strVal)) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF92400E' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
       }
 
-      // Zebra striping
-      if (rIdx % 2 === 1) {
-        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-      }
-      row.height = 20;
       currentRow++;
     }
 
@@ -822,6 +945,8 @@ async function spreadsheetCreate(options = {}) {
     // Summary Row
     if (sheetDef.summary) {
       const sumRow = sheet.getRow(currentRow);
+      sumRow.height = 22;
+
       for (let cIdx = 0; cIdx < sheetDef.summary.length; cIdx++) {
         const item = sheetDef.summary[cIdx];
         const cell = sumRow.getCell(cIdx + 1);
@@ -832,6 +957,15 @@ async function spreadsheetCreate(options = {}) {
           cell.value = item;
         }
 
+        cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'double', color: { argb: 'FF64748B' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+
         if (sheetDef.columns && sheetDef.columns[cIdx] && sheetDef.columns[cIdx].format) {
           const fmt = sheetDef.columns[cIdx].format;
           if (fmt === 'currency') cell.numFmt = '"$"#,##0';
@@ -840,11 +974,6 @@ async function spreadsheetCreate(options = {}) {
         }
       }
 
-      sumRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-      sumRow.border = {
-        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-        bottom: { style: 'double', color: { argb: 'FF64748B' } }
-      };
       currentRow++;
     }
 
@@ -1103,6 +1232,37 @@ async function diagramCreate(options = {}) {
   const width = options.width || 1600;
   const height = options.height || 900;
 
+  // Collect color palette for premium arrowheads & glow filters
+  const colorPalette = new Set();
+  theme.colors.forEach((c) => colorPalette.add(c));
+  nodes.forEach((n) => { if (n.color) colorPalette.add(n.color); });
+  edges.forEach((e) => { if (e.color) colorPalette.add(e.color); });
+  colorPalette.add('#3B82F6');
+  colorPalette.add('#10B981');
+  colorPalette.add('#8B5CF6');
+  colorPalette.add('#F59E0B');
+  colorPalette.add('#64748B');
+
+  let defsSvg = `
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>`;
+
+  colorPalette.forEach((hex) => {
+    const clean = hex.replace('#', '');
+    defsSvg += `
+    <marker id="arrowhead-${clean}" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M 1 1.5 L 7 4.5 L 1 7.5 L 2.8 4.5 Z" fill="${hex}" />
+    </marker>
+    <filter id="glow-${clean}" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>`;
+  });
+
   let nodesSvg = '';
   nodes.forEach((n, idx) => {
     const nx = n.x !== undefined ? n.x : 80 + idx * 300;
@@ -1121,20 +1281,35 @@ async function diagramCreate(options = {}) {
   });
 
   let edgesSvg = '';
-  edges.forEach((e) => {
+  edges.forEach((e, eIdx) => {
     const fromNode = nodes.find((n) => n.id === e.from);
     const toNode = nodes.find((n) => n.id === e.to);
     if (fromNode && toNode) {
-      const fx = (fromNode.x || 0) + (fromNode.width || 220);
-      const fy = (fromNode.y || 380) + (fromNode.height || 90) / 2;
-      const tx = toNode.x || 0;
-      const ty = (toNode.y || 380) + (toNode.height || 90) / 2;
+      const fx = (fromNode.x !== undefined ? fromNode.x : 80) + (fromNode.width || 220);
+      const fy = (fromNode.y !== undefined ? fromNode.y : 380) + (fromNode.height || 90) / 2;
+      const tx = toNode.x !== undefined ? toNode.x : 0;
+      const ty = (toNode.y !== undefined ? toNode.y : 380) + (toNode.height || 90) / 2;
 
       const midX = (fx + tx) / 2;
+      const pathD = `M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}`;
+      const edgeCol = e.color || fromNode.color || theme.colors[eIdx % theme.colors.length];
+      const cleanCol = edgeCol.replace('#', '');
+
       edgesSvg += `
-      <g class="diagram-edge">
-        <path d="M ${fx} ${fy} C ${midX} ${fy}, ${midX} ${ty}, ${tx} ${ty}" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrowhead)" />
-        ${e.label ? `<text x="${midX}" y="${(fy + ty) / 2 - 8}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10.5" font-weight="600" fill="#475569">${e.label}</text>` : ''}
+      <g class="diagram-edge" data-from="${e.from}" data-to="${e.to}">
+        <!-- Soft Ambient Track -->
+        <path d="${pathD}" fill="none" stroke="${edgeCol}" stroke-opacity="0.15" stroke-width="6" stroke-linecap="round" />
+        <!-- Core Animated Dashed Flow Line with Sleek Colored Arrowhead -->
+        <path class="flow-path" d="${pathD}" fill="none" stroke="${edgeCol}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" marker-end="url(#arrowhead-${cleanCol})" />
+        <!-- Flowing Particle Animation -->
+        <circle r="4" fill="${edgeCol}" filter="url(#glow-${cleanCol})">
+          <animateMotion path="${pathD}" dur="2.4s" repeatCount="indefinite" />
+        </circle>
+        ${e.label ? `
+        <g transform="translate(${midX}, ${(fy + ty) / 2 - 10})">
+          <rect x="-44" y="-12" width="88" height="22" rx="5" fill="#FFFFFF" fill-opacity="0.95" stroke="#CBD5E1" stroke-width="1" />
+          <text x="0" y="3" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#334155">${e.label}</text>
+        </g>` : ''}
       </g>`;
     }
   });
@@ -1142,13 +1317,18 @@ async function diagramCreate(options = {}) {
   const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.06" />
-    </filter>
-    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#64748B" />
-    </marker>
+    ${defsSvg}
   </defs>
+
+  <style>
+    @keyframes flowDash {
+      from { stroke-dashoffset: 28; }
+      to { stroke-dashoffset: 0; }
+    }
+    .flow-path {
+      animation: flowDash 1.2s linear infinite;
+    }
+  </style>
 
   <rect width="100%" height="100%" fill="#FAFBFD" />
 
@@ -1212,6 +1392,20 @@ async function animationExport(options = {}) {
   const totalFrames = durationSec * fps;
   try {
     for (let f = 0; f < totalFrames; f++) {
+      const frameTime = f / fps;
+      // Advance SVG SMIL timeline and scrub CSS strokeDashoffset for deterministic frame-by-frame capture
+      await page.evaluate((time) => {
+        const svg = document.querySelector('svg');
+        if (svg && typeof svg.setCurrentTime === 'function') {
+          svg.setCurrentTime(time);
+        }
+        const paths = document.querySelectorAll('.flow-path');
+        paths.forEach((p) => {
+          const offset = (time * 24) % 28;
+          p.style.strokeDashoffset = -offset;
+        });
+      }, frameTime);
+
       const framePath = path.join(tmpFramesDir, `frame_${String(f).padStart(4, '0')}.png`);
       await page.screenshot({ path: framePath, type: 'png' });
       await page.waitForTimeout(1000 / fps);

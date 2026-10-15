@@ -1,5 +1,5 @@
 /**
- * scripts/generate_devops_suite.js
+ * tests/e2e_document_suite.js
  *
  * Declarative Orchestrator: generates the complete 8-Page DevOps Basic Fundamental Suite
  * by invoking the 5 official Konoha Document Engineering tools:
@@ -252,20 +252,20 @@ const SPREADSHEET_SHEETS = [
       ['Target Availability SLA', 24, 'percent']
     ],
     [
-      ['Edge Ingress Gateway', 24, 1.2, 0.02, 12, { formula: '=XLOOKUP(A6, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.999)' }],
-      ['User Identity Service', 14, 2.5, 0.04, 18, { formula: '=XLOOKUP(A7, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.995)' }],
-      ['Order Processing Engine', 18, 1.8, 0.03, 15, { formula: '=XLOOKUP(A8, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.999)' }],
-      ['Catalog Search Core', 12, 3.2, 0.05, 25, { formula: '=XLOOKUP(A9, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.99)' }],
-      ['Telemetry Aggregator', 28, 0.9, 0.01, 8, { formula: '=XLOOKUP(A10, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.99)' }]
+      ['Edge Ingress Gateway', 24, 1.2, 0.02, 12, { formula: '=XLOOKUP(A8, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.999)' }],
+      ['User Identity Service', 14, 2.5, 0.04, 18, { formula: '=XLOOKUP(A9, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.995)' }],
+      ['Order Processing Engine', 18, 1.8, 0.03, 15, { formula: '=XLOOKUP(A10, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.999)' }],
+      ['Catalog Search Core', 12, 3.2, 0.05, 25, { formula: '=XLOOKUP(A11, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.99)' }],
+      ['Telemetry Aggregator', 28, 0.9, 0.01, 8, { formula: '=XLOOKUP(A12, Service_SLO_Registry!$A$5:$A$9, Service_SLO_Registry!$C$5:$C$9, 0.99)' }]
     ],
     {
       kpi_cards: [
-        { label: 'Total Services', formula: '=COUNTA(A6:A10)', format: 'integer' },
-        { label: 'Avg Deployments/Wk', formula: '=AVERAGE(B6:B10)', format: 'integer' },
-        { label: 'Avg Failure Rate', formula: '=AVERAGE(D6:D10)', format: 'percent' },
-        { label: 'Fleet MTTR SLA', formula: '=AVERAGE(E6:E10)', format: 'duration_mins' }
+        { label: 'Total Services', formula: '=COUNTA(A8:A12)', format: 'integer' },
+        { label: 'Avg Deployments/Wk', formula: '=AVERAGE(B8:B12)', format: 'integer' },
+        { label: 'Avg Failure Rate', formula: '=AVERAGE(D8:D12)', format: 'percent' },
+        { label: 'Fleet MTTR SLA', formula: '=AVERAGE(E8:E12)', format: 'duration_mins' }
       ],
-      summary: ['Fleet Averages', { formula: '=AVERAGE(B6:B10)' }, { formula: '=AVERAGE(C6:C10)' }, { formula: '=AVERAGE(D6:D10)' }, { formula: '=AVERAGE(E6:E10)' }, { formula: '=AVERAGE(F6:F10)' }]
+      summary: ['Fleet Averages', { formula: '=AVERAGE(B8:B12)' }, { formula: '=AVERAGE(C8:C12)' }, { formula: '=AVERAGE(D8:D12)' }, { formula: '=AVERAGE(E8:E12)' }, { formula: '=AVERAGE(F8:F12)' }]
     }
   ),
   makeSheet(

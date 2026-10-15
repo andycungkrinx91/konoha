@@ -47,8 +47,9 @@ When creating spreadsheets:
 - **Formulas Over Hardcoded Values**: If a number is derived from other cells, calculate it via an Excel formula (`=SUM(C4:C12)`, `=C13-D13`), never paste pre-calculated static values into summary rows.
 - **Formula Casing**: Always write formula names in ALL CAPS (`SUM`, `AVERAGE`, `IF`, `XLOOKUP`, `INDEX`, `MATCH`). Lowercase formula names (`=sum(...)`) signal hasty robotic generation.
 - **Auto-Fit Column Widths**: Every column must be auto-fitted to its longest content plus 3 padding characters so no content is truncated with `###`.
-- **Executive KPI Summary Cards**: Place 3–4 executive KPI summary cards prominently on rows 1–3 displaying headline metrics, deltas, and subtle theme accent borders.
-- **Table AutoFilter & Distinct Header Fill**: Table headers use dark slate fill (`#1E293B`) with bold white text, freeze panes, and native AutoFilter (`ws.autoFilter = { from: ..., to: ... }`).
+- **EulerOS Lifecycle Audit Design & KPI Summary Cards**: Top KPI summary cards use a 2-row structure (Row 1 label in 8pt bold `#64748B` with `#F1F5F9` fill and thin `#CBD5E1` top/sides, Row 2 metric in 16pt bold with medium bottom accent border in `#3730A3`, `#0369A1`, `#B91C1C`, `#15803D`, `#D97706`).
+- **Table AutoFilter & Distinct Header Styling**: Table headers use executive `#EEF2F6` fill with bold `9pt` `#1E293B` text, thin `#CBD5E1` top/left/right border, medium `#94A3B8` bottom border, freeze panes, and native AutoFilter (`ws.autoFilter`).
+- **Status Pill Badge Tints**: Cells containing status terms automatically receive subtle pill tints: `#FEE2E2` for Critical/Deprecated/EOL, `#DCFCE7` for Healthy/Active/Operational, `#E0E7FF` for Tier/Core, `#FEF3C7` for Warning/Pending.
 - **Dynamic Relational Lookups**: Use cross-sheet `XLOOKUP` formulas rather than hardcoded lookup values to connect operational detail sheets with master indexes.
 - **Strict Zero Watermark Invariant**: Under NO circumstances should generated, styled, or edited Excel workbooks contain watermarks, diagonal background stamps, sheet header watermark graphics, or evaluation marks.
 - **Metadata Scrubbing**: Set workbook author and properties to the human analyst / organization; remove `openpyxl`, `exceljs`, or `pandas` application tags.

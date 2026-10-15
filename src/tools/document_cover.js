@@ -140,9 +140,9 @@ function renderCoverBackgroundArtworkHtml(theme, isWidescreen = false) {
   const [c1, c2, c3, c4] = theme.colors;
   const width = isWidescreen ? 1920 : 794;
   const height = isWidescreen ? 1080 : 1123;
-  const diamondGroupX = isWidescreen ? 280 : 130;
-  const diamondGroupY = isWidescreen ? 540 : 620;
-  const scale = isWidescreen ? 0.95 : 0.65;
+  const diamondGroupX = isWidescreen ? 320 : 180;
+  const diamondGroupY = isWidescreen ? 320 : 260;
+  const scale = isWidescreen ? 0.85 : 0.65;
 
   const extraStyles = `  .diamond-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   .bottom-strap { position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; display: flex; }
@@ -195,14 +195,14 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
     titleLine2 = words.slice(mid).join(' ');
   }
 
-  const diamondGroupX = isWidescreen ? 280 : 130;
-  const diamondGroupY = isWidescreen ? 540 : 620;
-  const scale = isWidescreen ? 0.95 : 0.65;
+  const diamondGroupX = isWidescreen ? 320 : 180;
+  const diamondGroupY = isWidescreen ? 320 : 260;
+  const scale = isWidescreen ? 0.85 : 0.65;
 
-  // Contained content panel coordinates
-  const textLeft = isWidescreen ? '820px' : '350px';
-  const textTop = isWidescreen ? '140px' : '140px';
-  const textWidth = isWidescreen ? '1020px' : '395px';
+  // Contained content panel coordinates (bottom placement for PDF & PPTX)
+  const textLeft = isWidescreen ? '780px' : '60px';
+  const textTop = isWidescreen ? '460px' : '570px';
+  const textWidth = isWidescreen ? '1060px' : '674px';
 
   const extraStyles = `
   body {
@@ -237,33 +237,35 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
     margin-bottom: ${isWidescreen ? '28px' : '18px'};
   }
   .cover-title {
-    font-size: ${isWidescreen ? '42px' : '34px'};
+    font-size: ${isWidescreen ? '38px' : '32px'};
     font-weight: 900;
-    line-height: 1.08;
+    line-height: 1.12;
     letter-spacing: -0.02em;
     color: #0F172A;
     text-transform: uppercase;
-    margin-bottom: ${isWidescreen ? '20px' : '14px'};
+    margin-bottom: ${isWidescreen ? '14px' : '12px'};
   }
   .cover-title-line2 {
     color: ${c1};
     display: block;
+    font-size: ${isWidescreen ? '30px' : '26px'};
+    margin-top: 4px;
   }
   .cover-subtitle {
-    font-size: ${isWidescreen ? '20px' : '14px'};
+    font-size: ${isWidescreen ? '18px' : '14.5px'};
     line-height: 1.45;
     color: #475569;
     font-weight: 400;
-    margin-bottom: ${isWidescreen ? '26px' : '18px'};
+    margin-bottom: ${isWidescreen ? '20px' : '18px'};
     max-width: 95%;
   }
   .grad-bar {
     display: flex;
-    width: ${isWidescreen ? '280px' : '220px'};
-    height: ${isWidescreen ? '6px' : '4px'};
+    width: ${isWidescreen ? '280px' : '260px'};
+    height: ${isWidescreen ? '5px' : '4px'};
     border-radius: 3px;
     overflow: hidden;
-    margin-bottom: ${isWidescreen ? '32px' : '22px'};
+    margin-bottom: ${isWidescreen ? '22px' : '20px'};
   }
   .grad-seg { flex: 1; height: 100%; }
   .meta-card {
@@ -272,13 +274,13 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
     border: 1px solid #E2E8F0;
     border-left: 4px solid ${c1};
     border-radius: 8px;
-    padding: ${isWidescreen ? '22px 26px' : '14px 18px'};
+    padding: ${isWidescreen ? '18px 24px' : '14px 20px'};
     box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
   }
   .meta-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: ${isWidescreen ? '16px 24px' : '10px 14px'};
+    gap: ${isWidescreen ? '12px 24px' : '10px 20px'};
   }
   .meta-item { display: flex; flex-direction: column; }
   .meta-label {
@@ -457,8 +459,8 @@ function renderDocxNativeCover(docxModule, theme, metadata = {}) {
 
   const elements = [];
 
-  // Spacing before cover content
-  elements.push(new Paragraph({ text: '', spacing: { before: 480 } }));
+  // Spacing before cover content (places typography in lower half over background artwork)
+  elements.push(new Paragraph({ text: '', spacing: { before: 5200 } }));
 
   // 1. Enterprise Category Chip (Native Single-Cell Pill Table)
   const chipCategory = metadata.category || 'ENTERPRISE TECHNICAL STANDARD';
