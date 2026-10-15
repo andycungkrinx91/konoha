@@ -19,7 +19,7 @@ Konoha's Telegram integration provides remote visibility and control over your l
 - **Zero Emojis Standard**: All notifications use clean bracketed tags (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[QUEUED]`, `[KAGE REVIEW GATE PASSED]`).
 
 <p align="center">
-  <img src="../assets/konoha-telegram-flow.gif" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
+  <img src="../assets/konoha-telegram-flow.webp" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
 </p>
 
 ---

@@ -16,15 +16,16 @@ Browsing web applications using LLMs is expensive in token consumption. Re-runni
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
     primaryColor: '#ffffff'
     primaryTextColor: '#0f172a'
     primaryBorderColor: '#0284c7'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-    fontSize: '14px'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -37,7 +38,7 @@ flowchart LR
     C --> D["Playwright Run<br/>(no LLM browsing)"]
     D -. "only on failure:<br/>small, escalating triage" .-> A
 
-    linkStyle default stroke:#0f172a,stroke-width:2.5px;
+    linkStyle default stroke:#334155,stroke-width:2px;
     style A fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
     style B fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
     style C fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
@@ -53,17 +54,18 @@ flowchart LR
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
     primaryColor: '#ffffff'
     primaryTextColor: '#0f172a'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#ffffff'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
     tertiaryColor: '#ffffff'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -100,7 +102,8 @@ flowchart TD
   RD --> QF
   RD -. "depth 7 or slop_cycles > 7" .-> STOP["Stop and ask the user"]
 
-  linkStyle default stroke:#0f172a,stroke-width:2px;
+  linkStyle default stroke:#334155,stroke-width:2px;
+  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
 ```
 
 ---

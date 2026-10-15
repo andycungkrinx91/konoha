@@ -27,6 +27,7 @@ const {
   canvasFont,
   parseAnsiToSegments,
   saveGif,
+  saveWebP,
 } = require('./lib/shared.js');
 
 // ---------------------------------------------------------------------------
@@ -314,11 +315,17 @@ function buildClientDelegationScene(cmdStr, delegationSteps, badge, opts = {}) {
   return frames;
 }
 
-/** Save high quality animated GIF with optimized palette. */
+/** Save high quality animated WebP (or GIF with --gif flag). */
 function saveOptimizedGif(frames, targetPath) {
-  saveGif(frames, targetPath);
-  const sizeKb = fs.statSync(targetPath).size / 1024;
-  console.log(`  ✓ Saved ${path.basename(targetPath)} (${frames.length} frames, ${sizeKb.toFixed(1)} KB)`);
+  let finalPath = targetPath;
+  if (!process.argv.includes('--gif') && finalPath.endsWith('.gif')) {
+    finalPath = finalPath.slice(0, -4) + '.webp';
+  }
+  if (finalPath.endsWith('.webp')) {
+    saveWebP(frames, finalPath);
+  } else {
+    saveGif(frames, finalPath);
+  }
 }
 
 // ---------------------------------------------------------------------------

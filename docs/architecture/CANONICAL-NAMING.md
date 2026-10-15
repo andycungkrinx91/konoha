@@ -80,14 +80,50 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 - `delete_persona_memory(id)`
 
 #### SDLC Governance & Quality Gates
+- `anti_slop(code?, path?)` — Canonical deterministic rule-based anti-slop verification pre-gate
 - `check_readiness(task_id, criteria?)`
 - `get_task_evidence(task_id)`
 - `get_slop_findings(task_id?, compact?)`
 - `website_ai_detector(url_or_content)`
 - `docs_ai_detector(file_path_or_content)`
 
+#### QA Automation
+- `qa_codify(flow_definition, output_path?)` — Playwright spec compilation from flow JSON
+- `qa_e2e_run(spec_path, headless?)` — Bounded E2E execution with <2,000 char output cap
+
+#### Native Document Engineering & Animated WebP
+- `document_create(output_path?, title, classification?, author?, sections, cover_model?, gradient_theme?, target_zero_gpt?)` — Word (.docx), PDF, and Markdown deliverable generation
+- `spreadsheet_create(output_path?, sheets, palette?)` — Multi-tab XLSX spreadsheets with KPI cards and formula computation
+- `presentation_create(output_path?, title, subtitle?, slides, gradient_theme?, layout?)` — 16:9 widescreen PPTX generation
+- `diagram_create(output_path?, nodes, edges, orientation?, gradient_theme?)` — Dual orientation SVG diagram generation (horizontal LR or vertical TB)
+- `animation_export(input_path, output_path?, format?, duration_sec?, fps?)` — Canonical Animated WebP (.webp) diagram animation export
+
 #### Zero-API-Key Web Search
 - `web_search(query, category?)`
+
+---
+
+### 2.3 Document Engineering Formats & Presets
+
+- **Canonical Animation Output:** `webp` (Animated WebP encoded via Playwright + FFmpeg `libwebp` with `-loop 0 -q:v 75`).
+- **Compatibility Animation Output:** `gif` (Supported when caller explicitly requests `format: 'gif'`).
+- **Static Image Fallback:** `png` (High-DPI static screenshot fallback when ffmpeg is unavailable).
+- **Cover Art Models:**
+  1. `diamond_cascade`: Modern geometric diamonds with dynamic linear gradients and bottom 15% metadata positioning.
+  2. `minimal_clean`: Stark editorial Swiss layout with generous whitespace, subtle grid lines, and crisp typography.
+  3. `cyber_circuit`: Tech-forward nodal circuit trace lines, subtle glowing accents, and dark blueprint grid.
+  4. `modern_abstract`: Fluid wave curves and organic gradient shapes.
+- **Curated Gradient Themes (10 Presets):**
+  - Theme 1: `#3B82F6, #14B8A6, #8B5CF6, #F97316` (Ocean Electric)
+  - Theme 2: `#EAB308, #EC4899, #84CC16, #06B6D4` (Neon Citrus)
+  - Theme 3: `#6366F1, #F43F5E, #3B82F6, #EAB308` (Sunset Violet)
+  - Theme 4: `#8B5CF6, #06B6D4, #F97316, #EC4899` (Cosmic Pulse)
+  - Theme 5: `#14B8A6, #84CC16, #6366F1, #F43F5E` (Emerald Aurora)
+  - Theme 6: `#F97316, #EAB308, #3B82F6, #EC4899` (Solar Flare)
+  - Theme 7: `#06B6D4, #8B5CF6, #14B8A6, #6366F1` (Cyber Teal)
+  - Theme 8: `#EC4899, #F43F5E, #EAB308, #84CC16` (Crimson Bloom)
+  - Theme 9: `#3B82F6, #6366F1, #06B6D4, #F43F5E` (Deep Indigo)
+  - Theme 10: `#84CC16, #14B8A6, #EAB308, #8B5CF6` (Lime Forest)
 
 ---
 

@@ -10,17 +10,18 @@ title: Konoha System Architecture & Multi-Client Flow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#ede9fe'
-    tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -66,14 +67,28 @@ flowchart TB
     Sannin --> Specialists
     Specialists --> UniversalInvariants
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style PersistenceLayer fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#0f172a;
+    style Specialists fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style UniversalInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef agentNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+
+    class User,Clients,Orchestrator clientNode;
+    class KonohaMCP,SembleMCP,AislopMCP,SQLiteDB,VectorEngine mcpNode;
+    class Sannin,Jonin,Anbu,Kage,Genin,Chunin,Tokubetsu agentNode;
+    class Archetypes,Invariants,SSRSafety invNode;
 ```
 
 ---
 
-## 🛠️ Canonical Konoha MCP Tools Matrix (40 Canonical Tools)
+## 🛠️ Canonical Konoha MCP Tools Matrix (45 Canonical Tools)
 
-| Tool Category | Registered Tools (40 Total) | Description |
+| Tool Category | Registered Tools (45 Total) | Description |
 | :--- | :--- | :--- |
 | **Bounded File Operations (6)** | `read_file_head`, `read_file_range`, `file_info`, `token_efficient_grep`, `get_file_structure`, `find_files_clean` | Bounded token-safe file inspections preventing context window pollution. |
 | **Skill Discovery & Loading (5)** | `find_skill`, `list_skills`, `get_skill`, `optimize_report`, `use_skills` | High-speed FTS5 SQLite skill querying, precise skill resolution via `use_skills`, and token-efficient snippet-first ingestion. |
@@ -86,6 +101,7 @@ flowchart TB
 | **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |
 | **QA Automation (2)** | `qa_codify`, `qa_e2e_run` | Deterministic Playwright spec compilation from declarative flow JSON and bounded test execution (<2,000 chars output cap). |
+| **Native Document Engineering (5)** | `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export` | Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification. |
 
 
 ### 🧠 Cross-Agent Output Skill (`i-have-adhd`)
@@ -212,7 +228,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
    - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
-   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (40 tools), `semble` (2 tools), and `aislop` (4 tools).
+   - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (45 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
    - **Definition-of-Readiness (DoR) Gate**: Validates task substance (> 4 words), absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain keyword alignment before dispatch. Operates in `advisory` mode by default (injecting diagnostic hints) or `enforced` mode (blocking dispatch until criteria are met).
@@ -293,17 +309,18 @@ title: 8-Phase Multi-Agent SDLC Orchestration Workflow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#ede9fe'
-    tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -336,11 +353,11 @@ flowchart TD
     P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
 
     %% Styling Classes
-    classDef startEnd fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e40af;
-    classDef phase fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#0f172a;
-    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#92400e;
-    classDef remediation fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
-    classDef approved fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#166534;
+    classDef startEnd fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
+    classDef phase fill:#ffffff,stroke:#8b5cf6,stroke-width:2px,color:#0f172a;
+    classDef decision fill:#ffffff,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
+    classDef remediation fill:#ffffff,stroke:#ef4444,stroke-width:2px,color:#0f172a;
+    classDef approved fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
 
     class UserPrompt,DeliveryReport startEnd;
     class P1,P2,P3,P4,P5,P6,P7 phase;
@@ -348,7 +365,7 @@ flowchart TD
     class Remediation remediation;
     class P8 approved;
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
+    linkStyle default stroke:#334155,stroke-width:2px;
 ```
 
 ### 📋 Workflow Phase Matrix

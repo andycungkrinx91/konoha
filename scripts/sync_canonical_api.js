@@ -57,7 +57,15 @@ function getReturnDescription(toolName) {
     get_task_evidence: 'Evidence log JSON',
     get_slop_findings: 'Anti-slop scanner report JSON',
     qa_codify: 'Playwright spec compilation confirmation JSON',
-    qa_e2e_run: 'Structured E2E execution summary JSON'
+    qa_e2e_run: 'Structured E2E execution summary JSON',
+    use_skills: 'Skill activation & guidelines JSON',
+    anti_slop: 'Audit report or structured result JSON',
+    get_soul: 'Soul document or structured data JSON',
+    document_create: 'Document generation result JSON',
+    spreadsheet_create: 'Spreadsheet generation result JSON',
+    presentation_create: 'Presentation generation result JSON',
+    diagram_create: 'Diagram generation result JSON',
+    animation_export: 'Animation export result with format & frame metadata JSON'
   };
   return returnTypes[toolName] || 'JSON result object';
 }

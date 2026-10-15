@@ -45,6 +45,7 @@
   "scripts": {
     "build": "node bin/cli.js ui build",
     "lint": "node scripts/lint.js",
+    "prepublishOnly": "echo 'ERROR: Publishing to npm is strictly prohibited.' && exit 1",
     "start": "node bin/cli.js web",
     "test": "node tests/run_all.js",
     "test:e2e": "pnpm --dir apps/web run test:e2e",

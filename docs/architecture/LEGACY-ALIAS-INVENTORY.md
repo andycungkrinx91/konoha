@@ -12,8 +12,8 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 
 | Identifier | Classification | Type | Canonical Target | Action Plan |
 |---|---|---|---|---|
-| `find_skills` | **COMPLETED / PRUNED** | MCP tool alias | `find_skill` | Pruned from live tools manifest in v2.1.18 (40 canonical tools) |
-| `build_with_image_design` | **COMPLETED / PRUNED** | MCP tool alias | `build_from_source` | Pruned from live tools manifest in v2.1.18 (40 canonical tools) |
+| `find_skills` | **COMPLETED / PRUNED** | MCP tool alias | `find_skill` | Filtered from live advertised schemas in v2.1.18 (45 canonical advertised tools / 47 manifest-backed tools) |
+| `build_with_image_design` | **COMPLETED / PRUNED** | MCP tool alias | `build_from_source` | Filtered from live advertised schemas in v2.1.18 (45 canonical advertised tools / 47 manifest-backed tools) |
 | `delegate_to_<agent>` (7 tools) | **COMPLETED / REMOVED** | MCP tool aliases | Direct agent tools (`sannin`, `kage`, etc.) | Removed in Batch 4.6 (commit 576e50b) |
 | `tokubetsu_jonin` vs `tokubetsu-jonin` | **CANONICAL_MAPPING** | Identifier syntax | `tokubetsu-jonin` (agent) / `tokubetsu_jonin` (MCP tool) | Maintain strict 1:1 bidirectional normalizer |
 | `task_dir` / `delegate.md` / `result.md` | **ISOLATED_FALLBACK** | File-based fallback | Direct structured MCP argument passing | Keep isolated in `~/.konoha/tmp/` for non-MCP fallback |
@@ -43,7 +43,7 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
   2. Keep internal alias dispatch until client prompts migrate, then retire from tool manifest.
 * **Removal Condition:** All client contracts unified to `find_skill`.
 * **Risk:** Low (pure alias).
-* **Status:** COMPLETED / PRUNED in v2.1.18. Filtered from live MCP tools, bringing manifest to exactly 40 canonical tools.
+* **Status:** COMPLETED / PRUNED in v2.1.18. Filtered from live MCP tool schemas, maintaining live roster at exactly 45 canonical tools (47 manifest-backed).
 
 ---
 

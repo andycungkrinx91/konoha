@@ -16,17 +16,18 @@ title: Zero-API-Key Search Fallback Chain
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#d1fae5'
-    primaryTextColor: '#065f46'
-    primaryBorderColor: '#059669'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#ccfbf1'
-    tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#10b981'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -43,15 +44,16 @@ flowchart TD
     Startpage -->|Empty / fail| Wikipedia["4. Wikipedia<br/>(OpenSearch API)"]
     Wikipedia --> Return
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef input fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
-    classDef primary fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
-    classDef fallback fill:#ccfbf1,stroke:#0f766e,color:#134e4a
-    classDef final fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
-    class Query input
-    class Searx primary
-    class DDG,Startpage fallback
-    class Wikipedia,Return final
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef inputNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef primaryNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef fallbackNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef finalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+
+    class Query inputNode;
+    class Searx primaryNode;
+    class DDG,Startpage fallbackNode;
+    class Wikipedia,Return finalNode;
 ```
 
 ---

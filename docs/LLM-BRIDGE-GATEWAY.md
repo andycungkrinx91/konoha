@@ -14,17 +14,18 @@ title: Konoha LLM Bridge Gateway
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ffe6cc'
-    primaryTextColor: '#78350f'
-    primaryBorderColor: '#d97706'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#dbeafe'
-    tertiaryColor: '#ede9fe'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -48,15 +49,18 @@ flowchart TB
     Compatible --> Local["Local LLM Endpoint"]
     Antigravity --> Cascade["Sidecar protocol cascade<br/>(proto -> raw -> gRPC)"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
-    classDef gateway fill:#ffe6cc,stroke:#d97706,color:#78350f,stroke-width:2px
-    classDef bridge fill:#e0e7ff,stroke:#6366f1,color:#312e81
-    classDef storage fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px
-    class Client client
-    class Gateway gateway
-    class OpenAI,Compatible,Antigravity,OpenAIAPI,Local,Cascade,Discovery bridge
-    class Bridges storage
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style BridgesLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef gatewayNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef bridgeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+
+    class Client clientNode;
+    class Gateway gatewayNode;
+    class OpenAI,Compatible,Antigravity,OpenAIAPI,Local,Cascade,Discovery bridgeNode;
+    class Bridges storageNode;
 ```
 
 ## Supported Providers

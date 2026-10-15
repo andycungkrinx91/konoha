@@ -276,3 +276,27 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Known Legacy Paths:** Legacy `prune` subcommand removed from top-level CLI router.
 * **Known Duplication:** None.
 
+### 2.14 Native Document Engineering & Publication Deliverables (`document_engine`)
+
+* **Purpose:** High-fidelity Enterprise Office deliverable creation (DOCX, PDF, XLSX, PPTX, SVG) and high-performance Animated WebP diagram animation with pure Node.js structural bitstream verification and zero-AI quality gates.
+* **Canonical Implementation:** `src/tools/document_engine.js`.
+* **Entry Points:**
+  - MCP Tools: `document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`.
+  - Delegated Subagent: `tokubetsu_jonin` (Technical Writing & Scribe).
+* **Consumers:** Tokubetsu-Jonin, technical documentation pipelines, enterprise reporting, interactive architecture diagrams.
+* **Storage:** Local target directory specified via `output_path` (defaults to `./sample.docx`, `./sample.xlsx`, `./sample.pptx`, `./diagram.svg`, `./animation.webp`).
+* **Features:**
+  - Discrete per-page Word sections with static `TextRun` page numbers, eliminating grey background shading in Word and LibreOffice.
+  - High-burstiness engineering prose ($CV \ge 0.85$) passing Document AI Detector with < 3% ZeroGPT AI risk target.
+  - Multi-tab XLSX spreadsheets with 10 random palette choices (`#3B82F6`, `#14B8A6`, `#8B5CF6`, `#F97316`, `#EAB308`, `#EC4899`, `#84CC16`, `#06B6D4`, `#6366F1`, `#F43F5E`), KPI summary cards, formula computation, and auto-fit columns.
+  - 16:9 PPTX widescreen presentations with cover layouts, light title cards, and process flow slides.
+  - Dual orientation SVG diagrams (horizontal `LR` and vertical `TB`) with 10 curated 4-color gradient themes.
+  - Animated WebP canonical export via Playwright Chromium + FFmpeg `libwebp` (`-loop 0 -q:v 75`), with backward-compatible GIF support (`format: 'gif'`) and high-DPI static PNG fallback.
+  - Pure Node.js binary WebP structural validation verifying RIFF, WEBP, VP8X animation flag, ANIM loop header, and ANMF frame chunks.
+* **Tests:** `tests/test_document_animation_webp.js`, `tests/e2e_document_suite.js`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/architecture/CANONICAL-API.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md`, `README.md`.
+* **Dependencies:** `docx`, `exceljs`, `pptxgenjs`, `playwright`, `ffmpeg` (system).
+* **Known Legacy Paths:** GIF export supported via explicit `format: 'gif'`.
+* **Known Duplication:** None.
+
+

@@ -528,15 +528,15 @@ async function main() {
   });
   console.log('✓ Generated sample.svg');
 
-  // 5b. GIF via animationExport (Horizontal Animation)
-  console.log('5b/8: Generating sample.gif (horizontal) via animationExport...');
+  // 5b. WebP via animationExport (Horizontal Animation)
+  console.log('5b/8: Generating sample.webp (horizontal) via animationExport...');
   await animationExport({
     input_path: path.join(OUTPUT_DIR, 'sample.svg'),
-    output_path: path.join(OUTPUT_DIR, 'sample.gif'),
+    output_path: path.join(OUTPUT_DIR, 'sample.webp'),
     duration_sec: 3,
     fps: 15
   });
-  console.log('✓ Generated sample.gif');
+  console.log('✓ Generated sample.webp');
 
   // 6a. SVG via diagramCreate (Vertical Layout)
   console.log('6a/8: Generating sample_vertical.svg (vertical) via diagramCreate...');
@@ -550,21 +550,21 @@ async function main() {
   });
   console.log('✓ Generated sample_vertical.svg');
 
-  // 6b. GIF via animationExport (Vertical Animation)
-  console.log('6b/8: Generating sample_vertical.gif (vertical) via animationExport...');
+  // 6b. WebP via animationExport (Vertical Animation)
+  console.log('6b/8: Generating sample_vertical.webp (vertical) via animationExport...');
   await animationExport({
     input_path: path.join(OUTPUT_DIR, 'sample_vertical.svg'),
-    output_path: path.join(OUTPUT_DIR, 'sample_vertical.gif'),
+    output_path: path.join(OUTPUT_DIR, 'sample_vertical.webp'),
     duration_sec: 3,
     fps: 15
   });
-  console.log('✓ Generated sample_vertical.gif');
+  console.log('✓ Generated sample_vertical.webp');
 
   // 7 & 8. Markdown & Text
   generateMarkdownAndText(OUTPUT_DIR);
   console.log('✓ Generated sample.md and sample.txt');
 
-  console.log(`\n🎉 All deliverable files (including horizontal & vertical animated GIFs) generated successfully in: ${OUTPUT_DIR}\n`);
+  console.log(`\n🎉 All deliverable files (including horizontal & vertical animated WebPs) generated successfully in: ${OUTPUT_DIR}\n`);
 }
 
 if (require.main === module) {

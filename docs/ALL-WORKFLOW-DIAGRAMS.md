@@ -1,6 +1,6 @@
 # 🌊 Konoha Complete Workflows Architecture & Flow Diagrams
 
-This document defines all active architectural workflows within **Konoha** (`konoha-mcp`) using native, responsive, and publication-ready **Mermaid** diagrams.
+This document defines all active architectural workflows within **Konoha** (`konoha-mcp`) using native, responsive, and publication-ready **Mermaid** diagrams rendered in the canonical **Tokubetsu-Jonin Light Design Standard** (pure white canvas `#FFFFFF`, dark slate typography `#0F172A`, 4-color theme accent strokes, and zero dark backgrounds).
 
 ---
 
@@ -19,6 +19,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 11. [Workflow 10: Kage Reviewer 98% Minimum Confidence Delivery Gate](#11-workflow-10-kage-reviewer-98-minimum-confidence-delivery-gate)
 12. [Workflow 11: Telegram Remote Reporter & Whitelisted Long Polling Dispatch](#12-workflow-11-telegram-remote-reporter--whitelisted-long-polling-dispatch)
 13. [Workflow 12: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue](#13-workflow-12-cloudflare-zero-trust-ingress-tunnel--unified-prompt-inbox-queue)
+14. [Workflow 13: Native Document Engineering & Animated WebP Export Pipeline](#14-workflow-13-native-document-engineering--animated-webp-export-pipeline)
 
 ---
 
@@ -30,17 +31,18 @@ title: Konoha Master System Architecture & Specialist Orchestration Flow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#ede9fe'
-    tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -52,9 +54,9 @@ flowchart TB
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP & Storage Foundation"]
-        SanninRouter["✧ Sannin MCP Router<br/>(Prompt Triage & Delegation)"]
+        SanninRouter["✧ Sannin MCP Router<br/>(Prompt Triage &amp; Delegation)"]
         SQLiteDB[("Unified SQLite DB<br/>~/.konoha/konoha.db<br/>(FTS5 · WAL Mode · busy_timeout=5000)")]
-        SembleSearch["Semble MCP Server<br/>(Project Code Search & Symbol Index)"]
+        SembleSearch["Semble MCP Server<br/>(Project Code Search &amp; Symbol Index)"]
         AislopScanner["Aislop MCP Server<br/>(Zero-AI-Slop Code Hygiene)"]
         SanninRouter <--> SQLiteDB
     end
@@ -63,10 +65,10 @@ flowchart TB
 
     subgraph NinjaTeam ["Specialist Ninja Subagents"]
         Genin["⚑ genin<br/>(Read-only Code Scout)"]
-        Kage["◎ kage<br/>(Architecture & Security)"]
-        Chunin["▫ chunin<br/>(Web Intel & Citations)"]
-        Jonin["♦ jonin<br/>(Frontend UI & Tailwind)"]
-        Anbu["♠ anbu<br/>(Backend, DevOps & QA)"]
+        Kage["◎ kage<br/>(Architecture &amp; Security)"]
+        Chunin["▫ chunin<br/>(Web Intel &amp; Citations)"]
+        Jonin["♦ jonin<br/>(Frontend UI &amp; Tailwind)"]
+        Anbu["♠ anbu<br/>(Backend, DevOps &amp; QA)"]
         Tokubetsu["⬡ tokubetsu-jonin<br/>(Documentation Scribe)"]
     end
 
@@ -80,17 +82,22 @@ flowchart TB
     end
 
     NinjaTeam --> QualityGate
-    QualityGate --> Delivery["Final Delivery & User Response<br/>(Structured Confidence Report)"]
+    QualityGate --> Delivery["Final Delivery &amp; User Response<br/>(Structured Confidence Report)"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef agents fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef gates fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-    class UserPrompt,Delivery user;
-    class CoreMCP,SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcp;
-    class Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu agents;
-    class DoRGate,SlopGate,SocketGate,ConfidenceGate gates;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style CoreMCP fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style NinjaTeam fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style QualityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef agentNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+
+    class UserPrompt,Clients,Orchestrator,Delivery clientNode;
+    class SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcpNode;
+    class Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu agentNode;
+    class DoRGate,SlopGate,SocketGate,ConfidenceGate gateNode;
 ```
 
 ---
@@ -103,17 +110,18 @@ title: Core Multi-Agent MCP SDLC 8-Phase Lifecycle
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#1e1b4b'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#d1fae5'
-    tertiaryColor: '#dbeafe'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -121,17 +129,17 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Read prompt.md<br/>• Initialize status.json & SQLite WAL<br/>• Assess task readiness"]
-    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius & dependencies<br/>• Output findings.md & result.md"]
-    Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture & trade-offs<br/>• Formulate plan.md checklist<br/>• Register tasks in sdlc_tasks"]
+    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Read prompt.md<br/>• Initialize status.json &amp; SQLite WAL<br/>• Assess task readiness"]
+    Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Output findings.md &amp; result.md"]
+    Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate plan.md checklist<br/>• Register tasks in sdlc_tasks"]
 
     Phase2 --> CheckResearch{"External Intel<br/>Required?"}
-    CheckResearch -- "needs_research: true" --> Phase2b["Phase 2b: RESEARCH (▫ Chunin)<br/>• Web search & official doc extraction<br/>• Synthesize citations into findings.md"]
+    CheckResearch -- "needs_research: true" --> Phase2b["Phase 2b: RESEARCH (▫ Chunin)<br/>• Web search &amp; official doc extraction<br/>• Synthesize citations into findings.md"]
     Phase2b --> Phase2
     CheckResearch -- "needs_replan: true" --> Phase2
-    CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB & DevOps<br/>• Runs build & validation commands"]
+    CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB &amp; DevOps<br/>• Runs build &amp; validation commands"]
 
-    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md & API specs<br/>• Synchronize CHANGELOG.md"]
+    Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md &amp; API specs<br/>• Synchronize CHANGELOG.md"]
     Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification"]
 
     Phase5 --> CheckReview{"Kage Review<br/>Approved?"}
@@ -141,15 +149,18 @@ flowchart TD
     CheckReview -- "Findings Detected" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings into fix tasks<br/>• Circuit Breaker check (slop_cycles <= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
     Remediation --> Phase3
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef route fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef execute fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef review fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-    classDef remediation fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
-    class Phase0,Init,Phase7 route;
-    class Phase1,Phase2,Phase2b,Phase3,Phase4,Phase6 execute;
-    class Phase5,CheckReview review;
-    class Remediation remediation;
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef routeNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef executeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+
+    class Init,Phase0,Phase7 routeNode;
+    class Phase1,Phase2,Phase2b,Phase3,Phase4,Phase6 executeNode;
+    class Phase5,CheckReview,CheckResearch reviewNode;
+    class Remediation failNode;
 ```
 
 ---
@@ -162,15 +173,18 @@ title: Definition-of-Readiness (DoR) Pre-Dispatch Validation Gate
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
     primaryColor: '#ffffff'
     primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -182,7 +196,7 @@ flowchart TD
     Inspect --> Engine["DoR Assessment Engine<br/>(`src/sdlc_manager.js`)"]
 
     subgraph AssessmentRules ["Multi-Rule Verification Engine"]
-        R1["Length & Context Rule<br/>• Prompt > 4 words<br/>• Explicit functional directive"]
+        R1["Length &amp; Context Rule<br/>• Prompt &gt; 4 words<br/>• Explicit functional directive"]
         R2["Placeholder Hygiene<br/>• Zero TODO / FIXME / ???<br/>• No unresolved pseudocode"]
         R3["File Existence Check<br/>• Target files must exist on disk<br/>• Workspace boundaries valid"]
         R4["Domain Alignment<br/>• Keywords match target specialist"]
@@ -193,20 +207,27 @@ flowchart TD
 
     ModeGate -- "mode: advisory (Default)" --> AdvisoryEval{"Issues<br/>Found?"}
     AdvisoryEval -- "No issues" --> Dispatch1["Dispatch Task to Specialist"]
-    AdvisoryEval -- "Issues found" --> InjectHint["Inject Diagnostic Hints & Warnings<br/>• Record warning in task metadata<br/>• Proceed with dispatch"]
+    AdvisoryEval -- "Issues found" --> InjectHint["Inject Diagnostic Hints &amp; Warnings<br/>• Record warning in task metadata<br/>• Proceed with dispatch"]
     InjectHint --> Dispatch1
 
     ModeGate -- "mode: enforced" --> EnforcedEval{"Issues<br/>Found?"}
     EnforcedEval -- "No issues" --> Dispatch2["Dispatch Task to Specialist"]
     EnforcedEval -- "Issues found" --> BlockDispatch["BLOCK TASK DISPATCH<br/>• Reject execution<br/>• Return DoR failure diagnostics<br/>• Require clarified prompt"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef trigger fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef pass fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef block fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
-    class Trigger,Inspect,Engine trigger;
-    class Dispatch1,Dispatch2 pass;
-    class BlockDispatch block;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style AssessmentRules fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef triggerNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef ruleNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef blockNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+
+    class Trigger,Inspect,Engine triggerNode;
+    class R1,R2,R3,R4 ruleNode;
+    class ModeGate,AdvisoryEval,EnforcedEval,InjectHint evalNode;
+    class Dispatch1,Dispatch2 passNode;
+    class BlockDispatch blockNode;
 ```
 
 ---
@@ -219,15 +240,18 @@ title: Text-Based Website & UI Build Pipeline (build_from_text)
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#1e1b4b'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -257,13 +281,20 @@ flowchart TD
 
     Step5 --> Step6["Step 6: Kage Two-Step Review Gate<br/>• 100/100 aislop scan<br/>• ≥ 98% Delivery Confidence"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef req fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef scaffold fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef validate fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    class UserReq req;
-    class Step1,Step2,Step3,MandatoryInvariants,Step4 scaffold;
-    class Step5,Step6 validate;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style MandatoryInvariants fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef reqNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef scaffoldNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef invNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef valNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+
+    class UserReq reqNode;
+    class Step1,Step2,Step3,Step4 scaffoldNode;
+    class I1,I2,I3,I4,I5,I6,I7 invNode;
+    class Step5 valNode;
+    class Step6 gateNode;
 ```
 
 ---
@@ -276,15 +307,18 @@ title: Mockup & Design Image Build Pipeline (build_from_source)
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -295,7 +329,7 @@ flowchart TD
     SourceDesign["User Prompt with Design Images / Mockup Dir"] --> Step1["Step 1: MCP Call `konoha.build_from_source`<br/>(name, source_dir, framework, taste_dials)"]
     Step1 --> Step2["Step 2: Specification Validation<br/>• status == 'success'<br/>• absolute_image_paths extracted<br/>• Canonical framework verified"]
 
-    Step2 --> Step3["Step 3: Bounded Asset Inspection<br/>• Inspect images via bounded file tools<br/>• Extract colors, typography, spacing & layout<br/>• NEVER install packages inside MCP tool"]
+    Step2 --> Step3["Step 3: Bounded Asset Inspection<br/>• Inspect images via bounded file tools<br/>• Extract colors, typography, spacing &amp; layout<br/>• NEVER install packages inside MCP tool"]
 
     subgraph FidelityRule ["100% Exact Mockup Fidelity Invariant"]
         F1["Strict Visual Replication<br/>• Layout, colors, typography, and spacing"]
@@ -308,17 +342,24 @@ flowchart TD
 
     Step4 --> Step5["Step 5: Visual Verification (`agent-browser`)<br/>• Local rendering screenshot capture<br/>• Side-by-side design match audit"]
 
-    Step5 --> Step6["Step 6: Framework Build Validation<br/>• pnpm run build & lint pass cleanly<br/>• 0 Errors, 0 Warnings"]
+    Step5 --> Step6["Step 6: Framework Build Validation<br/>• pnpm run build &amp; lint pass cleanly<br/>• 0 Errors, 0 Warnings"]
 
     Step6 --> Step7["Step 7: Delivery Verification Gate"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef start fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef process fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef finish fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    class SourceDesign start;
-    class Step1,Step2,Step3,FidelityRule,Step4,Step5 process;
-    class Step6,Step7 finish;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style FidelityRule fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef startNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef processNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef ruleNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef valNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+
+    class SourceDesign startNode;
+    class Step1,Step2,Step3,Step4,Step5 processNode;
+    class F1,F2,F3 ruleNode;
+    class Step6 valNode;
+    class Step7 gateNode;
 ```
 
 ---
@@ -331,15 +372,18 @@ title: Two-Step Zero-AI-Slop Delivery Pre-Gate & Remediation Loop
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#fef3c7'
-    primaryTextColor: '#78350f'
-    primaryBorderColor: '#d97706'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#f59e0b'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -367,17 +411,23 @@ flowchart TD
     CheckType -- "YES" --> AssignJonin["Dispatch Fix Task to ♦ JONIN<br/>• Priority: High<br/>• Focus: CSS / Component / Tailwind fixes"]
     CheckType -- "NO" --> AssignAnbu["Dispatch Fix Task to ♠ ANBU<br/>• Priority: High<br/>• Focus: Backend / Logic / Clean Code fixes"]
 
-    AssignJonin --> ReExecute["Execute Fixes, Re-run Tests & Re-enter Gate"]
+    AssignJonin --> ReExecute["Execute Fixes, Re-run Tests &amp; Re-enter Gate"]
     AssignAnbu --> ReExecute
     ReExecute --> Step1
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef trigger fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef pass fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef loop fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
-    class Trigger,Step1,Step2 trigger;
-    class PassGate,KageGate pass;
-    class LoopInit,CheckBreaker,Tripped,Triage,AssignJonin,AssignAnbu,ReExecute loop;
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef triggerNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef gateNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef loopNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef triageNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+
+    class Trigger,Step1,Step2 triggerNode;
+    class CheckSlop,CheckBreaker,CheckType gateNode;
+    class PassGate,KageGate passNode;
+    class LoopInit,Tripped loopNode;
+    class Triage,AssignJonin,AssignAnbu,ReExecute triageNode;
 ```
 
 ---
@@ -390,15 +440,18 @@ title: Token-Efficient QA Automation Pipeline (♠ Anbu Owner)
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
     primaryColor: '#ffffff'
     primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -406,19 +459,21 @@ config:
     wrappingWidth: 350
 ---
 flowchart LR
-    Start["QA Task Ingestion"] --> S1["1. Test Discovery<br/>(Check tests/ & prevent duplicates)"]
+    Start["QA Task Ingestion"] --> S1["1. Test Discovery<br/>(Check tests/ &amp; prevent duplicates)"]
     S1 --> S2["2. Flow Recording<br/>(agent-browser captures JSON steps)"]
     S2 --> S3["3. Test Codification<br/>(qa_codify compiles Playwright spec)"]
     S3 --> S4["4. Headless Execution<br/>(qa_e2e_run runs Playwright test)"]
-    S4 --> S5["5. Evidence Capping<br/>(Clean exit 0 & output < 2,000 chars)"]
+    S4 --> S5["5. Evidence Capping<br/>(Clean exit 0 &amp; output &lt; 2,000 chars)"]
     S5 --> S6["6. Persistence<br/>(Save run_id to SQLite sdlc_tasks)"]
     S6 --> Done["Kage Verification Sign-off"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef step fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef pass fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    class Start,S1,S2,S3,S4,S5 step;
-    class S6,Done pass;
+    linkStyle default stroke:#334155,stroke-width:2px;
+
+    classDef stepNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+
+    class Start,S1,S2,S3,S4,S5 stepNode;
+    class S6,Done passNode;
 ```
 
 ---
@@ -431,15 +486,18 @@ title: Skills Indexing, Retrieval & Cross-Client Synchronization Flow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#1e1b4b'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -463,7 +521,7 @@ flowchart TB
     FTS5Migrate --> SQLiteDB[("Unified Database: `~/.konoha/konoha.db`<br/>• skills (exact name, type, metadata)<br/>• skills_fts (BM25 token index)<br/>• skill_chunks (384d semantic vectors)")]
 
     subgraph ClientQueries ["On-Demand Retrieval Pipeline"]
-        Find["Step 1: Discover<br/>konoha.find_skill('keyword')<br/>(Fast SQLite snippet & score preview)"]
+        Find["Step 1: Discover<br/>konoha.find_skill('keyword')<br/>(Fast SQLite snippet &amp; score preview)"]
         Load["Step 2: Ingest<br/>konoha.get_skill('canonical-name')<br/>(Full documentation manual on demand)"]
     end
 
@@ -471,20 +529,27 @@ flowchart TB
     Find --> Load
 
     subgraph AutoCompaction ["High-Efficiency Auto-Compaction (Turn >= 2)"]
-        AC1["Project Memory Continuity<br/>(Tech stack & invariants permanently retained)"]
+        AC1["Project Memory Continuity<br/>(Tech stack &amp; invariants permanently retained)"]
         AC2["Prompt Boilerplate Compaction<br/>(Instruction boilerplate compressed)"]
         AC3["250-char SOP Preview Invariant<br/>(Always preserved even in compact mode)"]
     end
 
     Load --> AutoCompaction
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef source fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef db fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef retrieval fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    class SourceTree,SyncScript,MirrorTrees source;
-    class FTS5Migrate,SQLiteDB db;
-    class Find,Load,AutoCompaction retrieval;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style MirrorTrees fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style ClientQueries fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style AutoCompaction fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef sourceNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef mirrorNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef dbNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef queryNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+
+    class SourceTree,SyncScript sourceNode;
+    class M1,M2,M3,M4,M5 mirrorNode;
+    class FTS5Migrate,SQLiteDB dbNode;
+    class Find,Load,AC1,AC2,AC3 queryNode;
 ```
 
 ---
@@ -497,15 +562,18 @@ title: Local LLM Proxy Bridge Gateway & Protobuf Sidecar Architecture
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ffe6cc'
-    primaryTextColor: '#78350f'
-    primaryBorderColor: '#d97706'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#f59e0b'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -515,7 +583,7 @@ config:
 flowchart TB
     Client["AI Coding Client<br/>(Antigravity IDE with konoha-bridge VSIX)"] --> OuterGateway["Local Bridge Router<br/>`127.0.0.1:1404` / :19999"]
 
-    OuterGateway --> Intercept["Request Multiplexer & Model Classifier<br/>• Maps model names from SQLite bridges table<br/>• Pure JavaScript routing (Zero native binaries)"]
+    OuterGateway --> Intercept["Request Multiplexer &amp; Model Classifier<br/>• Maps model names from SQLite bridges table<br/>• Pure JavaScript routing (Zero native binaries)"]
 
     subgraph SidecarProtocol ["Sidecar Binary Serialization (`src/bridge/sidecar/proto.js`)"]
         ProtoEncoder["Protobuf Binary Serialization<br/>• Hand-crafted descriptors (StartCascade, Messages)<br/>• Uses @bufbuild/protobuf@2.16.0<br/>• Reads BUF_BIGINT_DISABLE for runtime fallback"]
@@ -531,13 +599,19 @@ flowchart TB
     ProtoEncoder --> CloudLLM
     ProtoEncoder --> LocalLLM
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef router fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef sidecar fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-    class Client client;
-    class OuterGateway,Intercept router;
-    class ProtoEncoder sidecar;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style SidecarProtocol fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style ModelEndpoints fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef routerNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef sidecarNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef destNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+
+    class Client clientNode;
+    class OuterGateway,Intercept routerNode;
+    class ProtoEncoder sidecarNode;
+    class CloudLLM,LocalLLM destNode;
 ```
 
 ---
@@ -550,15 +624,18 @@ title: Socket.dev Supply Chain Security Policy & Scan Workflow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
     primaryColor: '#ffffff'
     primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -577,16 +654,23 @@ flowchart TD
     PolicyEngine --> SocketCI["Execute Socket Scan<br/>`rtk socket ci` / `socket scan create`"]
 
     SocketCI --> AuditAlerts{"Evaluate Alerts<br/>Against Threshold"}
-    AuditAlerts -- "0 High & 0 Medium Alerts" --> GatePass["Supply Chain Gate PASSED<br/>• Score Target ≥ 98 / 100<br/>• Approved for Production"]
+    AuditAlerts -- "0 High &amp; 0 Medium Alerts" --> GatePass["Supply Chain Gate PASSED<br/>• Score Target ≥ 98 / 100<br/>• Approved for Production"]
     AuditAlerts -- "High or Medium Alert Detected" --> GateFail["BLOCK DELIVERY<br/>• Surface alert locations<br/>• Enforce dependency remediation"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef commit fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef pass fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef fail fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
-    class Commit,Config commit;
-    class GatePass pass;
-    class GateFail fail;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style PolicyEngine fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef commitNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef policyNode fill:#ffffff,stroke:#06b6d4,color:#0f172a,stroke-width:2px;
+    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class Commit,Config,SocketCI commitNode;
+    class Ignores,Rules policyNode;
+    class AuditAlerts evalNode;
+    class GatePass passNode;
+    class GateFail failNode;
 ```
 
 ---
@@ -599,15 +683,18 @@ title: Kage Reviewer 98% Minimum Confidence Delivery Gate
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#fef3c7'
-    primaryTextColor: '#78350f'
-    primaryBorderColor: '#d97706'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#f59e0b'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -620,7 +707,7 @@ flowchart TD
     subgraph CriteriaMatrix ["5-Category Comprehensive Verification Matrix"]
         C1["Category 1: Task Verification (Weight: 20%)<br/>• 100% tasks completed in status.json<br/>• All referenced files exist on disk"]
         C2["Category 2: Validation Evidence (Weight: 25%)<br/>• 0 errors, 0 warnings in test output<br/>• Clean exit codes across test runners"]
-        C3["Category 3: Security & Supply Chain (Weight: 20%)<br/>• Socket CLI: 0 High, 0 Medium alerts<br/>• Documented rollback procedures"]
+        C3["Category 3: Security &amp; Supply Chain (Weight: 20%)<br/>• Socket CLI: 0 High, 0 Medium alerts<br/>• Documented rollback procedures"]
         C4["Category 4: Zero-AI-Slop Pre-Gate (Weight: 20%)<br/>• Step 1: 100/100 mechanical scan score<br/>• Step 2: 0 antislop rule findings"]
         C5["Category 5: Invariant Compliance (Weight: 15%)<br/>• Stable Bridge Gateway untouched<br/>• Token Savings flow logic preserved"]
     end
@@ -634,13 +721,20 @@ flowchart TD
 
     ConfidenceThreshold -- "Confidence < 98.0%" --> Blocked["DELIVERY BLOCKED<br/>• Reject final synthesis<br/>• Re-dispatch failed categories for remediation<br/>• Re-run verification upon resubmission"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef audit fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef pass fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef block fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
-    class TasksDone,KageAudit,Aggregate audit;
-    class Approved pass;
-    class Blocked block;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style CriteriaMatrix fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef auditNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef criteriaNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef evalNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef blockNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class TasksDone,KageAudit auditNode;
+    class C1,C2,C3,C4,C5 criteriaNode;
+    class Aggregate,ConfidenceThreshold evalNode;
+    class Approved passNode;
+    class Blocked blockNode;
 ```
 
 ---
@@ -653,15 +747,18 @@ title: Telegram Remote Reporter & Whitelisted Long Polling Dispatch
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#e0f2fe'
-    primaryTextColor: '#0369a1'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
     primaryBorderColor: '#0284c7'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -677,9 +774,9 @@ flowchart TD
     end
 
     subgraph InboundLongPolling ["Inbound Long Polling Daemon (src/telegram/poller.js)"]
-        PollerLoop["Native HTTPS Poller Loop<br/>GET /getUpdates?offset=N&timeout=30"] --> UserMessage["User Message Received<br/>from Telegram Client"]
+        PollerLoop["Native HTTPS Poller Loop<br/>GET /getUpdates?offset=N&amp;timeout=30"] --> UserMessage["User Message Received<br/>from Telegram Client"]
         UserMessage --> WhitelistCheck{"Is message.chat.id ==<br/>telegram_config.chat_id?"}
-        WhitelistCheck -- "No" --> DropMsg["Drop Message & Log Warning<br/>(Unauthorized sender rejected)"]
+        WhitelistCheck -- "No" --> DropMsg["Drop Message &amp; Log Warning<br/>(Unauthorized sender rejected)"]
         WhitelistCheck -- "Yes" --> CommandRouter{"Message Type"}
 
         CommandRouter -- "/session [number|create]" --> SessionSwitch["Multi-Client Switcher<br/>(session_manager.js)"]
@@ -696,18 +793,21 @@ flowchart TD
         QueueEnqueue --> QueueWorker["Autonomous Worker (worker.js)<br/>• Operational: 0 LLM Tokens<br/>• AI Coding: agy -p (Kage Gate)"]
     end
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef event fill:#eff6ff,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef process fill:#f8fafc,stroke:#475569,color:#0f172a,stroke-width:2px;
-    classDef gate fill:#fffbeb,stroke:#d97706,color:#92400e,stroke-width:2px;
-    classDef success fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef drop fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style OutboundReporting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style InboundLongPolling fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
 
-    class SDLCEvent,PollerLoop,UserMessage event;
-    class FormatReport,PostTelegram,QueueEnqueue,SendAck,ReplyStatus,ReplySavings,ReplyCancel,ReplyHelp,SessionSwitch,ShellExec,SubagentDispatch,QueueWorker process;
-    class CheckEnabled,WhitelistCheck,CommandRouter gate;
-    class SendAck,PostTelegram,ShellExec success;
-    class DropMsg,SilentSkip drop;
+    classDef eventNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef routeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef checkNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef dropNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class SDLCEvent,FormatReport,UserMessage eventNode;
+    class SessionSwitch,ShellExec,SubagentDispatch,QueueEnqueue,ReplyStatus,ReplySavings,ReplyCancel,ReplyHelp,QueueWorker routeNode;
+    class CheckEnabled,WhitelistCheck,CommandRouter checkNode;
+    class PostTelegram,SendAck passNode;
+    class SilentSkip,DropMsg dropNode;
 ```
 
 ---
@@ -720,15 +820,18 @@ title: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#f3e8ff'
-    primaryTextColor: '#6b21a8'
-    primaryBorderColor: '#9333ea'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -748,7 +851,10 @@ flowchart TD
         ModeCheck -- "Localhost (127.0.0.1)" --> AllowDirect["Allow Direct Access<br/>(Zero friction local dev)"]
         ModeCheck -- "Tunnel Ingress (Mode A: Zero Trust)" --> EdgeHeaderCheck{"Has Valid Header<br/>Cf-Access-Authenticated-User-Email?"}
         EdgeHeaderCheck -- "Yes" --> Authenticated["Authenticated Request<br/>Identity injected into req.user"]
-        EdgeHeaderCheck -- "No (direct tunnel hit)" --> DenyAccess["401 Unauthorized<br/>Edge Identity Required"]
+        EdgeHeaderCheck -- "No" --> DenyAccess["401 Unauthorized<br/>Edge Identity Required"]
+        ModeCheck -- "Tunnel Ingress (Mode B: PIN Auth)" --> PinCheck{"Has Valid PIN Header<br/>x-konoha-pin or cookie?"}
+        PinCheck -- "Valid PIN" --> Authenticated
+        PinCheck -- "Invalid PIN" --> DenyAccess
     end
 
     subgraph PromptQueueLifecycle ["Unified Prompt Queue Engine (src/queue/inbox.js)"]
@@ -762,16 +868,104 @@ flowchart TD
         MarkCompleted --> RemoteDashboard["Real-Time Remote Access UI<br/>(apps/web/src/components/RemoteAccess.svelte)"]
     end
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef client fill:#eff6ff,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-    classDef edge fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-    classDef auth fill:#fef3c7,stroke:#d97706,color:#92400e,stroke-width:2px;
-    classDef storage fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px;
-    classDef deny fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:2px;
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style EdgeIngress fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style SecurityGate fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style PromptQueueLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
 
-    class ExtClient,ClientPickup client;
-    class CFEdge,CFTunnel,LocalSupervisor edge;
-    class ModeCheck,EdgeHeaderCheck,Authenticated auth;
-    class SQLiteInsert,FileMirror,RemoteDashboard storage;
-    class DenyAccess deny;
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef edgeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef authNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef denyNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class ExtClient,ClientPickup clientNode;
+    class CFEdge,CFTunnel,LocalSupervisor,WebServer edgeNode;
+    class ModeCheck,EdgeHeaderCheck,PinCheck authNode;
+    class AllowDirect,Authenticated,SubmitPrompt,SQLiteInsert,FileMirror,MarkProcessing,MarkCompleted,RemoteDashboard storageNode;
+    class DenyAccess denyNode;
+```
+
+---
+
+## 14. Workflow 13: Native Document Engineering & Animated WebP Export Pipeline
+
+```mermaid
+---
+title: Native Document Engineering & Animated WebP Export Pipeline
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TD
+    subgraph RequestRouting ["Tokubetsu-Jonin Technical Scribe Dispatch"]
+        UserReq["User Prompt / Technical Deliverable Request"] --> TJ["Tokubetsu-Jonin Scribe Subagent<br/>(src/mcp/tool_dispatch.js)"]
+        TJ --> RouteCheck{"Deliverable Type?"}
+    end
+
+    subgraph OfficePipeline ["Office Document Generation (src/tools/document_engine.js)"]
+        RouteCheck -- "DOCX / PDF" --> DocCreate["document_create()<br/>• 4 Generative Cover Art Models<br/>• Discrete per-page Word sections<br/>• Static TextRun page numbers (No grey shading)"]
+        RouteCheck -- "Spreadsheet XLSX" --> SheetCreate["spreadsheet_create()<br/>• 10 Curated Palettes<br/>• Summary KPI Cards + Formulas<br/>• Auto-Fit Column Widths"]
+        RouteCheck -- "Presentation PPTX" --> PresCreate["presentation_create()<br/>• 16:9 Widescreen Layouts<br/>• Pure Light Mode &amp; Gradient Accent Slides"]
+        DocCreate --> ZeroGPTCheck{"Document AI Detector<br/>(docs_ai_detector)"}
+        ZeroGPTCheck -- "Burstiness CV &gt;= 0.85" --> AIDetectorPass["Score Verified: &lt; 3% ZeroGPT Risk<br/>Zero AI Fingerprints"]
+    end
+
+    subgraph AnimationPipeline ["Native Diagram &amp; Animated WebP Pipeline"]
+        RouteCheck -- "SVG Diagram" --> DiagCreate["diagram_create()<br/>• Dual Orientation: LR (Horizontal) / TB (Vertical)<br/>• 10 Curated 4-Color Gradient Themes<br/>• Pure White Card Layout &amp; Animated SMIL Dashes"]
+        DiagCreate --> AnimExport["animation_export()<br/>Canonical Target: output.webp"]
+        AnimExport --> PWCapture["Playwright Chromium Headless<br/>• Advance SMIL timeline per frame (15fps)<br/>• Deterministic CSS strokeDashoffset scrub<br/>• High-DPI frame capture to tmpdir"]
+        PWCapture --> EncoderChoice{"Requested Output Format?"}
+        EncoderChoice -- "Canonical: webp" --> LibWebPAnim["FFmpeg libwebp_anim Encoder<br/>-vcodec libwebp_anim -compression_level 6<br/>-q:v 50 -preset drawing -loop 0"]
+        EncoderChoice -- "Compatibility: gif" --> GifEncoder["FFmpeg PaletteGen / PaletteUse<br/>-vf palettegen=max_colors=128;paletteuse"]
+        EncoderChoice -- "Static Fallback / Error" --> StaticFallback["Static PNG Fallback<br/>(frame_0000.png high-DPI snapshot)"]
+        LibWebPAnim --> WebPValidator["Binary WebP Structural Validator<br/>(validateAnimatedWebP)<br/>• RIFF/WEBP Bitstream Header<br/>• VP8X Animation Flag Check<br/>• ANIM Loop Count (0 = Infinite)<br/>• ANMF Frame Chunk Count &amp; Timing"]
+        WebPValidator -- "Valid Animation Structure" --> WebPVerified["PASS: Validated Animated WebP<br/>(40-70% size reduction over GIF)"]
+        WebPValidator -- "Validation Failed" --> AutoCleanup["Cleanup Temp Frames &amp; Return Diagnostic"]
+    end
+
+    subgraph Deliverables ["Production Technical Deliverable Handoff"]
+        AIDetectorPass --> FinalHandoff["Deliver Production Deliverable<br/>• Structured JSON Metadata<br/>• Local File Output Path"]
+        SheetCreate --> FinalHandoff
+        PresCreate --> FinalHandoff
+        WebPVerified --> FinalHandoff
+        GifEncoder --> FinalHandoff
+        FinalHandoff --> TJ
+        TJ --> SanninSynthesize["Sannin Synthesis &amp; User Delivery<br/>(100% Local Verification · Zero Remote Push)"]
+    end
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style RequestRouting fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style OfficePipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style AnimationPipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style Deliverables fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef officeNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef animNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef validNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class UserReq,TJ,SanninSynthesize clientNode;
+    class DocCreate,SheetCreate,PresCreate,ZeroGPTCheck officeNode;
+    class DiagCreate,AnimExport,PWCapture,LibWebPAnim,GifEncoder,WebPValidator,EncoderChoice animNode;
+    class AIDetectorPass,WebPVerified,FinalHandoff validNode;
+    class AutoCleanup,StaticFallback failNode;
 ```

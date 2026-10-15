@@ -16,17 +16,18 @@ title: Skill Registry Installation and On-Demand Retrieval
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#dbeafe'
-    primaryTextColor: '#1e3a8a'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#e0e7ff'
-    tertiaryColor: '#d1fae5'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -44,15 +45,16 @@ flowchart TB
     DB --> Get["get_skill(canonical name)"]
     Get --> Client
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef actor fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
-    classDef source fill:#e0e7ff,stroke:#6366f1,color:#312e81
-    classDef process fill:#fef3c7,stroke:#d97706,color:#78350f
-    classDef runtime fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
-    class Developer,Client actor
-    class Registry,Files,Templates source
-    class Migrate process
-    class DB,Find,Get runtime
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef actorNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef sourceNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef processNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef runtimeNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+
+    class Developer,Client actorNode;
+    class Registry,Files,Templates sourceNode;
+    class Migrate processNode;
+    class DB,Find,Get runtimeNode;
 ```
 
 ---

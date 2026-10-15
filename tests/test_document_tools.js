@@ -6,6 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { executeToolSync, executeTool } = require('../src/mcp/tool_dispatch.js');
+const { validateAnimatedWebP } = require('../src/tools/document_engine');
 
 const TMP_DIR = path.resolve(__dirname, '.tmp_doctools');
 
@@ -197,25 +198,26 @@ async function runTests() {
     assert.ok(svgContent.includes('GitOps Pipeline Topology'), 'Content must contain title');
   });
 
-  // 6. animation_export (GIF)
-  await testAsync('animation_export converts SVG into animated GIF via Playwright + FFmpeg', async () => {
+  // 6. animation_export (Canonical Animated WebP)
+  await testAsync('animation_export converts SVG into canonical animated WebP via Playwright + FFmpeg', async () => {
     const svgPath = path.join(TMP_DIR, 'test_diagram.svg');
-    const gifPath = path.join(TMP_DIR, 'test_animation.gif');
+    const webpPath = path.join(TMP_DIR, 'test_animation.webp');
 
     const raw = await executeTool('animation_export', {
       input_path: svgPath,
-      output_path: gifPath,
+      output_path: webpPath,
       fps: 10,
       duration: 1
     });
     const result = parseResult(raw);
 
     assert.strictEqual(result.success, true, 'Result success should be true');
-    assert.strictEqual(result.format, 'gif', 'Format should be gif');
-    assert.ok(fs.existsSync(gifPath), 'GIF file must exist on disk');
-    const buf = fs.readFileSync(gifPath);
-    assert.ok(buf.length > 500, 'GIF file must have non-zero size');
-    assert.strictEqual(buf.subarray(0, 3).toString('ascii'), 'GIF', 'File header must match GIF');
+    assert.strictEqual(result.format, 'webp', 'Format should be webp');
+    assert.ok(fs.existsSync(webpPath), 'WebP file must exist on disk');
+    const val = validateAnimatedWebP(webpPath);
+    assert.strictEqual(val.valid, true, 'WebP must be valid bitstream');
+    assert.strictEqual(val.isAnimated, true, 'WebP must be animated');
+    assert.ok(val.frameCount > 0, 'Frame count must be > 0');
   });
 
   // 8. Dynamic recursive path resolution

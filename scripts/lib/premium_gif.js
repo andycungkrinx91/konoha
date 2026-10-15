@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
-const { saveGif } = require('./shared');
+const { saveGif, saveWebP } = require('./shared');
 
 /* ------------------------------------------------------------------ *
  * Fonts — DejaVu family (guaranteed present on the asset-build host)
@@ -509,8 +509,16 @@ function metricBar(ctx, x, y, w, label, val, accent, alpha = 1) {
  * ------------------------------------------------------------------ */
 
 function saveAsset(frames, name) {
-  const out = path.join(__dirname, '..', '..', 'assets', name);
-  saveGif(frames, out);
+  let targetName = name;
+  if (!path.extname(targetName)) {
+    targetName += '.webp';
+  }
+  const out = path.join(__dirname, '..', '..', 'assets', targetName);
+  if (targetName.endsWith('.webp')) {
+    saveWebP(frames, out);
+  } else {
+    saveGif(frames, out);
+  }
   return out;
 }
 

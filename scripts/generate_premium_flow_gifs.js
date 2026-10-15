@@ -35,6 +35,8 @@ const PKG_VERSION = (() => {
   }
 })();
 
+const EXT = process.argv.includes('--gif') ? '.gif' : '.webp';
+
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
 function frame(W, H, paint, duration) {
@@ -127,7 +129,7 @@ function orchestrationScene() {
       title: 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW',
       subtitle: `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`,
       badge: '83–98% TOKEN SAVINGS',
-      footer: '40 canonical MCP tools · 7 coding clients · zero process cold-start · transparent delegate.md / result.md contracts',
+      footer: '45 canonical MCP tools · 7 coding clients · zero process cold-start · direct structured MCP tool delegation',
     });
 
   const paint = (opts) => (ctx) => {
@@ -175,7 +177,7 @@ function orchestrationScene() {
     frames.push(frame(W, H, paint({ nodeCount: 10, arrowCount: 10, remedAlpha: 1, dashOffset: -i * 8, pulseT: i / 14 }), 120));
   }
   frames.push(frame(W, H, paint({ nodeCount: 10, arrowCount: 10, remedAlpha: 1, dashOffset: -60, glowKey: 'kage' }), 1100));
-  saveAsset(frames, 'konoha-orchestration-flow.gif');
+  saveAsset(frames, 'konoha-orchestration-flow' + EXT);
 }
 
 /* ================================================================== *
@@ -241,7 +243,7 @@ function joninScene() {
   for (let i = 0; i < 10; i++) frames.push(frame(W, H, paint({ nodeCount: 8, dashOffset: -i * 11 }), 90));
   for (let i = 0; i <= 15; i++) frames.push(frame(W, H, paint({ nodeCount: 8, dashOffset: -i * 8, pulseT: i / 15 }), 110));
   frames.push(frame(W, H, paint({ nodeCount: 8, dashOffset: -60, final: true }), 1200));
-  saveAsset(frames, 'konoha-jonin-flow.gif');
+  saveAsset(frames, 'konoha-jonin-flow' + EXT);
 }
 
 /* ================================================================== *
@@ -302,7 +304,7 @@ function kageScene() {
     frames.push(frame(W, H, paint({ stepCount: 5, dashOffset: -i * 8, remedAlpha: 1, pct, approved: pct >= 98 }), 110));
   }
   frames.push(frame(W, H, paint({ stepCount: 5, dashOffset: -80, remedAlpha: 1, pct: 98, approved: true }), 1300));
-  saveAsset(frames, 'konoha-kage-gate.gif');
+  saveAsset(frames, 'konoha-kage-gate' + EXT);
 }
 
 /* ================================================================== *
@@ -367,7 +369,7 @@ function qaScene() {
     frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -i * 8, loopAlpha: 1, pct, approved: pct >= 98 }), 110));
   }
   frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -80, loopAlpha: 1, pct: 100, approved: true }), 1300));
-  saveAsset(frames, 'konoha-qa-flow.gif');
+  saveAsset(frames, 'konoha-qa-flow' + EXT);
 }
 
 /* ================================================================== *
@@ -429,7 +431,7 @@ function telegramScene() {
     frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -i * 8, pct, approved: pct >= 98 }), 110));
   }
   frames.push(frame(W, H, paint({ stepCount: 8, dashOffset: -80, pct: 100, approved: true }), 1300));
-  saveAsset(frames, 'konoha-telegram-flow.gif');
+  saveAsset(frames, 'konoha-telegram-flow' + EXT);
 }
 
 /* ------------------------------------------------------------------ */

@@ -23,6 +23,7 @@ const {
   canvasFont,
   css,
   saveGif,
+  saveWebP,
 } = require('./lib/shared.js');
 
 registerFonts();
@@ -204,10 +205,17 @@ function main() {
     });
   }
 
-  saveGif(gifFrames, path.join(ASSETS_DIR, 'demo.gif'));
-  const sizeKb = (fs.statSync(path.join(ASSETS_DIR, 'demo.gif')).size / 1024).toFixed(1);
-  console.log(`✓ Saved assets/demo.gif (${gifFrames.length} frames, ${sizeKb} KB)`);
-  console.log('✨ Full-screen HD screenshots & demo GIF generated successfully!');
+  const isGif = process.argv.includes('--gif');
+  const outExt = isGif ? '.gif' : '.webp';
+  const outPath = path.join(ASSETS_DIR, `demo${outExt}`);
+  if (isGif) {
+    saveGif(gifFrames, outPath);
+  } else {
+    saveWebP(gifFrames, outPath);
+  }
+  const sizeKb = (fs.statSync(outPath).size / 1024).toFixed(1);
+  console.log(`✓ Saved ${path.relative(ROOT_DIR, outPath)} (${gifFrames.length} frames, ${sizeKb} KB)`);
+  console.log('✨ Full-screen HD screenshots & demo asset generated successfully!');
 }
 
 if (require.main === module) {

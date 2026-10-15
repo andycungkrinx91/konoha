@@ -12,7 +12,7 @@
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange)](README.md)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-40%20Canonical-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-45%20Canonical-10b981)](README.md)
 [![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
@@ -23,7 +23,7 @@
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981)](README.md)
 [![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.1.17-blue)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
-[![Tests](https://img.shields.io/badge/Tests-115%20Passing-brightgreen)](README.md)
+[![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
@@ -47,24 +47,24 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 ## 📸 Preview
 
-* **Latest Release:** [v2.1.17 (2026-10-08)](CHANGELOG.md) — Dual-mode Telegram Bot integration, Cloudflare Zero Trust public ingress tunnel, unified prompt queue, and remote Web UI dashboard.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.17 — Konoha v2.1.17 (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+* **Latest Release:** [v2.1.18 (Current)](CHANGELOG.md) — CLI modularization, specialist subagent direct dispatch, operational database tooling (`konoha data`), and foreign key cascading schema integrity.
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.17 — Audited & Certified (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
 
 <details open>
-<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.gif</code>)</b></summary>
+<summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Konoha Core & Subagent Commands Demo" width="100%">
+  <img src="assets/demo.webp" alt="Konoha Core & Subagent Commands Demo" width="100%">
 </p>
 </details>
 
 <details open>
-<summary><b>🌐 Flagship Frontend Demo: SvelteKit 3 Web UI & 10 Gradient Themes (<code>demo-web.gif</code>)</b></summary>
+<summary><b>🌐 Flagship Frontend Demo: SvelteKit 3 Web UI & 10 Gradient Themes (<code>demo-web.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/demo-web.gif" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
+  <img src="assets/demo-web.webp" alt="Konoha SvelteKit 3 Web UI & Dashboard Demo" width="100%">
 </p>
 </details>
 <br>
@@ -74,47 +74,47 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 <br>
 
 <details>
-<summary><b>✧ Sannin Multi-Agent Orchestration & Task Routing Flow (<code>konoha-orchestration-flow.gif</code>)</b></summary>
+<summary><b>✧ Sannin Multi-Agent Orchestration & Task Routing Flow (<code>konoha-orchestration-flow.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-orchestration-flow.gif" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
+  <img src="assets/konoha-orchestration-flow.webp" alt="Konoha Multi-Agent Orchestration Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>♦ Jonin + Taste-Skill Anti-Slop Frontend Engineering Flow (<code>konoha-jonin-flow.gif</code>)</b></summary>
+<summary><b>♦ Jonin + Taste-Skill Anti-Slop Frontend Engineering Flow (<code>konoha-jonin-flow.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-jonin-flow.gif" alt="Jonin Frontend Engineering Flow" width="100%">
+  <img src="assets/konoha-jonin-flow.webp" alt="Jonin Frontend Engineering Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>◎ Kage Reviewer 98% Minimum Confidence & Zero-AI-Slop Delivery Gate (<code>konoha-kage-gate.gif</code>)</b></summary>
+<summary><b>◎ Kage Reviewer 98% Minimum Confidence & Zero-AI-Slop Delivery Gate (<code>konoha-kage-gate.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-kage-gate.gif" alt="Kage Reviewer Confidence Gate Flow" width="100%">
+  <img src="assets/konoha-kage-gate.webp" alt="Kage Reviewer Confidence Gate Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>🧪 Token-Efficient QA Automation & Playwright E2E Self-Healing (<code>konoha-qa-flow.gif</code>)</b></summary>
+<summary><b>🧪 Token-Efficient QA Automation & Playwright E2E Self-Healing (<code>konoha-qa-flow.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-qa-flow.gif" alt="QA Automation E2E Verification Flow" width="100%">
+  <img src="assets/konoha-qa-flow.webp" alt="QA Automation E2E Verification Flow" width="100%">
 </p>
 </details>
 
 <details>
-<summary><b>📱 Dual-Mode Telegram Bot & Cloudflare Tunnel Remote Ingress Flow (<code>konoha-telegram-flow.gif</code>)</b></summary>
+<summary><b>📱 Dual-Mode Telegram Bot & Cloudflare Tunnel Remote Ingress Flow (<code>konoha-telegram-flow.webp</code>)</b></summary>
 <br>
 
 <p align="center">
-  <img src="assets/konoha-telegram-flow.gif" alt="Telegram Bot & Cloudflare Tunnel Ingress Flow" width="100%">
+  <img src="assets/konoha-telegram-flow.webp" alt="Telegram Bot & Cloudflare Tunnel Ingress Flow" width="100%">
 </p>
 </details>
 </details>
@@ -147,6 +147,8 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | | **10 Light-Mode Themes** | `apps/web/src/` | Pure light-mode first class; floating bottom-left theme popup | ✅ `ACTIVE` |
 | | **Image Mockup Replication** | `build_from_source` | 100% exact layout, spacing, typography, and asset replication | ✅ `ACTIVE` |
 | | **AI-Website Fingerprint Detector**| `src/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
+| **Document Engineering** | **Office Deliverables** | `src/tools/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
+| | **Animated WebP Pipeline** | `src/tools/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
 | **Remote Operations & Mobile** | **Cloudflare Zero Trust Ingress**| `src/tunnel/` | Out-of-band tunnel (`/remote`) with Edge PIN & Cloudflare Access | ✅ `ACTIVE` |
 | | **1-Way Gate Telegram Alerts** | `src/telegram/` | Real-time task deliverable & audit dispatch upon Kage pass | ✅ `ACTIVE` |
 | | **2-Way Remote Prompting Bot** | `src/telegram/` | Inbound mobile commands (`/run`, `/sh`, `/session`, `/status`) | ✅ `ACTIVE` |
@@ -222,7 +224,7 @@ Jonin combines Konoha's 3D component architecture with **Taste-Skill v2** (`Leon
 - **Configurable Taste Dials**: `DESIGN_VARIANCE` (1-10), `MOTION_INTENSITY` (1-10), `VISUAL_DENSITY` (1-10).
 
 <p align="center">
-  <img src="assets/konoha-jonin-flow.gif" alt="Jonin Premium UI Build Pipeline" width="100%" />
+  <img src="assets/konoha-jonin-flow.webp" alt="Jonin Premium UI Build Pipeline" width="100%" />
 </p>
 
 </details>
@@ -287,7 +289,7 @@ Konoha uses an **MCP Tools Orchestrator Model** (Single-Thread Persona Adoption 
 > **Canonical editable diagram:** [08 Orchestrator Task Artifact Flow](docs/diagrams/konoha-architecture.drawio) · [Complete Workflow Architecture](docs/ALL-WORKFLOW-DIAGRAMS.md) · [Diagram manifest](docs/diagrams/README.md).
 
 <p align="center">
-  <img src="assets/konoha-orchestration-flow.gif" alt="Konoha MCP Orchestration & Execution Flow" width="100%" />
+  <img src="assets/konoha-orchestration-flow.webp" alt="Konoha MCP Orchestration & Execution Flow" width="100%" />
 </p>
 
 <details>
@@ -299,17 +301,18 @@ title: Konoha Orchestration and Execution Flow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#1e1b4b'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#d1fae5'
-    tertiaryColor: '#dbeafe'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -328,16 +331,15 @@ flowchart TB
     Review --> Synthesize["7. Sannin Synthesizes Report<br/>(Final report & response)"]
     Synthesize --> Response["Synthesized Response"]
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef user fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
-    classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
-    classDef mcp fill:#d1fae5,stroke:#059669,color:#065f46
-    classDef review fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
-    class Prompt,Response user
-    class Orchestrator,Synthesize orchestration
-    class Context,Discover,Report mcp
-    class Review review
-    class Delegate,Agent orchestration
+    linkStyle default stroke:#334155,stroke-width:2px;
+    classDef userNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef orchNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef mcpNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    class Prompt,Response userNode;
+    class Orchestrator,Synthesize,Delegate,Agent orchNode;
+    class Context,Discover,Report mcpNode;
+    class Review reviewNode;
 ```
 
 </details>
@@ -535,7 +537,7 @@ Konoha structures every development task into an autonomous 8-phase state machin
 Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDLC) Governance Layer** that operates natively without heavy external orchestration engines or external attestation frameworks:
 
 <p align="center">
-  <img src="assets/konoha-kage-gate.gif" alt="Kage Final Review Gate" width="100%" />
+  <img src="assets/konoha-kage-gate.webp" alt="Kage Final Review Gate" width="100%" />
 </p>
 
 - **Definition-of-Readiness (DoR) Gate**: Validates task substance, absence of unresolved placeholders (`TODO`, `FIXME`, `???`), existence of referenced files, and domain alignment before dispatch. Configurable per project (`dor_mode: advisory` or `dor_mode: enforced`).
@@ -551,7 +553,7 @@ Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDL
 > **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md)
 
 <p align="center">
-  <img src="assets/konoha-qa-flow.gif" alt="Konoha QA Automation Workflow" width="100%" />
+  <img src="assets/konoha-qa-flow.webp" alt="Konoha QA Automation Workflow" width="100%" />
 </p>
 
 Konoha implements a token-efficient, bounded QA automation pipeline owned exclusively by `anbu`. By combining `agent-browser` interactive exploration (`snapshot -i -c` taking <500 tokens) with declarative flow specifications (`tests/e2e/flows/*.json`), deterministic `qa_codify` Playwright compilation, and bounded `qa_e2e_run` test execution (<2,000 characters output cap), Konoha achieves **92% token savings** over traditional unconstrained browser trace dumps while completely eliminating fake-green test claims. Working artifacts are directed outside the workspace with automated retention (default 20 newest runs) and managed `.gitignore` isolation in git repositories (opt out via `KONOHA_QA_GITIGNORE=0`).
@@ -565,17 +567,18 @@ title: QA Automation Workflow
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#ede9fe'
-    primaryTextColor: '#1e1b4b'
-    primaryBorderColor: '#7c3aed'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#d1fae5'
-    tertiaryColor: '#dbeafe'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#8b5cf6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -612,7 +615,8 @@ flowchart TD
   RD --> QF
   RD -. "depth 7 or slop_cycles > 7" .-> STOP["Stop and ask the user"]
 
-  linkStyle default stroke:#0f172a,stroke-width:2px;
+  linkStyle default stroke:#334155,stroke-width:2px;
+  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
 ```
 
 </details>
@@ -625,7 +629,7 @@ flowchart TD
 Konoha features an autonomous **Remote Access & Telegram Automation Engine** that enables remote interaction, task dispatch, and real-time execution reporting directly from your mobile device or chat client without opening inbound firewall ports:
 
 <p align="center">
-  <img src="assets/konoha-telegram-flow.gif" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
+  <img src="assets/konoha-telegram-flow.webp" alt="Telegram Remote Workflow & Kage Gate Notifier" width="100%" />
 </p>
 
 ### 1. Dual-Mode Telegram Bot Engine (`src/telegram/`)
@@ -798,7 +802,7 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 40 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, QA automation, and subagent delegation workflows:
+The unified `konoha` server exposes 45 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, QA automation, native document engineering, and subagent delegation workflows:
 
 #### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
@@ -1035,17 +1039,18 @@ title: Token Footprint Before and After Konoha
 config:
   theme: base
   themeVariables:
+    darkMode: false
     background: '#ffffff'
     mainBkg: '#ffffff'
-    primaryColor: '#fee2e2'
-    primaryTextColor: '#7f1d1d'
-    primaryBorderColor: '#ef4444'
-    lineColor: '#0f172a'
-    arrowheadColor: '#0f172a'
-    secondaryColor: '#d1fae5'
-    tertiaryColor: '#fef3c7'
-    fontFamily: 'Inter, system-ui, sans-serif'
-    fontSize: '14px'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
@@ -1066,13 +1071,17 @@ flowchart TB
     Before --> Compare["Smaller query payload<br/>(97–99% token reduction)"]
     After --> Compare
 
-    linkStyle default stroke:#0f172a,stroke-width:2px;
-    classDef waste fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:2px
-    classDef optimized fill:#d1fae5,stroke:#059669,color:#065f46,stroke-width:2px
-    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
-    class Raw,References,FullContext waste
-    class Index,Query,Relevant optimized
-    class Compare decision
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style Before fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style After fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef wasteNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+    classDef optNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef compNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+
+    class Raw,References,FullContext wasteNode;
+    class Index,Query,Relevant optNode;
+    class Compare compNode;
 ```
 
 📊 **Benchmark Comparison: Antigravity Session Metrics**

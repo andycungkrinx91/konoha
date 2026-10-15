@@ -26,7 +26,6 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const {
   selectGradientTheme,
-  buildGenerativeCoverArtSvg,
   renderCoverBackgroundArtworkPng,
   renderCoverArtworkHtml,
   renderCoverArtworkPng,
@@ -94,7 +93,7 @@ async function documentCreate(options = {}) {
     const {
       Document, Packer, Paragraph, TextRun, HeadingLevel, Table,
       TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-      Header, Footer, PageNumber, ImageRun,
+      Header, Footer, ImageRun,
       HorizontalPositionRelativeFrom, HorizontalPositionAlign,
       VerticalPositionRelativeFrom, VerticalPositionAlign, TextWrappingType
     } = docxModule;
@@ -367,7 +366,7 @@ async function documentCreate(options = {}) {
   const browser = await playwright.chromium.launch({
     executablePath: '/usr/bin/google-chrome',
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
 
   const page = await browser.newPage({
@@ -1418,14 +1417,76 @@ async function diagramCreate(options = {}) {
   };
 }
 
-// 5. animation_export — Converts diagram animation to high-quality GIF or PNG
+// 5. animation_export — Converts diagram animation to canonical Animated WebP (or GIF/PNG)
+function validateAnimatedWebP(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { valid: false, error: `File not found: '${filePath}'` };
+  }
+  const buf = fs.readFileSync(filePath);
+  if (buf.length < 12) {
+    return { valid: false, error: 'File too small for WebP header' };
+  }
+  if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WEBP') {
+    return { valid: false, error: 'Invalid RIFF/WEBP signature' };
+  }
+
+  let offset = 12;
+  let isAnimated = false;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  let loopCount = 0;
+  let frameCount = 0;
+  let totalDurationMs = 0;
+
+  while (offset + 8 <= buf.length) {
+    const chunkType = buf.toString('ascii', offset, offset + 4);
+    const chunkSize = buf.readUInt32LE(offset + 4);
+    const dataOffset = offset + 8;
+
+    if (chunkType === 'VP8X') {
+      const flags = buf.readUInt8(dataOffset);
+      isAnimated = (flags & 0x02) !== 0;
+      canvasWidth = (buf.readUInt16LE(dataOffset + 4) | (buf.readUInt8(dataOffset + 6) << 16)) + 1;
+      canvasHeight = (buf.readUInt16LE(dataOffset + 7) | (buf.readUInt8(dataOffset + 9) << 16)) + 1;
+    } else if (chunkType === 'ANIM') {
+      loopCount = buf.readUInt16LE(dataOffset + 4);
+    } else if (chunkType === 'ANMF') {
+      frameCount++;
+      const duration = buf.readUInt16LE(dataOffset + 12) | (buf.readUInt8(dataOffset + 14) << 16);
+      totalDurationMs += duration;
+    }
+
+    offset += 8 + chunkSize + (chunkSize % 2 === 1 ? 1 : 0);
+  }
+
+  if (!isAnimated || frameCount < 2) {
+    return {
+      valid: false,
+      error: `WebP file lacks valid animation chunks (isAnimated: ${isAnimated}, frameCount: ${frameCount})`
+    };
+  }
+
+  return {
+    valid: true,
+    isAnimated: true,
+    canvasWidth,
+    canvasHeight,
+    loopCount,
+    frameCount,
+    totalDurationMs
+  };
+}
+
 async function animationExport(options = {}) {
   const inputPath = path.resolve(options.input_path || 'diagram.svg');
   if (!fs.existsSync(inputPath)) {
     return { success: false, error: `Input file not found: '${inputPath}'` };
   }
 
-  const outputPath = resolveDynamicOutputPath(options.output_path, 'animation.gif');
+  const requestedFormat = (options.format || (options.output_path && path.extname(options.output_path).slice(1)) || 'webp').toLowerCase();
+  const defaultFilename = requestedFormat === 'gif' ? 'animation.gif' : (requestedFormat === 'png' ? 'animation.png' : 'animation.webp');
+  const outputPath = resolveDynamicOutputPath(options.output_path, defaultFilename);
+  const targetFormat = (path.extname(outputPath).slice(1) || requestedFormat).toLowerCase();
   const durationSec = options.duration_sec || 3;
   const fps = options.fps || 15;
 
@@ -1441,7 +1502,7 @@ async function animationExport(options = {}) {
   const browser = await playwright.chromium.launch({
     executablePath: '/usr/bin/google-chrome',
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
 
   const page = await browser.newPage({
@@ -1480,34 +1541,73 @@ async function animationExport(options = {}) {
     // Check ffmpeg availability
     const checkFfmpeg = spawnSync('which', ['ffmpeg']);
     if (checkFfmpeg.status === 0) {
-      const ffmpegArgs = [
-        '-y',
-        '-framerate', String(fps),
-        '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
-        '-vf', 'split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer',
-        outputPath
-      ];
-      const res = spawnSync('ffmpeg', ffmpegArgs);
-      if (res.status === 0 && fs.existsSync(outputPath)) {
-        fs.rmSync(tmpFramesDir, { recursive: true, force: true });
-        return {
-          success: true,
-          file_path: outputPath,
-          format: 'gif',
-          frames_captured: totalFrames
-        };
+      if (targetFormat === 'webp') {
+        const ffmpegArgs = [
+          '-y',
+          '-framerate', String(fps),
+          '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
+          '-vcodec', 'libwebp_anim',
+          '-lossless', '0',
+          '-compression_level', '6',
+          '-q:v', '90',
+          '-preset', 'drawing',
+          '-loop', '0',
+          outputPath
+        ];
+        const res = spawnSync('ffmpeg', ffmpegArgs);
+        if (res.status === 0 && fs.existsSync(outputPath)) {
+          const validation = validateAnimatedWebP(outputPath);
+          if (validation.valid) {
+            fs.rmSync(tmpFramesDir, { recursive: true, force: true });
+            return {
+              success: true,
+              file_path: outputPath,
+              format: 'webp',
+              frames_captured: totalFrames,
+              width: validation.canvasWidth,
+              height: validation.canvasHeight,
+              duration_ms: validation.totalDurationMs,
+              loop_count: validation.loopCount,
+              validation: 'PASS_WEBP_STRUCTURAL_VALIDATION'
+            };
+          }
+          fs.rmSync(tmpFramesDir, { recursive: true, force: true });
+          return {
+            success: false,
+            error: `WebP structural validation failed: ${validation.error}`,
+            file_path: outputPath
+          };
+        }
+      } else if (targetFormat === 'gif') {
+        const ffmpegArgs = [
+          '-y',
+          '-framerate', String(fps),
+          '-i', path.join(tmpFramesDir, 'frame_%04d.png'),
+          '-vf', 'split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer',
+          outputPath
+        ];
+        const res = spawnSync('ffmpeg', ffmpegArgs);
+        if (res.status === 0 && fs.existsSync(outputPath)) {
+          fs.rmSync(tmpFramesDir, { recursive: true, force: true });
+          return {
+            success: true,
+            file_path: outputPath,
+            format: 'gif',
+            frames_captured: totalFrames
+          };
+        }
       }
     }
 
     // Fallback: copy first frame as PNG
-    const pngFallback = outputPath.replace(/\.gif$/i, '.png');
+    const pngFallback = targetFormat === 'png' ? outputPath : outputPath.replace(/\.[^.]+$/, '.png');
     fs.copyFileSync(path.join(tmpFramesDir, 'frame_0000.png'), pngFallback);
     fs.rmSync(tmpFramesDir, { recursive: true, force: true });
     return {
       success: true,
       file_path: pngFallback,
       format: 'png',
-      note: 'Saved as high-DPI static PNG fallback (ffmpeg unavailable)'
+      note: 'Saved as high-DPI static PNG fallback (ffmpeg unavailable or static format requested)'
     };
   } catch (err) {
     if (fs.existsSync(tmpFramesDir)) fs.rmSync(tmpFramesDir, { recursive: true, force: true });
@@ -1520,5 +1620,6 @@ module.exports = {
   spreadsheetCreate,
   presentationCreate,
   diagramCreate,
-  animationExport
+  animationExport,
+  validateAnimatedWebP
 };

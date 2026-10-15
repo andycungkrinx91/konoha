@@ -13,7 +13,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { chromium } = require('playwright');
-const { saveGif, registerFonts, canvasFont } = require('./lib/shared');
+const { saveGif, saveWebP, registerFonts, canvasFont } = require('./lib/shared');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
@@ -225,12 +225,19 @@ async function main() {
 
   await browser.close();
 
-  console.log(`\n▶ Compiling ${frames.length} frames into assets/demo-web.gif ...`);
-  const outputGif = path.join(ASSETS_DIR, 'demo-web.gif');
-  saveGif(frames, outputGif);
+  const isGif = process.argv.includes('--gif');
+  const outExt = isGif ? '.gif' : '.webp';
+  const outName = `demo-web${outExt}`;
+  console.log(`\n▶ Compiling ${frames.length} frames into assets/${outName} ...`);
+  const outputPath = path.join(ASSETS_DIR, outName);
+  if (isGif) {
+    saveGif(frames, outputPath);
+  } else {
+    saveWebP(frames, outputPath);
+  }
 
-  const sizeKb = fs.statSync(outputGif).size / 1024;
-  console.log(`✨ Successfully saved assets/demo-web.gif (${sizeKb.toFixed(1)} KB, ${frames.length} frames)!`);
+  const sizeKb = fs.statSync(outputPath).size / 1024;
+  console.log(`✨ Successfully saved assets/${outName} (${sizeKb.toFixed(1)} KB, ${frames.length} frames)!`);
 }
 
 if (require.main === module) {

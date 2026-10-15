@@ -287,9 +287,9 @@ Verify client configuration updates in sandbox HOME (`$KT`):
 - [ ] **9.2 Mermaid Syntax Compliance**:
   - All Markdown companion diagrams conform to theme and unescaped pipe invariants.
   - Ref: `tests/test_documentation_diagrams.js:115`
-- [ ] **9.3 Animated GIF Assets**:
-  - All 8 regenerated GIFs in `assets/` display version `2.1.18` or suite count `142` with correct dimensions.
-  - Ref: `scripts/generate_premium_flow_gifs.js`, `scripts/generate_real_demo_gifs.js`
+- [x] **9.3 Animated WebP Assets**:
+  - All 17 Animated WebP assets in `assets/` display version `2.1.18` or suite count `142` with valid bitstream structure (RIFF, WEBP, VP8X, ANIM, ANMF).
+  - Ref: `scripts/convert_all_gifs_to_webp.js`, `tests/test_all_assets_webp.js`
 
 ---
 
@@ -303,6 +303,47 @@ Verify client configuration updates in sandbox HOME (`$KT`):
 - [ ] **10.2 Zero Untracked Secrets**:
   - Confirm no credentials, `.env*`, or private keys are tracked in git repository.
   - Ref: `GEMINI.md:Guardrails`
+
+---
+
+## 15. Document Engineering & Animated WebP Regression QA
+
+- [x] **15.1 Generate Representative Animated WebP**:
+  - Successfully generate canonical Animated WebP (`.webp`) from SVG/HTML keyframes via Tokubetsu-Jonin motion export pipeline.
+  - Ref: `src/tools/document_engine.js:animationExport`, `tests/test_document_animation_webp.js`
+- [x] **15.2 Bitstream Header & Chunk Verification**:
+  - Verify pure Node.js binary structural parsing: RIFF header, `WEBP` fourCC, `VP8X` extended header (animation flag bit 1 set), `ANIM` background/loop header, and sequential `ANMF` frame chunks.
+  - Ref: `src/tools/document_engine.js:validateAnimatedWebP`
+- [x] **15.3 Decoded Frame Visual Clarity**:
+  - Inspect exported frames for font sharpness, anti-aliasing, clean alpha transparency, and vector fidelity across light/dark themes.
+  - Ref: `tests/test_document_animation_webp.js:45`
+- [x] **15.4 Output Metadata Alignment**:
+  - Confirm tool response metadata specifies `format: 'webp'`, exact byte size, dimensions, loop count, and execution time.
+  - Ref: `src/tools/document_engine.js:animationExport`
+- [x] **15.5 Compression Benchmark Target**:
+  - Execute GIF vs WebP compression comparison, proving $\ge 40\%$ to $70\%$ file size reduction across identical source frames.
+  - Ref: `tests/benchmark_animation_compression.js`
+- [x] **15.6 Markdown Image Reference Resolution**:
+  - Confirm technical documentation, runbooks, and diagrams link to `.webp` assets with valid file paths and working alt text.
+  - Ref: `docs/ALL-WORKFLOW-DIAGRAMS.md:Workflow 13`, `.agents/skills/tokubetsu-jonin-skill/SKILL.md:SOP 9`
+- [x] **15.7 Binary Validation Failure & Error Handling**:
+  - Verify corrupted, truncated, or static WebP bitstreams are rejected by `validateAnimatedWebP`, triggering actionable error reporting and temporary file cleanup.
+  - Ref: `tests/test_document_animation_webp.js:80`
+- [x] **15.8 Manifest & Schema Tool Count Integrity**:
+  - Confirm manifest contains exactly 47 entries (including 2 legacy aliases) and live schema router advertises exactly 45 canonical tools.
+  - Ref: `tests/test_tool_count_repo_wide_sync.js`, `tests/test_docs_currency.js`
+- [x] **15.9 Rejection of Removed CLI Aliases**:
+  - Confirm all 27 removed legacy CLI aliases exit with code 1 and emit standardized deprecation notices.
+  - Ref: `tests/test_delegation_alias_removal.js:35`
+- [x] **15.10 Canonical API Synchronization**:
+  - Verify 0 documentation drift between code router schemas and canonical API markdown tables.
+  - Ref: `scripts/sync_canonical_api.js --check`
+- [x] **15.11 Skill Mirror Synchronization**:
+  - Confirm byte-identical propagation across all 5 skill mirror trees (`src/templates/skills/`, `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.commandcode/skills/`).
+  - Ref: `scripts/sync_skills.js`
+- [x] **15.12 Document AI Detection Score Target**:
+  - Verify all generated DOCX, PDF, and technical documents achieve $< 3\%$ ZeroGPT risk score via heuristic burstiness shaping and cliché purging.
+  - Ref: `node bin/cli.js detect-docs`, `tests/test_document_engine.js`
 
 ---
 

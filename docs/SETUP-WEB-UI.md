@@ -5,7 +5,7 @@ The **Konoha Web Configuration UI** is a local browser-based management dashboar
 It provides a modern visual interface for configuration and monitoring tasks that otherwise require interactive terminal wizards (`konoha bridge create`, `konoha agent skill`, `konoha savings`, `konoha doctor`, etc.), **without adding any new business logic** — the UI is a thin visual layer over the exact same functions the CLI and SQLite database already use.
 
 <p align="center">
-  <img src="../assets/demo-web.gif" alt="Konoha SvelteKit 3 Web Configuration UI Demo" width="100%">
+  <img src="../assets/demo-web.webp" alt="Konoha SvelteKit 3 Web Configuration UI Demo" width="100%">
 </p>
 
 ---

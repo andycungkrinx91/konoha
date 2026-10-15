@@ -12,8 +12,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { spawnSync } = require('child_process');
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const { GIFEncoder, quantize, applyPalette } = require('gifenc');
+const { validateAnimatedWebP } = require('../../src/tools/document_engine');
 
 const FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf';
 const BOLD_FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf';
@@ -280,6 +283,60 @@ function saveGif(frames, outPath) {
   console.log(`  ✓ Saved ${path.basename(outPath)} (${frames.length} frames, ${sizeKb.toFixed(1)} KB)`);
 }
 
+/**
+ * Save frames as a canonical Animated WebP file using FFmpeg libwebp_anim.
+ *
+ * @param {{ canvas: any, duration: number }[]} frames
+ * @param {string} outPath
+ */
+function saveWebP(frames, outPath) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-webp-'));
+  try {
+    const listFile = path.join(tmpDir, 'frames.txt');
+    let listContent = '';
+    for (let i = 0; i < frames.length; i++) {
+      const framePath = path.join(tmpDir, `frame_${String(i).padStart(5, '0')}.png`);
+      fs.writeFileSync(framePath, frames[i].canvas.toBuffer('image/png'));
+      const durationSec = Math.max(0.04, ((frames[i].duration || 100) / 1000));
+      listContent += `file '${framePath}'\nduration ${durationSec.toFixed(3)}\n`;
+    }
+    // Repeat last frame for ffmpeg concat demuxer convention
+    if (frames.length > 0) {
+      const lastPath = path.join(tmpDir, `frame_${String(frames.length - 1).padStart(5, '0')}.png`);
+      listContent += `file '${lastPath}'\n`;
+    }
+    fs.writeFileSync(listFile, listContent);
+
+    const ffmpegRes = spawnSync('ffmpeg', [
+      '-y',
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', listFile,
+      '-vcodec', 'libwebp_anim',
+      '-lossless', '0',
+      '-compression_level', '6',
+      '-q:v', '90',
+      '-preset', 'drawing',
+      '-loop', '0',
+      outPath
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    if (ffmpegRes.status !== 0) {
+      throw new Error(`FFmpeg failed to encode WebP: ${ffmpegRes.stderr ? ffmpegRes.stderr.toString() : 'unknown error'}`);
+    }
+
+    validateAnimatedWebP(outPath);
+    const sizeKb = fs.statSync(outPath).size / 1024;
+    console.log(`  ✓ Saved ${path.basename(outPath)} (${frames.length} frames, ${sizeKb.toFixed(1)} KB)`);
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch (_) {
+      // Best-effort cleanup of temporary frame directory
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Data access
  * ------------------------------------------------------------------ */
@@ -305,4 +362,5 @@ module.exports = {
   drawSegment,
   textWidth,
   saveGif,
+  saveWebP,
 };
