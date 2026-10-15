@@ -99,15 +99,18 @@ async function documentCreate(options = {}) {
       VerticalPositionRelativeFrom, VerticalPositionAlign, TextWrappingType
     } = docxModule;
 
-    const bodyChildren = [];
+    const totalPages = includeCover ? (sections.length + 1) : sections.length;
 
-    // Render structured body sections
-    for (const sec of sections) {
+    // Render structured body sections per page (discrete Word sections with static unshaded page footers)
+    const contentSections = sections.map((sec, i) => {
+      const pageNum = includeCover ? (i + 2) : (i + 1);
+      const sectionChildren = [];
+
       let hl = HeadingLevel.HEADING_1;
       if (sec.level === 2) hl = HeadingLevel.HEADING_2;
       if (sec.level === 3) hl = HeadingLevel.HEADING_3;
 
-      bodyChildren.push(
+      sectionChildren.push(
         new Paragraph({
           text: sec.title,
           heading: hl,
@@ -118,7 +121,7 @@ async function documentCreate(options = {}) {
       // Paragraphs
       if (sec.paragraphs && Array.isArray(sec.paragraphs)) {
         for (const pText of sec.paragraphs) {
-          bodyChildren.push(
+          sectionChildren.push(
             new Paragraph({
               children: [new TextRun({ text: pText, size: 21, color: '1E293B', font: 'Calibri' })],
               spacing: { line: 276, before: 100, after: 140 }
@@ -131,7 +134,7 @@ async function documentCreate(options = {}) {
       if (sec.callout) {
         const borderLeft = { style: BorderStyle.SINGLE, size: 24, color: theme.colors[0].replace('#', '') };
         const borderNone = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-        bodyChildren.push(
+        sectionChildren.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             columnWidths: [9000],
@@ -161,7 +164,7 @@ async function documentCreate(options = {}) {
             ]
           })
         );
-        bodyChildren.push(new Paragraph({ text: '', spacing: { after: 140 } }));
+        sectionChildren.push(new Paragraph({ text: '', spacing: { after: 140 } }));
       }
 
       // Executive Table
@@ -205,7 +208,7 @@ async function documentCreate(options = {}) {
           });
         });
 
-        bodyChildren.push(
+        sectionChildren.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             columnWidths: colWidths,
@@ -213,63 +216,72 @@ async function documentCreate(options = {}) {
             rows: [headerRow, ...dataRows]
           })
         );
-        bodyChildren.push(new Paragraph({ text: '', spacing: { after: 140 } }));
+        sectionChildren.push(new Paragraph({ text: '', spacing: { after: 140 } }));
       }
 
       // Code Block
       if (sec.code && sec.code.snippet) {
         const codeLines = sec.code.snippet.split('\n');
         for (const cl of codeLines) {
-          bodyChildren.push(
+          sectionChildren.push(
             new Paragraph({
               children: [new TextRun({ text: cl, font: 'JetBrains Mono', size: 18, color: '1E293B' })],
               spacing: { line: 240, before: 15, after: 15 }
             })
           );
         }
-        bodyChildren.push(new Paragraph({ text: '', spacing: { after: 100 } }));
+        sectionChildren.push(new Paragraph({ text: '', spacing: { after: 100 } }));
       }
+
+      const gradTable = renderDocxGradientTable(docxModule, theme.colors);
+
+      return {
+        properties: {
+          page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } }
+        },
+        headers: {
+          default: new Header({
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: title, size: 16, color: '94A3B8', font: 'Calibri' })],
+                alignment: 'right',
+                spacing: { after: 60 }
+              }),
+              gradTable
+            ]
+          })
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              gradTable,
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `${classification}   |   Page ${pageNum} of ${totalPages}`,
+                    size: 16,
+                    color: '94A3B8',
+                    font: 'Calibri'
+                  })
+                ],
+                alignment: 'center',
+                spacing: { before: 80 }
+              })
+            ]
+          })
+        },
+        children: sectionChildren
+      };
+    });
+
+    if (contentSections.length === 0 && !includeCover) {
+      contentSections.push({
+        properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } },
+        children: [new Paragraph({ text: '' })]
+      });
     }
 
-    const gradTable = renderDocxGradientTable(docxModule, theme.colors);
-
-    const bodySection = {
-      properties: {
-        page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } }
-      },
-      headers: {
-        default: new Header({
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: title, size: 16, color: '94A3B8', font: 'Calibri' })],
-              alignment: 'right',
-              spacing: { after: 60 }
-            }),
-            gradTable
-          ]
-        })
-      },
-      footers: {
-        default: new Footer({
-          children: [
-            gradTable,
-            new Paragraph({
-              children: [
-                new TextRun({ text: `${classification}   |   Page `, size: 16, color: '94A3B8', font: 'Calibri' }),
-                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8', font: 'Calibri' }),
-                new TextRun({ text: ' of ', size: 16, color: '94A3B8', font: 'Calibri' }),
-                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8', font: 'Calibri' })
-              ],
-              alignment: 'center',
-              spacing: { before: 80 }
-            })
-          ]
-        })
-      },
-      children: bodyChildren
-    };
-
-    let docSections = [bodySection];
+    let docSections = contentSections;
 
     if (includeCover) {
       try {
@@ -317,10 +329,10 @@ async function documentCreate(options = {}) {
           ]
         };
 
-        docSections = [coverSection, bodySection];
+        docSections = [coverSection, ...contentSections];
       } catch (err) {
         console.warn('Cover generation fallback:', err.message);
-        docSections = [bodySection];
+        docSections = contentSections;
       }
     }
 

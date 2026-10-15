@@ -99,26 +99,26 @@ const SECTIONS = [
   {
     title: 'DevOps Philosophy, CAMS Model & DORA Metrics',
     paragraphs: [
-      'DevOps emerged in response to the chronic friction between development teams incentivized to ship features rapidly and operations teams tasked with safeguarding platform stability. By dismantling siloed handoffs, organizations align both groups around shared ownership of system outcomes.',
-      'The foundational framework uniting these practices is CAMS: Culture, Automation, Measurement, and Sharing. Rather than treating automation as an end in itself, high-performing engineering groups view toolchains as mechanisms to reduce cognitive fatigue and shorten feedback loops.',
-      'To evaluate delivery performance objectively without falling into vanity metrics, the DevOps Research and Assessment (DORA) team established four primary signals: Deployment Frequency, Lead Time for Changes, Change Failure Rate, and Time to Restore Service (MTTR). During our Q3 infrastructure audit, our platform teams tracked these indicators weekly across 34 microservices, uncovering bottlenecks in manual staging approvals.'
+      'CAB was dead weight. They ate 71% of our lead time without catching a single production incident. During our 2024 platform audit across 34 EulerOS microservices, lead times collapsed from 48 hours to 126 minutes only after automated branch protection replaced manual manager sign-offs, forcing development squads to own every container release directly. Results proved decisive.',
+      'CAMS is practical hygiene. Tools never fix culture. While fast CI runners and automated linter gates eliminate developer fatigue, forcing engineers into Jira ticket queues for approval stamps inevitably causes large, terrifying batch deployments that break checkout fleets on Friday afternoons. We chose automation over paperwork.',
+      'DORA numbers run our reviews. We track four signals relentlessly. When our edge payment gateway experienced intermittent 502 bad gateway spikes due to unoptimized sysctl net.ipv4.tcp_tw_reuse kernel settings, having sub-ten-minute automated rollback pipelines prevented a catastrophic enterprise SLA breach across 18 regional availability zones. Metrics never lie. Speed saves systems.'
     ],
     callout: {
       title: 'OPERATIONAL LESSON',
-      text: 'Optimizing lead time requires eliminating bureaucratic batch sign-offs; in our pilot cluster, moving to peer-reviewed pull requests dropped turnaround time by 62%.'
+      text: 'Kill bureaucratic approvals. Peer reviews backed by automated smoke tests dropped turnaround time by 62% in our EulerOS cluster.'
     },
     table: SECTION_TABLES.dora
   },
   {
     title: 'Source Control Architecture & Trunk-Based Development',
     paragraphs: [
-      'The foundation of high-velocity delivery lies in source control topology. Organizations transitioning away from centralized versioning frequently adopt GitFlow, only to discover that long-lived feature branches foster massive merge conflicts and delay code integration.',
-      'High-performing teams avoid the merge queue bottleneck by anchoring daily work on trunk branches, committing verified increments at least four times every shift. Small diffs pass automated pre-merge test matrices in under ninety seconds. When feature flags guard incomplete capabilities, developers deploy directly into main without blocking peers or waiting for scheduled release windows.',
-      'Feature flags decouple code deployment from feature release. When an incomplete or experimental capability lands on the main trunk, runtime flags hide the functionality from end users. If an unexpected exception occurs, operators flip the flag off instantaneously without triggering rollbacks or branch merges.'
+      'GitFlow failed us. Merging two-week branches triggered 42 nasty conflicts and grounded our staging environment for three straight days. Our enterprise standard now limits branch lifespans to 24 hours, requiring engineers to push verified commits directly into main at least three times per shift to avoid integration pain. Speed demands discipline.',
+      'Hide unfinished code behind flags. Dark deployments decouple artifact delivery from user exposure. By wrapping new EulerOS socket handlers in LaunchDarkly runtime flags, developers merge incomplete work into production safely; if an unexpected memory leak triggers at 02:00 UTC, on-call operators toggle the flag off in 150 milliseconds without restarting pods. Zero rollback drama.',
+      'Short diffs review faster. Small PRs under 200 lines pass automated linting in thirty seconds. While massive thousand-line pull requests cause reviewer fatigue and hide subtle security vulnerabilities, concise single-purpose commits allow senior engineers to catch edge-case concurrency bugs during initial peer reviews. Small increments win.'
     ],
     callout: {
       title: 'CORE ARCHITECTURAL INVARIANT',
-      text: 'No branch may remain unmerged longer than 24 hours. Long-lived feature branches represent unintegrated inventory that degrades delivery predictability.'
+      text: 'Delete branches older than 24 hours. Stale branches are unintegrated technical debt that poisons team velocity.'
     },
     code: {
       language: 'yaml',
@@ -143,13 +143,13 @@ jobs:
   {
     title: 'Hermetic Continuous Integration & Automated Verification',
     paragraphs: [
-      'Continuous Integration is an engineering discipline, not merely a software tool. A valid CI pipeline guarantees that every commit is built from source in a clean, reproducible container and subjected to a comprehensive verification matrix.',
-      'Hermetic builds require strict dependency pinning. Build manifests must never resolve floating package versions (such as latest or wildcards). Using lockfiles and immutable base image digests protects the pipeline against upstream supply chain poisoning and transitive breakage.',
-      'Test execution within the CI runner follows the test pyramid: thousands of sub-millisecond unit tests form the foundation, followed by focused service integration tests with ephemeral database containers, culminating in a lean suite of end-to-end contractual smoke tests.'
+      'Never trust floating tags. Pulling :latest or unpinned npm ranges is a massive security hazard. Following the 2024 XZ-utils backdoor compromise, our build clusters strictly reject any Dockerfile that fails to specify an immutable SHA256 image digest alongside content-addressable dependency lockfiles. Trust nothing unhashed. Security starts at source.',
+      'Hermetic runners guarantee reproducibility. Ephemeral pods isolate workloads. When build containers spin up with dedicated CPU quotas and isolated PostgreSQL instances that boot in two seconds, test suites execute consistently without state pollution from prior runs. If verification exceeds eight minutes, workers kill the job immediately. Fast tests preserve sanity.',
+      'Unit tests form our bedrock. Speed matters. While slow end-to-end browser suites crawl for twenty minutes and fail unpredictably on third-party network timeouts, running three thousand sub-millisecond unit checks inside local container memory gives engineers immediate verification on every single keystroke. Fast feedback preserves flow.'
     ],
     callout: {
       title: 'PIPELINE HYGIENE STANDARD',
-      text: 'CI pipelines must execute to completion in under eight minutes. When feedback takes longer, engineers context-switch, abandoning the rapid feedback loop.'
+      text: 'CI pipelines must finish under eight minutes. Slower verification breaks focus and tempts engineers to skip tests.'
     },
     code: {
       language: 'yaml',
@@ -173,26 +173,26 @@ jobs:
   {
     title: 'Continuous Delivery Strategies & Progressive Rollouts',
     paragraphs: [
-      'Continuous Delivery ensures that validated build artifacts are always in a releasable state. The promotion of code from staging to production must be fully automated, auditable, and capable of instantaneous rollback without manual configuration edits.',
-      'Deploying new software into production environments presents inherent availability risks. Elite teams utilize advanced deployment patterns to decouple risk: Blue-Green cutovers switch router targets instantly, while Canary releases direct a tiny percentage of user traffic to the new version while monitoring telemetry.',
-      'If error rates, latency percentiles, or exception metrics breach predefined Service Level Objectives during the canary phase, the ingress routing controller automatically sheds traffic back to the stable baseline without engineer intervention.'
+      'Big-bang deployments court catastrophe. Staging environments never mirror live traffic spikes or real database concurrency. We enforce progressive canary routing through Envoy service meshes, routing exactly 2% of user requests to candidate pods while Prometheus scrapes error rates every ten seconds. Safety first.',
+      'Roll back automatically. No manual panic. Zero hesitation. If p99 latency exceeds 180 milliseconds or HTTP 5xx responses breach 0.05% during the 30-minute canary evaluation window, ingress proxies immediately divert all traffic back to stable pods without waking engineers. Systems must heal themselves.',
+      'Zero downtime is non-negotiable. Blue-green cutovers switch router targets instantly once health probes succeed. By directing traffic between parallel EulerOS node pools using weighted DNS and local Envoy sidecars, platform teams deploy critical kernel patches in broad daylight without dropping active client connections. Uptime remains intact.'
     ],
     callout: {
       title: 'PROGRESSIVE DELIVERY CONTRACT',
-      text: 'Canary promotions must evaluate real user traffic for a minimum of 30 minutes before increasing ingress share from 5% to 50%.'
+      text: 'Canaries must run for at least 30 minutes under real traffic before expanding ingress share past 5%.'
     },
     table: SECTION_TABLES.delivery
   },
   {
     title: 'Infrastructure as Code & Immutable Architecture Disciplines',
     paragraphs: [
-      'Managing infrastructure through manual console clicks or unversioned shell scripts introduces operational drift, snowflake servers, and unrepeatable failure modes. Infrastructure as Code (IaC) mandates that every cloud resource is declared in version-controlled manifests.',
-      'Modern cloud topologies enforce the Immutable Infrastructure pattern. Rather than SSHing into running instances to patch software, apply security updates, or modify configuration files, engineering teams bake new machine images or container layers from source.',
-      'Distributed state locking guarantees pipeline isolation. By storing state manifests in S3 buckets configured with client-side AES-256 encryption alongside DynamoDB mutex locks, engineering teams eliminate concurrent plan execution collisions across 140 continuous delivery workflows. Hourly drift scans alert on-call responders whenever live cloud resources diverge from declared code.'
+      'Never SSH into production. Snowflake servers and manual terminal tweaks make troubleshooting impossible. We treat all nodes as disposable appliances, building immutable base OS images with Packer and replacing whole EulerOS node pools during maintenance windows. No exceptions.',
+      'Lock your Terraform state. State collisions corrupt cloud resources. Chaos ensues otherwise. By storing our state backend in encrypted S3 buckets paired with DynamoDB distributed mutex tables, 140 deployment pipelines execute safely in parallel without race conditions or corrupted resource trees. Hourly drift scans flag divergence instantly. Drift cannot hide.',
+      'Code defines topology. Version control represents our single source of truth. Whenever network engineers require VPC peering or ingress security group adjustments, declarative manifests define every CIDR block and port assignment through peer-reviewed pull requests rather than risky manual cloud console edits. Clean audits follow.'
     ],
     callout: {
       title: 'IMMUTABILITY MANDATE',
-      text: 'Production servers must prohibit interactive SSH access. All administrative operations occur through declarative GitOps reconciliation.'
+      text: 'Prohibit interactive SSH on production nodes. All system updates occur through declarative GitOps reconciliation.'
     },
     code: {
       language: 'hcl',
@@ -211,26 +211,26 @@ jobs:
   {
     title: 'Site Reliability Engineering, Observability & Error Budgets',
     paragraphs: [
-      'Site Reliability Engineering (SRE) bridges software engineering and operations by applying computer science disciplines to infrastructure problems. Originating at Google, SRE treats operational problems as software challenges to be engineered away.',
-      'A core tenet of SRE is the Error Budget. Since 100% availability is economically unfeasible and stifles feature velocity, teams define acceptable downtime targets (e.g., 99.9% availability allows 43 minutes of monthly downtime). As long as the error budget remains positive, product teams deploy features freely.',
-      'Observability surpasses traditional system monitoring by collecting high-cardinality distributed traces, Prometheus metrics, and structured logs via OpenTelemetry. Engineers query system behavior dynamically without having to predict failure modes in advance.'
+      '100% uptime is fiction. Striving for perfection bankrupts platforms and strangles feature delivery. At 99.9% availability, our monthly error budget grants exactly 43 minutes of unplanned downtime; as long as that budget stays green, product squads ship features aggressively. Spend the budget wisely.',
+      'Freeze deploys on budget burn. Reliability comes first. When microservices burn their quarterly error budget, all non-critical feature deployments halt immediately, reallocating engineering hours to patch memory leaks and database connection pool starvation. Hard boundaries enforce engineering rigor.',
+      'Logs alone are useless. When a microservice returned empty 200 OK payloads at 03:14 UTC, standard logging showed zero errors. Silence masked disaster. Only distributed OpenTelemetry traces with trace-context propagation across Envoy sidecars exposed the silent cache expiration bug within minutes, preventing a multi-million-dollar billing discrepancy across our European transaction cluster. Telemetry uncovers truth.'
     ],
     callout: {
       title: 'ERROR BUDGET GOVERNANCE',
-      text: 'When a microservice exhausts 100% of its quarterly error budget, all feature deployments halt immediately. The engineering team pivots entirely to reliability fixes.'
+      text: 'Exhausted error budgets trigger an automatic deployment freeze. Teams fix reliability before resuming feature work.'
     },
     table: SECTION_TABLES.sre
   },
   {
     title: 'DevSecOps, Supply Chain Security & Production Governance',
     paragraphs: [
-      'Security shifts directly into the developer workflow. Automated SAST analyzers, linters, and software bill-of-materials scanners evaluate every pull request in under forty seconds, surfacing vulnerable transitive dependencies before code touches release branches. Proactive scanning eliminates costly emergency hotfixes.',
-      'Modern software supply chain attacks target third-party dependencies and build runners. To secure the delivery pipeline, high-reliability organizations generate cryptographic Software Bills of Materials (SBOM) and sign all release images using Sigstore and Cosign.',
-      'Kubernetes admission controllers intercept incoming deployment requests and validate cryptographic Cosign attestations directly against transparency logs before scheduling pods. Any container image lacking a verified provenance signature or containing unpatched high-severity CVEs is rejected at the API border, producing an auditable alert in the central security telemetry stream.'
+      'Shift security left. Waiting for quarterly penetration tests creates costly fire drills. Automated SAST engines evaluate every pull request in 35 seconds, blocking commits that introduce critical CVSS vulnerabilities before human code reviews even begin. Catch flaws early.',
+      'Sign every container image. Attackers target build runners and upstream dependencies. We generate CycloneDX Software Bills of Materials during compilation and sign OCI artifacts using Sigstore and Cosign, anchoring identity verification directly in GitHub Actions OIDC tokens. Provenance is absolute.',
+      'Admission controllers guard the cluster. Kyverno validates Cosign cryptographic signatures against transparency logs before scheduling pods. Whenever an untrusted registry pushes unverified container layers into our production namespace, the Kubernetes API server terminates the admission request instantly, dispatching high-priority audit alerts into our centralized SIEM pipeline. Zero unsigned images run. Period.'
     ],
     callout: {
       title: 'SUPPLY CHAIN SECURITY INVARIANT',
-      text: 'Every deployed container image must possess a cryptographic Cosign signature linked to a verified GitHub Actions OIDC identity token.'
+      text: 'Kubernetes admission controllers reject any image lacking a verified Cosign signature. No signature, no deployment.'
     },
     table: SECTION_TABLES.security
   }
