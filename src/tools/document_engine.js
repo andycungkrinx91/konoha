@@ -17,6 +17,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const {
+  GRADIENT_THEMES,
+  selectGradientTheme,
+  renderCoverArtworkHtml,
+  renderCoverArtworkPng,
+  renderDocxGradientTable,
+  renderHtmlGradientBar
+} = require('./document_cover');
 
 // Optional lazy require helpers
 function getDocx() {
@@ -54,12 +62,13 @@ async function documentCreate(options = {}) {
   const classification = options.classification || 'Enterprise Technical Standard';
   const dateStr = options.date || new Date().toISOString().split('T')[0];
   const sections = options.sections || [];
+  const theme = selectGradientTheme(options.theme);
 
   if (format === 'docx') {
     const {
       Document, Packer, Paragraph, TextRun, HeadingLevel, Table,
       TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-      Header, Footer, PageNumber
+      Header, Footer, PageNumber, ImageRun
     } = getDocx();
 
     const children = [];
@@ -85,14 +94,15 @@ async function documentCreate(options = {}) {
     }
 
     // Metadata Card
+    const primaryColor = theme.colors[0].replace('#', '');
     children.push(
       new Paragraph({
         children: [
-          new TextRun({ text: 'Author: ', bold: true, color: '4F46E5', size: 20 }),
+          new TextRun({ text: 'Author: ', bold: true, color: primaryColor, size: 20 }),
           new TextRun({ text: `${author}   |   `, size: 20, color: '334155' }),
-          new TextRun({ text: 'Date: ', bold: true, color: '4F46E5', size: 20 }),
+          new TextRun({ text: 'Date: ', bold: true, color: primaryColor, size: 20 }),
           new TextRun({ text: `${dateStr}   |   `, size: 20, color: '334155' }),
-          new TextRun({ text: 'Classification: ', bold: true, color: '4F46E5', size: 20 }),
+          new TextRun({ text: 'Classification: ', bold: true, color: primaryColor, size: 20 }),
           new TextRun({ text: classification, size: 20, color: '334155' })
         ],
         spacing: { after: 360 }
@@ -226,6 +236,81 @@ async function documentCreate(options = {}) {
       }
     }
 
+    const gradTable = renderDocxGradientTable(getDocx(), theme.colors);
+    const bodySection = {
+      properties: {
+        page: {
+          margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 }
+        }
+      },
+      headers: {
+        default: new Header({
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: title, size: 16, color: '94A3B8' })],
+              alignment: 'right',
+              spacing: { after: 60 }
+            }),
+            gradTable
+          ]
+        })
+      },
+      footers: {
+        default: new Footer({
+          children: [
+            gradTable,
+            new Paragraph({
+              children: [
+                new TextRun({ text: `${classification}   |   Page `, size: 16, color: '94A3B8' }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8' }),
+                new TextRun({ text: ' of ', size: 16, color: '94A3B8' }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8' })
+              ],
+              alignment: 'center',
+              spacing: { before: 80 }
+            })
+          ]
+        })
+      },
+      children
+    };
+
+    let docSections = [bodySection];
+
+    try {
+      const coverBuffer = await renderCoverArtworkPng(theme, {
+        title,
+        subtitle,
+        author,
+        classification,
+        date: dateStr
+      }, false);
+
+      const coverSection = {
+        properties: {
+          page: {
+            margin: { top: 0, bottom: 0, left: 0, right: 0 }
+          }
+        },
+        headers: { default: new Header({ children: [] }) },
+        footers: { default: new Footer({ children: [] }) },
+        children: [
+          new Paragraph({
+            children: [
+              new ImageRun({
+                data: coverBuffer,
+                transformation: { width: 595, height: 842 }
+              })
+            ]
+          })
+        ]
+      };
+
+      docSections = [coverSection, bodySection];
+    } catch (_) {
+      docSections = [bodySection];
+    }
+
     const doc = new Document({
       creator: author,
       title,
@@ -237,41 +322,7 @@ async function documentCreate(options = {}) {
           }
         }
       },
-      sections: [
-        {
-          properties: {
-            page: {
-              margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 }
-            }
-          },
-          headers: {
-            default: new Header({
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: title, size: 16, color: '94A3B8' })],
-                  alignment: 'right'
-                })
-              ]
-            })
-          },
-          footers: {
-            default: new Footer({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: `${classification}   |   Page `, size: 16, color: '94A3B8' }),
-                    new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8' }),
-                    new TextRun({ text: ' of ', size: 16, color: '94A3B8' }),
-                    new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8' })
-                  ],
-                  alignment: 'center'
-                })
-              ]
-            })
-          },
-          children
-        }
-      ]
+      sections: docSections
     });
 
     const buffer = await Packer.toBuffer(doc);
@@ -632,77 +683,104 @@ async function presentationCreate(options = {}) {
   pptx.title = options.title || 'DevOps Basic Fundamentals';
   pptx.subject = options.subtitle || options.title || 'Technical Architecture Presentation';
 
+  const theme = selectGradientTheme(options.theme);
+  const themeColors = theme.colors.map((c) => c.replace('#', ''));
   const slides = options.slides || [];
 
-  for (const sDef of slides) {
+  for (let sIdx = 0; sIdx < slides.length; sIdx++) {
+    const sDef = slides[sIdx];
     const slide = pptx.addSlide();
     slide.background = { color: 'FFFFFF' };
 
-    // Header banner on every slide except title layout
-    if (sDef.layout !== 'title') {
-      slide.addShape(pptx.ShapeType.rect, {
-        x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' }
-      });
+    if (sDef.layout === 'title' || (sIdx === 0 && !sDef.layout)) {
+      try {
+        const coverBuffer = await renderCoverArtworkPng(theme, {
+          title: sDef.title || pptx.title,
+          subtitle: sDef.subtitle || pptx.subject,
+          author: options.author || pptx.author,
+          classification: 'Enterprise Technical Standard',
+          date: options.date || 'October 2026'
+        }, true);
 
-      if (sDef.category) {
-        slide.addText(sDef.category.toUpperCase(), {
-          x: 0.8, y: 0.65, w: 10, h: 0.3,
-          fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial'
+        slide.addImage({
+          data: 'image/png;base64,' + coverBuffer.toString('base64'),
+          x: 0, y: 0, w: 13.33, h: 7.5
+        });
+      } catch (_) {
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 1.0, y: 1.2, w: 11.33, h: 5.0,
+          rectRadius: 0.2, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1.5 }
+        });
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 1.5, y: 1.8, w: 2.6, h: 0.4,
+          rectRadius: 0.1, fill: { color: themeColors[0] }
+        });
+        slide.addText(sDef.category || 'ENTERPRISE STANDARD', {
+          x: 1.5, y: 1.8, w: 2.6, h: 0.4,
+          fontSize: 10, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial'
+        });
+        slide.addText(sDef.title, {
+          x: 1.5, y: 2.4, w: 10.0, h: 1.1,
+          fontSize: 34, bold: true, color: '1E293B', fontFace: 'Arial'
+        });
+        if (sDef.subtitle) {
+          slide.addText(sDef.subtitle, {
+            x: 1.5, y: 3.6, w: 10.0, h: 0.6,
+            fontSize: 16, color: '475569', fontFace: 'Arial'
+          });
+        }
+        slide.addText(`Author: ${pptx.author}   |   Version 1.0.0   |   Production Verified`, {
+          x: 1.5, y: 5.2, w: 10.0, h: 0.4,
+          fontSize: 11, color: '64748B', fontFace: 'Arial'
         });
       }
+      continue;
+    }
 
-      slide.addText(sDef.title, {
-        x: 0.8, y: 0.9, w: 11.7, h: 0.6,
-        fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial'
+    // Header 4-Color Gradient Bar + Category + Title
+    themeColors.forEach((col, idx) => {
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0.8 + idx * 2.925, y: 0.40, w: 2.925, h: 0.05,
+        fill: { color: col }, line: { color: col, width: 0 }
+      });
+    });
+
+    if (sDef.category) {
+      slide.addText(sDef.category.toUpperCase(), {
+        x: 0.8, y: 0.55, w: 10, h: 0.25,
+        fontSize: 10, bold: true, color: themeColors[0], fontFace: 'Arial'
       });
     }
 
-    if (sDef.layout === 'title') {
-      // Hero Card with pastel gradient simulation
-      slide.addShape(pptx.ShapeType.roundRect, {
-        x: 1.0, y: 1.2, w: 11.33, h: 5.0,
-        rectRadius: 0.2,
-        fill: { color: 'F1F5F9' },
-        line: { color: 'CBD5E1', width: 1.5 }
-      });
+    slide.addText(sDef.title, {
+      x: 0.8, y: 0.80, w: 11.7, h: 0.55,
+      fontSize: 20, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
 
-      slide.addShape(pptx.ShapeType.roundRect, {
-        x: 1.5, y: 1.8, w: 2.2, h: 0.4,
-        rectRadius: 0.1,
-        fill: { color: '4F46E5' }
+    // Footer 4-Color Gradient Bar + Label
+    themeColors.forEach((col, idx) => {
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0.8 + idx * 2.925, y: 6.85, w: 2.925, h: 0.04,
+        fill: { color: col }, line: { color: col, width: 0 }
       });
+    });
 
-      slide.addText(sDef.category || 'ENTERPRISE STANDARD', {
-        x: 1.5, y: 1.8, w: 2.2, h: 0.4,
-        fontSize: 10, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial'
-      });
+    slide.addText(`Enterprise Operational Standards   |   Slide ${sIdx + 1} of ${slides.length}   |   Classification: Production Verified`, {
+      x: 0.8, y: 6.95, w: 11.7, h: 0.25,
+      fontSize: 9, color: '94A3B8', fontFace: 'Arial'
+    });
 
-      slide.addText(sDef.title, {
-        x: 1.5, y: 2.4, w: 10.0, h: 1.2,
-        fontSize: 32, bold: true, color: '1E293B', fontFace: 'Arial'
-      });
-
-      if (sDef.subtitle) {
-        slide.addText(sDef.subtitle, {
-          x: 1.5, y: 3.7, w: 10.0, h: 0.6,
-          fontSize: 16, color: '475569', fontFace: 'Arial'
-        });
-      }
-
-      slide.addText(`Author: ${options.author || 'Andy Setiyawan'}   |   Version 1.0.0   |   Production Verified`, {
-        x: 1.5, y: 5.2, w: 10.0, h: 0.4,
-        fontSize: 11, color: '64748B', fontFace: 'Arial'
-      });
-    } else if (sDef.layout === 'cards' && sDef.cards) {
+    // Content Canvas: y: 1.50 to 6.60 (h: 5.10)
+    if (sDef.layout === 'cards' && sDef.cards) {
       const cardCount = sDef.cards.length;
-      const cardW = cardCount <= 2 ? 5.5 : cardCount === 3 ? 3.6 : 2.7;
+      const cardW = cardCount <= 2 ? 5.65 : cardCount === 3 ? 3.65 : 2.70;
+      const gap = cardCount <= 2 ? 0.40 : cardCount === 3 ? 0.38 : 0.30;
       const startX = 0.8;
-      const gap = 0.3;
 
       sDef.cards.forEach((card, cIdx) => {
         const curX = startX + cIdx * (cardW + gap);
         slide.addShape(pptx.ShapeType.roundRect, {
-          x: curX, y: 1.8, w: cardW, h: 4.8,
+          x: curX, y: 1.5, w: cardW, h: 5.1,
           rectRadius: 0.15,
           fill: { color: 'F8FAFC' },
           line: { color: 'E2E8F0', width: 1 }
@@ -710,49 +788,101 @@ async function presentationCreate(options = {}) {
 
         if (card.tag) {
           slide.addText(card.tag.toUpperCase(), {
-            x: curX + 0.3, y: 2.1, w: cardW - 0.6, h: 0.3,
-            fontSize: 9, bold: true, color: '4F46E5', fontFace: 'Arial'
+            x: curX + 0.25, y: 1.75, w: cardW - 0.5, h: 0.25,
+            fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
           });
         }
 
         slide.addText(card.title, {
-          x: curX + 0.3, y: 2.4, w: cardW - 0.6, h: 0.6,
-          fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial'
+          x: curX + 0.25, y: 2.05, w: cardW - 0.5, h: 0.55,
+          fontSize: cardCount === 4 ? 13 : 15, bold: true, color: '1E293B', fontFace: 'Arial'
         });
 
         if (card.metric) {
           slide.addText(card.metric, {
-            x: curX + 0.3, y: 3.1, w: cardW - 0.6, h: 0.7,
-            fontSize: 26, bold: true, color: '4F46E5', fontFace: 'Arial'
+            x: curX + 0.25, y: 2.65, w: cardW - 0.5, h: 0.65,
+            fontSize: 24, bold: true, color: themeColors[0], fontFace: 'Arial'
           });
         }
 
+        const bodyY = card.metric ? 3.40 : 2.75;
+        const bodyH = card.metric ? 3.00 : 3.65;
         slide.addText(card.body, {
-          x: curX + 0.3, y: card.metric ? 3.9 : 3.2, w: cardW - 0.6, h: 2.4,
-          fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18
+          x: curX + 0.25, y: bodyY, w: cardW - 0.5, h: bodyH,
+          fontSize: cardCount === 4 ? 10.5 : 11, color: '334155', fontFace: 'Arial', lineSpacing: 16
         });
       });
     } else if (sDef.layout === 'comparison' && sDef.columns) {
-      const colW = 5.6;
+      const colW = 5.65;
+      const gap = 0.40;
       sDef.columns.forEach((col, cIdx) => {
-        const curX = 0.8 + cIdx * (colW + 0.5);
+        const curX = 0.8 + cIdx * (colW + gap);
         slide.addShape(pptx.ShapeType.roundRect, {
-          x: curX, y: 1.8, w: colW, h: 4.8,
+          x: curX, y: 1.5, w: colW, h: 5.1,
           rectRadius: 0.15,
           fill: { color: cIdx === 0 ? 'F8FAFC' : 'FFFFFF' },
           line: { color: cIdx === 0 ? 'CBD5E1' : 'E2E8F0', width: 1.5 }
         });
 
         slide.addText(col.title, {
-          x: curX + 0.4, y: 2.1, w: colW - 0.8, h: 0.5,
+          x: curX + 0.35, y: 1.80, w: colW - 0.7, h: 0.45,
           fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial'
         });
 
         const itemsText = (col.items || []).map((it) => `•  ${it}`).join('\n\n');
         slide.addText(itemsText, {
-          x: curX + 0.4, y: 2.8, w: colW - 0.8, h: 3.5,
-          fontSize: 12, color: '334155', fontFace: 'Arial', lineSpacing: 22
+          x: curX + 0.35, y: 2.40, w: colW - 0.7, h: 4.0,
+          fontSize: 11.5, color: '334155', fontFace: 'Arial', lineSpacing: 18
         });
+      });
+    } else if (sDef.layout === 'checklist' && sDef.items) {
+      const colW = 5.65;
+      const gap = 0.40;
+      const mid = Math.ceil(sDef.items.length / 2);
+      const leftItems = sDef.items.slice(0, mid);
+      const rightItems = sDef.items.slice(mid);
+
+      // Left Column
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 0.8, y: 1.5, w: colW, h: 5.1,
+        rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1', width: 1.5 }
+      });
+      slide.addText(sDef.leftTitle || 'Pre-Deployment Verification Gates', {
+        x: 1.1, y: 1.75, w: colW - 0.6, h: 0.4,
+        fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial'
+      });
+      slide.addText(leftItems.map((it) => `✓  ${it}`).join('\n\n'), {
+        x: 1.1, y: 2.30, w: colW - 0.6, h: 4.0,
+        fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 17
+      });
+
+      // Right Column
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 0.8 + colW + gap, y: 1.5, w: colW, h: 5.1,
+        rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1.5 }
+      });
+      slide.addText(sDef.rightTitle || 'Runtime Verification & Release Authorization', {
+        x: 0.8 + colW + gap + 0.3, y: 1.75, w: colW - 0.6, h: 0.4,
+        fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial'
+      });
+      slide.addText(rightItems.map((it) => `✓  ${it}`).join('\n\n'), {
+        x: 0.8 + colW + gap + 0.3, y: 2.30, w: colW - 0.6, h: 2.3,
+        fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 17
+      });
+
+      // Sign-off Card in Right Column
+      const signY = 4.80;
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 0.8 + colW + gap + 0.3, y: signY, w: colW - 0.6, h: 1.5,
+        rectRadius: 0.1, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1 }
+      });
+      slide.addText('PRODUCTION RELEASE SIGN-OFF', {
+        x: 0.8 + colW + gap + 0.5, y: signY + 0.15, w: colW - 1.0, h: 0.25,
+        fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
+      });
+      slide.addText(`Author: ${options.author || pptx.author}\nDate: ${options.date || 'October 2026'}\nStatus: Certified Production Ready — 100% Policy Pass`, {
+        x: 0.8 + colW + gap + 0.5, y: signY + 0.45, w: colW - 1.0, h: 0.9,
+        fontSize: 9.5, color: '475569', fontFace: 'Arial', lineSpacing: 15
       });
     }
   }
@@ -979,5 +1109,11 @@ module.exports = {
   spreadsheetCreate,
   presentationCreate,
   diagramCreate,
-  animationExport
+  animationExport,
+  GRADIENT_THEMES,
+  selectGradientTheme,
+  renderCoverArtworkHtml,
+  renderCoverArtworkPng,
+  renderDocxGradientTable,
+  renderHtmlGradientBar
 };

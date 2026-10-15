@@ -23,6 +23,14 @@ const playwright = require('playwright');
 const docx = require('docx');
 const ExcelJS = require('exceljs');
 const PptxGenJS = require('pptxgenjs');
+const {
+  selectGradientTheme,
+  renderCoverArtworkHtml,
+  renderCoverArtworkPng,
+  renderDocxGradientTable
+} = require('../src/tools/document_cover');
+
+const SUITE_THEME = selectGradientTheme();
 
 const OUTPUT_DIR = path.resolve('/home/andycungkrinx/Documents/sample');
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -217,35 +225,21 @@ async function generatePdf() {
   let pagesHtml = '';
 
   // Page 1: Executive Cover Page
+  const coverHtml = renderCoverArtworkHtml(SUITE_THEME, {
+    title: 'DevOps Engineering',
+    subtitle: 'Principles, Automated Delivery Pipelines & Site Reliability Engineering',
+    author: 'Andy Setiyawan | Principal Infrastructure Architect',
+    classification: 'Enterprise Standard (v1.0.0)',
+    date: 'October 2026',
+    compliance: 'Production Verified — Zero AI Artifacts'
+  }, false);
+
+  const coverBodyMatch = coverHtml.match(/<body>([\s\S]*?)<\/body>/i);
+  const coverInner = coverBodyMatch ? coverBodyMatch[1] : '';
+
   pagesHtml += `
   <div class="sheet-page cover-page">
-    <div class="cover-card">
-      <div class="cover-chip">ENTERPRISE TECHNICAL STANDARD</div>
-      <h1 class="cover-h1">DevOps Engineering</h1>
-      <div class="cover-lead">Principles, Automated Delivery Pipelines & Site Reliability Engineering</div>
-      <div class="cover-divider"></div>
-      <div class="cover-meta-grid">
-        <div class="meta-item">
-          <span class="meta-lbl">Author</span>
-          <span class="meta-val">Andy Setiyawan | Principal Infrastructure Architect</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-lbl">Classification</span>
-          <span class="meta-val">Enterprise Standard (v1.0.0)</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-lbl">Date</span>
-          <span class="meta-val">October 2026</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-lbl">Compliance Status</span>
-          <span class="meta-val">Production Verified — Zero AI Artifacts</span>
-        </div>
-      </div>
-    </div>
-    <div class="cover-footer-note">
-      This document defines authoritative operational architecture, CI/CD pipeline invariants, and site reliability standards across production clusters.
-    </div>
+    ${coverInner}
   </div>`;
 
   // Pages 2 - 8: Body Content Pages
@@ -260,8 +254,8 @@ async function generatePdf() {
 
     if (sec.callout) {
       secBody += `
-      <div class="callout-card">
-        <div class="callout-title">${sec.callout.title}</div>
+      <div class="callout-card" style="border-left: 4px solid ${SUITE_THEME.colors[0]};">
+        <div class="callout-title" style="color: ${SUITE_THEME.colors[0]};">${sec.callout.title}</div>
         <div class="callout-text">${sec.callout.text}</div>
       </div>`;
     }
@@ -288,11 +282,25 @@ async function generatePdf() {
         <span>DevOps Architecture Framework</span>
         <span>Section ${pageNum - 1}: ${sec.title.split('&')[0].trim()}</span>
       </div>
+      <div class="grad-rule-bar">
+        <div style="background: ${SUITE_THEME.colors[0]};"></div>
+        <div style="background: ${SUITE_THEME.colors[1]};"></div>
+        <div style="background: ${SUITE_THEME.colors[2]};"></div>
+        <div style="background: ${SUITE_THEME.colors[3]};"></div>
+      </div>
       <h2 class="section-h2">${sec.title}</h2>
       ${secBody}
-      <div class="page-running-foot">
-        <span>Classification: Enterprise Standard</span>
-        <span>Page ${pageNum} of 8</span>
+      <div style="margin-top: auto;">
+        <div class="foot-grad-bar">
+          <div style="background: ${SUITE_THEME.colors[0]};"></div>
+          <div style="background: ${SUITE_THEME.colors[1]};"></div>
+          <div style="background: ${SUITE_THEME.colors[2]};"></div>
+          <div style="background: ${SUITE_THEME.colors[3]};"></div>
+        </div>
+        <div class="page-running-foot">
+          <span>Classification: Enterprise Standard</span>
+          <span>Page ${pageNum} of 8</span>
+        </div>
       </div>
     </div>`;
   }
@@ -329,74 +337,124 @@ async function generatePdf() {
   }
   /* Page 1 Cover Styling */
   .cover-page {
-    justify-content: center;
-    background: #FFFFFF;
-    padding: 25mm 20mm;
+    padding: 0;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    position: relative;
+    background: #FAFBFD;
   }
-  .cover-card {
-    background: linear-gradient(135deg, #DBCCD0 0%, #C2C0D6 25%, #AAC2D8 50%, #B0D5D8 75%, #C5D7C2 100%);
-    border-radius: 20px;
-    padding: 45px;
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.06);
+  .diamond-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
   }
-  .cover-chip {
+  .content-panel {
+    position: absolute;
+    top: 260px;
+    left: 540px;
+    width: 620px;
+    z-index: 10;
+  }
+  .chip {
     display: inline-block;
-    background: #4F46E5;
+    padding: 6px 16px;
+    background: ${SUITE_THEME.colors[0]};
     color: #FFFFFF;
-    font-size: 8.5pt;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    padding: 5px 14px;
-    border-radius: 30px;
-    margin-bottom: 24px;
-  }
-  .cover-h1 {
-    font-size: 32pt;
+    font-size: 13px;
     font-weight: 800;
-    color: #0F172A;
-    line-height: 1.15;
-    margin: 0 0 14px 0;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    margin-bottom: 28px;
+  }
+  .cover-title {
+    font-size: 50px;
+    font-weight: 900;
+    line-height: 1.05;
     letter-spacing: -0.02em;
+    color: #0F172A;
+    text-transform: uppercase;
+    margin-bottom: 20px;
   }
-  .cover-lead {
-    font-size: 13pt;
-    color: #334155;
+  .cover-title-line2 {
+    color: ${SUITE_THEME.colors[0]};
+    display: block;
+  }
+  .cover-subtitle {
+    font-size: 18px;
     line-height: 1.45;
-    font-weight: 500;
-    margin-bottom: 30px;
+    color: #475569;
+    font-weight: 400;
+    margin-bottom: 28px;
+    max-width: 92%;
   }
-  .cover-divider {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.8);
-    margin-bottom: 24px;
+  .grad-bar {
+    display: flex;
+    width: 280px;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 36px;
   }
-  .cover-meta-grid {
+  .grad-seg { flex: 1; height: 100%; }
+  .meta-card {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    border: 1px solid #E2E8F0;
+    border-left: 4px solid ${SUITE_THEME.colors[0]};
+    border-radius: 8px;
+    padding: 20px 24px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+  }
+  .meta-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px 24px;
   }
   .meta-item { display: flex; flex-direction: column; }
-  .meta-lbl {
-    font-size: 8pt;
+  .meta-label {
+    font-size: 11px;
     font-weight: 700;
     color: #64748B;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 3px;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
   }
-  .meta-val {
-    font-size: 9.5pt;
+  .meta-value {
+    font-size: 13.5px;
     font-weight: 600;
     color: #1E293B;
   }
-  .cover-footer-note {
-    margin-top: 40px;
-    font-size: 9pt;
-    color: #64748B;
-    line-height: 1.5;
-    padding: 0 10px;
+  .bottom-strap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 8px;
+    display: flex;
   }
+  .grad-rule-bar {
+    display: flex;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 4px 0 14px 0;
+  }
+  .grad-rule-bar div { flex: 1; height: 100%; }
+  .foot-grad-bar {
+    display: flex;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 14px 0 4px 0;
+  }
+  .foot-grad-bar div { flex: 1; height: 100%; }
   /* Running Header & Footer */
   .page-running-head {
     display: flex;
@@ -406,18 +464,14 @@ async function generatePdf() {
     color: #94A3B8;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    border-bottom: 1px solid #E2E8F0;
-    padding-bottom: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 2px;
   }
   .page-running-foot {
-    margin-top: auto;
     display: flex;
     justify-content: space-between;
     font-size: 8pt;
     color: #94A3B8;
-    border-top: 1px solid #E2E8F0;
-    padding-top: 10px;
+    padding-top: 4px;
   }
   /* Typography & Elements */
   .section-h2 {
@@ -524,7 +578,7 @@ async function generateDocx() {
   const {
     Document, Packer, Paragraph, TextRun, HeadingLevel, Table,
     TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-    Header, Footer, PageNumber
+    Header, Footer, PageNumber, ImageRun
   } = docx;
 
   const children = [];
@@ -553,14 +607,15 @@ async function generateDocx() {
   );
 
   // Metadata Card
+  const primaryColor = SUITE_THEME.colors[0].replace('#', '');
   children.push(
     new Paragraph({
       children: [
-        new TextRun({ text: 'Author: ', bold: true, color: '4F46E5', size: 20 }),
+        new TextRun({ text: 'Author: ', bold: true, color: primaryColor, size: 20 }),
         new TextRun({ text: 'Andy Setiyawan | Principal Infrastructure Architect   |   ', size: 20, color: '334155' }),
-        new TextRun({ text: 'Classification: ', bold: true, color: '4F46E5', size: 20 }),
+        new TextRun({ text: 'Classification: ', bold: true, color: primaryColor, size: 20 }),
         new TextRun({ text: 'Enterprise Standard (v1.0.0)   |   ', size: 20, color: '334155' }),
-        new TextRun({ text: 'Date: ', bold: true, color: '4F46E5', size: 20 }),
+        new TextRun({ text: 'Date: ', bold: true, color: primaryColor, size: 20 }),
         new TextRun({ text: 'October 2026', size: 20, color: '334155' })
       ],
       spacing: { after: 360 }
@@ -682,6 +737,79 @@ async function generateDocx() {
     }
   }
 
+  const gradTable = renderDocxGradientTable(docx, SUITE_THEME.colors);
+  const bodySection = {
+    properties: {
+      page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } }
+    },
+    headers: {
+      default: new Header({
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: 'DevOps Architecture Framework', size: 16, color: '94A3B8' })],
+            alignment: 'right',
+            spacing: { after: 60 }
+          }),
+          gradTable
+        ]
+      })
+    },
+    footers: {
+      default: new Footer({
+        children: [
+          gradTable,
+          new Paragraph({
+            children: [
+              new TextRun({ text: 'Classification: Enterprise Standard   |   Page ', size: 16, color: '94A3B8' }),
+              new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8' }),
+              new TextRun({ text: ' of ', size: 16, color: '94A3B8' }),
+              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8' })
+            ],
+            alignment: 'center',
+            spacing: { before: 80 }
+          })
+        ]
+      })
+    },
+    children
+  };
+
+  let docSections = [bodySection];
+
+  try {
+    const coverBuffer = await renderCoverArtworkPng(SUITE_THEME, {
+      title: 'DevOps Engineering',
+      subtitle: 'Principles, Automated Delivery Pipelines & Site Reliability Engineering',
+      author: 'Andy Setiyawan | Principal Infrastructure Architect',
+      classification: 'Enterprise Standard (v1.0.0)',
+      date: 'October 2026'
+    }, false);
+
+    const coverSection = {
+      properties: {
+        page: {
+          margin: { top: 0, bottom: 0, left: 0, right: 0 }
+        }
+      },
+      headers: { default: new Header({ children: [] }) },
+      footers: { default: new Footer({ children: [] }) },
+      children: [
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: coverBuffer,
+              transformation: { width: 595, height: 842 }
+            })
+          ]
+        })
+      ]
+    };
+
+    docSections = [coverSection, bodySection];
+  } catch (_) {
+    docSections = [bodySection];
+  }
+
   const doc = new Document({
     creator: 'Andy Setiyawan | Principal Infrastructure Architect',
     title: 'DevOps Engineering Principles & Reliability Architecture',
@@ -693,39 +821,7 @@ async function generateDocx() {
         }
       }
     },
-    sections: [
-      {
-        properties: {
-          page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } }
-        },
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                children: [new TextRun({ text: 'DevOps Architecture Framework', size: 16, color: '94A3B8' })],
-                alignment: 'right'
-              })
-            ]
-          })
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Classification: Enterprise Standard   |   Page ', size: 16, color: '94A3B8' }),
-                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8' }),
-                  new TextRun({ text: ' of ', size: 16, color: '94A3B8' }),
-                  new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8' })
-                ],
-                alignment: 'center'
-              })
-            ]
-          })
-        },
-        children
-      }
-    ]
+    sections: docSections
   });
 
   const buffer = await Packer.toBuffer(doc);
@@ -864,41 +960,88 @@ async function generatePptx() {
   pptx.title = 'DevOps Engineering Principles & Reliability Architecture';
   pptx.subject = 'Enterprise Operational Standards & Automated Delivery Architecture';
 
-  // Slide 1: Title Slide
+  const themeColors = SUITE_THEME.colors.map((c) => c.replace('#', ''));
+
+  function addSlideHeader(slide, category, title) {
+    themeColors.forEach((col, idx) => {
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0.8 + idx * 2.925, y: 0.40, w: 2.925, h: 0.05,
+        fill: { color: col }, line: { color: col, width: 0 }
+      });
+    });
+    if (category) {
+      slide.addText(category.toUpperCase(), {
+        x: 0.8, y: 0.55, w: 10, h: 0.25,
+        fontSize: 10, bold: true, color: themeColors[0], fontFace: 'Arial'
+      });
+    }
+    slide.addText(title, {
+      x: 0.8, y: 0.80, w: 11.7, h: 0.55,
+      fontSize: 20, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+  }
+
+  function addSlideFooter(slide, slideNum, totalSlides = 8) {
+    themeColors.forEach((col, idx) => {
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0.8 + idx * 2.925, y: 6.85, w: 2.925, h: 0.04,
+        fill: { color: col }, line: { color: col, width: 0 }
+      });
+    });
+    slide.addText(`Enterprise Operational Standards   |   Slide ${slideNum} of ${totalSlides}   |   Classification: Production Verified`, {
+      x: 0.8, y: 6.95, w: 11.7, h: 0.25,
+      fontSize: 9, color: '94A3B8', fontFace: 'Arial'
+    });
+  }
+
+  // Slide 1: Cover with Widescreen Diamond Cascade Artwork
   const s1 = pptx.addSlide();
-  s1.background = { color: 'FFFFFF' };
+  try {
+    const coverBuffer = await renderCoverArtworkPng(SUITE_THEME, {
+      title: 'DevOps Engineering',
+      subtitle: 'Principles, Automated Delivery Pipelines & Site Reliability Engineering',
+      author: 'Andy Setiyawan | Principal Infrastructure Architect',
+      classification: 'Enterprise Standard (v1.0.0)',
+      date: 'October 2026'
+    }, true);
 
-  s1.addShape(pptx.ShapeType.roundRect, {
-    x: 1.0, y: 1.2, w: 11.33, h: 5.0,
-    rectRadius: 0.2, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1.5 }
-  });
-  s1.addShape(pptx.ShapeType.roundRect, {
-    x: 1.5, y: 1.8, w: 2.6, h: 0.4,
-    rectRadius: 0.1, fill: { color: '4F46E5' }
-  });
-  s1.addText('ENTERPRISE STANDARD', {
-    x: 1.5, y: 1.8, w: 2.6, h: 0.4,
-    fontSize: 10, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial'
-  });
-  s1.addText('DevOps Engineering', {
-    x: 1.5, y: 2.4, w: 10.0, h: 1.1,
-    fontSize: 34, bold: true, color: '1E293B', fontFace: 'Arial'
-  });
-  s1.addText('Principles, Automated Delivery Pipelines & Site Reliability Engineering', {
-    x: 1.5, y: 3.6, w: 10.0, h: 0.6,
-    fontSize: 16, color: '475569', fontFace: 'Arial'
-  });
-  s1.addText('Author: Andy Setiyawan | Principal Architect   |   October 2026   |   Production Verified', {
-    x: 1.5, y: 5.2, w: 10.0, h: 0.4,
-    fontSize: 11, color: '64748B', fontFace: 'Arial'
-  });
+    s1.addImage({
+      data: 'image/png;base64,' + coverBuffer.toString('base64'),
+      x: 0, y: 0, w: 13.33, h: 7.5
+    });
+  } catch (_) {
+    s1.background = { color: 'FFFFFF' };
+    s1.addShape(pptx.ShapeType.roundRect, {
+      x: 1.0, y: 1.2, w: 11.33, h: 5.0,
+      rectRadius: 0.2, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1.5 }
+    });
+    s1.addShape(pptx.ShapeType.roundRect, {
+      x: 1.5, y: 1.8, w: 2.6, h: 0.4,
+      rectRadius: 0.1, fill: { color: themeColors[0] }
+    });
+    s1.addText('ENTERPRISE STANDARD', {
+      x: 1.5, y: 1.8, w: 2.6, h: 0.4,
+      fontSize: 10, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial'
+    });
+    s1.addText('DevOps Engineering', {
+      x: 1.5, y: 2.4, w: 10.0, h: 1.1,
+      fontSize: 34, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+    s1.addText('Principles, Automated Delivery Pipelines & Site Reliability Engineering', {
+      x: 1.5, y: 3.6, w: 10.0, h: 0.6,
+      fontSize: 16, color: '475569', fontFace: 'Arial'
+    });
+    s1.addText('Author: Andy Setiyawan | Principal Architect   |   October 2026   |   Production Verified', {
+      x: 1.5, y: 5.2, w: 10.0, h: 0.4,
+      fontSize: 11, color: '64748B', fontFace: 'Arial'
+    });
+  }
 
-  // Slide 2: CAMS & DORA Metrics
+  // Slide 2: CAMS & DORA Metrics (4 Cards)
   const s2 = pptx.addSlide();
   s2.background = { color: 'FFFFFF' };
-  s2.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s2.addText('OPERATIONAL METRICS', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s2.addText('CAMS Model & The Four DORA Metrics', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s2, 'OPERATIONAL METRICS', 'CAMS Model & The Four DORA Metrics');
+  addSlideFooter(s2, 2);
 
   const doraCards = [
     { title: 'Deployment Frequency', metric: '14/day', tag: 'VELOCITY', body: 'Elite performers deploy multiple times daily, shortening delivery lead times.' },
@@ -908,39 +1051,66 @@ async function generatePptx() {
   ];
 
   doraCards.forEach((c, idx) => {
-    const curX = 0.8 + idx * (2.7 + 0.3);
-    s2.addShape(pptx.ShapeType.roundRect, { x: curX, y: 1.8, w: 2.7, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-    s2.addText(c.tag, { x: curX + 0.25, y: 2.1, w: 2.2, h: 0.3, fontSize: 9, bold: true, color: '4F46E5', fontFace: 'Arial' });
-    s2.addText(c.title, { x: curX + 0.25, y: 2.4, w: 2.2, h: 0.6, fontSize: 13, bold: true, color: '1E293B', fontFace: 'Arial' });
-    s2.addText(c.metric, { x: curX + 0.25, y: 3.1, w: 2.2, h: 0.7, fontSize: 24, bold: true, color: '4F46E5', fontFace: 'Arial' });
-    s2.addText(c.body, { x: curX + 0.25, y: 3.9, w: 2.2, h: 2.4, fontSize: 10, color: '334155', fontFace: 'Arial', lineSpacing: 16 });
+    const curX = 0.8 + idx * (2.70 + 0.30);
+    s2.addShape(pptx.ShapeType.roundRect, {
+      x: curX, y: 1.50, w: 2.70, h: 5.10,
+      rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 }
+    });
+    s2.addText(c.tag, {
+      x: curX + 0.25, y: 1.75, w: 2.20, h: 0.25,
+      fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
+    });
+    s2.addText(c.title, {
+      x: curX + 0.25, y: 2.05, w: 2.20, h: 0.55,
+      fontSize: 13, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+    s2.addText(c.metric, {
+      x: curX + 0.25, y: 2.65, w: 2.20, h: 0.65,
+      fontSize: 24, bold: true, color: themeColors[0], fontFace: 'Arial'
+    });
+    s2.addText(c.body, {
+      x: curX + 0.25, y: 3.40, w: 2.20, h: 3.00,
+      fontSize: 10.5, color: '334155', fontFace: 'Arial', lineSpacing: 16
+    });
   });
 
-  // Slide 3: Branching Topologies
+  // Slide 3: Branching Topologies (2 Columns)
   const s3 = pptx.addSlide();
   s3.background = { color: 'FFFFFF' };
-  s3.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s3.addText('SOURCE CONTROL', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s3.addText('Trunk-Based Development vs Legacy GitFlow', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s3, 'SOURCE CONTROL', 'Trunk-Based Development vs Legacy GitFlow');
+  addSlideFooter(s3, 3);
 
-  s3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.8, w: 5.6, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1', width: 1.5 } });
-  s3.addText('Trunk-Based Development (Recommended)', { x: 1.2, y: 2.1, w: 4.8, h: 0.5, fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial' });
+  s3.addShape(pptx.ShapeType.roundRect, {
+    x: 0.8, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1', width: 1.5 }
+  });
+  s3.addText('Trunk-Based Development (Recommended)', {
+    x: 1.15, y: 1.80, w: 4.95, h: 0.45,
+    fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
   s3.addText('•  Short-lived feature branches (< 24 hours)\n\n•  Continuous merge into main trunk\n\n•  Feature flags decouple deployment from activation\n\n•  Automated merge queues serialize testing\n\n•  Zero batch integration conflict pain', {
-    x: 1.2, y: 2.8, w: 4.8, h: 3.5, fontSize: 12, color: '334155', fontFace: 'Arial', lineSpacing: 22
+    x: 1.15, y: 2.40, w: 4.95, h: 4.00,
+    fontSize: 11.5, color: '334155', fontFace: 'Arial', lineSpacing: 18
   });
 
-  s3.addShape(pptx.ShapeType.roundRect, { x: 6.9, y: 1.8, w: 5.6, h: 4.8, rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1.5 } });
-  s3.addText('Legacy GitFlow (Deprecated for Cloud)', { x: 7.3, y: 2.1, w: 4.8, h: 0.5, fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial' });
+  s3.addShape(pptx.ShapeType.roundRect, {
+    x: 6.85, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1.5 }
+  });
+  s3.addText('Legacy GitFlow (Deprecated for Cloud)', {
+    x: 7.20, y: 1.80, w: 4.95, h: 0.45,
+    fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
   s3.addText('•  Long-lived feature, release, and develop branches\n\n•  Infrequent merges yield severe conflict friction\n\n•  Delayed feedback on cross-team integration\n\n•  Complex tagging and release synchronization\n\n•  Blocks continuous delivery cadence', {
-    x: 7.3, y: 2.8, w: 4.8, h: 3.5, fontSize: 12, color: '64748B', fontFace: 'Arial', lineSpacing: 22
+    x: 7.20, y: 2.40, w: 4.95, h: 4.00,
+    fontSize: 11.5, color: '64748B', fontFace: 'Arial', lineSpacing: 18
   });
 
-  // Slide 4: CI Engine
+  // Slide 4: CI Engine (4 Cards)
   const s4 = pptx.addSlide();
   s4.background = { color: 'FFFFFF' };
-  s4.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s4.addText('AUTOMATION ENGINE', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s4.addText('Hermetic Continuous Integration Pipeline', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s4, 'AUTOMATION ENGINE', 'Hermetic Continuous Integration Pipeline');
+  addSlideFooter(s4, 4);
 
   const ciSteps = [
     { num: '01', title: 'Commit & Trigger', desc: 'Signed commit triggers webhook to ephemeral runner queue.' },
@@ -950,19 +1120,30 @@ async function generatePptx() {
   ];
 
   ciSteps.forEach((st, idx) => {
-    const curX = 0.8 + idx * (2.7 + 0.3);
-    s4.addShape(pptx.ShapeType.roundRect, { x: curX, y: 1.8, w: 2.7, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-    s4.addText(st.num, { x: curX + 0.25, y: 2.2, w: 2.2, h: 0.5, fontSize: 28, bold: true, color: '4F46E5', fontFace: 'Arial' });
-    s4.addText(st.title, { x: curX + 0.25, y: 2.8, w: 2.2, h: 0.6, fontSize: 14, bold: true, color: '1E293B', fontFace: 'Arial' });
-    s4.addText(st.desc, { x: curX + 0.25, y: 3.5, w: 2.2, h: 2.5, fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18 });
+    const curX = 0.8 + idx * (2.70 + 0.30);
+    s4.addShape(pptx.ShapeType.roundRect, {
+      x: curX, y: 1.50, w: 2.70, h: 5.10,
+      rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 }
+    });
+    s4.addText(st.num, {
+      x: curX + 0.25, y: 1.75, w: 2.20, h: 0.45,
+      fontSize: 26, bold: true, color: themeColors[0], fontFace: 'Arial'
+    });
+    s4.addText(st.title, {
+      x: curX + 0.25, y: 2.25, w: 2.20, h: 0.55,
+      fontSize: 13, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+    s4.addText(st.desc, {
+      x: curX + 0.25, y: 2.95, w: 2.20, h: 3.40,
+      fontSize: 10.5, color: '334155', fontFace: 'Arial', lineSpacing: 16
+    });
   });
 
-  // Slide 5: CD Strategies
+  // Slide 5: CD Strategies (3 Cards)
   const s5 = pptx.addSlide();
   s5.background = { color: 'FFFFFF' };
-  s5.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s5.addText('DEPLOYMENT ARCHITECTURE', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s5.addText('Continuous Delivery & Traffic Shifting Patterns', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s5, 'DEPLOYMENT ARCHITECTURE', 'Continuous Delivery & Traffic Shifting Patterns');
+  addSlideFooter(s5, 5);
 
   const cdCards = [
     { title: 'Blue-Green Cutover', tag: 'ZERO DOWNTIME', body: 'Full duplicate environment. Instant traffic toggle via load balancer target groups with sub-second rollback capability.' },
@@ -971,38 +1152,62 @@ async function generatePptx() {
   ];
 
   cdCards.forEach((c, idx) => {
-    const curX = 0.8 + idx * (3.6 + 0.4);
-    s5.addShape(pptx.ShapeType.roundRect, { x: curX, y: 1.8, w: 3.6, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-    s5.addText(c.tag, { x: curX + 0.3, y: 2.1, w: 3.0, h: 0.3, fontSize: 9, bold: true, color: '4F46E5', fontFace: 'Arial' });
-    s5.addText(c.title, { x: curX + 0.3, y: 2.5, w: 3.0, h: 0.5, fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial' });
-    s5.addText(c.body, { x: curX + 0.3, y: 3.2, w: 3.0, h: 3.0, fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18 });
+    const curX = 0.8 + idx * (3.65 + 0.38);
+    s5.addShape(pptx.ShapeType.roundRect, {
+      x: curX, y: 1.50, w: 3.65, h: 5.10,
+      rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 }
+    });
+    s5.addText(c.tag, {
+      x: curX + 0.30, y: 1.75, w: 3.05, h: 0.25,
+      fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
+    });
+    s5.addText(c.title, {
+      x: curX + 0.30, y: 2.05, w: 3.05, h: 0.55,
+      fontSize: 14, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+    s5.addText(c.body, {
+      x: curX + 0.30, y: 2.75, w: 3.05, h: 3.60,
+      fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18
+    });
   });
 
-  // Slide 6: IaC & Drift
+  // Slide 6: IaC & Drift (2 Columns)
   const s6 = pptx.addSlide();
   s6.background = { color: 'FFFFFF' };
-  s6.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s6.addText('INFRASTRUCTURE AS CODE', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s6.addText('Immutable Infrastructure & State Locking Disciplines', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s6, 'INFRASTRUCTURE AS CODE', 'Immutable Infrastructure & State Locking Disciplines');
+  addSlideFooter(s6, 6);
 
-  s6.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.8, w: 5.6, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-  s6.addText('State Management Best Practices', { x: 1.2, y: 2.1, w: 4.8, h: 0.5, fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial' });
+  s6.addShape(pptx.ShapeType.roundRect, {
+    x: 0.8, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1', width: 1.5 }
+  });
+  s6.addText('State Management Best Practices', {
+    x: 1.15, y: 1.80, w: 4.95, h: 0.45,
+    fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
   s6.addText('•  Encrypted remote state in AWS S3 or GCS bucket\n\n•  Distributed locking via DynamoDB to prevent collision\n\n•  Daily automated drift detection cron jobs\n\n•  Strict separation of state per environment tier', {
-    x: 1.2, y: 2.8, w: 4.8, h: 3.5, fontSize: 12, color: '334155', fontFace: 'Arial', lineSpacing: 22
+    x: 1.15, y: 2.40, w: 4.95, h: 4.00,
+    fontSize: 11.5, color: '334155', fontFace: 'Arial', lineSpacing: 18
   });
 
-  s6.addShape(pptx.ShapeType.roundRect, { x: 6.9, y: 1.8, w: 5.6, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-  s6.addText('Immutable Fleet Lifecycle', { x: 7.3, y: 2.1, w: 4.8, h: 0.5, fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial' });
+  s6.addShape(pptx.ShapeType.roundRect, {
+    x: 6.85, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 }
+  });
+  s6.addText('Immutable Fleet Lifecycle', {
+    x: 7.20, y: 1.80, w: 4.95, h: 0.45,
+    fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
   s6.addText('•  Zero in-place SSH server patching or manual edits\n\n•  Packer pipelines bake hardened, verified AMIs\n\n•  Blue-green ASG replacement during kernel updates\n\n•  Reproducible rollback to prior immutable image SHA', {
-    x: 7.3, y: 2.8, w: 4.8, h: 3.5, fontSize: 12, color: '334155', fontFace: 'Arial', lineSpacing: 22
+    x: 7.20, y: 2.40, w: 4.95, h: 4.00,
+    fontSize: 11.5, color: '334155', fontFace: 'Arial', lineSpacing: 18
   });
 
-  // Slide 7: Observability & SRE
+  // Slide 7: Observability & SRE (3 Cards)
   const s7 = pptx.addSlide();
   s7.background = { color: 'FFFFFF' };
-  s7.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s7.addText('SITE RELIABILITY', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s7.addText('Observability Pillars & Error Budget Management', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s7, 'SITE RELIABILITY', 'Observability Pillars & Error Budget Management');
+  addSlideFooter(s7, 7);
 
   const sreCards = [
     { title: 'OpenTelemetry', tag: 'COLLECTION', body: 'Unified agent collecting distributed traces, Prometheus metrics, and structured JSON logs without vendor lock-in.' },
@@ -1011,24 +1216,80 @@ async function generatePptx() {
   ];
 
   sreCards.forEach((c, idx) => {
-    const curX = 0.8 + idx * (3.6 + 0.4);
-    s7.addShape(pptx.ShapeType.roundRect, { x: curX, y: 1.8, w: 3.6, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-    s7.addText(c.tag, { x: curX + 0.3, y: 2.1, w: 3.0, h: 0.3, fontSize: 9, bold: true, color: '4F46E5', fontFace: 'Arial' });
-    s7.addText(c.title, { x: curX + 0.3, y: 2.5, w: 3.0, h: 0.5, fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial' });
-    s7.addText(c.body, { x: curX + 0.3, y: 3.2, w: 3.0, h: 3.0, fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18 });
+    const curX = 0.8 + idx * (3.65 + 0.38);
+    s7.addShape(pptx.ShapeType.roundRect, {
+      x: curX, y: 1.50, w: 3.65, h: 5.10,
+      rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 }
+    });
+    s7.addText(c.tag, {
+      x: curX + 0.30, y: 1.75, w: 3.05, h: 0.25,
+      fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
+    });
+    s7.addText(c.title, {
+      x: curX + 0.30, y: 2.05, w: 3.05, h: 0.55,
+      fontSize: 14, bold: true, color: '1E293B', fontFace: 'Arial'
+    });
+    s7.addText(c.body, {
+      x: curX + 0.30, y: 2.75, w: 3.05, h: 3.60,
+      fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 18
+    });
   });
 
-  // Slide 8: DevSecOps Summary
+  // Slide 8: DevSecOps 2-Column Clean Overhaul
   const s8 = pptx.addSlide();
   s8.background = { color: 'FFFFFF' };
-  s8.addShape(pptx.ShapeType.rect, { x: 0.8, y: 0.5, w: 11.7, h: 0.05, fill: { color: '4F46E5' } });
-  s8.addText('SECURITY & GOVERNANCE', { x: 0.8, y: 0.65, w: 10, h: 0.3, fontSize: 10, bold: true, color: '4F46E5', fontFace: 'Arial' });
-  s8.addText('Shift-Left DevSecOps & Production Sign-Off Checklist', { x: 0.8, y: 0.9, w: 11.7, h: 0.6, fontSize: 22, bold: true, color: '1E293B', fontFace: 'Arial' });
+  addSlideHeader(s8, 'SECURITY & GOVERNANCE', 'Shift-Left DevSecOps & Production Sign-Off Checklist');
+  addSlideFooter(s8, 8);
 
-  s8.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.8, w: 11.7, h: 4.8, rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
-  s8.addText('Mandatory Production Delivery Gates', { x: 1.2, y: 2.1, w: 10.0, h: 0.5, fontSize: 16, bold: true, color: '1E293B', fontFace: 'Arial' });
-  s8.addText('1. SAST & Secret Scan: Zero critical or high severity vulnerabilities detected by Semgrep and TruffleHog.\n\n2. SBOM Attestation: Complete CycloneDX / Syft dependency manifest generated during CI execution.\n\n3. Container Cryptographic Signing: Production clusters reject images lacking valid Sigstore / Cosign signatures.\n\n4. Error Budget Verification: Target service error budget must exceed 20% remaining headroom prior to promotion.\n\n5. Automated Canary Evaluation: Minimum 30-minute metric stabilization window without latency deviation.', {
-    x: 1.2, y: 2.8, w: 10.8, h: 3.5, fontSize: 12, color: '334155', fontFace: 'Arial', lineSpacing: 22
+  // Left Column: Pre-Deployment Gates
+  s8.addShape(pptx.ShapeType.roundRect, {
+    x: 0.8, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1', width: 1.5 }
+  });
+  s8.addText('Pre-Deployment Verification Gates', {
+    x: 1.10, y: 1.75, w: 5.05, h: 0.40,
+    fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
+  const leftGates = [
+    '✓  Gate 1: SAST & Secret Scan\n    Zero critical or high severity vulnerabilities detected by Semgrep and TruffleHog.',
+    '✓  Gate 2: SBOM Attestation\n    Complete CycloneDX dependency manifest generated during CI execution.',
+    '✓  Gate 3: Container Cryptographic Signing\n    Production clusters reject images lacking valid Sigstore / Cosign signatures.'
+  ].join('\n\n');
+  s8.addText(leftGates, {
+    x: 1.10, y: 2.30, w: 5.05, h: 4.00,
+    fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 17
+  });
+
+  // Right Column: Runtime Verification & Sign-Off
+  s8.addShape(pptx.ShapeType.roundRect, {
+    x: 6.85, y: 1.50, w: 5.65, h: 5.10,
+    rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1.5 }
+  });
+  s8.addText('Runtime Verification & Release Authorization', {
+    x: 7.15, y: 1.75, w: 5.05, h: 0.40,
+    fontSize: 15, bold: true, color: '1E293B', fontFace: 'Arial'
+  });
+  const rightGates = [
+    '✓  Gate 4: Error Budget Headroom\n    Target service error budget must exceed 20% remaining headroom prior to promotion.',
+    '✓  Gate 5: Automated Canary Evaluation\n    Minimum 30-minute metric stabilization window without latency deviation.'
+  ].join('\n\n');
+  s8.addText(rightGates, {
+    x: 7.15, y: 2.30, w: 5.05, h: 2.30,
+    fontSize: 11, color: '334155', fontFace: 'Arial', lineSpacing: 17
+  });
+
+  // Sign-Off Box inside right column
+  s8.addShape(pptx.ShapeType.roundRect, {
+    x: 7.15, y: 4.80, w: 5.05, h: 1.50,
+    rectRadius: 0.10, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1 }
+  });
+  s8.addText('PRODUCTION RELEASE SIGN-OFF', {
+    x: 7.35, y: 4.95, w: 4.65, h: 0.25,
+    fontSize: 9, bold: true, color: themeColors[0], fontFace: 'Arial'
+  });
+  s8.addText('Author: Andy Setiyawan | Principal Infrastructure Architect\nRelease SHA: c3f79a29e1d84b06   |   Date: October 2026\nStatus: Certified Production Ready — 100% Policy Pass', {
+    x: 7.35, y: 5.25, w: 4.65, h: 0.90,
+    fontSize: 9.5, color: '475569', fontFace: 'Arial', lineSpacing: 15
   });
 
   const pptxPath = path.join(OUTPUT_DIR, 'sample.pptx');
