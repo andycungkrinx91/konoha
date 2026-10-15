@@ -176,21 +176,59 @@ function assessValidationEvidence(validation) {
 }
 
 function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, filesModified = null, learnings = null, projectPath = null, taskDir = null, dispatchId = null, validation = null, taskId = null) {
+  if (agentName && typeof agentName === 'object') {
+    const opts = agentName;
+    agentName = opts.agent || opts.agentName || opts.agent_name;
+    summary = opts.summary || opts.task || '';
+    status = opts.status || 'completed';
+    filesCreated = opts.filesCreated || opts.files_created || opts.deliverables || null;
+    filesModified = opts.filesModified || opts.files_modified || null;
+    learnings = opts.learnings || null;
+    projectPath = opts.projectPath || opts.project_path || null;
+    taskDir = opts.taskDir || opts.task_dir || null;
+    dispatchId = opts.dispatchId || opts.dispatch_id || null;
+    validation = opts.validation || null;
+    taskId = opts.taskId || opts.task_id || null;
+  }
   const rawAgent = (agentName || '').toLowerCase().trim();
   if (rawAgent.startsWith('delegate_to_') || rawAgent.startsWith('delegated_to_')) {
     return JSON.stringify({
       status: 'error',
-      message: `Invalid agent name: "${agentName}". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.`
+      error: `Legacy delegate_to_* name rejected: "${agentName}". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.`,
+      message: `Legacy delegate_to_* name rejected: "${agentName}". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.`
     });
   }
 
   const pPath = projectPath || getWorkspaceRoot() || process.cwd();
   let workflowStatus = null;
 
+  let cleanAgent = (agentName || '').toLowerCase().trim();
+  if (cleanAgent.startsWith('mcp_')) cleanAgent = cleanAgent.substring(4);
+  cleanAgent = cleanAgent.replace(/_/g, '-');
+
   const { verified, reason: verificationReason } = assessValidationEvidence(validation);
   let finalStatus = status;
   if (finalStatus === 'completed' && !verified) {
     finalStatus = 'unverified';
+  }
+
+  // Strict Document Quality Gate for Tokubetsu-Jonin: verify score < 3.0%
+  if (cleanAgent === 'tokubetsu-jonin') {
+    const { evaluateDeliverable } = require('./doc_quality_gate');
+    const filesToCheck = [...(filesCreated || []), ...(filesModified || [])];
+    if (filesToCheck.length > 0) {
+      let failedDoc = null;
+      for (const f of filesToCheck) {
+        const evalRes = evaluateDeliverable(f);
+        if (!evalRes.passed && !failedDoc) {
+          failedDoc = evalRes;
+        }
+      }
+      if (failedDoc) {
+        finalStatus = 'rejected';
+        summary = `[QUALITY GATE REJECTED - Score ${failedDoc.score}% >= 3.0%] Deliverable "${failedDoc.target}" failed AI detection: ${failedDoc.verdict}. Remediation: ${failedDoc.remediation_hints.join('; ')}. ${summary}`;
+      }
+    }
   }
 
   if (taskDir && fs.existsSync(taskDir) && fs.statSync(taskDir).isDirectory()) {
@@ -222,9 +260,6 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     }
   }
 
-  let cleanAgent = (agentName || '').toLowerCase().trim();
-  if (cleanAgent.startsWith('mcp_')) cleanAgent = cleanAgent.substring(4);
-  cleanAgent = cleanAgent.replace(/_/g, '-');
 
   const savedIds = [];
   if (learnings && Array.isArray(learnings)) {
@@ -265,7 +300,8 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     files_created: filesCreated || [],
     files_modified: filesModified || [],
     learnings_saved_count: savedIds.length,
-    project_path: pPath
+    project_path: pPath,
+    reason: (finalStatus === 'rejected') ? `Score exceeds 3.0% threshold: ${summary}` : null
   };
 
   const effTaskId = taskId || (workflowStatus && workflowStatus.current_dispatch ? workflowStatus.current_dispatch.task_id : null) || (taskDir ? path.basename(taskDir) : null) || 'task_active';
@@ -695,6 +731,32 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     }
   }
 
+  let docDesignBlock = '';
+  if (dbAgentName.includes('tokubetsu')) {
+    if (isAutoCompact) {
+      docDesignBlock = (
+        `### 🖋️ Konoha Font & Cover Directives (Compacted Turn ${turn}):\n` +
+        '- Fonts: Cover (Inter Display/Bold), Headings (Inter SemiBold/Bold), Body (Inter Regular ~10.5-11pt), Footer (Inter Regular/Medium 8-9pt #64748B), Code (JetBrains Mono).\n' +
+        '- Cover Design: Multi-stop chromatic mesh gradient (lavender->periwinkle->blue-slate->turquoise->mint), 0 dark fills, Konoha brand accents (#8A4FD0/#7C5CE0/#F08A24/#E8453C).\n' +
+        '- Quality Gate: Strict AI score < 3.0% (ZeroGPT risk < 3.0%). High sentence burstiness (CV >= 0.85), zero AI buzzwords/clichés.\n'
+      );
+    } else {
+      docDesignBlock = (
+        '### 🖋️ Konoha Font System Directives:\n' +
+        '- Cover / Main Titles: Inter Display / Inter Bold (32pt, high impact, -0.02em letter spacing)\n' +
+        '- Headings (H1–H3, Section & Table Headers): Inter SemiBold / Bold\n' +
+        '- Content / Body: Inter Regular (~10.5–11 pt for A4 reports, line-height 1.5–1.6)\n' +
+        '- Footer / Metadata: Inter Regular / Medium (~8–9 pt, neutral slate #64748B / #94A3B8)\n' +
+        '- Technical / Code Snippets: JetBrains Mono (9–9.5 pt, neutral tint #F8FAFC)\n\n' +
+        '### 🎨 Reference Cover Design Engine Directives (assets/cover-reference.jpg):\n' +
+        '- Canvas & Space: Pure white / soft pearl (#FFFFFF / #F8FAFC), strictly zero dark fills or black backgrounds, generous top breathing room (45–60mm).\n' +
+        '- Chromatic Mesh Gradient: Multi-stop soft transitions (lavender #DBCCD0 -> periwinkle #C2C0D6 -> blue-slate #AAC2D8 -> turquoise #B0D5D8 -> mint #C5D7C2) with grounded neutral baseline divider (#6E766F).\n' +
+        '- Konoha Brand Accents: Deep Hokage Purple #8A4FD0, Electric Violet #7C5CE0, Orange #F08A24, Red #E8453C.\n' +
+        '- Mandatory Quality Gate (< 3.0% AI Detection): Every deliverable (.docx, .pdf, .pptx, .xlsx, .md) must pass automated AI detection with score < 3.0% and ZeroGPT risk < 3.0% before acceptance. Vary sentence lengths (CV >= 0.85), purge all AI clichés/buzzwords, and scrub container metadata.\n'
+      );
+    }
+  }
+
   let systemPrompt = '';
   if (isAutoCompact) {
     const compactHeader = (
@@ -725,6 +787,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     systemPrompt = `${prefix}${instructionsLine}${constraintsBlock}`;
     if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
     if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
+    if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
     systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
     if (skillsContent.length > 0) {
       systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
@@ -744,6 +807,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     );
     if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
     if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
+    if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
     systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName);
     if (searchFindings) systemPrompt += searchFindings + '\n';
     if (skillsContent.length > 0) {

@@ -85,6 +85,16 @@ function parseBody(req) {
   });
 }
 
+async function isDeleteConfirmed(req, parsedUrl) {
+  if (parsedUrl.searchParams.get('confirm') === 'true') return true;
+  try {
+    const body = await parseBody(req);
+    return Boolean(body && body.confirm === true);
+  } catch (_) {
+    return false;
+  }
+}
+
 let lastTelegramPingTime = 0;
 
 function checkPortActive(port) {
@@ -347,8 +357,9 @@ function createWebServer(options = {}) {
     }
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
+      const isCliLocal = !isRemote && !req.headers.origin && !req.headers.referer && !req.headers['sec-fetch-site'];
       const tokenHeader = req.headers['x-konoha-web-token'];
-      if (!tokenHeader || tokenHeader !== sessionToken) {
+      if (!isCliLocal && (!tokenHeader || tokenHeader !== sessionToken)) {
         return sendJson(res, 403, { error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' });
       }
     }
@@ -1895,14 +1906,7 @@ function createWebServer(options = {}) {
 
     if (method === 'DELETE' && (pathname === '/api/v1/projects' || pathname === '/api/v1/projects/')) {
       try {
-        let body = {};
-        try {
-          body = await parseBody(req);
-        } catch (_) {
-          /* default to empty body */
-        }
-        const isConfirmed = body.confirm === true || parsedUrl.searchParams.get('confirm') === 'true';
-        if (!isConfirmed) {
+        if (!(await isDeleteConfirmed(req, parsedUrl))) {
           return sendJson(res, 400, {
             error: 'Confirmation required: body must contain { confirm: true } to delete all projects'
           });
@@ -1920,6 +1924,11 @@ function createWebServer(options = {}) {
 
     if (method === 'DELETE' && pathname.startsWith('/api/v1/projects/')) {
       try {
+        if (!(await isDeleteConfirmed(req, parsedUrl))) {
+          return sendJson(res, 400, {
+            error: 'Confirmation required: request must provide ?confirm=true or body { confirm: true } to delete project'
+          });
+        }
         const hash = pathname.split('/')[4];
         const personaMemory = require('./persona_memory');
         personaMemory.deleteProject(hash);

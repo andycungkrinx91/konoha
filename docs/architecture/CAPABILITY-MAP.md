@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 1.0.0 (Konoha v2.0.2)  
-**Date:** 2026-10-02  
-**Status:** Canonical Reference  
+**Document Version:** 2.1.18  
+**Date:** 2026-10-15  
+**Status:** Canonical Reference (v2.1.18 Complete)  
 
 ---
 
@@ -152,7 +152,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Canonical Implementation:** `src/sdlc_tasks.js`, `src/sdlc_manager.js`, `src/ai_detector.js`, `src/docs_ai_detector.js`, `src/mcp/workflow.js`.
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
-  - CLI: `konoha task`.
+  - CLI: `konoha task`, `konoha detect-ai <path-file-or-url>`, `konoha detect-docs <path-or-url>`.
   - Web API: `/api/v1/sdlc`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
 * **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
@@ -254,3 +254,25 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Dependencies:** SvelteKit 3, Vite, Tailwind CSS v4, `@sveltejs/adapter-node`.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
+
+---
+
+### 2.13 Operational Database Maintenance (`konoha data`)
+
+* **Purpose:** Atomic database snapshots, FTS5 search index optimization, historical tool audit log pruning, and schema foreign-key integrity enforcement.
+* **Canonical Implementation:** `src/db.js`, `bin/commands/data.js`.
+* **Entry Points:**
+  - CLI: `konoha data backup [path]`, `konoha data rebuild-fts`, `konoha data prune --retention <days>`.
+* **Consumers:** Administrators, CI maintenance scripts, local workstation lifecycle.
+* **Storage:** `~/.konoha/konoha.db` (SQLite WAL mode), native `VACUUM INTO` snapshots in `~/.konoha/backup/`.
+* **Features:**
+  - Atomic online backup using native SQLite `VACUUM INTO` without locking live readers.
+  - Rebuilding `skills_fts` and `persona_memories_fts` index structures via `INSERT INTO ...('rebuild')`.
+  - Retention-based pruning of historical `tool_calls` records with default 90-day window.
+  - Foreign key cascade enforcement (`PRAGMA foreign_keys = ON;`) ensuring project memory cleanup on project deletion.
+* **Tests:** `tests/test_db_backup_and_maintenance.js`, `tests/test_db_foreign_keys_and_fts.js`.
+* **Documentation:** `docs/SETUP-CLI.md`, `README.md`.
+* **Dependencies:** `better-sqlite3`.
+* **Known Legacy Paths:** Legacy `prune` subcommand removed from top-level CLI router.
+* **Known Duplication:** None.
+

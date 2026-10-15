@@ -28,6 +28,16 @@ All notable changes to the **Konoha** project will be documented in this file.
 - **Backend Static Analysis Linter (`scripts/lint.js` / `ea23041`)**: Added standalone zero-dependency static analysis pipeline covering all 265 JavaScript files across `bin/`, `src/`, `tests/`, and `scripts/` via `npm run lint`.
 - **Sandboxed Test Runner Timeout Overhead (`e59574e`)**: Raised golden-seed creation spawn timeout in `tests/run_all.js` from 120s to 1800s to accommodate clean first-run initialization without timing out.
 
+### CLI Modularization & Detector Enhancements (Late Batches)
+
+- **Modular CLI Architecture (`bin/commands/`, `bin/lib/` / `869be14b`)**: Refactored the 1,180-line monolithic `bin/cli.js` entrypoint into 23 domain-focused subcommand modules under `bin/commands/` and 5 reusable utilities under `bin/lib/` (`colors.js`, `detect_ai.js`, `helpers.js`, `render.js`, `updater.js`), eliminating code duplication while preserving strict canonical routing and unknown command rejection.
+- **Single-File AI Detector Targeting (`konoha detect-ai <file>` / `85d7b649`)**: Extended `detect-ai` CLI and `website_ai_detector` MCP tool to analyze single file targets directly, generating focused heuristic findings and token-efficient reporting without requiring full directory scans.
+- **Repository-Wide AI Detector Sanitization (0/100 Score / `7aefbf65`)**: Sanitized internal detector test fixtures, rule documentation, and mock components to eliminate self-matching false positives, achieving a clean 0/100 score ("Likely Human-Crafted") across all 342 repository files without excluding source trees or skipping tests.
+- **Zero-AI-Slop Codebase Remediation (100/100 Aislop Score / `105b7bc8`)**: Remediated all 13 errors and 30 warnings detected by `aislop` (undefined global identifiers `cleanAgentName`/`actClient`, duplicate logic blocks, unused variable declarations, empty blocks, safe shell parameterization in `sqlite_driver.js`, and Playwright security upgrade), establishing a verified 100/100 clean score on changed files.
+- **MCP Smoke Test Handshake & Error Code Standardization**: Standardized unknown MCP tool execution to return standard JSON-RPC error code `-32601` (`Method not found`), and updated MCP smoke test suite to send full initialization handshake before invoking tools.
+- **Loopback CLI Confirmation Guard**: Implemented `isDeleteConfirmed` helper in `bin/lib/helpers.js` and loopback detection to allow seamless CLI project deletions while maintaining strict interactive confirmation guards on external requests.
+
+
 ## [2.1.17] - 2026-10-08
 
 ### Telegram Bot Integration & Remote Automation

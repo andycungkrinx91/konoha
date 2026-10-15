@@ -861,12 +861,21 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
     }
   }
 
-  const input = JSON.stringify({
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'tools/list',
-    params: {}
-  }) + '\n';
+  const input = [
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'konoha-smoke', version: '2.1.18' } }
+    }),
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/list',
+      params: {}
+    }),
+    ''
+  ].join('\n');
 
   let run;
   if (useLauncher) {
@@ -896,8 +905,16 @@ function smokeTestKonohaFilesMcp(useLauncher = false) {
 
   try {
     const lines = (run.stdout || '').trim().split('\n').filter(Boolean);
-    const response = JSON.parse(lines[lines.length - 1]);
-    const tools = response.result && response.result.tools;
+    let tools = null;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]);
+        if (parsed.result && Array.isArray(parsed.result.tools)) {
+          tools = parsed.result.tools;
+          break;
+        }
+      } catch (_) { /* ignore parse errors on non-json lines */ }
+    }
     if (!Array.isArray(tools) || tools.length < 4) {
       return { ok: false, error: `tools/list returned ${tools ? tools.length : 0} tools` };
     }

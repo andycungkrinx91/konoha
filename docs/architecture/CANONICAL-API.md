@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
-**Document Version:** 1.0.0 (Konoha v2.0.2)  
-**Date:** 2026-10-02  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot  
+**Document Version:** 2.1.18  
+**Date:** 2026-10-15  
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.1.18 Complete)  
 
 ---
 
@@ -18,7 +18,7 @@ All tools (40 active) are served through the `konoha` MCP server over stdio JSON
 | `token_efficient_grep` | `pattern: string, dir?: string, path?: string, file_path?: string, filepath?: string, glob?: string, file_glob?: string, ignore_case?: boolean, max_matches?: number` | Search text with a bounded result count. | JSON match array with line numbers |
 | `get_file_structure` | `path?: string, dir?: string, dir_path?: string` | Return a compact class and function signature map. Use the outline first for large files, read ranges aligned to symbols, never re-read overlapping ranges. | ASCII directory tree |
 | `find_files_clean` | `pattern?: string, dir?: string, path?: string, limit?: number` | Find files while skipping build and VCS noise. | JSON file list object |
-| `website_ai_detector` | `target?: string, path?: string, url?: string` | Scan a website directory or URL for AI-generation fingerprints. | Heuristic score object |
+| `website_ai_detector` | `target?: string, path?: string, url?: string` | Scan a website directory, single file, or URL for AI-generation fingerprints. | Heuristic score object |
 | `docs_ai_detector` | `file_path?: string, target?: string` | Scan a document for AI-generation fingerprints and return a 0-100 score. | Heuristic score object (0-100) |
 | `get_resolved_task_dir` | `task_dir?: string` | Resolve an isolated task directory. | Absolute path string |
 | `find_skill` | `keyword: string, limit?: number, agent?: string, compact?: boolean, task_id?: string` | Search indexed skills across repositories. | JSON array of matched skills & snippets |

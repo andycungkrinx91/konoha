@@ -857,9 +857,32 @@ function runMcpWorkflow(taskDir = null) {
       }
       phase = 'execute';
     } else if (phase === 'document') {
-      status.phase = 'review';
-      status.assigned_agent = 'kage';
-      phase = 'review';
+      const { evaluateDeliverablesGate } = require('./doc_quality_gate');
+      const gateResult = evaluateDeliverablesGate(resolvedTaskDir, status);
+      status.document_gate = gateResult;
+      if (gateResult.passed) {
+        status.phase = 'review';
+        status.assigned_agent = 'kage';
+        phase = 'review';
+      } else if (gateResult.gate_status === 'regenerate') {
+        status.document_attempts = gateResult.attempts;
+        status.phase = 'document';
+        status.assigned_agent = 'tokubetsu-jonin';
+        phase = 'document';
+      } else {
+        // Retry budget exhausted: fail closed, do not forward unvalidated deliverables
+        status.phase = 'failed';
+        status.error = gateResult.error;
+        saveWorkflowStatus(resolvedTaskDir, status);
+        return JSON.stringify({
+          status: 'failed',
+          phase: 'document',
+          error: gateResult.error,
+          feedback: gateResult.feedback,
+          task_dir: resolvedTaskDir,
+          gate: gateResult
+        });
+      }
     } else if (phase === 'review') {
       if (workflowReviewApproved(resolvedTaskDir, status)) {
         status.phase = 'synthesize';
@@ -1026,11 +1049,39 @@ function runMcpWorkflow(taskDir = null) {
   }
 
   if (phase === 'document') {
+    const isRegen = status.document_gate && !status.document_gate.passed;
+    const attempt = (status.document_attempts || 0) + 1;
+    const taskTitle = isRegen
+      ? `## TASK: REGENERATE DELIVERABLE (< 3.0% AI DETECTION QUALITY GATE FAILED)\n\nPrevious attempt failed the strict < 3.0% threshold.\n\n${status.document_gate.feedback}\n\n`
+      : '## TASK\n\nDocument the completed work and validation evidence in final_docs.md and result.md.\n';
+
+    const fontDirectives = (
+      '\n### 🖋️ Mandatory Konoha Font System Directives:\n' +
+      '- Cover / Main Titles: Inter Display / Inter Bold (32pt, high impact, -0.02em letter spacing)\n' +
+      '- Headings (H1–H3, Table Headers): Inter SemiBold / Bold\n' +
+      '- Content / Body: Inter Regular (~10.5–11 pt for A4, line spacing 1.5–1.6)\n' +
+      '- Footer / Metadata: Inter Regular / Medium (8–9 pt, neutral slate #64748B)\n' +
+      '- Technical / Code Snippets: JetBrains Mono (9–9.5 pt, neutral tint #F8FAFC)\n' +
+      '\n### 🎨 Reference Cover Design Directives (assets/cover-reference.jpg):\n' +
+      '- Canvas: Pure white / soft pearl (#FFFFFF / #F8FAFC), 0 dark fills\n' +
+      '- Chromatic Mesh Gradient: Multi-stop soft transitions (lavender #DBCCD0 -> periwinkle #C2C0D6 -> blue-slate #AAC2D8 -> turquoise #B0D5D8 -> mint #C5D7C2)\n' +
+      '- Konoha Brand Accents: Hokage Purple #8A4FD0, Electric Violet #7C5CE0, Orange #F08A24, Red #E8453C\n' +
+      '- Zero AI Clichés & High Sentence Burstiness (CV >= 0.85) to guarantee AI detection score < 3.0%.\n'
+    );
+
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'document', 'tokubetsu-jonin');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: tokubetsu-jonin\npriority: medium\nPhase: Document\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nDocument the completed work and validation evidence in final_docs.md and result.md.\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: tokubetsu-jonin\npriority: ${isRegen ? 'high' : 'medium'}\nPhase: Document${isRegen ? ` (Regeneration Attempt ${attempt})` : ''}\ndispatch_id: ${dispatch.id}\n\n${taskTitle}${fontDirectives}\n`, 'utf8');
     status.assigned_agent = 'tokubetsu-jonin';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'document', agent: 'tokubetsu-jonin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+    return JSON.stringify({
+      status: isRegen ? 'regenerate' : 'ready',
+      phase: 'document',
+      agent: 'tokubetsu-jonin',
+      dispatch_id: dispatch.id,
+      task_dir: resolvedTaskDir,
+      attempts: attempt,
+      feedback: isRegen ? status.document_gate.feedback : null
+    });
   }
 
   if (phase === 'review' && workflowReviewApproved(resolvedTaskDir, status)) {

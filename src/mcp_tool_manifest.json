@@ -1313,6 +1313,223 @@
         },
         "additionalProperties": false
       }
+    },
+    {
+      "name": "document_create",
+      "description": "Create publication-grade DOCX or PDF from structured content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Destination file path (.docx or .pdf)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "docx",
+              "pdf"
+            ],
+            "description": "Output format: docx or pdf"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document main title"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Optional document subtitle"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author name and role"
+          },
+          "classification": {
+            "type": "string",
+            "description": "Classification label (e.g. Enterprise Standard)"
+          },
+          "date": {
+            "type": "string",
+            "description": "Document date string (YYYY-MM-DD)"
+          },
+          "sections": {
+            "type": "array",
+            "description": "Array of document sections with titles, paragraphs, tables, callouts",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "output_path",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "spreadsheet_create",
+      "description": "Create XLSX spreadsheet with multiple sheets, formulas, and professional styling.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Destination file path (.xlsx)"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author name and organization"
+          },
+          "sheets": {
+            "type": "array",
+            "description": "Array of sheet definitions with headers, rows, and formulas",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "output_path",
+          "sheets"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "presentation_create",
+      "description": "Create modern 16:9 widescreen PPTX presentation from outline and slide specifications.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Destination file path (.pptx)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Presentation main title"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Optional presentation subtitle"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author name and title"
+          },
+          "slides": {
+            "type": "array",
+            "description": "Array of slide objects with layout, title, cards, metrics",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "output_path",
+          "title",
+          "slides"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "diagram_create",
+      "description": "Generate scalable SVG architecture diagram from structured nodes and edges.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Destination file path (.svg)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Diagram title"
+          },
+          "width": {
+            "type": "number",
+            "description": "Canvas width in pixels (default: 1600)"
+          },
+          "height": {
+            "type": "number",
+            "description": "Canvas height in pixels (default: 900)"
+          },
+          "nodes": {
+            "type": "array",
+            "description": "Array of diagram nodes with id, label, x, y coordinates",
+            "items": {
+              "type": "object"
+            }
+          },
+          "edges": {
+            "type": "array",
+            "description": "Array of diagram edges connecting nodes",
+            "items": {
+              "type": "object"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "description": "Optional visual grouping containers",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "output_path",
+          "title",
+          "nodes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "animation_export",
+      "description": "Convert diagram or pipeline animation to animated GIF or PNG.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Destination file path (.gif or .png)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "gif",
+              "png"
+            ],
+            "description": "Target format (gif or png)"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "HTML/CSS/JS content rendering the animation in headless Chromium"
+          },
+          "duration_ms": {
+            "type": "number",
+            "description": "Total animation duration in milliseconds (default: 3000)"
+          },
+          "fps": {
+            "type": "number",
+            "description": "Frame rate for GIF export (default: 15)"
+          },
+          "width": {
+            "type": "number",
+            "description": "Viewport width (default: 1200)"
+          },
+          "height": {
+            "type": "number",
+            "description": "Viewport height (default: 675)"
+          }
+        },
+        "required": [
+          "output_path"
+        ],
+        "additionalProperties": false
+      }
     }
   ]
 }

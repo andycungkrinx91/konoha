@@ -498,7 +498,9 @@ Once installed, the following CLI commands are available:
 | `konoha bridge status` | Show bridge router status and Antigravity session liveness (sidecar-gated bridges show `AWAITING SIDECAR` when IDE is closed) |
 | `konoha bridge list` | List all configured bridges with port/provider/enabled state |
 | `konoha savings` | Show token savings metrics (Today, 7 days, All time) for Skills-DB and Semble |
-| `konoha detect-ai <path-or-url>` | Website AI-fingerprint detector (anonymiz.com-style): scans a site directory or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
+| `konoha data <subcommand>` | Database maintenance operations (`backup [path]`, `rebuild-fts`, `prune --retention <days>`) |
+| `konoha detect-ai <path-file-or-url>` | Website/code AI-fingerprint detector (anonymiz.com-style): scans a site directory, single file, or URL for generator tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, and template assets; scores 0-100 (0-20 = Human-Built). `--json` for machine-readable output; exit code 1 when AI fingerprints are detected |
+| `konoha detect-docs <path-or-url>` | Documentation AI-pattern detector: scans markdown/docs for AI-writing clichés, conversational filler, and structural fingerprints |
 | `konoha doctor` | Diagnose environment health, verify `agent-browser` CLI & Chrome binary readiness, and automatically repair missing files |
 | `konoha ui <subcommand>` | Optional Web UI lifecycle management (`start`, `stop`, `restart`, `status`, `open`) on port 1404 |
 | `konoha web` | Launch the browser-based Web Configuration UI on port 1404 (Svelte 5 + Vite) |

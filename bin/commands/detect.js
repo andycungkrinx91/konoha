@@ -41,6 +41,14 @@ async function cmdDetectAi(args = []) {
     return;
   }
 
+  // Auto-route document deliverables (.docx, .pdf, .pptx, .xlsx, .md, .txt) directly to detect-docs
+  const path = require('path');
+  const ext = path.extname(target).toLowerCase();
+  const DOC_EXTS = new Set(['.docx', '.pdf', '.pptx', '.xlsx', '.md', '.txt']);
+  if (DOC_EXTS.has(ext)) {
+    return cmdDetectDocs(args);
+  }
+
   const { detectWebsiteAi, detectWebsiteAiAsync } = require('../../src/ai_detector');
   const result = /^https?:\/\//i.test(target)
     ? await detectWebsiteAiAsync(target)

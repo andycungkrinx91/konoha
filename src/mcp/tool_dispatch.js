@@ -372,15 +372,15 @@ function executeToolSync(toolName, args = {}) {
   let agent = args.agent || args.agent_name;
   if (!agent) agent = detectActiveAgent();
 
-  if (toolName === 'web_search') {
+  if (['web_search', 'document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'].includes(toolName)) {
     const serverJsPath = path.resolve(__dirname, '..', 'server.js');
-    const res = spawnSync(process.execPath, [serverJsPath, '--tool', 'web_search', JSON.stringify(args || {})], {
+    const res = spawnSync(process.execPath, [serverJsPath, '--tool', toolName, JSON.stringify(args || {})], {
       encoding: 'utf-8',
-      timeout: 30000,
-      maxBuffer: 10 * 1024 * 1024
+      timeout: 60000,
+      maxBuffer: 15 * 1024 * 1024
     });
     if (res.error) return JSON.stringify({ error: res.error.message || String(res.error) });
-    return (res.stdout || '').trim() || (res.stderr || '').trim() || JSON.stringify({ status: 'error', message: 'No output from web_search' });
+    return (res.stdout || '').trim() || (res.stderr || '').trim() || JSON.stringify({ status: 'error', message: `No output from ${toolName}` });
   }
 
   return _executeToolInternal(toolName, args, agent);
@@ -395,6 +395,36 @@ async function executeTool(toolName, args = {}) {
     const numResults = Math.min(Math.max(parseInt(args.num_results || 5, 10), 1), 50);
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
     return await runWebSearch(query, numResults, searchDepth, agent);
+  }
+
+  if (toolName === 'document_create') {
+    const { documentCreate } = require('../tools/document_engine');
+    const res = await documentCreate(args);
+    return JSON.stringify(res);
+  }
+
+  if (toolName === 'spreadsheet_create') {
+    const { spreadsheetCreate } = require('../tools/document_engine');
+    const res = await spreadsheetCreate(args);
+    return JSON.stringify(res);
+  }
+
+  if (toolName === 'presentation_create') {
+    const { presentationCreate } = require('../tools/document_engine');
+    const res = await presentationCreate(args);
+    return JSON.stringify(res);
+  }
+
+  if (toolName === 'diagram_create') {
+    const { diagramCreate } = require('../tools/document_engine');
+    const res = await diagramCreate(args);
+    return JSON.stringify(res);
+  }
+
+  if (toolName === 'animation_export') {
+    const { animationExport } = require('../tools/document_engine');
+    const res = await animationExport(args);
+    return JSON.stringify(res);
   }
 
   if (toolName === 'website_ai_detector') {

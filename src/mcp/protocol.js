@@ -173,13 +173,24 @@ async function handleRequest(req) {
   }
 
   if (method === 'tools/list') {
-    return { jsonrpc: '2.0', id: rid, result: { tools: MCP_MANIFEST.tools || [] } };
+    const deprecated = new Set(['build_with_image_design', 'find_skills']);
+    const tools = (MCP_MANIFEST.tools || []).filter(t => !deprecated.has(t.name));
+    return { jsonrpc: '2.0', id: rid, result: { tools } };
   }
 
   if (method === 'tools/call') {
     const p = params || {};
     const toolName = p.name;
     const args = p.arguments || {};
+
+    const knownTools = new Set((MCP_MANIFEST.tools || []).map(t => t.name));
+    if (!toolName || !knownTools.has(toolName)) {
+      return {
+        jsonrpc: '2.0',
+        id: rid,
+        error: { code: -32601, message: `Unknown tool: ${toolName}` }
+      };
+    }
 
     let resultText;
     try {

@@ -56,6 +56,24 @@ const AI_BUZZWORDS = [
   'tidak diragukan lagi bahwa'
 ];
 
+// Predictive AI Collocations (commonly produced by LLM syntactic formulas)
+const AI_COLLOCATIONS = [
+  'without dropping a single',
+  'throughout the cutover window',
+  'eliminated single points of failure across our entire',
+  'under continuous load',
+  'strictly below',
+  'serves as a testament to',
+  'plays a pivotal role in ensuring',
+  'fosters a culture of continuous',
+  'comprehensive suite of',
+  'fast-paced world of',
+  'ever-evolving landscape of',
+  'intricate balance between',
+  'resonates deeply with',
+  'vital role in facilitating'
+];
+
 // Generator metadata signatures
 const GENERATOR_SIGNATURES = [
   { pattern: /python-docx/i, name: 'python-docx' },
@@ -222,6 +240,20 @@ function extractPdf(filePath) {
     }
   } catch (_) { /* fallback */ }
 
+  if (!text || text.trim().length === 0) {
+    try {
+      const pyScript = 'from pdfminer.high_level import extract_text; import sys; sys.stdout.write(extract_text(sys.argv[1]))';
+      const res = spawnSync('python3', ['-c', pyScript, filePath], {
+        encoding: 'utf8',
+        maxBuffer: 15 * 1024 * 1024,
+        windowsHide: true
+      });
+      if (res.status === 0 && res.stdout) {
+        text = res.stdout;
+      }
+    } catch (_) { /* fallback */ }
+  }
+
   try {
     const res = spawnSync('pdfinfo', [filePath], { encoding: 'utf8', windowsHide: true });
     if (res.status === 0 && res.stdout) {
@@ -247,7 +279,16 @@ function extractPdf(filePath) {
   } catch (_) { /* fallback */ }
 
   const paragraphs = (text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  return { text, paragraphs, metadata, hasWatermark, darkFills: [], error: null };
+  const words = (text || '').trim().split(/\s+/).filter(Boolean);
+  let error = null;
+  try {
+    const st = fs.statSync(filePath);
+    if (words.length < 15 && st.size > 2000) {
+      error = `Unable to extract readable text layer from PDF (${words.length} words found, file size ${st.size} bytes). File may be corrupted, raster-only, or missing text streams.`;
+    }
+  } catch (_) { /* ignore */ }
+
+  return { text, paragraphs, metadata, hasWatermark, darkFills: [], error };
 }
 
 /**
@@ -266,7 +307,8 @@ function extractPptx(filePath) {
       const textMatches = slideXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g) || [];
       fullText += ' ' + textMatches.map((t) => t.replace(/<[^>]+>/g, '')).join(' ');
 
-      if (/<p:bg(?:Pr)?[^>]*>[\s\S]*?srgbClr\s+val=["'](000000|0F172A|1E293B|0B132B)["']/i.test(slideXml)) {
+      const bgMatch = slideXml.match(/<p:bg>([\s\S]*?)<\/p:bg>/i) || slideXml.match(/<p:bgPr>([\s\S]*?)<\/p:bgPr>/i);
+      if (bgMatch && /srgbClr\s+val=["'](000000|0F172A|1E293B|0B132B)["']/i.test(bgMatch[1])) {
         darkFills.push('Dark Slide Background Fill');
       }
     }
@@ -402,8 +444,11 @@ function analyzeParagraphBurstiness(paragraphs) {
     const stddev = Math.sqrt(variance);
     const cv = mean > 0 ? stddev / mean : 0.5;
 
-    // ZeroGPT flags paragraphs with uniform AI sentence length cadence (mean 10-32 words with low CV or equal lengths)
-    const isAiCadence = (cv < 0.18) || ((mean >= 10 && mean <= 32) && (cv < 0.25 || (sLengths.length >= 3 && sLengths.every((l) => Math.abs(l - mean) <= 1))));
+    // For 2-sentence paragraphs, CV is only statistically meaningful if sentences are virtually identical (CV < 0.08, e.g. 20 & 20 or 20 & 21 words).
+    // For 3+ sentences, CV < 0.18 or sLengths all within 1-2 words of mean indicates monotonous AI cadence.
+    const isAiCadence = sLengths.length >= 3
+      ? (cv < 0.18 || ((mean >= 10 && mean <= 32) && (cv < 0.22 || sLengths.every((l) => Math.abs(l - mean) <= 1))))
+      : (cv < 0.08 && mean >= 12 && mean <= 30);
 
     const lowerP = p.toLowerCase();
     const transitionTriggers = [
@@ -437,14 +482,30 @@ function analyzeParagraphBurstiness(paragraphs) {
     }
   });
 
+  // Cross-paragraph template repetition check (e.g. repeated short-opener + compound-clause pattern)
+  const templateCadences = [];
+  paragraphs.forEach((p, idx) => {
+    const sentences = p.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 3);
+    if (sentences.length >= 2) {
+      const sLengths = sentences.map((s) => s.split(/\s+/).filter(Boolean).length);
+      if (sLengths[0] <= 5 && sLengths[1] >= 20) {
+        templateCadences.push(idx + 1);
+      }
+    }
+  });
+
   const denominator = Math.max(evaluableCount, 1);
-  const zerogptRisk = evaluableCount > 0 ? parseFloat(((flagged.length / denominator) * 100).toFixed(1)) : 0.0;
+  let zerogptRisk = evaluableCount > 0 ? parseFloat(((flagged.length / denominator) * 100).toFixed(1)) : 0.0;
+  if (templateCadences.length >= 2) {
+    zerogptRisk = Math.max(zerogptRisk, parseFloat(((templateCadences.length / denominator) * 100).toFixed(1)));
+  }
 
   return {
     total: evaluableCount,
     suspiciousCount: flagged.length,
     zerogptRisk,
-    flagged
+    flagged,
+    templateCadences
   };
 }
 
@@ -598,6 +659,51 @@ function detectDocsAi(targetPath) {
       evidence: `Sliding-window evaluation flagged ${paraAnalysis.suspiciousCount}/${paraAnalysis.total} paragraphs with synthetic cadence (ZeroGPT risk: ${paraAnalysis.zerogptRisk}%, target: 0.0%–3.0%). Details: ${sample}`
     });
     score += weight;
+  }
+
+  // 8. Syntactic Template Repetition Detection (TEMPL-01)
+  if (paraAnalysis.templateCadences && paraAnalysis.templateCadences.length >= 2) {
+    findings.push({
+      rule: 'TEMPL-01',
+      severity: 'medium',
+      weight: 18,
+      title: 'Syntactic Template Repetition Cadence Detected',
+      evidence: `Detected repetitive 3-beat paragraph cadence (short punchy opener followed by fronted compound clause) across paragraphs ${paraAnalysis.templateCadences.join(', ')}. Commercial ZeroGPT flags this structural uniformity.`
+    });
+    score += 18;
+  }
+
+  // 9. Lexical Diversity & Type-Token Ratio (LEX-01)
+  const wordsOnly = lowerText.match(/\b[a-z]{3,}\b/g) || [];
+  if (wordsOnly.length >= 100) {
+    const uniqueWords = new Set(wordsOnly).size;
+    const ttr = uniqueWords / wordsOnly.length;
+    if (ttr < 0.38) {
+      findings.push({
+        rule: 'LEX-01',
+        severity: 'medium',
+        weight: 15,
+        title: 'Low Lexical Diversity (Low Type-Token Ratio)',
+        evidence: `Type-token ratio is ${(ttr * 100).toFixed(1)}% (${uniqueWords} unique / ${wordsOnly.length} total words). Indicates repetitive vocabulary distribution typical of language model output.`
+      });
+      score += 15;
+    }
+  }
+
+  // 10. AI Collocation Predictability (COLLOC-01)
+  const matchedCollocations = [];
+  for (const col of AI_COLLOCATIONS) {
+    if (lowerText.includes(col)) matchedCollocations.push(col);
+  }
+  if (matchedCollocations.length >= 2) {
+    findings.push({
+      rule: 'COLLOC-01',
+      severity: 'medium',
+      weight: 15,
+      title: 'Predictable AI Collocation Phrasing',
+      evidence: `Detected high-probability AI collocations: ${matchedCollocations.join('; ')}.`
+    });
+    score += 15;
   }
 
   score = Math.min(100, score);

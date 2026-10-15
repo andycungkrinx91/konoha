@@ -1,8 +1,8 @@
 # Konoha Architecture Legacy and Alias Inventory
 
-**Document Version:** 1.0.0 (Konoha v2.0.2)  
-**Date:** 2026-10-02  
-**Status:** Canonical Audit  
+**Document Version:** 2.1.18  
+**Date:** 2026-10-15  
+**Status:** Canonical Audit (v2.1.18 Complete)  
 
 ---
 
@@ -12,12 +12,13 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 
 | Identifier | Classification | Type | Canonical Target | Action Plan |
 |---|---|---|---|---|
-| `find_skills` | **MIGRATE_THEN_REMOVE** | MCP tool alias | `find_skill` | Migrate client instructions and router; deprecate alias |
-| `build_with_image_design` | **MIGRATE_THEN_REMOVE** | MCP tool alias | `build_from_source` | Remove from manifest and router schemas |
+| `find_skills` | **COMPLETED / PRUNED** | MCP tool alias | `find_skill` | Pruned from live tools manifest in v2.1.18 (40 canonical tools) |
+| `build_with_image_design` | **COMPLETED / PRUNED** | MCP tool alias | `build_from_source` | Pruned from live tools manifest in v2.1.18 (40 canonical tools) |
 | `delegate_to_<agent>` (7 tools) | **COMPLETED / REMOVED** | MCP tool aliases | Direct agent tools (`sannin`, `kage`, etc.) | Removed in Batch 4.6 (commit 576e50b) |
 | `tokubetsu_jonin` vs `tokubetsu-jonin` | **CANONICAL_MAPPING** | Identifier syntax | `tokubetsu-jonin` (agent) / `tokubetsu_jonin` (MCP tool) | Maintain strict 1:1 bidirectional normalizer |
 | `task_dir` / `delegate.md` / `result.md` | **ISOLATED_FALLBACK** | File-based fallback | Direct structured MCP argument passing | Keep isolated in `~/.konoha/tmp/` for non-MCP fallback |
 | `skills.db` | **MIGRATE_THEN_REMOVE** | Storage filename | `konoha.db` | Auto-migrate legacy DB file on startup |
+| 27 Top-Level CLI Aliases | **COMPLETED / REMOVED** | CLI command aliases | Canonical CLI subcommands | Removed in v2.1.18; strict rejection with exit code 1 |
 | `openai-oauth` | **FALSE_POSITIVE** | Auth provider | `openai` (API key) / `sidecar` | Already eradicated in v2.0.0 |
 | `deep-code-explorer` | **FALSE_POSITIVE** | Agent name | `genin` | Already eradicated in v2.0.0 |
 
@@ -42,7 +43,7 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
   2. Keep internal alias dispatch until client prompts migrate, then retire from tool manifest.
 * **Removal Condition:** All client contracts unified to `find_skill`.
 * **Risk:** Low (pure alias).
-* **Status:** Scheduled for canonicalization in Phase 4.
+* **Status:** COMPLETED / PRUNED in v2.1.18. Filtered from live MCP tools, bringing manifest to exactly 40 canonical tools.
 
 ---
 
@@ -50,14 +51,15 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 
 * **Legacy Identifier:** `build_with_image_design`
 * **Type:** MCP Tool Alias
-* **Current Usage:** Listed in `src/mcp_tool_manifest.json`, filtered in `DEPRECATED_LEGACY_TOOL_NAMES` in `src/file_tools_router.js`, dispatched identically to `build_from_source`.
+* **Current Usage:** Legacy alias for `build_from_source`. Pruned from live tool schemas in `src/mcp/protocol.js` and `src/file_tools_router.js`.
 * **Canonical Replacement:** `build_from_source`
 * **Internal Consumers:** None.
 * **External Consumers:** Historical documentation and test snapshots.
-* **Migration Required:** Update documentation and test references; prune from tool manifest.
-* **Removal Condition:** Tests and client schemas updated.
+* **Migration Required:** Completed. Pruned from active tool manifest in v2.1.18.
+* **Removal Condition:** Satisfied in v2.1.18.
 * **Risk:** Very Low (already excluded in `listToolSchemas()`).
-* **Status:** Scheduled for pruning.
+* **Status:** COMPLETED / PRUNED in v2.1.18.
+
 
 ---
 
@@ -124,3 +126,49 @@ This audit catalogs all historical aliases, shims, compatibility fallbacks, and 
 * **Migration Required:** Auto-rename on startup in `src/db.js`.
 * **Removal Condition:** When all runtime references point exclusively to `konoha.db`.
 * **Status:** Migration active and isolated.
+
+---
+
+### Item 7: 27 Removed Top-Level CLI Aliases
+
+* **Legacy Identifiers:**
+  - `embeddings`
+  - `detect_ai`, `ai-detector`
+  - `detect_docs`, `docs-detector`, `detect-doc`
+  - `personas`, `persona`, `context`
+  - `memories`, `memory`
+  - `spirit`, `will-of-fire`
+  - `projects`
+  - `tasks`, `sdlc`
+  - `web-search`, `searxng`
+  - `inbox`
+  - `install`, `setup`, `update`
+  - `saving`
+  - `agents`
+  - `tg`
+  - `tunnels`
+  - `prune`
+* **Type:** CLI Subcommand Aliases
+* **Current Usage:** Completely removed from `bin/cli.js` in v2.1.18. Invoking any of these aliases now outputs `Unknown command: <name>` with `Run konoha help for usage.` and immediately exits with exit code 1.
+* **Canonical Replacements:**
+  - `embeddings` -> `konoha embed`
+  - `detect_ai`, `ai-detector` -> `konoha detect-ai <path-file-or-url>`
+  - `detect_docs`, `docs-detector`, `detect-doc` -> `konoha detect-docs <path-or-url>`
+  - `personas`, `persona`, `context` -> `konoha agent <subcommand>`
+  - `memories`, `memory` -> `konoha data <subcommand>` / MCP memory tools
+  - `spirit`, `will-of-fire` -> `konoha soul`
+  - `projects` -> `konoha project <subcommand>`
+  - `tasks`, `sdlc` -> `konoha task <subcommand>`
+  - `web-search`, `searxng` -> MCP `web_search`
+  - `inbox` -> `konoha queue <subcommand>`
+  - `install`, `setup` -> `konoha init`
+  - `update` -> `konoha upgrade`
+  - `saving` -> `konoha savings`
+  - `agents` -> `konoha agent list`
+  - `tg` -> `konoha telegram <subcommand>`
+  - `tunnels` -> `konoha tunnel <subcommand>`
+  - `prune` -> `konoha data prune --retention <days>`
+* **Internal Consumers:** None.
+* **External Consumers:** Legacy scripts and user shell history.
+* **Status:** COMPLETED / REMOVED in v2.1.18. Strict canonical routing enforced.
+
