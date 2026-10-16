@@ -96,8 +96,7 @@
         <button
           type="button"
           onclick={loadSavings}
-          class="btn-3d px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-md"
-          style="background-color: var(--color-surface); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-md"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -400,32 +399,28 @@
             <div class="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
               <button
                 type="button"
-                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'all' ? 'btn-3d-primary' : ''}"
-                style="{toolCategoryFilter !== 'all' ? 'background-color: var(--color-bg); color: var(--color-text); border-color: var(--color-border);' : ''}"
+                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'all' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
                 onclick={() => toolCategoryFilter = 'all'}
               >
                 All ({toolList.length})
               </button>
               <button
                 type="button"
-                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'files-skills' ? 'btn-3d-primary' : ''}"
-                style="{toolCategoryFilter !== 'files-skills' ? 'background-color: var(--color-bg); color: var(--color-text); border-color: var(--color-border);' : ''}"
+                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'files-skills' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
                 onclick={() => toolCategoryFilter = 'files-skills'}
               >
                 Skills & Files
               </button>
               <button
                 type="button"
-                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'agents' ? 'btn-3d-primary' : ''}"
-                style="{toolCategoryFilter !== 'agents' ? 'background-color: var(--color-bg); color: var(--color-text); border-color: var(--color-border);' : ''}"
+                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'agents' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
                 onclick={() => toolCategoryFilter = 'agents'}
               >
                 Subagents
               </button>
               <button
                 type="button"
-                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'system' ? 'btn-3d-primary' : ''}"
-                style="{toolCategoryFilter !== 'system' ? 'background-color: var(--color-bg); color: var(--color-text); border-color: var(--color-border);' : ''}"
+                class="btn-3d px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap {toolCategoryFilter === 'system' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
                 onclick={() => toolCategoryFilter = 'system'}
               >
                 System & Context

@@ -367,7 +367,7 @@
         <button
           type="button"
           onclick={loadContext}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -452,8 +452,7 @@
               type="button"
               onclick={saveInvariants}
               disabled={saving}
-              class="btn-3d px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
-              style="background-color: var(--color-primary, #7c3aed);"
+              class="btn-3d btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save Invariants"}
             </button>
@@ -484,8 +483,7 @@
             <button
               type="button"
               onclick={() => { isAddLearningOpen = true; }}
-              class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all cursor-pointer shadow-sm"
-              style="background-color: var(--color-primary, #7c3aed);"
+              class="btn-3d btn-3d-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all cursor-pointer shadow-sm"
               title="Add episodic learning for this project"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -690,15 +688,14 @@
         <button
           type="button"
           onclick={() => { isAddLearningOpen = false; }}
-          class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          class="btn-3d btn-3d-secondary px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
         >
           Cancel
         </button>
         <button
           type="button"
           onclick={createProjectLearning}
-          class="btn-3d px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md cursor-pointer"
         >
           Save Learning
         </button>

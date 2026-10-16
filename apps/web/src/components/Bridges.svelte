@@ -271,9 +271,9 @@
         <button
           type="button"
           onclick={openModelsModal}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-white text-slate-800 border border-slate-300 hover:border-purple-400 transition-all shadow-sm cursor-pointer"
+          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer"
         >
-          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--color-primary);">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
           <span>Served Models</span>
@@ -282,8 +282,7 @@
         <button
           type="button"
           onclick={() => { showCreateModal = true; }}
-          class="btn-3d inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
@@ -362,7 +361,7 @@
           </button>
         {/if}
 
-        <div class="ml-2 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
+        <div class="ml-2 px-3 py-1.5 rounded-xl text-xs font-mono font-bold" style="background-color: var(--color-primary-glow); color: var(--color-primary); border: 1px solid var(--color-primary);">
           {bridges.filter(b => b.enabled).length} / {bridges.length} Enabled
         </div>
       </div>
@@ -392,7 +391,7 @@
       <button
         type="button"
         onclick={() => { showCreateModal = true; }}
-        class="btn-3d inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 cursor-pointer"
+        class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer shadow-md"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
@@ -573,18 +572,17 @@
             />
           </div>
 
-          <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+          <div class="flex items-center justify-end gap-3 pt-4 border-t" style="border-color: var(--color-border);">
             <button
               type="button"
               onclick={() => { showCreateModal = false; }}
-              class="btn-3d px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 cursor-pointer"
+              class="btn-3d btn-3d-secondary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="btn-3d px-5 py-2 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer"
-              style="background-color: var(--color-primary, #7c3aed);"
+              class="btn-3d btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer"
             >
               Create Bridge
             </button>
@@ -652,7 +650,7 @@
               <button
                 type="button"
                 onclick={() => { selectedBridgeFilter = 'all'; }}
-                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {selectedBridgeFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {selectedBridgeFilter === 'all' ? 'btn-pill-active' : 'btn-pill'}"
               >
                 All ({models.length})
               </button>
@@ -660,7 +658,7 @@
                 <button
                   type="button"
                   onclick={() => { selectedBridgeFilter = bName; }}
-                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {selectedBridgeFilter === bName ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {selectedBridgeFilter === bName ? 'btn-pill-active' : 'btn-pill'}"
                 >
                   {bName} ({models.filter(m => m.bridge === bName).length})
                 </button>
@@ -713,7 +711,7 @@
                       <button
                         type="button"
                         onclick={() => copyToClipboard(m.id)}
-                        class="px-2.5 py-1 rounded-md text-[10px] font-bold font-sans bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-700 border border-slate-200 transition-colors cursor-pointer"
+                        class="btn-3d btn-3d-secondary px-2.5 py-1 rounded-md text-[10px] font-bold font-sans transition-colors cursor-pointer"
                         title="Copy alias ID to clipboard"
                       >
                         Copy ID
@@ -732,7 +730,7 @@
           <button
             type="button"
             onclick={() => { showModelsModal = false; }}
-            class="px-4 py-2 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors cursor-pointer"
+            class="btn-3d btn-3d-secondary px-4 py-2 rounded-xl font-bold transition-colors cursor-pointer"
           >
             Close
           </button>

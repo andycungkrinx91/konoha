@@ -594,8 +594,7 @@
         <button
           type="button"
           onclick={() => { showCreateModal = false; }}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] border cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[5px] cursor-pointer"
         >
           Cancel
         </button>
@@ -705,8 +704,7 @@
         <button
           type="button"
           onclick={() => { showEditModal = false; }}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] border cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[5px] cursor-pointer"
         >
           Cancel
         </button>

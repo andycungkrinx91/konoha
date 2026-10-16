@@ -3,47 +3,40 @@
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
 
   let isModalOpen = $state(false);
-  let isRasenganImpact = $state(false);
-  let impactCountdown = $state(10);
+  let isRasenganActive = $state(false);
+  let countdown = $state(3);
+  let targetTheme = $state(null);
   let impactTimer = null;
   let countdownInterval = null;
 
   useScrollLock(() => isModalOpen);
 
   function selectTheme(id) {
-    themeState.applyTheme(id);
+    targetTheme = THEMES.find((t) => t.id === id) || { name: id, id };
     isModalOpen = false;
 
-    // Trigger full 3D Wall Got Hit by Rasengan Impact effect for 10s
+    // Apply the chosen theme
+    themeState.applyTheme(id);
+
+    // Trigger 3-Second Huge Rasengan & Crystalline Glass Crack Animation
     if (impactTimer) clearTimeout(impactTimer);
     if (countdownInterval) clearInterval(countdownInterval);
 
-    isRasenganImpact = true;
-    impactCountdown = 10;
+    isRasenganActive = true;
+    countdown = 3;
 
     countdownInterval = setInterval(() => {
-      if (impactCountdown > 1) {
-        impactCountdown -= 1;
+      if (countdown > 1) {
+        countdown -= 1;
       } else {
         clearInterval(countdownInterval);
       }
     }, 1000);
 
-    if (typeof document !== 'undefined') {
-      const rootStage = document.getElementById('konoha-app-root') || document.body;
-      rootStage.classList.remove('rasengan-wall-hit-active');
-      void rootStage.offsetWidth; // Reflow to restart animation
-      rootStage.classList.add('rasengan-wall-hit-active');
-    }
-
     impactTimer = setTimeout(() => {
-      isRasenganImpact = false;
+      isRasenganActive = false;
       if (countdownInterval) clearInterval(countdownInterval);
-      if (typeof document !== 'undefined') {
-        const rootStage = document.getElementById('konoha-app-root') || document.body;
-        rootStage.classList.remove('rasengan-wall-hit-active');
-      }
-    }, 10000);
+    }, 3000);
   }
 
   function toggleModal() {
@@ -119,112 +112,138 @@
   </button>
 </div>
 
-<!-- 10-Second 3D Rasengan Impact Wall Hit Effect Overlay -->
-{#if isRasenganImpact}
-  <!-- Full-Screen 3D Rasengan Impact Overlay (10s Lifespan) -->
+<!-- 3-Second Huge Rasengan & Crystalline Glass Crack Theme Transition Overlay -->
+{#if isRasenganActive}
   <div
-    class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden flex items-center justify-center animate-rasengan-crater"
+    class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden flex items-center justify-center"
     aria-hidden="true"
   >
-    <!-- Sudden Shock Flash -->
-    <div class="absolute inset-0 bg-cyan-400/20 backdrop-blur-[2px] transition-opacity duration-1000"></div>
+    <!-- Optical Refraction Backdrop Blur & Ambient Vignette -->
+    <div class="absolute inset-0 bg-slate-950/30 backdrop-blur-[4px] transition-opacity duration-300"></div>
 
-    <!-- Massive SVG 3D Wall Crater, Fracture Fissures & Spiral Chakra Vortex -->
-    <svg class="w-full h-full max-w-[1400px] max-h-[1400px] relative z-10" viewBox="0 0 1000 1000" fill="none">
+    <!-- Final Glass Shatter White Flash -->
+    <div class="absolute inset-0 animate-shatter-flash pointer-events-none"></div>
+
+    <!-- Crystalline Glass Crack Fracture SVG Layer -->
+    <svg class="absolute inset-0 w-full h-full animate-glass-crack" viewBox="0 0 1000 1000" preserveAspectRatio="none" fill="none">
       <defs>
-        <!-- Intense Radial Chakra Blast Glow -->
-        <radialGradient id="crater-depth-core" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#0284c7" stop-opacity="0.95" />
-          <stop offset="20%" stop-color="#0369a1" stop-opacity="0.85" />
-          <stop offset="45%" stop-color="#0f172a" stop-opacity="0.7" />
-          <stop offset="70%" stop-color="#0284c7" stop-opacity="0.25" />
-          <stop offset="100%" stop-color="transparent" stop-opacity="0" />
-        </radialGradient>
-        <radialGradient id="crater-electric-burst" cx="50%" cy="50%" r="40%">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
-          <stop offset="25%" stop-color="#7dd3fc" stop-opacity="0.9" />
-          <stop offset="60%" stop-color="#0284c7" stop-opacity="0.5" />
-          <stop offset="100%" stop-color="transparent" stop-opacity="0" />
-        </radialGradient>
-        <filter id="fissure-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3.5" result="blur" />
+        <filter id="glass-specular" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <radialGradient id="glass-core-refract" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85" />
+          <stop offset="25%" stop-color="#7dd3fc" stop-opacity="0.5" />
+          <stop offset="60%" stop-color="#0284c7" stop-opacity="0.2" />
+          <stop offset="100%" stop-color="transparent" stop-opacity="0" />
+        </radialGradient>
       </defs>
 
-      <!-- Center Crater Indentation Shadow -->
-      <circle cx="500" cy="500" r="320" fill="url(#crater-depth-core)" />
-      <circle cx="500" cy="500" r="140" fill="url(#crater-electric-burst)" class="animate-pulse-rasengan" />
+      <!-- Central Stress Halo -->
+      <circle cx="500" cy="500" r="280" fill="url(#glass-core-refract)" />
 
-      <!-- Concentric Shockwave Ellipses Radiating from Impact Center -->
-      <ellipse cx="500" cy="500" rx="420" ry="380" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="16 12" opacity="0.6" />
-      <ellipse cx="500" cy="500" rx="340" ry="300" stroke="#7dd3fc" stroke-width="3" stroke-dasharray="24 16" opacity="0.75" />
-      <ellipse cx="500" cy="500" rx="220" ry="190" stroke="#ffffff" stroke-width="3.5" stroke-dasharray="12 8" opacity="0.85" />
+      <!-- Concentric Shock Fracture Rings -->
+      <circle cx="500" cy="500" r="120" stroke="rgba(255, 255, 255, 0.9)" stroke-width="2.5" stroke-dasharray="14 8" opacity="0.9" />
+      <circle cx="500" cy="500" r="220" stroke="rgba(186, 230, 253, 0.85)" stroke-width="2" stroke-dasharray="28 14" opacity="0.8" />
+      <circle cx="500" cy="500" r="360" stroke="rgba(125, 211, 252, 0.7)" stroke-width="1.8" stroke-dasharray="40 20" opacity="0.7" />
+      <circle cx="500" cy="500" r="480" stroke="rgba(255, 255, 255, 0.5)" stroke-width="1.2" stroke-dasharray="60 30" opacity="0.5" />
 
-      <!-- Major Radial Wall Fracture Fissures Blasting Outward into 4 Quadrants -->
-      <!-- Top-Left Fissure -->
+      <!-- Major Branching Glass Fracture Fissures -->
+      <!-- Branch 1 (Top-Left) -->
       <path
-        d="M500 500 L440 390 L390 340 L340 360 L280 270 L210 230 L160 160 L90 120 L20 40 M390 340 L410 270 L360 210 L320 120 M280 270 L240 310 L180 290"
-        stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#fissure-glow)" opacity="0.95"
+        d="M500 500 L420 380 L350 320 L270 340 L190 230 L110 180 L40 90 M350 320 L380 240 L310 170 M270 340 L220 390 L130 360"
+        stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-specular)" opacity="0.95"
       />
+      <!-- Branch 2 (Top-Right) -->
       <path
-        d="M500 500 L440 390 L390 340 L340 360 L280 270 L210 230 L160 160 L90 120 L20 40"
-        stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"
+        d="M500 500 L590 390 L680 320 L650 220 L750 160 L840 90 L960 20 M680 320 L770 340 L860 290 M750 160 L710 80 L790 30"
+        stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-specular)" opacity="0.95"
       />
-
-      <!-- Top-Right Fissure -->
+      <!-- Branch 3 (Bottom-Left) -->
       <path
-        d="M500 500 L570 410 L640 350 L610 280 L690 220 L760 180 L840 110 L920 40 M640 350 L710 370 L790 320 M690 220 L660 150 L720 90"
-        stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#fissure-glow)" opacity="0.95"
+        d="M500 500 L410 610 L320 680 L360 770 L260 850 L170 910 L60 990 M320 680 L230 670 L140 730 M260 850 L300 930 L230 995"
+        stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-specular)" opacity="0.95"
       />
+      <!-- Branch 4 (Bottom-Right) -->
       <path
-        d="M500 500 L570 410 L640 350 L610 280 L690 220 L760 180 L840 110 L920 40"
-        stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"
-      />
-
-      <!-- Bottom-Left Fissure -->
-      <path
-        d="M500 500 L430 590 L360 650 L390 720 L310 800 L240 850 L150 920 L50 980 M360 650 L290 640 L210 690 M310 800 L340 880 L290 940"
-        stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#fissure-glow)" opacity="0.95"
-      />
-      <path
-        d="M500 500 L430 590 L360 650 L390 720 L310 800 L240 850 L150 920 L50 980"
-        stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"
+        d="M500 500 L610 610 L700 700 L640 790 L740 870 L830 940 L950 990 M700 700 L790 710 L880 770 M740 870 L710 950 L780 998"
+        stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glass-specular)" opacity="0.95"
       />
 
-      <!-- Bottom-Right Fissure -->
-      <path
-        d="M500 500 L580 590 L650 670 L600 740 L690 810 L770 870 L870 930 L960 970 M650 670 L730 670 L800 720 M690 810 L670 890 L730 960"
-        stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#fissure-glow)" opacity="0.95"
-      />
-      <path
-        d="M500 500 L580 590 L650 670 L600 740 L690 810 L770 870 L870 930 L960 970"
-        stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"
-      />
+      <!-- Secondary Diagonal Micro-Fractures & Spiderweb Interlinks -->
+      <path d="M420 380 L500 320 L590 390 M610 610 L500 680 L410 610 M420 380 L360 500 L410 610 M590 390 L640 500 L610 610" stroke="rgba(255, 255, 255, 0.75)" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="8 4" opacity="0.85" />
 
-      <!-- Dense High-Velocity Spiral Chakra Vortex Arms in Crater -->
-      <g class="animate-spin-rasengan-fast" style="transform-origin: 500px 500px;">
-        <path d="M500 500 Q 580 420, 680 460 T 820 620" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.85" filter="url(#fissure-glow)" />
-        <path d="M500 500 Q 420 580, 320 540 T 180 380" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.85" filter="url(#fissure-glow)" />
-        <path d="M500 500 Q 420 420, 460 320 T 620 180" stroke="#7dd3fc" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.85" filter="url(#fissure-glow)" />
-        <path d="M500 500 Q 580 580, 540 680 T 380 820" stroke="#7dd3fc" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.85" filter="url(#fissure-glow)" />
-      </g>
-
-      <g class="animate-spin-rasengan-reverse" style="transform-origin: 500px 500px;">
-        <path d="M500 500 Q 620 480, 720 380 T 800 240" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9" />
-        <path d="M500 500 Q 380 520, 280 620 T 200 760" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9" />
-      </g>
+      <!-- Crystalline Transparent Glass Shard Facets with Subtle Refraction Tint -->
+      <polygon points="500,500 420,380 500,320" fill="rgba(255, 255, 255, 0.12)" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" />
+      <polygon points="500,500 500,320 590,390" fill="rgba(186, 230, 253, 0.14)" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" />
+      <polygon points="500,500 590,390 640,500" fill="rgba(255, 255, 255, 0.1)" stroke="rgba(255, 255, 255, 0.7)" stroke-width="1" />
+      <polygon points="500,500 640,500 610,610" fill="rgba(125, 211, 252, 0.12)" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" />
+      <polygon points="500,500 610,610 500,680" fill="rgba(255, 255, 255, 0.1)" stroke="rgba(255, 255, 255, 0.7)" stroke-width="1" />
+      <polygon points="500,500 500,680 410,610" fill="rgba(186, 230, 253, 0.12)" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" />
+      <polygon points="500,500 410,610 360,500" fill="rgba(255, 255, 255, 0.1)" stroke="rgba(255, 255, 255, 0.7)" stroke-width="1" />
+      <polygon points="500,500 360,500 420,380" fill="rgba(125, 211, 252, 0.14)" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" />
     </svg>
 
-    <!-- Tactical Chakra HUD Banner -->
-    <div class="absolute bottom-10 inset-x-0 flex items-center justify-center">
-      <div class="px-5 py-2.5 rounded-2xl glass-frost-strong border border-cyan-400/50 shadow-2xl flex items-center gap-3 backdrop-blur-md animate-bounce">
-        <span class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></span>
-        <span class="font-mono text-xs font-black tracking-wider text-cyan-600 dark:text-cyan-300 uppercase">
-          ⚡ 3D RASENGAN WALL IMPACT // REPAIRING MATRIX IN {impactCountdown}s
+    <!-- Huge Swirling Rasengan Chakra Sphere in Center Stage -->
+    <div class="relative w-80 h-80 sm:w-96 sm:h-96 flex items-center justify-center animate-huge-rasengan z-20">
+      <!-- Pulsing Intense Outer Chakra Sphere Aura -->
+      <span class="absolute inset-0 rounded-full bg-cyan-400/40 blur-2xl animate-pulse-rasengan"></span>
+      <span class="absolute inset-6 rounded-full bg-sky-300/30 blur-xl"></span>
+
+      <svg class="w-full h-full relative z-10" viewBox="0 0 100 100" fill="none">
+        <defs>
+          <radialGradient id="huge-rasengan-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+            <stop offset="28%" stop-color="#7dd3fc" stop-opacity="0.95" />
+            <stop offset="65%" stop-color="#0284c7" stop-opacity="0.75" />
+            <stop offset="100%" stop-color="#0369a1" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="huge-rasengan-core" cx="45%" cy="42%" r="48%">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="40%" stop-color="#bae6fd" />
+            <stop offset="75%" stop-color="#38bdf8" />
+            <stop offset="100%" stop-color="#0284c7" />
+          </radialGradient>
+        </defs>
+
+        <!-- Base Glowing Chakra Energy Mass -->
+        <circle cx="50" cy="50" r="46" fill="url(#huge-rasengan-glow)" />
+
+        <!-- High-Velocity Outer Clockwise Spiral Chakra Filaments -->
+        <g class="animate-spin-rasengan">
+          <path d="M50 4 C72 8, 94 26, 96 50 C98 72, 82 92, 62 96 C42 100, 16 90, 8 70 C0 50, 8 24, 26 12 C38 4, 46 4, 50 4" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95" />
+          <path d="M50 12 C68 14, 86 28, 88 48 C90 66, 78 82, 60 86 C42 90, 22 82, 16 66 C10 50, 16 30, 30 20 C40 14, 46 12, 50 12" stroke="#7dd3fc" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9" />
+          <path d="M50 20 C64 22, 78 32, 80 48 C82 62, 74 74, 60 78 C46 82, 30 76, 24 64 C18 52, 24 36, 34 28 C42 22, 46 20, 50 20" stroke="#bae6fd" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.9" />
+        </g>
+
+        <!-- Dense Counter-Clockwise Chakra Stream Vortex -->
+        <g class="animate-spin-rasengan-reverse">
+          <path d="M50 96 C28 92, 6 74, 4 50 C2 28, 18 8, 38 4 C58 0, 84 10, 92 30 C100 50, 92 76, 74 88 C62 96, 54 96, 50 96" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95" />
+          <path d="M50 88 C32 86, 14 72, 12 52 C10 34, 22 18, 40 14 C58 10, 78 18, 84 34 C90 50, 84 70, 70 80 C60 86, 54 88, 50 88" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9" />
+        </g>
+
+        <!-- Concentrated High-Speed Core Vortex & Micro-Filaments -->
+        <g class="animate-spin-rasengan-fast">
+          <path d="M50 28 C60 28, 72 38, 72 50 C72 62, 62 72, 50 72 C38 72, 28 62, 28 50 C28 38, 40 28, 50 28" stroke="#e0f2fe" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <circle cx="50" cy="50" r="16" fill="url(#huge-rasengan-core)" class="animate-pulse-rasengan" />
+          <circle cx="47" cy="45" r="5" fill="#ffffff" opacity="0.95" />
+        </g>
+      </svg>
+    </div>
+
+    <!-- Minimalist HUD Countdown Display (Strictly 3, 2, 1 and chosen theme) -->
+    <div class="absolute bottom-12 inset-x-0 flex items-center justify-center z-30">
+      <div class="px-6 py-3 rounded-2xl glass-frost-strong border border-cyan-400/50 shadow-2xl flex items-center gap-4 backdrop-blur-xl animate-in zoom-in-95 duration-200">
+        <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping"></span>
+        <span class="text-3xl font-black font-mono tracking-tight text-cyan-300 drop-shadow-md">
+          {countdown}
+        </span>
+        <span class="h-5 w-px bg-white/20"></span>
+        <span class="text-xs font-black uppercase tracking-wider text-white drop-shadow-sm">
+          {targetTheme?.name || 'Theme'}
         </span>
       </div>
     </div>

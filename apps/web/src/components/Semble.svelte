@@ -194,8 +194,7 @@
         <button
           type="submit"
           disabled={isSearching || !searchQuery.trim()}
-          class="btn-3d px-6 py-3 rounded-2xl font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50 shrink-0"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary px-6 py-3 rounded-2xl font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50 shrink-0"
         >
           {isSearching ? "Searching..." : "Search"}
         </button>

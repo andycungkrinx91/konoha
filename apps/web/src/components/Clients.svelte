@@ -173,8 +173,8 @@
                 data-client-id="{client.id}"
                 disabled={actionInProgress === client.id}
                 onclick={(e) => { e.stopPropagation(); setupClient(client.id, client.name); }}
-                class="btn-3d relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
-                style="background-color: var(--color-primary, #7c3aed); transform: translateZ(25px);"
+                class="btn-3d btn-3d-primary relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
+                style="transform: translateZ(25px);"
                 aria-label="Setup {client.name}"
               >
                 {#if actionInProgress === client.id}

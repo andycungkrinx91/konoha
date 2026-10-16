@@ -745,7 +745,7 @@
         <button
           type="button"
           onclick={() => { isCreateModalOpen = false; }}
-          class="btn-3d px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 cursor-pointer"
+          class="btn-3d btn-3d-secondary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
         >
           Cancel
         </button>

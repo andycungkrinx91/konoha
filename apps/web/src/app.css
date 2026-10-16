@@ -228,20 +228,72 @@ code, kbd, samp, pre, .font-mono {
 }
 
 .btn-3d {
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease;
-  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background-color: var(--color-surface, #ffffff);
+  color: var(--color-text, #1e293b);
   border: 1px solid color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border, #e2e8f0));
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
 .btn-3d:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 18px -3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  border-color: color-mix(in srgb, var(--theme-grad-1) 35%, var(--color-border, #e2e8f0));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--theme-grad-1) 8%, var(--color-surface, #ffffff));
 }
 
 .btn-3d:active {
   transform: translateY(1px);
   box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Secondary 3D Button with 100% Active Theme Consistency */
+.btn-3d-secondary {
+  background-color: var(--color-surface, #ffffff) !important;
+  color: var(--color-text, #1e293b) !important;
+  border: 1px solid var(--color-border, #e2e8f0) !important;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease !important;
+}
+
+.btn-3d-secondary:hover {
+  transform: translateY(-1.5px) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+  background-color: color-mix(in srgb, var(--theme-grad-1) 10%, var(--color-surface, #ffffff)) !important;
+  box-shadow: 0 6px 16px -2px color-mix(in srgb, var(--theme-grad-1) 25%, transparent) !important;
+}
+
+.btn-3d-secondary:active {
+  transform: translateY(1px) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Theme-Aware Tab / Pill Button System */
+.btn-pill {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 5px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  background-color: var(--color-surface, #ffffff);
+  color: var(--color-text-muted, #64748b);
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.btn-pill:hover {
+  color: var(--color-text, #1e293b);
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--theme-grad-1) 8%, var(--color-surface, #ffffff));
+}
+
+.btn-pill-active {
+  background: var(--theme-4gradient) !important;
+  color: #ffffff !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--theme-grad-1) 40%, transparent) !important;
 }
 
 /* 3D Primary Button with Dynamic 4-Color Theme Gradient */
@@ -648,78 +700,89 @@ code, kbd, samp, pre, .font-mono {
   transform-origin: center;
 }
 
-/* 10-Second 3D Rasengan Impact Wall Hit Effect */
-@keyframes rasengan-wall-hit-3d {
+/* 3-Second Huge Rasengan & Crystalline Glass Crack Theme Transition */
+@keyframes rasengan-huge-spin {
   0% {
-    transform: perspective(900px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0);
-    filter: brightness(1);
+    transform: scale(0.65) rotate(0deg);
+    opacity: 0.2;
+    filter: brightness(1) drop-shadow(0 0 25px #38bdf8);
   }
-  2% {
-    transform: perspective(900px) rotateX(7deg) rotateY(-8deg) scale(0.95) translateZ(-80px);
-    filter: brightness(1.35) contrast(1.1);
-  }
-  5% {
-    transform: perspective(900px) rotateX(-6deg) rotateY(7deg) scale(0.96) translateZ(-65px);
-    filter: brightness(1.2);
-  }
-  9% {
-    transform: perspective(900px) rotateX(4deg) rotateY(-4deg) scale(0.97) translateZ(-50px);
-    filter: brightness(1.1);
-  }
-  15% {
-    transform: perspective(900px) rotateX(-2deg) rotateY(3deg) scale(0.975) translateZ(-40px);
-    filter: brightness(1.05);
-  }
-  35% {
-    transform: perspective(900px) rotateX(1.5deg) rotateY(-1.5deg) scale(0.982) translateZ(-30px);
-  }
-  60% {
-    transform: perspective(900px) rotateX(-0.8deg) rotateY(0.8deg) scale(0.99) translateZ(-18px);
-  }
-  85% {
-    transform: perspective(900px) rotateX(0.3deg) rotateY(-0.3deg) scale(0.996) translateZ(-6px);
-  }
-  100% {
-    transform: perspective(900px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0);
-    filter: brightness(1);
-  }
-}
-
-.rasengan-wall-hit-active {
-  animation: rasengan-wall-hit-3d 10s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-  transform-style: preserve-3d;
-  will-change: transform, filter;
-}
-
-@keyframes rasengan-crater-fade {
-  0% {
-    opacity: 0;
-    transform: scale(0.4) rotate(0deg);
-  }
-  2% {
-    opacity: 1;
-    transform: scale(1.02) rotate(15deg);
-  }
-  5% {
-    transform: scale(1) rotate(45deg);
+  20% {
+    transform: scale(0.95) rotate(240deg);
+    opacity: 0.95;
+    filter: brightness(1.2) drop-shadow(0 0 45px #38bdf8);
   }
   50% {
-    opacity: 0.95;
-    transform: scale(1.01) rotate(360deg);
+    transform: scale(1.05) rotate(720deg);
+    opacity: 1;
+    filter: brightness(1.35) drop-shadow(0 0 70px #0284c7);
   }
   85% {
-    opacity: 0.7;
-    transform: scale(1.005) rotate(720deg);
+    transform: scale(1.15) rotate(1440deg);
+    opacity: 1;
+    filter: brightness(1.5) drop-shadow(0 0 100px #38bdf8);
   }
   100% {
+    transform: scale(1.3) rotate(1800deg);
     opacity: 0;
-    transform: scale(1) rotate(900deg);
+    filter: brightness(2) drop-shadow(0 0 140px #ffffff);
   }
 }
 
-.animate-rasengan-crater {
-  animation: rasengan-crater-fade 10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-huge-rasengan {
+  animation: rasengan-huge-spin 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center center;
+}
+
+@keyframes glass-crack-fissures {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  25% {
+    opacity: 0.75;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 0.95;
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+  }
+  88% {
+    opacity: 1;
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 18px rgba(255, 255, 255, 1));
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+.animate-glass-crack {
+  animation: glass-crack-fissures 3s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+  transform-origin: center center;
+}
+
+@keyframes glass-shatter-flash {
+  0%, 80% {
+    opacity: 0;
+  }
+  88% {
+    opacity: 0.65;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.95) 0%, rgba(56, 189, 248, 0.4) 40%, transparent 70%);
+  }
+  94% {
+    opacity: 0.95;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 1) 0%, rgba(56, 189, 248, 0.6) 50%, rgba(255, 255, 255, 0.2) 80%);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-shatter-flash {
+  animation: glass-shatter-flash 3s ease-out forwards;
 }
 
 .animate-in {

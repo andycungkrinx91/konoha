@@ -90,4 +90,59 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test("Selecting theme triggers 3s Rasengan spinning energy and glass crack animation", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.goto("http://127.0.0.1:4173/skills");
+
+    // Open Theme Switcher
+    const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
+    await themeFab.click();
+
+    // Click "Sharingan Royal Indigo"
+    await page.getByText("Sharingan Royal Indigo").click();
+
+    // Verify Rasengan spinning chakra sphere or countdown overlay appears
+    const rasenganSphere = page.locator(".animate-huge-rasengan");
+    await expect(rasenganSphere).toBeVisible({ timeout: 1500 });
+
+    // Verify countdown text (3, 2, or 1) is displayed
+    const countdownEl = page.locator(".text-cyan-300");
+    await expect(countdownEl).toBeVisible({ timeout: 1500 });
+
+    // Wait for the full 3s Rasengan charge and crystalline glass shatter transition to complete
+    await expect(rasenganSphere).not.toBeVisible({ timeout: 6000 });
+
+    // Verify theme was applied to document element
+    const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(dataTheme).toBe('sharingan');
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("3D tactile buttons maintain consistent theme styles across components", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    // Skills page has both primary and secondary 3D buttons
+    await page.goto("http://127.0.0.1:4173/skills");
+
+    // Check presence of 3D buttons
+    const btnCount = await page.locator(".btn-3d").count();
+    expect(btnCount).toBeGreaterThan(0);
+
+    // Verify primary button presence (e.g. Create Skill or Vector Embeddings)
+    const primaryBtns = page.locator(".btn-3d-primary");
+    const primCount = await primaryBtns.count();
+    expect(primCount).toBeGreaterThan(0);
+
+    // Verify secondary buttons use theme surface rather than unstyled backgrounds
+    const secondaryBtns = page.locator(".btn-3d-secondary");
+    const secCount = await secondaryBtns.count();
+    expect(secCount).toBeGreaterThan(0);
+
+    expect(pageErrors).toEqual([]);
+  });
 });

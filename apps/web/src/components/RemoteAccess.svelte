@@ -329,8 +329,7 @@
         <button
           type="button"
           onclick={() => { showGuideModal = true; }}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
         >
           <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -341,8 +340,7 @@
         <button
           type="button"
           onclick={loadData}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all cursor-pointer"
-          style="background-color: var(--color-primary);"
+          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -471,8 +469,7 @@
             type="button"
             onclick={sendTelegramTest}
             disabled={tgTesting || (!tgConfig.bot_token && !tgTokenInput)}
-            class="btn-3d px-3.5 py-2 text-xs font-bold rounded-[5px] border transition-colors disabled:opacity-50 cursor-pointer"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[5px] border transition-colors disabled:opacity-50 cursor-pointer"
           >
             {tgTesting ? "Sending Ping..." : "Send Test Ping"}
           </button>
@@ -622,8 +619,7 @@
           type="button"
           onclick={saveTunnelSettings}
           disabled={tunnelSaving}
-          class="btn-3d px-3.5 py-2 text-xs font-bold rounded-[5px] border cursor-pointer transition-colors"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[5px] border cursor-pointer transition-colors"
         >
           {tunnelSaving ? "Saving..." : "Save Tunnel Settings"}
         </button>
@@ -635,7 +631,7 @@
           class={`btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer transition-colors ${
             tunnelStatus.enabled
               ? "bg-rose-600 hover:bg-rose-700"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "btn-3d-primary"
           }`}
         >
           {tunnelLoading ? "Processing..." : (tunnelStatus.enabled ? "Stop Tunnel" : "Start Cloudflare Tunnel")}

@@ -395,8 +395,7 @@
         <button
           type="button"
           onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="btn-3d px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer {searchMode === 'registry' ? 'border-sky-500 shadow-md font-bold' : ''}"
-          style="background: var(--color-surface); border-color: var(--color-primary); color: var(--color-primary);"
+          class="btn-3d {searchMode === 'registry' ? 'btn-3d-primary text-white' : 'btn-3d-secondary'} px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
           title="Search skills on skills.sh registry (konoha skill search <query>)"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -408,8 +407,7 @@
         <button
           type="button"
           onclick={reindexAllSkills}
-          class="btn-3d px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
           title="Run konoha migrate to re-index all skills into SQLite FTS5"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -469,7 +467,7 @@
         <button
           type="button"
           onclick={() => { searchMode = "fts"; loadSkills(); }}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -479,7 +477,7 @@
         <button
           type="button"
           onclick={() => { searchMode = "vector"; loadSkills(); }}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -489,7 +487,7 @@
         <button
           type="button"
           onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
           title="Search open-source community skills on skills.sh (equivalent to: konoha skill search <query>)"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -813,8 +811,7 @@
                 <button
                   type="button"
                   onclick={() => activeTab = 'instructions'}
-                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'instructions' ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-slate-500/10'}"
-                  style={activeTab !== 'instructions' ? 'color: var(--color-text-muted);' : ''}
+                  class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'instructions' ? 'btn-3d-primary text-white shadow-sm' : 'btn-3d-secondary'}"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -824,8 +821,7 @@
                 <button
                   type="button"
                   onclick={() => activeTab = 'vectors'}
-                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'vectors' ? 'bg-emerald-600 text-white shadow-sm' : 'hover:bg-slate-500/10'}"
-                  style={activeTab !== 'vectors' ? 'color: var(--color-text-muted);' : ''}
+                  class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'vectors' ? 'btn-3d-primary text-white shadow-sm' : 'btn-3d-secondary'}"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -1068,8 +1064,7 @@
         <button
           type="button"
           onclick={() => isCreateModalOpen = false}
-          class="px-4 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer"
         >
           Cancel
         </button>
@@ -1265,8 +1260,7 @@
         <button
           type="button"
           onclick={() => isRegistryModalOpen = false}
-          class="btn-3d px-4 py-2 rounded-xl border font-semibold cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-4 py-2 rounded-xl border font-semibold cursor-pointer"
         >
           Close
         </button>

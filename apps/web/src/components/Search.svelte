@@ -147,8 +147,7 @@
     <div class="flex items-center gap-2">
       <button
         onclick={() => { showDiagnostics = !showDiagnostics; if (showDiagnostics) loadLogs(); }}
-        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
-        style="background: var(--glass-card); border-color: var(--color-border); color: var(--color-text);"
+        class="btn-3d btn-3d-secondary px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -308,8 +307,7 @@
         <button
           type="button"
           onclick={() => handleSearch(q)}
-          class="btn-3d px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer"
-          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="btn-3d btn-3d-secondary px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer"
         >
           {q}
         </button>
@@ -393,8 +391,7 @@
                   type="button"
                   title="Copy citation markdown"
                   onclick={() => copyCitation(item)}
-                  class="btn-3d px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
-                  style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                  class="btn-3d btn-3d-secondary px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -406,8 +403,7 @@
                   type="button"
                   title="Copy link"
                   onclick={() => copyUrl(item.url)}
-                  class="btn-3d p-1.5 rounded-xl border text-[11px] font-semibold shadow-sm cursor-pointer"
-                  style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                  class="btn-3d btn-3d-secondary p-1.5 rounded-xl border text-[11px] font-semibold shadow-sm cursor-pointer"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />

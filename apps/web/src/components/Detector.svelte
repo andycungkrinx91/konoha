@@ -67,10 +67,10 @@
     </div>
 
     <!-- Mode toggle tabs with 3D Theme Gradient Styling -->
-    <div class="flex items-center gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200 shrink-0">
+    <div class="flex items-center gap-1.5 p-1.5 rounded-2xl border shrink-0" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <button
         onclick={() => { mode = 'website'; result = null; error = null; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'website' ? 'btn-3d-primary' : 'text-slate-600 hover:text-slate-900'}"
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'website' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
@@ -79,7 +79,7 @@
       </button>
       <button
         onclick={() => { mode = 'document'; result = null; error = null; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'document' ? 'btn-3d-primary' : 'text-slate-600 hover:text-slate-900'}"
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'document' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -96,13 +96,13 @@
       <div class="flex items-center gap-2 mb-3">
         <button
           onclick={() => { docInputMode = 'path'; }}
-          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'path' ? 'btn-3d-primary' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'path' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           File Path
         </button>
         <button
           onclick={() => { docInputMode = 'text'; }}
-          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'text' ? 'btn-3d-primary' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'text' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           Paste Text
         </button>

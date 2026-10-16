@@ -70,8 +70,7 @@
           type="button"
           onclick={triggerRepair}
           disabled={repairing}
-          class="btn-3d inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
         >
           <svg class="w-4 h-4 {repairing ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {#if repairing}

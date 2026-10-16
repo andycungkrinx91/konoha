@@ -89,7 +89,7 @@
           <button
             type="button"
             onclick={sweetAlert.handleCancel}
-            class="btn-3d px-5 py-2.5 rounded-[5px] text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-all cursor-pointer"
+            class="btn-3d btn-3d-secondary px-5 py-2.5 rounded-[5px] text-xs font-bold transition-all cursor-pointer"
           >
             {sweetAlert.cancelText}
           </button>
