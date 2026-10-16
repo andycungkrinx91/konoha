@@ -476,7 +476,7 @@ The official delegation tools are: ${agents.map(a => `\`${a.name}\``).join(', ')
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
 Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP delegations (\`turn >= 2\`, reset after 30 min idle) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
-- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and injected via compact badges without hallucination. Unverified learnings are never persisted.
+- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and prioritized in prompts. Advisory learnings are preserved with base importance.
 - **Prompt Compaction**: Verbose instruction boilerplates and redundant diff explanations are compacted. The primary skill SOP preview (250 chars) is always included even on compact turns. Agent instructions are truncated to 1200 chars and constraints to 600 chars (never stripped entirely).
 - **On-Demand Skills**: Full reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
 
@@ -701,7 +701,7 @@ You delegate specialized work by calling the corresponding subagent MCP tools se
 
 ### Auto-Compaction Contract (Token Preservation across all clients)
 Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP delegations (\`turn >= 2\`, reset after 30 min idle) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
-- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and injected via compact badges without hallucination. Unverified learnings are never persisted.
+- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and prioritized in prompts. Advisory learnings are preserved with base importance.
 - **Prompt Compaction**: Verbose instruction boilerplates and redundant diff explanations are compacted. The primary skill SOP preview (250 chars) is always included even on compact turns. Agent instructions are truncated to 1200 chars and constraints to 600 chars (never stripped entirely).
 - **On-Demand Skills**: Full reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
 
@@ -798,6 +798,23 @@ function generateAgentsMd(agents) {
     return primaryFormatted;
   }
 
+  function formatRoleConstraints(text) {
+    if (!text) return '';
+    return text
+      .replace(/Base personality: High Effort \+ Instruct Style —[^.]+\./gi, '')
+      .replace(/and adhere strictly to base personality:[^.]+\./gi, '')
+      .replace(/Call konoha\.find_skill for skills\.[\s\S]*?(?=Call the semble|\. [A-Z]|$)/gi, '')
+      .replace(/Call the semble MCP tools \(search\/find_related\) directly for codebase search\. Do NOT mix them\.?/gi, '')
+      .replace(/Do NOT call `?semble`? tools[^.]+\./gi, '')
+      .replace(/NEVER use `?semble`? search for skills\.?/gi, '')
+      .replace(/NEVER use grep, glob, find[^.]+\./gi, '')
+      .replace(/Always use `?konoha`? MCP tools[^.]+\./gi, '')
+      .replace(/\s*\.\s*\./g, '.')
+      .replace(/^\s*\.\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   // Build delegation table
   const delegationRows = agents.map(a => `| ${formatCompactSkillsList(a.skills)} | \`${a.name}\` |`).join('\n');
 
@@ -805,11 +822,12 @@ function generateAgentsMd(agents) {
   const agentSections = agents.map(a => {
     const iconStr = a.icon ? `${a.icon} ` : '';
     const skillsFormatted = formatCompactSkillsList(a.skills);
+    const cleanConstraints = formatRoleConstraints(a.constraints);
     return `### @${a.name} — ${iconStr}${a.title}
 - **Purpose**: ${a.purpose}
 - **Skills**: ${skillsFormatted}
 - **Delegate when**: ${a.delegateWhen}
-- **Constraints**: ${a.constraints}
+- **Constraints**: ${cleanConstraints}
 - **Workflow**: ${a.workflow}`;
   }).join('\n\n');
 
