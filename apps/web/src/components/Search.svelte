@@ -139,7 +139,7 @@
         </span>
       </div>
       <p class="text-xs mt-1" style="color: var(--color-text-muted);">
-        Autonomous fallback chain: Dynamic SearXNG ➔ DuckDuckGo HTML ➔ Startpage HTML ➔ Wikipedia OpenSearch.
+        Autonomous fallback chain: Dynamic SearXNG &rarr; DuckDuckGo HTML &rarr; Startpage HTML &rarr; Wikipedia OpenSearch.
       </p>
     </div>
 
@@ -187,7 +187,7 @@
         <div class="text-[11px] mt-0.5" style="color: var(--color-text-muted);">
           Cached Candidates: <span class="font-semibold" style="color: var(--color-text);">{engineStatus?.cached_candidates_count || 0}</span> ·
           Logged Queries: <span class="font-semibold" style="color: var(--color-text);">{searchLogs.length}</span> ·
-          Chain: <span class="font-mono text-[10px]">SearXNG ➔ DDG ➔ Startpage ➔ Wikipedia</span>
+          Chain: <span class="font-mono text-[10px]">SearXNG &rarr; DDG &rarr; Startpage &rarr; Wikipedia</span>
         </div>
       </div>
     </div>
@@ -244,10 +244,13 @@
           <button
             type="button"
             onclick={() => query = ''}
-            class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-50 hover:opacity-100"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-50 hover:opacity-100 flex items-center justify-center w-5 h-5 cursor-pointer"
             style="color: var(--color-text-muted);"
+            aria-label="Clear query"
           >
-            ✕
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         {/if}
       </div>

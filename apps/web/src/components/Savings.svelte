@@ -138,7 +138,11 @@
       style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"
     >
       <div class="flex items-center gap-2.5 mb-4">
-        <span class="text-xl">🏆</span>
+        <div class="w-8 h-8 rounded-[5px] flex items-center justify-center bg-amber-500/10 text-amber-500 border border-amber-500/30">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          </svg>
+        </div>
         <div>
           <h3 class="text-base font-black text-slate-900 tracking-tight">Combined Total Savings</h3>
           <p class="text-xs font-semibold text-slate-600">Unified live metric from Konoha MCP + Semble Semantic Engine</p>
@@ -192,7 +196,13 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
-            <span style="color: var(--color-primary);">1. ⚡</span> Konoha MCP Savings
+            <span class="flex items-center gap-1.5" style="color: var(--color-primary);">
+              <span>1.</span>
+              <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </span>
+            <span>Konoha MCP Savings</span>
           </h3>
           <p class="text-xs font-semibold text-slate-600">
             Calculated relative to full context index sizing ({((today.db_size_bytes || (2065 * 1024)) / 1024).toFixed(0)} KB actual baseline)
@@ -328,7 +338,10 @@
       >
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-            ⚙
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
           </div>
           <div>
             <div class="flex items-center gap-2">
@@ -486,7 +499,13 @@
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
-              <span class="text-emerald-500">2. 🔍</span> Semble MCP (Semantic Code Search) Savings
+              <span class="flex items-center gap-1.5 text-emerald-500">
+                <span>2.</span>
+                <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <span>Semble MCP (Semantic Code Search) Savings</span>
             </h3>
             <p class="text-xs font-semibold text-slate-600">Replaces massive repository file scans with on-demand neural embeddings</p>
           </div>

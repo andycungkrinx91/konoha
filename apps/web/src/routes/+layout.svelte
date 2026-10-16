@@ -20,42 +20,42 @@
       ]
     },
     {
-      title: 'Clients & Finance',
+      title: 'Connectivity & Gateways',
       items: [
-        { id: 'clients', path: '/clients', label: 'Clients', iconSvg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
-        { id: 'savings', path: '/savings', label: 'Savings', iconSvg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-        { id: 'bridges', path: '/bridges', label: 'Bridges', iconSvg: 'M8 9l4-4 4 4m0 6l-4 4-4-4' }
-      ]
-    },
-    {
-      title: 'Tools & Integrations',
-      items: [
-        { id: 'search', path: '/search', label: 'Web Search', iconSvg: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', badge: 'SearXNG' },
-        { id: 'semble', path: '/semble', label: 'Semble MCP', iconSvg: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', badge: '98%' },
-        { id: 'detector', path: '/detector', label: 'AI Detector', iconSvg: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c.5.633 1.2 1 2 1s1.5-.367 2-1m2-3a2 2 0 100-4 2 2 0 000 4z', badge: 'Web & Docs' },
+        { id: 'clients', path: '/clients', label: 'Client IDEs', iconSvg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+        { id: 'bridges', path: '/bridges', label: 'LLM Bridges', iconSvg: 'M8 9l4-4 4 4m0 6l-4 4-4-4' },
         { id: 'remote', path: '/remote', label: 'Remote Access', iconSvg: 'M13 10V3L4 14h7v7l9-11h-7z', badge: 'Telegram' }
       ]
     },
     {
-      title: 'Configuration',
+      title: 'Token Optimization',
       items: [
-        { id: 'persona', path: '/persona', label: 'Persona', iconSvg: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
-        { id: 'context', path: '/context', label: 'Context', iconSvg: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
-        { id: 'agents', path: '/agents', label: 'Agents', iconSvg: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-        { id: 'skills', path: '/skills', label: 'Skills', iconSvg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' }
+        { id: 'savings', path: '/savings', label: 'Token Savings', iconSvg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Telemetry' }
       ]
     },
     {
-      title: 'Operations',
+      title: 'Agent Intelligence',
+      items: [
+        { id: 'agents', path: '/agents', label: 'Ninja Agents', iconSvg: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+        { id: 'skills', path: '/skills', label: 'Skills & Vectors', iconSvg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', badge: 'FTS5' },
+        { id: 'persona', path: '/persona', label: 'Persona & Memory', iconSvg: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
+        { id: 'context', path: '/context', label: 'Workspace Context', iconSvg: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' }
+      ]
+    },
+    {
+      title: 'Developer Tools',
+      items: [
+        { id: 'search', path: '/search', label: 'Web Search', iconSvg: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', badge: 'SearXNG' },
+        { id: 'semble', path: '/semble', label: 'Semble MCP', iconSvg: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', badge: '98%' },
+        { id: 'detector', path: '/detector', label: 'AI Detector', iconSvg: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c.5.633 1.2 1 2 1s1.5-.367 2-1m2-3a2 2 0 100-4 2 2 0 000 4z', badge: 'Web & Docs' }
+      ]
+    },
+    {
+      title: 'SDLC Operations & Diagnostics',
       items: [
         { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', iconSvg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-        { id: 'doctor', path: '/doctor', label: 'Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' }
-      ]
-    },
-    {
-      title: 'Resources',
-      items: [
-        { id: 'docs', path: '/docs', label: 'Documentation', iconSvg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' }
+        { id: 'doctor', path: '/doctor', label: 'Health & Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+        { id: 'docs', path: '/docs', label: 'Documentation', iconSvg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
       ]
     }
   ];

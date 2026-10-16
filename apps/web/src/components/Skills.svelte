@@ -414,10 +414,13 @@
         <button
           type="button"
           onclick={() => { searchQuery = ''; if (searchMode === 'registry') searchRegistrySkills(''); else loadSkills(); }}
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-60 hover:opacity-100 cursor-pointer"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-60 hover:opacity-100 cursor-pointer flex items-center justify-center w-5 h-5"
           style="color: var(--color-text-muted);"
+          aria-label="Clear skill search"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       {/if}
     </div>
@@ -428,16 +431,22 @@
         <button
           type="button"
           onclick={() => { searchMode = "fts"; loadSkills(); }}
-          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer {searchMode === 'fts' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
+          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
         >
-          🔤 Local FTS5
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+          </svg>
+          <span>Local FTS5</span>
         </button>
         <button
           type="button"
           onclick={() => { searchMode = "vector"; loadSkills(); }}
-          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 {searchMode === 'vector' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
+          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
         >
-          <span>⚡ Neural Vector</span>
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Neural Vector</span>
         </button>
         <button
           type="button"
@@ -445,20 +454,29 @@
           class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
           title="Search open-source community skills on skills.sh (equivalent to: konoha skill search <query>)"
         >
-          <span>🌐 skills.sh Registry</span>
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+          </svg>
+          <span>skills.sh Registry</span>
         </button>
       </div>
 
       {#if searchMode === 'registry'}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-blue-700 dark:text-blue-300 border-blue-500/30 bg-blue-500/10">
-          🌐 skills.sh Public Registry
+        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-blue-700 dark:text-blue-300 border-blue-500/30 bg-blue-500/10 flex items-center gap-1">
+          <svg class="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+          </svg>
+          <span>skills.sh Public Registry</span>
         </span>
         <span class="text-xs font-bold" style="color: var(--color-text-muted);">
           {registryResults.length} found
         </span>
       {:else}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
-          ⚡ {vectorStats.embedded_chunks || vectorStats.total_chunks || 989} Vector Chunks (Dual Models Active)
+        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>{vectorStats.embedded_chunks || vectorStats.total_chunks || 989} Vector Chunks (Dual Models Active)</span>
         </span>
         <span class="text-xs font-bold" style="color: var(--color-text-muted);">
           {skills.length} skills
@@ -474,7 +492,9 @@
       <div class="flex items-center justify-between flex-wrap gap-3 p-4 rounded-2xl border" style="background: var(--color-surface); border-color: var(--color-border);">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl flex items-center justify-center border font-bold" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
-            🌐
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
           </div>
           <div>
             <h2 class="text-sm sm:text-base font-bold" style="color: var(--color-text);">
@@ -506,8 +526,10 @@
         </div>
       {:else if registryResults.length === 0}
         <div class="p-16 text-center rounded-3xl border" style="background: var(--color-surface); border-color: var(--color-border);">
-          <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center border text-xl" style="background-color: var(--color-primary-glow); border-color: var(--color-primary);">
-            🔍
+          <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center border text-xl" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
           <h3 class="text-sm font-bold" style="color: var(--color-text);">No skills found matching "{searchQuery}"</h3>
           <p class="text-xs mt-1" style="color: var(--color-text-muted);">Try searching for "react", "docker", "kubernetes", "tailwind", or "nextjs".</p>
@@ -612,10 +634,13 @@
               <button
                 type="button"
                 onclick={() => switchToRegistryMode(searchQuery)}
-                class="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 shadow-sm cursor-pointer"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 shadow-sm cursor-pointer flex items-center gap-1.5"
                 style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent, #6366f1));"
               >
-                🌐 Search skills.sh for "{searchQuery}"
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <span>Search skills.sh for "{searchQuery}"</span>
               </button>
             {/if}
           </div>
@@ -750,10 +775,13 @@
                 <button
                   type="button"
                   onclick={() => activeTab = 'instructions'}
-                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer {activeTab === 'instructions' ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-slate-500/10'}"
+                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'instructions' ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-slate-500/10'}"
                   style={activeTab !== 'instructions' ? 'color: var(--color-text-muted);' : ''}
                 >
-                  📄 Instructions & Manual
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Instructions & Manual</span>
                 </button>
                 <button
                   type="button"
@@ -761,7 +789,10 @@
                   class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 {activeTab === 'vectors' ? 'bg-emerald-600 text-white shadow-sm' : 'hover:bg-slate-500/10'}"
                   style={activeTab !== 'vectors' ? 'color: var(--color-text-muted);' : ''}
                 >
-                  <span>⚡ Vector Chunks & Embeddings</span>
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Vector Chunks & Embeddings</span>
                   <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}">
                     {selectedSkill.chunks_count || selectedSkill.chunks?.length || 0}
                   </span>
@@ -838,8 +869,10 @@
         {:else}
           {#if skills.length === 0 && searchQuery}
             <div class="p-12 text-center rounded-3xl border space-y-4" style="background: var(--color-surface); border-color: var(--color-border);">
-              <div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center border text-xl" style="background-color: var(--color-primary-glow); border-color: var(--color-primary);">
-                🌐
+              <div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center border text-xl" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
               </div>
               <div>
                 <h3 class="text-base font-bold" style="color: var(--color-text);">No local skills matching "{searchQuery}"</h3>
@@ -906,8 +939,11 @@
           onclick={() => isCreateModalOpen = false}
           class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close create skill modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
@@ -1039,8 +1075,11 @@
           onclick={() => isRegistryModalOpen = false}
           class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close registry modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
@@ -1061,10 +1100,13 @@
           <button
             type="button"
             onclick={() => { registryQuery = ''; searchRegistrySkills(); }}
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-60 hover:opacity-100 cursor-pointer"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-60 hover:opacity-100 cursor-pointer flex items-center justify-center w-5 h-5"
             style="color: var(--color-text-muted);"
+            aria-label="Clear registry query"
           >
-            ✕
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         {/if}
       </div>

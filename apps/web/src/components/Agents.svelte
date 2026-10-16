@@ -356,8 +356,11 @@
 
               <div class="flex flex-col items-end gap-1">
                 {#if isOfficialAgent(agent.name)}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300" title="Protected Village Ninja - Cannot be deleted">
-                    🛡️ Protected
+                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 flex items-center gap-1" title="Protected Village Ninja - Cannot be deleted">
+                    <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span>Protected</span>
                   </span>
                 {:else}
                   <div class="flex items-center gap-1">
@@ -482,7 +485,9 @@
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
-            🥷
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
           </div>
           <div>
             <h3 class="text-base font-bold" style="color: var(--color-text);">Create Custom Ninja Subagent</h3>
@@ -494,8 +499,11 @@
           onclick={() => { showCreateModal = false; }}
           class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
@@ -623,7 +631,9 @@
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
-            ✏️
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </div>
           <div>
             <h3 class="text-base font-bold" style="color: var(--color-text);">Edit Custom Ninja @{editAgentTarget.name}</h3>
@@ -635,8 +645,11 @@
           onclick={() => { showEditModal = false; }}
           class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close edit modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 

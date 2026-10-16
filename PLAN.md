@@ -1,131 +1,143 @@
-# Konoha Skills Architecture & Inventory Deep Review Plan
+# Web UI Refinement Plan & Architectural Specification
 
-**Product:** Konoha (`konoha-mcp` v2.1.18)  
+**Product:** Konoha Web UI (`apps/web`)  
+**Version:** 2.1.18  
 **Date:** 2026-10-16  
-**Document Status:** Comprehensive Audit & Verification Plan  
-**Target:** Skills Routing, Skill Use, Embedded Skills, Find Skill, Full Skills Inventory, Quality, and One-Shot Style  
+**Document Status:** Active Implementation Plan  
+**Target Areas:** Zero Emoticons / SVG Icon Standards, Sidebar Categories & Submenu Parity, Floating Theme Button Layout, 10 Custom 4-Color Gradient System & Glassmorphism  
 
 ---
 
 ## 1. Executive Objective
 
-The objective of this deep review is to perform a rigorous, end-to-end audit and evaluation of the entire Konoha skill ecosystem across six fundamental pillars:
-1. **Skills Routing & MCP Tool Dispatch**: Verify the deterministic flow from MCP clients through the tool router, ensuring bounded execution, zero parameter loss, and strict isolation.
-2. **Skill Use & On-Demand Retrieval**: Verify that skills are consumed on-demand without context bloat, respecting token budgets and strictly avoiding full-file dumps into context.
-3. **Ninja Agent Embedded Skills**: Verify that each specialist agent (`sannin`, `genin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`, `chunin`) contains the exact canonical embedded skills in its configuration and rule files across all 4 client trees (`.agents/`, `.cursor/`, `.claude/`, `.commandcode/`, `.gemini/`).
-4. **Find Skill Precision & Search Ranking**: Audit SQLite FTS5 full-text indexing, BM25 ranking weights, query tokenization, LIKE fallback, and accuracy across keyword queries.
-5. **Full Skills Inventory & Metadata**: Audit all root skills (`SKILL.md`) and embedded reference guides across the repository for valid YAML frontmatter, naming conventions, and integrity.
-6. **Instruction Quality & One-Shot Instruct Style**: Verify that all skill instructions adhere strictly to the high-effort instruct style: direct action, zero conversational filler, zero AI slop, executable code blocks, and self-contained execution recipes.
+The objective of this Web UI refinement is to modernize and polish the Konoha Web Dashboard across 5 core dimensions:
+1. **Zero Emoticon Invariant & SVG Icon Standard**: Eliminate all unicode emojis/emoticons across all Svelte components (`Agents.svelte`, `Detector.svelte`, `Persona.svelte`, `Savings.svelte`, `Search.svelte`, `Skills.svelte`, `Tasks.svelte`, `ThemeSwitcher.svelte`) and replace them with crisp, accessible vector SVG icons from the standard library.
+2. **Left Sidebar Category & Submenu Alignment**: Restructure the category headings in `apps/web/src/routes/+layout.svelte` so that every category name semantically and accurately matches the items grouped underneath it (eliminating outdated groupings like "Clients & Finance" for bridges and token savings).
+3. **Theme Switcher Floating Button Position & Icon**: Replace the plain dot on the Theme Switcher FAB with an authentic SVG palette/theme icon from the library, and add a `2em` bottom margin offset (`margin-bottom: 2em`) to guarantee zero visual overlap with the left sidebar system status footer.
+4. **10 Custom 4-Color Gradient Themes with Glassmorphism**: Update `apps/web/src/lib/state/themeState.svelte.js` and `ThemeSwitcher.svelte` to implement the exact 10 4-color gradient color palettes requested by the user, while preserving full glassmorphism effects (backdrop blur, specular sheen, dynamic CSS variables `--theme-grad-1` through `--theme-grad-4`, `--theme-4gradient`, `--theme-4gradient-bar`, `--theme-4gradient-subtle`).
+5. **Codebase Hygiene & Zero Errors/Warnings**: Ensure `pnpm --dir apps/web run check` and `node scripts/lint.js` pass with 0 errors and 0 warnings.
 
 ---
 
-## 2. Architecture & Review Dimensions
+## 2. 10 Custom 4-Color Gradient Themes Specification
 
-```mermaid
-flowchart TD
-    Client[AI Client: Antigravity / Cursor / Claude / OMP] -->|find_skill / find_skills| Router[MCP Tool Dispatcher: src/file_tools_router.js]
-    Router -->|FTS5 BM25 Query| FTS[(SQLite FTS5: skills_fts & skills table)]
-    Router -->|On-Demand Read| FS[Skills Storage: .agents/skills/ & mirrors]
-    
-    subgraph Routing & Use ["1. Skills Routing & Use"]
-        Router
-        FTS
-        FS
-    end
+The 10 themes in `apps/web/src/lib/state/themeState.svelte.js` will be mapped to the user-specified 4-color gradients with custom glassmorphism tints:
 
-    subgraph Agents ["2. Ninja Agent Embedded Rosters"]
-        Sannin[Sannin: sannin-skill, antislop]
-        Genin[Genin: genin-skill, i-have-adhd, antislop, antislop-human, antislop-code]
-        Kage[Kage: kage-skill, antislop, antislop-human, antislop-code]
-        Chunin[Chunin: chunin-skill, i-have-adhd, antislop, antislop-human, antislop-code]
-        Jonin[Jonin: jonin-skill, i-have-adhd, antislop, antislop-ui, antislop-human, antislop-layoutmobile, antislop-code]
-        Anbu[Anbu: anbu-skill, i-have-adhd, antislop, antislop-human, antislop-code]
-        Tokubetsu[Tokubetsu-Jonin: tokubetsu-jonin-skill, i-have-adhd, antislop, antislop-copywriting, antislop-human, antislop-code]
-    end
+| # | Theme ID | Theme Name | 4-Color Gradient Array | Primary Color | Accent Color | Border Color | Light Surface Background |
+|:---:|:---|:---|:---|:---:|:---:|:---:|:---:|
+| 1 | `chidori` | Chidori Azure Light | `['#3B82F6', '#14B8A6', '#8B5CF6', '#F97316']` | `#3B82F6` | `#14B8A6` | `#bfdbfe` | `#f0f9ff` |
+| 2 | `byakugan` | Byakugan Sunburst Light | `['#EAB308', '#EC4899', '#84CC16', '#06B6D4']` | `#EAB308` | `#EC4899` | `#fef08a` | `#fefce8` |
+| 3 | `konoha-leaf` | Konoha Indigo Rose Light | `['#6366F1', '#F43F5E', '#3B82F6', '#EAB308']` | `#6366F1` | `#F43F5E` | `#c7d2fe` | `#eef2ff` |
+| 4 | `rasengan` | Rasengan Violet Light | `['#8B5CF6', '#06B6D4', '#F97316', '#EC4899']` | `#8B5CF6` | `#06B6D4` | `#ddd6fe` | `#f5f3ff` |
+| 5 | `sharingan` | Sharingan Teal Lime Light | `['#14B8A6', '#84CC16', '#6366F1', '#F43F5E']` | `#14B8A6` | `#84CC16` | `#99f6e4` | `#f0fdfa` |
+| 6 | `hokage-gold` | Hokage Amber Light | `['#F97316', '#EAB308', '#3B82F6', '#EC4899']` | `#F97316` | `#EAB308` | `#fed7aa` | `#fff7ed` |
+| 7 | `anbu-shadow` | Anbu Cyan Purple Light | `['#06B6D4', '#8B5CF6', '#14B8A6', '#6366F1']` | `#06B6D4` | `#8B5CF6` | `#a5f3fc` | `#ecfeff` |
+| 8 | `sage-mode` | Sage Pink Ruby Light | `['#EC4899', '#F43F5E', '#EAB308', '#84CC16']` | `#EC4899` | `#F43F5E` | `#fbcfe8` | `#fdf2f8` |
+| 9 | `sound-village` | Sound Cobalt Light | `['#3B82F6', '#6366F1', '#06B6D4', '#F43F5E']` | `#3B82F6` | `#6366F1` | `#bfdbfe` | `#eff6ff` |
+| 10 | `akatsuki` | Akatsuki Emerald Light | `['#84CC16', '#14B8A6', '#EAB308', '#8B5CF6']` | `#84CC16` | `#14B8A6` | `#d9f99d` | `#f7fee7` |
 
-    subgraph Quality ["3. Quality & One-Shot Style"]
-        OneShot[One-Shot Instruct Style: Zero Filler, Deterministic Steps, Concrete Code]
-        ZeroSlop[Zero AI Slop: 100/100 Scan, Invariant 69 Zero Exclusions]
-        Parity[Mirror Tree Parity: .agents, .cursor, .claude, .commandcode, .gemini]
-    end
+### Glassmorphism Integration Rules
+- Dynamic CSS variables: `--color-primary`, `--color-accent`, `--color-primary-glow`, `--color-bg`, `--color-surface`, `--color-border`.
+- Multi-stop gradients: `--theme-4gradient` (`linear-gradient(135deg, ...)`), `--theme-4gradient-bar` (`linear-gradient(90deg, ...)`), and `--theme-4gradient-subtle` (`linear-gradient(135deg, ...22)`).
+- Specular glass sheen on cards and modals via `glass-frost-strong` (`backdrop-filter: blur(24px) saturate(200%)`).
 
-    Client --> Agents
-    Agents --> Quality
+---
+
+## 3. Left Sidebar Categories & Submenu Parity Specification
+
+Restructure `navSections` in `apps/web/src/routes/+layout.svelte` from the legacy mismatched categories into structured, domain-accurate groupings:
+
+```javascript
+const navSections = [
+  {
+    title: 'Overview',
+    items: [
+      { id: 'dashboard', path: '/dashboard', label: 'Dashboard', ... }
+    ]
+  },
+  {
+    title: 'Connectivity & Gateways',
+    items: [
+      { id: 'clients', path: '/clients', label: 'Client IDEs', ... },
+      { id: 'bridges', path: '/bridges', label: 'LLM Bridges', ... },
+      { id: 'remote', path: '/remote', label: 'Remote Access', badge: 'Telegram', ... }
+    ]
+  },
+  {
+    title: 'Token Optimization',
+    items: [
+      { id: 'savings', path: '/savings', label: 'Token Savings', ... }
+    ]
+  },
+  {
+    title: 'Agent Intelligence',
+    items: [
+      { id: 'agents', path: '/agents', label: 'Ninja Agents', ... },
+      { id: 'skills', path: '/skills', label: 'Skills & Vectors', ... },
+      { id: 'persona', path: '/persona', label: 'Persona & Memory', ... },
+      { id: 'context', path: '/context', label: 'Workspace Context', ... }
+    ]
+  },
+  {
+    title: 'Developer Tools',
+    items: [
+      { id: 'search', path: '/search', label: 'Web Search', badge: 'SearXNG', ... },
+      { id: 'semble', path: '/semble', label: 'Semble MCP', badge: '98%', ... },
+      { id: 'detector', path: '/detector', label: 'AI Detector', badge: 'Web & Docs', ... }
+    ]
+  },
+  {
+    title: 'SDLC Operations & Diagnostics',
+    items: [
+      { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', ... },
+      { id: 'doctor', path: '/doctor', label: 'Health & Doctor', ... },
+      { id: 'docs', path: '/docs', label: 'Documentation', ... }
+    ]
+  }
+];
 ```
 
 ---
 
-## 3. Phased Implementation & Audit Steps
+## 4. Theme Switcher FAB Layout & Icon Specification
 
-### Phase 1: Skills Routing & MCP Dispatch Architecture
-- [x] **Audit `src/file_tools_router.js`**: Verify handlers for `find_skill`, `find_skills`, `get_skill`, `list_skills`, and `use_skills`.
-- [x] **Audit `src/mcp/skills.js`**: Verify core implementation of `findSkill()`, `findSkills()`, `getSkill()`, `listSkills()`, and `useSkills()`.
-- [x] **Verify Parameter Normalization**: Verify handling of `keyword`, `keywords`, `name`, `skill`, `limit`, `compact`, and `token_budget`.
-- [x] **Verify Error Boundaries**: Ensure missing or malformed inputs return structured JSON error payloads instead of unhandled process crashes.
-
-### Phase 2: Search Precision, FTS5 & BM25 Ranking Audit
-- [x] **Audit SQLite Schema & Virtual Tables**: Inspect `skills` canonical table, `skills_fts` virtual table, and `skill_chunks` table.
-- [x] **Audit Tokenization & FTS5 Query Sanitization**: Verify `sanitizeFts5Query()` in `src/mcp/skills.js` and `src/db.js` against special characters, boolean operators (`AND`, `OR`, `NOT`, `*`), and punctuation.
-- [x] **Evaluate Search Precision**: Benchmark queries across key domains (e.g., `docker`, `react`, `security`, `css`, `kubernetes`, `testing`, `svelte`, `tailwind`, `database`, `api`).
-- [x] **Verify Fallback Mechanisms**: Verify SQL `LIKE` fallback when FTS syntax errors or zero virtual table matches occur.
-- [x] **Foreign Key Cascade Integrity**: Verify `ON DELETE CASCADE` on `skill_chunks(skill_name)` during skill deletion/reindexing.
-
-### Phase 3: Ninja Agent Embedded Skills & Client Mirror Parity
-- [x] **Audit Embedded Skills Roster**: Cross-reference the 7 official ninja agent rosters in `~/.agents/AGENTS.md`, `src/agent_manager.js`, `src/cursor_manager.js`, and `src/server.js`.
-- [x] **Verify Mirror Trees Parity**: Compare `.agents/skills/` against:
-  - `src/templates/skills/`
-  - `.cursor/skills/`
-  - `.claude/skills/`
-  - `.commandcode/skills/`
-  - `.gemini/skills/`
-- [x] **Validate Invariant: No `skilladd` Command**: Verify that `skilladd` is nowhere referenced, implemented, or documented (strictly `konoha skill add`).
-- [x] **Verify Invariant: Strict Skill & Reference Protection**: Confirm zero skill or reference files are removed or pruned.
-
-### Phase 4: Full Skills Inventory, Content Quality & One-Shot Style
-- [x] **Inventory All Root Skills**: List every installed `SKILL.md` under `.agents/skills/`.
-- [x] **Inventory Embedded References**: Catalog all specialized references (e.g., `react-patterns`, `antislop-ui`, `docker-compose`, `k8s-manifests`).
-- [x] **Verify YAML Frontmatter**: Ensure valid YAML frontmatter with `name`, `description`, `tags`, and optional metadata.
-- [x] **Evaluate One-Shot Instruct Style**:
-  - Direct action orientation (lead with instructions, not pleasantries).
-  - Concrete executable patterns, code templates, and schemas.
-  - Absence of conversational filler ("Let me think", "Wait - but", "Hmmmm").
-  - Prescriptive constraints and clear definition of done.
-- [x] **Zero-AI-Slop Review**: Check for generic boilerplate, placeholder tokens (`TODO`, `FIXME`), and AI-generated cliché prose.
-
-### Phase 5: Verification, Test Execution & Synthesis
-- [x] **Run Skills Test Suites**:
-  - `tests/test_client_skill_loading.js`
-  - `tests/test_client_skills_sync.js`
-  - `tests/test_canonical_skills_and_embedded_refs.js`
-  - `tests/test_skill_resolution.js`
-  - `tests/test_skill_tree_parity.js`
-  - `tests/test_skills_node_compat.js`
-  - `tests/test_db_foreign_keys_and_fts.js`
-- [x] **Run Static Analysis & Linters**:
-  - `node scripts/lint.js` (0 errors and 0 warnings)
-  - `pnpm --dir apps/web run check` (0 errors and 0 warnings)
-- [x] **Synthesize Findings & Recommendations**: Compile audit scorecard and Kage Reviewer Confidence Gate Report.
+In `apps/web/src/components/ThemeSwitcher.svelte`:
+- **Bottom Margin Offset**: Add `margin-bottom: 2em;` to the floating container (`class="fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50 mb-[2em]" style="margin-bottom: 2em;"`) to guarantee clearance above the left sidebar footer (`Live MCP Gateway`).
+- **Library SVG Icon**: Replace the plain `<span>` circle with a clean SVG Theme Palette icon:
+  ```svelte
+  <svg class="w-5 h-5 transition-transform duration-200 group-hover:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4 4 4 0 014-4c.73 0 1.41.2 2 .54V7a4 4 0 118 0v10.54c.59-.34 1.27-.54 2-.54a4 4 0 014 4 4 4 0 01-4 4H7zM7 17a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z" />
+  </svg>
+  ```
 
 ---
 
-## 4. Key Metrics & Acceptance Criteria
+## 5. Zero-Emoticon Inventory & SVG Replacement Map
 
-| Metric | Target | Evaluation Method |
-|:---|:---:|:---|
-| **Skills Routing Accuracy** | 100.0% | MCP tool invocation matches intended skill handler |
-| **Search Precision (Top-3 Relevant)** | ≥ 98.0% | Test benchmark across 20 representative queries |
-| **FTS5 / SQLite Parity** | 100.0% | Canonical `skills` count equals `skills_fts` index count |
-| **Mirror Tree Synchronization** | 100.0% | 0 missing or drifting files across all 5 mirror paths |
-| **One-Shot Instruct Adherence** | 100.0% | Skills lead with direct instructions and concrete examples |
-| **Zero AI Slop Compliance** | 100/100 | Zero `// aislop-ignore` suppressions, clean code quality |
-| **Linter & Test Verification** | 0 errors / 0 warnings | All relevant unit tests and linter suites pass |
+| Component | Target Location | Legacy Emoticon / Character | Replacement Library SVG Icon |
+|:---|:---|:---:|:---|
+| `Agents.svelte` | Badge | `🛡️ Protected` | `<svg class="w-3.5 h-3.5"> (Shield check path) </svg> Protected` |
+| `Agents.svelte` | Hero icon | `🥷` | `<svg class="w-5 h-5"> (User / ninja mask path) </svg>` |
+| `Agents.svelte` | Edit button | `✏️` | `<svg class="w-3.5 h-3.5"> (Pencil path) </svg>` |
+| `Agents.svelte` | Close button | `✕` | `<svg class="w-3.5 h-3.5"> (Close X path) </svg>` |
+| `Detector.svelte` | Tab button | `🌐 Website AI` | `<svg class="w-3.5 h-3.5"> (Globe path) </svg> Website AI` |
+| `Detector.svelte` | Tab button | `📄 Document AI` | `<svg class="w-3.5 h-3.5"> (Document path) </svg> Document AI` |
+| `Persona.svelte` | Preset chips | `✧ Sannin`, `♦ Jonin`, `♠ Anbu`, `⚑ Genin` | Clean inline SVG badge / rank icons without unicode dingbats |
+| `Savings.svelte` | Hero badge | `🏆` | `<svg class="w-5 h-5"> (Trophy path) </svg>` |
+| `Savings.svelte` | Section titles | `⚡`, `🔍`, `⚙` | `<svg class="w-4 h-4"> (Lightning / Search / Cog paths) </svg>` |
+| `Search.svelte` | Fallback chain | `➔` | `<svg class="w-3 h-3"> (Arrow right path) </svg>` |
+| `Skills.svelte` | Tab buttons | `🔤 Local FTS5`, `⚡ Neural Vector`, `🌐 skills.sh` | `<svg class="w-3.5 h-3.5"> (Font / Sparkle / Globe paths) </svg>` |
+| `Skills.svelte` | Action buttons | `🔍`, `📄 Instructions & Manual` | `<svg class="w-3.5 h-3.5"> (Magnifier / FileText paths) </svg>` |
+| `Tasks.svelte` | DoR status | `✓ Ready`, `✗ Not Ready` | `<svg class="w-3.5 h-3.5"> (CheckCircle / XCircle paths) </svg>` |
+| `ThemeSwitcher.svelte`| Close modal | `✕` | `<svg class="w-4 h-4"> (X path) </svg>` |
 
 ---
 
-## 5. Execution Timeline
+## 6. Phased Implementation Steps
 
-1. **Step 1**: Skills Routing & MCP Dispatch Audit (`src/file_tools_router.js`, `src/mcp/skills.js`).
-2. **Step 2**: Search Precision, FTS5 & BM25 Ranking Formula Analysis.
-3. **Step 3**: Embedded Skills Roster & Client Mirror Trees Validation.
-4. **Step 4**: Full Inventory & One-Shot Instruct Style Evaluation.
-5. **Step 5**: Test Execution & Delivery Gate Verification.
+- [x] **Phase 1: Planning & Architecture (This Document)**
+- [x] **Phase 2: Theme State & 10 Color Gradients Update (`themeState.svelte.js` & `ThemeSwitcher.svelte`)**
+- [x] **Phase 3: Theme Switcher FAB Button Layout (`mb-[2em]` + Library SVG Icon)**
+- [x] **Phase 4: Left Sidebar Category & Submenu Restructuring (`+layout.svelte`)**
+- [x] **Phase 5: Zero-Emoticon Sweep & Vector Icon Replacement Across All Components**
+- [x] **Phase 6: Typecheck, Build, Linting & Delivery Gate Validation**

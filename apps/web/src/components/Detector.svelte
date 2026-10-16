@@ -70,15 +70,21 @@
     <div class="flex items-center gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200 shrink-0">
       <button
         onclick={() => { mode = 'website'; result = null; error = null; }}
-        class="px-4 py-2 rounded-xl text-xs font-bold transition {mode === 'website' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'}"
+        class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'website' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'}"
       >
-        🌐 Website AI
+        <svg class="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+        <span>Website AI</span>
       </button>
       <button
         onclick={() => { mode = 'document'; result = null; error = null; }}
-        class="px-4 py-2 rounded-xl text-xs font-bold transition {mode === 'document' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'}"
+        class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'document' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'}"
       >
-        📄 Document AI
+        <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span>Document AI</span>
       </button>
     </div>
   </div>

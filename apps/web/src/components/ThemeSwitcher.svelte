@@ -22,20 +22,19 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<!-- Floating Bottom-Left Theme Switcher Button (FAB) -->
-<div class="fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50">
+<!-- Floating Bottom-Left Theme Switcher Button (FAB) with 2em Bottom Margin -->
+<div class="fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50 mb-[2em]" style="margin-bottom: 2em;">
   <button
     type="button"
     onclick={toggleModal}
-    class="w-11 h-11 rounded-full border shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer group"
-    style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+    class="w-11 h-11 rounded-full border shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer group glass-frost"
+    style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-primary); box-shadow: var(--shadow-3d);"
     title="Switch Theme ({themeState.currentTheme.replace('-', ' ')})"
     aria-label="Toggle Theme Selection Modal"
   >
-    <span
-      class="w-4.5 h-4.5 rounded-full shadow-md transition-transform duration-200 group-hover:scale-110"
-      style="background: linear-gradient(135deg, var(--color-primary, #7c3aed), var(--color-accent, #6366f1));"
-    ></span>
+    <svg class="w-5 h-5 transition-transform duration-200 group-hover:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4 4 4 0 014-4c.73 0 1.41.2 2 .54V7a4 4 0 118 0v10.54c.59-.34 1.27-.54 2-.54a4 4 0 014 4 4 4 0 01-4 4H7zM7 17a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z" />
+    </svg>
   </button>
 </div>
 
@@ -69,10 +68,13 @@
         <button
           type="button"
           onclick={() => isModalOpen = false}
-          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105"
+          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close theme modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 

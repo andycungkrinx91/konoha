@@ -754,7 +754,9 @@
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
-            ℹ️
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
           <div>
             <h3 class="text-base font-bold" style="color: var(--color-text);">Remote Access Setup Guide</h3>
@@ -766,8 +768,11 @@
           onclick={() => { showGuideModal = false; }}
           class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
+          aria-label="Close guide modal"
         >
-          ✕
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 

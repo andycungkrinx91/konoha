@@ -2,16 +2,16 @@
 // Svelte 5 Runes State for Konoha 10-Theme System
 
 export const THEMES = [
-  { id: 'chidori', name: 'Chidori Azure Light', description: 'Crackling sky-blue precision with lightning focus', color: '#0284c7', accent: '#06b6d4', gradient: ['#0284c7', '#06b6d4', '#38bdf8', '#818cf8'], glow: 'rgba(2,132,199,0.12)', bg: '#f0f9ff', surface: '#ffffff', border: '#bae6fd', light: true },
-  { id: 'byakugan', name: 'Byakugan Pure Light', description: 'Violet focus with 360° clarity', color: '#7c3aed', accent: '#6366f1', gradient: ['#7c3aed', '#6366f1', '#8b5cf6', '#a855f7'], glow: 'rgba(124,58,237,0.12)', bg: '#f8fafc', surface: '#ffffff', border: '#e2e8f0', light: true },
-  { id: 'konoha-leaf', name: 'Konoha Emerald Light', description: 'Hidden leaf green serenity', color: '#059669', accent: '#14b8a6', gradient: ['#059669', '#10b981', '#14b8a6', '#34d399'], glow: 'rgba(5,150,105,0.12)', bg: '#f0fdf4', surface: '#ffffff', border: '#bbf7d0', light: true },
-  { id: 'rasengan', name: 'Rasengan Breeze Light', description: 'Spiralling royal-blue energy', color: '#2563eb', accent: '#3b82f6', gradient: ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa'], glow: 'rgba(37,99,235,0.12)', bg: '#eff6ff', surface: '#ffffff', border: '#bfdbfe', light: true },
-  { id: 'sharingan', name: 'Sharingan Rose Light', description: 'Crimson perception, softly lit', color: '#dc2626', accent: '#f43f5e', gradient: ['#be123c', '#dc2626', '#e11d48', '#f43f5e'], glow: 'rgba(220,38,38,0.12)', bg: '#fff1f2', surface: '#ffffff', border: '#fecdd3', light: true },
-  { id: 'hokage-gold', name: 'Hokage Amber Light', description: 'Warm gold of the village leader', color: '#d97706', accent: '#f59e0b', gradient: ['#b45309', '#d97706', '#f59e0b', '#fbbf24'], glow: 'rgba(217,119,6,0.12)', bg: '#fffbeb', surface: '#ffffff', border: '#fde68a', light: true },
-  { id: 'anbu-shadow', name: 'Anbu Platinum Light', description: 'Cool steel-grey operative tone', color: '#475569', accent: '#64748b', gradient: ['#334155', '#475569', '#64748b', '#94a3b8'], glow: 'rgba(71,85,105,0.12)', bg: '#f8fafc', surface: '#ffffff', border: '#cbd5e1', light: true },
-  { id: 'sage-mode', name: 'Sage Coral Light', description: 'Natural orange toad-sage warmth', color: '#ea580c', accent: '#f97316', gradient: ['#c2410c', '#ea580c', '#f97316', '#fb923c'], glow: 'rgba(234,88,12,0.12)', bg: '#fff7ed', surface: '#ffffff', border: '#fed7aa', light: true },
-  { id: 'sound-village', name: 'Sound Orchid Light', description: 'Orchid purple with sonic depth', color: '#9333ea', accent: '#a855f7', gradient: ['#7e22ce', '#9333ea', '#a855f7', '#c084fc'], glow: 'rgba(147,51,234,0.12)', bg: '#faf5ff', surface: '#ffffff', border: '#e9d5ff', light: true },
-  { id: 'akatsuki', name: 'Akatsuki Dusk Plum Light', description: 'Mysterious plum dusk with rogue ninja cloak aura', color: '#86198f', accent: '#c026d3', gradient: ['#581c87', '#701a75', '#86198f', '#c026d3'], glow: 'rgba(134,25,143,0.12)', bg: '#fdf4ff', surface: '#ffffff', border: '#f5d0fe', light: true }
+  { id: 'chidori', name: 'Chidori Azure Light', description: 'Crackling sky-blue precision with lightning focus', color: '#3B82F6', accent: '#14B8A6', gradient: ['#3B82F6', '#14B8A6', '#8B5CF6', '#F97316'], glow: 'rgba(59,130,246,0.15)', bg: '#f0f9ff', surface: '#ffffff', border: '#bfdbfe', light: true },
+  { id: 'byakugan', name: 'Byakugan Sunburst Light', description: 'Golden sunburst clarity with magenta accents', color: '#EAB308', accent: '#EC4899', gradient: ['#EAB308', '#EC4899', '#84CC16', '#06B6D4'], glow: 'rgba(234,179,8,0.15)', bg: '#fefce8', surface: '#ffffff', border: '#fef08a', light: true },
+  { id: 'konoha-leaf', name: 'Konoha Indigo Rose Light', description: 'Indigo dusk with vibrant rose vitality', color: '#6366F1', accent: '#F43F5E', gradient: ['#6366F1', '#F43F5E', '#3B82F6', '#EAB308'], glow: 'rgba(99,102,241,0.15)', bg: '#eef2ff', surface: '#ffffff', border: '#c7d2fe', light: true },
+  { id: 'rasengan', name: 'Rasengan Violet Light', description: 'Deep violet swirl with cyan electricity', color: '#8B5CF6', accent: '#06B6D4', gradient: ['#8B5CF6', '#06B6D4', '#F97316', '#EC4899'], glow: 'rgba(139,92,246,0.15)', bg: '#f5f3ff', surface: '#ffffff', border: '#ddd6fe', light: true },
+  { id: 'sharingan', name: 'Sharingan Teal Lime Light', description: 'Teal focus with lime kinetic energy', color: '#14B8A6', accent: '#84CC16', gradient: ['#14B8A6', '#84CC16', '#6366F1', '#F43F5E'], glow: 'rgba(20,184,166,0.15)', bg: '#f0fdfa', surface: '#ffffff', border: '#99f6e4', light: true },
+  { id: 'hokage-gold', name: 'Hokage Amber Light', description: 'Warm amber command with azure brilliance', color: '#F97316', accent: '#EAB308', gradient: ['#F97316', '#EAB308', '#3B82F6', '#EC4899'], glow: 'rgba(249,115,22,0.15)', bg: '#fff7ed', surface: '#ffffff', border: '#fed7aa', light: true },
+  { id: 'anbu-shadow', name: 'Anbu Cyan Purple Light', description: 'Cyan tactical operative with purple glow', color: '#06B6D4', accent: '#8B5CF6', gradient: ['#06B6D4', '#8B5CF6', '#14B8A6', '#6366F1'], glow: 'rgba(6,182,212,0.15)', bg: '#ecfeff', surface: '#ffffff', border: '#a5f3fc', light: true },
+  { id: 'sage-mode', name: 'Sage Pink Ruby Light', description: 'Pink toad-sage aura with crimson depth', color: '#EC4899', accent: '#F43F5E', gradient: ['#EC4899', '#F43F5E', '#EAB308', '#84CC16'], glow: 'rgba(236,72,153,0.15)', bg: '#fdf2f8', surface: '#ffffff', border: '#fbcfe8', light: true },
+  { id: 'sound-village', name: 'Sound Cobalt Light', description: 'Cobalt resonance with sonic indigo aura', color: '#3B82F6', accent: '#6366F1', gradient: ['#3B82F6', '#6366F1', '#06B6D4', '#F43F5E'], glow: 'rgba(59,130,246,0.15)', bg: '#eff6ff', surface: '#ffffff', border: '#bfdbfe', light: true },
+  { id: 'akatsuki', name: 'Akatsuki Lime Emerald Light', description: 'Lime rogue power with deep emerald undertone', color: '#84CC16', accent: '#14B8A6', gradient: ['#84CC16', '#14B8A6', '#EAB308', '#8B5CF6'], glow: 'rgba(132,204,22,0.15)', bg: '#f7fee7', surface: '#ffffff', border: '#d9f99d', light: true }
 ];
 
 export function createThemeState() {
@@ -35,6 +35,8 @@ export function createThemeState() {
       document.documentElement.style.setProperty('--color-text-muted', '#334155');
       document.documentElement.style.setProperty('--color-card-bg', '#ffffff');
       document.documentElement.style.setProperty('--color-card-border', found.border);
+      document.documentElement.style.setProperty('--glass-card-border', `${found.border}99`);
+      document.documentElement.style.setProperty('--glass-tint', `${found.bg}aa`);
       if (found.gradient && found.gradient.length >= 4) {
         document.documentElement.style.setProperty('--theme-grad-1', found.gradient[0]);
         document.documentElement.style.setProperty('--theme-grad-2', found.gradient[1]);

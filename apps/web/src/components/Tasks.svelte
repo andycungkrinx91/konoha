@@ -290,8 +290,18 @@
     {#if dorResult}
       <div class="mt-5 rounded-[5px] border p-4 space-y-3" style="border-color: var(--color-border, #e2e8f0); background-color: var(--color-primary-glow, #faf5ff);">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="px-2.5 py-1 rounded-[5px] text-xs font-bold border {dorResult.ready ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}">
-            {dorResult.ready ? '✓ Ready' : '✗ Not Ready'}
+          <span class="px-2.5 py-1 rounded-[5px] text-xs font-bold border flex items-center gap-1 {dorResult.ready ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}">
+            {#if dorResult.ready}
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Ready</span>
+            {:else}
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Not Ready</span>
+            {/if}
           </span>
           <span class="px-2.5 py-1 rounded-[5px] text-xs font-bold border {confidenceClass(dorResult.confidence)}">
             Confidence: {dorResult.confidence || 'n/a'}
