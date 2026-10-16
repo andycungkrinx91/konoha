@@ -700,7 +700,7 @@ code, kbd, samp, pre, .font-mono {
   transform-origin: center;
 }
 
-/* 3-Second Huge Rasengan & Crystalline Glass Crack Theme Transition */
+/* 2-Second Huge Rasengan & Crystalline Glass Crack Theme Transition */
 @keyframes rasengan-huge-spin {
   0% {
     transform: scale(0.65) rotate(0deg);
@@ -730,7 +730,7 @@ code, kbd, samp, pre, .font-mono {
 }
 
 .animate-huge-rasengan {
-  animation: rasengan-huge-spin 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: rasengan-huge-spin 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center center;
 }
 
@@ -760,7 +760,7 @@ code, kbd, samp, pre, .font-mono {
 }
 
 .animate-glass-crack {
-  animation: glass-crack-fissures 3s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+  animation: glass-crack-fissures 2s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
   transform-origin: center center;
 }
 
@@ -782,7 +782,7 @@ code, kbd, samp, pre, .font-mono {
 }
 
 .animate-shatter-flash {
-  animation: glass-shatter-flash 3s ease-out forwards;
+  animation: glass-shatter-flash 2s ease-out forwards;
 }
 
 .animate-in {

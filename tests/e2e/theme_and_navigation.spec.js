@@ -91,7 +91,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("Selecting theme triggers 3s Rasengan spinning energy and glass crack animation", async ({ page }) => {
+  test("Selecting theme triggers 2s Rasengan spinning energy and glass crack animation without counter", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -104,16 +104,16 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     // Click "Sharingan Royal Indigo"
     await page.getByText("Sharingan Royal Indigo").click();
 
-    // Verify Rasengan spinning chakra sphere or countdown overlay appears
+    // Verify Rasengan spinning chakra sphere appears
     const rasenganSphere = page.locator(".animate-huge-rasengan");
     await expect(rasenganSphere).toBeVisible({ timeout: 1500 });
 
-    // Verify countdown text (3, 2, or 1) is displayed
+    // Verify counter is removed (no HUD countdown text)
     const countdownEl = page.locator(".text-cyan-300");
-    await expect(countdownEl).toBeVisible({ timeout: 1500 });
+    await expect(countdownEl).toHaveCount(0);
 
-    // Wait for the full 3s Rasengan charge and crystalline glass shatter transition to complete
-    await expect(rasenganSphere).not.toBeVisible({ timeout: 6000 });
+    // Wait for the full 2s Rasengan charge and crystalline glass shatter transition to complete
+    await expect(rasenganSphere).not.toBeVisible({ timeout: 4500 });
 
     // Verify theme was applied to document element
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));

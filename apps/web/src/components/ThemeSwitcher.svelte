@@ -4,39 +4,24 @@
 
   let isModalOpen = $state(false);
   let isRasenganActive = $state(false);
-  let countdown = $state(3);
-  let targetTheme = $state(null);
   let impactTimer = null;
-  let countdownInterval = null;
 
   useScrollLock(() => isModalOpen);
 
   function selectTheme(id) {
-    targetTheme = THEMES.find((t) => t.id === id) || { name: id, id };
     isModalOpen = false;
 
     // Apply the chosen theme
     themeState.applyTheme(id);
 
-    // Trigger 3-Second Huge Rasengan & Crystalline Glass Crack Animation
+    // Trigger 2-Second Huge Rasengan & Crystalline Glass Crack Animation
     if (impactTimer) clearTimeout(impactTimer);
-    if (countdownInterval) clearInterval(countdownInterval);
 
     isRasenganActive = true;
-    countdown = 3;
-
-    countdownInterval = setInterval(() => {
-      if (countdown > 1) {
-        countdown -= 1;
-      } else {
-        clearInterval(countdownInterval);
-      }
-    }, 1000);
 
     impactTimer = setTimeout(() => {
       isRasenganActive = false;
-      if (countdownInterval) clearInterval(countdownInterval);
-    }, 3000);
+    }, 2000);
   }
 
   function toggleModal() {
@@ -232,20 +217,6 @@
           <circle cx="47" cy="45" r="5" fill="#ffffff" opacity="0.95" />
         </g>
       </svg>
-    </div>
-
-    <!-- Minimalist HUD Countdown Display (Strictly 3, 2, 1 and chosen theme) -->
-    <div class="absolute bottom-12 inset-x-0 flex items-center justify-center z-30">
-      <div class="px-6 py-3 rounded-2xl glass-frost-strong border border-cyan-400/50 shadow-2xl flex items-center gap-4 backdrop-blur-xl animate-in zoom-in-95 duration-200">
-        <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping"></span>
-        <span class="text-3xl font-black font-mono tracking-tight text-cyan-300 drop-shadow-md">
-          {countdown}
-        </span>
-        <span class="h-5 w-px bg-white/20"></span>
-        <span class="text-xs font-black uppercase tracking-wider text-white drop-shadow-sm">
-          {targetTheme?.name || 'Theme'}
-        </span>
-      </div>
     </div>
   </div>
 {/if}
