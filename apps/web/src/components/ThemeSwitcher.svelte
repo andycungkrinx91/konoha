@@ -22,17 +22,17 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<!-- Floating Bottom-Left Theme Switcher Button (FAB) with 2em Bottom Margin -->
-<div class="fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50 mb-[2em]" style="margin-bottom: 2em;">
+<!-- Floating Bottom-Right Theme Switcher Button (FAB) with 2em Bottom Margin -->
+<div class="fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]" style="margin-bottom: 2em;">
   <button
     type="button"
     onclick={toggleModal}
-    class="w-11 h-11 rounded-full border shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer group glass-frost"
+    class="w-12 h-12 rounded-full border shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer group glass-frost animate-aurora"
     style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-primary); box-shadow: var(--shadow-3d);"
     title="Switch Theme ({themeState.currentTheme.replace('-', ' ')})"
     aria-label="Toggle Theme Selection Modal"
   >
-    <svg class="w-5 h-5 transition-transform duration-200 group-hover:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg class="w-5 h-5 transition-transform duration-300 group-hover:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4 4 4 0 014-4c.73 0 1.41.2 2 .54V7a4 4 0 118 0v10.54c.59-.34 1.27-.54 2-.54a4 4 0 014 4 4 4 0 01-4 4H7zM7 17a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z" />
     </svg>
   </button>
@@ -55,7 +55,7 @@
       <!-- Header -->
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center border" style="background: var(--theme-4gradient, linear-gradient(135deg, var(--color-primary), var(--color-accent))); border-color: var(--color-primary); color: #ffffff;">
+          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center border animate-gradient-flow" style="background: var(--theme-4gradient, linear-gradient(135deg, var(--color-primary), var(--color-accent))); border-color: var(--color-primary); color: #ffffff;">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
             </svg>
@@ -77,6 +77,9 @@
           </svg>
         </button>
       </div>
+
+      <!-- Luminous Gradient Accent Flow Strip -->
+      <div class="h-1 w-full rounded-full animate-gradient-flow" style="background: var(--theme-4gradient-bar);"></div>
 
       <!-- 10 Themes Grid (2 Columns) -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto pr-1">

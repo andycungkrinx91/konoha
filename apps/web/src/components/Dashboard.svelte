@@ -116,7 +116,7 @@
   }
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 animate-in fade-in duration-300">
   <!-- Page Header -->
   <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
     <div>

@@ -336,9 +336,8 @@ function createWebServer(options = {}) {
     }
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
-      const isCliLocal = !isRemote && !req.headers.origin && !req.headers.referer && !req.headers['sec-fetch-site'];
       const tokenHeader = req.headers['x-konoha-web-token'];
-      if (!isCliLocal && (!tokenHeader || tokenHeader !== sessionToken)) {
+      if (!tokenHeader || tokenHeader !== sessionToken) {
         return sendJson(res, 403, { error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' });
       }
     }

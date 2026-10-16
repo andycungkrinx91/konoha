@@ -6,7 +6,7 @@
 
 ---
 
-## 🏆 Combined Optimization Impact
+## Combined Optimization Impact
 
 Konoha measures retrieval and operational savings through a strictly byte-weighted accounting formula:
 $$\text{Combined Savings \%} = \text{round}\left( \frac{\sum \text{bytes\_saved}}{\sum \text{total\_baseline\_bytes}} \times 100 \right)$$

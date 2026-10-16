@@ -294,12 +294,34 @@ k ui daemon --port=$TEST_PORT --host=127.0.0.1
 - [x] **UI-08: Archetype-Adaptive Mobile Navigation Dock**:
   - Inspect fixed bottom mobile dock (`lg:hidden`).
   - Expected: Quick one-tap navigation items adapted to the active view; main content stage applies `pb-28 lg:pb-0` to eliminate visual overlap.
-- [x] **UI-09: Floating Bottom-Left Theme Switcher Popup**:
+- [x] **UI-09: Floating Bottom-Right Theme Switcher Button (FAB)**:
   - Inspect 10-theme light mode selector.
-  - Expected: Positioned as a floating button in the bottom-left corner (`fixed bottom-6 left-6 z-50`). Clicking opens the 10-theme modal with dynamic CSS variables and localStorage persistence.
+  - Expected: Positioned as a floating button in the bottom-right corner (`fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]`) with glowing aurora animation (`.animate-aurora`). Clicking opens the centered 10-theme modal popup with dynamic CSS variables and localStorage persistence.
 - [x] **UI-10: Clean Daemon Shutdown**:
   - Command: `k ui stop --port=$TEST_PORT`
   - Expected: Daemon process terminates cleanly, removes PID file from `$KT/.konoha/ui-1492.pid`.
+- [x] **UI-11: 10 Calibrated 4-Color Gradient Theme Palettes**:
+  - Inspect `apps/web/src/lib/state/themeState.svelte.js`.
+  - Expected: All 10 themes contain exact 4-stop vibrant gradient arrays:
+    1. Chidori: `['#10132B', '#35206B', '#8B5CF6', '#FF4FA3']`
+    2. Byakugan: `['#0B1729', '#124A72', '#0788C9', '#36DFFF']`
+    3. Konoha Leaf: `['#101D13', '#285225', '#68A82E', '#B8FF49']`
+    4. Rasengan: `['#21102B', '#66245E', '#D946EF', '#FF8748']`
+    5. Sharingan: `['#101A35', '#263F8F', '#4F83FF', '#B18CFF']`
+    6. Hokage: `['#251016', '#70202B', '#F04452', '#FF8A38']`
+    7. Anbu: `['#0C2525', '#11665E', '#19B5A5', '#65F5D5']`
+    8. Sage Mode: `['#1C1030', '#633078', '#FF42C8', '#35E8FF']`
+    9. Sound Village: `['#21190D', '#6B4517', '#D9A52E', '#FFE477']`
+    10. Akatsuki: `['#0B211D', '#126447', '#21C98B', '#58FFE0']`
+- [x] **UI-12: Premium Hardware-Accelerated Animations & Specular Shimmer**:
+  - Inspect `apps/web/src/app.css` and UI components.
+  - Expected: High-end specular light reflection on hover (`.glass-card-3d::after`), ambient aurora glow (`.animate-aurora`), 4-gradient flow pulse (`.animate-gradient-flow`), and smooth entrance animations (`.animate-in.slide-up`, `.animate-in.fade-in`, `.animate-in.zoom-in-95`).
+- [x] **UI-13: Global Toast Notification Conflict Avoidance**:
+  - Trigger toast notifications in Web UI.
+  - Expected: Toasts display in top-right (`fixed top-5 right-5 z-[100]`), completely avoiding overlap or collision with the bottom-right theme switcher and bottom mobile dock.
+- [x] **UI-14: Playwright & Agent-Browser E2E Test Suite Automation**:
+  - Command: `pnpm --dir apps/web run test:e2e`
+  - Expected: All Playwright E2E specs (`detector_flow.spec.js`, `routes_load.spec.js`, `theme_and_navigation.spec.js`) execute and pass cleanly with 0 errors and 0 uncaught JavaScript page exceptions.
 
 ---
 
@@ -502,7 +524,7 @@ k ui daemon --port=$TEST_PORT --host=127.0.0.1
 | **Domain 2** | MCP Server & Bounded File Tools | 10 | 100% | STDIO pipe test | `tests/test_bounded_file_tools_completeness.js` | **PASS** |
 | **Domain 3** | Skill Retrieval & FTS5 Database | 14 | 100% | FTS & Dispatch tests | `tests/test_db_foreign_keys_and_fts.js`, `tests/test_client_skills_sync.js`, `tests/test_i_have_adhd_skill.js` | **PASS** |
 | **Domain 4** | Ninja Agent Team Delegation | 7 | 100% | Subagent calls | `tests/test_workflow_gates.js`, `k test` | **PASS** |
-| **Domain 5** | SvelteKit Web Configuration UI | 10 | 100% | HTTP curl tests | `pnpm --dir apps/web run check`, `k ui status` | **PASS** |
+| **Domain 5** | SvelteKit Web Configuration UI | 14 | 100% | HTTP & Playwright E2E | `pnpm --dir apps/web run test:e2e`, `pnpm --dir apps/web run check`, `k ui status` | **PASS** |
 | **Domain 6** | Document Engineering & WebP | 8 | 100% | Bitstream parse | `tests/test_all_assets_webp.js` | **PASS** |
 | **Domain 7** | AI Fingerprint Detectors (Pure JS) | 8 | 100% | ZIP parse tests | `tests/test_docs_ai_detector.js` | **PASS** |
 | **Domain 8** | SDLC Governance & Anti-Slop | 10 | 100% | DoR & gate loop | `tests/test_sdlc_dor.js`, `tests/test_anti_slop_gate.js` | **PASS** |
@@ -510,7 +532,7 @@ k ui daemon --port=$TEST_PORT --host=127.0.0.1
 | **Domain 10** | Remote Access & Cloudflare Tunnel | 8 | 100% | Auth PIN tests | `tests/test_tunnel_auth_enforcement.js` | **PASS** |
 | **Domain 11** | Cross-Platform Daemons | 6 | 100% | Platform utils | `tests/test_token_hygiene_and_platform.js` | **PASS** |
 | **Domain 12** | RTK Command Proxy & Optimization | 6 | 100% | Config audit | `rtk config`, `tests/test_token_baseline.js` | **PASS** |
-| **TOTAL** | **Comprehensive Full Coverage** | **140** | **100%** | **All Scenarios** | **Full Verification Suite** | **100% PASS** |
+| **TOTAL** | **Comprehensive Full Coverage** | **144** | **100%** | **All Scenarios** | **Full Verification Suite** | **100% PASS** |
 
 ---
 

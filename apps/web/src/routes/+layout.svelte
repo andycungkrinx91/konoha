@@ -298,11 +298,11 @@
   <!-- Global 3D SweetAlert Modal -->
   <SweetAlertModal />
 
-  <!-- Global Notification Toasts (lifted above the mobile dock on small screens) -->
+  <!-- Global Notification Toasts (Top-Right Placement - Zero Overlap with Bottom-Right Theme Switcher) -->
   {#if uiState.notifications.length > 0}
-    <div class="fixed bottom-20 right-5 z-[90] lg:bottom-6 lg:right-6 space-y-2 max-w-[calc(100vw-2.5rem)]">
+    <div class="fixed top-5 right-5 z-[100] space-y-2 max-w-[calc(100vw-2.5rem)] pointer-events-none">
       {#each uiState.notifications as n (n.id)}
-        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-slate-900/95 text-white border-sky-500/50 flex items-center gap-2">
+        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-slate-900/95 text-white border-sky-500/50 flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
           <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
           <span>{n.text}</span>
         </div>

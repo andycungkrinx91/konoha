@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
 
 test("Document AI Detector flow executes end to end", async ({ page }) => {
   await page.goto("http://127.0.0.1:4173/detector");
-  await page.getByRole("button", { name: "📄 Document AI" }).click();
+  await page.getByRole("button", { name: "Document AI" }).click();
   await page.getByRole("button", { name: "Paste Text" }).click();
   await page.getByLabel("Paste Document Text").fill("Sample verified flow content for document detection");
   await expect(page.getByText("Analyze Text")).toBeVisible();
