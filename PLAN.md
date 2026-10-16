@@ -58,42 +58,42 @@ flowchart TD
 ## 3. Phased Implementation & Audit Steps
 
 ### Phase 1: Skills Routing & MCP Dispatch Architecture
-- [ ] **Audit `src/file_tools_router.js`**: Verify handlers for `find_skill`, `find_skills`, `get_skill`, `list_skills`, and `use_skills`.
-- [ ] **Audit `src/mcp/skills.js`**: Verify core implementation of `findSkill()`, `findSkills()`, `getSkill()`, `listSkills()`, and `useSkills()`.
-- [ ] **Verify Parameter Normalization**: Verify handling of `keyword`, `keywords`, `name`, `skill`, `limit`, `compact`, and `token_budget`.
-- [ ] **Verify Error Boundaries**: Ensure missing or malformed inputs return structured JSON error payloads instead of unhandled process crashes.
+- [x] **Audit `src/file_tools_router.js`**: Verify handlers for `find_skill`, `find_skills`, `get_skill`, `list_skills`, and `use_skills`.
+- [x] **Audit `src/mcp/skills.js`**: Verify core implementation of `findSkill()`, `findSkills()`, `getSkill()`, `listSkills()`, and `useSkills()`.
+- [x] **Verify Parameter Normalization**: Verify handling of `keyword`, `keywords`, `name`, `skill`, `limit`, `compact`, and `token_budget`.
+- [x] **Verify Error Boundaries**: Ensure missing or malformed inputs return structured JSON error payloads instead of unhandled process crashes.
 
 ### Phase 2: Search Precision, FTS5 & BM25 Ranking Audit
-- [ ] **Audit SQLite Schema & Virtual Tables**: Inspect `skills` canonical table, `skills_fts` virtual table, and `skill_chunks` table.
-- [ ] **Audit Tokenization & FTS5 Query Sanitization**: Verify `sanitizeFts5Query()` in `src/mcp/skills.js` and `src/db.js` against special characters, boolean operators (`AND`, `OR`, `NOT`, `*`), and punctuation.
-- [ ] **Evaluate Search Precision**: Benchmark queries across key domains (e.g., `docker`, `react`, `security`, `css`, `kubernetes`, `testing`, `svelte`, `tailwind`, `database`, `api`).
-- [ ] **Verify Fallback Mechanisms**: Verify SQL `LIKE` fallback when FTS syntax errors or zero virtual table matches occur.
-- [ ] **Foreign Key Cascade Integrity**: Verify `ON DELETE CASCADE` on `skill_chunks(skill_name)` during skill deletion/reindexing.
+- [x] **Audit SQLite Schema & Virtual Tables**: Inspect `skills` canonical table, `skills_fts` virtual table, and `skill_chunks` table.
+- [x] **Audit Tokenization & FTS5 Query Sanitization**: Verify `sanitizeFts5Query()` in `src/mcp/skills.js` and `src/db.js` against special characters, boolean operators (`AND`, `OR`, `NOT`, `*`), and punctuation.
+- [x] **Evaluate Search Precision**: Benchmark queries across key domains (e.g., `docker`, `react`, `security`, `css`, `kubernetes`, `testing`, `svelte`, `tailwind`, `database`, `api`).
+- [x] **Verify Fallback Mechanisms**: Verify SQL `LIKE` fallback when FTS syntax errors or zero virtual table matches occur.
+- [x] **Foreign Key Cascade Integrity**: Verify `ON DELETE CASCADE` on `skill_chunks(skill_name)` during skill deletion/reindexing.
 
 ### Phase 3: Ninja Agent Embedded Skills & Client Mirror Parity
-- [ ] **Audit Embedded Skills Roster**: Cross-reference the 7 official ninja agent rosters in `~/.agents/AGENTS.md`, `src/agent_manager.js`, `src/cursor_manager.js`, and `src/server.js`.
-- [ ] **Verify Mirror Trees Parity**: Compare `.agents/skills/` against:
+- [x] **Audit Embedded Skills Roster**: Cross-reference the 7 official ninja agent rosters in `~/.agents/AGENTS.md`, `src/agent_manager.js`, `src/cursor_manager.js`, and `src/server.js`.
+- [x] **Verify Mirror Trees Parity**: Compare `.agents/skills/` against:
   - `src/templates/skills/`
   - `.cursor/skills/`
   - `.claude/skills/`
   - `.commandcode/skills/`
   - `.gemini/skills/`
-- [ ] **Validate Invariant: No `skilladd` Command**: Verify that `skilladd` is nowhere referenced, implemented, or documented (strictly `konoha skill add`).
-- [ ] **Verify Invariant: Strict Skill & Reference Protection**: Confirm zero skill or reference files are removed or pruned.
+- [x] **Validate Invariant: No `skilladd` Command**: Verify that `skilladd` is nowhere referenced, implemented, or documented (strictly `konoha skill add`).
+- [x] **Verify Invariant: Strict Skill & Reference Protection**: Confirm zero skill or reference files are removed or pruned.
 
 ### Phase 4: Full Skills Inventory, Content Quality & One-Shot Style
-- [ ] **Inventory All Root Skills**: List every installed `SKILL.md` under `.agents/skills/`.
-- [ ] **Inventory Embedded References**: Catalog all specialized references (e.g., `react-patterns`, `antislop-ui`, `docker-compose`, `k8s-manifests`).
-- [ ] **Verify YAML Frontmatter**: Ensure valid YAML frontmatter with `name`, `description`, `tags`, and optional metadata.
-- [ ] **Evaluate One-Shot Instruct Style**:
+- [x] **Inventory All Root Skills**: List every installed `SKILL.md` under `.agents/skills/`.
+- [x] **Inventory Embedded References**: Catalog all specialized references (e.g., `react-patterns`, `antislop-ui`, `docker-compose`, `k8s-manifests`).
+- [x] **Verify YAML Frontmatter**: Ensure valid YAML frontmatter with `name`, `description`, `tags`, and optional metadata.
+- [x] **Evaluate One-Shot Instruct Style**:
   - Direct action orientation (lead with instructions, not pleasantries).
   - Concrete executable patterns, code templates, and schemas.
   - Absence of conversational filler ("Let me think", "Wait - but", "Hmmmm").
   - Prescriptive constraints and clear definition of done.
-- [ ] **Zero-AI-Slop Review**: Check for generic boilerplate, placeholder tokens (`TODO`, `FIXME`), and AI-generated cliché prose.
+- [x] **Zero-AI-Slop Review**: Check for generic boilerplate, placeholder tokens (`TODO`, `FIXME`), and AI-generated cliché prose.
 
 ### Phase 5: Verification, Test Execution & Synthesis
-- [ ] **Run Skills Test Suites**:
+- [x] **Run Skills Test Suites**:
   - `tests/test_client_skill_loading.js`
   - `tests/test_client_skills_sync.js`
   - `tests/test_canonical_skills_and_embedded_refs.js`
@@ -101,10 +101,10 @@ flowchart TD
   - `tests/test_skill_tree_parity.js`
   - `tests/test_skills_node_compat.js`
   - `tests/test_db_foreign_keys_and_fts.js`
-- [ ] **Run Static Analysis & Linters**:
+- [x] **Run Static Analysis & Linters**:
   - `node scripts/lint.js` (0 errors and 0 warnings)
   - `pnpm --dir apps/web run check` (0 errors and 0 warnings)
-- [ ] **Synthesize Findings & Recommendations**: Compile audit scorecard and Kage Reviewer Confidence Gate Report.
+- [x] **Synthesize Findings & Recommendations**: Compile audit scorecard and Kage Reviewer Confidence Gate Report.
 
 ---
 
