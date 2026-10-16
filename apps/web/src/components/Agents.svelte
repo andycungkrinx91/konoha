@@ -133,6 +133,13 @@
     }
   }
 
+  let customModelInputs = $state({});
+
+  async function applyCustomModel(agent) {
+    const val = (customModelInputs[agent.name] || "").trim();
+    await setAgentModel(agent, val);
+  }
+
   let showCreateModal = $state(false);
   let createName = $state("");
   let createTitle = $state("");
@@ -409,23 +416,54 @@
                   </span>
                 {/if}
               </div>
-              {#if bridgeModels.length > 0}
+
+              <div class="space-y-1.5">
                 <select
                   value={agent.model || ""}
-                  onchange={(e) => setAgentModel(agent, e.currentTarget.value)}
+                  onchange={(e) => {
+                    const val = e.currentTarget.value;
+                    if (val === "__custom__") {
+                      customModelInputs[agent.name] = agent.model || "";
+                    } else {
+                      setAgentModel(agent, val);
+                    }
+                  }}
                   class="w-full p-2 rounded-[5px] border text-xs font-mono font-bold cursor-pointer"
                   style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
                 >
                   <option value="">⤺ Inherit (host client default)</option>
-                  {#each bridgeModels as m}
-                    <option value={m.id}>{m.id}</option>
-                  {/each}
+                  {#if agent.model && !bridgeModels.some(m => m.id === agent.model)}
+                    <option value={agent.model}>{agent.model} (Custom Assigned)</option>
+                  {/if}
+                  {#if bridgeModels.length > 0}
+                    <optgroup label="Discovered Client / Bridge Models">
+                      {#each bridgeModels as m}
+                        <option value={m.id}>{m.model_name || m.id} {m.bridge ? `(${m.bridge})` : ''}</option>
+                      {/each}
+                    </optgroup>
+                  {/if}
+                  <option value="__custom__">✎ Custom model string...</option>
                 </select>
-              {:else}
-                <p class="p-2 rounded-[5px] border border-dashed text-[11px] font-semibold" style="border-color: var(--color-border); color: var(--color-text-muted); background: rgba(0, 0, 0, 0.02);">
-                  {agent.model || "inherit"} — no bridge models active.
-                </p>
-              {/if}
+
+                {#if customModelInputs[agent.name] !== undefined || (agent.model && !bridgeModels.some(m => m.id === agent.model))}
+                  <div class="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      bind:value={customModelInputs[agent.name]}
+                      placeholder="e.g. claude-3-7-sonnet"
+                      class="flex-1 px-2.5 py-1.5 rounded-[5px] border text-xs font-mono"
+                      style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                    />
+                    <button
+                      type="button"
+                      onclick={() => applyCustomModel(agent)}
+                      class="btn-3d px-2.5 py-1.5 rounded-[5px] text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                    >
+                      Set
+                    </button>
+                  </div>
+                {/if}
+              </div>
             </div>
 
             <!-- Embedded Skills Section -->
@@ -572,22 +610,33 @@
           ></textarea>
         </div>
 
-        {#if bridgeModels.length > 0}
-          <div>
-            <label for="create-ninja-model" class="font-bold block mb-1" style="color: var(--color-text);">Default Model (Optional)</label>
+        <div>
+          <label for="create-ninja-model" class="font-bold block mb-1" style="color: var(--color-text);">Model Assignment (Optional)</label>
+          <div class="space-y-1.5">
             <select
               id="create-ninja-model"
               bind:value={createModel}
               class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             >
-              <option value="">(Inherit parent model)</option>
-              {#each bridgeModels as m}
-                <option value={m.id}>{m.id} ({m.provider})</option>
-              {/each}
+              <option value="">⤺ Inherit (host client default)</option>
+              {#if bridgeModels.length > 0}
+                <optgroup label="Discovered Client / Bridge Models">
+                  {#each bridgeModels as m}
+                    <option value={m.id}>{m.model_name || m.id} {m.bridge ? `(${m.bridge})` : ''}</option>
+                  {/each}
+                </optgroup>
+              {/if}
             </select>
+            <input
+              type="text"
+              bind:value={createModel}
+              placeholder="Or custom model string..."
+              class="w-full px-3 py-1.5 text-xs font-mono rounded-[5px] border focus:outline-hidden"
+              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            />
           </div>
-        {/if}
+        </div>
       </div>
 
       <div class="flex justify-end gap-2.5 pt-3 border-t" style="border-color: var(--color-border);">

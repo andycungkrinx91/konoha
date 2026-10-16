@@ -8,6 +8,7 @@
   let loading = $state(true);
   let error = $state("");
   let selectedAgent = $state("");
+  let selectedType = $state("");
   let searchQuery = $state("");
   let isCreateModalOpen = $state(false);
 
@@ -54,6 +55,7 @@
     try {
       let url = "/api/v1/persona?";
       if (selectedAgent) url += `agent=${encodeURIComponent(selectedAgent)}&`;
+      if (selectedType) url += `type=${encodeURIComponent(selectedType)}&`;
       if (searchQuery.trim()) url += `search=${encodeURIComponent(searchQuery.trim())}&`;
       const res = await api.get(url);
       memories = res.memories || [];
@@ -346,34 +348,56 @@
 
   {#if activeTab === "memories"}
   <!-- Filter & Search Controls -->
-  <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-    <!-- Agent Filter Tabs -->
-    <div class="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
-      {#each agents as ag}
-        <button
-          type="button"
-          onclick={() => { selectedAgent = ag.id; loadMemories(); }}
-          class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
-          style={selectedAgent !== ag.id ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
-        >
-          {ag.name}
-        </button>
-      {/each}
+  <div class="space-y-3">
+    <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+      <!-- Agent Filter Tabs -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+        {#each agents as ag}
+          <button
+            type="button"
+            onclick={() => { selectedAgent = ag.id; loadMemories(); }}
+            class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
+            style={selectedAgent !== ag.id ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
+          >
+            {ag.name}
+          </button>
+        {/each}
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative w-full md:w-72">
+        <input
+          type="text"
+          bind:value={searchQuery}
+          onkeydown={(e) => { if (e.key === "Enter") loadMemories(); }}
+          placeholder="Search memories..."
+          class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold text-slate-900 border transition-all focus:outline-none focus:ring-2"
+          style="background-color: var(--color-surface); border-color: var(--color-border); color: #0f172a;"
+        />
+        <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
     </div>
 
-    <!-- Search Input -->
-    <div class="relative w-full md:w-72">
-      <input
-        type="text"
-        bind:value={searchQuery}
-        onkeydown={(e) => { if (e.key === "Enter") loadMemories(); }}
-        placeholder="Search memories..."
-        class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold text-slate-900 border transition-all focus:outline-none focus:ring-2"
-        style="background-color: var(--color-surface); border-color: var(--color-border); color: #0f172a;"
-      />
-      <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
+    <!-- Memory Type Filter Tabs -->
+    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs font-semibold">
+      <span class="text-slate-500 text-[11px] font-bold mr-1 uppercase tracking-wider">Type:</span>
+      {#each [
+        { id: '', label: 'All Types' },
+        { id: 'episodic', label: 'Episodic (Learnings)' },
+        { id: 'rule', label: 'Strict Rules' },
+        { id: 'fact', label: 'Facts' },
+        { id: 'preference', label: 'Preferences' }
+      ] as t}
+        <button
+          type="button"
+          onclick={() => { selectedType = t.id; loadMemories(); }}
+          class="px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}"
+        >
+          {t.label}
+        </button>
+      {/each}
     </div>
   </div>
 
@@ -630,14 +654,6 @@
           {/each}
         </div>
       </div>
-
-      <!-- Soul Source Metadata Card -->
-      {#if soulData.path}
-        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 text-[11px] font-mono text-slate-600 flex items-center justify-between">
-          <span>Authoritative Source: {soulData.path}</span>
-          <span class="text-purple-700 font-bold font-sans">Synced Across All Coding Clients</span>
-        </div>
-      {/if}
     {/if}
   </div>
 {/if}

@@ -131,8 +131,18 @@ function generateCursorSubagent(agent) {
     return `---\ndescription: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills\nalwaysApply: true\n---\n\n` + managed;
   }
   const agentList = agents.map(a => `\`${a.name}\``).join(', ');
+  function formatCompactSkills(skills) {
+    if (!skills || skills.length === 0) return 'None';
+    const primary = skills.filter(s => typeof s === 'string' && !s.includes('/'));
+    const subCount = skills.length - primary.length;
+    const formatted = primary.map(s => `\`${s}\``).join(', ');
+    if (subCount > 0) {
+      return `${formatted} *(+${subCount} specialized references on-demand via konoha.get_skill / use_skills)*`;
+    }
+    return formatted;
+  }
   const delegationRows = agents
-    .map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`)
+    .map(a => `| ${formatCompactSkills(a.skills)} | \`${a.name}\` |`)
     .join('\n');
 
   const rule = `---

@@ -447,6 +447,13 @@
           "skills": {
             "description": "Skill name, comma-separated names, or array of skill names to load."
           },
+          "skill": {
+            "type": "string",
+            "description": "Alias for skills (single skill name)."
+          },
+          "names": {
+            "description": "Alias for skills (array or comma-separated names)."
+          },
           "name": {
             "type": "string",
             "description": "Alias for skills (single skill name)."
@@ -457,11 +464,19 @@
           "token_budget": {
             "type": "number"
           },
+          "budget": {
+            "type": "number",
+            "description": "Alias for token_budget."
+          },
           "section": {
             "type": "string"
           },
           "task_id": {
             "type": "string"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Session identifier."
           }
         },
         "additionalProperties": false

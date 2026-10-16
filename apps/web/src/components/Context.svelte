@@ -11,6 +11,7 @@
   let saving = $state(false);
   let error = $state("");
   let contextSummary = $state("");
+  let selectedWorkspacePath = $state("");
 
   // Add Learning Modal state
   let isAddLearningOpen = $state(false);
@@ -39,23 +40,34 @@
     { id: "global", name: "@global (All Agents)" }
   ];
 
-  async function loadContext() {
+  async function loadContext(targetPath = null) {
     loading = true;
     error = "";
     try {
+      const pathParam = targetPath || selectedWorkspacePath;
+      const curUrl = pathParam ? `/api/v1/projects/current?path=${encodeURIComponent(pathParam)}` : "/api/v1/projects/current";
       const [curRes, allRes] = await Promise.all([
-        api.get("/api/v1/projects/current"),
+        api.get(curUrl),
         api.get("/api/v1/projects")
       ]);
       currentProject = curRes.profile || {};
       projectMemories = curRes.memories || [];
       contextSummary = currentProject.context_summary || "";
       allProjects = allRes.projects || [];
+      if (currentProject.project_path) {
+        selectedWorkspacePath = currentProject.project_path;
+      }
     } catch (err) {
       error = err.message;
     } finally {
       loading = false;
     }
+  }
+
+  async function switchWorkspace(wsPath) {
+    if (!wsPath) return;
+    selectedWorkspacePath = wsPath;
+    await loadContext(wsPath);
   }
 
   async function saveInvariants() {
@@ -601,7 +613,22 @@
               </div>
 
               <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                <span class="font-mono text-slate-500">Hash: {proj.project_hash}</span>
+                <div class="flex items-center gap-2">
+                  {#if (currentProject?.project_hash === proj.project_hash) || (currentProject?.project_path === proj.project_path)}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                      Active
+                    </span>
+                  {:else}
+                    <button
+                      type="button"
+                      onclick={() => switchWorkspace(proj.project_path)}
+                      class="text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer underline"
+                    >
+                      Switch
+                    </button>
+                  {/if}
+                  <span class="font-mono text-slate-500">Hash: {proj.project_hash}</span>
+                </div>
                 <button
                   type="button"
                   onclick={() => deleteProjectContext(proj.project_hash)}

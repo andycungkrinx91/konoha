@@ -94,6 +94,7 @@ function buildSubagentMcpBlock(client = null, agentName = null) {
     '- `mcp__konoha__tokubetsu_jonin` — Scribe',
     '- `mcp__konoha__genin` — Scout',
     '- `mcp__konoha__find_skill` — Find skills',
+    '- `mcp__konoha__use_skills` — Load and activate specific skill(s) by name',
     '- `mcp__konoha__get_skill` — Get skill content',
     '- `mcp__konoha__list_skills` — List all skills',
     '- `mcp__konoha__read_file_head` — Read head of file',
@@ -814,7 +815,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
     }
     if (skillsList.length > 1) {
-      systemPrompt += `Available On-Demand Skills (call konoha.get_skill to load): ${skillsList.join(', ')}\n\n`;
+      systemPrompt += `Available On-Demand Skills (call konoha.use_skills or konoha.get_skill to load): ${skillsList.join(', ')}\n\n`;
     }
     systemPrompt += (
       'You can make file creations/edits directly by outputting conflict diff markers in your response.\n' +

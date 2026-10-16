@@ -319,4 +319,160 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test("Context page displays active workspace profile and allows switching workspaces", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.route("**/api/v1/projects/current*", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          profile: {
+            project_hash: "a1b2c3d4e5f6",
+            project_name: "konoha-app",
+            project_path: "/workspace/konoha-app",
+            framework: "sveltekit",
+            styling: "tailwind",
+            package_manager: "pnpm",
+            context_summary: "Always enforce pure light mode and zero AI slop"
+          },
+          memories: []
+        })
+      });
+    });
+
+    await page.route("**/api/v1/projects", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          projects: [
+            {
+              project_hash: "a1b2c3d4e5f6",
+              project_name: "konoha-app",
+              project_path: "/workspace/konoha-app",
+              framework: "sveltekit",
+              context_summary: "Always enforce pure light mode and zero AI slop"
+            },
+            {
+              project_hash: "b2c3d4e5f6a1",
+              project_name: "portfolio-site",
+              project_path: "/workspace/portfolio-site",
+              framework: "nextjs",
+              context_summary: "Portfolio site with 3D tilt"
+            }
+          ]
+        })
+      });
+    });
+
+    await page.goto("http://127.0.0.1:4173/context");
+
+    // Verify Active Workspace Card
+    await expect(page.getByText("Active Workspace")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "konoha-app" })).toBeVisible();
+    await expect(page.getByText("/workspace/konoha-app").first()).toBeVisible();
+    await expect(page.getByText("Framework: sveltekit")).toBeVisible();
+
+    // Verify All Registered Workspaces section renders cards with Active badge and Switch button
+    await expect(page.getByText("All Registered Workspaces (2)")).toBeVisible();
+    await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Switch" })).toBeVisible();
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("Persona page displays memory type filters and does not render SOUL Authoritative Source card", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.route("**/api/v1/soul", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          title: "The Will of Fire Doctrine",
+          path: "/home/user/.agents/SOUL.md",
+          will_of_fire: "Where tree leaves dance, one shall find flames."
+        })
+      });
+    });
+
+    await page.goto("http://127.0.0.1:4173/persona");
+
+    // Verify Memory Type Filter Buttons
+    await expect(page.getByRole("button", { name: "All Types" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Episodic (Learnings)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Strict Rules" })).toBeVisible();
+
+    // Click Will of Fire (Village Soul) tab
+    await page.getByRole("button", { name: "Will of Fire (Village Soul)" }).click();
+
+    // Verify Will of Fire quote is visible
+    await expect(page.getByText("Where tree leaves dance, one shall find flames.")).toBeVisible();
+
+    // Verify that the Authoritative Source footer card is completely ABSENT
+    await expect(page.getByText(/Authoritative Source:/i)).not.toBeVisible();
+    await expect(page.getByText("Synced Across All Coding Clients")).not.toBeVisible();
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("Agents page provides Model Assignment selector with discovered models and custom input", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.route("**/api/v1/agents", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            name: "jonin",
+            title: "UI & Frontend",
+            icon: "♦",
+            model: null,
+            skills: ["jonin-skill"]
+          }
+        ])
+      });
+    });
+
+    await page.route("**/api/v1/skills*", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([])
+      });
+    });
+
+    await page.route("**/api/v1/bridges/models", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          models: [
+            { id: "claude-3-7-sonnet", model_name: "Claude 3.7 Sonnet", bridge: "claude", source: "client:claude" },
+            { id: "deepseek-chat", model_name: "DeepSeek V3", bridge: "omp", source: "client:omp" }
+          ],
+          total: 2
+        })
+      });
+    });
+
+    await page.goto("http://127.0.0.1:4173/agents");
+
+    // Verify Model Assignment is present and interactive (not blocked by missing bridge)
+    await expect(page.getByText("Model Assignment").first()).toBeVisible({ timeout: 5000 });
+    const modelSelect = page.locator("select").first();
+    await expect(modelSelect).toBeVisible();
+
+    // Verify options include discovered models
+    await expect(modelSelect).toContainText("Claude 3.7 Sonnet (claude)");
+    await expect(modelSelect).toContainText("Custom model string");
+
+    expect(pageErrors).toEqual([]);
+  });
 });

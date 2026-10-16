@@ -678,7 +678,93 @@ function createWebServer(options = {}) {
       }
     }
 
-    if (method === 'GET' && pathname === '/api/v1/bridges/models') {
+function discoverClientModels() {
+  const discovered = [];
+  const seenIds = new Set();
+  const os = require('os');
+  const HOME = os.homedir();
+
+  // 1. OMP models cache (~/.omp/agent/models.db)
+  try {
+    const ompDbPath = path.join(HOME, '.omp', 'agent', 'models.db');
+    if (fs.existsSync(ompDbPath)) {
+      const Database = require('./sqlite_driver');
+      const ompConn = new Database(ompDbPath);
+      try {
+        const rows = ompConn.prepare('SELECT models FROM model_cache').all();
+        for (const row of rows) {
+          if (!row.models) continue;
+          try {
+            const list = JSON.parse(row.models);
+            if (Array.isArray(list)) {
+              for (const m of list) {
+                if (m && m.id && !seenIds.has(m.id)) {
+                  seenIds.add(m.id);
+                  discovered.push({
+                    id: m.id,
+                    model_name: m.name || m.id,
+                    bridge: m.provider || 'omp',
+                    owned_by: m.provider || 'omp',
+                    source: 'client:omp'
+                  });
+                }
+              }
+            }
+          } catch (_) { /* ignore */ }
+        }
+      } finally {
+        ompConn.close();
+      }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  // 2. Claude Code CLI (~/.claude.json)
+  try {
+    const claudeJsonPath = path.join(HOME, '.claude.json');
+    if (fs.existsSync(claudeJsonPath)) {
+      const data = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf8'));
+      if (data && typeof data === 'object') {
+        const cModels = data.models || data.customModels || [];
+        if (Array.isArray(cModels)) {
+          for (const m of cModels) {
+            const id = typeof m === 'string' ? m : (m && m.id);
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              discovered.push({
+                id,
+                model_name: typeof m === 'object' && m.name ? m.name : id,
+                bridge: 'claude',
+                owned_by: 'claude',
+                source: 'client:claude'
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  // 3. OpenCode / CommandCode configs
+  try {
+    const opencodePath = path.join(HOME, '.config', 'opencode', 'opencode.json');
+    if (fs.existsSync(opencodePath)) {
+      const data = JSON.parse(fs.readFileSync(opencodePath, 'utf8'));
+      if (data && Array.isArray(data.models)) {
+        for (const m of data.models) {
+          const id = typeof m === 'string' ? m : (m && m.id);
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            discovered.push({ id, model_name: id, bridge: 'opencode', owned_by: 'opencode', source: 'client:opencode' });
+          }
+        }
+      }
+    }
+  } catch (_) { /* non-fatal best effort */ }
+
+  return discovered;
+}
+
+    if (method === 'GET' && (pathname === '/api/v1/bridges/models' || pathname === '/api/v1/models')) {
       try {
         const bridges = dbBridges.listBridges();
         const enabledBridges = bridges.filter(b => b.enabled && (b.target_url || b.targetUrl));
@@ -728,9 +814,14 @@ function createWebServer(options = {}) {
               id: `${resItem.bridge}-${m.id}`,
               model_name: m.id,
               bridge: resItem.bridge,
-              owned_by: m.owned_by || resItem.bridge
+              owned_by: m.owned_by || resItem.bridge,
+              source: 'bridge'
             });
           }
+        }
+        const clientModels = discoverClientModels();
+        for (const cm of clientModels) {
+          models.push(cm);
         }
         return sendJson(res, 200, { models, total: models.length });
       } catch (err) {
@@ -1765,13 +1856,15 @@ function createWebServer(options = {}) {
         const agentFilter = parsedUrl.searchParams.get('agent') || null;
         const memoryType = parsedUrl.searchParams.get('type') || null;
         const search = parsedUrl.searchParams.get('search') || null;
-        const limit = parseInt(parsedUrl.searchParams.get('limit') || '50', 10);
+        const projectPath = parsedUrl.searchParams.get('projectPath') || parsedUrl.searchParams.get('project_path') || null;
+        const limit = parseInt(parsedUrl.searchParams.get('limit') || '100', 10);
         let memories = [];
         if (search) {
           memories = personaMemory.queryMemories({
             agentName: agentFilter || 'global',
             query: search,
             memoryType: memoryType || undefined,
+            projectPath,
             allSessions: true,
             limit
           });
@@ -1779,6 +1872,7 @@ function createWebServer(options = {}) {
           memories = personaMemory.listMemories({
             agentName: agentFilter,
             memoryType: memoryType || undefined,
+            projectPath,
             allSessions: true,
             limit
           });
@@ -1850,13 +1944,44 @@ function createWebServer(options = {}) {
     if (method === 'GET' && pathname === '/api/v1/projects/current') {
       try {
         const personaMemory = require('./persona_memory');
-        const targetPath = parsedUrl.searchParams.get('path') || process.cwd();
+        let targetPath = parsedUrl.searchParams.get('path');
+        if (!targetPath || !targetPath.trim()) {
+          try {
+            const db = require('./db');
+            const conn = db.getConnection();
+            try {
+              const activeRow = conn.prepare(`
+                SELECT workspace_root FROM active_sessions
+                WHERE workspace_root IS NOT NULL AND workspace_root != 'unknown' AND workspace_root != ''
+                ORDER BY last_active_at DESC LIMIT 1
+              `).get();
+              if (activeRow && activeRow.workspace_root && fs.existsSync(activeRow.workspace_root)) {
+                targetPath = activeRow.workspace_root;
+              }
+            } finally {
+              conn.close();
+            }
+          } catch (_) { /* intentional best-effort fallback */ }
+        }
+        if (!targetPath || !targetPath.trim()) {
+          try {
+            const rs = require('./mcp/runtime_state');
+            const wsRoot = rs.getWorkspaceRoot();
+            if (wsRoot && fs.existsSync(wsRoot)) {
+              targetPath = wsRoot;
+            }
+          } catch (_) { /* ignore */ }
+        }
+        if (!targetPath || !targetPath.trim()) {
+          targetPath = process.cwd();
+        }
+
         let profile = personaMemory.getProjectProfile(targetPath);
         if (!profile) {
           const pHash = personaMemory.saveOrUpdateProject(targetPath, '', null);
           profile = personaMemory.getProjectProfile(pHash);
         }
-        const mems = personaMemory.listMemories({ projectPath: targetPath, allSessions: true, limit: 20 });
+        const mems = personaMemory.listMemories({ projectPath: targetPath, allSessions: true, limit: 50 });
         return sendJson(res, 200, { profile: profile || {}, memories: mems || [] });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });

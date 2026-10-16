@@ -786,13 +786,25 @@ function generateAgentsMd(agents) {
   // Build official agent name list
   const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
 
+  // Format skills list compactly: highlight primary skills, summarize sub-references
+  function formatCompactSkillsList(skills) {
+    if (!skills || skills.length === 0) return 'None';
+    const primary = skills.filter(s => typeof s === 'string' && !s.includes('/'));
+    const subCount = skills.length - primary.length;
+    const primaryFormatted = primary.map(s => `\`${s}\``).join(', ');
+    if (subCount > 0) {
+      return `${primaryFormatted} *(+${subCount} specialized references on-demand via konoha.get_skill / use_skills)*`;
+    }
+    return primaryFormatted;
+  }
+
   // Build delegation table
-  const delegationRows = agents.map(a => `| ${a.skills && a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None'} | \`${a.name}\` |`).join('\n');
+  const delegationRows = agents.map(a => `| ${formatCompactSkillsList(a.skills)} | \`${a.name}\` |`).join('\n');
 
   // Build agent role sections
   const agentSections = agents.map(a => {
     const iconStr = a.icon ? `${a.icon} ` : '';
-    const skillsFormatted = a.skills.length > 0 ? a.skills.map(s => `\`${s}\``).join(', ') : 'None';
+    const skillsFormatted = formatCompactSkillsList(a.skills);
     return `### @${a.name} — ${iconStr}${a.title}
 - **Purpose**: ${a.purpose}
 - **Skills**: ${skillsFormatted}

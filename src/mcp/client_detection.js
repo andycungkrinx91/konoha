@@ -302,10 +302,18 @@ function detectActiveAgent() {
             }
           }
           if (sessId) {
+            const actClient = getActiveClient() || 'unknown';
+            const wsRoot = getWorkspaceRoot() || 'unknown';
             conn.prepare(`
               INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
               VALUES (?, ?, ?, ?, datetime('now'))
-            `).run(getActiveClient() || 'unknown', getWorkspaceRoot() || 'unknown', sessId, fpath);
+            `).run(actClient, wsRoot, sessId, fpath);
+            if (wsRoot && wsRoot !== 'unknown' && fs.existsSync(wsRoot)) {
+              try {
+                const personaMemory = require('../persona_memory');
+                personaMemory.saveOrUpdateProject(wsRoot);
+              } catch (_) { /* non-fatal best effort */ }
+            }
           }
         } catch (err) {
           process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);
