@@ -44,6 +44,7 @@ function runTest() {
   console.log('✓ 15 canonical skills verified');
 
   // 2. Verify embedded reference classification
+  assert.ok(getEmbeddedReferenceSkills().has('helm-chart-scaffolding'), 'getEmbeddedReferenceSkills must include helm-chart-scaffolding');
   assert.ok(isEmbeddedReference('react-patterns'), 'react-patterns must be an embedded reference');
   assert.ok(!isCanonicalSkill('react-patterns'), 'react-patterns must NOT be a canonical skill');
   assert.ok(isEmbeddedReference('elite-powerpoint-designer'), 'elite-powerpoint-designer must be an embedded reference');
@@ -110,6 +111,34 @@ function runTest() {
   } finally {
     fs.rmSync(preserveTmp, { recursive: true, force: true });
   }
+
+  // 6. Verify standalone helm-chart-scaffolding is completely absent from all maintained skill trees
+  // and only retained as an embedded reference under anbu-skill/references/
+  const ROOT = path.resolve(__dirname, '..');
+  const maintainedTrees = [
+    path.join(ROOT, '.agents', 'skills'),
+    path.join(ROOT, 'src', 'templates', 'skills'),
+    path.join(ROOT, '.cursor', 'skills'),
+    path.join(ROOT, '.gemini', 'skills'),
+    path.join(ROOT, '.commandcode', 'skills'),
+    path.join(ROOT, '.claude', 'skills'),
+    path.join(ROOT, '.codex', 'skills'),
+    path.join(ROOT, '.opencode', 'skills'),
+    path.join(ROOT, '.omp', 'skills'),
+  ];
+  for (const tree of maintainedTrees) {
+    if (fs.existsSync(tree)) {
+      assert.ok(
+        !fs.existsSync(path.join(tree, 'helm-chart-scaffolding')),
+        `Standalone helm-chart-scaffolding directory must not exist in ${tree}`
+      );
+    }
+  }
+  assert.ok(
+    fs.existsSync(path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'helm-chart-scaffolding.md')),
+    'Embedded helm-chart-scaffolding reference must exist in anbu-skill/references/'
+  );
+  console.log('✓ Standalone helm-chart-scaffolding physical absence verified across all skill trees');
 
   console.log('✅ All canonical skills and embedded reference tests passed cleanly!');
 }

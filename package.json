@@ -33,8 +33,7 @@
     ".agents/",
     "README.md",
     "LICENSE",
-    "!**/anthropic-cybersecurity-skills-assets/**",
-    "!**/helm-chart-scaffolding/**"
+    "!**/anthropic-cybersecurity-skills-assets/**"
   ],
   "engines": {
     "node": ">=22.16.0"
