@@ -182,6 +182,10 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     const mobileToggle = page.locator("header button[aria-label='Toggle mobile menu sidebar']");
     await expect(mobileToggle).toBeVisible();
 
+    // Verify bottom navigation dock is completely removed in mobile view
+    const bottomDock = page.locator("nav.fixed.bottom-0");
+    await expect(bottomDock).toHaveCount(0);
+
     // Initially, sidebar drawer is closed on mobile
     const sidebar = page.locator("aside");
     await expect(sidebar).not.toBeVisible();

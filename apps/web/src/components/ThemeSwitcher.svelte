@@ -36,7 +36,7 @@
 <svelte:window onkeydown={handleModalKeydown} />
 
 <!-- Floating Bottom-Right Theme Switcher Button (FAB) with Rasengan Icon -->
-<div class="fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]" style="margin-bottom: 2em;">
+<div class="fixed bottom-6 right-6 z-50">
   <button
     type="button"
     onclick={toggleModal}

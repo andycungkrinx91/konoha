@@ -280,7 +280,7 @@
   </aside>
 
   <!-- Main Content Stage (Expands to Full Width When Sidebar is Collapsed) -->
-  <main class="flex-1 flex flex-col overflow-hidden pb-28 lg:pb-0 transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
+  <main class="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
     <!-- Top 4-Gradient Vibrant Accent Stripe -->
     <div class="h-1 w-full shrink-0 animate-gradient-flow" style="background: var(--theme-4gradient-bar);"></div>
 
@@ -345,28 +345,11 @@
       </div>
     </header>
 
-    <!-- Page Body (extra bottom padding clears the mobile dock + theme FAB) -->
-    <div class="flex-1 overflow-y-auto p-6 pb-28 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: var(--color-bg);">
+    <!-- Page Body (padding clears the bottom floating theme FAB on mobile) -->
+    <div class="flex-1 overflow-y-auto p-4 pb-20 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: var(--color-bg);">
       {@render children()}
     </div>
   </main>
-
-  <!-- Mobile Navigation Dock (Mandatory Invariant — Zero Hamburger Menu in Header) -->
-  <nav class="glass-frost lg:hidden fixed bottom-0 inset-x-0 z-40 border-t flex flex-nowrap items-center gap-1 overflow-x-auto scrollbar-none py-2 px-2 shadow-2xl transition-all duration-200" style="background: var(--theme-dock-bg); border-color: color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border)); padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px -4px color-mix(in srgb, var(--theme-grad-1) 15%, transparent);">
-    {#each allNavItems as item}
-      {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
-      <a
-        href={item.path}
-        class="nav-depth flex flex-col items-center gap-1 py-1 px-2.5 rounded-[5px] text-[10px] font-semibold transition-all shrink-0 {isActive ? 'gradient-sidemenu-active' : ''}"
-        style="{isActive ? '' : 'color: var(--color-text-muted);'}"
-      >
-        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
-        </svg>
-        <span class="whitespace-nowrap">{item.label}</span>
-      </a>
-    {/each}
-  </nav>
 
   <!-- Floating Theme Switcher Button -->
   <ThemeSwitcher />
