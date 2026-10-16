@@ -98,7 +98,7 @@
     if (!slug) {
       await sweetAlert.fire({
         title: "Validation Error",
-        text: "Please provide a skill name (e.g. helm-chart-scaffolding).",
+        text: "Please provide a skill name (e.g. my-custom-skill).",
         icon: "warning"
       });
       return;

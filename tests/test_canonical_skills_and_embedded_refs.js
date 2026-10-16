@@ -138,6 +138,14 @@ function runTest() {
     fs.existsSync(path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'helm-chart-scaffolding.md')),
     'Embedded helm-chart-scaffolding reference must exist in anbu-skill/references/'
   );
+  assert.ok(
+    fs.existsSync(path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'helm-chart-scaffolding-assets', 'references', 'chart-structure.md')),
+    'Preserved chart-structure.md must exist in anbu-skill references assets'
+  );
+  assert.ok(
+    fs.existsSync(path.join(ROOT, '.agents', 'skills', 'anbu-skill', 'references', 'helm-chart-scaffolding-assets', 'references', 'details.md')),
+    'Preserved details.md must exist in anbu-skill references assets'
+  );
   console.log('✓ Standalone helm-chart-scaffolding physical absence verified across all skill trees');
 
   console.log('✅ All canonical skills and embedded reference tests passed cleanly!');
