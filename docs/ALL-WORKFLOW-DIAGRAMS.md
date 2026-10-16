@@ -50,7 +50,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    UserPrompt["End User / Client Prompt"] --> Clients["7 Supported Coding Environments<br/>Antigravity CLI/IDE · Cursor · Claude Code<br/>OpenCode · Command Code · Codex · Pi"]
+    UserPrompt["End User / Client Prompt"] --> Clients["8 Supported Coding Environments<br/>Antigravity CLI/IDE · Cursor · Claude Code<br/>OpenCode · Command Code · Codex · Pi · OMP"]
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP & Storage Foundation"]

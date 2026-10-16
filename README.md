@@ -181,7 +181,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 | Developer Challenge & Problem | Traditional / Naive Approach | Konoha Enterprise Solution | Key Impact & Metric |
 |:---|:---|:---|:---|
-| **Vibe Coder Career Dilemma**<br>*(Newbi Vibe Coder is confused about how to reach the higher level in this AI era so konoha appear as solution for one shot setup)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **One-Shot Setup (`konoha init --force`)**: Turnkey initialization instantly provisioning 7 specialized ninja subagents, 1,027 domain skills, and 40 canonical MCP tools across 7 major IDEs/clients with zero manual glue code. | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
+| **Vibe Coder Career Dilemma**<br>*(Newbi Vibe Coder is confused about how to reach the higher level in this AI era so konoha appear as solution for one shot setup)* | Casual single-file prompting, copy-pasting code snippets without structure, fragile prototypes, lack of SDLC governance, and inability to architect scalable enterprise systems. | **One-Shot Setup (`konoha init --force`)**: Turnkey initialization instantly provisioning 7 specialized ninja subagents, 1,027 domain skills, and 40 canonical MCP tools across 8 major IDEs/clients with zero manual glue code. | Elevates casual vibe coding into structured senior engineering rigor with full team delegation from Day 1. |
 | **Context Window Flooding & High API Costs** | Dumping entire skill trees, unindexed files, and massive prompt boilerplates at startup (~1.1 MB payload / 800,000+ tokens). | **On-Demand SQLite FTS5 Indexing & Bounded File I/O**: `find_skill` and bounded file operations slice context to exact 50–100 line spans. | **83%–98% token reduction**; sub-millisecond retrieval (0.61 ms); eliminates context bloat and LLM amnesia. |
 | **Terminal Output Noise & Shell Explosion** | Build tools, test runners, and linters dump hundreds of noisy progress bars and logs directly into model context. | **RTK (Rust Token Killer) Global CLI Proxy**: Transparently intercepts terminal commands, compresses noisy outputs, and preserves critical error signals. | **60%–95% terminal output compression**; saves thousands of tokens per command execution. |
 | **Generic AI Slop & Aesthetic Clichés** | Generating purple gradients, generic Inter typography, center-aligned hero clutter, broken mobile layouts, and excessive emoji decor. | **Jonin + Taste-Skill v2 Anti-Slop Frontend Engine**: Strict typography standards (Geist, Cabinet Grotesk), bento CSS grids, 10 light-mode gradient themes, bottom mobile dock, and zero emoji policy. | **100/100 `aislop` scan compliance**; production-grade, human-crafted aesthetic fidelity. |
@@ -190,7 +190,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | **Plaintext Credential Leaks & Secret Vulnerabilities** | Storing sensitive API tokens, bot tokens, and tunnel credentials in plaintext `.env` files vulnerable to accidental Git commits and logs. | **AES-256-GCM AEAD Hardware-Grade Crypto Vault**: Machine-bound PBKDF2 (100,000 iterations) key derivation, OS-keyed encryption, automatic redaction in logs, and zero plaintext secret storage. | Zero-knowledge secret management; automated encryption for bot tokens & Cloudflare secrets. |
 | **DevOps & Offensive Security Blindspots** | AI models unaware of OWASP vulnerabilities, unable to perform security assessments, and producing insecure cloud deployments. | **817 Anthropic Cybersecurity Skills & Anbu Black Ops**: Integrated MITRE ATT&CK techniques, penetration testing, exploit analysis, container hardening, and enterprise defense capabilities in dev/local environments. | End-to-end security hardening; comprehensive vulnerability identification and red teaming. |
 | **Multi-Agent Disk Thrashing & Context Fragmentation** | Subagents exchanging files via disk files (`delegate.md`/`result.md`), causing I/O lag, disk bloat, and context fragmentation. | **Direct Structured MCP Delegation & Zero-Loop Reporting**: In-memory argument passing (`task`, `context`, `constraints`, `skills`, `taste_dials`) and automatic episodic project memory checkpointing (`report_from_agent`). | Zero disk file loops; instant subagent dispatch with permanent project memory continuity. |
-| **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 7 premier AI coding environments. |
+| **Fragmented IDE Configuration & Ecosystem Lock-in** | Manually configuring skills, MCP servers, and agent prompts across Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | **Single Universal Hub & Cross-Client Compatibility**: One command (`konoha init --force`) universally provisions `.gemini`, `.cursor`, `.claude`, `.agents`, `.omp`, and project configs simultaneously with automatic skill synchronization. | Write once, run anywhere across all 8 premier AI coding environments. |
 
 > [!TIP]
 > **Optimization Result**: Konoha and Semble retrieve bounded, task-relevant context instead of full skill trees. See [BENCHMARK.md](docs/BENCHMARK.md) for historical snapshots and reproducible `konoha savings` output; latency and cost reductions are environment-dependent and are not guaranteed.
@@ -391,7 +391,7 @@ Transient subagent scratch directories (`delegate.md`, `plan.md`, `result.md`, e
 
 ### ⚡ 1-Command Global Install (Recommended via npm / pnpm)
 
-Install Konoha globally from npm and initialize all 7 agentic coding clients in one command:
+Install Konoha globally from npm and initialize all 8 agentic coding clients in one command:
 
 ```bash
 # Recommended: Install globally via npm (or pnpm add -g konoha-mcp)
@@ -683,6 +683,7 @@ If `rtk` is installed on your system, Konoha auto-deploys RTK rules to all detec
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
 | **Codex** | `~/.codex/rules/rtk.md` |
 | **Pi (pi.dev)** | `~/.pi/agent/extensions/rtk.ts` (official RTK TypeScript extension) |
+| **OMP** | `~/.omp/agent/AGENTS.md` (runtime workflow contract with RTK mandate) |
 
 RTK is **installed automatically** by `konoha init` when missing — no Rust toolchain required. The installer resolves the official [rtk-ai/rtk](https://github.com/rtk-ai/rtk) binary via: cargo (`cargo install --git https://github.com/rtk-ai/rtk`), the official quick-install script (`~/.local/bin`, Linux/macOS), or the prebuilt Windows release. Konoha never uses the plain `cargo install rtk` crates.io package — that name belongs to an unrelated project (Rust Type Kit).
 
@@ -1114,7 +1115,7 @@ For an in-depth breakdown of system behavior, token consumption, configuration f
 ## Credits
 
 * **[Semble](https://github.com/MinishLab/semble)** by MinishLab — High-performance semantic code search and dependency mapping for coding agents, providing the codebase discovery half of Konoha's optimization stack.
-* **[RTK (Rust Token Killer)](https://github.com/reachingforthejack/rtk)** — High-performance CLI proxy that filters, compacts, and summarizes command outputs before they enter LLM context, preventing terminal token explosion across all 7 supported coding clients.
+* **[RTK (Rust Token Killer)](https://github.com/reachingforthejack/rtk)** — High-performance CLI proxy that filters, compacts, and summarizes command outputs before they enter LLM context, preventing terminal token explosion across all 8 supported coding clients.
 * **[aislop](https://github.com/scanaislop/aislop)** — The automated quality gate and AI-slop scanner for agentic coding, powering Konoha's Zero-AI-Slop Pre-Gate and mechanical delivery verification across changed files.
 * **[anti-slop](https://github.com/miqdadbadjuber/anti-slop)** by Miqdad Badjuber — Anti-slop engineering standards, code cleanliness, and UI design guidelines embedded directly into Kage's review checklist and delivery SOP.
 * **[i-have-adhd](https://github.com/ayghri/i-have-adhd)** by Ayghri — Cognitive output-shaping and ADHD-friendly communication protocol (action-first, numbered multi-step directives, minimal preamble, zero conversational fluff) embedded across Genin, Chunin, Jonin, Anbu, and Tokubetsu-Jonin reference SOPs.

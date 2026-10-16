@@ -16,8 +16,8 @@
 <mxCell id="p1-user" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="End User" vertex="1">
                     <mxGeometry height="50" width="180" x="20" y="40" as="geometry"/>
                 </mxCell>
-<mxCell id="p1-client" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Supported Clients&#xa;Antigravity CLI / IDE&#xa;Claude Code | Cursor | OpenCode | Command Code | Codex | Pi (pi.dev)" vertex="1">
-                    <mxGeometry height="70" width="360" x="340" y="40" as="geometry"/>
+<mxCell id="p1-client" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F0F8FF;strokeColor=#2E73B8;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#1E3A8A;fontStyle=1;shadow=0;" value="Supported Clients&#xa;Antigravity CLI / IDE&#xa;Claude Code | Cursor | OpenCode | Command Code | Codex | Pi | OMP" vertex="1">
+                    <mxGeometry height="70" width="380" x="340" y="40" as="geometry"/>
                 </mxCell>
 <mxCell id="p1-config" parent="p1-l1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;" value="Client MCP Configurations&#xa;Konoha + Semble + Aislop + optional RTK rules" vertex="1">
                     <mxGeometry height="70" width="330" x="820" y="40" as="geometry"/>

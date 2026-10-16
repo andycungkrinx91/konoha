@@ -44,6 +44,7 @@ function getSkillsScanDirs(targetCwd = null) {
     path.join(cwd, '.gemini', 'skills'),
     path.join(cwd, '.commandcode', 'skills'),
     path.join(cwd, '.claude', 'skills'),
+    path.join(cwd, '.omp', 'skills'),
     path.join(cwd, 'skills'),
     path.join(cwd, '.skills'),
     path.join(cwd, 'agent', 'skills'),
@@ -57,6 +58,7 @@ function getSkillsScanDirs(targetCwd = null) {
     path.join(HOME, '.config', 'opencode', 'skills'),
     path.join(HOME, '.opencode', 'skills'),
     path.join(HOME, '.codex', 'skills'),
+    path.join(HOME, '.omp', 'agent', 'skills'),
   ];
   return Array.from(new Set(dirs.filter(d => {
     try { return fs.existsSync(d) && fs.statSync(d).isDirectory(); } catch { return false; }
@@ -466,6 +468,7 @@ function syncAllClientSkills(options = {}) {
     path.join(HOME, '.opencode', 'skills'),
     path.join(HOME, '.commandcode', 'skills'),
     path.join(HOME, '.codex', 'skills'),
+    path.join(HOME, '.omp', 'agent', 'skills'),
   ];
 
   if (projectRoot && fs.existsSync(projectRoot)) {
@@ -474,6 +477,9 @@ function syncAllClientSkills(options = {}) {
     targetDirs.push(path.join(projectRoot, '.commandcode', 'skills'));
     targetDirs.push(path.join(projectRoot, '.claude', 'skills'));
     targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
+    if (fs.existsSync(path.join(projectRoot, '.omp'))) {
+      targetDirs.push(path.join(projectRoot, '.omp', 'skills'));
+    }
     if (fs.existsSync(path.join(projectRoot, '.config', 'opencode'))) {
       targetDirs.push(path.join(projectRoot, '.config', 'opencode', 'skills'));
     }

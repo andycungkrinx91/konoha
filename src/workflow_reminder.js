@@ -63,6 +63,7 @@ const _activeClient = (() => {
   if (process.env.OPENCODE_SESSION) return 'opencode';
   if (process.env.PI_SESSION || process.env.PI_DEV) return 'pi';
   if (process.env.CODEX_SESSION || process.env.CODEX_SANDBOX) return 'codex';
+  if (process.env.OMP_SESSION || process.env.OMP_CLIENT || process.env.ACTIVE_CLIENT === 'omp') return 'omp';
   if (process.env.CLAUDE_CODE_HOOK || process.env.CLAUDE_CODE_SESSION) return 'claude';
   return 'generic';
 })();

@@ -83,7 +83,8 @@
     { name: 'OpenCode', config: '~/.config/opencode/opencode.json' },
     { name: 'Command Code', config: '~/.commandcode/mcp.json' },
     { name: 'Codex IDE / CLI', config: '~/.codex/config.toml' },
-    { name: 'Pi (pi.dev)', config: '~/.pi/agent/mcp.json' }
+    { name: 'Pi (pi.dev)', config: '~/.pi/agent/mcp.json' },
+    { name: 'OMP', config: '~/.omp/agent/mcp.json' }
   ];
 
   const PHASES = ['Route', 'Research', 'Explore', 'Plan', 'Execute', 'Review', 'Document', 'Synthesize'];

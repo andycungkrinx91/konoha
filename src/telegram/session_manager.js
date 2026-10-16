@@ -21,6 +21,7 @@ const CLIENT_DISPLAY_NAMES = {
   opencode: 'OpenCode',
   commandcode: 'Command Code',
   pi: 'Pi Agent',
+  omp: 'OMP Agent',
   telegram: 'Telegram Bot'
 };
 
@@ -31,6 +32,7 @@ const CANONICAL_CLIENT_MAP = {
   claudecode: 'claudecode',
   codex: 'codex',
   pi: 'pi',
+  omp: 'omp',
   opencode: 'opencode',
   commandcode: 'commandcode',
   cursor: 'cursor'
@@ -395,7 +397,7 @@ function createSession(chatId, clientInput, pathInput) {
   if (!clientInput || typeof clientInput !== 'string' || !clientInput.trim()) {
     return {
       success: false,
-      error: 'Client name is required (e.g. agy, antigravity, claude, codex, pi, opencode, commandcode).'
+      error: 'Client name is required (e.g. agy, antigravity, claude, codex, pi, opencode, commandcode, omp).'
     };
   }
 
@@ -404,7 +406,7 @@ function createSession(chatId, clientInput, pathInput) {
   if (!canonicalClient) {
     return {
       success: false,
-      error: `Unsupported client "${clientInput}". Supported: agy, antigravity, claude, codex, pi, opencode, commandcode, cursor.`
+      error: `Unsupported client "${clientInput}". Supported: agy, antigravity, claude, codex, pi, opencode, commandcode, cursor, omp.`
     };
   }
 

@@ -129,6 +129,7 @@ const DEFAULT_SKILLS_DIRS = [
   path.join(process.cwd(), '.gemini', 'skills'), // local project .gemini/skills
   path.join(process.cwd(), '.commandcode', 'skills'), // local project .commandcode/skills
   path.join(process.cwd(), '.claude', 'skills'), // local project .claude/skills
+  path.join(process.cwd(), '.omp', 'skills'), // local project .omp/skills
   path.join(process.cwd(), 'skills'),          // local project skills/
   path.join(process.cwd(), '.skills'),         // local project .skills/
   path.join(process.cwd(), 'docs', 'skills'),   // local project docs/skills
@@ -138,6 +139,7 @@ const DEFAULT_SKILLS_DIRS = [
   path.join(HOME, '.commandcode', 'skills'),
   path.join(HOME, '.claude', 'skills'),
   path.join(HOME, '.gemini', 'skills'),
+  path.join(HOME, '.omp', 'agent', 'skills'),
 ];
 
 /** Antigravity agent deployment targets */
@@ -214,6 +216,12 @@ const CODEX_CONFIG = path.join(CODEX_DIR, 'config.toml');
 const CODEX_AGENTS_MD = path.join(CODEX_DIR, 'AGENTS.md');
 const CODEX_RULES_DIR = path.join(CODEX_DIR, 'rules');
 const CODEX_RTK_RULE = path.join(CODEX_RULES_DIR, 'rtk.md');
+
+const OMP_DIR = path.join(HOME, '.omp');
+const OMP_AGENT_DIR = path.join(OMP_DIR, 'agent');
+const OMP_MCP_CONFIG = path.join(OMP_AGENT_DIR, 'mcp.json');
+const OMP_AGENTS_MD = path.join(OMP_AGENT_DIR, 'AGENTS.md');
+const OMP_SKILLS = path.join(OMP_AGENT_DIR, 'skills');
 
 
 module.exports = {
@@ -303,6 +311,12 @@ module.exports = {
   CODEX_AGENTS_MD,
   CODEX_RULES_DIR,
   CODEX_RTK_RULE,
+  // OMP
+  OMP_DIR,
+  OMP_AGENT_DIR,
+  OMP_MCP_CONFIG,
+  OMP_AGENTS_MD,
+  OMP_SKILLS,
   // Tool workers
   TOOL_WORKERS_DIR,
 };

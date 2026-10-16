@@ -4,6 +4,12 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [2.1.18] - Unreleased
 
+### OMP Client Support & Web UI 3D Rasengan Impact (Recent Batches)
+
+- **OMP (omp.dev) Agent Support (`src/omp_manager.js`)**: Integrated the OMP agent into Konoha's supported client ecosystem. Automatic setup via `konoha init` configures `~/.omp/agent/mcp.json` with `konoha`, `semble`, and `aislop` MCP servers while safely preserving user-configured servers, and deploys the full Konoha runtime contract to `~/.omp/agent/AGENTS.md`.
+- **Cross-Client Detection & Savings Attribution (`src/tools_savings_logger.js`, `src/mcp/client_detection.js`)**: Added OMP environment variable detection (`OMP_CLIENT`, `OMP_SESSION`, `OMP_SESSION_ID`, `OMP_AGENT`, `ACTIVE_CLIENT=omp`), honest token savings telemetry attribution to `omp`, and multi-session switcher support in Telegram bot (`/session create omp <path>`).
+- **Web UI Universal 3D Elevation & 10s Rasengan Impact Wall Hit (`apps/web/`)**: Upgraded Web UI with authentic swirling SVG Rasengan Theme FAB, triggering a 10-second 3D Rasengan Impact wall hit animation with physical concavity (`perspective(900px)`), radial fracture fissures, and spinning chakra shockwaves that automatically repair. Added dynamic route breadcrumbs and on-demand neural vector re-embedding endpoint (`/api/v1/skills/reembed` & `/api/v1/vectors/reembed`).
+
 ### CLI & MCP Surface Consolidation (Phase 4)
 
 - **Removed 27 Top-Level CLI Aliases**: Router switch labels removed and restricted to canonical command syntax: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`.

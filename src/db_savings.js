@@ -252,6 +252,7 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
     commandcode: { calls: 0, bytes: 0, tokens: 0 },
     codex: { calls: 0, bytes: 0, tokens: 0 },
     pi: { calls: 0, bytes: 0, tokens: 0 },
+    omp: { calls: 0, bytes: 0, tokens: 0 },
     // Calls with no verified client session signal (honest attribution):
     // displayed as "Unattributed" instead of being hidden or labeled "Unknown".
     unattributed: { calls: 0, bytes: 0, tokens: 0 },

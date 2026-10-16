@@ -95,6 +95,7 @@ function autoMigrateProjectSkills(workspaceRoot = null) {
     path.join(ws, '.gemini', 'antigravity-cli', 'skills'),
     path.join(ws, '.commandcode', 'skills'),
     path.join(ws, '.claude', 'skills'),
+    path.join(ws, '.omp', 'skills'),
     path.join(ws, '.config', 'opencode', 'skills'),
     path.join(ws, '.opencode', 'skills'),
     path.join(ws, 'agent', 'skills'),
@@ -584,6 +585,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
     path.join(ws, '.claude', 'skills'),
     path.join(ws, '.opencode', 'skills'),
     path.join(ws, '.codex', 'skills'),
+    path.join(ws, '.omp', 'skills'),
   ];
 
   function findInMirror(name) {

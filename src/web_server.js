@@ -144,6 +144,10 @@ function isClientConfigured(id) {
       const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
       return !!(cfg && cfg.mcpServers && (cfg.mcpServers['konoha'] || cfg.mcpServers['skills-db']));
     }
+    if (id === 'omp') {
+      const ompMgr = require('./omp_manager');
+      return ompMgr.getOmpStatus().configured;
+    }
   } catch (_) {
     return false;
   }
@@ -513,7 +517,8 @@ function createWebServer(options = {}) {
           { id: 'opencode', name: 'OpenCode' },
           { id: 'commandcode', name: 'CommandCode' },
           { id: 'codex', name: 'Codex' },
-          { id: 'pi', name: 'Pi' }
+          { id: 'pi', name: 'Pi' },
+          { id: 'omp', name: 'OMP' }
         ];
         features.clients_detail = clientDefs.map(c => ({
           name: c.name,
@@ -1694,6 +1699,12 @@ function createWebServer(options = {}) {
           name: 'Pi (pi.dev)',
           configPath: '~/.pi/agent/mcp.json',
           configured: isClientConfigured('pi')
+        },
+        {
+          id: 'omp',
+          name: 'OMP Agent',
+          configPath: '~/.omp/agent/mcp.json',
+          configured: isClientConfigured('omp')
         }
       ];
       return sendJson(res, 200, clientsList);
@@ -1709,6 +1720,7 @@ function createWebServer(options = {}) {
         if (clientName === 'opencode') require('./opencode_manager').ensureOpenCodeSetup({ silent: true });
         if (clientName === 'codex') require('./codex_manager').ensureCodexSetup({ silent: true });
         if (clientName === 'pi') require('./pi_manager').ensurePiSetup({ silent: true });
+        if (clientName === 'omp') require('./omp_manager').ensureOmpSetup({ silent: true });
         broadcastEvent('clients_updated', { client: clientName, action: 'setup' });
         return sendJson(res, 200, { ok: true, client: clientName });
       } catch (err) {
@@ -1726,6 +1738,7 @@ function createWebServer(options = {}) {
         if (clientName === 'opencode') require('./opencode_manager').removeOpenCodeConfig(true);
         if (clientName === 'codex') require('./codex_manager').removeCodexConfig(true);
         if (clientName === 'pi') require('./pi_manager').removePiMcp(true);
+        if (clientName === 'omp') require('./omp_manager').removeOmpConfig(true);
         broadcastEvent('clients_updated', { client: clientName, action: 'remove' });
         return sendJson(res, 200, { ok: true, client: clientName });
       } catch (err) {

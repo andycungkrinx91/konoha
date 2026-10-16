@@ -161,6 +161,7 @@ function handleRequest(req) {
       else if (envClient.includes("opencode")) activeClient = "opencode";
       else if (envClient.includes("commandcode") || envClient.includes("command-code")) activeClient = "commandcode";
       else if (envClient.includes("codex") || envClient.includes("openai")) activeClient = "codex";
+      else if (envClient.includes("omp")) activeClient = "omp";
       else if (envClient.includes("agy") || envClient.includes("antigravity-cli")) activeClient = "agy";
       else if (envClient.includes("antigravity") || envClient.includes("ide")) activeClient = "antigravity";
     }
@@ -186,6 +187,8 @@ function handleRequest(req) {
         activeClient = "commandcode";
       } else if (client_name.indexOf("codex") !== -1 || client_name.indexOf("openai") !== -1) {
         activeClient = "codex";
+      } else if (client_name.indexOf("omp") !== -1) {
+        activeClient = "omp";
       } else if (client_name.indexOf("antigravity-cli") !== -1 || client_name.indexOf("agy") !== -1) {
         activeClient = "agy";
       } else if (client_name.indexOf("antigravity") !== -1 || client_name.indexOf("ide") !== -1) {
@@ -244,6 +247,8 @@ function handleRequest(req) {
         sessId = process.env.COMMANDCODE_SESSION_ID || '';
       } else if (activeClient === 'codex') {
         sessId = process.env.CODEX_THREAD_ID || process.env.CODEX_SESSION || '';
+      } else if (activeClient === 'omp') {
+        sessId = process.env.OMP_SESSION_ID || process.env.OMP_AGENT_ID || '';
       }
 
       if (!sessId) {

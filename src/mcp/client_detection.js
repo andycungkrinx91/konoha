@@ -72,6 +72,7 @@ function detectActiveClient() {
     const activeOverride = (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || '').toLowerCase().trim();
     if (activeOverride) {
       if (activeOverride.includes('codex') || activeOverride.includes('openai')) return 'codex';
+      if (activeOverride.includes('omp')) return 'omp';
       if (activeOverride.includes('commandcode') || activeOverride.includes('command-code')) return 'commandcode';
       if (activeOverride.includes('opencode')) return 'opencode';
       if (activeOverride.includes('claude')) return 'claudecode';
@@ -82,6 +83,7 @@ function detectActiveClient() {
     }
 
     if (process.env.CODEX_SESSION || process.env.CODEX_THREAD_ID || process.env.CODEX_CI) return 'codex';
+    if (process.env.OMP_SESSION || process.env.OMP_SESSION_ID || process.env.OMP_CLIENT || process.env.OMP_AGENT) return 'omp';
     if (process.env.OPENCODE_CLIENT === '1' || process.env.OPENCODE_SESSION === '1' || process.env.OPENCODE_SESSION_ID) return 'opencode';
     if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1' || process.env.COMMANDCODE_SESSION_ID) return 'commandcode';
     if (process.env.CLAUDE_CODE_CHILD_SESSION === '1' || process.env.CLAUDE_CONVERSATION_ID) return 'claudecode';
@@ -114,7 +116,7 @@ function detectActiveAgent() {
   try {
     const client = detectActiveClient();
     let convId = (client === 'agy' || client === 'antigravity') ? process.env.ANTIGRAVITY_CONVERSATION_ID : null;
-    if (['cursor', 'claudecode', 'opencode', 'commandcode'].includes(getActiveClient()) || ['cursor', 'claudecode', 'opencode', 'commandcode'].includes(client)) {
+    if (['cursor', 'claudecode', 'opencode', 'commandcode', 'omp'].includes(getActiveClient()) || ['cursor', 'claudecode', 'opencode', 'commandcode', 'omp'].includes(client)) {
       convId = null;
     }
 
@@ -393,6 +395,8 @@ function getActiveSessionId(workspaceRoot = null, client = null) {
     sessId = process.env.COMMANDCODE_SESSION_ID || '';
   } else if (curClient === 'codex') {
     sessId = process.env.CODEX_THREAD_ID || process.env.CODEX_SESSION || '';
+  } else if (curClient === 'omp') {
+    sessId = process.env.OMP_SESSION_ID || process.env.OMP_AGENT_ID || '';
   } else {
     sessId = process.env.SESSION_ID || process.env.KONOHA_SESSION_ID || '';
   }

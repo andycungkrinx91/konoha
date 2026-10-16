@@ -211,6 +211,7 @@ function assertWithinAllowed(resolvedPath) {
     path.join(HOME, '.agents'),
     path.join(HOME, '.claude.json'),
     path.join(HOME, '.pi'),
+    path.join(HOME, '.omp'),
   ].map(d => platform.normPath(d));
   for (const p of SCRATCH_PREFIXES) {
     if (pathNorm === p || pathNorm.startsWith(p + path.sep) || pathNorm.startsWith(p + '/')) {

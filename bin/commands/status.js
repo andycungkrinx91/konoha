@@ -53,6 +53,7 @@ const mcpClientsManager = require('../../src/mcp_clients_manager');
 const opencodeManager = require('../../src/opencode_manager');
 const codexManager = require('../../src/codex_manager');
 const piManager = require('../../src/pi_manager');
+const ompManager = require('../../src/omp_manager');
 const antigravityManager = require('../../src/antigravity_manager');
 
 function cmdStatusHelp() {
@@ -168,6 +169,8 @@ async function cmdStatus(args = []) {
   printClientStatus('Codex IDE / CLI', '~/.codex/config.toml', codexStatus.mcpKonoha && codexStatus.mcpSemble, codexStatus.configExists, codexStatus.installed);
   const piStatus = piManager.getPiStatus();
   printClientStatus('Pi (pi.dev)', '~/.pi/agent/mcp.json', piStatus.mcpKonoha && piStatus.adapterInstalled && piStatus.rtkRuleDeployed, piStatus.adapterInstalled, piStatus.installed);
+  const ompStatus = ompManager.getOmpStatus();
+  printClientStatus('OMP Agent', '~/.omp/agent/mcp.json', ompStatus.mcpKonoha && ompStatus.mcpSemble, ompStatus.configExists, ompStatus.installed);
 
   // Antigravity IDE/CLI integrations
   sectionTitle('Antigravity IDE/CLI Integrations:', NINJA_THEME);
@@ -321,6 +324,42 @@ async function cmdStatus(args = []) {
     );
   } else {
     log(`\n  ${applyGradient('Codex:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
+  }
+
+  // Pi integration
+  const piDetails = piManager.getPiStatus();
+  if (piDetails.installed) {
+    sectionTitle('Pi (pi.dev) Integrations:', NINJA_THEME);
+    const piOk = piDetails.mcpKonoha && piDetails.mcpSemble;
+    drawIntegrationRow(
+      piDetails.configPath || '~/.pi/agent/mcp.json',
+      piOk,
+      'konoha + semble',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('Pi (pi.dev):', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
+  }
+
+  // OMP integration
+  const ompDetails = ompManager.getOmpStatus();
+  if (ompDetails.installed) {
+    sectionTitle('OMP Integrations:', NINJA_THEME);
+    const ompOk = ompDetails.mcpKonoha && ompDetails.mcpSemble;
+    drawIntegrationRow(
+      ompDetails.configPath || '~/.omp/agent/mcp.json',
+      ompOk,
+      'konoha + semble',
+      NINJA_THEME
+    );
+    drawIntegrationRow(
+      'Konoha Contract',
+      ompDetails.contractDeployed,
+      ompDetails.contractDeployed ? 'contract deployed to ~/.omp/agent/AGENTS.md' : 'contract not deployed',
+      NINJA_THEME
+    );
+  } else {
+    log(`\n  ${applyGradient('OMP:', CHIDORI_THEME, 0.85)} ${applyGradient('not installed', CHIDORI_THEME, 0.6)}`);
   }
 
   // Check instructions patterns

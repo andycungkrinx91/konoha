@@ -145,7 +145,7 @@ async function handleMessage(msg) {
           '<b>⚠️ [MISSING ARGUMENTS]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
           '<b>Usage:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>',
-          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode</code>',
+          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode, omp</code>',
           '<b>Example:</b> <code>/session create agy /home/user/myproject</code>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         ].join('\n');
@@ -160,7 +160,7 @@ async function handleMessage(msg) {
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
           `<b>Message:</b> Client "${sub}" specified, but workspace directory path is missing.`,
           '<b>Usage:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>',
-          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode</code>',
+          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode, omp</code>',
           '<b>Example:</b> <code>/session create agy /home/user/myproject</code>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         ].join('\n');
@@ -191,7 +191,7 @@ async function handleMessage(msg) {
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
           `<b>Message:</b> ${createRes.error}`,
           '<b>Usage:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>',
-          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode</code>',
+          '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode, omp</code>',
           '<b>Example:</b> <code>/session create agy /home/user/myproject</code>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         ].join('\n');

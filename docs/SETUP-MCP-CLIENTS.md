@@ -10,6 +10,7 @@ Konoha registers **konoha**, **semble**, and **aislop** for every supported clie
 | **Command Code** | When detected as `cmd` or `commandcode` | `~/.commandcode/mcp.json` → `mcpServers` |
 | **OpenAI Codex** | When detected as `codex` | `~/.codex/config.toml` → `[mcp_servers]`, `sandbox_mode = "danger-full-access"` |
 | **Pi (pi.dev)** | When detected as `pi` or `~/.pi/agent` | `~/.pi/agent/mcp.json` → `mcpServers` (loaded via the `pi-mcp-adapter` extension, auto-added to `~/.pi/agent/settings.json`) |
+| **OMP** | When detected as `omp` or `~/.omp` | `~/.omp/agent/mcp.json` → `mcpServers`; `~/.omp/agent/AGENTS.md` → runtime workflow contract |
 
 ### RTK (Rust Token Killer) Auto-Deployment
 
@@ -24,6 +25,7 @@ When the `rtk` binary is available on PATH, Konoha also deploys RTK rule files t
 | **Command Code** | `~/.commandcode/rules/rtk.md` |
 | **OpenAI Codex** | `~/.codex/rules/rtk.md` |
 | **Pi (pi.dev)** | `~/.pi/agent/extensions/rtk.ts` (official RTK TypeScript extension) |
+| **OMP** | `~/.omp/agent/AGENTS.md` (contract deployed with RTK mandate) |
 
 RTK is **installed automatically** by `konoha init` when missing — from the official [rtk-ai/rtk](https://github.com/rtk-ai/rtk) repository (cargo `--git`, the official `install.sh` script, or the prebuilt Windows release). The plain crates.io `rtk` crate is an unrelated project and is never used.
 
@@ -216,6 +218,43 @@ approval_mode = "auto"
 - `konoha uninstall` removes only the Konoha-owned server entries and leaves the adapter and any user servers intact.
 
 **Verify:** Run `pi list` (should show `pi-mcp-adapter`), inspect `~/.pi/agent/mcp.json`, then run `/mcp` inside a Pi session — should show `konoha`, `semble`, and `aislop`.
+
+---
+
+## OMP (global)
+
+`konoha init` configures OMP automatically when detected:
+
+- `~/.omp/agent/mcp.json` → `mcpServers` (merges `konoha`, `semble`, and `aislop` entries while preserving existing servers).
+- `~/.omp/agent/AGENTS.md` → Deploys Konoha runtime contract and OMP workflow mandate.
+
+**Config format (JSON):**
+```json
+{
+  "mcpServers": {
+    "konoha": {
+      "command": "node",
+      "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
+      "env": { "ACTIVE_CLIENT": "omp", "KONOHA_CLIENT": "omp", "KONOHA_SEMANTIC_SEARCH": "1" }
+    },
+    "semble": {
+      "command": "uvx",
+      "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
+    },
+    "aislop": {
+      "command": "npx",
+      "args": ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
+    }
+  }
+}
+```
+
+**Notes:**
+- OMP agents mount Konoha tools dynamically and discover skills via `konoha.find_skills` / `konoha.get_skill`.
+- Bounded file tools are enforced through `file_tools_launcher.js` with active client identification as `omp`.
+- `konoha uninstall` cleanly strips only the Konoha block from `~/.omp/agent/AGENTS.md` and removes Konoha server entries from `mcp.json`.
+
+**Verify:** Check `~/.omp/agent/mcp.json` for `konoha` and `semble` entries, and check `~/.omp/agent/AGENTS.md` for the Konoha contract block.
 
 ---
 

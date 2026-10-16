@@ -87,6 +87,7 @@ const mcpClientsManager = require('../../src/mcp_clients_manager');
 const opencodeManager = require('../../src/opencode_manager');
 const codexManager = require('../../src/codex_manager');
 const piManager = require('../../src/pi_manager');
+const ompManager = require('../../src/omp_manager');
 const antigravityManager = require('../../src/antigravity_manager');
 const deployUtils = require('../../src/deploy_utils');
 const { cmdBridgeStart, checkPortActive } = require('./bridge');
@@ -123,6 +124,8 @@ ${C.bold}SUPPORTED CLIENTS AUTO-CONFIGURED${C.reset}
   - Command Code (~/.commandcode/mcp.json & ~/.commandcode/rules/)
   - OpenCode (~/.config/opencode/opencode.json)
   - Codex (~/.codex/config.toml)
+  - Pi (~/.pi/agent/mcp.json)
+  - OMP (~/.omp/agent/mcp.json & ~/.omp/agent/AGENTS.md)
 
 ${C.bold}EXAMPLES${C.reset}
   konoha init
@@ -166,6 +169,7 @@ async function cmdInit(args, options = {}) {
   const commandCodeInstalled = mcpClientsManager.isCommandCodeInstalled();
   const codexInstalled = codexManager.isCodexInstalled();
   const piInstalled = piManager.isPiInstalled();
+  const ompInstalled = ompManager.isOmpInstalled();
   const allowCursor = cursorInstalled;
   const allowClaudeCode = claudeInstalled;
   // 1. Ensure the directories exist
@@ -301,6 +305,14 @@ async function cmdInit(args, options = {}) {
         piManager.ensurePiSetup({
           pythonCmd: python,
           serverPath: SERVER_PATH,
+          uvxCmd: getUvxCommand(),
+          silent: true
+        });
+      }
+      if (ompInstalled) {
+        ompManager.ensureOmpSetup({
+          nodeCmd: process.execPath,
+          launcherPath: FILE_TOOLS_LAUNCHER_JS,
           uvxCmd: getUvxCommand(),
           silent: true
         });
@@ -677,6 +689,19 @@ async function cmdInit(args, options = {}) {
     else spinnerPi.warn(`Pi setup skipped: ${piSetup.reason || 'unknown error'}`);
   }
 
+  if (ompInstalled) {
+    header('⚡ Configuring OMP');
+    const spinnerOmp = startSpinner('Registering OMP MCP servers and workflow contract...');
+    const ompSetup = ompManager.ensureOmpSetup({
+      nodeCmd: process.execPath,
+      launcherPath: FILE_TOOLS_LAUNCHER_JS,
+      uvxCmd: getUvxCommand(),
+      silent: true
+    });
+    if (ompSetup.ok) spinnerOmp.success('OMP MCP and contract configured.');
+    else spinnerOmp.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
+  }
+
   // 11. Summary
   header('✅ Installation Complete!');
 
@@ -704,6 +729,9 @@ async function cmdInit(args, options = {}) {
     piInstalled
       ? `${ok} Pi (pi.dev)  ${C.dim}~/.pi/agent/mcp.json + pi-mcp-adapter${C.reset}`
       : `${skip} Pi (pi.dev)  ${C.dim}(not installed)${C.reset}`,
+    ompInstalled
+      ? `${ok} OMP          ${C.dim}~/.omp/agent/mcp.json + contract${C.reset}`
+      : `${skip} OMP          ${C.dim}(not installed)${C.reset}`,
     '─',
     `Installed files:`,
     `Version:     ${C.green}v${getCliVersion()}${C.reset}`,

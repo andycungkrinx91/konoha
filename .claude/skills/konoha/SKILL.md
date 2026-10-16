@@ -1,6 +1,6 @@
 ---
 name: konoha
-description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 7 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi/pi.dev).
+description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 8 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi/pi.dev, OMP).
 ---
 
 # 🍃 Konoha Maintenance & Engineering Skill
@@ -11,7 +11,7 @@ Comprehensive operational guide for maintaining, extending, and debugging the **
 
 ## 🏛️ System Architecture Overview
 
-Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 7 AI coding clients:
+Konoha operates as a high-efficiency MCP orchestrator designed to reduce context token consumption by 83–98% across 8 AI coding clients:
 - **Antigravity IDE/CLI** (`~/.gemini/config/mcp_config.json`, hooks)
 - **Cursor IDE/CLI** (`~/.cursor/mcp.json`, `.cursor/rules/`)
 - **Claude Code** (`~/.claude.json`)
@@ -19,6 +19,7 @@ Konoha operates as a high-efficiency MCP orchestrator designed to reduce context
 - **Command Code** (`~/.commandcode/mcp.json`)
 - **Codex** (`~/.codex/config.toml`, `~/.codex/AGENTS.md`)
 - **Pi (pi.dev)** (`~/.pi/agent/mcp.json` via the `pi-mcp-adapter` extension)
+- **OMP** (`~/.omp/agent/mcp.json`, `~/.omp/agent/AGENTS.md`)
 
 Each client environment is configured with three core MCP servers:
 1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration.
@@ -121,7 +122,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
 5. **Database Migration**:
    - Run `node bin/cli.js migrate` to re-seed all skills and reference documents into the SQLite FTS5 database (`~/.konoha/konoha.db` — legacy `skills.db` is auto-migrated on first open).
 6. **Cross-Client Initialization**:
-   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 7 clients.
+   - Run `node bin/cli.js init --yes --force` to deploy updated MCP configurations, subagent instructions, and RTK rules across all 8 clients.
 7. **Automated Verification & Quality Gate**:
    - Ensure `node tests/test_docs_currency.js` and **all discovered tests pass** with 0 failures before release.
 8. **Auto-Compaction & Idle-Reset Invariants**:
@@ -135,7 +136,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
 10. **Evidence-Based Validation Gate in `report_from_agent`**:
     - `report_from_agent` enforces regex assessment (`_assess_validation_evidence`) checking for real passing command markers (`exit code 0`, `passed`, `0 errors`).
 11. **Zero-AI-Slop Pre-Gate & `aislop` MCP Integration**:
-    - Multi-client registration of `aislop` MCP across all 7 clients (`antigravity`, `cursor`, `claude`, `commandcode`, `opencode`, `codex`, `pi`).
+    - Multi-client registration of `aislop` MCP across all 8 clients (`antigravity`, `cursor`, `claude`, `commandcode`, `opencode`, `codex`, `pi`, `omp`).
     - Role boundaries: Genin and Kage are strictly read-only (`aislop_scan`, `aislop_why`); execution agents Jonin and Anbu have access to `aislop_fix` to remediate slop.
     - Kage Review Pre-Gate & Minimum Confidence Gate: requires `ai_slop_clean: true` and `ai_slop_findings: 0` in `kage_review.json` before confidence scoring, and requires overall and per-category confidence Minimum Required: ≥ 98% to approve workflow delivery.
 12. **Authorized Penetration Testing & Security Diagnostics in Dev/Local Environments**:
@@ -187,7 +188,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - Detached error handlers: `src/file_tools_mcp.js` handles child process spawning errors gracefully with safe `error` and `exit` listeners.
     - Pre-bundled VSIX prioritization: `autoInstallKonohaBridgeExtension` checks for pre-bundled `.vsix` packages in `bin/lib/` before attempting remote `git clone` or network builds, preventing Windows terminal freezes and timeouts.
 22. **`aislop` MCP Client Configuration & Package Resolution Contract**:
-    - All 7 client configurations (`src/codex_manager.js`, `src/cursor_bootstrap.js`, `src/opencode_manager.js`, `src/mcp_clients_manager.js`, `src/pi_manager.js`, `bin/cli.js`) use `args: ["-y", "-p", "aislop", "aislop-mcp"]` with `npx` (or `npx.cmd` on Windows via `getNpxCommand()`).
+    - All 8 client configurations (`src/codex_manager.js`, `src/cursor_bootstrap.js`, `src/opencode_manager.js`, `src/mcp_clients_manager.js`, `src/pi_manager.js`, `src/omp_manager.js`, `bin/cli.js`) use `args: ["-y", "-p", "aislop", "aislop-mcp"]` with `npx` (or `npx.cmd` on Windows via `getNpxCommand()`).
     - Resolves npm 404 errors caused by non-existent standalone packages (`aislop-mcp`) by explicitly specifying the package name `aislop` via `-p` and the binary `aislop-mcp`.
     - Codex configuration (`~/.codex/config.toml`) uses `command = "npx"` and `args = ["-y", "-p", "aislop", "aislop-mcp"]` to maintain protocol handshake compatibility and eliminate connection closed errors during MCP startup.
 23. **Cross-IDE Auto-Approval & Tool Permissions Matrix**:
@@ -215,7 +216,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - Compact JSON Serialization: Emits compact JSON (`JSON.stringify(spec)`) without redundant whitespace or multi-line formatting.
     - Telemetry Baselines: `log_tool_call()` credits build tools and subagent delegations (`sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`) against the 550KB skill library baseline, with directory baselines for `find_files_clean` (250KB) and `token_efficient_grep` (150KB), ensuring combined retrieval savings reliably report 92%–98%.
 28. **Sub-Second CLI Fast Path & Transcript Caching Invariants**:
-    - Auto-Setup Fast Path: `ensureAutoSetup()` caches verification state in `~/.konoha/.auto_setup_state.json` (version + `agents.yaml` mtime), returning in <2ms on existing healthy installations instead of re-copying files and re-syncing across 7 clients on every command invocation.
+    - Auto-Setup Fast Path: `ensureAutoSetup()` caches verification state in `~/.konoha/.auto_setup_state.json` (version + `agents.yaml` mtime), returning in <2ms on existing healthy installations instead of re-copying files and re-syncing across 8 clients on every command invocation.
     - Mtime-Based Transcript Caching: `calculateAllModelTokens()` in `src/db_savings.js` caches all-time token metrics in `~/.konoha/transcript_cache.json` for transcript files older than 7 days, avoiding redundant disk I/O across hundreds of historical session logs and speeding up `konoha savings` from ~3.0s down to ~350ms.
     - Direct Semble Execution: `cmdSavings()` queries local `semble` first, avoiding slow `uvx --from ...@latest` network requests to PyPI.
     - GitHub Release Cache: `getLatestVersion()` caches GitHub tag/release queries in `.version_cache.json` for 1 hour.
@@ -339,7 +340,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - `copyFile()` carries a same-path guard (self-copy is a no-op on Linux but can throw EPERM on Windows when `konoha init` runs from the installed runtime). `konoha ui build` refreshes ONLY the web build — backend changes still require a version bump (auto-setup) or `konoha init`.
 56. **Token Savings Flow Logic Preservation Invariant (NEVER TOUCH TOKEN SAVINGS FLOW LOGIC)**:
     - Under NO circumstances should any coding agent or tool modify, refactor, remove, or disrupt the token savings telemetry, bounded file tool constraints (`MAX_SPAN=250`, `MAX_LINES=150`, `MAX_LINE_CHARS=1000`, `DEFAULT_LIMIT=50`), auto-compaction budgets, or baseline computation flow logic in `src/file_tools/read_file_range.js`, `src/file_tools/read_file_head.js`, `src/file_tools/find_files_clean.js`, `src/mcp/tool_dispatch.js`, `src/tools_savings_logger.js`, `src/mcp/memory_reporting.js`, and `src/db_savings.js`.
-    - This token savings flow logic is stable, finalized, and strictly enforces our 83%–98% token reduction guarantee across all 7 supported coding clients.
+    - This token savings flow logic is stable, finalized, and strictly enforces our 83%–98% token reduction guarantee across all 8 supported coding clients.
     - Coding agents must treat this token savings engine as a strictly protected, immutable invariant alongside the stable Bridge Gateway.
 57. **Konoha Maintenance Token Burn Elimination & Automation Invariant (v2.0.0-beta.7)**:
     - Zero Unscoped MCP Scans: The external `aislop` MCP tool `aislop_scan` only accepts directory `path` and lacks `--changes` support. Calling it on root scans all 3,500+ files and dumps ~14,000 findings into context (~50k tokens). Delivery Zero-AI-Slop gating on changed files MUST ALWAYS be executed via CLI: `rtk aislop scan --changes` (or pass specific changed file paths).
@@ -361,7 +362,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Offline Bundled Models**: Both the neural embedding model (`assets/models/onnx-community/granite-embedding-97m-multilingual-r2-ONNX/` at 93.3 MB) and the neural cross-encoder reranker model (`assets/models/Xenova/ms-marco-MiniLM-L-6-v2/` at 23 MB) are pre-bundled directly under `assets/models/`, guaranteeing every single file is strictly under GitHub's 100 MB file limit.
     - **Offline Discovery & Zero-Download**: `src/vector_search.js` automatically detects bundled models via `getBundledModelsDir()`, sets `env.cacheDir` and `env.localModelPath`, and enforces `local_files_only: true` with graceful fallback, providing 100% offline neural vector search and cross-encoder reranking with zero network downloads.
     - **Dual-Stage Reranking & RAG Retrieval**: Retrieval combines fast Reciprocal Rank Fusion (RRF, k=60) for skill-level candidate ranking with full neural cross-encoder reranking (`rerank()` and `searchChunksRAG()`) for high-precision passage scoring and RAG context retrieval.
-    - **Global CLI Synchronization**: `bin/cli.js:installCliRuntime` synchronizes `assets/models` into `~/.konoha/assets/models/` during `konoha init` / `konoha upgrade`, ensuring smooth global CLI deployment across all 7 coding clients.
+    - **Global CLI Synchronization**: `bin/cli.js:installCliRuntime` synchronizes `assets/models` into `~/.konoha/assets/models/` during `konoha init` / `konoha upgrade`, ensuring smooth global CLI deployment across all 8 coding clients.
 61. **Vibes-Plug Skills Integration & Unified Routing Invariant (v2.0.0-beta.7)**:
     - **119 Curated Skills**: Merged curated skills from `https://github.com/roedyrustam/vibes-plug` into canonical ninja agent skill references (`anbu-skill`, `jonin-skill`, `kage-skill`, `chunin-skill`, `genin-skill`, `tokubetsu-jonin-skill`, `sannin-skill`).
     - **Routing Aliases**: `src/mcp/skills.js` registers 190 canonical aliases in `ALIASES` (`normalizeLegacySkillName`), allowing agents and users to discover and retrieve skills by short name or domain prefix seamlessly.
@@ -374,11 +375,11 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **AI Slop Gate Circuit Breaker & Safe Degrade**: In `src/mcp/workflow.js`, `runAislopGate()` utilizes `CircuitBreaker` (threshold=2, recovery=120s) so that if the external aislop process hangs, times out, or fails repeatedly, the gate degrades to advisory mode instead of blocking developers. Cross-platform execution prefers `rtk` first with fallback to `aislop` via `which`/`where`, with `killSignal: 'SIGTERM'`.
     - **Dynamic File mtime Cache Invalidation**: `getMaxMtime()` dynamically computes the latest mtime across changed project files and invalidates cached `aislop_gate` results when file mtimes exceed `cached_at`, preventing stale score approvals.
     - **Mechanical 98% Confidence & 100/100 Aislop Gate Constants**: `MINIMUM_CONFIDENCE = 98` and `AISLOP_TARGET_SCORE = 100` are exported as constants and enforced mechanically without heuristic drifts.
-    - **Universal 7-Client Workflow Reminder & Mandatory First Action**: `src/workflow_reminder.js` detects and emits reminders across all 7 clients (Antigravity, Cursor, OpenCode, Pi, Codex, Claude Code, CommandCode), mandating `FIRST ACTION: call konoha.find_skill with keywords BEFORE any code changes`.
+    - **Universal 8-Client Workflow Reminder & Mandatory First Action**: `src/workflow_reminder.js` detects and emits reminders across all 8 clients (Antigravity, Cursor, OpenCode, Pi, Codex, Claude Code, CommandCode, OMP), mandating `FIRST ACTION: call konoha.find_skill with keywords BEFORE any code changes`.
     - **High-Effort Instruct Base Personality & 10 Forbidden Fillers**: Across `src/mcp/memory_reporting.js`, `src/agent_contract.js`, and `src/workflow_reminder.js`, 10 conversational filler phrases are strictly banned (`Hmmmm`, `Let me check`, `Let me see`, `Wait, let me`, `Wait - but`, `I will now proceed to`, `Let me examine`, `let me`, `hmm`, `hmmm`). Output format strictly follows ADHD-friendly structured execution with zero monologue leaks.
     - **Document AI Detector 0%–1% Precision Recalibration & Text Paste Mode**: `src/docs_ai_detector.js` filters out structural elements (markdown headers, all-caps titles, bullet points, numbered lists, labels) from burstiness calculation to eliminate false-positive AI flags. Recalibrates burstiness threshold to 0.18, paragraph CV to 0.25, cliché thresholds (8 high, 5 medium), and transition triggers (minimum 3 required). Adds Web UI text-paste mode (`apps/web/src/components/Detector.svelte`) backed by `POST /api/v1/detect-docs/text`.
     - **Skill Install Full Dual Indexing (FTS5 + Vector)**: Removed `--skip-embeddings` from `addSkillDirect()` and `createSkillFromTemplate()` in `src/skill_manager.js`, ensuring newly installed skills from skills.sh or Git repositories are immediately searchable via both FTS5 keyword matching and Granite neural vector search.
-    - **Cross-Client 7-Tree Skill Parity**: `scripts/sync_skills.js` includes `.codex/skills` and `.opencode/skills` in `CLIENT_MIRRORS`, ensuring complete parity across all 7 clients when directories exist.
+    - **Cross-Client Multi-Tree Skill Parity**: `scripts/sync_skills.js` includes all client trees in `CLIENT_MIRRORS`, ensuring complete parity across all clients when directories exist.
     - **SDLC Task Governance Integration**: Kage review gate directly checks `sdlc_manager.listTasks({ sessionId })` and blocks delivery if any task is explicitly in `blocked` or `failed` status.
     - **Official Skills Deduplication**: Standalone `helm-chart-scaffolding` is permanently removed as an independent skill root and retained exclusively as an internal reference under `anbu-skill/references/helm-chart-scaffolding.md`. Canonical aliases `agent-browser`, `devsecops-engineer`, `documentation`, `modern-full-stack`, and `websearch-deep` are registered in `src/mcp/skills.js`.
 63. **Clean Runtime Reinstallation & ~/.konoha Sanitization Invariant (v2.0.0-beta.7)**:

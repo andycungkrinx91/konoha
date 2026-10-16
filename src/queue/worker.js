@@ -43,6 +43,7 @@ const CLIENT_DISPLAY_NAMES = {
   opencode: 'OpenCode',
   commandcode: 'Command Code',
   pi: 'Pi Agent',
+  omp: 'OMP Agent',
   telegram: 'Telegram Bot'
 };
 

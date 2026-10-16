@@ -106,6 +106,7 @@ async function handleRequest(req) {
     else if (clientName.includes('claude')) detectedClient = 'claudecode';
     else if (clientName.includes('opencode')) detectedClient = 'opencode';
     else if (clientName.includes('commandcode')) detectedClient = 'commandcode';
+    else if (clientName.includes('omp')) detectedClient = 'omp';
     else if (clientName.includes('antigravity-cli') || clientName.includes('agy')) detectedClient = 'agy';
     else if (clientName.includes('antigravity') || clientName.includes('ide')) {
       const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;

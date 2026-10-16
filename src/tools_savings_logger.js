@@ -19,6 +19,7 @@ function detectActiveClient() {
     const activeOverride = (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || '').toLowerCase().trim();
     if (activeOverride) {
       if (activeOverride.includes('codex') || activeOverride.includes('openai')) return 'codex';
+      if (activeOverride.includes('omp')) return 'omp';
       if (activeOverride.includes('commandcode') || activeOverride.includes('command-code')) return 'commandcode';
       if (activeOverride.includes('opencode')) return 'opencode';
       if (activeOverride.includes('claude')) return 'claudecode';
@@ -42,6 +43,7 @@ function detectActiveClient() {
     if (process.env.COMMANDCODE_CLIENT === '1' || process.env.COMMANDCODE_SESSION === '1') return 'commandcode';
     if (process.env.CLAUDE_CODE_CHILD_SESSION === '1') return 'claudecode';
     if (process.env.PI_CODING_AGENT === 'true' || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
+    if (process.env.OMP_CLIENT === '1' || process.env.OMP_SESSION === '1' || process.env.OMP_SESSION_ID || process.env.OMP_AGENT) return 'omp';
 
     // No hard session signal: attribute HONESTLY instead of guessing.
     // The previous filesystem heuristic (glob every client's session dirs,

@@ -147,6 +147,11 @@ function getDiagnostics(autoRepair = false) {
     record('Codex (~/.codex/config.toml)', codexMgr.isCodexInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'Codex status');
   } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
+  try {
+    const ompMgr = require('./omp_manager');
+    record('OMP (~/.omp/agent/mcp.json)', ompMgr.isOmpInstalled() ? 'HEALTHY' : 'NOT INSTALLED', 'OMP status');
+  } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
   if (isRtkInstalled()) {
     record('RTK (Token Killer)', 'ACTIVE', 'rtk binary available');
   } else {

@@ -582,6 +582,7 @@ async function runMigration(options = {}) {
       path.resolve(process.cwd(), ".gemini", "skills"),
       path.resolve(process.cwd(), ".commandcode", "skills"),
       path.resolve(process.cwd(), ".claude", "skills"),
+      path.resolve(process.cwd(), ".omp", "skills"),
       path.resolve(process.cwd(), ".config", "opencode", "skills"),
       path.resolve(process.cwd(), ".opencode", "skills"),
       path.resolve(process.cwd(), "skills"),
@@ -597,6 +598,7 @@ async function runMigration(options = {}) {
       path.normalize(path.join(os.homedir(), ".config", "opencode", "skills")),
       path.normalize(path.join(os.homedir(), ".opencode", "skills")),
       path.normalize(path.join(os.homedir(), ".codex", "skills")),
+      path.normalize(path.join(os.homedir(), ".omp", "agent", "skills")),
     ];
     for (const cand of candidateRoots) {
       if (fs.existsSync(cand) && fs.statSync(cand).isDirectory()) {

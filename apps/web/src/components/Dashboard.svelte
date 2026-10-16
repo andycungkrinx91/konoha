@@ -451,7 +451,7 @@
         </div>
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-2) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Clients Configured</p>
-          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.clients_configured ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.clients_total ?? 7}</span></p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.clients_configured ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.clients_total ?? 8}</span></p>
         </div>
         <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-3) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Tokens Saved Today</p>

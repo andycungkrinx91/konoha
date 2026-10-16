@@ -137,6 +137,7 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     path.join(homeDir, '.agents'),
     path.join(homeDir, '.claude.json'),
     path.join(homeDir, '.pi'),
+    path.join(homeDir, '.omp'),
   ];
   for (const p of scratchPrefixes) {
     const pNorm = norm(p);

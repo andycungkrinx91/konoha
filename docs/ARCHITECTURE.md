@@ -29,7 +29,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    User["End User Prompt"] --> Clients["7 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex · Pi (pi.dev)"]
+    User["End User Prompt"] --> Clients["8 Supported AI Coding Clients<br/>Antigravity CLI/IDE · Cursor<br/>Claude Code · OpenCode · Command Code · Codex · Pi (pi.dev) · OMP"]
     Clients --> Orchestrator["Main Orchestrator Agent<br/>(Structured MCP Router)"]
 
     subgraph CoreMCP ["Konoha MCP, Search & Quality Engines"]
@@ -202,7 +202,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 3. **Zero Errors & Zero Warnings**:
    - Validation requires `pnpm run build`, `pnpm run lint`, and `pnpm run check` (for SvelteKit) to complete with 0 errors and 0 warnings.
 4. **High-Efficiency Auto-Compaction & Turn Reset Invariant**:
-   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 7 coding clients.
+   - Automatically activates after 2 MCP delegations (`turn >= 2`) across all 8 coding clients.
    - Preserves token budget by compacting instruction boilerplate while permanently retaining the primary skill SOP preview (250 chars) so fixing agents never lose their methodology.
    - Bounds instruction truncation to 1200 chars and constraint truncation to 600 chars at sentence boundaries (no mid-sentence chopping).
    - Enforces a 30-minute idle reset (`SESSION_IDLE_RESET_SECONDS = 1800`) preventing cross-session turn accumulation in long-lived MCP server processes.
@@ -223,11 +223,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - `KonohaProgressBar` delivers real-time terminal progress reporting (`0%` to `100%`) with shaded block indicators (`██████░░░░`), active elapsed timers, and unreferenced interval tickers (`timer.unref()`) to prevent event-loop stalls.
    - Animated Terminal Feedback: `startSpinner()` renders a 10-frame braille spinner (90ms interval) with in-place line redraw (`\r\x1b[2K`) on TTY; automatically falls back to static `›` lines on non-TTY, CI, or `NO_COLOR` environments, with `KONOHA_SPINNERS=0` as an explicit opt-out.
    - Unicode-Accurate Table Widths: `getVisualLength()` implements East Asian Width accounting (CJK ideographs, Hangul, kana, fullwidth forms) plus emoji-presentation BMP symbols that render as 2 columns in modern terminals, and `truncateVisual()` strips ANSI escapes before measuring/cutting — eliminating column overlap in agent/skill/status tables.
-   - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 7 MCP client configs, and verifies extension bridges.
-   - **Non-Destructive User Skills & Config Preservation (v2.0.2)**: `copySkillsDirFast` executes additive-only synchronization without destination pruning, safeguarding pre-existing custom skills in all 7 client skill directories. SQLite FTS5 migration (`src/migrate.js`) operates via non-destructive upserts (`INSERT OR REPLACE`), avoiding table wipes unless `--clean` is explicitly passed. Instruction files (`GEMINI.md`, `AGENTS.md`, `CODEX.md`, `instructions.md`) inject Konoha directives within managed boundary tags (`<!-- KONOHA-START -->...<!-- KONOHA-END -->`) preserving 100% of existing user prompts, rules, and preambles, while `agents.yaml` performs union-merge to protect user custom agent definitions.
+   - 7-Stage Upgrade Lifecycle: Detects package managers (`pnpm`/`npm`), streams GitHub downloads, synchronizes `~/.konoha/` runtime assets, indexes SQLite FTS5 skills, registers all 8 MCP client configs, and verifies extension bridges.
+   - **Non-Destructive User Skills & Config Preservation (v2.0.2)**: `copySkillsDirFast` executes additive-only synchronization without destination pruning, safeguarding pre-existing custom skills in all 8 client skill directories. SQLite FTS5 migration (`src/migrate.js`) operates via non-destructive upserts (`INSERT OR REPLACE`), avoiding table wipes unless `--clean` is explicitly passed. Instruction files (`GEMINI.md`, `AGENTS.md`, `CODEX.md`, `instructions.md`) inject Konoha directives within managed boundary tags (`<!-- KONOHA-START -->...<!-- KONOHA-END -->`) preserving 100% of existing user prompts, rules, and preambles, while `agents.yaml` performs union-merge to protect user custom agent definitions.
    - Subprocess & Daemon Isolation: `cmdTest` strictly sanitizes `KONOHA_DAEMON` from testing environments, while pure Node.js execution and normalized path separators (`/`) are preserved across all handlers.
 10. **Multi-IDE Auto-Approval & Granular Tool Permissions Engine**:
-   - Zero-Interruption Execution: Automates permission whitelisting across all 7 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev), eliminating manual approval popups for routine reads, searches, and tests.
+   - Zero-Interruption Execution: Automates permission whitelisting across all 8 supported environments (Antigravity IDE/CLI, Cursor, Claude Code, Command Code, OpenCode, Codex, Pi/pi.dev, OMP), eliminating manual approval popups for routine reads, searches, and tests.
    - Uniform MCP Tool Grants: Deploys `autoApprove: ["*"]` and `auto_approve: true` across `konoha` (45 tools), `semble` (2 tools), and `aislop` (4 tools).
    - Client-Native Directives: Adapts to individual client paradigms, configuring VS Code/Cursor User settings (`cursor.mcp.autoApprove`, `cursor.agent.autoApprove`), Claude Code bypass modes (`permissionMode: "bypassPermissions"`, `mcp__*` prefix matching), OpenCode V1 object schemas (`permission: { read: 'allow', ... }`), and Codex TOML tool blocks (`approval_mode = "auto"`).
 11. **Native SDLC Governance Layer & Quality Gates**:
@@ -239,7 +239,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Web UI Governance Dashboard (`/tasks`)**: Visual task explorer, interactive Definition-of-Readiness tester, task detail & audit evidence modal, and real-time project governance configuration (`/api/v1/sdlc/*`).
    - **QA Automation Evidence Rule**: For browser, E2E, and UI regression tasks, validation evidence must be generated via `qa_e2e_run` (Anbu owner) containing a valid `run_id`, clean exit code 0, 0 failures, and strict output capping under 2,000 characters. Unsubstantiated or fake green claims are rejected by the review gate (see `docs/QA-AUTOMATION.md`).
 12. **Base Personality: High Effort + Instruct Style Across All Agents**:
-   - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) and main orchestrators across all 7 supported clients.
+   - Injected authoritative, action-first base personality across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) and main orchestrators across all 8 supported clients.
    - Combines deep internal reasoning (silent deliberation during High/Max effort) with crisp, direct, instruction-following output.
    - Strictly prohibits conversational filler ("hmmmm", "let me check", "wait - but", "let me see", "I will now proceed to", "let me examine"), hesitation markers, and sycophantic praise. Mandates ADHD-friendly formatting (numbered procedures, immediate next action first) and mandatory `FIRST ACTION: call konoha.find_skill`.
 13. **Strict Zero Dark Theme & 3-Color Minimum Gradient Invariants for Documentation**:
@@ -248,9 +248,9 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Enforces business-class enterprise typography, light table header fills (`#F1F5F9`), two-pass dynamic `Page X of Y` pagination, and metadata sanitization.
 14. **Konoha Bridge 1.6.0 VSIX Extension**:
    - Upgraded local extension binary (`assets/konoha-bridge-1.6.0.vsix`) with hardened bridge routing, latency optimizations, and automated Antigravity IDE/CLI extension installation.
-15. **Cross-Client 5-Tree Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
-   - Synchronizes official skills from canonical source `.agents/skills` across all 5 active repository mirror trees (`src/templates/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`) via `node scripts/sync_skills.js`.
-   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 7 supported coding clients.
+15. **Cross-Client Mirror Parity & Universal Workflow Enforcement (v2.0.0)**:
+   - Synchronizes official skills from canonical source `.agents/skills` across active repository mirror trees (`src/templates/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, `.omp/skills`) via `node scripts/sync_skills.js`.
+   - Universal stdout reminder in `src/workflow_reminder.js` guarantees workflow continuity on new sessions, session resume, and auto-compaction turns across all 8 supported coding clients.
    - Removed `--skip-embeddings` from explicit skill install flows (`addSkillDirect`, `createSkillFromTemplate`), ensuring newly added skills are fully queryable via both FTS5 text search and IBM Granite vector embeddings.
 16. **Strict Non-Destructive Preservation & Union-Merge (v2.0.2)**:
    - User custom skills and configuration are never pruned or overwritten during fresh installs or upgrades (`copySkillsDirFast` additive-only, `--clean` removed from default migrations, `injectManagedConfig` preserving custom user rule blocks, and custom agent union-merge in `agents.yaml`).
@@ -300,6 +300,10 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Features authentic swirling SVG Rasengan Theme FAB (`fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]`) with 10-second 3D Rasengan Impact wall hit animation (`rasengan-wall-hit-active`) rendering physical concavity, fullscreen radial fracture fissures, and spinning chakra shockwaves that automatically repair after 10s.
    - Exposes on-demand neural vector re-embedding endpoint (`POST /api/v1/skills/reembed` & `/api/v1/vectors/reembed`) and 3D button in `Skills.svelte` to dynamically recalculate IBM Granite 384-dim ONNX neural embeddings with live progress and Server-Sent Event updates.
    - Cleans sidebar section headers (`OPRATION & DIAGNOSTICS`) with explicit left-margin alignment (`ml-1`, `text-left`, `justify-start`) and replaces hardcoded dashboard header placeholders with dynamic active section and route name breadcrumbs.
+35. **OMP Client Architecture & Workflow Contract (v2.1.18)**:
+   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) and deploying the full Konoha runtime contract to `~/.omp/agent/AGENTS.md`.
+   - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient Semble codebase search.
+   - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
 
 ---
 
@@ -417,7 +421,7 @@ flowchart TD
 7. **Remote Access, Bi-Directional Telegram Ingress & Zero-Trust Tunnel Architecture (v2.1.17)**:
    - **Dual-Mode Telegram Bot Engine (`src/telegram/`)**: Outbound Zero-Emoji task completion reports, telemetry, and Kage Reviewer confidence badges. Inbound native HTTPS long polling (`getUpdates`) with numeric chat ID whitelist enforcement (`telegram_config.chat_id`).
    - **Interactive Remote Shell (`/sh <cmd>`)**: Executes shell commands in the target workspace via user interactive shell (`bash -i -c`), enabling full access to `~/.bashrc` aliases (`kubectl`, `kc*`, `helm`, etc.) with strict `isDangerousCommand` security guardrails blocking destructive commands.
-   - **Multi-Client Workspace Switcher (`/session`)**: Select and target active client sessions and project directories across Antigravity, Claude Code, Codex, Pi, OpenCode, and Command Code (`/session <number>` and `/session create <client> <path>`).
+   - **Multi-Client Workspace Switcher (`/session`)**: Select and target active client sessions and project directories across Antigravity, Cursor, Claude Code, Codex, Pi, OpenCode, Command Code, and OMP (`/session <number>` and `/session create <client> <path>`).
    - **Direct Subagent Dispatch**: Dedicated slash commands (`/kage`, `/anbu`, `/jonin`, `/genin`, `/chunin`, `/tokubetsu-jonin`, `/sannin`) bypass general routing deliberation and directly assign prompts to specialized ninja agents.
    - **Unified Inbound Prompt Queue & Autonomous Worker (`src/queue/`)**: SQLite table `prompt_queue` maintains atomic states (`pending` -> `processing` -> `completed` / `failed`) with filesystem mirroring (`~/.konoha/inbox/<session>.json`). Worker executes operational commands deterministically with 100% token elimination (0 LLM tokens) and AI coding tasks via headless `agy -p ...`.
    - **Cloudflare Zero Trust Ingress Tunnel (`src/tunnel/`)**: Background supervisor for `cloudflared` managing public ingress without opening inbound firewall ports. Validates Mode A edge identity headers (`Cf-Access-Authenticated-User-Email`) with local loopback protection on `127.0.0.1:1404`.
