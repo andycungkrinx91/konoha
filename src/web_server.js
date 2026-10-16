@@ -1534,7 +1534,7 @@ function createWebServer(options = {}) {
 
     // ── SDLC Governance (Tasks, DoR, config) — web parity for `konoha task/project` TUI commands ──
 
-    if (method === 'GET' && pathname === '/api/v1/sdlc/tasks') {
+    if (method === 'GET' && (pathname === '/api/v1/sdlc/tasks' || pathname === '/api/v1/tasks')) {
       try {
         const sdlcManager = require('./sdlc_manager');
         const status = parsedUrl.searchParams.get('status') || null;
@@ -1551,10 +1551,11 @@ function createWebServer(options = {}) {
       }
     }
 
-    if (method === 'GET' && pathname.startsWith('/api/v1/sdlc/tasks/')) {
+    if (method === 'GET' && (pathname.startsWith('/api/v1/sdlc/tasks/') || pathname.startsWith('/api/v1/tasks/'))) {
       try {
         const sdlcManager = require('./sdlc_manager');
-        const taskId = decodeURIComponent(pathname.slice('/api/v1/sdlc/tasks/'.length));
+        const prefix = pathname.startsWith('/api/v1/sdlc/tasks/') ? '/api/v1/sdlc/tasks/' : '/api/v1/tasks/';
+        const taskId = decodeURIComponent(pathname.slice(prefix.length));
         if (!taskId) {
           return sendJson(res, 400, { error: 'SDLC task id is required.' });
         }
@@ -1568,7 +1569,7 @@ function createWebServer(options = {}) {
       }
     }
 
-    if (method === 'DELETE' && (pathname === '/api/v1/sdlc/tasks' || pathname === '/api/v1/sdlc/tasks/')) {
+    if (method === 'DELETE' && (pathname === '/api/v1/sdlc/tasks' || pathname === '/api/v1/sdlc/tasks/' || pathname === '/api/v1/tasks' || pathname === '/api/v1/tasks/')) {
       try {
         const sdlcManager = require('./sdlc_manager');
         const all = parsedUrl.searchParams.get('all') === 'true';
@@ -1588,10 +1589,11 @@ function createWebServer(options = {}) {
       }
     }
 
-    if (method === 'DELETE' && pathname.startsWith('/api/v1/sdlc/tasks/')) {
+    if (method === 'DELETE' && (pathname.startsWith('/api/v1/sdlc/tasks/') || pathname.startsWith('/api/v1/tasks/'))) {
       try {
         const sdlcManager = require('./sdlc_manager');
-        const taskId = decodeURIComponent(pathname.slice('/api/v1/sdlc/tasks/'.length));
+        const prefix = pathname.startsWith('/api/v1/sdlc/tasks/') ? '/api/v1/sdlc/tasks/' : '/api/v1/tasks/';
+        const taskId = decodeURIComponent(pathname.slice(prefix.length));
         if (!taskId) {
           return sendJson(res, 400, { error: 'SDLC task id is required.' });
         }

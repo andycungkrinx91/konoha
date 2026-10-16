@@ -79,7 +79,8 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
       { path: "/skills", heading: "Skills & Vectors" },
       { path: "/persona", heading: "Will of Fire" },
       { path: "/detector", heading: "Website AI Detector" },
-      { path: "/remote", heading: "Remote Access" }
+      { path: "/remote", heading: "Remote Access" },
+      { path: "/tasks", heading: "SDLC Tasks" }
     ];
 
     for (const route of routes) {

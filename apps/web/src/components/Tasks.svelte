@@ -89,6 +89,8 @@
     }
   }
 
+  const checkDor = checkReadiness;
+
   async function loadTasks() {
     tasksLoading = true;
     try {
@@ -272,7 +274,7 @@
     <div class="mt-3">
       <button
         class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[5px] font-bold text-xs text-white shadow-md cursor-pointer disabled:opacity-50"
-        onclick={checkDor}
+        onclick={checkReadiness}
         disabled={dorChecking || !dorText.trim()}
       >
         {#if dorChecking}
