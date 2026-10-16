@@ -30,7 +30,7 @@
   ];
 
   const MCP_SERVERS = [
-    { name: 'konoha', tools: 'find_skill, get_skill, list_skills, read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean, sannin, kage, jonin, anbu, chunin, genin, tokubetsu_jonin, website_ai_detector', detail: 'Skill discovery, bounded file I/O, subagent dispatch, and the website AI-fingerprint detector for every client.' },
+    { name: 'konoha', tools: 'find_skill, get_skill, list_skills, read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean, website_ai_detector, docs_ai_detector, build_from_text, build_from_source, sannin, kage, jonin, anbu, chunin, genin, tokubetsu_jonin', detail: 'Skill discovery, bounded file I/O, subagent dispatch, and website & document AI-fingerprint detectors for every client.' },
     { name: 'semble', tools: 'search, find_related', detail: 'Semantic codebase search. Always called with the absolute repository path — replaces grep/glob for code discovery.' },
     { name: 'aislop', tools: 'aislop_scan, aislop_fix, aislop_why, aislop_baseline', detail: 'Zero-AI-Slop scanning and remediation. Read-only agents get scan + why; write agents additionally get fix.' }
   ];
@@ -73,18 +73,20 @@
     { method: 'GET', path: '/api/v1/persona', desc: 'Persona memories (project-scoped)' },
     { method: 'GET', path: '/api/v1/projects', desc: 'Known projects & current workspace' },
     { method: 'GET', path: '/api/v1/clients', desc: 'Cross-client MCP configuration status' },
+    { method: 'POST', path: '/api/v1/clients/:id/setup', desc: 'Inject Konoha MCP configuration into target coding client' },
+    { method: 'POST', path: '/api/v1/clients/:id/remove', desc: 'Remove Konoha MCP configuration from target coding client' },
     { method: 'GET', path: '/api/v1/events', desc: 'Server-sent events stream (live updates)' }
   ];
 
   const CLIENTS = [
     { name: 'Antigravity IDE / CLI', config: '~/.gemini/config/mcp_config.json' },
-    { name: 'Cursor IDE', config: '~/.cursor/mcp.json' },
-    { name: 'Claude Code', config: '~/.claude.json' },
-    { name: 'OpenCode', config: '~/.config/opencode/opencode.json' },
-    { name: 'Command Code', config: '~/.commandcode/mcp.json' },
+    { name: 'Cursor IDE / CLI', config: '~/.cursor/mcp.json' },
+    { name: 'Claude Code CLI', config: '~/.claude.json' },
+    { name: 'OpenCode IDE', config: '~/.config/opencode/opencode.json' },
+    { name: 'Command Code CLI', config: '~/.commandcode/mcp.json' },
     { name: 'Codex IDE / CLI', config: '~/.codex/config.toml' },
     { name: 'Pi (pi.dev)', config: '~/.pi/agent/mcp.json' },
-    { name: 'OMP', config: '~/.omp/agent/mcp.json' }
+    { name: 'OMP Agent', config: '~/.omp/agent/mcp.json' }
   ];
 
   const PHASES = ['Route', 'Research', 'Explore', 'Plan', 'Execute', 'Review', 'Document', 'Synthesize'];
@@ -96,9 +98,9 @@
   });
 </script>
 
-<div class="space-y-6">
-  <!-- Header -->
-  <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+<div class="space-y-4 lg:h-[calc(100vh-7.5rem)] lg:flex lg:flex-col">
+  <!-- Header (Shrink-0) -->
+  <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 shrink-0">
     <div class="flex items-center gap-3">
       <div class="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--color-primary);">
@@ -118,24 +120,52 @@
     {/if}
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-    <!-- Sticky TOC -->
-    <aside class="hidden lg:block">
-      <nav class="glass-card-3d p-4 rounded-2xl border sticky top-6 space-y-1" style="border-color: var(--color-border);">
-        <p class="text-[10px] font-bold uppercase tracking-widest px-3 pb-2" style="color: var(--color-text-muted);">Contents</p>
+  <!-- Mobile Responsive Sticky Section Bar (Pill Navigation) -->
+  <nav
+    class="lg:hidden sticky top-0 z-20 -mx-1 px-2 py-2 backdrop-blur-md border rounded-2xl flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs shrink-0"
+    style="background: color-mix(in srgb, var(--color-bg) 88%, transparent); border-color: var(--color-border);"
+    aria-label="Mobile document sections"
+  >
+    {#each SECTIONS as s}
+      <a
+        href="#{s.id}"
+        class="doc-pill-link shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all focus:outline-none {activeSection === s.id ? 'active' : ''}"
+        onclick={() => (activeSection = s.id)}
+        aria-current={activeSection === s.id ? 'true' : undefined}
+      >
+        {s.label}
+      </a>
+    {/each}
+  </nav>
+
+  <!-- Two-Column Layout (Desktop Fixed Aside Menu + Scrolling Document Content Area) -->
+  <div class="flex-1 lg:flex lg:flex-row lg:gap-6 lg:overflow-hidden min-h-0">
+    <!-- Desktop Fixed TOC Navigation Menu -->
+    <aside class="hidden lg:block w-64 shrink-0 h-full">
+      <nav
+        class="glass-card-3d p-4 rounded-2xl border h-full overflow-y-auto space-y-1 shadow-md"
+        style="border-color: var(--color-border);"
+        aria-label="Document table of contents"
+      >
+        <div class="flex items-center justify-between px-3 pb-2 border-b mb-2" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border));">
+          <p class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Contents</p>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full" style="background: var(--color-primary-glow); color: var(--color-primary);">{SECTIONS.length} Sections</span>
+        </div>
         {#each SECTIONS as s}
           <a
             href="#{s.id}"
-            class="block px-3 py-2 rounded-xl text-sm font-semibold transition-all"
-            style="color: {activeSection === s.id ? 'var(--color-primary)' : 'var(--color-text-muted)'}; background: {activeSection === s.id ? 'var(--color-primary-glow)' : 'transparent'};"
+            class="doc-nav-link block px-3 py-2 rounded-xl text-xs font-semibold {activeSection === s.id ? 'active' : ''}"
             onclick={() => (activeSection = s.id)}
-          >{s.label}</a>
+            aria-current={activeSection === s.id ? 'true' : undefined}
+          >
+            {s.label}
+          </a>
         {/each}
       </nav>
     </aside>
 
-    <!-- Content -->
-    <div class="lg:col-span-3 space-y-6">
+    <!-- Document Content Area (Owns Vertical Scrolling) -->
+    <div class="flex-1 lg:h-full lg:overflow-y-auto space-y-6 pr-1 lg:pr-3 scroll-smooth">
       <!-- Overview -->
       <section id="overview" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Overview</h3>
@@ -154,8 +184,8 @@
             <p class="text-xs mt-1" style="color: var(--color-text-muted);">Specialized subagents with strict tool boundaries and skill SOPs</p>
           </div>
           <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
-            <p class="text-2xl font-black" style="color: var(--color-primary);">7 Clients</p>
-            <p class="text-xs mt-1" style="color: var(--color-text-muted);">Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi</p>
+            <p class="text-2xl font-black" style="color: var(--color-primary);">8 Clients</p>
+            <p class="text-xs mt-1" style="color: var(--color-text-muted);">Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP</p>
           </div>
         </div>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -258,7 +288,7 @@
           <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
             Findings are converted into a concrete fix task (each finding maps to one actionable item with rule IDs),
             delegated to <strong>anbu</strong> (or <strong>jonin</strong> for UI findings). The loop re-scans from scratch after every fix
-            and is bounded by a circuit breaker at 7 cycles. Only a clean pass advances to the Kage Confidence Gate (≥97%).
+            and is bounded by a circuit breaker at 7 cycles. Only a clean pass advances to the Kage Confidence Gate (≥98%).
           </p>
         </div>
       </section>
@@ -376,7 +406,7 @@
               {#each API_ENDPOINTS as ep}
                 <tr class="border-t" style="border-color: var(--color-border);">
                   <td class="px-4 py-2">
-                    <span class="font-mono font-bold px-1.5 py-0.5 rounded text-[10px]" style="color: {ep.method === 'GET' ? '#059669' : '#2563eb'}; background: {ep.method === 'GET' ? 'rgba(5,150,105,0.1)' : 'rgba(37,99,235,0.1)'};">{ep.method}</span>
+                    <span class="font-mono font-bold px-2 py-0.5 rounded text-[10px] uppercase border" style="color: {ep.method === 'GET' ? 'var(--color-primary)' : 'var(--color-accent)'}; background: {ep.method === 'GET' ? 'var(--color-primary-glow)' : 'color-mix(in srgb, var(--color-accent) 15%, transparent)'}; border-color: {ep.method === 'GET' ? 'var(--color-primary)' : 'var(--color-accent)'};">{ep.method}</span>
                   </td>
                   <td class="px-4 py-2 font-mono font-semibold" style="color: var(--color-text);">{ep.path}</td>
                   <td class="px-4 py-2 hidden sm:table-cell" style="color: var(--color-text-muted);">{ep.desc}</td>
@@ -469,3 +499,52 @@
     </div>
   </div>
 </div>
+
+<style>
+  .doc-nav-link {
+    color: var(--color-text-muted);
+    background: transparent;
+    transition: all 0.15s ease-in-out;
+  }
+  .doc-nav-link:hover:not(.active) {
+    background: var(--theme-sidemenu-hover);
+    color: var(--color-primary);
+  }
+  .doc-nav-link.active {
+    background: var(--theme-sidemenu-active);
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--theme-grad-1) 35%, transparent);
+  }
+  .doc-nav-link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .doc-pill-link {
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+  .doc-pill-link:hover:not(.active) {
+    background: var(--theme-sidemenu-hover);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  .doc-pill-link.active {
+    background: var(--theme-sidemenu-active);
+    color: #ffffff;
+    font-weight: 800;
+    border-color: transparent;
+  }
+  .doc-pill-link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>

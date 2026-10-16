@@ -8,6 +8,16 @@
   let error = $state("");
   let actionInProgress = $state(null);
 
+  let clientCount = $derived(clients.length);
+  let configuredCount = $derived(clients.filter(c => c.configured).length);
+  let clientNamesSummary = $derived.by(() => {
+    if (!clients.length) return "";
+    const names = clients.map(c => c.name);
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  });
+
   async function loadClients() {
     loading = true;
     error = "";
@@ -70,21 +80,39 @@
           Multi-Client Integration
         </div>
         <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
-          Coding Clients (7 IDEs & CLIs)
+          Coding Clients {clientCount > 0 ? `(${clientCount} IDEs & CLIs)` : (loading ? '' : '')}
         </h2>
         <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
-          Auto-inject Konoha MCP tools and RTK output filtering into Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi (pi.dev).
+          {#if clientNamesSummary}
+            Auto-inject Konoha MCP tools and RTK output filtering into {clientNamesSummary}.
+          {:else if loading}
+            Checking supported coding clients and environments...
+          {:else}
+            Auto-inject Konoha MCP tools and RTK output filtering into supported IDEs and CLIs.
+          {/if}
         </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-3 shrink-0">
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
           <div class="text-xs font-bold text-slate-600">Supported Clients</div>
-          <div class="text-xl font-black text-indigo-600">7 Platforms</div>
+          <div class="text-xl font-black text-indigo-600">
+            {#if loading && clientCount === 0}
+              ...
+            {:else}
+              {clientCount} {clientCount === 1 ? 'Platform' : 'Platforms'}
+            {/if}
+          </div>
         </div>
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
           <div class="text-xs font-bold text-slate-600">Connected</div>
-          <div class="text-xl font-black text-emerald-600">{clients.filter(c => c.configured).length} Active</div>
+          <div class="text-xl font-black text-emerald-600">
+            {#if loading && clientCount === 0}
+              ...
+            {:else}
+              {configuredCount} Active
+            {/if}
+          </div>
         </div>
       </div>
     </div>

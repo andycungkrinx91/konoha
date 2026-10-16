@@ -224,4 +224,99 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test("Clients page renders dynamic client count, names summary, and stat box from API", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    // Mock /api/v1/clients with 8 clients including OMP
+    await page.route("**/api/v1/clients", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { id: 'antigravity', name: 'Antigravity IDE / CLI', configPath: '~/.gemini/config/mcp_config.json', configured: true },
+          { id: 'cursor', name: 'Cursor IDE / CLI', configPath: '~/.cursor/mcp.json', configured: true },
+          { id: 'claude', name: 'Claude Code CLI', configPath: '~/.claude.json', configured: false },
+          { id: 'opencode', name: 'OpenCode IDE', configPath: '~/.config/opencode/opencode.json', configured: false },
+          { id: 'commandcode', name: 'Command Code CLI', configPath: '~/.commandcode/mcp.json', configured: false },
+          { id: 'codex', name: 'Codex IDE / CLI', configPath: '~/.codex/config.toml', configured: false },
+          { id: 'pi', name: 'Pi (pi.dev)', configPath: '~/.pi/agent/mcp.json', configured: false },
+          { id: 'omp', name: 'OMP Agent', configPath: '~/.omp/agent/mcp.json', configured: true }
+        ])
+      });
+    });
+
+    await page.goto("http://127.0.0.1:4173/clients");
+
+    // Verify dynamic heading has 8 IDEs & CLIs
+    await expect(page.getByRole("heading", { name: "Coding Clients (8 IDEs & CLIs)" })).toBeVisible({ timeout: 5000 });
+
+    // Verify dynamic platforms stat box
+    await expect(page.getByText("8 Platforms")).toBeVisible();
+
+    // Verify connected count is 3 Active (antigravity, cursor, omp)
+    await expect(page.getByText("3 Active")).toBeVisible();
+
+    // Verify dynamic summary contains all client names including OMP Agent
+    await expect(page.getByText("Auto-inject Konoha MCP tools and RTK output filtering into Antigravity IDE / CLI, Cursor IDE / CLI, Claude Code CLI, OpenCode IDE, Command Code CLI, Codex IDE / CLI, Pi (pi.dev), and OMP Agent.")).toBeVisible();
+
+    // Verify client cards are rendered
+    await expect(page.getByRole("heading", { name: "OMP Agent" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Antigravity IDE / CLI" })).toBeVisible();
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("Docs page presents 11 sections, verified 8 clients, theme custom property styles, and responsive layout", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.goto("http://127.0.0.1:4173/docs");
+
+    // Verify main docs header
+    await expect(page.getByRole("heading", { name: "Documentation" })).toBeVisible({ timeout: 5000 });
+
+    // Verify Overview section displays 8 Clients and lists OMP
+    const overviewSection = page.locator("#overview");
+    await expect(overviewSection).toBeVisible();
+    await expect(overviewSection.getByText("8 Clients")).toBeVisible();
+    await expect(overviewSection.getByText("Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP")).toBeVisible();
+
+    // Verify desktop table of contents has 11 sections
+    const desktopToc = page.locator("aside nav");
+    await expect(desktopToc.getByText("11 Sections")).toBeVisible();
+
+    // Verify desktop links use theme class .doc-nav-link
+    const tocLinks = page.locator(".doc-nav-link");
+    expect(await tocLinks.count()).toBe(11);
+
+    // Verify section switching updates active state
+    const sdlcLink = tocLinks.filter({ hasText: "SDLC Lifecycle" });
+    await sdlcLink.click();
+    await expect(sdlcLink).toHaveClass(/active/);
+
+    // Switch theme and verify theme attributes are active
+    const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
+    await themeFab.click();
+    await page.getByText("Byakugan Deep Cyan").click();
+
+    const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(dataTheme).toBe('byakugan');
+
+    // Test mobile responsive section menu at 375px viewport
+    await page.setViewportSize({ width: 375, height: 667 });
+    const mobilePillNav = page.locator("nav[aria-label='Mobile document sections']");
+    await expect(mobilePillNav).toBeVisible();
+
+    const mobilePillLinks = page.locator(".doc-pill-link");
+    expect(await mobilePillLinks.count()).toBe(11);
+
+    // Click a mobile pill link
+    const mobileApiLink = mobilePillLinks.filter({ hasText: "Web API Reference" });
+    await mobileApiLink.click();
+    await expect(mobileApiLink).toHaveClass(/active/);
+
+    expect(pageErrors).toEqual([]);
+  });
 });

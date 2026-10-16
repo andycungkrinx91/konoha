@@ -169,7 +169,7 @@ konoha web
 - "Run Auto-Repair" button at top to automatically resolve any missing or outdated integration templates.
 
 ### 10. 🔌 Coding Clients Screen (`Clients.svelte`)
-- Status indicators for all 7 supported coding clients:
+- Status indicators for all 8 supported coding clients:
   - Antigravity IDE / CLI (`~/.gemini/config/mcp_config.json`)
   - Cursor IDE / CLI (`~/.cursor/mcp.json`)
   - Claude Code CLI (`~/.claude.json`)
@@ -177,6 +177,7 @@ konoha web
   - Command Code CLI (`~/.commandcode/mcp.json`)
   - Codex IDE / CLI (`~/.codex/config.toml`)
   - Pi (pi.dev) CLI (`~/.pi/agent/mcp.json`)
+  - OMP Agent (`~/.omp/agent/mcp.json`)
 - One-click Setup and Disconnect buttons.
 
 ### 11. 📋 SDLC Tasks & Governance Screen (`Tasks.svelte`)

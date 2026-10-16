@@ -222,12 +222,12 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ### 2.11 Multi-Client Lifecycle & Contract Enforcement
 
-* **Purpose:** Scaffolding, configuration management, and invariant enforcement across 7 supported IDE/CLI environments.
-* **Canonical Implementation:** `src/antigravity_manager.js`, `src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `src/pi_manager.js`, `src/agent_contract.js`.
+* **Purpose:** Scaffolding, configuration management, and invariant enforcement across 8 supported IDE/CLI environments.
+* **Canonical Implementation:** `src/antigravity_manager.js`, `src/cursor_manager.js`, `src/mcp_clients_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `src/pi_manager.js`, `src/omp_manager.js`, `src/agent_contract.js`.
 * **Entry Points:**
   - CLI: `konoha init`, `konoha doctor`.
   - Web API: `POST /api/v1/clients/:id/setup`, `POST /api/v1/clients/:id/remove`.
-* **Consumers:** Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi.
+* **Consumers:** Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP.
 * **Storage:** Editor configuration files (`mcp.json`, `rules`, `hooks`).
 * **Configuration:** Managed contracts embedded between `<!-- KONOHA-CONTRACT-START -->` and `<!-- KONOHA-CONTRACT-END -->`.
 * **Tests:** `tests/test_cross_client_contract.js`, `tests/test_client_disconnect_and_bridge_scope.js`.
