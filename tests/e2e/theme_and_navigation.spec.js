@@ -145,4 +145,79 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test("Footer attribution displays 'Created by Andy Setiyawan' with verified LinkedIn link under SQLite FTS5 + Semble", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.goto("http://127.0.0.1:4173/dashboard");
+
+    // Verify footer status block exists
+    const statusFooter = page.locator("aside").locator("text=SQLite FTS5 + Semble");
+    await expect(statusFooter).toBeVisible();
+
+    // Verify 'Created by Andy Setiyawan' attribution link exists
+    const authorLink = page.locator("a[href='https://www.linkedin.com/in/andy-setiyawan-452396170/']");
+    await expect(authorLink).toBeVisible();
+    await expect(authorLink).toHaveText("Andy Setiyawan");
+    await expect(authorLink).toHaveAttribute("target", "_blank");
+    await expect(authorLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("Mobile view displays menu sidebar toggle in left header and controls mobile drawer navigation", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    // Set mobile viewport (iPhone dimensions)
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("http://127.0.0.1:4173/dashboard");
+
+    // Verify desktop sidebar toggle is hidden on mobile
+    const desktopToggle = page.locator("header button[aria-label='Toggle sidebar']");
+    await expect(desktopToggle).not.toBeVisible();
+
+    // Verify mobile sidebar toggle button is visible in left header
+    const mobileToggle = page.locator("header button[aria-label='Toggle mobile menu sidebar']");
+    await expect(mobileToggle).toBeVisible();
+
+    // Initially, sidebar drawer is closed on mobile
+    const sidebar = page.locator("aside");
+    await expect(sidebar).not.toBeVisible();
+
+    // Click mobile sidebar toggle to open drawer
+    await mobileToggle.click();
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar).toHaveClass(/fixed inset-y-0 left-0 z-50/);
+
+    // Backdrop overlay is visible
+    const backdrop = page.locator("div[aria-label='Close mobile navigation sidebar']");
+    await expect(backdrop).toBeVisible();
+
+    // Verify close button inside mobile drawer closes drawer
+    const drawerCloseBtn = sidebar.locator("button[aria-label='Close mobile menu']");
+    await drawerCloseBtn.click();
+    await expect(sidebar).not.toBeVisible();
+
+    // Re-open mobile sidebar and test backdrop click (on uncovered right area > 256px)
+    await mobileToggle.click();
+    await expect(sidebar).toBeVisible();
+    await backdrop.click({ position: { x: 320, y: 200 } });
+    await expect(sidebar).not.toBeVisible();
+
+    // Re-open mobile sidebar and navigate via link
+    await mobileToggle.click();
+    await expect(sidebar).toBeVisible();
+
+    // Click a navigation link inside mobile sidebar (e.g. Skills & Vectors)
+    const skillsLink = sidebar.locator("a[href='/skills']").first();
+    await skillsLink.click();
+
+    // Verify navigation succeeds and mobile sidebar drawer automatically closes
+    await expect(page).toHaveURL("http://127.0.0.1:4173/skills");
+    await expect(sidebar).not.toBeVisible();
+
+    expect(pageErrors).toEqual([]);
+  });
 });

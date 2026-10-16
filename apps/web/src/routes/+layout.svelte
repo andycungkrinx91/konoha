@@ -69,6 +69,7 @@
   );
 
   let isSidebarOpen = $state(true);
+  let isMobileSidebarOpen = $state(false);
   let openSections = $state(new Set(navSections.map(s => s.title)));
 
   function toggleSection(title) {
@@ -83,6 +84,20 @@
   function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
   }
+
+  function toggleMobileSidebar() {
+    isMobileSidebarOpen = !isMobileSidebarOpen;
+  }
+
+  function closeMobileSidebar() {
+    isMobileSidebarOpen = false;
+  }
+
+  $effect(() => {
+    if (page.url.pathname) {
+      isMobileSidebarOpen = false;
+    }
+  });
 
   $effect(() => {
     const activeSection = navSections.find(s =>
@@ -131,9 +146,21 @@
 </script>
 
 <div id="konoha-app-root" class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
-  <!-- Desktop Fixed Left Sidebar (Collapsible for Maximum Center Space) -->
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  {#if isMobileSidebarOpen}
+    <div
+      class="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden transition-opacity duration-200"
+      onclick={closeMobileSidebar}
+      role="button"
+      tabindex="-1"
+      aria-label="Close mobile navigation sidebar"
+      onkeydown={(e) => { if (e.key === 'Escape') closeMobileSidebar(); }}
+    ></div>
+  {/if}
+
+  <!-- Fixed Left Sidebar (Desktop Collapsible & Mobile Drawer) -->
   <aside
-    class="glass-frost hidden lg:flex border-r flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden {isSidebarOpen ? 'w-64' : 'w-0 border-r-0 opacity-0 pointer-events-none'}"
+    class="glass-frost flex-col shrink-0 border-r transition-all duration-300 ease-in-out overflow-hidden {isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64 flex shadow-2xl lg:static lg:z-auto lg:shadow-none' : 'hidden lg:flex'} {isSidebarOpen ? 'lg:w-64 lg:opacity-100' : 'lg:w-0 lg:border-r-0 lg:opacity-0 lg:pointer-events-none'}"
     style="background: var(--theme-sidebar-bg); border-color: color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border)); color: var(--color-text);"
   >
     <div class="flex-1 overflow-y-auto scrollbar-thin w-64">
@@ -152,14 +179,24 @@
         </div>
         <button
           type="button"
-          onclick={toggleSidebar}
+          onclick={() => {
+            if (isMobileSidebarOpen) {
+              closeMobileSidebar();
+            } else {
+              toggleSidebar();
+            }
+          }}
           class="w-7 h-7 rounded-[5px] border flex items-center justify-center text-xs transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer shrink-0"
           style="border-color: var(--color-border); color: var(--color-text-muted);"
-          title="Collapse sidebar to give more space in center"
-          aria-label="Collapse sidebar"
+          title={isMobileSidebarOpen ? "Close mobile menu" : "Collapse sidebar"}
+          aria-label={isMobileSidebarOpen ? "Close mobile menu" : "Collapse sidebar"}
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            {#if isMobileSidebarOpen}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            {:else}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            {/if}
           </svg>
         </button>
       </div>
@@ -192,6 +229,7 @@
                   {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
                   <a
                     href={item.path}
+                    onclick={closeMobileSidebar}
                     class="nav-depth gradient-sidemenu-item flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 {isActive ? 'gradient-sidemenu-active' : ''}"
                     style="{isActive ? '' : 'color: var(--color-text-muted);'}"
                   >
@@ -226,6 +264,18 @@
         <span>SQLite FTS5 + Semble</span>
         <span>Localhost</span>
       </div>
+      <div class="text-[10px] flex items-center justify-between pt-1.5 border-t mt-1.5" style="border-color: color-mix(in srgb, var(--theme-grad-2) 15%, var(--color-border)); color: var(--color-text-muted);">
+        <span>Created by</span>
+        <a
+          href="https://www.linkedin.com/in/andy-setiyawan-452396170/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-semibold transition-colors hover:underline"
+          style="color: var(--color-primary);"
+        >
+          Andy Setiyawan
+        </a>
+      </div>
     </div>
   </aside>
 
@@ -237,7 +287,7 @@
     <!-- Top Header: Brand Logo on Far LEFT + Sidebar Toggle (Mandatory Invariant) -->
     <header class="glass-frost h-14 border-b px-4 lg:px-6 flex items-center justify-between shrink-0 transition-all duration-200" style="background: var(--theme-header-bg); border-color: color-mix(in srgb, var(--theme-grad-3) 25%, var(--color-border)); box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--theme-grad-1) 12%, transparent);">
       <!-- Far-Left Logo & Title + Sidebar Open/Close Toggle Button -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
         <!-- Desktop Sidebar Toggle Button -->
         <button
           type="button"
@@ -252,8 +302,26 @@
           </svg>
         </button>
 
-        <div class="lg:hidden flex items-center gap-2">
-          <img src="/fox_kyubi_64.png" alt="Konoha" class="w-7 h-7 rounded-[5px] border object-cover bg-white" style="border-color: var(--color-primary);" width="28" height="28" loading="eager" />
+        <!-- Mobile View Sidebar Menu Toggle Button (Left Header) -->
+        <button
+          type="button"
+          onclick={toggleMobileSidebar}
+          class="lg:hidden flex w-8 h-8 rounded-[5px] border items-center justify-center text-xs transition-all hover:scale-105 cursor-pointer shrink-0"
+          style="border-color: var(--color-border); background-color: var(--color-surface); color: var(--color-text);"
+          title={isMobileSidebarOpen ? "Close mobile menu" : "Open mobile menu"}
+          aria-label="Toggle mobile menu sidebar"
+        >
+          <svg class="w-4 h-4 transition-transform duration-200 {isMobileSidebarOpen ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {#if isMobileSidebarOpen}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            {:else}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            {/if}
+          </svg>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <img src="/fox_kyubi_64.png" alt="Konoha" class="w-7 h-7 rounded-[5px] border object-cover bg-white shrink-0" style="border-color: var(--color-primary);" width="28" height="28" loading="eager" />
           <span class="text-sm font-bold tracking-tight" style="color: var(--color-text);">Konoha</span>
         </div>
         <div class="hidden sm:flex items-center gap-2 text-xs">
