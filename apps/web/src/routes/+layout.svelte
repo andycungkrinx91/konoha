@@ -51,7 +51,7 @@
       ]
     },
     {
-      title: 'SDLC Operations & Diagnostics',
+      title: 'OPRATION & DIAGNOSTICS',
       items: [
         { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', iconSvg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
         { id: 'doctor', path: '/doctor', label: 'Health & Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
@@ -61,6 +61,12 @@
   ];
 
   const allNavItems = navSections.flatMap(s => s.items);
+  const activeNavItem = $derived(
+    allNavItems.find(it => it.path === page.url.pathname || (it.path === '/dashboard' && page.url.pathname === '/'))
+  );
+  const currentSection = $derived(
+    navSections.find(s => s.items.some(it => it.path === page.url.pathname || (it.path === '/dashboard' && page.url.pathname === '/')))
+  );
 
   let isSidebarOpen = $state(true);
   let openSections = $state(new Set(navSections.map(s => s.title)));
@@ -124,7 +130,7 @@
   });
 </script>
 
-<div class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
+<div id="konoha-app-root" class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
   <!-- Desktop Fixed Left Sidebar (Collapsible for Maximum Center Space) -->
   <aside
     class="glass-frost hidden lg:flex border-r flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden {isSidebarOpen ? 'w-64' : 'w-0 border-r-0 opacity-0 pointer-events-none'}"
@@ -167,13 +173,13 @@
             <button
               type="button"
               onclick={() => toggleSection(section.title)}
-              class="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider select-none hover:bg-black/5 dark:hover:bg-white/5 rounded-[5px] transition-colors cursor-pointer"
+              class="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider select-none hover:bg-black/5 dark:hover:bg-white/5 rounded-[5px] transition-colors cursor-pointer text-left"
               style="color: {hasActiveChild ? 'var(--color-primary)' : 'var(--color-text-muted)'};"
               aria-expanded={isExpanded}
             >
-              <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full {hasActiveChild ? 'shadow-xs' : 'bg-slate-400/40'}" style="{hasActiveChild ? 'background: var(--theme-4gradient);' : ''}"></span>
-                <span>{section.title}</span>
+              <div class="flex items-center gap-1.5 ml-1 text-left justify-start">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0 {hasActiveChild ? 'shadow-xs' : 'bg-slate-400/40'}" style="{hasActiveChild ? 'background: var(--theme-4gradient);' : ''}"></span>
+                <span class="text-left">{section.title}</span>
               </div>
               <svg class="w-3.5 h-3.5 transition-transform duration-200 {isExpanded ? 'rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -251,9 +257,11 @@
           <span class="text-sm font-bold tracking-tight" style="color: var(--color-text);">Konoha</span>
         </div>
         <div class="hidden sm:flex items-center gap-2 text-xs">
-          <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">Dashboard</span>
-          <span style="color: var(--color-border);">/</span>
-          <span class="font-extrabold capitalize text-xs gradient-text">{page.url.pathname.replace('/', '') || 'dashboard'}</span>
+          {#if currentSection}
+            <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">{currentSection.title}</span>
+            <span style="color: var(--color-border);">/</span>
+          {/if}
+          <span class="font-extrabold capitalize text-xs gradient-text">{activeNavItem?.label || page.url.pathname.replace('/', '') || 'Overview'}</span>
         </div>
       </div>
 

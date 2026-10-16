@@ -108,9 +108,10 @@ konoha web
   - `🌐 skills.sh Registry`: Real-time global query against `skills.sh/api/skills` with exact parity to `konoha skill search <query>`, displaying rank, install count, GitHub author/repo source, and descriptions.
 - **1-Click Skill Installation**:
   - Install any skill from `skills.sh` or Git repositories directly from the UI (`POST /api/v1/skills/install`) with non-interactive piped execution, automatic GitHub URL normalization, and instant SQLite FTS5 + Granite vector embedding migration.
-- **Interactive Vector & Chunks Inspector**:
+- **Interactive Vector & Chunks Inspector & Re-Embedding**:
   - Skill detail modal includes a dedicated **Vector Embeddings & Chunks** tab displaying 384-dim Float32 vector samples (`vector_sample`), chunk index, and tokenized chunk text.
   - Vector status badge showing model (`IBM Granite Multilingual 384-dim`), indexed chunks, and RRF reranking metrics.
+  - **On-Demand Neural Vector Re-Embedding**: Dedicated "Re-embed Vectors" 3D button in the action toolbar and skill card triggering `POST /api/v1/skills/reembed` to dynamically compute IBM Granite 384d ONNX embeddings for all skills with live feedback and SSE event synchronization.
 - Create new skills directly in the browser with custom name, description, tags, and YAML frontmatter.
 - Embed / Unembed skills to official ninja subagents with one click.
 - Safe skill deletion with cascading foreign-key protection for chunk tables.
@@ -153,7 +154,8 @@ konoha web
 - **Universal 5px Card Border-Radius Invariant**: Strict 5px border-radius (`border-radius: 5px !important`) enforced across ALL cards (`.glass-card-3d`, `.theme-card`, `.card`, `[class*="card"]`, modals, and metric tiles).
 - **Akatsuki Dusk Plum Palette**: Redesigned `akatsuki` to a distinctive Dusk Plum and Fuchsia palette (`#86198f`, `#c026d3`, gradient: `['#581c87', '#701a75', '#86198f', '#c026d3']`), eliminating duplicate color with Sharingan Rose Light.
 - **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows.
-- Universal floating circular FAB button in the bottom-left corner (`fixed bottom-20 left-5 lg:bottom-6 lg:left-6 z-50`) opening the 10-theme selection popup modal.
+- **Authentic Rasengan Theme Switcher FAB**: Universal floating circular FAB button in the bottom-right corner (`fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]`) featuring an authentic spinning SVG Rasengan with multi-stop radial gradient chakra containment orb, rapid clockwise and counter-clockwise swirling spiral filaments, and a pulsing energy core.
+- **10-Second 3D Rasengan Impact Wall Hit Effect**: Selecting any of the 10 themes triggers an epic 10-second 3D Rasengan Impact effect (`rasengan-wall-hit-active`) causing physical 3D concavity and concussive denting (`perspective(900px)`), fullscreen jagged radial fracture fissures, and spinning chakra shockwaves that automatically repair and return the UI to normal after exactly 10 seconds.
 - Pure light-mode gradient palettes (`chidori`, `byakugan`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`) with dynamic CSS variables and localStorage persistence.
 - Hardware-accelerated 3D perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
 - Accessible high-contrast typography and custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.

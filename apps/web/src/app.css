@@ -604,6 +604,124 @@ code, kbd, samp, pre, .font-mono {
   filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--theme-grad-1) 45%, transparent));
 }
 
+/* Rasengan Swirling Chakra Icon Animation */
+@keyframes spin-rasengan {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin-rasengan-reverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes pulse-rasengan-chakra {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.85));
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    filter: drop-shadow(0 0 14px rgba(14, 165, 233, 1));
+  }
+}
+
+.animate-spin-rasengan {
+  animation: spin-rasengan 1.6s linear infinite;
+  transform-origin: center;
+}
+
+.animate-spin-rasengan-fast {
+  animation: spin-rasengan 0.6s linear infinite;
+  transform-origin: center;
+}
+
+.animate-spin-rasengan-reverse {
+  animation: spin-rasengan-reverse 2.2s linear infinite;
+  transform-origin: center;
+}
+
+.animate-pulse-rasengan {
+  animation: pulse-rasengan-chakra 2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* 10-Second 3D Rasengan Impact Wall Hit Effect */
+@keyframes rasengan-wall-hit-3d {
+  0% {
+    transform: perspective(900px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0);
+    filter: brightness(1);
+  }
+  2% {
+    transform: perspective(900px) rotateX(7deg) rotateY(-8deg) scale(0.95) translateZ(-80px);
+    filter: brightness(1.35) contrast(1.1);
+  }
+  5% {
+    transform: perspective(900px) rotateX(-6deg) rotateY(7deg) scale(0.96) translateZ(-65px);
+    filter: brightness(1.2);
+  }
+  9% {
+    transform: perspective(900px) rotateX(4deg) rotateY(-4deg) scale(0.97) translateZ(-50px);
+    filter: brightness(1.1);
+  }
+  15% {
+    transform: perspective(900px) rotateX(-2deg) rotateY(3deg) scale(0.975) translateZ(-40px);
+    filter: brightness(1.05);
+  }
+  35% {
+    transform: perspective(900px) rotateX(1.5deg) rotateY(-1.5deg) scale(0.982) translateZ(-30px);
+  }
+  60% {
+    transform: perspective(900px) rotateX(-0.8deg) rotateY(0.8deg) scale(0.99) translateZ(-18px);
+  }
+  85% {
+    transform: perspective(900px) rotateX(0.3deg) rotateY(-0.3deg) scale(0.996) translateZ(-6px);
+  }
+  100% {
+    transform: perspective(900px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0);
+    filter: brightness(1);
+  }
+}
+
+.rasengan-wall-hit-active {
+  animation: rasengan-wall-hit-3d 10s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+@keyframes rasengan-crater-fade {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  2% {
+    opacity: 1;
+    transform: scale(1.02) rotate(15deg);
+  }
+  5% {
+    transform: scale(1) rotate(45deg);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.01) rotate(360deg);
+  }
+  85% {
+    opacity: 0.7;
+    transform: scale(1.005) rotate(720deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1) rotate(900deg);
+  }
+}
+
+.animate-rasengan-crater {
+  animation: rasengan-crater-fade 10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+}
+
 .animate-in {
   animation-duration: 200ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);

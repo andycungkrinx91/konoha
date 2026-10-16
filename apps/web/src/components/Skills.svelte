@@ -224,6 +224,32 @@
     }
   }
 
+  let isEmbedding = $state(false);
+
+  async function reembedVectorSkills() {
+    if (isEmbedding) return;
+    isEmbedding = true;
+    try {
+      uiState.addNotification("Generating IBM Granite ONNX neural vector embeddings (384-dim)...", "info");
+      const res = await api.post("/api/v1/skills/reembed?force=1", {});
+      await sweetAlert.fire({
+        title: "Vector Embeddings Complete",
+        text: res.message || `Successfully generated vector embeddings for ${res.vectorized_chunks || 0} chunks in vector database.`,
+        icon: "success"
+      });
+      await loadSkills();
+      await loadVectorStats();
+    } catch (err) {
+      await sweetAlert.fire({
+        title: "Vector Embedding Failed",
+        text: err.message,
+        icon: "error"
+      });
+    } finally {
+      isEmbedding = false;
+    }
+  }
+
   let debounceTimer;
   function handleSearchInput() {
     clearTimeout(debounceTimer);
@@ -384,12 +410,25 @@
           onclick={reindexAllSkills}
           class="btn-3d px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
-          title="Run konoha migrate to re-index all skills"
+          title="Run konoha migrate to re-index all skills into SQLite FTS5"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span>Re-index Skills</span>
+          <span>Re-index FTS5</span>
+        </button>
+
+        <button
+          type="button"
+          onclick={reembedVectorSkills}
+          disabled={isEmbedding}
+          class="btn-3d btn-3d-primary px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+          title="Generate IBM Granite ONNX 384-dim neural vector embeddings for all skills into vector database"
+        >
+          <svg class="w-4 h-4 {isEmbedding ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>{isEmbedding ? 'Vectorizing...' : 'Re-embed Vectors'}</span>
         </button>
       </div>
     </div>
@@ -856,9 +895,20 @@
                       {/each}
                     </div>
                   {:else}
-                    <div class="p-8 text-center rounded-2xl border" style="background: var(--color-surface-hover); border-color: var(--color-border);">
+                    <div class="p-8 text-center rounded-2xl border space-y-3" style="background: var(--color-surface-hover); border-color: var(--color-border);">
                       <p class="text-xs font-semibold" style="color: var(--color-text-muted);">No vector chunks generated for this skill yet.</p>
-                      <p class="text-[11px] mt-1" style="color: var(--color-text-muted);">Run <code class="px-1.5 py-0.5 rounded bg-slate-500/20 font-mono">konoha migrate</code> in terminal to automatically vectorize all skills.</p>
+                      <p class="text-[11px]" style="color: var(--color-text-muted);">Click below or run <code class="px-1.5 py-0.5 rounded bg-slate-500/20 font-mono">konoha migrate</code> to vectorize all skills into sqlite-vector.</p>
+                      <button
+                        type="button"
+                        onclick={reembedVectorSkills}
+                        disabled={isEmbedding}
+                        class="btn-3d btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                      >
+                        <svg class="w-4 h-4 {isEmbedding ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>{isEmbedding ? 'Vectorizing Skills...' : 'Re-embed Vectors Now'}</span>
+                      </button>
                     </div>
                   {/if}
                 </div>

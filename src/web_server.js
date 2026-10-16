@@ -1147,6 +1147,27 @@ function createWebServer(options = {}) {
       }
     }
 
+    if (method === 'POST' && (pathname === '/api/v1/skills/reembed' || pathname === '/api/v1/vectors/reembed')) {
+      try {
+        const vectorSearch = require('./vector_search');
+        const conn = db.getConnection(null, false);
+        try {
+          const force = parsedUrl.searchParams.get('force') !== '0';
+          const chunks = await vectorSearch.backfillAllEmbeddings(conn, force);
+          broadcastEvent('skills_updated', { action: 'reembed', chunks });
+          return sendJson(res, 200, {
+            ok: true,
+            vectorized_chunks: chunks,
+            message: `Neural vector embedding successfully completed for ${chunks} chunks.`
+          });
+        } finally {
+          conn.close();
+        }
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
     if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && pathname.endsWith('/embed')) {
       try {
         const parts = pathname.split('/');

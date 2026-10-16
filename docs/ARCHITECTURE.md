@@ -295,6 +295,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
 33. **Dual-Target Website AI Detector & Operational Database Hardening (v2.1.18)**:
    - `konoha detect-ai` and `website_ai_detector` support both directory trees and single-file targets (`package.json`, source files, `.html`, assets) with bounded line extraction.
    - Added database operational tools (`konoha data backup`, `rebuild-fts`, `prune`), atomic backup on foreign key migration, and clean cascading deletion of orphaned project memories.
+34. **Web UI Universal 3D Gradient Engine, Rasengan Theme FAB & Vector Re-embedding (v2.1.18)**:
+   - Enforces universal 3D perspective (`perspective(1200px)`), theme gradient borders (`--theme-grad-1` through `4`), multi-stop layered elevation shadows (`var(--shadow-3d)`), and high-contrast Plus Jakarta Sans & JetBrains Mono typography hierarchy across all Web UI components.
+   - Features authentic swirling SVG Rasengan Theme FAB (`fixed bottom-20 right-5 lg:bottom-6 lg:right-6 z-50 mb-[2em]`) with 10-second 3D Rasengan Impact wall hit animation (`rasengan-wall-hit-active`) rendering physical concavity, fullscreen radial fracture fissures, and spinning chakra shockwaves that automatically repair after 10s.
+   - Exposes on-demand neural vector re-embedding endpoint (`POST /api/v1/skills/reembed` & `/api/v1/vectors/reembed`) and 3D button in `Skills.svelte` to dynamically recalculate IBM Granite 384-dim ONNX neural embeddings with live progress and Server-Sent Event updates.
+   - Cleans sidebar section headers (`OPRATION & DIAGNOSTICS`) with explicit left-margin alignment (`ml-1`, `text-left`, `justify-start`) and replaces hardcoded dashboard header placeholders with dynamic active section and route name breadcrumbs.
 
 ---
 
