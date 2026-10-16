@@ -186,6 +186,25 @@ function deleteAgent(name, dbPath = null) {
   }
 }
 
+function bindAgentRow(stmt, a) {
+  const skillsStr = JSON.stringify(a.skills || []);
+  stmt.run(
+    a.name,
+    a.icon || null,
+    a.title || null,
+    a.model || null,
+    a.purpose || null,
+    skillsStr,
+    a.delegateWhen || a.delegate_when || null,
+    a.constraints || a.constraints_text || null,
+    a.workflow || null,
+    a.description || null,
+    a.instructions || null,
+    a.delegationKeywords || a.delegation_keywords || null,
+    (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
+  );
+}
+
 function importYamlToDb(dbPath = null) {
   const conn = getDbConnection(dbPath);
   try {
@@ -214,25 +233,8 @@ function importYamlToDb(dbPath = null) {
         `);
 
         for (const a of data) {
-          const name = a.name;
-          if (!name) continue;
-          // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
-          const skillsStr = JSON.stringify(a.skills || []);
-          stmt.run(
-            name,
-            a.icon || null,
-            a.title || null,
-            a.model || null,
-            a.purpose || null,
-            skillsStr,
-            a.delegateWhen || a.delegate_when || null,
-            a.constraints || a.constraints_text || null,
-            a.workflow || null,
-            a.description || null,
-            a.instructions || null,
-            a.delegationKeywords || a.delegation_keywords || null,
-            (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
-          );
+          if (!a.name) continue;
+          bindAgentRow(stmt, a);
         }
       });
       tx();
@@ -255,30 +257,11 @@ function bulkImportAgents(agentsList, dbPath = null) {
 
     const insertMany = conn.transaction((list) => {
       for (const a of list) {
-        // aislop-ignore-next-line code-quality/duplicate-block (SQL row-mapper/hydration pairs over distinct tables)
-        const name = a.name;
-        if (!name || name.startsWith('mcp_')) continue;
-        const skillsStr = JSON.stringify(a.skills || []);
-        stmt.run(
-          name,
-          a.icon || null,
-          a.title || null,
-          a.model || null,
-          a.purpose || null,
-          skillsStr,
-          a.delegateWhen || a.delegate_when || null,
-          a.constraints || a.constraints_text || null,
-          a.workflow || null,
-          a.description || null,
-          a.instructions || null,
-          a.delegationKeywords || a.delegation_keywords || null,
-          (a.enable_mcp_tools !== undefined ? a.enable_mcp_tools : true) ? 1 : 0
-        );
+        if (!a.name || a.name.startsWith('mcp_')) continue;
+        bindAgentRow(stmt, a);
       }
     });
-
     insertMany(agentsList);
-    syncDbToYaml(conn);
   } finally {
     conn.close();
   }

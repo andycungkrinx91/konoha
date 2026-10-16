@@ -19,10 +19,10 @@
 [![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
 [![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Zero%20Trust%20Tunnel-F38020?logo=cloudflare&logoColor=white)](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.18_2026-10-15.md)
 [![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red)](README.md)
 [![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.1.17-blue)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.1.18-blue)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.18_2026-10-15.md)
 [![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
@@ -48,7 +48,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 ## 📸 Preview
 
 * **Latest Release:** [v2.1.18 (Current)](CHANGELOG.md) — CLI modularization, specialist subagent direct dispatch, operational database tooling (`konoha data`), and foreign key cascading schema integrity.
-* **Latest Security Compliance:** [Google Policy Compliance v2.1.17 — Audited & Certified (2026-10-08)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md)
+* **Latest Security Compliance:** [Google Policy Compliance v2.1.18 — Audited & Certified (2026-10-15)](docs/SecurityCompliance/security_compliance_report_google_policy_2.1.18_2026-10-15.md)
 
 <details open>
 <summary><b style="display:inline">🎬 Flagship TUI Demo: All Commands in Action (<code>demo.webp</code>)</b></summary>

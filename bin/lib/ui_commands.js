@@ -16,6 +16,7 @@ const os = require('os');
 const { spawn, execSync } = require('child_process');
 const { SKILLS_DB_DIR } = require('./paths');
 const deployUtils = require('../../src/deploy_utils');
+const { fileExists, ensureDir, checkPortActive } = require('../../src/platform_utils');
 
 const C = {
   reset: '\x1b[0m',
@@ -39,35 +40,6 @@ function warn(msg) { process.stdout.write(`  \x1b[38;2;255;200;0m↯\x1b[0m ${ms
 function error(msg) { process.stdout.write(`  ${C.red}✗${C.reset} ${msg}\n`); }
 function drawLogo() {
   process.stdout.write('🍃 \x1b[1m\x1b[32mKonoha\x1b[0m\n');
-}
-
-function fileExists(p) {
-  try { return fs.existsSync(p); } catch (_) { return false; }
-}
-
-function ensureDir(p) {
-  try { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); } catch (_) { /* intentional best-effort directory creation */ }
-}
-
-function checkPortActive(port) {
-  const net = require('net');
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    socket.setTimeout(500);
-    socket.once('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once('error', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.once('timeout', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.connect(port, '127.0.0.1');
-  });
 }
 
 function openUrlInBrowser(targetUrl) {

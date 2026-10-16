@@ -20,6 +20,7 @@ const doctor = require('./doctor');
 const pkg = require('../package.json');
 const sembleManager = require('./semble_manager');
 const deployUtils = require('./deploy_utils');
+const { checkPortActive } = require('./platform_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
@@ -97,27 +98,6 @@ async function isDeleteConfirmed(req, parsedUrl) {
 
 let lastTelegramPingTime = 0;
 
-function checkPortActive(port) {
-  const net = require('net');
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    socket.setTimeout(400);
-    socket.once('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once('error', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.once('timeout', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.connect(port, '127.0.0.1');
-  });
-}
-
 function isClientConfigured(id) {
   try {
     if (id === 'antigravity') {
@@ -182,7 +162,6 @@ function getTrustedClientIp(req) {
   return remoteIp || '127.0.0.1';
 }
 
-// aislop-ignore-next-line complexity/function-too-long (orchestrator web server factory hosting full API route tree and SvelteKit handler)
 function createWebServer(options = {}) {
   const port = options.port !== undefined ? options.port : 1404;
   const host = options.host || '127.0.0.1';
@@ -830,9 +809,7 @@ function createWebServer(options = {}) {
         }
         await new Promise((r) => setTimeout(r, 800));
 
-        // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
         const { spawn } = require('child_process');
-        // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
         const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
           ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
           : path.join(__dirname, 'file_tools_mcp.js');
@@ -842,7 +819,6 @@ function createWebServer(options = {}) {
           windowsHide: true,
           env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
         });
-        // aislop-ignore-next-line code-quality/duplicate-block (structurally similar handler boilerplate with contextual differences)
         child.unref();
         try {
           fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
@@ -1190,7 +1166,6 @@ function createWebServer(options = {}) {
       }
     }
 
-    // aislop-ignore-next-line code-quality/duplicate-block (API endpoint handlers sharing validation/CSRF shape)
     if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && pathname.endsWith('/unembed')) {
       try {
         const parts = pathname.split('/');

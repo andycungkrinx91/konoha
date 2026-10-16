@@ -805,7 +805,6 @@ function optimizeReport(keyword = null, agentName = null) {
     if (keyword) {
       if (!db.hasFts5Support || db.hasFts5Support(conn)) {
         const sanitized = sanitizeFts5Query(keyword);
-        // aislop-ignore-next-line code-quality/duplicate-block (instruction-block builders sharing the tool-boundary preamble)
         try {
           rows = conn.prepare(`
             SELECT s.name, s.skill_name, s.type, s.tags,
@@ -825,7 +824,6 @@ function optimizeReport(keyword = null, agentName = null) {
 
       if (!rows || rows.length === 0) {
         const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-        // aislop-ignore-next-line code-quality/duplicate-block (instruction-block builders sharing the tool-boundary preamble)
         const likeKeyword = '%' + words.join('%') + '%';
         rows = conn.prepare(`
           SELECT name, skill_name, type, tags,

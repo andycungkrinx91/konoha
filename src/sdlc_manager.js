@@ -38,8 +38,8 @@ const DOMAIN_KEYWORDS = [
 // Placeholder regex markers to reject in DoR check
 const PLACEHOLDER_REGEX = /\b(TODO|FIXME|TBD)\b|\?{3,}|<placeholder>|\[placeholder\]|\[insert\b|<insert\b/i;
 
-// Regex to discover potential file path references in task prompts
-const FILE_PATH_REGEX = /(?:^|\s)([\w.-]+[/][\w./-]+|\b[\w.-]+\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue))\b/g;
+// Regex to discover potential file path references in task prompts (handles / and \ separators)
+const FILE_PATH_REGEX = /(?:^|\s)([\w.-]+[/\\][\w./\\-]+|\b[\w.-]+\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue))\b/g;
 
 // Words indicating intention to create a new file (so non-existent path is expected)
 const CREATION_WORDS = /\b(create|new|scaffold|add|write|generate|touch|init|implement|build|setup|develop|make|construct)\b/i;
@@ -88,11 +88,9 @@ function safeJsonParse(str, fallback = {}) {
     return fallback;
   }
   if (typeof str === 'object') {
-      console.error('[sdlc] safeJson: non-string input coerced to fallback');
-      // aislop-ignore-next-line ai-slop/hidden-fallback (fallback IS surfaced via console.error above; default is the documented contract of safeJsonParse)
-      // aislop-ignore-next-line ai-slop/hidden-fallback (fallback IS surfaced via console.error above; default is the documented contract of safeJsonParse)
-      return str || fallback;
-    }
+    console.error('[sdlc] safeJson: non-string input coerced to fallback');
+    return str || fallback;
+  }
   try {
     const res = JSON.parse(str);
     return (res !== null && typeof res === 'object') ? res : fallback;
@@ -505,11 +503,11 @@ function checkReadiness(taskInput, projectPath = null) {
       ) {
         continue;
       }
-      const hasExt = /\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue)$/.test(candidate);
-      const isPathLike = candidate.startsWith('./') || candidate.startsWith('../') || candidate.startsWith('/') || /^(?:src|app|components|lib|tests?|docs?|bin|config|public)\//.test(candidate);
+      const hasExt = /\.(?:js|ts|json|md|html|css|py|yaml|yml|sh|svelte|vue)$/i.test(candidate);
+      const isPathLike = candidate.startsWith('./') || candidate.startsWith('.\\') || candidate.startsWith('../') || candidate.startsWith('..\\') || candidate.startsWith('/') || candidate.startsWith('\\') || /^(?:src|app|components|lib|tests?|docs?|bin|config|public)[/\\]/i.test(candidate);
       if (hasExt || isPathLike) {
         if (!isCreating && projectPath && fs.existsSync(projectPath)) {
-          const resolvedCandidate = path.isAbsolute(candidate) ? candidate : path.join(projectPath, candidate);
+          const resolvedCandidate = path.isAbsolute(candidate) ? candidate : path.resolve(projectPath, candidate);
           if (!fs.existsSync(resolvedCandidate)) {
             missing.push(`Referenced file or path '${candidate}' does not exist on disk.`);
           }

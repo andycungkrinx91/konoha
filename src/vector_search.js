@@ -17,7 +17,9 @@ const SQLITE_VECTOR_VERSION = "1.1.0";
 const _MAX_EMBED_CACHE = 512;
 const _EMBED_CACHE = new Map();
 
-let _pipelineExtractor = null;
+function noopProgress() {
+  return null;
+}
 let _pipelineReranker = null;
 let _EXTENSION_FAILED_ONCE = false;
 // WeakSet so closed/dropped connections can be garbage-collected instead of
@@ -263,8 +265,7 @@ async function getEmbedPipeline() {
         interOpNumThreads: 1,
         executionMode: 'sequential'
       },
-      // aislop-ignore-next-line ai-slop/empty-function (intentional no-op: transformers API requires the key; progress output would pollute MCP stdio)
-      progress_callback: () => { /* intentional no-op: transformers API requires the key; progress output would pollute MCP stdio */ }
+      progress_callback: noopProgress
     };
     try {
       _pipelineExtractor = await pipeline('feature-extraction', EMBED_MODEL_REPO, pipelineOptions);
@@ -306,8 +307,7 @@ async function getRerankPipeline() {
         interOpNumThreads: 1,
         executionMode: 'sequential'
       },
-      // aislop-ignore-next-line ai-slop/empty-function (intentional no-op: transformers API requires the key; progress output would pollute MCP stdio)
-      progress_callback: () => { /* intentional no-op */ }
+      progress_callback: noopProgress
     };
 
     let tokenizer, model;

@@ -60,8 +60,6 @@ function getDiagnostics(autoRepair = false) {
         return true;
       } catch (e) {
         record(label, 'FAILED', `Repair failed: ${e.message}`);
-        // aislop-ignore-next-line ai-slop/hidden-fallback (failure IS surfaced via record() audit trail; false is the correct non-fatal status)
-        // aislop-ignore-next-line ai-slop/hidden-fallback (failure IS surfaced via record() audit trail; false is the correct non-fatal status)
         return false;
       }
     }

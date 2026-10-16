@@ -1384,7 +1384,6 @@ function removeClaudeCodeConfig(silent = true, options = {}) {
 
   const CLAUDE_MD = path.join(HOME, '.claude', 'CLAUDE.md');
   if (fileExists(CLAUDE_MD)) {
-    // aislop-ignore-next-line code-quality/duplicate-block (client-config emission blocks per client format)
     try {
       const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
       const startMarker = '\n<!-- KONOHA-START -->\n';

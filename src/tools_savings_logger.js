@@ -65,7 +65,6 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     let baseline = 0;
     if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
       baseline = Number(baselineBytes);
-    // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
     } else if (tool === 'token_efficient_grep') {
       baseline = Math.max(Number(returnedBytes) || 0, 150000);
     } else if (tool === 'find_files_clean') {

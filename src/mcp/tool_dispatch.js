@@ -32,7 +32,6 @@ const FILE_TOOLS = new Set([
   'read_file_head',
   'read_file_range',
   'file_info',
-  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
   'token_efficient_grep',
   'get_file_structure',
   'find_files_clean'
@@ -321,7 +320,6 @@ function boundPersonaMemories(mems) {
       evidence: task.evidence || {},
       updated_at: task.updated_at
     });
-  // aislop-ignore-next-line code-quality/duplicate-block (structurally similar handler boilerplate with contextual differences)
   }
   if (toolName === 'get_slop_findings') {
     const sdlcManager = require('../sdlc_manager');

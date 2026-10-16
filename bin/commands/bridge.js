@@ -34,6 +34,7 @@ const {
   askQuestion,
   fileExists
 } = require("../lib/prompt");
+const { checkPortActive } = require('../../src/platform_utils');
 
 
 function loadBridges() {
@@ -65,28 +66,6 @@ function saveBridgeSqlite(action, data) {
   } catch (_) {
     return false;
   }
-}
-
-
-function checkPortActive(port) {
-  const net = require('net');
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    socket.setTimeout(500);
-    socket.once('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once('error', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.once('timeout', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.connect(port, '127.0.0.1');
-  });
 }
 
 function getNextAvailablePort(bridges) {

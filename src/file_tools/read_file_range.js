@@ -8,7 +8,7 @@ const common = require('./common');
 
 const MAX_SPAN = 250;
 const MAX_LINE_CHARS = 1000;
-const DEFAULT_BYTE_BUDGET = 32768; // 32KB covers p99 of repository files
+const DEFAULT_BYTE_BUDGET = 65536; // 64KB covers full 250-line spans comfortably
 
 function readFileRange(args = {}) {
   const rawPath = args.path || args.file_path || args.filepath || args.FilePath || args.Path;

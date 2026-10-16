@@ -139,7 +139,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
-              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border" style="color: var(--color-primary); background-color: var(--color-primary-glow); border-color: var(--color-primary);">v{health.version || '2.0.0'}</span>
+              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border" style="color: var(--color-primary); background-color: var(--color-primary-glow); border-color: var(--color-primary);">v{health.version || '2.1.18'}</span>
             </h1>
             <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Ninja Agent Village</p>
           </div>
@@ -224,7 +224,7 @@
   </aside>
 
   <!-- Main Content Stage (Expands to Full Width When Sidebar is Collapsed) -->
-  <main class="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0 transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
+  <main class="flex-1 flex flex-col overflow-hidden pb-28 lg:pb-0 transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
     <!-- Top 4-Gradient Vibrant Accent Stripe -->
     <div class="h-1 w-full shrink-0" style="background: var(--theme-4gradient-bar);"></div>
 

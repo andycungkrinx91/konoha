@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 
 // ── AI Clichés and Buzzword Signatures (English & Indonesian) ────────────────
@@ -103,9 +104,99 @@ const WATERMARK_PATTERNS = [
 ];
 
 /**
+ * Pure Node.js ZIP entry extractor using native zlib.
+ * Eliminates external dependencies on CLI unzip and Python.
+ */
+function extractZipEntryPureJs(filePath, entryName) {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (!buf || buf.length < 22) return null;
+    let eocdOffset = -1;
+    const maxSearch = Math.min(buf.length, 65557);
+    for (let i = buf.length - 22; i >= buf.length - maxSearch; i--) {
+      if (buf.readUInt32LE(i) === 0x06054b50) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset === -1) return null;
+
+    const cdCount = buf.readUInt16LE(eocdOffset + 10);
+    const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+
+    let pos = cdOffset;
+    for (let idx = 0; idx < cdCount && pos < eocdOffset; idx++) {
+      if (buf.readUInt32LE(pos) !== 0x02014b50) break;
+      const method = buf.readUInt16LE(pos + 10);
+      const compressedSize = buf.readUInt32LE(pos + 20);
+      const nameLen = buf.readUInt16LE(pos + 28);
+      const extraLen = buf.readUInt16LE(pos + 30);
+      const commentLen = buf.readUInt16LE(pos + 32);
+      const localHeaderOffset = buf.readUInt32LE(pos + 42);
+
+      const name = buf.toString('utf8', pos + 46, pos + 46 + nameLen);
+      if (name === entryName || name.endsWith('/' + entryName) || (entryName.includes('/') && name.includes(entryName))) {
+        if (localHeaderOffset + 30 <= buf.length && buf.readUInt32LE(localHeaderOffset) === 0x04034b50) {
+          const localNameLen = buf.readUInt16LE(localHeaderOffset + 26);
+          const localExtraLen = buf.readUInt16LE(localHeaderOffset + 28);
+          const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen;
+          const compressed = buf.subarray(dataOffset, dataOffset + compressedSize);
+          if (method === 0) {
+            return compressed.toString('utf8');
+          } else if (method === 8) {
+            return zlib.inflateRawSync(compressed).toString('utf8');
+          }
+        }
+      }
+      pos += 46 + nameLen + extraLen + commentLen;
+    }
+  } catch (_) { /* fallback to external unzip/python */ }
+  return null;
+}
+
+/**
+ * Pure Node.js ZIP entry lister.
+ */
+function listZipEntriesPureJs(filePath) {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (!buf || buf.length < 22) return null;
+    let eocdOffset = -1;
+    const maxSearch = Math.min(buf.length, 65557);
+    for (let i = buf.length - 22; i >= buf.length - maxSearch; i--) {
+      if (buf.readUInt32LE(i) === 0x06054b50) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset === -1) return null;
+
+    const cdCount = buf.readUInt16LE(eocdOffset + 10);
+    const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+    const names = [];
+
+    let pos = cdOffset;
+    for (let idx = 0; idx < cdCount && pos < eocdOffset; idx++) {
+      if (buf.readUInt32LE(pos) !== 0x02014b50) break;
+      const nameLen = buf.readUInt16LE(pos + 28);
+      const extraLen = buf.readUInt16LE(pos + 30);
+      const commentLen = buf.readUInt16LE(pos + 32);
+      const name = buf.toString('utf8', pos + 46, pos + 46 + nameLen);
+      names.push(name);
+      pos += 46 + nameLen + extraLen + commentLen;
+    }
+    return names;
+  } catch (_) { /* fallback to external unzip/python */ }
+  return null;
+}
+
+/**
  * Streams an XML entry from a ZIP container (DOCX, PPTX, XLSX)
  */
 function readZipEntry(filePath, entryName) {
+  const pureJs = extractZipEntryPureJs(filePath, entryName);
+  if (pureJs !== null && pureJs !== undefined) return pureJs;
+
   try {
     const res = spawnSync('unzip', ['-p', filePath, entryName], {
       encoding: 'utf8',
@@ -137,6 +228,9 @@ with zipfile.ZipFile(sys.argv[1], 'r') as z:
  * Lists all file entries in a ZIP container
  */
 function listZipEntries(filePath) {
+  const pureJs = listZipEntriesPureJs(filePath);
+  if (Array.isArray(pureJs) && pureJs.length > 0) return pureJs;
+
   try {
     const res = spawnSync('unzip', ['-l', filePath], { encoding: 'utf8', windowsHide: true });
     if (res.status === 0 && res.stdout) {

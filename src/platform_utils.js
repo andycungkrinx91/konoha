@@ -307,12 +307,34 @@ function isRtkInstalled() {
   return getRtkCommand() !== null;
 }
 
+function checkPortActive(port, host = '127.0.0.1') {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(400);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, host);
+  });
+}
+
 module.exports = {
   IS_WIN,
   fileExists,
   fileExistsCached,
   clearFileStatCache,
   ensureDir,
+  checkPortActive,
   stripWinExtendedPrefix,
   normPath,
   expandUser,

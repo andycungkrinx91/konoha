@@ -121,7 +121,7 @@ function setupSchema(conn) {
     -- Skill chunks table for semantic / vector search
     CREATE TABLE IF NOT EXISTS skill_chunks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        skill_name TEXT NOT NULL REFERENCES skills(name),
+        skill_name TEXT NOT NULL REFERENCES skills(name) ON DELETE CASCADE,
         chunk_index INTEGER NOT NULL,
         chunk_text TEXT NOT NULL,
         embedding BLOB

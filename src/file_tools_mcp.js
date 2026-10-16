@@ -88,27 +88,26 @@ function detect_active_client_from_env() {
   }
 }
 
+const TOOL_DEFAULT_BASELINES = {
+  find_files_clean: 250000,
+  token_efficient_grep: 150000
+};
+
 function getBaselineBytesForTool(toolName, args) {
   try {
-    const filePath = args.path || args.file_path || args.filepath || args.dir;
+    const filePath = args.path || args.file_path || args.filepath || args.dir || args.directory || args.target;
     if (filePath) {
       const resolved = router.resolveInputPath(filePath);
       if (fs.existsSync(resolved)) {
         const st = fs.statSync(resolved);
         if (st.isFile()) return st.size;
         if (st.isDirectory()) {
-          if (toolName === "find_files_clean") return 250000;
-          // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
-          if (toolName === "token_efficient_grep") return 150000;
+          return TOOL_DEFAULT_BASELINES[toolName] || 0;
         }
       }
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  if (toolName === "find_files_clean") return 250000;
-  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
-  if (toolName === "token_efficient_grep") return 150000;
-  // aislop-ignore-next-line ai-slop/hardcoded-id (tool/provider NAME list, not a deployment identifier)
-  return 0;
+  return TOOL_DEFAULT_BASELINES[toolName] || 0;
 }
 
 let _savingsLogger = null;

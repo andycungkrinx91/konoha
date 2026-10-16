@@ -48,6 +48,7 @@ const REQUIRED_DOCS = [
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.15_2026-10-08.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.16_2026-10-08.md',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.17_2026-10-08.md',
+  'docs/SecurityCompliance/security_compliance_report_google_policy_2.1.18_2026-10-15.md',
   'docs/TELEGRAM_INTEGRATION_GUIDE.md',
   'docs/CLOUDFLARE_TUNNEL_GUIDE.md'
 ];

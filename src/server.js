@@ -209,7 +209,6 @@ module.exports = {
   saveWorkflowStatus,
   _load_workflow_status: loadWorkflowStatus,
   _save_workflow_status: saveWorkflowStatus,
-  // aislop-ignore-next-line code-quality/duplicate-block (tool registration boilerplate across manifests)
   routeByKeywordsWithPrompt,
   workflowHash,
   workflowDispatch,

@@ -96,7 +96,6 @@ function parseYaml(yamlStr) {
         const obj = {};
         if (Array.isArray(current)) {
           current.push(obj);
-        // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
         }
         val = coerceScalar(val);
         obj[key] = val;
@@ -161,7 +160,6 @@ function parseYaml(yamlStr) {
       val = coerceScalar(val);
       current[key] = val;
     }
-  // aislop-ignore-next-line code-quality/duplicate-block (structurally similar boilerplate with contextual differences)
   }
   if (inMultiLine && multiLineNode && multiLineKey) {
     multiLineNode[multiLineKey] = multiLineValue.join('\n').replace(/\r/g, '');
