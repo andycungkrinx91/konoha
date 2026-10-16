@@ -95,17 +95,42 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
       }
       baseline = Math.max(Number(returnedBytes) || 0, resolvedSize);
     } else if (['find_skill', 'find_skills'].includes(tool)) {
-      baseline = Math.max(Number(returnedBytes) || 0, 15000);
+      baseline = Number(returnedBytes) || 0;
       try {
-        const words = String(query || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+        let extractedQuery = query;
+        if (typeof query === 'string' && query.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(query);
+            extractedQuery = parsed.query || parsed.keyword || parsed.keywords || parsed.name || query;
+          } catch (_) { /* best-effort json parse fallback */ }
+        }
+        const words = String(extractedQuery || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
         if (words.length > 0) {
-          const lk = '%' + words.join('%') + '%';
-          const sumRow = conn.prepare(`
-            SELECT COALESCE(SUM(byte_size), 0) as total_matched
-            FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
-          `).get(lk, lk, lk);
-          if (sumRow && sumRow.total_matched > 0) {
-            baseline = Math.max(Number(returnedBytes) || 0, Number(sumRow.total_matched));
+          let totalMatched = 0;
+          try {
+            const ftsMatch = words.map(w => `"${w.replace(/"/g, '""')}*"`).join(' OR ');
+            const ftsRow = conn.prepare(`
+              SELECT COALESCE(SUM(s.byte_size), 0) as total_matched
+              FROM (
+                SELECT rowid FROM skills_fts WHERE skills_fts MATCH ? LIMIT 10
+              ) f
+              JOIN skills s ON s.rowid = f.rowid
+            `).get(ftsMatch);
+            if (ftsRow && ftsRow.total_matched > 0) {
+              totalMatched = Number(ftsRow.total_matched);
+            }
+          } catch (_) {
+            const lk = '%' + words[0] + '%';
+            const likeRow = conn.prepare(`
+              SELECT COALESCE(SUM(byte_size), 0) as total_matched
+              FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
+            `).get(lk, lk, lk);
+            if (likeRow && likeRow.total_matched > 0) {
+              totalMatched = Number(likeRow.total_matched);
+            }
+          }
+          if (totalMatched > 0) {
+            baseline = Math.max(Number(returnedBytes) || 0, totalMatched);
           }
         }
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }

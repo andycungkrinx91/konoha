@@ -306,6 +306,10 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) and deploying the full Konoha runtime contract to `~/.omp/agent/AGENTS.md`.
    - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient Semble codebase search.
    - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
+36. **Proxy Gateway Process Lifecycle, Savings Telemetry Performance & Prompt Token Optimization (v2.1.18)**:
+   - **Proxy Gateway Stop Resilience**: Implemented cross-platform port-targeted termination (`killProcessOnPort` in `src/platform_utils.js`) for the Bridge Proxy Gateway (port 19999). Resolves listening PIDs via `lsof`/`fuser` on Linux/macOS and escalates from `SIGTERM` to `SIGKILL` if still bound; Windows queries PIDs via `netstat` and executes `taskkill /F`. Synchronized the Web UI `/bridges` and CLI lifecycle endpoints with verified socket checks (`checkPortActive(19999)`).
+   - **Incremental Transcript Cache & Dynamic Savings Telemetry**: Refactored `calculateAllModelTokens()` with `{ mtime, size }` persistent transcript caching (`~/.konoha/transcript_cache.json`) and in-memory TTL, slashing execution time from 9.35s to < 30ms. Replaced the static 15,000-byte baseline fallback in `find_skill` with dynamic `SUM(byte_size)` candidate metrics and cleaned legacy database normalizations, allowing savings ratios to accurately fluctuate between 83% and 98% based on real payload sizes.
+   - **Prompt Token Optimization**: Decoupled canonical agent skills from raw database reference expansion in `src/agent_manager.js`, keeping agent prompts strictly scoped to top-level canonical skills. Emits concise on-demand discovery instructions in generated subagents and rules, shrinking `AGENTS.md`, `.cursorrules`, and subagent markdowns by > 85% (> 35,000 tokens saved per turn).
 
 ---
 

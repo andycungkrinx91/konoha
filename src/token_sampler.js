@@ -83,14 +83,35 @@ function getDriftMetrics(options = {}) {
     } catch (_) { /* ignore */ }
   }
 
-  // Measure each sample
+  // Measure each sample (batch tokenization in a single python call)
   let totalBytes = 0;
   let totalTiktoken = 0;
   let totalHeuristic = 0;
 
-  for (const text of samples) {
+  let tikCounts = null;
+  if (samples.length > 0) {
+    try {
+      const res = spawnSync('python3', [
+        '-c',
+        'import json, tiktoken, sys; enc = tiktoken.get_encoding("cl100k_base"); samples = json.loads(sys.stdin.read()); print(json.dumps([len(enc.encode(s)) for s in samples]))'
+      ], {
+        input: JSON.stringify(samples),
+        encoding: 'utf8',
+        timeout: 1000
+      });
+      if (res.status === 0 && res.stdout) {
+        const parsed = JSON.parse(res.stdout.trim());
+        if (Array.isArray(parsed) && parsed.length === samples.length) {
+          tikCounts = parsed;
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+
+  for (let i = 0; i < samples.length; i++) {
+    const text = samples[i];
     const bytes = Buffer.byteLength(text, 'utf8');
-    const tik = countTiktoken(text);
+    const tik = (tikCounts && typeof tikCounts[i] === 'number') ? tikCounts[i] : countTiktoken(text);
     const heur = Math.floor(bytes / 4);
 
     totalBytes += bytes;

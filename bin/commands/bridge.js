@@ -34,7 +34,7 @@ const {
   askQuestion,
   fileExists
 } = require("../lib/prompt");
-const { checkPortActive } = require('../../src/platform_utils');
+const { checkPortActive, killProcessOnPort } = require('../../src/platform_utils');
 
 
 function loadBridges() {
@@ -193,39 +193,34 @@ async function cmdBridgeStart() {
 }
 
 async function cmdBridgeStop() {
-  const { execSync } = require('child_process');
   header('Stopping Bridge Proxy Gateway Service');
   const pidFile = path.join(SKILLS_DB_DIR, 'bridge.pid');
-  let targeted = false;
   try {
     if (fileExists(pidFile)) {
       const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
       if (Number.isFinite(pid) && pid > 0) {
         try {
           if (process.platform === 'win32') {
+            const { execSync } = require('child_process');
             execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
           } else {
             process.kill(pid, 'SIGTERM');
           }
-          targeted = true;
-        } catch (_) {
-          // Process already gone — fall through to the broad kill as a last resort.
-        }
-        try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        } catch (_) {}
       }
     }
-    if (!targeted) {
-      if (process.platform === 'win32') {
-        // Only target PID file to avoid killing host IDE processes
-      } else {
-        try {
-          execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
-        } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      }
+    await killProcessOnPort(19999);
+    if (fileExists(pidFile)) {
+      try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     }
-    success('Stopped background bridge proxy gateway services.');
-  } catch (_) {
-    warn('No active background bridge services were running.');
+    const stillRunning = await checkPortActive(19999);
+    if (stillRunning) {
+      warn('Port 19999 is still active after stop command.');
+    } else {
+      success('Stopped background bridge proxy gateway services.');
+    }
+  } catch (err) {
+    warn(`Error stopping bridge services: ${err.message}`);
   }
 }
 

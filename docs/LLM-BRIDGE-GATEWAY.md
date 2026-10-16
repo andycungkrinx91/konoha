@@ -252,6 +252,17 @@ node src/db_bridges.js --enable my-bridge
 node src/db_bridges.js --disable my-bridge
 ```
 
+### Gateway Lifecycle Management
+
+```bash
+konoha bridge start    # Spawns background daemon on port 19999 (PID recorded in ~/.konoha/bridge.pid)
+konoha bridge stop     # Gracefully terminates via SIGTERM, with automatic port-targeted SIGKILL escalation
+konoha bridge restart  # Cleanly frees port 19999 before re-spawning gateway daemon
+konoha bridge status   # Checks port 19999 socket binding and bridge health
+```
+
+The Web UI `/bridges` and CLI use cross-platform port termination (`killProcessOnPort` in `src/platform_utils.js`). Linux/macOS resolves listening PIDs via `lsof`/`fuser` and escalates from `SIGTERM` to `SIGKILL` if still bound; Windows queries PIDs via `netstat` and executes `taskkill /F`. Socket status is verified via `checkPortActive(19999)` before returning state.
+
 ## Gateway Source Files
 
 | File | Role |

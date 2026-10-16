@@ -15,7 +15,15 @@ function parseIsoDatetime(dtStr) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+let _memTokenCache = null;
+let _memTokenCacheTs = 0;
+
 function calculateAllModelTokens() {
+  const nowMs = Date.now();
+  if (_memTokenCache && (nowMs - _memTokenCacheTs < 15000)) {
+    return _memTokenCache;
+  }
+
   const home = os.homedir();
   const brainDirs = [
     path.join(home, '.gemini', 'antigravity-cli', 'brain'),
@@ -24,6 +32,7 @@ function calculateAllModelTokens() {
 
   const now = new Date();
   const cutoffToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const cutoffTodayTs = cutoffToday.getTime() / 1000;
   const cutoff7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
   const cutoff7DaysTs = cutoff7Days.getTime() / 1000;
 
@@ -37,15 +46,15 @@ function calculateAllModelTokens() {
   };
 
   const cacheFile = path.join(home, '.konoha', 'transcript_cache.json');
-  let cache = { version: 1, files: {} };
+  let cache = { version: 2, files: {} };
   if (fs.existsSync(cacheFile)) {
     try {
       cache = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
       if (!cache || typeof cache !== 'object' || !cache.files) {
-        cache = { version: 1, files: {} };
+        cache = { version: 2, files: {} };
       }
     } catch (_) {
-      cache = { version: 1, files: {} };
+      cache = { version: 2, files: {} };
     }
   }
 
@@ -72,18 +81,32 @@ function calculateAllModelTokens() {
       const mtime = st.mtimeMs / 1000;
       const size = st.size;
 
-      if (mtime < cutoff7DaysTs) {
-        const cachedEntry = cache.files && cache.files[filePath];
-        if (cachedEntry && Math.abs(cachedEntry.mtime - mtime) < 0.001 && cachedEntry.size === size) {
-          const cAll = cachedEntry.all || {};
-          metrics.all.content_chars += (cAll.content_chars || 0);
-          metrics.all.thought_chars += (cAll.thought_chars || 0);
-          metrics.all.cost += (cAll.cost || 0.0);
-          continue;
+      const cachedEntry = cache.files && cache.files[filePath];
+      if (cachedEntry && Math.abs(cachedEntry.mtime - mtime) < 0.001 && cachedEntry.size === size && cachedEntry.all) {
+        const cAll = cachedEntry.all;
+        metrics.all.content_chars += (cAll.content_chars || 0);
+        metrics.all.thought_chars += (cAll.thought_chars || 0);
+        metrics.all.cost += (cAll.cost || 0.0);
+
+        if (Array.isArray(cachedEntry.recent)) {
+          for (const rec of cachedEntry.recent) {
+            if (rec.ts >= cutoff7DaysTs) {
+              metrics["7days"].content_chars += (rec.content_chars || 0);
+              metrics["7days"].thought_chars += (rec.thought_chars || 0);
+              metrics["7days"].cost += (rec.cost || 0.0);
+            }
+            if (rec.ts >= cutoffTodayTs) {
+              metrics.today.content_chars += (rec.content_chars || 0);
+              metrics.today.thought_chars += (rec.thought_chars || 0);
+              metrics.today.cost += (rec.cost || 0.0);
+            }
+          }
         }
+        continue;
       }
 
       const fileAll = { content_chars: 0, thought_chars: 0, cost: 0.0 };
+      const fileRecent = [];
       const contentStr = fs.readFileSync(filePath, 'utf-8');
       const lines = contentStr.split('\n');
 
@@ -124,23 +147,26 @@ function calculateAllModelTokens() {
             metrics.all.thought_chars += thinkingLen;
             metrics.all.cost += cost;
 
-            if (dt && dt >= cutoff7Days) {
-              metrics["7days"].content_chars += contentLen;
-              metrics["7days"].thought_chars += thinkingLen;
-              metrics["7days"].cost += cost;
-            }
-
-            if (dt && dt >= cutoffToday) {
-              metrics.today.content_chars += contentLen;
-              metrics.today.thought_chars += thinkingLen;
-              metrics.today.cost += cost;
+            if (dt) {
+              const ts = dt.getTime() / 1000;
+              if (ts >= cutoff7DaysTs) {
+                fileRecent.push({ ts, content_chars: contentLen, thought_chars: thinkingLen, cost });
+                metrics["7days"].content_chars += contentLen;
+                metrics["7days"].thought_chars += thinkingLen;
+                metrics["7days"].cost += cost;
+              }
+              if (ts >= cutoffTodayTs) {
+                metrics.today.content_chars += contentLen;
+                metrics.today.thought_chars += thinkingLen;
+                metrics.today.cost += cost;
+              }
             }
           }
         } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       }
 
       if (!cache.files) cache.files = {};
-      cache.files[filePath] = { mtime, size, all: fileAll };
+      cache.files[filePath] = { mtime, size, all: fileAll, recent: fileRecent };
       cacheUpdated = true;
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
@@ -153,7 +179,7 @@ function calculateAllModelTokens() {
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  return {
+  const res = {
     today: {
       content_tokens: Math.floor(metrics.today.content_chars / 4),
       thought_tokens: Math.floor(metrics.today.thought_chars / 4),
@@ -170,6 +196,10 @@ function calculateAllModelTokens() {
       output_cost_usd: metrics.all.cost
     }
   };
+
+  _memTokenCache = res;
+  _memTokenCacheTs = Date.now();
+  return res;
 }
 
 function queryInputSavingsCost(conn, timeFilter = null) {
@@ -320,14 +350,58 @@ function sanitizeLegacyRecords(conn) {
       WHERE tool NOT IN ('find_skill', 'find_skills', 'list_skills', 'optimize_report', 'get_skill')
         AND total_library_bytes >= 400000
     `).run();
-    conn.prepare(`
-      UPDATE tool_calls
-      SET total_library_bytes = MAX(returned_bytes, 15000),
-          bytes_saved = MAX(0, MAX(returned_bytes, 15000) - returned_bytes),
-          tokens_saved = CAST((MAX(0, MAX(returned_bytes, 15000) - returned_bytes) / 4) AS INTEGER)
-      WHERE tool IN ('find_skill', 'find_skills')
-        AND total_library_bytes >= 400000
-    `).run();
+    try {
+      const legacyFindRows = conn.prepare(`
+        SELECT id, query, returned_bytes
+        FROM tool_calls
+        WHERE tool IN ('find_skill', 'find_skills')
+          AND total_library_bytes >= 400000
+      `).all();
+      const updateFindRow = conn.prepare(`
+        UPDATE tool_calls
+        SET total_library_bytes = ?, bytes_saved = ?, tokens_saved = ?
+        WHERE id = ?
+      `);
+      for (const fRow of legacyFindRows) {
+        let extracted = fRow.query;
+        if (typeof extracted === 'string' && extracted.startsWith('{')) {
+          try {
+            const p = JSON.parse(extracted);
+            extracted = p.query || p.keyword || p.keywords || extracted;
+          } catch (_) { /* best-effort json parse fallback */ }
+        }
+        const words = String(extracted || '').replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+        let matchedBytes = 0;
+        if (words.length > 0) {
+          try {
+            const ftsMatch = words.map(w => `"${w.replace(/"/g, '""')}*"`).join(' OR ');
+            const fRowMatched = conn.prepare(`
+              SELECT COALESCE(SUM(s.byte_size), 0) as total_matched
+              FROM (SELECT rowid FROM skills_fts WHERE skills_fts MATCH ? LIMIT 10) f
+              JOIN skills s ON s.rowid = f.rowid
+            `).get(ftsMatch);
+            if (fRowMatched && fRowMatched.total_matched > 0) {
+              matchedBytes = Number(fRowMatched.total_matched);
+            }
+          } catch (_) {
+            try {
+              const lk = '%' + words[0] + '%';
+              const likeRow = conn.prepare(`
+                SELECT COALESCE(SUM(byte_size), 0) as total_matched
+                FROM (SELECT byte_size FROM skills WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ? LIMIT 5)
+              `).get(lk, lk, lk);
+              if (likeRow && likeRow.total_matched > 0) {
+                matchedBytes = Number(likeRow.total_matched);
+              }
+            } catch (_) { /* ignore */ }
+          }
+        }
+        const finalBaseline = Math.max(Number(fRow.returned_bytes) || 0, matchedBytes);
+        const bSaved = Math.max(0, finalBaseline - (Number(fRow.returned_bytes) || 0));
+        const tSaved = Math.floor(bSaved / 4);
+        updateFindRow.run(finalBaseline, bSaved, tSaved, fRow.id);
+      }
+    } catch (_) { /* ignore */ }
     // Normalize legacy list_skills / optimize_report rows from old full-library 2.11 MB baseline down to realistic 35,000-byte frontmatters baseline
     conn.prepare(`
       UPDATE tool_calls

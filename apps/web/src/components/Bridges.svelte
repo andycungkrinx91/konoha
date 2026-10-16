@@ -70,12 +70,23 @@
 
     gatewayBusy = true;
     try {
-      await api.post("/api/v1/bridges/gateway/stop");
-      await sweetAlert.fire({
-        title: "Gateway Stopped",
-        text: "Bridge Proxy Gateway daemon has been stopped.",
-        icon: "info"
-      });
+      const res = await api.post("/api/v1/bridges/gateway/stop");
+      if (res && res.gateway_running) {
+        await sweetAlert.fire({
+          title: "Stop Failed",
+          text: "Bridge Proxy Gateway port 19999 is still active and could not be released.",
+          icon: "error"
+        });
+      } else {
+        await sweetAlert.fire({
+          title: "Gateway Stopped",
+          text: "Bridge Proxy Gateway daemon has been stopped.",
+          icon: "info"
+        });
+      }
+      if (status) {
+        status.gateway_running = res ? !!res.gateway_running : false;
+      }
       await loadData();
     } catch (err) {
       await sweetAlert.fire({
@@ -83,6 +94,7 @@
         text: err.message,
         icon: "error"
       });
+      await loadData();
     } finally {
       gatewayBusy = false;
     }

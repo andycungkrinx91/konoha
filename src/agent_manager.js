@@ -112,30 +112,25 @@ function normalizeLegacySkillName(skill) {
   return skill;
 }
 
-function getSkillsForAgentFromDb(configuredSkills, allDbSkills) {
-  if (!allDbSkills || allDbSkills.length === 0) return Array.isArray(configuredSkills) ? configuredSkills : [];
+function getSkillsForAgentFromDb(configuredSkills, allDbSkills, expandSubskills = false) {
+  if (!configuredSkills || configuredSkills.length === 0) return [];
   const allowed = Array.isArray(configuredSkills) ? configuredSkills : [];
 
   const result = [];
   const added = new Set();
 
   for (const item of allowed) {
-    if (!item) continue;
-    if (allDbSkills.includes(item)) {
-      if (!added.has(item)) {
-        result.push(item);
-        added.add(item);
+    if (!item || added.has(item)) continue;
+    result.push(item);
+    added.add(item);
+
+    if (expandSubskills && allDbSkills && allDbSkills.length > 0) {
+      for (const s of allDbSkills) {
+        if (s.startsWith(item + '/') && !added.has(s)) {
+          result.push(s);
+          added.add(s);
+        }
       }
-    }
-    for (const s of allDbSkills) {
-      if (s.startsWith(item + '/') && !added.has(s)) {
-        result.push(s);
-        added.add(s);
-      }
-    }
-    if (!allDbSkills.includes(item) && !added.has(item)) {
-      result.push(item);
-      added.add(item);
     }
   }
 
@@ -213,10 +208,10 @@ function loadAgents(reloadDefaults = false, silent = false) {
   if (agents.length > 0) {
     agents = agents.map(a => {
       const defAgent = defaults.find(d => d.name === a.name);
-      // Determine base configured skills (if not present, fallback to default template skills)
-      let configuredSkills = Array.isArray(a.skills) ? a.skills.map(normalizeLegacySkillName) : [];
+      // Determine base configured skills (strip legacy expanded subskills with slashes)
+      let configuredSkills = Array.isArray(a.skills) ? a.skills.map(normalizeLegacySkillName).filter(s => typeof s === 'string' && !s.includes('/')) : [];
       if (configuredSkills.length === 0 && defAgent) {
-        configuredSkills = defAgent.skills || [];
+        configuredSkills = (defAgent.skills || []).filter(s => typeof s === 'string' && !s.includes('/'));
       }
       if (!Array.isArray(configuredSkills)) {
         configuredSkills = [];
@@ -239,8 +234,8 @@ function loadAgents(reloadDefaults = false, silent = false) {
         // Fallback to configured list if SQLite DB is empty/unmigrated
         a.skills = configuredSkills;
       } else {
-        // Resolve sub-skills/reference files dynamically from SQLite
-        a.skills = getSkillsForAgentFromDb(configuredSkills, allDbSkills);
+        // Scoped to canonical skills; sub-skills retrieved dynamically on-demand
+        a.skills = getSkillsForAgentFromDb(configuredSkills, allDbSkills, false);
       }
       return a;
     });
@@ -336,6 +331,15 @@ function loadAgents(reloadDefaults = false, silent = false) {
           }
         }
 
+        // Strip any legacy sub-references with slashes
+        if (Array.isArray(a.skills)) {
+          const cleanSkills = a.skills.filter(s => typeof s === 'string' && !s.includes('/'));
+          if (cleanSkills.length !== a.skills.length) {
+            a.skills = cleanSkills;
+            changed = true;
+          }
+        }
+
         // Always ensure instructions use the correct find_skill call for the new default skill
         if (typeof a.instructions === 'string' && a.instructions.length > 0) {
           const defInst = typeof defAgent.instructions === 'string' ? defAgent.instructions : '';
@@ -393,6 +397,14 @@ function loadAgents(reloadDefaults = false, silent = false) {
       }
       return a;
     });
+    if (loadedFromUser && fs.existsSync(USER_AGENTS_YAML_PATH)) {
+      try {
+        const raw = fs.readFileSync(USER_AGENTS_YAML_PATH, 'utf8');
+        if (raw.includes('/')) {
+          upgraded = true;
+        }
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
     if (upgraded) {
       try {
         fs.writeFileSync(UPGRADED_MARKER_PATH, 'true', 'utf-8');

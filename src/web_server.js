@@ -20,7 +20,7 @@ const doctor = require('./doctor');
 const pkg = require('../package.json');
 const sembleManager = require('./semble_manager');
 const deployUtils = require('./deploy_utils');
-const { checkPortActive } = require('./platform_utils');
+const { checkPortActive, killProcessOnPort } = require('./platform_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
@@ -769,29 +769,25 @@ function createWebServer(options = {}) {
     if (method === 'POST' && pathname === '/api/v1/bridges/gateway/stop') {
       try {
         const pidFile = path.join(SKILLS_DB_DIR, 'bridge.pid');
-        let stopped = false;
         if (fs.existsSync(pidFile)) {
           const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
           if (Number.isFinite(pid) && pid > 0) {
             try {
               process.kill(pid, 'SIGTERM');
-              stopped = true;
             } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-            try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
         }
-        if (!stopped && process.platform !== 'win32') {
-          try {
-            const { execSync } = require('child_process');
-            execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
-            stopped = true;
-          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        await killProcessOnPort(19999);
+        if (fs.existsSync(pidFile)) {
+          try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
-        await new Promise((r) => setTimeout(r, 600));
         const stillRunning = await checkPortActive(19999);
-        return sendJson(res, 200, { status: !stillRunning ? 'stopped' : 'stopping', port: 19999, gateway_running: stillRunning });
+        if (stillRunning) {
+          return sendJson(res, 500, { error: 'Failed to stop bridge proxy gateway: port 19999 remains active', gateway_running: true });
+        }
+        return sendJson(res, 200, { status: 'stopped', port: 19999, gateway_running: false });
       } catch (err) {
-        return sendJson(res, 500, { error: err.message });
+        return sendJson(res, 500, { error: err.message, gateway_running: await checkPortActive(19999) });
       }
     }
 
@@ -802,16 +798,13 @@ function createWebServer(options = {}) {
           const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
           if (Number.isFinite(pid) && pid > 0) {
             try { process.kill(pid, 'SIGTERM'); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-            try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
           }
         }
-        if (process.platform !== 'win32') {
-          try {
-            const { execSync } = require('child_process');
-            execSync('pkill -f "KONOHA_DAEMON"', { stdio: 'ignore' });
-          } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        await killProcessOnPort(19999);
+        if (fs.existsSync(pidFile)) {
+          try { fs.unlinkSync(pidFile); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         }
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => setTimeout(r, 400));
 
         const { spawn } = require('child_process');
         const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
