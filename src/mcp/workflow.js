@@ -56,6 +56,14 @@ function readFileSafe(filePath) {
   return null;
 }
 
+/**
+ * Re-anchor user prompt and constraints to prevent Lost-in-the-Middle context loss.
+ */
+function getPromptSection(taskDir) {
+  const p = readFileSafe(path.join(taskDir, 'prompt.md')) || '';
+  return p.trim() ? `\n\n## USER CONSTRAINTS & ORIGINAL PROMPT\n\n${p.trim()}\n` : '';
+}
+
 // ── 100% AI-Slop Gate (mechanical enforcement) ─────────────────────────────
 // When the project has a quality-gate config (.aislop/config.yml), the review
 // phase MUST end with a perfect 100/100 aislop scan (zero findings of ANY
@@ -871,7 +879,8 @@ function runMcpWorkflow(taskDir = null) {
         phase = 'document';
       } else {
         // Retry budget exhausted: fail closed, do not forward unvalidated deliverables
-        status.phase = 'failed';
+        status.phase = 'document';
+        status.status = 'failed';
         status.error = gateResult.error;
         saveWorkflowStatus(resolvedTaskDir, status);
         return JSON.stringify({
@@ -972,7 +981,7 @@ function runMcpWorkflow(taskDir = null) {
 
           const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', remediationAgent, fixTaskId, fixTaskText);
           const agentUpper = remediationAgent.charAt(0).toUpperCase() + remediationAgent.slice(1);
-          fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${remediationAgent}\npriority: high\nPhase: Remediation (Anti-Slop Cycle ${status.slop_cycles})\ndispatch_id: ${dispatch.id}\n\n## TASK\n\n${fixTaskText}\n\n## REMEDIATION GATE (TWO-STEP, TARGET 100%)\n\nFix every finding, then re-run the full two-step review: Step 1 \`aislop_scan\` (aislop scanner) → Step 2 \`anti-slop\` rule review. The synthesis gate mechanically requires a perfect 100/100 scan (zero findings of any severity).\n`, 'utf8');
+          fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${remediationAgent}\npriority: high\nPhase: Remediation (Anti-Slop Cycle ${status.slop_cycles})\ndispatch_id: ${dispatch.id}\n\n## TASK\n\n${fixTaskText}\n\n## REMEDIATION GATE (TWO-STEP, TARGET 100%)\n\nFix every finding, then re-run the full two-step review: Step 1 \`aislop_scan\` (aislop scanner) → Step 2 \`anti-slop\` rule review. The synthesis gate mechanically requires a perfect 100/100 scan (zero findings of any severity).\n` + getPromptSection(resolvedTaskDir), 'utf8');
 
           return JSON.stringify({
             status: 'remediation',
@@ -1006,7 +1015,7 @@ function runMcpWorkflow(taskDir = null) {
     const findingsSummary = findingsRaw.length > 500
       ? findingsRaw.slice(0, 500).trim() + `...\n\n*(Full findings: \`${path.join(resolvedTaskDir, 'findings.md')}\`)*`
       : findingsRaw;
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: high\nPhase: Plan\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nAnalyze the findings and produce plan.md with unique \`- [agent]: task\` entries. Set needs_research or needs_replan explicitly when applicable.\n\n## FINDINGS\n\n${findingsSummary}\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: high\nPhase: Plan\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nAnalyze the findings and produce plan.md with unique \`- [agent]: task\` entries. Set needs_research or needs_replan explicitly when applicable.\n\n## FINDINGS\n\n${findingsSummary}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
@@ -1017,7 +1026,7 @@ function runMcpWorkflow(taskDir = null) {
     const planContext = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || '';
     const qLine = planContext.split(/\r?\n/).find(l => l.startsWith('research_query:'));
     const query = qLine ? qLine.slice('research_query:'.length).trim() : '';
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: chunin\npriority: medium\nPhase: Research\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nConduct web research on: ${query || 'the plan requirements'}\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: chunin\npriority: medium\nPhase: Research\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nConduct web research on: ${query || 'the plan requirements'}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'chunin';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({ status: 'ready', phase: 'research', agent: 'chunin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
@@ -1041,7 +1050,7 @@ function runMcpWorkflow(taskDir = null) {
       }
     } else {
       const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', nextTask.agent, nextTask.id, nextTask.task);
-      fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${nextTask.agent}\npriority: high\nPhase: Execute\ndispatch_id: ${dispatch.id}\ntask_id: ${nextTask.id}\n\n## TASK\n\n${nextTask.task}\n\n## DELIVERY GATE (TWO-STEP, TARGET 100%)\n\nBefore writing result.md: Step 1 run \`aislop_scan\` (aislop scanner) on all changed files — zero findings required. Step 2 run the \`anti-slop\` rule review (load the \`antislop\` skill via konoha.get_skill) and fix violations. The kage review + workflow synthesis mechanically enforce a perfect 100/100 scan — delivery is blocked below it.\n\nWrite result.md and validation evidence for this task.\n`, 'utf8');
+      fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${nextTask.agent}\npriority: high\nPhase: Execute\ndispatch_id: ${dispatch.id}\ntask_id: ${nextTask.id}\n\n## TASK\n\n${nextTask.task}\n\n## DELIVERY GATE (TWO-STEP, TARGET 100%)\n\nBefore writing result.md: Step 1 run \`aislop_scan\` (aislop scanner) on all changed files — zero findings required. Step 2 run the \`anti-slop\` rule review (load the \`antislop\` skill via konoha.get_skill) and fix violations. The kage review + workflow synthesis mechanically enforce a perfect 100/100 scan — delivery is blocked below it.\n\nWrite result.md and validation evidence for this task.\n` + getPromptSection(resolvedTaskDir), 'utf8');
       status.assigned_agent = nextTask.agent;
       saveWorkflowStatus(resolvedTaskDir, status);
       return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
@@ -1070,7 +1079,7 @@ function runMcpWorkflow(taskDir = null) {
     );
 
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'document', 'tokubetsu-jonin');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: tokubetsu-jonin\npriority: ${isRegen ? 'high' : 'medium'}\nPhase: Document${isRegen ? ` (Regeneration Attempt ${attempt})` : ''}\ndispatch_id: ${dispatch.id}\n\n${taskTitle}${fontDirectives}\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: tokubetsu-jonin\npriority: ${isRegen ? 'high' : 'medium'}\nPhase: Document${isRegen ? ` (Regeneration Attempt ${attempt})` : ''}\ndispatch_id: ${dispatch.id}\n\n${taskTitle}${fontDirectives}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'tokubetsu-jonin';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({
@@ -1103,7 +1112,7 @@ function runMcpWorkflow(taskDir = null) {
       ? 'The mechanical gate requires a 100/100 aislop scan (zero findings of any severity) before synthesis.'
       : 'Run the two-step review (Step 1 aislop_scan, Step 2 anti-slop rules) and verify 0 findings.';
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'review', 'kage');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: critical\nPhase: Review\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_reviewed, ai_slop_findings, ai_slop_clean, and findings fields, then write result.md.\n`, 'utf8');
+    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: critical\nPhase: Review\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_plan, and findings.\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({ status: 'ready', phase: 'review', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, aislop_gate: gate });
