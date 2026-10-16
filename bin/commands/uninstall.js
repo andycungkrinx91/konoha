@@ -231,7 +231,7 @@ async function cmdUninstall(args = []) {
     } catch (_) { /* intentional best-effort fallback */ }
   }
 
-  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  const pkgSkillsDir = path.resolve(__dirname, '..', '..', '.agents', 'skills');
   const globalSkillsDir = path.join(HOME, '.agents', 'skills');
   if (fileExists(pkgSkillsDir) && fileExists(globalSkillsDir)) {
     try {

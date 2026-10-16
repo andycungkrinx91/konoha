@@ -80,12 +80,18 @@ function getFileStructure(args = {}) {
     for (const entry of entries) {
       if (entry.startsWith('.') || skipSet.has(entry)) continue;
       const full = path.join(targetPath, entry);
-      if (fs.statSync(full).isDirectory()) {
-        dirs.push(`📁 ${entry}/`);
-      } else if (fs.statSync(full).isFile()) {
-        const size = fs.statSync(full).size;
-        const sizeStr = size < 1024 ? `${size}B` : `${Math.floor(size / 1024)}KB`;
-        files.push(`📄 ${entry}  (${sizeStr})`);
+      try {
+        if (!fs.existsSync(full)) continue;
+        const st = fs.statSync(full);
+        if (st.isDirectory()) {
+          dirs.push(`📁 ${entry}/`);
+        } else if (st.isFile()) {
+          const size = st.size;
+          const sizeStr = size < 1024 ? `${size}B` : `${Math.floor(size / 1024)}KB`;
+          files.push(`📄 ${entry}  (${sizeStr})`);
+        }
+      } catch {
+        continue;
       }
     }
 

@@ -211,7 +211,7 @@ async function cmdTest(args = []) {
   log('');
   header('🧪 Running Full Konoha JavaScript Test Suites');
   try {
-    const runAllPath = path.join(__dirname, '..', 'tests', 'run_all.js');
+    const runAllPath = path.resolve(__dirname, '..', '..', 'tests', 'run_all.js');
     if (fs.existsSync(runAllPath)) {
       const runTest = spawnSync(process.execPath, [runAllPath], { stdio: 'inherit' });
       if (runTest.status !== 0) {

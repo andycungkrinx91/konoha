@@ -517,7 +517,7 @@ async function cmdAgentStatus() {
   let stats = {};
   if (fileExists(DB_PATH)) {
     try {
-      const agentStatsModule = require('../src/agent_stats');
+      const agentStatsModule = require('../../src/agent_stats');
       stats = agentStatsModule.getAgentStats(DB_PATH);
       if (stats.error) stats = {};
     } catch (e) {
@@ -950,7 +950,7 @@ async function cmdAgent(args) {
         let deletedFromDb = false;
         if (fileExists(DB_PATH)) {
           try {
-            const { pruneAgentStats } = require('../src/agent_stats');
+            const { pruneAgentStats } = require('../../src/agent_stats');
             const res = pruneAgentStats(name, DB_PATH);
             if (res && res.success && res.deleted_count > 0) {
               deletedFromDb = true;

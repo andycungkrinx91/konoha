@@ -535,6 +535,13 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Explicit Boundary Re-Anchoring**: `sanninWorkflowNext` in `src/mcp/workflow.js` mechanically appends `## USER CONSTRAINTS & ORIGINAL PROMPT` via `getPromptSection(resolvedTaskDir)` to every generated `delegate.md` dispatch across all phases (`plan`, `research`, `execute`, `document`, `review`, and `remediation`). This ensures subagents (Jonin, Anbu, Kage, Tokubetsu-Jonin) always see the original prompt and user-specified constraints at the immediate boundary of their execution.
     - **Turn-Level Workflow Reminder**: `src/workflow_reminder.js` re-injects the anti-context-loss guard on every turn, warning agents against relying on conversational memory or fuzzy recall from earlier turns for critical arguments (identity, flags, negative constraints).
     - **Exact String Assertion Gate**: Before running state-altering or git commit actions, agents must assert exact parameter equality against requested parameters (e.g., verifying `git log -n 1 --format="%an <%ae>"` exactly equals `andycungkrinx91 <andy.silva270114@gmail.com>`), rather than assuming environment defaults or glancing at passing config flags.
+98. **TUI & CLI Subsystem Parity, Broken Symlink Resilience, and Modular Subcommand Architecture (v2.1.18)**:
+    - **Packaged Canonical Skill Path Resolution**: `bin/commands/init.js`, `bin/commands/test.js`, and `bin/commands/uninstall.js` resolve packaged canonical skills dynamically across multiple root candidates without assuming fixed parent directory depth.
+    - **Broken Symlink & Non-Existent Target Resilience**: `src/canonical_skills.js` (`pruneObsoleteStandaloneSkills`), `src/migrate.js` (`autoDetectSkills`), and `src/file_tools/get_file_structure.js` wrap file system inspection in safe try/catch blocks and clean up dangling symlinks, preventing `ENOENT` crash cascades.
+    - **OMP Launcher Resolution**: `bin/commands/init.js` explicitly imports `FILE_TOOLS_LAUNCHER_JS` from `bin/lib/paths.js` to guarantee seamless OMP client registration.
+    - **RTK Compilation Bypass for Pre-Installed Binaries**: `src/antigravity_manager.js` checks `isRtkInstalled()` before triggering cargo compilation during `init --force`, preventing redundant 5-minute Rust compilation timeouts.
+    - **Two-Section QA Verification Matrix**: `docs/QA-TEST-CHECKLIST.md` defines Section 1 (TUI & CLI Subsystem Verification across 34 commands/subcommands) and Section 2 (Web UI & Browser Automation QA).
+
 
 
 

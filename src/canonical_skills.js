@@ -144,6 +144,7 @@ const KNOWN_EMBEDDED_REFERENCE_SKILLS = new Set([
   'graphql-apollo-expert',
   'guardrails',
   'headless-cms-expert',
+  'helm-chart-builder',
   'helm-chart-scaffolding',
   'hig',
   'improve-codebase-architecture',
@@ -358,6 +359,17 @@ function pruneObsoleteStandaloneSkills(targetDir, _options = {}) {
       if (CANONICAL_SKILL_NAMES.has(e.name)) continue;
 
       const fullPath = path.join(targetDir, e.name);
+
+      // Clean up broken symlinks pointing to non-existent targets
+      if (e.isSymbolicLink()) {
+        try {
+          if (!fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            removed.push(e.name);
+            continue;
+          }
+        } catch (_) { /* best-effort */ }
+      }
 
       // If this directory/file name is in the embedded reference set, it was consolidated
       // into a ninja skill and MUST NOT exist as a standalone top-level folder.

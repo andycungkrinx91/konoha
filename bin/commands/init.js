@@ -29,7 +29,8 @@ const {
   MIGRATION_TIMEOUT_MS,
   MCP_CONFIG_PATH,
   DEFAULT_SKILLS_DIRS,
-  SRC_DIR
+  SRC_DIR,
+  FILE_TOOLS_LAUNCHER_JS
 } = require('../lib/paths');
 
 const {
@@ -338,7 +339,7 @@ async function cmdInit(args, options = {}) {
   }
 
   // 3. Detect skills directories
-  const pkgSkillsDir = path.join(__dirname, '..', '.agents', 'skills');
+  const pkgSkillsDir = path.resolve(__dirname, '..', '..', '.agents', 'skills');
   if (!hasCanonicalGeninSkill(pkgSkillsDir)) {
     error(`Packaged canonical skill missing: ${path.join(pkgSkillsDir, 'genin-skill', 'SKILL.md')}`);
     process.exit(1);
@@ -412,7 +413,7 @@ async function cmdInit(args, options = {}) {
     if (fileExists(s)) copyFile(s, path.join(SKILLS_DB_DIR, jsFile));
   }
 
-  const pkgSrc = path.join(__dirname, '..', 'package.json');
+  const pkgSrc = path.resolve(__dirname, '..', '..', 'package.json');
   const pkgDest = path.join(SKILLS_DB_DIR, 'package.json');
   if (fileExists(pkgSrc)) {
     copyFile(pkgSrc, pkgDest);

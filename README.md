@@ -550,7 +550,7 @@ Konoha includes a built-in, medium-weight **Software Development Life Cycle (SDL
 
 ## 🧪 Token-Efficient QA Automation (`agent-browser` + Playwright)
 
-> **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md)
+> **Canonical editable diagram:** [13 QA Automation Workflow](docs/diagrams/konoha-architecture.drawio) · [Full Architecture & Benchmarks](docs/QA-AUTOMATION.md) · [QA Test Checklist](docs/QA-TEST-CHECKLIST.md)
 
 <p align="center">
   <img src="assets/konoha-qa-flow.webp" alt="Konoha QA Automation Workflow" width="100%" />

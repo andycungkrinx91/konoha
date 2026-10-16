@@ -422,7 +422,7 @@ async function cmdStatus(args = []) {
   sectionTitle('Database Stats:', LEAF_THEME);
   if (fileExists(DB_PATH)) {
     try {
-      const { getDbStats } = require('../src/db_stats');
+      const { getDbStats } = require('../../src/db_stats');
       const stats = getDbStats(DB_PATH);
       if (stats.error) {
         log(`    ${C.yellow}⚠${C.reset} Database error: ${stats.error}`);

@@ -521,6 +521,7 @@ function ensureAntigravityMcpSchemas() {
 // isRtkInstalled is imported from platform_utils
 
 function refreshRtk(silent = true) {
+  if (isRtkInstalled()) return { ok: true, reason: 'already-installed' };
   const cargo = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
   try {
     const available = spawnSync(cargo, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true });

@@ -536,23 +536,41 @@ function printSummary(conn) {
 
 function autoDetectSkills(skillsDir) {
   const detected = [];
-  if (!fs.existsSync(skillsDir) || !fs.statSync(skillsDir).isDirectory()) {
+  try {
+    if (!fs.existsSync(skillsDir) || !fs.statSync(skillsDir).isDirectory()) {
+      return detected;
+    }
+  } catch {
     return detected;
   }
 
-  const entries = fs.readdirSync(skillsDir).sort();
+  let entries = [];
+  try {
+    entries = fs.readdirSync(skillsDir).sort();
+  } catch {
+    return detected;
+  }
+
   for (const entry of entries) {
     if (isEmbeddedReference(entry) && !isCanonicalSkill(entry)) {
       continue;
     }
     const entryPath = path.join(skillsDir, entry);
-    if (fs.statSync(entryPath).isDirectory()) {
-      const skillMd = path.join(entryPath, "SKILL.md");
-      if (fs.existsSync(skillMd) && fs.statSync(skillMd).isFile()) {
+    try {
+      if (!fs.existsSync(entryPath)) {
+        continue;
+      }
+      const st = fs.statSync(entryPath);
+      if (st.isDirectory()) {
+        const skillMd = path.join(entryPath, "SKILL.md");
+        if (fs.existsSync(skillMd) && fs.statSync(skillMd).isFile()) {
+          detected.push(entry);
+        }
+      } else if (st.isFile() && entry.endsWith("-skill.md")) {
         detected.push(entry);
       }
-    } else if (fs.statSync(entryPath).isFile() && entry.endsWith("-skill.md")) {
-      detected.push(entry);
+    } catch {
+      continue;
     }
   }
   return detected;

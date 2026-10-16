@@ -25,6 +25,7 @@ const REQUIRED_DOCS = [
   'docs/ADDING-SKILLS.md',
   'docs/TROUBLESHOOTING.md',
   'docs/QA-AUTOMATION.md',
+  'docs/QA-TEST-CHECKLIST.md',
   'docs/diagrams/README.md',
   'docs/diagrams/konoha-architecture.drawio',
   'docs/SecurityCompliance/security_compliance_report_google_policy_2.0.0_2026-08-27.md',

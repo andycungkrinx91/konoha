@@ -709,7 +709,7 @@ async function cmdDoctor(args = []) {
 
   // 11. SDLC Governance Layer Advisory Checks
   try {
-    const dbModule = require('../src/db');
+    const dbModule = require('../../src/db');
     const conn = dbModule.getConnection(DB_PATH);
     try {
       dbModule.setupSchema(conn);
@@ -745,7 +745,7 @@ async function cmdDoctor(args = []) {
             if (!Array.isArray(kage.skills)) kage.skills = [];
             if (!kage.skills.includes('antislop')) kage.skills.push('antislop');
             agentManager.saveAgents(agents);
-            const dbAgents = require('../src/db_agents');
+            const dbAgents = require('../../src/db_agents');
             dbAgents.bulkImportAgents(agents, DB_PATH);
             hasAntislopSkill = true;
             repairsDone++;
