@@ -196,6 +196,30 @@ mcp_pipe() {
 - [x] **SKILL-06: Neural Vector Search Reranker (IBM Granite 384d)**:
   - Command: Execute semantic query with vector search enabled.
   - Expected: Re-ranks candidates using MS MARCO MiniLM cross-encoder with CPU duty cycle capped below 50%.
+- [x] **SKILL-07: Flexible Keyword Extraction & Array Keywords Dispatch (`find_skills`)**:
+  - Input: `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"find_skills","arguments":{"keywords":["react", "testing"]}}}`
+  - Expected: `src/mcp/tool_dispatch.js` seamlessly detects array `keywords` or string `query`, joins array entries with whitespace, and dispatches to `findSkill("react testing")` without empty keyword error.
+- [x] **SKILL-08: Parameter Router Alias Normalization (`src/file_tools_router.js`)**:
+  - Input: Invoke `find_skill` or `find_skills` with parameter aliases `{ query: "docker" }` or `{ keywords: ["k8s"] }`.
+  - Expected: `TOOL_SPECIFIC_PARAM_MAP` canonicalizes `query`, `Query`, `keywords`, and `Keywords` to `keyword` before validation.
+- [x] **SKILL-09: 15-Domain Search Accuracy & BM25 Relevance Benchmark**:
+  - Command: Run automated 15-domain precision benchmark across `docker`, `react`, `svelte`, `angular`, `security`, `kubernetes`, `diagram`, `antislop`, `database`, `e2e`, `css`, `adhd`, `audit`, `telemetry`, and `telegram`.
+  - Expected: 15/15 (100.0%) precision score; returns accurate, non-empty skill and reference recommendations for every domain.
+- [x] **SKILL-10: 5-Tree Client Mirror Parity & Automated Synchronization**:
+  - Command: `node scripts/sync_skills.js && node tests/test_client_skills_sync.js`
+  - Expected: 4,208 files verified byte-identical across `.agents/skills`, `.cursor/skills`, `.gemini/skills`, `.commandcode/skills`, `.claude/skills`, and `src/templates/skills` with 0 drift.
+- [x] **SKILL-11: Ninja Agent Embedded Skills Rosters Integrity**:
+  - Verification: Inspect `src/templates/agents.yaml` and `AGENTS.md` ninja agent definitions.
+  - Expected: Embedded skills rosters strictly mapped to genin, jonin, anbu, tokubetsu-jonin, and chunin. Sannin and Kage are strictly excluded from `i-have-adhd` to protect router and delivery-gate invariants.
+- [x] **SKILL-12: Cross-Agent `i-have-adhd` Output Rule Contract**:
+  - Command: `node tests/test_i_have_adhd_skill.js`
+  - Expected: Enforces byte-identical delivery across all 5 agents with all 10 output rules intact, zero standalone directory regressions, and valid router references.
+- [x] **SKILL-13: One-Shot Instruct Style & Zero Conversational Slop**:
+  - Verification: Automated scan for conversational filler ("as an ai", "i hope this helps", "let me know if you need anything else") across 1,033 skill entries.
+  - Expected: Zero unprompted conversational filler; all instructions formatted with crisp bold headers, bullet points, and code blocks.
+- [x] **SKILL-14: Canonical Skills vs Embedded Reference Invariant**:
+  - Command: `node tests/run_all.js test_canonical_skills`
+  - Expected: Exactly 15 canonical top-level skills; 1,018 embedded references properly categorized; `autoDetectSkills` strictly ignores embedded reference folders.
 
 ---
 
@@ -476,7 +500,7 @@ k ui daemon --port=$TEST_PORT --host=127.0.0.1
 | **Domain 1** | CLI Core & Subcommands | 20 | 100% | Full CLI smoke | `tests/test_version_sync.js`, `k status` | **PASS** |
 | **Domain 1** | Removed Aliases Rejection | 27 | 100% | 27 alias calls | `tests/test_delegation_alias_removal.js` | **PASS** |
 | **Domain 2** | MCP Server & Bounded File Tools | 10 | 100% | STDIO pipe test | `tests/test_bounded_file_tools_completeness.js` | **PASS** |
-| **Domain 3** | Skill Retrieval & FTS5 Database | 6 | 100% | FTS queries | `tests/test_db_foreign_keys_and_fts.js` | **PASS** |
+| **Domain 3** | Skill Retrieval & FTS5 Database | 14 | 100% | FTS & Dispatch tests | `tests/test_db_foreign_keys_and_fts.js`, `tests/test_client_skills_sync.js`, `tests/test_i_have_adhd_skill.js` | **PASS** |
 | **Domain 4** | Ninja Agent Team Delegation | 7 | 100% | Subagent calls | `tests/test_workflow_gates.js`, `k test` | **PASS** |
 | **Domain 5** | SvelteKit Web Configuration UI | 10 | 100% | HTTP curl tests | `pnpm --dir apps/web run check`, `k ui status` | **PASS** |
 | **Domain 6** | Document Engineering & WebP | 8 | 100% | Bitstream parse | `tests/test_all_assets_webp.js` | **PASS** |
@@ -486,7 +510,7 @@ k ui daemon --port=$TEST_PORT --host=127.0.0.1
 | **Domain 10** | Remote Access & Cloudflare Tunnel | 8 | 100% | Auth PIN tests | `tests/test_tunnel_auth_enforcement.js` | **PASS** |
 | **Domain 11** | Cross-Platform Daemons | 6 | 100% | Platform utils | `tests/test_token_hygiene_and_platform.js` | **PASS** |
 | **Domain 12** | RTK Command Proxy & Optimization | 6 | 100% | Config audit | `rtk config`, `tests/test_token_baseline.js` | **PASS** |
-| **TOTAL** | **Comprehensive Full Coverage** | **132** | **100%** | **All Scenarios** | **Full Verification Suite** | **100% PASS** |
+| **TOTAL** | **Comprehensive Full Coverage** | **140** | **100%** | **All Scenarios** | **Full Verification Suite** | **100% PASS** |
 
 ---
 
@@ -517,3 +541,9 @@ If any manual QA test fails during pre-release verification, follow these determ
 ### 15.5 Documentation Link Currency Drift
 1. Run `node tests/test_docs_currency.js`.
 2. Resolve any broken markdown link paths or missing security compliance reports in `docs/SecurityCompliance/`.
+
+### 15.6 Skills Routing, Discovery & Client Mirror Sync Failures
+1. Inspect `src/mcp/tool_dispatch.js`. Verify `find_skill` and `find_skills` handle string `keyword`, array `keywords`, and `query`.
+2. Inspect `src/file_tools_router.js`. Verify `TOOL_SPECIFIC_PARAM_MAP` maps `query` and `keywords` aliases to canonical `keyword`.
+3. If skills drift across client IDEs, run `node scripts/sync_skills.js` to propagate `.agents/skills/` to all 5 trees.
+4. Execute `node tests/test_i_have_adhd_skill.js && node tests/test_client_skills_sync.js && node tests/test_canonical_skills_and_embedded_refs.js`.
