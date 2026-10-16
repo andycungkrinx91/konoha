@@ -20,6 +20,7 @@ const _EMBED_CACHE = new Map();
 function noopProgress() {
   return null;
 }
+let _pipelineExtractor = null;
 let _pipelineReranker = null;
 let _EXTENSION_FAILED_ONCE = false;
 // WeakSet so closed/dropped connections can be garbage-collected instead of
