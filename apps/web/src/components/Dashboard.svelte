@@ -162,130 +162,190 @@
   {/if}
 
   {#if metrics}
-    <!-- Stat Panel Row (Grafana style) -->
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="glass-card-3d p-5 rounded-2xl border transition-all" style="border-color: var(--color-border);">
-        <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">System CPU</p>
+    <!-- Reusable 3D Theme Gradient Definitions for Metric Graphics -->
+    <svg class="sr-only" aria-hidden="true" width="0" height="0">
+      <defs>
+        <linearGradient id="dashboard-3d-sparkline-area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--theme-grad-1)" stop-opacity="0.38" />
+          <stop offset="50%" stop-color="var(--theme-grad-2)" stop-opacity="0.18" />
+          <stop offset="100%" stop-color="var(--theme-grad-4)" stop-opacity="0.02" />
+        </linearGradient>
+        <linearGradient id="dashboard-3d-sparkline-proc" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--theme-grad-2)" stop-opacity="0.38" />
+          <stop offset="50%" stop-color="var(--theme-grad-3)" stop-opacity="0.18" />
+          <stop offset="100%" stop-color="var(--theme-grad-1)" stop-opacity="0.02" />
+        </linearGradient>
+        <linearGradient id="dashboard-3d-sparkline-mem" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--theme-grad-3)" stop-opacity="0.38" />
+          <stop offset="50%" stop-color="var(--theme-grad-4)" stop-opacity="0.18" />
+          <stop offset="100%" stop-color="var(--theme-grad-2)" stop-opacity="0.02" />
+        </linearGradient>
+        <linearGradient id="dashboard-3d-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--theme-grad-1)" />
+          <stop offset="33%" stop-color="var(--theme-grad-2)" />
+          <stop offset="66%" stop-color="var(--theme-grad-3)" />
+          <stop offset="100%" stop-color="var(--theme-grad-4)" />
+        </linearGradient>
+        <linearGradient id="dashboard-3d-gauge-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--theme-grad-1)" />
+          <stop offset="40%" stop-color="var(--theme-grad-2)" />
+          <stop offset="80%" stop-color="var(--theme-grad-3)" />
+          <stop offset="100%" stop-color="var(--theme-grad-4)" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <!-- Stat Panel Row (3D Grafana Telemetry Cards) -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 perspective-container">
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">System CPU</p>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-1);"></span>
+        </div>
         <div class="flex items-end gap-1 mt-2">
-          <span class="text-4xl font-black tabular-nums" style="color: pctTone(metrics.system.cpu.system_pct);">{metrics.system.cpu.system_pct ?? '—'}</span>
+          <span class="text-4xl font-black tabular-nums font-mono" style="color: pctTone(metrics.system.cpu.system_pct);">{metrics.system.cpu.system_pct ?? '—'}</span>
           <span class="text-lg font-bold mb-0.5" style="color: var(--color-text-muted);">%</span>
         </div>
         <svg viewBox="0 0 100 34" preserveAspectRatio="none" class="w-full h-10 mt-2">
-          <path d={sparklineArea(cpuHistory)} fill="rgba(124,58,237,0.12)" />
-          <path d={sparklinePath(cpuHistory)} fill="none" stroke="var(--color-primary)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+          <path d={sparklineArea(cpuHistory)} fill="url(#dashboard-3d-sparkline-area)" />
+          <path d={sparklinePath(cpuHistory)} fill="none" stroke="url(#dashboard-3d-stroke)" stroke-width="2" vector-effect="non-scaling-stroke" class="sparkline-3d-stroke" />
         </svg>
       </div>
 
-      <div class="glass-card-3d p-5 rounded-2xl border transition-all" style="border-color: var(--color-border);">
-        <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Konoha Process CPU</p>
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Konoha Process CPU</p>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-2);"></span>
+        </div>
         <div class="flex items-end gap-1 mt-2">
-          <span class="text-4xl font-black tabular-nums" style="color: pctTone(metrics.system.cpu.process_pct);">{metrics.system.cpu.process_pct ?? '—'}</span>
+          <span class="text-4xl font-black tabular-nums font-mono" style="color: pctTone(metrics.system.cpu.process_pct);">{metrics.system.cpu.process_pct ?? '—'}</span>
           <span class="text-lg font-bold mb-0.5" style="color: var(--color-text-muted);">%</span>
         </div>
         <svg viewBox="0 0 100 34" preserveAspectRatio="none" class="w-full h-10 mt-2">
-          <path d={sparklineArea(procCpuHistory)} fill="rgba(99,102,241,0.12)" />
-          <path d={sparklinePath(procCpuHistory)} fill="none" stroke="var(--color-accent)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+          <path d={sparklineArea(procCpuHistory)} fill="url(#dashboard-3d-sparkline-proc)" />
+          <path d={sparklinePath(procCpuHistory)} fill="none" stroke="url(#dashboard-3d-stroke)" stroke-width="2" vector-effect="non-scaling-stroke" class="sparkline-3d-stroke" />
         </svg>
       </div>
 
-      <div class="glass-card-3d p-5 rounded-2xl border transition-all" style="border-color: var(--color-border);">
-        <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">System Memory</p>
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">System Memory</p>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-3);"></span>
+        </div>
         <div class="flex items-end gap-1 mt-2">
-          <span class="text-4xl font-black tabular-nums" style="color: pctTone(metrics.system.memory.used_pct);">{metrics.system.memory.used_pct}</span>
+          <span class="text-4xl font-black tabular-nums font-mono" style="color: pctTone(metrics.system.memory.used_pct);">{metrics.system.memory.used_pct}</span>
           <span class="text-lg font-bold mb-0.5" style="color: var(--color-text-muted);">%</span>
         </div>
         <svg viewBox="0 0 100 34" preserveAspectRatio="none" class="w-full h-10 mt-2">
-          <path d={sparklineArea(memHistory)} fill="rgba(5,150,105,0.12)" />
-          <path d={sparklinePath(memHistory)} fill="none" stroke="#059669" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+          <path d={sparklineArea(memHistory)} fill="url(#dashboard-3d-sparkline-mem)" />
+          <path d={sparklinePath(memHistory)} fill="none" stroke="url(#dashboard-3d-stroke)" stroke-width="2" vector-effect="non-scaling-stroke" class="sparkline-3d-stroke" />
         </svg>
         <p class="text-[11px] font-mono mt-1" style="color: var(--color-text-muted);">{formatBytes(metrics.system.memory.used_bytes)} / {formatBytes(metrics.system.memory.total_bytes)}</p>
       </div>
 
-      <div class="glass-card-3d p-5 rounded-2xl border transition-all" style="border-color: var(--color-border);">
-        <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Process Uptime</p>
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-4) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Process Uptime</p>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-4);"></span>
+        </div>
         <div class="flex items-end gap-1 mt-2">
-          <span class="text-3xl font-black tabular-nums" style="color: var(--color-text);">{formatUptime(metrics.system.uptime_seconds)}</span>
+          <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{formatUptime(metrics.system.uptime_seconds)}</span>
         </div>
         <p class="text-[11px] font-mono mt-3" style="color: var(--color-text-muted);">Heap {formatBytes(metrics.system.memory.process_heap_used_bytes)} / {formatBytes(metrics.system.memory.process_heap_total_bytes)}</p>
         <p class="text-[11px] font-mono" style="color: var(--color-text-muted);">RSS {formatBytes(metrics.system.memory.process_rss_bytes)}</p>
       </div>
 
-      <div class="glass-card-3d p-5 rounded-2xl border transition-all" style="border-color: var(--color-border);">
-        <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Disk (Root)</p>
+      <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Disk (Root)</p>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-1);"></span>
+        </div>
         <div class="flex items-end gap-1 mt-2">
-          <span class="text-4xl font-black tabular-nums" style="color: pctTone(rootDisk?.used_pct);">{rootDisk?.used_pct ?? '—'}</span>
+          <span class="text-4xl font-black tabular-nums font-mono" style="color: pctTone(rootDisk?.used_pct);">{rootDisk?.used_pct ?? '—'}</span>
           <span class="text-lg font-bold mb-0.5" style="color: var(--color-text-muted);">%</span>
         </div>
-        <div class="h-2 rounded-full overflow-hidden border mt-3" style="border-color: var(--color-border);">
-          <div class="h-full rounded-full transition-all duration-500" style="width: {rootDisk?.used_pct ?? 0}%; background: {pctTone(rootDisk?.used_pct)};"></div>
+        <div class="h-2 rounded-full overflow-hidden progress-track-3d mt-3">
+          <div class="h-full rounded-full transition-all duration-500 progress-fill-3d" style="width: {rootDisk?.used_pct ?? 0}%;"></div>
         </div>
         <p class="text-[11px] font-mono mt-1.5" style="color: var(--color-text-muted);">{rootDisk ? formatBytes(rootDisk.used_bytes) + ' / ' + formatBytes(rootDisk.total_bytes) : '—'}</p>
       </div>
     </div>
 
-    <!-- Gauges + Host Info -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-      <div class="glass-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: var(--color-border);">
-        <p class="text-xs font-bold uppercase tracking-widest self-start" style="color: var(--color-text-muted);">CPU Utilization Gauge</p>
+    <!-- Gauges + Host Info (3D Cylindrical Metric Gauges) -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 perspective-container">
+      <div class="metric-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: color-mix(in srgb, var(--theme-grad-1) 30%, var(--color-border));">
+        <div class="flex items-center justify-between w-full">
+          <p class="text-xs font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">CPU Utilization</p>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">Gauge</span>
+        </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-border)" stroke-width="4" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke={pctTone(metrics.system.cpu.system_pct)} stroke-width="4"
-              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.cpu.system_pct).strokeDashoffset} />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-1) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.cpu.system_pct).strokeDashoffset}
+              class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-3xl font-black tabular-nums" style="color: var(--color-text);">{metrics.system.cpu.system_pct ?? '—'}%</span>
-            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--color-text-muted);">System</span>
+          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
+            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.system_pct ?? '—'}%</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">System</span>
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2 w-full text-center">
-          <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
+          <div class="rounded-xl border p-2" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: color-mix(in srgb, var(--theme-grad-1) 3%, var(--color-surface));">
             <p class="text-[10px] font-bold uppercase" style="color: var(--color-text-muted);">1m</p>
-            <p class="text-sm font-black tabular-nums" style="color: var(--color-text);">{metrics.system.cpu.load_avg_1m ?? '—'}</p>
+            <p class="text-sm font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.load_avg_1m ?? '—'}</p>
           </div>
-          <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
+          <div class="rounded-xl border p-2" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: color-mix(in srgb, var(--theme-grad-2) 3%, var(--color-surface));">
             <p class="text-[10px] font-bold uppercase" style="color: var(--color-text-muted);">5m</p>
-            <p class="text-sm font-black tabular-nums" style="color: var(--color-text);">{metrics.system.cpu.load_avg_5m ?? '—'}</p>
+            <p class="text-sm font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.load_avg_5m ?? '—'}</p>
           </div>
-          <div class="rounded-xl border p-2" style="border-color: var(--color-border);">
+          <div class="rounded-xl border p-2" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: color-mix(in srgb, var(--theme-grad-3) 3%, var(--color-surface));">
             <p class="text-[10px] font-bold uppercase" style="color: var(--color-text-muted);">15m</p>
-            <p class="text-sm font-black tabular-nums" style="color: var(--color-text);">{metrics.system.cpu.load_avg_15m ?? '—'}</p>
+            <p class="text-sm font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.load_avg_15m ?? '—'}</p>
           </div>
         </div>
       </div>
 
-      <div class="glass-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: var(--color-border);">
-        <p class="text-xs font-bold uppercase tracking-widest self-start" style="color: var(--color-text-muted);">Memory Utilization Gauge</p>
+      <div class="metric-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: color-mix(in srgb, var(--theme-grad-2) 30%, var(--color-border));">
+        <div class="flex items-center justify-between w-full">
+          <p class="text-xs font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Memory Utilization</p>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">RAM</span>
+        </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-border)" stroke-width="4" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke={pctTone(metrics.system.memory.used_pct)} stroke-width="4"
-              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.memory.used_pct).strokeDashoffset} />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-2) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.memory.used_pct).strokeDashoffset}
+              class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-3xl font-black tabular-nums" style="color: var(--color-text);">{metrics.system.memory.used_pct}%</span>
-            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--color-text-muted);">Used</span>
+          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
+            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.memory.used_pct}%</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Used</span>
           </div>
         </div>
         <div class="w-full space-y-1.5 text-center">
           <p class="text-xs font-mono" style="color: var(--color-text-muted);">Free {formatBytes(metrics.system.memory.free_bytes)}</p>
-          <div class="h-2 rounded-full overflow-hidden border" style="border-color: var(--color-border);">
-            <div class="h-full rounded-full transition-all duration-500" style="width: {metrics.system.memory.used_pct}%; background: linear-gradient(90deg, var(--color-primary), var(--color-accent));"></div>
+          <div class="h-2.5 rounded-full overflow-hidden progress-track-3d">
+            <div class="h-full rounded-full transition-all duration-500 progress-fill-3d" style="width: {metrics.system.memory.used_pct}%;"></div>
           </div>
         </div>
       </div>
 
-      <div class="glass-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: var(--color-border);">
-        <p class="text-xs font-bold uppercase tracking-widest self-start" style="color: var(--color-text-muted);">Disk Utilization Gauge</p>
+      <div class="metric-card-3d p-6 rounded-3xl border flex flex-col items-center" style="border-color: color-mix(in srgb, var(--theme-grad-3) 30%, var(--color-border));">
+        <div class="flex items-center justify-between w-full">
+          <p class="text-xs font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Disk Utilization</p>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">Storage</span>
+        </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-border)" stroke-width="4" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke={pctTone(rootDisk?.used_pct)} stroke-width="4"
-              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(rootDisk?.used_pct).strokeDashoffset} />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-3) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+              stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(rootDisk?.used_pct).strokeDashoffset}
+              class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-3xl font-black tabular-nums" style="color: var(--color-text);">{rootDisk?.used_pct ?? '—'}%</span>
-            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--color-text-muted);">Root FS</span>
+          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
+            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{rootDisk?.used_pct ?? '—'}%</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Root FS</span>
           </div>
         </div>
         <div class="w-full space-y-2">
@@ -295,8 +355,8 @@
                 <span class="truncate">{m.mount}</span>
                 <span>{formatBytes(m.used_bytes)} / {formatBytes(m.total_bytes)}</span>
               </div>
-              <div class="h-2 rounded-full overflow-hidden border" style="border-color: var(--color-border);">
-                <div class="h-full rounded-full transition-all duration-500" style="width: {m.used_pct ?? 0}%; background: {pctTone(m.used_pct)};"></div>
+              <div class="h-2 rounded-full overflow-hidden progress-track-3d">
+                <div class="h-full rounded-full transition-all duration-500 progress-fill-3d" style="width: {m.used_pct ?? 0}%;"></div>
               </div>
             </div>
           {/each}
@@ -306,8 +366,11 @@
         </div>
       </div>
 
-      <div class="glass-card-3d p-6 rounded-3xl border" style="border-color: var(--color-border);">
-        <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--color-text-muted);">Host Information</p>
+      <div class="metric-card-3d p-6 rounded-3xl border" style="border-color: color-mix(in srgb, var(--theme-grad-4) 30%, var(--color-border));">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-xs font-bold uppercase tracking-widest" style="color: var(--color-text-muted);">Host Information</p>
+          <span class="w-2 h-2 rounded-full" style="background: var(--theme-grad-4);"></span>
+        </div>
         <dl class="space-y-2.5 text-sm">
           <div class="flex justify-between gap-4">
             <dt class="font-medium" style="color: var(--color-text-muted);">Hostname</dt>
@@ -337,41 +400,46 @@
       </div>
     </div>
 
-    <!-- Konoha Feature Metrics -->
-    <div class="glass-card-3d p-6 rounded-3xl border" style="border-color: var(--color-border);">
+    <!-- Konoha Feature Metrics (3D Grid & Telemetry Cubes) -->
+    <div class="metric-card-3d p-6 rounded-3xl border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 32%, var(--color-border));">
       <div class="flex items-center justify-between mb-5">
         <div class="flex items-center gap-3">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--color-primary);">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <h3 class="text-lg font-black tracking-tight" style="color: var(--color-text);">Konoha Feature Metrics</h3>
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white" style="background: var(--theme-4gradient); box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-grad-1) 40%, transparent);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-black tracking-tight" style="color: var(--color-text);">Konoha Feature Metrics</h3>
+            <p class="text-xs font-semibold" style="color: var(--color-text-muted);">Real-time telemetry across MCP skills, agents, and gateways</p>
+          </div>
         </div>
-        <span class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">Village Telemetry</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full font-mono gradient-badge">Village Telemetry</span>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 perspective-container">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-1) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Ninja Agents</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-text);">{metrics.features.agents ?? 0}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.agents ?? 0}</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-2) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Skills Installed</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-text);">{metrics.features.skills ?? 0}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.skills ?? 0}</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{(metrics.features.skills ?? 0) - (metrics.features.vectorized_skills ?? 0)} awaiting embedding</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-3) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Vectorized Skills</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-primary);">{metrics.features.vectorized_skills ?? 0}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-primary);">{metrics.features.vectorized_skills ?? 0}</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.embedded_chunks ?? 0}/{metrics.features.vectors_total_chunks ?? 0} chunks embedded</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-4) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Bridges Running</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: #059669;">{metrics.features.bridges_running ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.bridges_total ?? 0}</span></p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: #059669;">{metrics.features.bridges_running ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.bridges_total ?? 0}</span></p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.bridges_enabled ?? 0} enabled</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-1) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">SDLC Tasks</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-text);">{metrics.features.sdlc_total ?? 0}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.sdlc_total ?? 0}</p>
           <div class="flex flex-wrap gap-1 mt-1.5">
             {#each Object.entries(metrics.features.sdlc_by_status || {}) as [status, count]}
               <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono" style="color: {sdlcStatusColors[status] || '#475569'}; background: {(sdlcStatusColors[status] || '#475569')}1a;">
@@ -381,40 +449,40 @@
           </div>
           <p class="text-[10px] font-mono mt-1.5" style="color: var(--color-text-muted);">DoR {metrics.features.sdlc_dor_mode ?? 'advisory'} · review {metrics.features.sdlc_review_mode ?? 'self'}</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-2) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Clients Configured</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-text);">{metrics.features.clients_configured ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.clients_total ?? 7}</span></p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.clients_configured ?? 0}<span class="text-base" style="color: var(--color-text-muted);">/{metrics.features.clients_total ?? 7}</span></p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-3) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Tokens Saved Today</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_today_tokens)}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_today_tokens)}</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_today_calls ?? 0} calls · {metrics.features.savings_today_pct ?? 0}% cut</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-4) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Tokens Saved All-Time</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_alltime_tokens)}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-accent);">{formatTokens(metrics.features.savings_alltime_tokens)}</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.savings_alltime_pct ?? 0}% reduction</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-1) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Persona Memories</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-text);">{metrics.features.persona_memories ?? 0}</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.persona_memories ?? 0}</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">{metrics.features.persona_projects ?? 0} projects</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-2) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Web Search Engine</p>
           <p class="text-2xl font-black mt-1" style="color: {metrics.features.search_engine_active ? '#059669' : 'var(--color-text-muted)'};">
             {metrics.features.search_engine_active ? 'ACTIVE' : 'IDLE'}
           </p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">SearXNG chain</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-3) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Gateway (19999)</p>
           <p class="text-2xl font-black mt-1" style="color: {(metrics.features.bridges_total ?? 0) > 0 ? '#059669' : 'var(--color-text-muted)'};">ROUTED</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">Bridge Router</p>
         </div>
-        <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
+        <div class="metric-card-3d rounded-2xl border p-4" style="border-color: color-mix(in srgb, var(--theme-grad-4) 22%, var(--color-border));">
           <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">MCP Servers</p>
-          <p class="text-2xl font-black tabular-nums mt-1" style="color: var(--color-primary);">3</p>
+          <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-primary);">3</p>
           <p class="text-[10px] font-mono" style="color: var(--color-text-muted);">konoha · semble · aislop</p>
         </div>
       </div>

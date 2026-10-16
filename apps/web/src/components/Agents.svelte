@@ -329,17 +329,17 @@
       </div>
     </div>
   {:else}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 perspective-container">
       {#each agents as agent}
         <div
-          class="glass-card-3d flex flex-col justify-between p-6 rounded-[5px] border"
-          style="background: var(--glass-card); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+          class="metric-card-3d flex flex-col justify-between p-6 rounded-[5px] border"
+          style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
         >
           <div>
             <!-- Agent Header -->
             <div class="flex items-start justify-between gap-4 mb-4">
               <div class="flex items-center gap-3">
-                <div class="w-11 h-11 rounded-[5px] border flex items-center justify-center shadow-sm shrink-0" style="background: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+                <div class="w-11 h-11 rounded-[5px] flex items-center justify-center shadow-md text-white shrink-0" style="background: var(--theme-4gradient); box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-grad-1) 35%, transparent);">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={rankIcons[agent.name] || "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"} />
                   </svg>
@@ -348,7 +348,7 @@
                   <h3 class="text-base font-black tracking-tight" style="color: var(--color-text);">
                     @{agent.name}
                   </h3>
-                  <span class="inline-block text-[11px] font-bold uppercase tracking-wider" style="color: var(--color-primary);">
+                  <span class="inline-block text-[11px] font-bold uppercase tracking-wider gradient-text">
                     {agent.title || "Ninja Subagent"}
                   </span>
                 </div>

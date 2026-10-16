@@ -270,7 +270,7 @@
     </header>
 
     <!-- Page Body (extra bottom padding clears the mobile dock + theme FAB) -->
-    <div class="flex-1 overflow-y-auto p-6 pb-28 lg:p-8 lg:pb-8 transition-colors duration-200" style="background-color: var(--color-bg);">
+    <div class="flex-1 overflow-y-auto p-6 pb-28 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: var(--color-bg);">
       {@render children()}
     </div>
   </main>

@@ -173,31 +173,32 @@
   {/if}
 
   {#if result && !result.error}
-    <!-- Score panel -->
-    <div class="glass-card-3d p-6 lg:p-8 rounded-3xl border">
+    <!-- Score panel (3D AI Fingerprint Analysis) -->
+    <div class="metric-card-3d p-6 lg:p-8 rounded-3xl border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 30%, var(--color-border));">
       <div class="flex flex-col lg:flex-row lg:items-center gap-8">
         <div class="flex items-center gap-5">
           <div class="relative w-28 h-28 shrink-0">
             <svg viewBox="0 0 120 120" class="w-28 h-28 -rotate-90">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" stroke-width="12" />
+              <circle cx="60" cy="60" r="52" fill="none" stroke="color-mix(in srgb, var(--theme-grad-1) 12%, var(--color-border))" stroke-width="12" />
               <circle
                 cx="60" cy="60" r="52" fill="none"
                 stroke={scoreColor(result.score)}
                 stroke-width="12" stroke-linecap="round"
                 stroke-dasharray="{2 * Math.PI * 52}"
                 stroke-dashoffset="{2 * Math.PI * 52 * (1 - result.score / 100)}"
+                class="metric-gauge-3d"
               />
             </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-3xl font-black" style="color: {scoreColor(result.score)}">{result.score}</span>
-              <span class="text-[10px] text-slate-400 font-semibold">/ 100</span>
+            <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
+              <span class="text-3xl font-black font-mono tabular-nums" style="color: {scoreColor(result.score)}">{result.score}</span>
+              <span class="text-[10px] text-slate-400 font-semibold font-mono">/ 100</span>
             </div>
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <p class="text-xl font-black text-slate-900">{result.label}</p>
               {#if result.zerogpt_risk_score !== undefined}
-                <span class="px-2 py-0.5 rounded-md text-[11px] font-bold {result.zerogpt_risk_score <= 3.0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'}">
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-bold font-mono {result.zerogpt_risk_score <= 3.0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'}">
                   ZeroGPT Risk: {result.zerogpt_risk_score}%
                 </span>
               {/if}
@@ -206,13 +207,13 @@
               {result.verdict}
             </p>
             {#if result.mode || result.stats?.files_scanned !== undefined}
-              <p class="text-xs text-slate-400 mt-2 break-all">{result.target} ({result.mode || 'directory'})</p>
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-slate-400 mt-2 break-all font-mono">{result.target} ({result.mode || 'directory'})</p>
+              <p class="text-xs text-slate-400 font-mono">
                 {result.stats?.files_scanned || 0} files · {((result.stats?.bytes_scanned || 0) / 1024).toFixed(1)} KB · {result.stats?.elapsed_ms || 0} ms
               </p>
             {:else}
-              <p class="text-xs text-slate-400 mt-2 break-all">{result.target} ({result.format || 'document'})</p>
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-slate-400 mt-2 break-all font-mono">{result.target} ({result.format || 'document'})</p>
+              <p class="text-xs text-slate-400 font-mono">
                 {result.stats?.words || 0} words · {result.stats?.sentences || 0} sentences · {result.stats?.paragraphs || 0} paragraphs · Burstiness {result.stats?.burstiness ?? 'N/A'} · {result.stats?.elapsed_ms || 0} ms
               </p>
             {/if}
@@ -222,7 +223,7 @@
     </div>
 
     <!-- Findings -->
-    <div class="glass-card-3d p-6 rounded-3xl border">
+    <div class="metric-card-3d p-6 rounded-3xl border" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
       <h2 class="text-lg font-bold text-slate-900 mb-4">
         Findings {#if result.findings.length}({result.findings.length}){/if}
       </h2>

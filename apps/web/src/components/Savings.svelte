@@ -149,45 +149,54 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Today</div>
-          <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(combToday.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 perspective-container">
+        <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Today</div>
+            <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-1);"></span>
           </div>
-          <div class="text-xs font-semibold text-slate-700">
+          <div class="text-2xl font-black font-mono tabular-nums mb-1" style="color: var(--color-text);">
+            ~{formatTokens(combToday.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
+          </div>
+          <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
             {combToday.calls} calls • {formatBytes(combToday.bytes)} equiv ({combToday.pct}%)
           </div>
         </div>
 
-        <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Last 7 Days</div>
-          <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(combLast7.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
+        <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Last 7 Days</div>
+            <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-2);"></span>
           </div>
-          <div class="text-xs font-semibold text-slate-700">
+          <div class="text-2xl font-black font-mono tabular-nums mb-1" style="color: var(--color-text);">
+            ~{formatTokens(combLast7.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
+          </div>
+          <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
             {combLast7.calls} calls • {formatBytes(combLast7.bytes)} equiv ({combLast7.pct}%)
           </div>
         </div>
 
-        <div class="p-4 rounded-2xl border transition-all" style="background-color: var(--color-bg); border-color: var(--color-border);">
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">All Time</div>
-          <div class="text-2xl font-black text-slate-900 mb-1">
-            ~{formatTokens(combAllTime.tokens)} <span class="text-xs font-bold text-slate-600">tokens</span>
+        <div class="metric-card-3d p-5 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">All Time</div>
+            <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-3);"></span>
           </div>
-          <div class="text-xs font-semibold text-slate-700">
+          <div class="text-2xl font-black font-mono tabular-nums mb-1" style="color: var(--color-text);">
+            ~{formatTokens(combAllTime.tokens)} <span class="text-xs font-bold" style="color: var(--color-text-muted);">tokens</span>
+          </div>
+          <div class="text-xs font-semibold" style="color: var(--color-text-muted);">
             {combAllTime.calls} calls • {formatBytes(combAllTime.bytes)} equiv ({combAllTime.pct}%)
           </div>
         </div>
       </div>
 
-      <div class="p-3 rounded-xl border flex items-center justify-between text-xs font-semibold text-slate-700" style="background-color: var(--color-surface); border-color: var(--color-border);">
+      <div class="p-3 rounded-xl border flex items-center justify-between text-xs font-semibold" style="background-color: var(--color-surface); border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); color: var(--color-text);">
         <span class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--theme-grad-1);"></span>
           <span>Actual savings per query:</span>
-          <span>{combined.avg_pct ?? combAllTime.pct ?? 0}% average reduction per query</span>
+          <span class="font-bold">{combined.avg_pct ?? combAllTime.pct ?? 0}% average reduction per query</span>
         </span>
-        <span class="text-[11px] font-mono text-slate-500">Computed live from SQLite telemetry</span>
+        <span class="text-[11px] font-mono" style="color: var(--color-text-muted);">Computed live from SQLite telemetry</span>
       </div>
     </div>
 
@@ -195,7 +204,7 @@
     <div class="space-y-5">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+          <h3 class="text-lg font-black flex items-center gap-2" style="color: var(--color-text);">
             <span class="flex items-center gap-1.5" style="color: var(--color-primary);">
               <span>1.</span>
               <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,56 +213,56 @@
             </span>
             <span>Konoha MCP Savings</span>
           </h3>
-          <p class="text-xs font-semibold text-slate-600">
+          <p class="text-xs font-semibold" style="color: var(--color-text-muted);">
             Calculated relative to full context index sizing ({((today.db_size_bytes || (2065 * 1024)) / 1024).toFixed(0)} KB actual baseline)
           </p>
         </div>
       </div>
 
-      <!-- Top KPI Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+      <!-- Top KPI Cards (3D Raised Meters) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 perspective-container">
+        <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
             <span>Today</span>
-            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold" style="color: var(--color-primary); background-color: var(--color-primary-glow);">{today.pct_saved ?? today.pct ?? 0}%</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{today.pct_saved ?? today.pct ?? 0}%</span>
           </div>
-          <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{formatBytes(today.tokens_saved_bytes ?? today.bytes ?? 0)}</div>
-          <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+          <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{formatBytes(today.tokens_saved_bytes ?? today.bytes ?? 0)}</div>
+          <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
             <span>{today.calls ?? 0} operations</span>
-            <span style="color: var(--color-primary);">~{formatTokens(today.tokens_saved_approx ?? today.tokens ?? 0)} tokens</span>
+            <span class="font-bold" style="color: var(--color-primary);">~{formatTokens(today.tokens_saved_approx ?? today.tokens ?? 0)} tokens</span>
           </div>
-          <div class="w-full h-1.5 rounded-full mt-3 overflow-hidden" style="background-color: var(--color-border);">
-            <div class="h-full rounded-full transition-all" style="width: {today.pct_saved ?? today.pct ?? 0}%; background-color: var(--color-primary);"></div>
+          <div class="w-full h-2 rounded-full mt-3 overflow-hidden progress-track-3d">
+            <div class="h-full rounded-full transition-all progress-fill-3d" style="width: {today.pct_saved ?? today.pct ?? 0}%;"></div>
           </div>
         </div>
 
-        <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
             <span>Last 7 Days</span>
-            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
           </div>
-          <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{formatBytes(last7Days.tokens_saved_bytes ?? last7Days.bytes ?? 0)}</div>
-          <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+          <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{formatBytes(last7Days.tokens_saved_bytes ?? last7Days.bytes ?? 0)}</div>
+          <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
             <span>{last7Days.calls ?? 0} operations</span>
-            <span class="text-emerald-700 font-bold">~{formatTokens(last7Days.tokens_saved_approx ?? last7Days.tokens ?? 0)} tokens</span>
+            <span class="font-bold" style="color: var(--color-primary);">~{formatTokens(last7Days.tokens_saved_approx ?? last7Days.tokens ?? 0)} tokens</span>
           </div>
-          <div class="w-full h-1.5 rounded-full mt-3 overflow-hidden" style="background-color: var(--color-border);">
-            <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: {last7Days.pct_saved ?? last7Days.pct ?? 0}%"></div>
+          <div class="w-full h-2 rounded-full mt-3 overflow-hidden progress-track-3d">
+            <div class="h-full rounded-full transition-all progress-fill-3d" style="width: {last7Days.pct_saved ?? last7Days.pct ?? 0}%;"></div>
           </div>
         </div>
 
-        <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
+          <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
             <span>All Time</span>
-            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
           </div>
-          <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{formatBytes(allTime.tokens_saved_bytes ?? allTime.bytes ?? 0)}</div>
-          <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+          <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{formatBytes(allTime.tokens_saved_bytes ?? allTime.bytes ?? 0)}</div>
+          <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
             <span>{allTime.calls ?? 0} operations</span>
-            <span class="text-purple-700 font-bold">~{formatTokens(allTime.tokens_saved_approx ?? allTime.tokens ?? 0)} tokens</span>
+            <span class="font-bold" style="color: var(--color-primary);">~{formatTokens(allTime.tokens_saved_approx ?? allTime.tokens ?? 0)} tokens</span>
           </div>
-          <div class="w-full h-1.5 rounded-full mt-3 overflow-hidden" style="background-color: var(--color-border);">
-            <div class="h-full bg-purple-600 rounded-full transition-all" style="width: {allTime.pct_saved ?? allTime.pct ?? 0}%"></div>
+          <div class="w-full h-2 rounded-full mt-3 overflow-hidden progress-track-3d">
+            <div class="h-full rounded-full transition-all progress-fill-3d" style="width: {allTime.pct_saved ?? allTime.pct ?? 0}%;"></div>
           </div>
         </div>
       </div>
@@ -514,40 +523,40 @@
           </span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 perspective-container">
+          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
+            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
               <span>Today</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">{semble.today?.ratio_pct ?? 0}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.today?.ratio_pct ?? 0}%</span>
             </div>
-            <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.today?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.today?.tokens_saved ?? '—'}</div>
+            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
               <span>{semble.today?.calls ?? 0} searches</span>
-              <span class="text-emerald-700 font-bold">{semble.today?.ratio_pct ?? 0}% saved</span>
+              <span class="font-bold" style="color: var(--color-primary);">{semble.today?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
 
-          <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
+            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
               <span>Last 7 Days</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">{semble.last_7_days?.ratio_pct ?? 0}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.last_7_days?.ratio_pct ?? 0}%</span>
             </div>
-            <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.last_7_days?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.last_7_days?.tokens_saved ?? '—'}</div>
+            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
               <span>{semble.last_7_days?.calls ?? 0} searches</span>
-              <span class="text-sky-700 font-bold">{semble.last_7_days?.ratio_pct ?? 0}% saved</span>
+              <span class="font-bold" style="color: var(--color-primary);">{semble.last_7_days?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
 
-          <div class="glass-card-3d p-6 rounded-2xl border transition-all">
-            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+          <div class="metric-card-3d p-6 rounded-2xl border transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));">
+            <div class="flex items-center justify-between mb-2 text-xs font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">
               <span>All Time Total</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">{semble.all_time?.ratio_pct ?? 0}%</span>
+              <span class="px-2 py-0.5 rounded-full font-mono text-xs font-bold gradient-badge">{semble.all_time?.ratio_pct ?? 0}%</span>
             </div>
-            <div class="text-3xl font-black tracking-tight mb-1 text-slate-900">{semble.all_time?.tokens_saved ?? '—'}</div>
-            <div class="text-xs font-semibold flex items-center justify-between text-slate-700">
+            <div class="text-3xl font-black font-mono tabular-nums tracking-tight mb-1" style="color: var(--color-text);">{semble.all_time?.tokens_saved ?? '—'}</div>
+            <div class="text-xs font-semibold flex items-center justify-between" style="color: var(--color-text-muted);">
               <span>{semble.all_time?.calls ?? 0} searches</span>
-              <span class="text-purple-700 font-bold">{semble.all_time?.ratio_pct ?? 0}% saved</span>
+              <span class="font-bold" style="color: var(--color-primary);">{semble.all_time?.ratio_pct ?? 0}% saved</span>
             </div>
           </div>
         </div>

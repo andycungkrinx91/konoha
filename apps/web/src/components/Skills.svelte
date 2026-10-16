@@ -651,14 +651,14 @@
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
             onclick={() => openSkill(s.name)}
-            class="p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer shadow-sm hover:scale-[1.01]"
+            class="metric-card-3d p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer shadow-sm hover:scale-[1.01]"
             style="{isSelected
-              ? 'border-color: var(--color-primary); background-color: var(--color-primary-glow); box-shadow: 0 0 0 1px var(--color-primary);'
-              : 'border-color: var(--color-border); background-color: var(--color-surface);'}"
+              ? 'border-color: var(--color-primary); background-color: var(--color-primary-glow); box-shadow: 0 0 0 1px var(--color-primary), 0 8px 20px -4px color-mix(in srgb, var(--theme-grad-1) 25%, transparent);'
+              : 'border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border));'}"
           >
             <div class="flex items-center justify-between gap-2">
               <span class="text-xs font-black truncate" style="color: var(--color-text);">{s.name}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-bold shrink-0 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10">
+              <span class="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-bold shrink-0 gradient-badge">
                 {s.type || 'skill'}
               </span>
             </div>

@@ -353,13 +353,13 @@
     </div>
   </div>
 
-  <!-- Primary Dual-Card Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Primary Dual-Card Grid (3D Perspective View) -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 perspective-container">
 
     <!-- Card 1: Telegram Bot Integration -->
     <div
-      class="glass-card-3d rounded-[5px] p-6 space-y-5 border"
-      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+      class="metric-card-3d rounded-[5px] p-6 space-y-5 border"
+      style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-3">
@@ -491,8 +491,8 @@
 
     <!-- Card 2: Public Tunnel & Cloudflare Ingress -->
     <div
-      class="glass-card-3d rounded-[5px] p-6 space-y-5 border"
-      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+      class="metric-card-3d rounded-[5px] p-6 space-y-5 border"
+      style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-3">

@@ -114,8 +114,17 @@ body {
   padding: 0;
   background-color: var(--color-bg, #f8fafc);
   color: var(--color-text, #0f172a);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+code, kbd, samp, pre, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  letter-spacing: -0.02em;
 }
 
 /* Universal Card Invariant: 5px Border Radius Across ALL Cards */
@@ -127,17 +136,21 @@ body {
   border-radius: 5px !important;
 }
 
-/* 3D Glass & Animation Utilities with Hardware Acceleration to eliminate Chrome lag */
+/* 3D Glass & Advanced Perspective Utilities with Hardware Acceleration */
 .glass-card-3d {
   position: relative;
   border-radius: 5px !important;
   background: var(--glass-tint), var(--glass-card);
-  border: 1px solid var(--color-border, #e2e8f0);
-  box-shadow: var(--shadow-3d);
+  border: 1px solid color-mix(in srgb, var(--theme-grad-2) 22%, var(--color-border, #e2e8f0));
+  box-shadow:
+    0 14px 32px -4px color-mix(in srgb, var(--theme-grad-1) 10%, rgba(15, 23, 42, 0.08)),
+    0 6px 14px -3px color-mix(in srgb, var(--theme-grad-2) 8%, rgba(15, 23, 42, 0.04)),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px 0 color-mix(in srgb, var(--theme-grad-4) 8%, transparent);
   will-change: transform, box-shadow;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
-  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.24s ease, border-color 0.24s ease;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.28s ease;
   overflow: hidden;
 }
 
@@ -149,11 +162,12 @@ body {
   border-radius: 5px !important;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.12) 18%,
-    transparent 40%
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(255, 255, 255, 0.15) 16%,
+    transparent 42%
   );
   pointer-events: none;
+  z-index: 1;
 }
 
 /* Luxury specular shimmer sweep on hover */
@@ -167,13 +181,14 @@ body {
   background: linear-gradient(
     60deg,
     transparent 20%,
-    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.30) 50%,
     transparent 80%
   );
   transform: translateX(-100%) rotate(25deg);
   transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   opacity: 0;
+  z-index: 2;
 }
 
 .glass-card-3d:hover::after {
@@ -182,10 +197,14 @@ body {
 }
 
 .glass-card-3d:hover {
-  transform: translateY(-2px) translateZ(0);
-  -webkit-transform: translateY(-2px) translateZ(0);
-  box-shadow: var(--shadow-3d-hover);
-  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border, #e2e8f0));
+  transform: translateY(-3px) translateZ(8px);
+  -webkit-transform: translateY(-3px) translateZ(8px);
+  box-shadow:
+    0 24px 48px -8px color-mix(in srgb, var(--theme-grad-1) 18%, rgba(15, 23, 42, 0.14)),
+    0 12px 24px -4px color-mix(in srgb, var(--theme-grad-2) 12%, rgba(15, 23, 42, 0.08)),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1.5px 3px 0 color-mix(in srgb, var(--theme-grad-3) 15%, transparent);
+  border-color: color-mix(in srgb, var(--theme-grad-1) 45%, var(--color-border, #e2e8f0));
 }
 
 /* Frosted panel: true glass with backdrop blur + saturation (sidebar, header, dock) */
@@ -428,6 +447,87 @@ body {
   color: #ffffff !important;
   border-color: transparent !important;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* 3D Perspective & Elevation Containers */
+.perspective-container {
+  perspective: 1200px;
+  -webkit-perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+/* 3D Metric Card with Depth Layering & Theme Gradient Aura */
+.metric-card-3d {
+  position: relative;
+  background: var(--glass-tint), var(--glass-card);
+  border: 1px solid color-mix(in srgb, var(--theme-grad-2) 26%, var(--color-border));
+  box-shadow:
+    0 16px 36px -6px color-mix(in srgb, var(--theme-grad-1) 12%, rgba(15, 23, 42, 0.08)),
+    0 8px 16px -4px color-mix(in srgb, var(--theme-grad-2) 8%, rgba(15, 23, 42, 0.04)),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 color-mix(in srgb, var(--theme-grad-4) 8%, transparent);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.28s ease;
+  will-change: transform, box-shadow;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.metric-card-3d:hover {
+  transform: translateY(-4px) translateZ(10px);
+  -webkit-transform: translateY(-4px) translateZ(10px);
+  box-shadow:
+    0 26px 52px -10px color-mix(in srgb, var(--theme-grad-1) 22%, rgba(15, 23, 42, 0.16)),
+    0 14px 28px -5px color-mix(in srgb, var(--theme-grad-2) 14%, rgba(15, 23, 42, 0.10)),
+    inset 0 2px 0 rgba(255, 255, 255, 1),
+    inset 0 -2px 3px 0 color-mix(in srgb, var(--theme-grad-3) 15%, transparent);
+  border-color: color-mix(in srgb, var(--theme-grad-1) 50%, var(--color-border));
+}
+
+/* 3D Gauge & Dial Utilities */
+.metric-gauge-3d {
+  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--theme-grad-1) 35%, transparent));
+}
+
+.gauge-center-3d {
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6) 60%, rgba(240, 243, 248, 0.85) 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 4px rgba(15, 23, 42, 0.08),
+    0 8px 18px -4px color-mix(in srgb, var(--theme-grad-1) 15%, rgba(15, 23, 42, 0.12));
+}
+
+/* 3D Progress Bar Track with Channel Depth & Specular Cap */
+.progress-track-3d {
+  background: color-mix(in srgb, var(--theme-grad-1) 8%, #e2e8f0);
+  box-shadow: inset 0 1.5px 3px rgba(15, 23, 42, 0.15), inset 0 -0.5px 1px rgba(255, 255, 255, 0.8);
+  border: 1px solid color-mix(in srgb, var(--theme-grad-2) 15%, var(--color-border));
+}
+
+.progress-fill-3d {
+  background: var(--theme-4gradient) !important;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-grad-2) 50%, transparent);
+  position: relative;
+}
+
+.progress-fill-3d::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 3D Sparkline Graphics Glow */
+.sparkline-3d-stroke {
+  filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--theme-grad-1) 45%, transparent));
 }
 
 .animate-in {
