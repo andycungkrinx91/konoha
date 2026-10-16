@@ -228,18 +228,75 @@ code, kbd, samp, pre, .font-mono {
 }
 
 .btn-3d {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border: 1px solid color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border, #e2e8f0));
 }
 
 .btn-3d:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 18px -3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  border-color: color-mix(in srgb, var(--theme-grad-1) 35%, var(--color-border, #e2e8f0));
 }
 
 .btn-3d:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 3D Primary Button with Dynamic 4-Color Theme Gradient */
+.btn-3d-primary,
+.btn-primary-3d {
+  background: var(--theme-4gradient) !important;
+  color: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--theme-grad-1) 50%, rgba(255, 255, 255, 0.45)) !important;
+  box-shadow: var(--theme-btn-3d-shadow, 0 6px 18px -2px color-mix(in srgb, var(--theme-grad-1) 42%, transparent)), inset 0 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 2px rgba(0, 0, 0, 0.2) !important;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, filter 0.18s ease;
+  position: relative;
+  overflow: hidden;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.btn-3d-primary:hover,
+.btn-primary-3d:hover {
+  transform: translateY(-2.5px);
+  box-shadow: var(--theme-btn-3d-hover-shadow, 0 10px 24px -3px color-mix(in srgb, var(--theme-grad-1) 55%, transparent)), inset 0 2px 0 rgba(255, 255, 255, 0.75), inset 0 -1.5px 3px rgba(0, 0, 0, 0.25) !important;
+  filter: brightness(1.05);
+}
+
+.btn-3d-primary:active,
+.btn-primary-3d:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px -1px color-mix(in srgb, var(--theme-grad-1) 40%, transparent), inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+  filter: brightness(0.95);
+}
+
+/* 3D Modal Popup Card with Dynamic 4-Color Theme Gradient Accent & Border */
+.modal-3d,
+.modal-card {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.96) 100%),
+    var(--glass-tint);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))) !important;
+  box-shadow: var(--theme-modal-shadow, var(--shadow-3d-hover)) !important;
+  border-radius: 5px !important;
+  overflow: hidden;
+}
+
+.modal-3d::before,
+.modal-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--theme-4gradient);
+  z-index: 20;
 }
 
 /* Theme Utilities */
@@ -442,11 +499,28 @@ code, kbd, samp, pre, .font-mono {
   -webkit-text-fill-color: transparent;
 }
 
-.gradient-badge {
+.gradient-badge,
+.badge-3d {
   background: var(--theme-4gradient) !important;
   color: #ffffff !important;
-  border-color: transparent !important;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-grad-1) 50%, rgba(255, 255, 255, 0.45)) !important;
+  box-shadow:
+    0 3px 8px -1px color-mix(in srgb, var(--theme-grad-1) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -0.5px 1px rgba(0, 0, 0, 0.2) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-3d-subtle {
+  background: var(--theme-badge-subtle-bg, var(--theme-4gradient-subtle)) !important;
+  color: var(--theme-badge-subtle-text, var(--theme-grad-1)) !important;
+  border: 1px solid var(--theme-badge-subtle-border, color-mix(in srgb, var(--theme-grad-1) 32%, var(--color-border))) !important;
+  box-shadow:
+    0 2px 6px -1px color-mix(in srgb, var(--theme-grad-1) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+  font-weight: 700;
 }
 
 /* 3D Perspective & Elevation Containers */

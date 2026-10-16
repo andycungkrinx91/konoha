@@ -493,7 +493,7 @@
           <p class="text-[10px] font-bold uppercase tracking-wider mb-2.5" style="color: var(--color-text-muted);">Agent Roster</p>
           <div class="flex flex-wrap gap-1.5">
             {#each metrics.features.agent_names || [] as name}
-              <span class="text-[10px] font-bold px-2 py-1 rounded-lg font-mono border" style="color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-glow);">{name}</span>
+              <span class="text-[10px] font-bold px-2 py-1 rounded-lg font-mono badge-3d-subtle">{name}</span>
             {/each}
             {#if !(metrics.features.agent_names || []).length}
               <p class="text-xs" style="color: var(--color-text-muted);">No agents registered.</p>
@@ -565,7 +565,7 @@
           <p class="text-[10px] font-bold uppercase tracking-wider mb-2.5" style="color: var(--color-text-muted);">Skills &amp; Vector Index</p>
           <div class="flex flex-wrap gap-1.5 mb-3">
             {#each Object.entries(metrics.features.skills_by_type || {}) as [type, count]}
-              <span class="text-[10px] font-bold px-2 py-1 rounded-lg font-mono border" style="color: var(--color-text); border-color: var(--color-border);">{type} {count}</span>
+              <span class="text-[10px] font-bold px-2 py-1 rounded-lg font-mono badge-3d-subtle">{type} {count}</span>
             {/each}
           </div>
           <div class="flex justify-between text-[10px] font-mono mb-1" style="color: var(--color-text-muted);">

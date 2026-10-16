@@ -481,8 +481,7 @@
           type="button"
           onclick={saveTelegramSettings}
           disabled={tgSaving}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white transition-colors disabled:opacity-50 cursor-pointer"
-          style="background-color: var(--color-primary);"
+          class="btn-3d btn-3d-primary px-4 py-2 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shadow-md"
         >
           {tgSaving ? "Saving..." : "Save Settings"}
         </button>
@@ -674,8 +673,7 @@
         type="button"
         onclick={submitQueuePrompt}
         disabled={submittingPrompt || !newPromptText.trim()}
-        class="btn-3d px-5 py-2.5 text-xs font-bold rounded-[5px] text-white transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-        style="background-color: var(--color-primary);"
+        class="btn-3d btn-3d-primary px-5 py-2.5 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shrink-0 shadow-md"
       >
         {submittingPrompt ? "Dispatching..." : "Queue Prompt"}
       </button>
@@ -747,13 +745,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showGuideModal = false; }}
   >
     <div
-      class="modal-card w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-6 animate-in zoom-in-95 duration-150 glass-frost-strong"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-6 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
+          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -813,8 +811,7 @@
         <button
           type="button"
           onclick={() => { showGuideModal = false; }}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer"
-          style="background-color: var(--color-primary);"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
         >
           Got it
         </button>

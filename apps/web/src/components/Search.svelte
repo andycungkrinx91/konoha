@@ -134,7 +134,7 @@
     <div>
       <div class="flex items-center gap-3">
         <h1 class="text-2xl font-bold tracking-tight" style="color: var(--color-text);">Web Search (SearXNG)</h1>
-        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border tracking-wider uppercase" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase gradient-badge shadow-sm">
           Zero-API-Key Chain
         </span>
       </div>
@@ -147,7 +147,7 @@
     <div class="flex items-center gap-2">
       <button
         onclick={() => { showDiagnostics = !showDiagnostics; if (showDiagnostics) loadLogs(); }}
-        class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-sm"
+        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
         style="background: var(--glass-card); border-color: var(--color-border); color: var(--color-text);"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -158,7 +158,7 @@
 
       <button
         onclick={clearCache}
-        class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-sm text-amber-700 dark:text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
+        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-amber-700 dark:text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -283,8 +283,7 @@
         <button
           type="submit"
           disabled={isLoading || !query.trim()}
-          class="px-6 py-3 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
-          style="background: linear-gradient(135deg, var(--color-primary, #7c3aed), var(--color-accent, #6366f1)); color: #ffffff;"
+          class="btn-3d btn-3d-primary px-6 py-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
         >
           {#if isLoading}
             <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -309,7 +308,7 @@
         <button
           type="button"
           onclick={() => handleSearch(q)}
-          class="px-2.5 py-1 rounded-lg border text-xs transition-all hover:scale-105 font-medium"
+          class="btn-3d px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
         >
           {q}
@@ -394,7 +393,7 @@
                   type="button"
                   title="Copy citation markdown"
                   onclick={() => copyCitation(item)}
-                  class="px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1 transition-all hover:scale-105 shadow-sm"
+                  class="btn-3d px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
                   style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
                 >
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -407,7 +406,7 @@
                   type="button"
                   title="Copy link"
                   onclick={() => copyUrl(item.url)}
-                  class="p-1.5 rounded-xl border text-[11px] font-semibold transition-all hover:scale-105 shadow-sm"
+                  class="btn-3d p-1.5 rounded-xl border text-[11px] font-semibold shadow-sm cursor-pointer"
                   style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

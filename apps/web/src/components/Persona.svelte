@@ -305,8 +305,7 @@
         <button
           type="button"
           onclick={() => { isCreateModalOpen = true; }}
-          class="btn-3d inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-md cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
@@ -321,8 +320,8 @@
       <button
         type="button"
         onclick={() => { activeTab = "memories"; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2"
-        style={activeTab === "memories" ? "background-color: var(--color-primary); color: #ffffff; border-color: var(--color-primary);" : "background-color: #ffffff; color: var(--color-text-muted); border-color: var(--color-border);"}
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'memories' ? 'btn-3d-primary' : ''}"
+        style={activeTab !== "memories" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -333,8 +332,8 @@
       <button
         type="button"
         onclick={() => { activeTab = "soul"; loadSoul(); }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2"
-        style={activeTab === "soul" ? "background-color: var(--color-primary); color: #ffffff; border-color: var(--color-primary);" : "background-color: #ffffff; color: var(--color-text-muted); border-color: var(--color-border);"}
+        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
+        style={activeTab !== "soul" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-amber-200' : 'text-amber-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
@@ -354,8 +353,8 @@
         <button
           type="button"
           onclick={() => { selectedAgent = ag.id; loadMemories(); }}
-          class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border"
-          style={selectedAgent === ag.id ? "background-color: var(--color-primary); color: #ffffff; border-color: var(--color-primary);" : "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);"}
+          class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
+          style={selectedAgent !== ag.id ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
         >
           {ag.name}
         </button>
@@ -648,23 +647,31 @@
 {#if isCreateModalOpen}
   <div
     role="presentation"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150"
     onclick={(e) => { if (e.target === e.currentTarget) isCreateModalOpen = false; }}
     onkeydown={(e) => { if (e.key === 'Escape') isCreateModalOpen = false; }}
   >
     <div
-      class="glass-frost-strong relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border shadow-2xl space-y-6"
-      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
+      class="modal-card modal-3d relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[5px] p-6 sm:p-8 border shadow-2xl space-y-6 glass-frost-strong animate-in zoom-in-95 duration-150"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
     >
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-black text-slate-900">Add Persona Memory</h3>
+      <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold" style="color: var(--color-text);">Add Persona Memory</h3>
+        </div>
         <button
           type="button"
           onclick={() => { isCreateModalOpen = false; }}
-          class="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
+          style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close"
         >
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -745,8 +752,7 @@
         <button
           type="button"
           onclick={createMemory}
-          class="btn-3d px-5 py-2 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer"
         >
           Save Memory
         </button>

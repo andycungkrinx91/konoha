@@ -358,8 +358,7 @@
         <button
           type="button"
           onclick={() => isCreateModalOpen = true}
-          class="px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all hover:scale-[1.02] shadow-md cursor-pointer text-white"
-          style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent, #6366f1));"
+          class="btn-3d btn-3d-primary px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md text-white"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -370,7 +369,7 @@
         <button
           type="button"
           onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-sm cursor-pointer {searchMode === 'registry' ? 'ring-2 ring-blue-500 font-bold' : ''}"
+          class="btn-3d px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer {searchMode === 'registry' ? 'border-sky-500 shadow-md font-bold' : ''}"
           style="background: var(--color-surface); border-color: var(--color-primary); color: var(--color-primary);"
           title="Search skills on skills.sh registry (konoha skill search <query>)"
         >
@@ -383,7 +382,7 @@
         <button
           type="button"
           onclick={reindexAllSkills}
-          class="px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-sm cursor-pointer"
+          class="btn-3d px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           title="Run konoha migrate to re-index all skills"
         >
@@ -431,7 +430,7 @@
         <button
           type="button"
           onclick={() => { searchMode = "fts"; loadSkills(); }}
-          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -441,7 +440,7 @@
         <button
           type="button"
           onclick={() => { searchMode = "vector"; loadSkills(); }}
-          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -451,7 +450,7 @@
         <button
           type="button"
           onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}"
+          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'btn-3d-primary' : 'text-slate-600 dark:text-slate-400'}"
           title="Search open-source community skills on skills.sh (equivalent to: konoha skill search <query>)"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -462,7 +461,7 @@
       </div>
 
       {#if searchMode === 'registry'}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-blue-700 dark:text-blue-300 border-blue-500/30 bg-blue-500/10 flex items-center gap-1">
+        <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold badge-3d-subtle flex items-center gap-1">
           <svg class="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
           </svg>
@@ -918,13 +917,13 @@
     onclick={() => isCreateModalOpen = false}
   >
     <div
-      class="w-full max-w-2xl p-6 rounded-3xl border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-2xl p-6 rounded-3xl border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl flex items-center justify-center border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm" style="background: var(--theme-4gradient); border-color: transparent; color: #ffffff;">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
@@ -1029,8 +1028,7 @@
           type="button"
           disabled={isSubmitting || !newSkill.name.trim()}
           onclick={createSkillSubmit}
-          class="px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer text-white shadow-md disabled:opacity-50"
-          style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent, #6366f1));"
+          class="btn-3d btn-3d-primary px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer text-white shadow-md disabled:opacity-50"
         >
           {#if isSubmitting}
             <span class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
@@ -1053,14 +1051,14 @@
     onclick={() => isRegistryModalOpen = false}
   >
     <div
-      class="w-full max-w-2xl p-6 rounded-3xl border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-2xl p-6 rounded-3xl border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl flex items-center justify-center border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm" style="background: var(--theme-4gradient); border-color: transparent; color: #ffffff;">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
             </svg>
@@ -1217,7 +1215,7 @@
         <button
           type="button"
           onclick={() => isRegistryModalOpen = false}
-          class="px-4 py-2 rounded-xl border font-semibold cursor-pointer"
+          class="btn-3d px-4 py-2 rounded-xl border font-semibold cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
         >
           Close

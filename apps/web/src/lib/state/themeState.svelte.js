@@ -50,6 +50,14 @@ export function createThemeState() {
         document.documentElement.style.setProperty('--theme-sidebar-footer-bg', `linear-gradient(0deg, color-mix(in srgb, ${found.gradient[3]} 14%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 6%, ${found.surface}) 100%)`);
         document.documentElement.style.setProperty('--theme-header-bg', `linear-gradient(90deg, color-mix(in srgb, ${found.gradient[0]} 10%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 7%, ${found.surface}) 30%, color-mix(in srgb, ${found.gradient[2]} 7%, ${found.surface}) 70%, color-mix(in srgb, ${found.gradient[3]} 12%, ${found.surface}) 100%)`);
         document.documentElement.style.setProperty('--theme-dock-bg', `linear-gradient(90deg, color-mix(in srgb, ${found.gradient[0]} 12%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 7%, ${found.surface}) 50%, color-mix(in srgb, ${found.gradient[3]} 12%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-btn-3d-bg', `linear-gradient(135deg, ${found.gradient[0]} 0%, ${found.gradient[1]} 33%, ${found.gradient[2]} 66%, ${found.gradient[3]} 100%)`);
+        document.documentElement.style.setProperty('--theme-btn-3d-shadow', `0 6px 18px -2px color-mix(in srgb, ${found.gradient[0]} 42%, transparent), 0 2px 6px -1px color-mix(in srgb, ${found.gradient[1]} 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45)`);
+        document.documentElement.style.setProperty('--theme-btn-3d-hover-shadow', `0 10px 24px -3px color-mix(in srgb, ${found.gradient[0]} 55%, transparent), 0 4px 10px -2px color-mix(in srgb, ${found.gradient[1]} 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.65)`);
+        document.documentElement.style.setProperty('--theme-modal-border', `color-mix(in srgb, ${found.gradient[0]} 38%, ${found.border})`);
+        document.documentElement.style.setProperty('--theme-modal-shadow', `0 25px 60px -12px color-mix(in srgb, ${found.gradient[0]} 22%, rgba(15, 23, 42, 0.28)), 0 12px 24px -6px color-mix(in srgb, ${found.gradient[1]} 12%, rgba(15, 23, 42, 0.15)), inset 0 1.5px 0 rgba(255, 255, 255, 1)`);
+        document.documentElement.style.setProperty('--theme-badge-subtle-bg', `linear-gradient(135deg, color-mix(in srgb, ${found.gradient[0]} 14%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[2]} 8%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-badge-subtle-border', `color-mix(in srgb, ${found.gradient[0]} 30%, ${found.border})`);
+        document.documentElement.style.setProperty('--theme-badge-subtle-text', found.gradient[0]);
       }
       try {
         localStorage.setItem('konoha-theme', themeId);

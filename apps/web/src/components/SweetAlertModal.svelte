@@ -14,10 +14,10 @@
     class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200"
     onclick={(e) => { if (e.target === e.currentTarget) sweetAlert.handleCancel(); }}
   >
-    <!-- 3D Perspective Modal Card -->
+    <!-- 3D Perspective Modal Card with 4-Color Theme Gradient Accent & Border -->
     <div
-      class="modal-card relative w-full max-w-lg rounded-[5px] p-6 sm:p-8 border shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden"
-      style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);"
+      class="modal-card modal-3d relative w-full max-w-lg rounded-[5px] p-6 sm:p-8 border shadow-2xl transition-all duration-300 transform scale-100 overflow-hidden"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); box-shadow: var(--theme-modal-shadow, var(--shadow-3d-hover));"
       role="alertdialog"
       aria-modal="true"
     >
@@ -97,8 +97,7 @@
         <button
           type="button"
           onclick={sweetAlert.handleConfirm}
-          class="btn-3d px-6 py-2.5 rounded-[5px] text-xs font-bold text-white transition-all cursor-pointer shadow-lg"
-          style="background-color: var(--color-primary, #7c3aed);"
+          class="btn-3d btn-3d-primary px-6 py-2.5 rounded-[5px] text-xs font-bold text-white transition-all cursor-pointer shadow-lg"
         >
           {sweetAlert.confirmText}
         </button>

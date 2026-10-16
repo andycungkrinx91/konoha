@@ -46,10 +46,10 @@
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={() => isModalOpen = false}
   >
-    <!-- Centered Modal Popup Dialog -->
+    <!-- Centered Modal Popup Dialog with 3D 4-Color Gradient Engine -->
     <div
-      class="modal-card w-full max-w-lg p-6 rounded-[5px] border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 glass-frost-strong"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-lg p-6 rounded-[5px] border shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <!-- Header -->
@@ -105,7 +105,7 @@
               <div class="flex items-center justify-between gap-1">
                 <span class="text-xs font-black truncate" style="color: var(--color-text);">{t.name}</span>
                 {#if isCurrent}
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-[5px] border text-sky-700 dark:text-sky-300 border-sky-500/30 bg-sky-500/10 shrink-0">Active</span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full gradient-badge shrink-0">Active</span>
                 {/if}
               </div>
               <span class="text-[10px] truncate" style="color: var(--color-text-muted);">{t.description}</span>

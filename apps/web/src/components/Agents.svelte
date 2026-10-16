@@ -292,8 +292,7 @@
         <button
           type="button"
           onclick={openCreateModal}
-          class="btn-3d px-4 py-3 rounded-[5px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer transition-colors shadow-md"
-          style="background: var(--color-primary);"
+          class="btn-3d btn-3d-primary px-4 py-3 rounded-[5px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-md"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -386,7 +385,7 @@
                     </button>
                   </div>
                 {/if}
-                <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+                <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold badge-3d-subtle">
                   {agent.skills ? agent.skills.length : 0} skills
                 </span>
               </div>
@@ -445,7 +444,7 @@
                         {skill}
                       </span>
                       {#if isChecked}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono font-bold gradient-badge shrink-0">
                           active
                         </span>
                       {/if}
@@ -478,13 +477,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}
   >
     <div
-      class="modal-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
+          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
@@ -604,8 +603,7 @@
           type="button"
           disabled={createSubmitting}
           onclick={handleCreateAgent}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer"
-          style="background: var(--color-primary);"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
         >
           {createSubmitting ? "Creating..." : "Create Ninja"}
         </button>
@@ -624,13 +622,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showEditModal = false; }}
   >
     <div
-      class="modal-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
-      style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); box-shadow: var(--shadow-3d);"
+      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white" style="background: var(--color-primary);">
+          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
@@ -716,8 +714,7 @@
           type="button"
           disabled={editSubmitting}
           onclick={handleUpdateAgent}
-          class="btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer"
-          style="background: var(--color-primary);"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
         >
           {editSubmitting ? "Updating..." : "Save Changes"}
         </button>
