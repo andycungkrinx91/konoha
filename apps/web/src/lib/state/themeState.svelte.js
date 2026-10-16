@@ -45,6 +45,11 @@ export function createThemeState() {
         document.documentElement.style.setProperty('--theme-4gradient', `linear-gradient(135deg, ${found.gradient[0]} 0%, ${found.gradient[1]} 33%, ${found.gradient[2]} 66%, ${found.gradient[3]} 100%)`);
         document.documentElement.style.setProperty('--theme-4gradient-bar', `linear-gradient(90deg, ${found.gradient[0]}, ${found.gradient[1]}, ${found.gradient[2]}, ${found.gradient[3]})`);
         document.documentElement.style.setProperty('--theme-4gradient-subtle', `linear-gradient(135deg, ${found.gradient[0]}22 0%, ${found.gradient[1]}22 33%, ${found.gradient[2]}22 66%, ${found.gradient[3]}22 100%)`);
+        document.documentElement.style.setProperty('--theme-sidebar-bg', `linear-gradient(180deg, color-mix(in srgb, ${found.gradient[0]} 10%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 6%, ${found.surface}) 35%, color-mix(in srgb, ${found.gradient[2]} 6%, ${found.surface}) 70%, color-mix(in srgb, ${found.gradient[3]} 12%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-sidebar-header-bg', `linear-gradient(135deg, color-mix(in srgb, ${found.gradient[0]} 16%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[2]} 8%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-sidebar-footer-bg', `linear-gradient(0deg, color-mix(in srgb, ${found.gradient[3]} 14%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 6%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-header-bg', `linear-gradient(90deg, color-mix(in srgb, ${found.gradient[0]} 10%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 7%, ${found.surface}) 30%, color-mix(in srgb, ${found.gradient[2]} 7%, ${found.surface}) 70%, color-mix(in srgb, ${found.gradient[3]} 12%, ${found.surface}) 100%)`);
+        document.documentElement.style.setProperty('--theme-dock-bg', `linear-gradient(90deg, color-mix(in srgb, ${found.gradient[0]} 12%, ${found.surface}) 0%, color-mix(in srgb, ${found.gradient[1]} 7%, ${found.surface}) 50%, color-mix(in srgb, ${found.gradient[3]} 12%, ${found.surface}) 100%)`);
       }
       try {
         localStorage.setItem('konoha-theme', themeId);

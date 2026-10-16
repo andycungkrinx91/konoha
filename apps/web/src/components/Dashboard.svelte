@@ -121,8 +121,8 @@
   <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
     <div>
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--color-primary);">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg text-white" style="background: var(--theme-4gradient); border-color: transparent; box-shadow: 0 4px 14px var(--color-primary-glow);">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v7h7M21 21v-7h-7M3 10a9 9 0 0115-5.7L21 8M21 14a9 9 0 01-15 5.7L3 16" />
           </svg>
         </div>

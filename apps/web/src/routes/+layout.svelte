@@ -128,18 +128,18 @@
   <!-- Desktop Fixed Left Sidebar (Collapsible for Maximum Center Space) -->
   <aside
     class="glass-frost hidden lg:flex border-r flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden {isSidebarOpen ? 'w-64' : 'w-0 border-r-0 opacity-0 pointer-events-none'}"
-    style="background: var(--glass-sidebar), var(--glass-tint); border-color: var(--color-border); color: var(--color-text);"
+    style="background: var(--theme-sidebar-bg); border-color: color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border)); color: var(--color-text);"
   >
     <div class="flex-1 overflow-y-auto scrollbar-thin w-64">
       <!-- Brand Header (Far-Left Logo + Sidebar Collapse Button) -->
-      <div class="p-4 border-b flex items-center justify-between sticky top-0 z-10 glass-frost" style="border-color: var(--color-border); background: var(--glass-sidebar), var(--glass-tint);">
+      <div class="p-4 border-b flex items-center justify-between sticky top-0 z-10 glass-frost" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: var(--theme-sidebar-header-bg);">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-9 h-9 rounded-[5px] overflow-hidden flex items-center justify-center shadow-md border bg-white shrink-0" style="border-color: var(--color-primary);">
             <img src="/fox_kyubi_192.png" alt="Konoha Kyubi logo" class="w-full h-full object-cover" width="36" height="36" loading="eager" />
           </div>
           <div class="min-w-0">
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
-              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border" style="color: var(--color-primary); background-color: var(--color-primary-glow); border-color: var(--color-primary);">v{health.version || '2.1.18'}</span>
+              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.1.18'}</span>
             </h1>
             <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Ninja Agent Village</p>
           </div>
@@ -163,7 +163,7 @@
         {#each navSections as section}
           {@const isExpanded = openSections.has(section.title)}
           {@const hasActiveChild = section.items.some(it => page.url.pathname === it.path || (it.path === '/dashboard' && page.url.pathname === '/'))}
-          <div class="rounded-[5px] overflow-hidden border border-transparent transition-colors {hasActiveChild ? 'bg-sky-500/5 dark:bg-sky-500/10 border-sky-500/20' : ''}">
+          <div class="rounded-[5px] overflow-hidden border transition-all duration-200 {hasActiveChild ? 'border-sky-500/30 shadow-xs' : 'border-transparent'}" style="{hasActiveChild ? 'background: linear-gradient(90deg, color-mix(in srgb, var(--theme-grad-1) 14%, transparent) 0%, color-mix(in srgb, var(--theme-grad-2) 6%, transparent) 100%);' : ''}">
             <button
               type="button"
               onclick={() => toggleSection(section.title)}
@@ -172,7 +172,7 @@
               aria-expanded={isExpanded}
             >
               <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full {hasActiveChild ? 'bg-sky-500' : 'bg-slate-400/40'}"></span>
+                <span class="w-1.5 h-1.5 rounded-full {hasActiveChild ? 'shadow-xs' : 'bg-slate-400/40'}" style="{hasActiveChild ? 'background: var(--theme-4gradient);' : ''}"></span>
                 <span>{section.title}</span>
               </div>
               <svg class="w-3.5 h-3.5 transition-transform duration-200 {isExpanded ? 'rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -186,8 +186,8 @@
                   {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
                   <a
                     href={item.path}
-                    class="nav-depth flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150"
-                    style="{isActive ? 'color: var(--color-primary); background-color: var(--color-primary-glow); border: 1.5px solid var(--color-primary); box-shadow: 0 0 12px var(--color-primary-glow);' : 'color: var(--color-text-muted);'}"
+                    class="nav-depth gradient-sidemenu-item flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 {isActive ? 'gradient-sidemenu-active' : ''}"
+                    style="{isActive ? '' : 'color: var(--color-text-muted);'}"
                   >
                     <div class="flex items-center gap-2 min-w-0">
                       <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -196,7 +196,7 @@
                       <span class="truncate">{item.label}</span>
                     </div>
                     {#if item.badge}
-                      <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">{item.badge}</span>
+                      <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'bg-white/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
                     {/if}
                   </a>
                 {/each}
@@ -208,7 +208,7 @@
     </div>
 
     <!-- System Status Footer: Live MCP Gateway -->
-    <div class="p-4 border-t shrink-0 transition-colors duration-200 w-64" style="border-color: var(--color-border); background-color: var(--color-bg);">
+    <div class="p-4 border-t shrink-0 transition-colors duration-200 w-64" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: var(--theme-sidebar-footer-bg);">
       <div class="flex items-center justify-between text-xs mb-2" style="color: var(--color-text-muted);">
         <span class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full {uiState.isConnected ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-500'}"></span>
@@ -226,10 +226,10 @@
   <!-- Main Content Stage (Expands to Full Width When Sidebar is Collapsed) -->
   <main class="flex-1 flex flex-col overflow-hidden pb-28 lg:pb-0 transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
     <!-- Top 4-Gradient Vibrant Accent Stripe -->
-    <div class="h-1 w-full shrink-0" style="background: var(--theme-4gradient-bar);"></div>
+    <div class="h-1 w-full shrink-0 animate-gradient-flow" style="background: var(--theme-4gradient-bar);"></div>
 
     <!-- Top Header: Brand Logo on Far LEFT + Sidebar Toggle (Mandatory Invariant) -->
-    <header class="glass-frost h-14 border-b px-4 lg:px-6 flex items-center justify-between shrink-0 transition-colors duration-200" style="background: var(--glass-header), var(--glass-tint); border-color: var(--color-border);">
+    <header class="glass-frost h-14 border-b px-4 lg:px-6 flex items-center justify-between shrink-0 transition-all duration-200" style="background: var(--theme-header-bg); border-color: color-mix(in srgb, var(--theme-grad-3) 25%, var(--color-border)); box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--theme-grad-1) 12%, transparent);">
       <!-- Far-Left Logo & Title + Sidebar Open/Close Toggle Button -->
       <div class="flex items-center gap-3">
         <!-- Desktop Sidebar Toggle Button -->
@@ -253,7 +253,7 @@
         <div class="hidden sm:flex items-center gap-2 text-xs">
           <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">Dashboard</span>
           <span style="color: var(--color-border);">/</span>
-          <span class="font-semibold capitalize" style="color: var(--color-primary);">{page.url.pathname.replace('/', '') || 'dashboard'}</span>
+          <span class="font-extrabold capitalize text-xs gradient-text">{page.url.pathname.replace('/', '') || 'dashboard'}</span>
         </div>
       </div>
 
@@ -276,13 +276,13 @@
   </main>
 
   <!-- Mobile Navigation Dock (Mandatory Invariant — Zero Hamburger Menu in Header) -->
-  <nav class="glass-frost lg:hidden fixed bottom-0 inset-x-0 z-40 border-t flex flex-nowrap items-center gap-1 overflow-x-auto scrollbar-none py-2 px-2 shadow-2xl transition-colors duration-200" style="background: var(--glass-dock), var(--glass-tint); border-color: var(--color-border); padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
+  <nav class="glass-frost lg:hidden fixed bottom-0 inset-x-0 z-40 border-t flex flex-nowrap items-center gap-1 overflow-x-auto scrollbar-none py-2 px-2 shadow-2xl transition-all duration-200" style="background: var(--theme-dock-bg); border-color: color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border)); padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px -4px color-mix(in srgb, var(--theme-grad-1) 15%, transparent);">
     {#each allNavItems as item}
       {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
       <a
         href={item.path}
-        class="nav-depth flex flex-col items-center gap-1 py-1 px-2.5 rounded-[5px] text-[10px] font-semibold transition-all shrink-0"
-        style="{isActive ? 'color: var(--color-primary); background-color: var(--color-primary-glow);' : 'color: var(--color-text-muted);'}"
+        class="nav-depth flex flex-col items-center gap-1 py-1 px-2.5 rounded-[5px] text-[10px] font-semibold transition-all shrink-0 {isActive ? 'gradient-sidemenu-active' : ''}"
+        style="{isActive ? '' : 'color: var(--color-text-muted);'}"
       >
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
