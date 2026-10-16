@@ -447,6 +447,8 @@ const TOOL_SPECIFIC_PARAM_MAP = {
   token_efficient_grep: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', Glob: 'glob', file_glob: 'glob', CaseInsensitive: 'ignore_case' },
   get_file_structure: { FilePath: 'file_path', filepath: 'file_path', Path: 'path', DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir' },
   find_files_clean: { DirectoryPath: 'dir', dir_path: 'dir', directory: 'dir', Pattern: 'pattern', root_dir: 'dir', rootDir: 'dir', max_results: 'limit', maxResults: 'limit' },
+  find_skill: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
+  find_skills: { query: 'keyword', Query: 'keyword', keywords: 'keyword', Keywords: 'keyword' },
 };
 
 const GLOBAL_PARAM_MAP = {

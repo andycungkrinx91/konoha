@@ -77,7 +77,10 @@ function _executeToolInternal(toolName, args, agent) {
     return annotateWorkflowFileHint(text);
   }
   if (toolName === 'find_skill' || toolName === 'find_skills') {
-    const keyword = args.keyword || '';
+    let keyword = args.keyword || args.keywords || args.query || args.Query || '';
+    if (Array.isArray(keyword)) {
+      keyword = keyword.join(' ');
+    }
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);
     const compact = Boolean(args.compact);
     const taskId = args.task_id || args.taskId || args.session_id || args.sessionId || null;

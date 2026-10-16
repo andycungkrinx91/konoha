@@ -191,4 +191,4 @@ Based on the specific artifact request, refer to the corresponding reference gui
 | Complete documentation architecture, API references, runbooks | `tokubetsu-jonin-skill/documentation-site-expert` |
 | Postmortems, incident reports, root cause analysis (RCA), project retrospectives | `tokubetsu-jonin-skill/postmortem-writer` |
 | Technical articles, tutorials, engineering blogs, case studies | `tokubetsu-jonin-skill/technical-article-writer` |
-| Final response shaping, ADHD-friendly concise output, action-first answers | `tokubetsu-jonin-skill/i-have-adhd` |
+| Final response shaping, ADHD-friendly concise output, action-first answers | `tokubetsu-jonin-skill/i-have-adhd` (`i-have-adhd`) |
