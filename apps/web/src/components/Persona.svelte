@@ -273,7 +273,7 @@
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="space-y-2">
@@ -442,7 +442,7 @@
               <button
                 type="button"
                 onclick={() => deleteMemory(m.id)}
-                class="btn-3d p-1.5 rounded-lg theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
+                class="btn-3d p-1.5 rounded-lg theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
                 title="Delete memory"
                 aria-label="Delete memory"
               >

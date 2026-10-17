@@ -248,7 +248,7 @@
                     <button
                       type="button"
                       onclick={() => { closeMobileSidebar(); authState.logout(); }}
-                      class="nav-depth gradient-sidemenu-item w-full flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 cursor-pointer text-status-danger hover:text-status-danger hover:bg-status-danger-soft/10"
+                      class="nav-depth gradient-sidemenu-item w-full flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 cursor-pointer text-status-danger hover:text-status-danger hover:bg-status-danger-soft"
                     >
                       <div class="flex items-center gap-2 min-w-0">
                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,7 +257,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 bg-status-danger-soft/20 text-status-danger border border-status-danger-soft">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 bg-status-danger-soft text-status-danger border-status-danger-soft">{item.badge}</span>
                       {/if}
                     </button>
                   {:else}
@@ -275,7 +275,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-[var(--theme-text-inverse)] border border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft/20 text-status-success border border-status-success-soft'}">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-[var(--theme-text-inverse)] border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft text-status-success border-status-success-soft'}">{item.badge}</span>
                       {/if}
                     </a>
                   {/if}
@@ -400,7 +400,7 @@
           <span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
           <span>127.0.0.1:{health.port || 1404}</span>
         </div>
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold bg-status-success-soft/10 text-status-success border border-status-success-soft/20">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold bg-status-success-soft text-status-success border-status-success-soft/20">
           SSE Active
         </span>
       </div>
@@ -425,7 +425,7 @@
   {#if uiState.notifications.length > 0}
     <div class="fixed top-5 right-5 z-[100] space-y-2 max-w-[calc(100vw-2.5rem)] pointer-events-none">
       {#each uiState.notifications as n (n.id)}
-        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-[var(--theme-overlay)] 95 text-white border-[var(--theme-info)] flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
+        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-[var(--theme-overlay)] text-white border-[var(--theme-info)] flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
           <span class="w-2 h-2 rounded-full bg-status-info animate-ping"></span>
           <span>{n.text}</span>
         </div>

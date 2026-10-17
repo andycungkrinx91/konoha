@@ -356,7 +356,7 @@
                   class="w-full flex items-center gap-3 p-2.5 rounded-[5px] border text-left transition-all duration-150 hover:scale-[1.01] cursor-pointer {isCurrent ? 'theme-bg-muted theme-border-hover active-palette' : 'theme-bg-surface hover-bg-muted theme-border'}"
                   onclick={() => selectTheme(t.id)}
                 >
-                  <span class="relative w-9 h-9 shrink-0 rounded-[5px] border border-black/15 shadow-sm" style="background: {themeGradient(t)};" aria-hidden="true">
+                  <span class="relative w-9 h-9 shrink-0 rounded-[5px] border-black/15 shadow-sm" style="background: {themeGradient(t)};" aria-hidden="true">
                     {#if isCurrent}
                       <span class="absolute inset-0 flex items-center justify-center">
                         <svg class="w-4 h-4 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="color: var(--theme-text-inverse);">

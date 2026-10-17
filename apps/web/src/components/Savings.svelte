@@ -76,7 +76,7 @@
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.82) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="space-y-2">
@@ -108,7 +108,7 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-xl bg-status-danger-soft/10 border border-status-danger-soft text-status-danger text-sm font-semibold">
+    <div class="p-4 rounded-xl bg-status-danger-soft border-status-danger-soft text-status-danger text-sm font-semibold">
       {error}
     </div>
   {/if}
@@ -137,7 +137,7 @@
       style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"
     >
       <div class="flex items-center gap-2.5 mb-4">
-        <div class="w-8 h-8 rounded-[5px] flex items-center justify-center bg-status-warning-soft text-status-warning border border-status-warning-soft">
+        <div class="w-8 h-8 rounded-[5px] flex items-center justify-center bg-status-warning-soft text-status-warning border-status-warning-soft">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
           </svg>

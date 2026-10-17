@@ -508,7 +508,7 @@
           {registryResults.length} found
         </span>
       {:else}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-status-success border-status-success-soft bg-status-success-soft/10 flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
+        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-status-success border-status-success-soft bg-status-success-soft flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
           <svg class="w-3.5 h-3.5 text-[var(--theme-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -653,7 +653,7 @@
       <p class="text-xs font-semibold" style="color: var(--color-text-muted);">Loading skills from SQLite FTS5 registry...</p>
     </div>
   {:else if error}
-    <div class="p-6 rounded-3xl border border-status-danger-soft bg-status-danger-soft/10 text-status-danger text-xs font-bold">
+    <div class="p-6 rounded-3xl border-status-danger-soft bg-status-danger-soft text-status-danger text-xs font-bold">
       Failed to load skills: {error}
     </div>
   {:else}
@@ -745,7 +745,7 @@
                 <button
                   type="button"
                   onclick={() => deleteSkill(selectedSkill.name)}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all text-status-danger border-status-danger-soft bg-status-danger-soft/10 hover:bg-status-danger-soft/20 cursor-pointer"
+                  class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all text-status-danger border-status-danger-soft bg-status-danger-soft hover:bg-status-danger-soft cursor-pointer"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -827,7 +827,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <span>Vector Chunks & Embeddings</span>
-                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-status-success-soft/20 text-[var(--theme-success)] '}">
+                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-status-success-soft text-[var(--theme-success)] '}">
                     {selectedSkill.chunks_count || selectedSkill.chunks?.length || 0}
                   </span>
                 </button>
@@ -868,7 +868,7 @@
                             <span class="text-xs font-bold px-2 py-0.5 rounded-lg border text-action-primary border-status-info-soft bg-status-info-soft font-mono">
                               Chunk #{chunk.chunk_index + 1}
                             </span>
-                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-lg border text-status-success border-status-success-soft bg-status-success-soft/10">
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-lg border text-status-success border-status-success-soft bg-status-success-soft">
                               384-dim Float32 Vector
                             </span>
                           </div>

@@ -307,7 +307,7 @@
   <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
   <div
     class="glass-card-3d relative overflow-hidden rounded-[5px] p-8 border transition-all duration-300"
-    style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.85) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
+    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="space-y-2">
@@ -510,7 +510,7 @@
       </div>
 
       <!-- Tunnel Information Badge -->
-      <div class="p-3.5 rounded-[5px] border space-y-2" style="background: rgba(255, 255, 255, 0.6); border-color: var(--color-border);">
+      <div class="p-3.5 rounded-[5px] border space-y-2" style="background: color-mix(in srgb, var(--theme-surface) 75%, transparent); border-color: var(--theme-border);">
         <div class="flex items-center justify-between text-xs">
           <span style="color: var(--color-text-muted);">Target Service:</span>
           <span class="font-mono font-bold" style="color: var(--color-text);">http://127.0.0.1:1404</span>
@@ -562,7 +562,7 @@
           </div>
         </div>
       {:else}
-        <div class="p-3.5 rounded-[5px] border border-dashed text-center" style="border-color: var(--color-border); background: rgba(255, 255, 255, 0.4);">
+        <div class="p-3.5 rounded-[5px] border border-dashed text-center" style="border-color: var(--color-border); background: var(--theme-surface);">
           <p class="text-xs font-medium" style="color: var(--color-text-muted);">
             No active ingress tunnel. Enter your Cloudflare Tunnel Token and click "Start Cloudflare Tunnel".
           </p>

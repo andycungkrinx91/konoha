@@ -157,7 +157,7 @@
 
       <button
         onclick={clearCache}
-        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-status-warning border-status-warning-soft bg-status-warning-soft hover:bg-status-warning-soft/20"
+        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-status-warning border-status-warning-soft bg-status-warning-soft hover-bg-subtle"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -317,7 +317,7 @@
 
   <!-- Error State -->
   {#if searchError}
-    <div class="p-4 rounded-2xl border border-status-danger-soft bg-status-danger-soft/10 text-status-danger text-xs font-semibold flex items-center gap-3">
+    <div class="p-4 rounded-2xl border-status-danger-soft bg-status-danger-soft text-status-danger text-xs font-semibold flex items-center gap-3">
       <svg class="w-5 h-5 shrink-0 text-status-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -353,7 +353,7 @@
                   <span class="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
                     [#{item.citation_id}]
                   </span>
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border tracking-wide uppercase text-status-success border-status-success-soft bg-status-success-soft/10">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border tracking-wide uppercase text-status-success border-status-success-soft bg-status-success-soft">
                     {item.source || 'Web'}
                   </span>
                   <span class="text-[11px] font-mono truncate max-w-md" style="color: var(--color-text-muted);">
