@@ -322,7 +322,7 @@
 
     <!-- Top Header: Brand Logo on Far LEFT + Sidebar Toggle (Mandatory Invariant) -->
     <header class="glass-frost h-14 border-b px-4 lg:px-6 flex items-center justify-between shrink-0 transition-all duration-200" style="background: var(--theme-header-bg); border-color: color-mix(in srgb, var(--theme-grad-3) 25%, var(--color-border)); box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--theme-grad-1) 12%, transparent);">
-      <!-- Far-Left Logo & Title + Sidebar Open/Close Toggle Button -->
+      <!-- Far-Left Title + Sidebar Open/Close Toggle Button -->
       <div class="flex items-center gap-2.5">
         <!-- Desktop Sidebar Toggle Button -->
         <button
@@ -356,11 +356,7 @@
           </svg>
         </button>
 
-        <div class="flex items-center gap-2">
-          <img src="/fox_kyubi_64.png" alt="Konoha" class="w-7 h-7 rounded-[5px] border object-cover bg-white shrink-0" style="border-color: var(--color-primary);" width="28" height="28" loading="eager" />
-          <span class="text-sm font-bold tracking-tight" style="color: var(--color-text);">Konoha</span>
-        </div>
-        <div class="hidden sm:flex items-center gap-2 text-xs">
+        <div class="flex items-center gap-2 text-xs">
           {#if currentSection}
             <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">{currentSection.title}</span>
             <span style="color: var(--color-border);">/</span>

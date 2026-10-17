@@ -674,6 +674,83 @@ code, kbd, samp, pre, .font-mono {
   transform-origin: center;
 }
 
+/* Always-Spinning Rasengan Chakra Vortex Filaments */
+@keyframes spin-rasengan-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-rasengan-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.animate-spin-rasengan {
+  animation: spin-rasengan-cw 1.8s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.animate-spin-rasengan-reverse {
+  animation: spin-rasengan-ccw 1.2s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.animate-spin-rasengan-fast {
+  animation: spin-rasengan-cw 0.75s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+/* Orbiting Electric Lightning Bolt Effect Outside Rasengan */
+@keyframes orbit-lightning {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lightning-bolt-flicker {
+  0%, 100% {
+    opacity: 0.9;
+    filter: drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 8px #0284c7);
+  }
+  25% {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 2px #bae6fd);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 7px #ffffff) drop-shadow(0 0 12px #38bdf8);
+  }
+  75% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 3px #7dd3fc);
+  }
+}
+
+.animate-orbit-lightning {
+  animation: orbit-lightning 2.2s linear infinite;
+  transform-origin: center center;
+}
+
+.animate-orbit-lightning-reverse {
+  animation: orbit-lightning 1.6s linear infinite reverse;
+  transform-origin: center center;
+}
+
+.animate-lightning-flicker {
+  animation: lightning-bolt-flicker 0.4s ease-in-out infinite alternate;
+}
+
 /* 2-Second Procedural 3D Rasengan Theme Transition Container */
 @keyframes rasengan-huge-fade {
   0% {

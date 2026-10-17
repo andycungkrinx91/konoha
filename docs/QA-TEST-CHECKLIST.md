@@ -104,7 +104,7 @@ flowchart TD
 
 | Tab / View | Route | Key Components & Invariants | Automated E2E Check |
 | :--- | :--- | :--- | :--- |
-| **Overview** | `/` | System health cards, active client chips, uptime badge, quick stats, database storage metrics. | Header logo far-left, no header hamburger, theme switcher floating bottom-left. |
+| **Overview** | `/` | System health cards, active client chips, uptime badge, quick stats, database storage metrics. | Sidebar logo on far-left, clean console header with section navigation, theme switcher floating bottom-right. |
 | **Skills** | `/skills` | Searchable skill database table, FTS5 instant filter, skill detail modal with rendered Markdown preview, tags, and byte size. | Verifies search returns >= 1000 items, modal opens on click, zero console errors. |
 | **Agents** | `/agents` | Naruto Ninja 7-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | Renders 7 agents, verifies badge counts match database, modal edits save cleanly. |
 | **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration, cross-provider second opinion routing table, latency monitor. | Displays gateway port 19999, tests health ping, verifies fallback routing toggle. |
