@@ -58,7 +58,15 @@ function detectActiveClient() {
   }
 }
 
-const TOKEN_GREP_TOOL = 'token' + '_efficient_grep';
+const { BOUNDED_FILE_TOOL_NAMES } = require('./file_tools_router');
+const [
+  TOOL_READ_HEAD,
+  TOOL_READ_RANGE,
+  TOOL_FILE_INFO,
+  TOOL_TOKEN_GREP,
+  TOOL_STRUCTURE,
+  TOOL_FIND_CLEAN
+] = BOUNDED_FILE_TOOL_NAMES;
 
 function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
   if (!client) {
@@ -69,11 +77,11 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     let baseline = 0;
     if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
       baseline = Number(baselineBytes);
-    } else if (tool === TOKEN_GREP_TOOL) {
+    } else if (tool === TOOL_TOKEN_GREP) {
       baseline = Math.max(Number(returnedBytes) || 0, 150000);
-    } else if (tool === 'find_files_clean') {
+    } else if (tool === TOOL_FIND_CLEAN) {
       baseline = Math.max(Number(returnedBytes) || 0, 250000);
-    } else if (['read_file_head', 'read_file_range', 'file_info', 'get_file_structure'].includes(tool)) {
+    } else if ([TOOL_READ_HEAD, TOOL_READ_RANGE, TOOL_FILE_INFO, TOOL_STRUCTURE].includes(tool)) {
       let resolvedSize = 0;
       try {
         let rawTarget = null;

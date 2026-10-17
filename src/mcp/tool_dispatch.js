@@ -25,19 +25,12 @@ const {
   reportFromAgent
 } = require('./memory_reporting');
 
-const TOKEN_GREP_TOOL = 'token' + '_efficient_grep';
+const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
 
 // Bounded file tools are implemented by src/file_tools_router.js. server.js
 // advertises them in tools/list, so the dispatcher MUST delegate to the router
 // instead of failing with "Unknown tool" (broken pi and server.js clients).
-const FILE_TOOLS = new Set([
-  'read_file_head',
-  'read_file_range',
-  'file_info',
-  TOKEN_GREP_TOOL,
-  'get_file_structure',
-  'find_files_clean'
-]);
+const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
 
 // Workflow artifacts live in the task dir, never in the workspace root —
 // give agents an actionable hint when they look for them in the wrong place.

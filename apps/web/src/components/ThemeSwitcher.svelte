@@ -1,5 +1,5 @@
 <script>
-  import { themeState, groupThemes } from '../lib/state/themeState.svelte.js';
+  import { themeState, groupThemes, THEME_CATEGORIES } from '../lib/state/themeState.svelte.js';
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
 
   const TRANSITION_MS = 2000; // existing 2-second theme transition — preserved
@@ -19,7 +19,8 @@
     }
   ];
 
-  const groups = groupThemes();
+  const categories = ['All', ...THEME_CATEGORIES];
+  const allGroups = groupThemes();
 
   let isModalOpen = $state(false);
   let isRasenganActive = $state(false);
@@ -29,11 +30,31 @@
   let liveTimer = null;
   let themeCanvasEl = $state(null);
   let themeRasenganScene = null;
+  let searchQuery = $state('');
+  let selectedCategory = $state('All');
 
   useScrollLock(() => isModalOpen);
 
   const activeTheme = $derived(
     themeState.themes.find(t => t.id === themeState.currentTheme) || themeState.themes[0]
+  );
+
+  const filteredThemes = $derived(
+    themeState.themes.filter(t => {
+      const matchCat = selectedCategory === 'All' || t.category === selectedCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchQuery = !q ||
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q);
+      return matchCat && matchQuery;
+    })
+  );
+
+  const displayedGroups = $derived(
+    selectedCategory === 'All' && !searchQuery.trim()
+      ? allGroups
+      : [{ category: selectedCategory === 'All' ? 'Filtered Palettes' : selectedCategory, themes: filteredThemes }]
   );
 
   function themeGradient(t) {
@@ -78,6 +99,8 @@
 
   function closeModal() {
     isModalOpen = false;
+    searchQuery = '';
+    selectedCategory = 'All';
     if (lastFocused && typeof lastFocused.focus === 'function') {
       lastFocused.focus();
       lastFocused = null;
@@ -108,8 +131,6 @@
     announce(`${themeState.currentMode === 'dark' ? 'Dark' : 'Light'} appearance mode enabled`);
   }
 
-  // Announced via the close button's live region (buttons are not landmark
-  // descendants), so screen readers receive the change exactly once.
   function announce(message) {
     if (liveTimer) clearTimeout(liveTimer);
     liveMessage = '';
@@ -119,7 +140,6 @@
     }, 50);
   }
 
-  // Remember what had focus so closing the dialog returns the user there.
   let lastFocused = null;
 
   function toggleModal() {
@@ -317,7 +337,7 @@
             10 Light-Mode calibrated palettes with 4-stop vibrant gradients
           </p>
           <p id="theme-picker-active" class="text-[11px] mt-0.5 truncate theme-text-secondary">
-            {activeTheme?.category} · {themeState.currentMode === 'dark' ? 'Dark' : 'Light'} appearance
+            Active category: {activeTheme?.category} · {themeState.currentMode === 'dark' ? 'Dark' : 'Light'} appearance
           </p>
         </div>
         <button
@@ -333,20 +353,20 @@
         </button>
       </div>
 
-      <!-- Appearance Mode Selector -->
-      <div class="flex items-center justify-between gap-3 px-5 py-3 border-b theme-border">
+      <!-- Appearance Mode & Live Token Strip -->
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 border-b theme-border theme-bg-muted">
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-xs font-bold theme-text">Appearance Mode</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] font-mono border theme-bg-muted theme-border theme-text-secondary">
+          <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] font-mono border theme-bg-surface theme-border theme-text-secondary">
             {themeState.currentMode === 'dark' ? 'Dark' : 'Light (Default)'}
           </span>
         </div>
-        <div role="group" aria-label="Appearance mode" class="flex items-center gap-1 p-0.5 rounded-[5px] border theme-bg-muted theme-border">
+        <div role="group" aria-label="Appearance mode" class="flex items-center gap-1 p-0.5 rounded-[5px] border theme-bg-surface theme-border">
           {#each MODES as m (m.id)}
             {@const isActive = themeState.currentMode === m.id}
             <button
               type="button"
-              class="px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border {isActive ? 'theme-bg-surface theme-text theme-border-hover font-bold' : 'border-transparent theme-text-secondary hover-bg-subtle hover:theme-text'}"
+              class="px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border {isActive ? 'theme-bg-muted theme-text theme-border-hover font-bold' : 'border-transparent theme-text-secondary hover-bg-subtle hover:theme-text'}"
               onclick={() => selectMode(m.id)}
               aria-label={m.aria}
               aria-pressed={isActive}
@@ -360,57 +380,99 @@
         </div>
       </div>
 
+      <!-- Search & Category Filter Bar -->
+      <div class="px-5 pt-3 pb-2.5 border-b theme-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div class="relative flex-1">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 theme-text-secondary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="search"
+            bind:value={searchQuery}
+            placeholder="Search 10 palettes (Byakugan, Hokage, Emerald)..."
+            class="w-full pl-8 pr-3 py-1.5 rounded-[4px] text-xs border theme-bg-surface theme-border theme-text placeholder:theme-text-secondary focus:outline-none focus:ring-1 focus:ring-[var(--theme-focus)]"
+            aria-label="Search theme palettes"
+          />
+        </div>
+        <div role="tablist" aria-label="Theme categories" class="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0">
+          {#each categories as cat}
+            {@const count = cat === 'All' ? themeState.themes.length : themeState.themes.filter(t => t.category === cat).length}
+            {@const isSel = selectedCategory === cat}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isSel}
+              onclick={() => { selectedCategory = cat; }}
+              class="px-2 py-1 rounded-[4px] text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer border {isSel ? 'theme-bg-surface theme-border-hover font-bold theme-text' : 'border-transparent theme-text-secondary hover-bg-subtle'}"
+            >
+              {cat} <span class="text-[9px] opacity-75 font-mono">({count})</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+
       <!-- Palettes grouped by category -->
       <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4" role="group" aria-label="Theme palettes">
-        {#each groups as group (group.category)}
-          <section aria-labelledby={`theme-group-${group.category.replace(/\s+/g, '-').toLowerCase()}`}>
-            <h4 id={`theme-group-${group.category.replace(/\s+/g, '-').toLowerCase()}`} class="text-[10px] font-black uppercase tracking-widest mb-2 theme-text-secondary">
-              {group.category}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {#each group.themes as t (t.id)}
-                {@const isCurrent = themeState.currentTheme === t.id}
-                <button
-                  type="button"
-                  data-theme-id={t.id}
-                  aria-pressed={isCurrent}
-                  aria-label={`${t.name}${isCurrent ? ' (active)' : ''}`}
-                  class="w-full flex items-center gap-3 p-2.5 rounded-[5px] border text-left transition-all duration-150 hover:scale-[1.01] cursor-pointer {isCurrent ? 'theme-bg-muted theme-border-hover active-palette' : 'theme-bg-surface hover-bg-muted theme-border'}"
-                  onclick={() => selectTheme(t.id)}
-                >
-                  <span class="relative w-9 h-9 shrink-0 rounded-[5px] border-black/15 shadow-sm" style="background: {themeGradient(t)};" aria-hidden="true">
-                    {#if isCurrent}
-                      <span class="absolute inset-0 flex items-center justify-center">
-                        <svg class="w-4 h-4 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="color: var(--theme-text-inverse);">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    {/if}
-                  </span>
-                  <span class="flex flex-col min-w-0 flex-1">
-                    <span class="flex items-center gap-1.5">
-                      <span class="text-xs font-bold truncate theme-text">{t.name}</span>
+        {#if displayedGroups.every(g => g.themes.length === 0)}
+          <div class="py-8 text-center theme-text-secondary text-xs">
+            No theme palettes match "{searchQuery}" in {selectedCategory}.
+          </div>
+        {/if}
+        {#each displayedGroups as group (group.category)}
+          {#if group.themes.length > 0}
+            <section aria-labelledby={`theme-group-${group.category.replace(/\s+/g, '-').toLowerCase()}`}>
+              <h4 id={`theme-group-${group.category.replace(/\s+/g, '-').toLowerCase()}`} class="text-[10px] font-black uppercase tracking-widest mb-2 theme-text-secondary flex items-center justify-between">
+                <span>{group.category}</span>
+                <span class="text-[9px] font-mono opacity-60 font-normal">{group.themes.length} palette{group.themes.length > 1 ? 's' : ''}</span>
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {#each group.themes as t (t.id)}
+                  {@const isCurrent = themeState.currentTheme === t.id}
+                  <button
+                    type="button"
+                    data-theme-id={t.id}
+                    aria-pressed={isCurrent}
+                    aria-label={`${t.name}${isCurrent ? ' (active)' : ''}`}
+                    class="w-full flex items-center gap-3 p-2.5 rounded-[5px] border text-left transition-all duration-150 hover:scale-[1.01] cursor-pointer {isCurrent ? 'theme-bg-muted theme-border-hover active-palette' : 'theme-bg-surface hover-bg-muted theme-border'}"
+                    onclick={() => selectTheme(t.id)}
+                  >
+                    <span class="relative w-9 h-9 shrink-0 rounded-[5px] border border-black/15 shadow-sm" style="background: {themeGradient(t)};" aria-hidden="true">
                       {#if isCurrent}
-                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 gradient-badge">Active</span>
+                        <span class="absolute inset-0 flex items-center justify-center">
+                          <svg class="w-4 h-4 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="color: var(--theme-text-inverse);">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
                       {/if}
                     </span>
-                    <span class="text-[10px] leading-snug line-clamp-2 theme-text-secondary">{t.description}</span>
-                    <span class="flex items-center gap-1 pt-1.5" aria-hidden="true">
-                      {#each t.gradient as stop}
-                        <span class="w-3 h-1.5 rounded-[2px]" style="background-color: {stop};"></span>
-                      {/each}
+                    <span class="flex flex-col min-w-0 flex-1">
+                      <span class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold truncate theme-text">{t.name}</span>
+                        {#if isCurrent}
+                          <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 gradient-badge">Active</span>
+                        {/if}
+                      </span>
+                      <span class="text-[10px] leading-snug line-clamp-2 theme-text-secondary">{t.description}</span>
+                      <span class="flex items-center gap-1 pt-1.5" aria-hidden="true">
+                        {#each t.gradient as stop, sIdx}
+                          <span class="w-3.5 h-1.5 rounded-[2px] border border-black/10" style="background-color: {stop};" title={`Stop ${sIdx + 1}: ${stop}`}></span>
+                        {/each}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              {/each}
-            </div>
-          </section>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/if}
         {/each}
       </div>
 
-      <div class="px-5 py-2.5 border-t flex items-center justify-between text-[10px] font-mono theme-border theme-text-secondary">
-        <span>Esc to close</span>
-        <span>{themeState.themes.length} palettes · 4 stops each</span>
+      <!-- Footer with token summary & keyboard instructions -->
+      <div class="px-5 py-2.5 border-t flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono theme-border theme-text-secondary">
+        <span><kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">Esc</kbd> close · <kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">↑</kbd><kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">↓</kbd> navigate</span>
+        <div class="flex items-center gap-2">
+          <span>{themeState.themes.length} palettes · 4 stops each</span>
+        </div>
       </div>
     </div>
   </div>
@@ -418,6 +480,6 @@
 
 <style>
   .active-palette {
-    box-shadow: 0 0 0 1.5px var(--theme-focus);
+    box-shadow: 0 0 0 2px var(--theme-focus);
   }
 </style>

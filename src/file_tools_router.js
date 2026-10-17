@@ -554,7 +554,12 @@ function validateInstall() {
   return errors;
 }
 
+const BOUNDED_FILE_TOOL_NAMES = Object.freeze(
+  Object.keys(TOOL_HANDLERS).slice(0, 6)
+);
+
 module.exports = {
+  BOUNDED_FILE_TOOL_NAMES,
   resolveInputPath,
   setWorkspaceRoot,
   getWorkspaceRoot,

@@ -4,6 +4,8 @@
 const { assertSandbox } = require('./helpers/sandbox_guard');
 assertSandbox();
 
+process.env.KONOHA_BOOTSTRAP_PASSWORD = process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure';
+
 const assert = require('assert');
 const fs = require('fs');
 const net = require('net');

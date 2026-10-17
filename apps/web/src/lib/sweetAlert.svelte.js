@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 // Svelte 5 Runes State for 3D SweetAlert Modal System
 
 function createSweetAlertState() {

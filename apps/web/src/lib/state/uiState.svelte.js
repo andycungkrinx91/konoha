@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 // Svelte 5 Runes state management for Konoha Web UI
 
 export function createUiState() {

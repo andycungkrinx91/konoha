@@ -23,7 +23,8 @@ function getGoldenSeed() {
     ...process.env,
     HOME: seedDir,
     KONOHA_DB_PATH: path.join(seedDir, '.konoha', 'konoha.db'),
-    KONOHA_UI_AUTOSTART: '0'
+    KONOHA_UI_AUTOSTART: '0',
+    KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
   };
   spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'status'], {
     env,

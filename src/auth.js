@@ -13,8 +13,6 @@ const crypto = require('crypto');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 const AUTH_CONFIG_FILE = process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
-// Temporary bootstrap seed credential (provisioning placeholder only, never a production secret)
-const DEFAULT_BOOTSTRAP_PASSWORD = process.env.KONOHA_BOOTSTRAP_PASSWORD || Buffer.from('a29ub2hhZ2FrdXJl', 'base64').toString('utf8');
 // Session lifetime (24 hours by default); overridable for isolated test fixtures.
 const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = (() => {
@@ -23,6 +21,20 @@ const SESSION_TTL_MS = (() => {
 })();
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
 const SCRYPT_KEY_LEN = 64;
+
+/**
+ * Resolves the temporary bootstrap credential.
+ * If not supplied via environment provisioning, generates a cryptographically random
+ * secret on first initialization and outputs it to the operator console.
+ */
+function resolveBootstrapPassword() {
+  if (process.env.KONOHA_BOOTSTRAP_PASSWORD) {
+    return process.env.KONOHA_BOOTSTRAP_PASSWORD;
+  }
+  const generated = crypto.randomBytes(16).toString('hex');
+  process.stderr.write(`\n[Konoha Auth] Generated operator bootstrap password: ${generated}\n`);
+  return generated;
+}
 
 // Rate limiting state: ip -> { failedCount, lockedUntil }
 const loginRateLimit = new Map();
@@ -97,7 +109,8 @@ function getAuthConfig() {
   }
 
   // Initialize with bootstrap password (operator provisioning input only).
-  const initial = hashPassword(DEFAULT_BOOTSTRAP_PASSWORD);
+  const bootstrapPassword = resolveBootstrapPassword();
+  const initial = hashPassword(bootstrapPassword);
   const config = {
     format: initial.format,
     salt: initial.salt,
@@ -178,16 +191,6 @@ function authenticate(password, clientIp = '127.0.0.1') {
   } catch (_) {
     // Credential store unavailable: fail closed without revealing internals.
     return { success: false, error: 'Authentication is temporarily unavailable' };
-  }
-
-  // Bootstrap provisioning state is trusted server state (never a client claim).
-  const requireBootstrap = config.is_bootstrap === true;
-
-  if (requireBootstrap && password !== DEFAULT_BOOTSTRAP_PASSWORD) {
-    // The provisioned credential is the only accepted login until the mandatory
-    // change completes.
-    recordLoginFailure(clientIp);
-    return { success: false, error: 'Invalid password' };
   }
 
   const rate = checkLoginRateLimit(clientIp);
@@ -293,7 +296,7 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 400, error: 'Current password is incorrect' };
   }
 
-  if (newPassword === DEFAULT_BOOTSTRAP_PASSWORD) {
+  if (config.is_bootstrap && verifyPasswordHash(newPassword, config)) {
     return { success: false, status: 400, error: 'Cannot set password to the default bootstrap credential' };
   }
 
@@ -362,7 +365,7 @@ function getAuthStatus(sessionId) {
 }
 
 module.exports = {
-  DEFAULT_BOOTSTRAP_PASSWORD,
+  resolveBootstrapPassword,
   hashPassword,
   verifyPasswordHash,
   getAuthConfig,

@@ -85,6 +85,7 @@ tests/.gemini/
 # Build artifacts
 dist/
 build/
+output/
 coverage/
 .nyc_output/
 *.egg-info/
@@ -122,6 +123,8 @@ docs/QA-TEST-CHECKLIST.md
 # Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
 PLAN.md
+/KONOHA_LOGIN_AUTHENTICATION_PLAN.md
+KONOHA_LOGIN_AUTHENTICATION_PLAN.md
 /.omp/plans/
 .omp/plans/
 .omp/plans

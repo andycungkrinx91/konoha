@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 // Svelte 5 Runes State for Konoha 10-Theme System with Explicit Light / Dark Mode
 
 export const THEMES = [
