@@ -246,9 +246,9 @@
           style="border-color: var(--theme-border); background: var(--theme-gradient);"
           aria-hidden="true"
         >
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="var(--theme-surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3c4.97 0 9 4.03 9 9 0 3.12-1.59 5.87-4 7.5M12 21c-4.97 0-9-4.03-9-9 0-3.12 1.59-5.87 4-7.5" />
-            <circle cx="12" cy="12" r="3.5" fill="#ffffff" opacity="0.9" />
+            <circle cx="12" cy="12" r="3.5" fill="var(--theme-surface)" opacity="0.9" />
           </svg>
         </div>
         <h1 class="text-xl font-black tracking-tight theme-text">
@@ -337,7 +337,7 @@
           style="background: var(--theme-4gradient, linear-gradient(135deg, #0284c7 0%, #06b6d4 50%, #6366f1 100%));"
         >
           {#if isSubmitting}
-            <svg class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
             </svg>
