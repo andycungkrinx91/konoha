@@ -123,6 +123,8 @@ docs/QA-TEST-CHECKLIST.md
 # Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
 PLAN.md
+/PLAN_REFINE_WORKFLOW.md
+PLAN_REFINE_WORKFLOW.md
 /.omp/plans/
 .omp/plans/
 .omp/plans

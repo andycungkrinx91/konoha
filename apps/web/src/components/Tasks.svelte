@@ -1,7 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '#lib/api.js';
-  import { sweetAlert } from '#lib/sweetAlert.svelte.js';
+  import { toast } from '#lib/state/toast.svelte.ts';
+import { confirm } from '#lib/state/dialog.svelte.ts';
+  import PageHero from './PageHero.svelte';
 
   let configPath = $state('');
   let dorMode = $state('advisory');
@@ -42,7 +44,7 @@
       dorMode = data.dor_mode || 'advisory';
       reviewMode = data.review_mode || 'self';
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Failed to load SDLC config', text: err.message });
+      toast.error('Failed to load SDLC config: ' + err.message);
     } finally {
       configLoading = false;
     }
@@ -50,7 +52,7 @@
 
   async function saveConfig() {
     if (!configPath.trim()) {
-      sweetAlert.fire({ icon: 'warning', title: 'Project path is required to set SDLC configuration.' });
+      toast.warning('Project path is required to set SDLC configuration.');
       return;
     }
     savingConfig = true;
@@ -62,9 +64,9 @@
       });
       dorMode = data.dor_mode || dorMode;
       reviewMode = data.review_mode || reviewMode;
-      sweetAlert.fire({ icon: 'success', title: 'SDLC configuration saved' });
+      toast.success('SDLC configuration saved');
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Failed to save SDLC config', text: err.message });
+      toast.error('Failed to save SDLC config: ' + err.message);
     } finally {
       savingConfig = false;
     }
@@ -72,7 +74,7 @@
 
   async function checkReadiness() {
     if (!dorText.trim()) {
-      sweetAlert.fire({ icon: 'warning', title: 'Enter a task description to check readiness.' });
+      toast.warning('Enter a task description to check readiness.');
       return;
     }
     dorChecking = true;
@@ -83,7 +85,7 @@
         project_path: configPath || undefined
       });
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Readiness check failed', text: err.message });
+      toast.error('Readiness check failed: ' + err.message);
     } finally {
       dorChecking = false;
     }
@@ -105,7 +107,7 @@
       const data = await api.get(`/api/v1/sdlc/tasks?${params.toString()}`);
       tasks = data.tasks || [];
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Failed to load tasks', text: err.message });
+      toast.error('Failed to load tasks: ' + err.message);
     } finally {
       tasksLoading = false;
     }
@@ -123,21 +125,20 @@
 
   async function deleteTask(id, e) {
     if (e) e.stopPropagation();
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: 'Delete SDLC Task?',
-      text: `Are you sure you want to delete task "${id}"? This action cannot be undone and helps prevent stale task hallucinations.`,
-      icon: 'warning',
-      confirmButtonText: 'Delete Task',
-      cancelButtonText: 'Cancel'
+      message: `Are you sure you want to delete task "${id}"? This action cannot be undone.`,
+      confirmText: 'Delete Task',
+      variant: 'danger'
     });
     if (!confirmed) return;
 
     try {
       await api.delete(`/api/v1/sdlc/tasks/${encodeURIComponent(id)}`);
-      sweetAlert.fire({ icon: 'success', title: 'Task deleted successfully' });
+      toast.success('Task deleted successfully');
       await loadTasks();
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Failed to delete task', text: err.message });
+      toast.error('Failed to delete task: ' + err.message);
     }
   }
 
@@ -145,14 +146,13 @@
     const hasFilter = Boolean(statusFilter || projectFilter);
     const message = hasFilter
       ? `Are you sure you want to clear all tasks matching the current filter (Status: "${statusFilter || 'All'}", Project: "${projectFilter || 'All'}")?`
-      : 'Are you sure you want to clear ALL SDLC tasks across all sessions? This clears obsolete task history and prevents stale agent context.';
+      : 'Are you sure you want to clear ALL SDLC tasks across all sessions? This clears obsolete task history.';
 
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: hasFilter ? 'Clear Filtered Tasks?' : 'Clear All SDLC Tasks?',
-      text: message,
-      icon: 'warning',
-      confirmButtonText: 'Clear Tasks',
-      cancelButtonText: 'Cancel'
+      message,
+      confirmText: 'Clear Tasks',
+      variant: 'danger'
     });
     if (!confirmed) return;
 
@@ -165,10 +165,10 @@
         params.set('all', 'true');
       }
       const data = await api.delete(`/api/v1/sdlc/tasks?${params.toString()}`);
-      sweetAlert.fire({ icon: 'success', title: `Cleared ${data.deleted || 0} task(s)` });
+      toast.success(`Cleared ${data.deleted || 0} task(s)`);
       await loadTasks();
     } catch (err) {
-      sweetAlert.fire({ icon: 'error', title: 'Failed to clear tasks', text: err.message });
+      toast.error('Failed to clear tasks: ' + err.message);
     }
   }
 
@@ -178,26 +178,23 @@
   });
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Header -->
-  <div class="space-y-3">
-    <div
-      class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border"
-      style="background-color: var(--color-primary-glow, #ede9fe); color: var(--color-primary, #7c3aed); border-color: var(--color-border, #ddd6fe);"
-    >
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-      SDLC Governance
-    </div>
-    <h1 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">SDLC Tasks</h1>
-    <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-      Definition of Ready checks, cross-provider review enforcement, zero-AI-slop gate results, and per-project SDLC configuration.
-    </p>
-  </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="SDLC Tasks"
+    badgeText="SDLC Governance"
+    badgeIcon={heroBadgeIcon}
+    description="Definition of Ready checks, cross-provider review enforcement, zero-AI-slop gate results, and per-project SDLC configuration."
+  />
 
   <!-- Project SDLC Config -->
-  <section class="rise-3d theme-bg-surface border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
+  <section class="metric-card-3d rounded-[5px] p-6 space-y-4 border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
     <h2 class="text-lg font-bold theme-text mb-4">Project Configuration</h2>
     <div class="grid md:grid-cols-3 gap-4">
       <label class="block">
@@ -206,16 +203,14 @@
           type="text"
           bind:value={configPath}
           placeholder="/absolute/path/to/project"
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
-          style="border-color: var(--color-border, #e2e8f0);"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
         />
       </label>
       <label class="block">
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">DoR Mode</span>
         <select
           bind:value={dorMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
-          style="border-color: var(--color-border, #e2e8f0);"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
         >
           <option value="advisory">Advisory</option>
           <option value="enforced">Enforced</option>
@@ -225,8 +220,7 @@
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">Review Mode</span>
         <select
           bind:value={reviewMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
-          style="border-color: var(--color-border, #e2e8f0);"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
         >
           <option value="self">Self</option>
           <option value="cross-provider">Cross-Provider</option>
@@ -258,7 +252,7 @@
   </section>
 
   <!-- DoR Checker -->
-  <section class="rise-3d theme-bg-surface border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
+  <section class="metric-card-3d rounded-[5px] p-6 space-y-4 border" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
     <h2 class="text-lg font-bold theme-text mb-2">Definition of Ready Check</h2>
     <p class="text-xs font-semibold theme-text-muted mb-4">
       Validate a task description before delegation — substance, placeholders, file references, and domain alignment.
@@ -267,8 +261,7 @@
       bind:value={dorText}
       rows="3"
       placeholder="Describe the task to check against Definition of Ready gates..."
-      class="w-full px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
-      style="border-color: var(--color-border, #e2e8f0);"
+      class="w-full px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none"
     ></textarea>
     <div class="mt-3">
       <button
@@ -329,16 +322,14 @@
           bind:value={projectFilter}
           placeholder="Filter by project path…"
           title="Leave empty to show tasks from every project"
-          class="w-48 px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
-          style="border-color: var(--color-border, #e2e8f0);"
+          class="w-48 px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none"
           onkeydown={(e) => { if (e.key === 'Enter') loadTasks(); }}
           onblur={() => loadTasks()}
         />
         <select
           bind:value={statusFilter}
           onchange={loadTasks}
-          class="px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
-          style="border-color: var(--color-border, #e2e8f0);"
+          class="px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface login-field-effect focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
@@ -378,20 +369,20 @@
     </div>
 
     {#if tasksLoading && tasks.length === 0}
-      <div class="rise-3d theme-bg-surface border rounded-[5px] p-10 flex items-center justify-center" style="border-color: var(--color-border, #e2e8f0);">
+      <div class="metric-card-3d rounded-[5px] p-10 border flex items-center justify-center" style="border-color: color-mix(in srgb, var(--theme-grad-1) 20%, var(--color-border));">
         <svg class="animate-spin w-8 h-8" style="color: var(--color-primary, #7c3aed);" viewBox="0 0 24 24" fill="none">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>
       </div>
     {:else if tasks.length === 0}
-      <div class="rise-3d theme-bg-surface border rounded-[5px] p-10 text-center" style="border-color: var(--color-border, #e2e8f0);">
+      <div class="metric-card-3d rounded-[5px] p-10 border text-center" style="border-color: color-mix(in srgb, var(--theme-grad-1) 20%, var(--color-border));">
         <p class="text-sm font-bold theme-text-muted">No SDLC tasks found. Tasks are created automatically by agents during SDLC execution.</p>
       </div>
     {:else}
       <div class="space-y-3">
         {#each tasks as task (task.id)}
-          <div class="rise-3d theme-bg-surface border rounded-[5px] shadow-sm overflow-hidden transition-all" style="border-color: var(--color-border, #e2e8f0);">
+          <div class="metric-card-3d rounded-[5px] border overflow-hidden transition-all" style="border-color: color-mix(in srgb, var(--theme-grad-1) 22%, var(--color-border));">
             <div class="w-full p-4 sm:p-5 flex flex-wrap items-start justify-between gap-3 hover-bg-muted transition-colors">
               <button
                 type="button"

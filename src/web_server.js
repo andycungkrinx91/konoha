@@ -1057,36 +1057,25 @@ async function handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, metho
     }
 
     if (method === 'GET' && pathname === '/api/v1/skills') {
-      const q = parsedUrl.searchParams.get('q');
+      const q = (parsedUrl.searchParams.get('q') || '').trim();
       const limit = parseInt(parsedUrl.searchParams.get('limit') || '100', 10);
-      const isSemantic = parsedUrl.searchParams.get('semantic') === '1' || parsedUrl.searchParams.get('mode') === 'semantic';
       try {
         const conn = db.getConnection(null, false);
-        let skills;
-        if (q && isSemantic) {
-          try {
-            const vectorSearch = require('./vector_search');
-            const semanticRes = vectorSearch.findSkillSemantic(conn, q, limit);
-            if (semanticRes && semanticRes.length > 0) {
-              skills = semanticRes;
-            }
-          } catch (_) {
-            skills = null;
-          }
-        }
-        if (!skills) {
+        try {
+          const vectorSearch = require('./vector_search');
           if (q) {
-            skills = conn.prepare(
-              'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills WHERE name LIKE ? OR skill_name LIKE ? OR tags LIKE ? ORDER BY name ASC LIMIT ?'
-            ).all('%' + q + '%', '%' + q + '%', '%' + q + '%', limit);
+            const results = await vectorSearch.findSkillHybrid(conn, q, { topK: limit });
+            return sendJson(res, 200, results);
           } else {
-            skills = conn.prepare(
+            const allRows = conn.prepare(
               'SELECT name, skill_name, type, tags, byte_size, line_count FROM skills ORDER BY name ASC LIMIT ?'
             ).all(limit);
+            const mapped = allRows.map(r => ({ ...r, engine: 'all', score: 1.0, similarity: null }));
+            return sendJson(res, 200, mapped);
           }
+        } finally {
+          conn.close();
         }
-        conn.close();
-        return sendJson(res, 200, skills);
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -1581,12 +1570,73 @@ async function handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, metho
         if (!body.query || !body.query.trim()) {
           return sendJson(res, 400, { error: 'Search query is required.' });
         }
+        const cleanQuery = body.query.trim();
         const numResults = Math.min(Math.max(parseInt(body.num_results || body.numResults || 5, 10), 1), 50);
         const searchDepth = ['standard', 'deep'].includes(body.search_depth || body.searchDepth) ? (body.search_depth || body.searchDepth) : 'standard';
+        const source = String(body.source || body.engine || 'all').toLowerCase();
         const webSearch = require('./mcp/web_search');
-        const rawRes = await webSearch.runWebSearch(body.query.trim(), numResults, searchDepth, 'web_ui');
+        const vectorSearch = require('./vector_search');
+
+        if (source === 'skills') {
+          const conn = db.getConnection(null, false);
+          try {
+            const skillHits = await vectorSearch.findSkillHybrid(conn, cleanQuery, { topK: numResults });
+            const results = (skillHits || []).map((s, idx) => ({
+              citation_id: idx + 1,
+              title: s.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              url: `/skills?q=${encodeURIComponent(s.name)}`,
+              snippet: s.tags || s.matched_chunk || `Konoha Skill: ${s.name} (${s.type || 'skill'})`,
+              source: `Konoha Skills (${(s.engine || 'fts5').toUpperCase()})`
+            }));
+            return sendJson(res, 200, {
+              status: 'success',
+              query: cleanQuery,
+              source: 'skills',
+              results_count: results.length,
+              results
+            });
+          } finally {
+            conn.close();
+          }
+        }
+
+        const rawRes = await webSearch.runWebSearch(cleanQuery, numResults, searchDepth, 'web_ui', {
+          engine: source,
+          blended: source === 'all'
+        });
         let parsed = null;
         try { parsed = JSON.parse(rawRes); } catch (_) { parsed = { status: 'success', results: [] }; }
+
+        if (source === 'all' && parsed && Array.isArray(parsed.results)) {
+          // If searching "all", seamlessly integrate top relevant Village Skills
+          try {
+            const conn = db.getConnection(null, false);
+            try {
+              const skillHits = await vectorSearch.findSkillHybrid(conn, cleanQuery, { topK: 2 });
+              if (Array.isArray(skillHits) && skillHits.length > 0) {
+                const formattedSkills = skillHits
+                  .filter(s => (s.score || 0) >= 0.3)
+                  .map(s => ({
+                    title: `[Skill] ` + s.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                    url: `/skills?q=${encodeURIComponent(s.name)}`,
+                    snippet: s.tags || s.matched_chunk || `Konoha Skill: ${s.name} (${s.type || 'skill'})`,
+                    source: `Konoha Skills (${(s.engine || 'fts5').toUpperCase()})`
+                  }));
+                if (formattedSkills.length > 0) {
+                  const combined = [...formattedSkills, ...parsed.results].slice(0, numResults + 1);
+                  parsed.results = combined.map((item, idx) => ({
+                    ...item,
+                    citation_id: idx + 1
+                  }));
+                  parsed.results_count = parsed.results.length;
+                }
+              }
+            } finally {
+              conn.close();
+            }
+          } catch (_) { /* best effort */ }
+        }
+
         return sendJson(res, 200, parsed);
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
@@ -2373,7 +2423,14 @@ async function handleWebServerRequest(req, res, ctx) {
       if (await handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
       if (await handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
       if (await handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
-      return sendJson(res, 404, { error: 'Not Found' });
+      const error_id = 'err_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      return sendJson(res, 404, {
+        status: 404,
+        code: 'NOT_FOUND',
+        message: `API endpoint '${method} ${pathname}' not found.`,
+        error: `API endpoint '${method} ${pathname}' not found.`,
+        error_id
+      });
     }
 
     // Serve root assets directory if requested via /assets/

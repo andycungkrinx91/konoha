@@ -205,6 +205,40 @@ async function queryDuckDuckGo(q, num) {
   }
 }
 
+async function queryStartpage(q, num) {
+  try {
+    const startpageBase = process.env.KONOHA_STARTPAGE_URL || 'https://www.startpage.com/sp/search';
+    const resp = await fetchWithTimeout(startpageBase, {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      body: `query=${encodeURIComponent(q)}&cat=web&cmd=process_search`
+    }, 3000);
+    const html = await resp.text();
+    const results = [];
+    const re = /<a[^>]*class="[^"]*(?:wgl-title|result-title|result-link)[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+    let m;
+    while ((m = re.exec(html)) !== null && results.length < num) {
+      const rawUrl = m[1];
+      const title = m[2].replace(/<[^>]+>/g, '').trim();
+      if (rawUrl && title && !rawUrl.includes('startpage.com')) {
+        results.push({
+          title,
+          url: rawUrl,
+          snippet: '',
+          source: 'Startpage'
+        });
+      }
+    }
+    return results.length > 0 ? results : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function queryWikipedia(q, num) {
   try {
     const terms = q.split(/\s+/).filter(Boolean);
@@ -212,7 +246,7 @@ async function queryWikipedia(q, num) {
       const term = terms.slice(0, terms.length - i).join(' ');
       if (term.trim().length < 3) continue;
       const wikiBase = process.env.KONOHA_WIKIPEDIA_URL || 'https://en.wikipedia.org/w/api.php';
-  const url = `${wikiBase}?action=opensearch&search=${encodeURIComponent(term)}&limit=${num}&format=json`;
+      const url = `${wikiBase}?action=opensearch&search=${encodeURIComponent(term)}&limit=${num}&format=json`;
       const resp = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, 5000);
       const data = await resp.json();
       if (Array.isArray(data) && data.length >= 4 && Array.isArray(data[1])) {
@@ -239,7 +273,8 @@ const authorityDomains = [
   'github.com', 'stackoverflow.com', 'docs.google.com', 'developer.mozilla.org',
   'learn.microsoft.com', 'docs.python.org', 'nodejs.org', 'npmjs.com',
   'vercel.com', 'nextjs.org', 'svelte.dev', 'tailwindcss.com',
-  'kubernetes.io', 'terraform.io', 'aws.amazon.com', 'cloud.google.com'
+  'kubernetes.io', 'terraform.io', 'aws.amazon.com', 'cloud.google.com',
+  'wikipedia.org', 'en.wikipedia.org'
 ];
 
 function rankScore(r) {
@@ -252,7 +287,7 @@ function rankScore(r) {
   return score;
 }
 
-async function runWebSearch(query, numResults = 5, searchDepth = 'standard', agentName = null) {
+async function runWebSearch(query, numResults = 5, searchDepth = 'standard', agentName = null, options = {}) {
   if (!query || !query.trim()) {
     return JSON.stringify({ status: 'error', message: 'Query is required.' });
   }
@@ -268,30 +303,91 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
 
   const allResults = [];
   const seenUrls = new Set();
+  const requestedEngine = (options && options.engine) ? String(options.engine).toLowerCase() : 'all';
+  const isBlended = options && options.blended !== undefined ? options.blended : (requestedEngine === 'all');
 
   for (const q of queries) {
-    let currentResults = null;
-    const candidates = await getCandidateInstances();
-    const bestInstance = await resolveBestInstance(candidates);
-    if (bestInstance) {
-      currentResults = await querySearxng(bestInstance, q, numResults);
-      if (currentResults && currentResults.length > 0) {
-        logSearchActivity('SearXNG', q, currentResults.length);
+    let currentResults = [];
+
+    if (requestedEngine === 'wikipedia') {
+      const wiki = await queryWikipedia(q, numResults);
+      if (wiki && wiki.length > 0) {
+        logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
+        currentResults.push(...wiki);
+      }
+    } else if (requestedEngine === 'duckduckgo') {
+      const ddg = await queryDuckDuckGo(q, numResults);
+      if (ddg && ddg.length > 0) {
+        logSearchActivity('DuckDuckGo HTML', q, ddg.length);
+        currentResults.push(...ddg);
+      }
+    } else if (requestedEngine === 'searxng') {
+      const candidates = await getCandidateInstances();
+      const bestInstance = await resolveBestInstance(candidates);
+      if (bestInstance) {
+        const sx = await querySearxng(bestInstance, q, numResults);
+        if (sx && sx.length > 0) {
+          logSearchActivity('SearXNG', q, sx.length);
+          currentResults.push(...sx);
+        }
+      }
+    } else if (requestedEngine === 'startpage') {
+      const sp = await queryStartpage(q, numResults);
+      if (sp && sp.length > 0) {
+        logSearchActivity('Startpage HTML', q, sp.length);
+        currentResults.push(...sp);
+      }
+    } else {
+      // requestedEngine === 'all' or 'web'
+      let webResults = null;
+      const candidates = await getCandidateInstances();
+      const bestInstance = await resolveBestInstance(candidates);
+      if (bestInstance) {
+        webResults = await querySearxng(bestInstance, q, numResults);
+        if (webResults && webResults.length > 0) {
+          logSearchActivity('SearXNG', q, webResults.length);
+        }
+      }
+      if (!webResults || webResults.length === 0) {
+        webResults = await queryDuckDuckGo(q, numResults);
+        if (webResults && webResults.length > 0) {
+          logSearchActivity('DuckDuckGo HTML', q, webResults.length);
+        }
+      }
+      if (!webResults || webResults.length === 0) {
+        webResults = await queryStartpage(q, numResults);
+        if (webResults && webResults.length > 0) {
+          logSearchActivity('Startpage HTML', q, webResults.length);
+        }
+      }
+
+      if (webResults && webResults.length > 0) {
+        currentResults.push(...webResults);
+      }
+
+      // If blended mode is active, also retrieve Wikipedia definitions
+      if (isBlended && requestedEngine === 'all') {
+        try {
+          const wikiLimit = Math.min(2, Math.max(1, Math.floor(numResults / 2)));
+          const wiki = await queryWikipedia(q, wikiLimit);
+          if (wiki && wiki.length > 0) {
+            logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
+            currentResults.push(...wiki);
+          }
+        } catch (_) { /* best effort */ }
+      }
+
+      // If still zero results (e.g. offline or fallback test), query Wikipedia as final fallback
+      if (currentResults.length === 0) {
+        const wiki = await queryWikipedia(q, numResults);
+        if (wiki && wiki.length > 0) {
+          logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
+          currentResults.push(...wiki);
+        }
       }
     }
-    if (!currentResults || currentResults.length === 0) {
-      currentResults = await queryDuckDuckGo(q, numResults);
-      if (currentResults && currentResults.length > 0) {
-        logSearchActivity('DuckDuckGo HTML', q, currentResults.length);
-      }
-    }
-    if (!currentResults || currentResults.length === 0) {
-      currentResults = await queryWikipedia(q, numResults);
-      if (currentResults && currentResults.length > 0) {
-        logSearchActivity('Wikipedia OpenSearch', q, currentResults.length);
-      }
-    }
-    for (const r of (currentResults || [])) {
+
+    for (const r of currentResults) {
       if (!seenUrls.has(r.url)) {
         seenUrls.add(r.url);
         allResults.push(r);
@@ -326,6 +422,7 @@ module.exports = {
   resolveBestInstance,
   querySearxng,
   queryDuckDuckGo,
+  queryStartpage,
   queryWikipedia,
   runWebSearch
 };

@@ -1,9 +1,11 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
   import { uiState } from "#lib/state/uiState.svelte.js";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
+  import PageHero from "./PageHero.svelte";
 
   let skills = $state([]);
   let searchQuery = $state("");
@@ -17,7 +19,7 @@
     vectorized_skills: 0,
     model: "IBM Granite Multilingual (384-dim)"
   });
-  let searchMode = $state("fts"); // "fts" | "vector"
+  let searchMode = $state("hybrid"); // "hybrid" | "registry"
   let activeTab = $state("instructions"); // "instructions" | "vectors"
 
   // Modal states
@@ -50,20 +52,36 @@
     } catch (_) { /* best effort */ }
   }
 
+  let activeSearchController = null;
+
   async function loadSkills() {
+    if (activeSearchController) {
+      activeSearchController.abort();
+    }
+    const controller = new AbortController();
+    activeSearchController = controller;
+
     loading = true;
     error = "";
     try {
-      const modeParam = searchMode === "vector" ? "&semantic=1" : "";
-      const url = searchQuery.trim()
-        ? "/api/v1/skills?q=" + encodeURIComponent(searchQuery.trim()) + modeParam
+      const q = searchQuery.trim();
+      const url = q
+        ? "/api/v1/skills?q=" + encodeURIComponent(q)
         : "/api/v1/skills?limit=250";
-      skills = await api.get(url);
-      loadVectorStats();
+      const res = await api.get(url);
+      if (!controller.signal.aborted) {
+        skills = res || [];
+        loadVectorStats();
+      }
     } catch (err) {
-      error = err.message;
+      if (err.name !== "AbortError") {
+        error = err.message;
+        toast.error("Failed to load skills: " + err.message);
+      }
     } finally {
-      loading = false;
+      if (!controller.signal.aborted) {
+        loading = false;
+      }
     }
   }
 
@@ -73,11 +91,7 @@
     try {
       selectedSkill = await api.get("/api/v1/skills/" + encodeURIComponent(name));
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Load Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to load skill: " + err.message);
     } finally {
       skillDetailLoading = false;
     }
@@ -96,19 +110,11 @@
   async function createSkillSubmit() {
     const slug = newSkill.name.trim().toLowerCase().replace(/\s+/g, '-');
     if (!slug) {
-      await sweetAlert.fire({
-        title: "Validation Error",
-        text: "Please provide a skill name (e.g. my-custom-skill).",
-        icon: "warning"
-      });
+      toast.warning("Please provide a skill name (e.g. my-custom-skill).");
       return;
     }
     if (!newSkill.description.trim()) {
-      await sweetAlert.fire({
-        title: "Validation Error",
-        text: "Please provide a short description for the skill.",
-        icon: "warning"
-      });
+      toast.warning("Please provide a short description for the skill.");
       return;
     }
 
@@ -121,20 +127,11 @@
       const res = await api.post("/api/v1/skills", payload);
       isCreateModalOpen = false;
       resetNewSkill();
-      await sweetAlert.fire({
-        title: "Skill Created!",
-        text: `Skill "${res.name}" successfully created and indexed into SQLite FTS5${res.embedded_in ? ` (embedded into @${res.embedded_in})` : ''}.`,
-        icon: "success"
-      });
-      uiState.addNotification(`Created skill "${slug}"`, "success");
+      toast.success(`Skill "${res.name}" successfully created and indexed into SQLite FTS5${res.embedded_in ? ` (embedded into @${res.embedded_in})` : ''}.`);
       await loadSkills();
       await openSkill(slug);
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Creation Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Creation failed: " + err.message);
     } finally {
       isSubmitting = false;
     }
@@ -143,84 +140,49 @@
   async function embedSkillInAgent(skillName, agentName) {
     try {
       await api.post(`/api/v1/skills/${encodeURIComponent(skillName)}/embed`, { agent: agentName });
-      uiState.addNotification(`Embedded "${skillName}" into @${agentName}`, "success");
-      await sweetAlert.fire({
-        title: "Skill Embedded",
-        text: `Skill "${skillName}" is now active for subagent @${agentName}.`,
-        icon: "success"
-      });
+      toast.success(`Skill "${skillName}" is now active for subagent @${agentName}.`);
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Embed Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to embed skill: " + err.message);
     }
   }
 
   async function unembedSkillFromAgent(skillName, agentName) {
     try {
       await api.post(`/api/v1/skills/${encodeURIComponent(skillName)}/unembed`, { agent: agentName });
-      uiState.addNotification(`Removed "${skillName}" from @${agentName}`, "info");
-      await sweetAlert.fire({
-        title: "Skill Removed",
-        text: `Skill "${skillName}" removed from @${agentName}.`,
-        icon: "info"
-      });
+      toast.info(`Skill "${skillName}" removed from @${agentName}.`);
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Unembed Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to unembed skill: " + err.message);
     }
   }
 
   async function deleteSkill(skillName) {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: `Delete Skill "${skillName}"?`,
-      text: "This will remove the skill file from your village and delete its SQLite FTS5 chunk index.",
-      icon: "warning",
+      message: "This will remove the skill file from your village and delete its SQLite FTS5 and neural vector chunk indexes.",
       confirmText: "Yes, Delete It",
-      cancelText: "Cancel"
+      cancelText: "Cancel",
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       await api.delete(`/api/v1/skills/${encodeURIComponent(skillName)}`);
       selectedSkill = null;
-      uiState.addNotification(`Deleted skill "${skillName}"`, "success");
-      await sweetAlert.fire({
-        title: "Deleted",
-        text: `Skill "${skillName}" has been removed.`,
-        icon: "success"
-      });
+      toast.success(`Skill "${skillName}" has been removed.`);
       await loadSkills();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Delete Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to delete skill: " + err.message);
     }
   }
 
   async function reindexAllSkills() {
+    const progressToast = toast.loading("Re-indexing SQLite FTS5 skills database...");
     try {
-      uiState.addNotification("Re-indexing skills database...", "info");
       await api.post("/api/v1/skills/reindex", {});
-      await sweetAlert.fire({
-        title: "Migration Complete",
-        text: "SQLite FTS5 database successfully re-indexed all skills.",
-        icon: "success"
-      });
+      progressToast.success("SQLite FTS5 database successfully re-indexed all skills.");
       await loadSkills();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Reindex Failed",
-        text: err.message,
-        icon: "error"
-      });
+      progressToast.error("Reindex failed: " + err.message);
     }
   }
 
@@ -229,22 +191,14 @@
   async function reembedVectorSkills() {
     if (isEmbedding) return;
     isEmbedding = true;
+    const progressToast = toast.loading("Generating IBM Granite ONNX neural vector embeddings (384-dim)...");
     try {
-      uiState.addNotification("Generating IBM Granite ONNX neural vector embeddings (384-dim)...", "info");
       const res = await api.post("/api/v1/skills/reembed?force=1", {});
-      await sweetAlert.fire({
-        title: "Vector Embeddings Complete",
-        text: res.message || `Successfully generated vector embeddings for ${res.vectorized_chunks || 0} chunks in vector database.`,
-        icon: "success"
-      });
+      progressToast.success(res.message || `Successfully generated vector embeddings for ${res.vectorized_chunks || 0} chunks.`);
       await loadSkills();
       await loadVectorStats();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Vector Embedding Failed",
-        text: err.message,
-        icon: "error"
-      });
+      progressToast.error("Vector embedding failed: " + err.message);
     } finally {
       isEmbedding = false;
     }
@@ -319,32 +273,23 @@
     if (!skillName) return;
 
     installingSkill = skillName;
+    const progressToast = toast.loading(`Installing skill "${skillName}" from skills.sh...`);
     try {
-      uiState.addNotification(`Installing skill "${skillName}" from skills.sh...`, "info");
       const result = await api.post("/api/v1/skills/install", {
         repo_url: repoUrl,
         skill_name: skillName
       });
       const verifiedPath = result && result.installed_path ? result.installed_path : null;
-      await sweetAlert.fire({
-        title: "Skill Installed!",
-        text: verifiedPath
-          ? `Skill "${skillName}" verified on disk at:\n${verifiedPath}`
-          : `Skill "${skillName}" installed and verified.`,
-        icon: "success"
-      });
-      uiState.addNotification(`Installed skill "${skillName}"`, "success");
+      progressToast.success(verifiedPath
+        ? `Skill "${skillName}" verified at: ${verifiedPath}`
+        : `Skill "${skillName}" installed and verified.`);
       isRegistryModalOpen = false;
       await loadSkills();
       if (searchMode !== "registry") {
         await openSkill(skillName);
       }
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Installation Failed",
-        text: err.message,
-        icon: "error"
-      });
+      progressToast.error("Installation failed: " + err.message);
     } finally {
       installingSkill = "";
     }
@@ -360,77 +305,64 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<div class="space-y-6 max-w-7xl mx-auto">
-  <!-- Hero Section -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-sm transition-all"
-    style="background: var(--color-surface); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
-          <span>FTS5 Skill Knowledge Base</span>
-        </div>
-        <h1 class="text-2xl sm:text-3xl font-black tracking-tight" style="color: var(--color-text);">
-          Ninja Skill Registry
-        </h1>
-        <p class="text-xs sm:text-sm max-w-2xl" style="color: var(--color-text-muted);">
-          Inspect, create, and embed structured agent SOPs, frameworks, and reference skills into your subagents. 100% synchronized with CLI commands.
-        </p>
-      </div>
+<div class="space-y-6 w-full">
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={() => isCreateModalOpen = true}
+      class="btn-3d btn-3d-primary px-5 py-2.5 rounded-[5px] font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md text-white"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      <span>Create New Skill</span>
+    </button>
 
-      <!-- Action Buttons -->
-      <div class="flex flex-wrap items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={() => isCreateModalOpen = true}
-          class="btn-3d btn-3d-primary px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md text-white"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Create New Skill</span>
-        </button>
+    <button
+      type="button"
+      onclick={() => switchToRegistryMode(searchQuery || 'react')}
+      class="btn-3d {searchMode === 'registry' ? 'btn-3d-primary text-white' : 'btn-3d-secondary'} px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
+      title="Search skills on skills.sh registry (konoha skill search <query>)"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <span>Search skills.sh</span>
+    </button>
 
-        <button
-          type="button"
-          onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="btn-3d {searchMode === 'registry' ? 'btn-3d-primary text-white' : 'btn-3d-secondary'} px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
-          title="Search skills on skills.sh registry (konoha skill search <query>)"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <span>Search skills.sh</span>
-        </button>
+    <button
+      type="button"
+      onclick={reindexAllSkills}
+      class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
+      title="Run konoha migrate to re-index all skills into SQLite FTS5"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Re-index FTS5</span>
+    </button>
 
-        <button
-          type="button"
-          onclick={reindexAllSkills}
-          class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
-          title="Run konoha migrate to re-index all skills into SQLite FTS5"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Re-index FTS5</span>
-        </button>
+    <button
+      type="button"
+      onclick={reembedVectorSkills}
+      disabled={isEmbedding}
+      class="btn-3d btn-3d-primary px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+      title="Generate IBM Granite ONNX 384-dim neural vector embeddings for all skills into vector database"
+    >
+      <svg class="w-4 h-4 {isEmbedding ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <span>{isEmbedding ? 'Vectorizing...' : 'Re-embed Vectors'}</span>
+    </button>
+  {/snippet}
 
-        <button
-          type="button"
-          onclick={reembedVectorSkills}
-          disabled={isEmbedding}
-          class="btn-3d btn-3d-primary px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-          title="Generate IBM Granite ONNX 384-dim neural vector embeddings for all skills into vector database"
-        >
-          <svg class="w-4 h-4 {isEmbedding ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>{isEmbedding ? 'Vectorizing...' : 'Re-embed Vectors'}</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Ninja Skill Registry"
+    badgeText="FTS5 Skill Knowledge Base"
+    description="Inspect, create, and embed structured agent SOPs, frameworks, and reference skills into your subagents. 100% synchronized with CLI commands."
+    actions={heroActions}
+  />
 
   <!-- Search and Filter Bar -->
   <div class="p-4 rounded-2xl border shadow-sm flex flex-col md:flex-row items-center gap-4" style="background: var(--color-surface); border-color: var(--color-border);">
@@ -442,9 +374,9 @@
         type="text"
         bind:value={searchQuery}
         oninput={handleSearchInput}
-        placeholder={searchMode === "registry" ? "Search skills.sh global registry (e.g. react, docker, k8s, nextjs)..." : (searchMode === "vector" ? "Semantic Vector Search (e.g. cloud deployment, cyber defense, mobile layout)..." : "Search local skills by name, tag, or topic (e.g. helm, cybersecurity, sveltekit)...")}
-        class="w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs input-theme font-medium"
-        style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+        placeholder={searchMode === "registry" ? "Search skills.sh global registry (e.g. react, docker, k8s, nextjs)..." : "Hybrid search by keyword or concept (e.g. helm deployment, cybersecurity audit, tailwind styling)..."}
+        class="w-full pl-10 pr-4 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-medium"
+        style="background: var(--color-surface); color: var(--color-text);"
       />
       {#if searchQuery}
         <button
@@ -466,28 +398,18 @@
       <div class="flex items-center rounded-xl p-1 border text-xs" style="background: var(--color-surface-hover); border-color: var(--color-border);">
         <button
           type="button"
-          onclick={() => { searchMode = "fts"; loadSkills(); }}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'fts' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-          </svg>
-          <span>Local FTS5</span>
-        </button>
-        <button
-          type="button"
-          onclick={() => { searchMode = "vector"; loadSkills(); }}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'vector' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+          onclick={() => { searchMode = "hybrid"; loadSkills(); }}
+          class="btn-3d px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'hybrid' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span>Neural Vector</span>
+          <span>FTS5 & Vector</span>
         </button>
         <button
           type="button"
           onclick={() => switchToRegistryMode(searchQuery || 'react')}
-          class="btn-3d px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+          class="btn-3d px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 {searchMode === 'registry' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
           title="Search open-source community skills on skills.sh (equivalent to: konoha skill search <query>)"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -498,7 +420,7 @@
       </div>
 
       {#if searchMode === 'registry'}
-        <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold badge-3d-subtle flex items-center gap-1">
+        <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold badge-3d-subflex items-center gap-1 border">
           <svg class="w-3 h-3 text-status-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
           </svg>
@@ -508,11 +430,15 @@
           {registryResults.length} found
         </span>
       {:else}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-status-success border-status-success-soft bg-status-success-soft flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
-          <svg class="w-3.5 h-3.5 text-[var(--theme-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {@const embeddedCount = vectorStats.embedded_chunks || vectorStats.total_chunks || 0}
+        <span
+          class="px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 {embeddedCount > 0 ? 'text-status-success border-status-success-soft bg-status-success-soft' : 'text-status-warning border-status-warning-soft bg-status-warning-soft'}"
+          title="Hybrid RAG Search: SQLite FTS5 BM25 + {vectorStats.model || 'IBM Granite 97M ONNX'}"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span>{vectorStats.embedded_chunks || vectorStats.total_chunks || 989} Vector Chunks (Dual Models Active)</span>
+          <span>{embeddedCount} Vector Chunks ({embeddedCount > 0 ? 'Granite 97M ONNX Active' : 'FTS5 Only'})</span>
         </span>
         <span class="text-xs font-bold" style="color: var(--color-text-muted);">
           {skills.length} skills
@@ -520,6 +446,34 @@
       {/if}
     </div>
   </div>
+
+  <!-- Zero-Chunk Inactive Vector Hint -->
+  {#if searchMode !== 'registry' && (vectorStats.embedded_chunks || vectorStats.total_chunks || 0) === 0}
+    <div
+      class="p-3.5 rounded-[5px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+      style="
+        background: color-mix(in srgb, var(--theme-warning, #f59e0b) 12%, transparent);
+        border-color: color-mix(in srgb, var(--theme-warning, #f59e0b) 35%, transparent);
+        color: var(--theme-warning, #f59e0b);
+      "
+    >
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>Neural vector search is currently inactive (0 embedded chunks). Keyword FTS5 search is active.</span>
+      </div>
+      <button
+        type="button"
+        onclick={reembedVectorSkills}
+        disabled={isEmbedding}
+        class="px-3 py-1.5 rounded-[5px] text-xs font-bold text-white cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
+        style="background: linear-gradient(135deg, var(--theme-grad-1, #38bdf8), var(--theme-grad-2, #818cf8));"
+      >
+        {isEmbedding ? 'Vectorizing...' : 'Re-embed Vectors'}
+      </button>
+    </div>
+  {/if}
 
   <!-- Main Content Grid -->
   {#if searchMode === "registry"}
@@ -694,10 +648,31 @@
           >
             <div class="flex items-center justify-between gap-2">
               <span class="text-xs font-black truncate" style="color: var(--color-text);">{s.name}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-bold shrink-0 gradient-badge">
-                {s.type || 'skill'}
-              </span>
+              <div class="flex items-center gap-1 shrink-0">
+                {#if s.engine === 'both'}
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-success-soft bg-status-success-soft text-status-success" title="Matched both FTS5 keyword and semantic vector">
+                    FTS5 + Vector ({Math.round((s.score || 1) * 100)}%)
+                  </span>
+                {:else if s.engine === 'vector'}
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-info-soft bg-status-info-soft text-status-info" title="Matched semantic neural vector (similarity: {s.similarity})">
+                    Vector ({Math.round((s.score || 1) * 100)}%)
+                  </span>
+                {:else if s.engine === 'fts5'}
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-warning-soft bg-status-warning-soft text-status-warning" title="Matched SQLite FTS5 keyword index">
+                    FTS5
+                  </span>
+                {/if}
+                <span class="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wider font-bold shrink-0 gradient-badge">
+                  {s.type || 'skill'}
+                </span>
+              </div>
             </div>
+
+            {#if s.matched_chunk}
+              <div class="mt-2 p-1.5 rounded-[5px] text-[10px] font-mono border text-left truncate opacity-85" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+                <span class="font-bold text-[var(--theme-focus)]">Semantic:</span> {s.matched_chunk}
+              </div>
+            {/if}
 
             {#if s.tags}
               <div class="flex flex-wrap gap-1 mt-2">
@@ -765,8 +740,8 @@
               <div class="flex items-center gap-2 w-full sm:w-auto">
                 <select
                   bind:value={selectedAgentToEmbed}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none"
-                  style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                  class="px-3 py-1.5 rounded-[5px] border text-xs font-semibold focus:outline-none login-field-effect"
+                  style="background: var(--color-surface); color: var(--color-text);"
                 >
                   {#each agentsList as ag}
                     <option value={ag.id}>{ag.name}</option>
@@ -776,7 +751,7 @@
                 <button
                   type="button"
                   onclick={() => embedSkillInAgent(selectedSkill.name, selectedAgentToEmbed)}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-status-success border-status-success-soft bg-status-success-soft/15"
+                  class="px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-status-success border-status-success-soft bg-status-success-soft/15"
                 >
                   Embed
                 </button>
@@ -1001,7 +976,7 @@
             type="text"
             bind:value={newSkill.name}
             placeholder="e.g. docker-compose-scaffolding, redis-caching-skill"
-            class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme font-mono"
+            class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-mono"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -1013,7 +988,7 @@
             type="text"
             bind:value={newSkill.description}
             placeholder="Standard Operating Procedures for scaffolding docker-compose clusters..."
-            class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme font-medium"
+            class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-medium"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -1026,7 +1001,7 @@
               type="text"
               bind:value={newSkill.tags}
               placeholder="docker, devops, compose, backend"
-              class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme"
+              class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             />
           </div>
@@ -1036,7 +1011,7 @@
             <select
               id="skill-embed"
               bind:value={newSkill.embed_agent}
-              class="w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none"
+              class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs font-semibold login-field-effect focus:outline-none"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             >
               <option value="">None (Global standalone skill)</option>
@@ -1053,7 +1028,7 @@
             id="skill-content"
             rows="8"
             bind:value={newSkill.content}
-            class="w-full p-3.5 rounded-xl border text-xs font-mono input-theme leading-relaxed"
+            class="w-full p-3.5 rounded-[5px] border text-xs font-mono login-field-effect input-theme leading-relaxed"
             style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text);"
           ></textarea>
         </div>
@@ -1136,8 +1111,8 @@
           bind:value={registryQuery}
           oninput={handleRegistrySearchInput}
           placeholder="Search skills.sh (e.g. docker, kubernetes, security, react)..."
-          class="w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs input-theme font-medium"
-          style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text);"
+          class="w-full pl-10 pr-10 py-2.5 rounded-[5px] border text-xs input-theme font-medium login-field-effect"
+          style="background: var(--color-surface-hover); color: var(--color-text);"
         />
         {#if registryQuery}
           <button

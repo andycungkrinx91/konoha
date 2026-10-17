@@ -1,0 +1,889 @@
+{
+  "timestamp": "2026-10-17T14:39:03.982Z",
+  "routes": {
+    "/dashboard": {
+      "route": "/dashboard",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/clients": {
+      "route": "/clients",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/bridges": {
+      "route": "/bridges",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/remote": {
+      "route": "/remote",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/savings": {
+      "route": "/savings",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/agents": {
+      "route": "/agents",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/skills": {
+      "route": "/skills",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/persona": {
+      "route": "/persona",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/context": {
+      "route": "/context",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/search": {
+      "route": "/search",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/semble": {
+      "route": "/semble",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/detector": {
+      "route": "/detector",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/tasks": {
+      "route": "/tasks",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/doctor": {
+      "route": "/doctor",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/docs": {
+      "route": "/docs",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    },
+    "/settings": {
+      "route": "/settings",
+      "main": null,
+      "container": {
+        "rect": null,
+        "padding": null,
+        "margin": null
+      },
+      "hero": {
+        "rect": null,
+        "border": "undefined undefined undefined",
+        "padding": null
+      }
+    }
+  },
+  "heroes": {},
+  "fields": [],
+  "viewportMatrix": {
+    "2560x1440": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "1920x1080": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "1680x1050": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "1440x900": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "1366x768": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "1024x768": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "768x1024": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    },
+    "390x844": {
+      "/dashboard": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/clients": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/bridges": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/remote": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/savings": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/agents": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/skills": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/persona": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/context": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/search": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/semble": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/detector": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/tasks": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/doctor": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/docs": {
+        "width": null,
+        "left": null,
+        "right": null
+      },
+      "/settings": {
+        "width": null,
+        "left": null,
+        "right": null
+      }
+    }
+  }
+}

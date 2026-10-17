@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
+  import PageHero from './PageHero.svelte';
 
   let health = $state(null);
   let activeSection = $state('overview');
@@ -99,25 +100,30 @@
 </script>
 
 <div class="space-y-4 lg:h-[calc(100vh-7.5rem)] lg:flex lg:flex-col">
-  <!-- Header (Shrink-0) -->
-  <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 shrink-0">
-    <div class="flex items-center gap-3">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--color-primary);">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      </div>
-      <div>
-        <h2 class="text-2xl lg:text-3xl font-black tracking-tight" style="color: var(--color-text);">Documentation</h2>
-        <p class="text-sm font-medium" style="color: var(--color-text-muted);">Konoha runtime manual — architecture, gates, APIs &amp; operations</p>
-      </div>
-    </div>
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  {/snippet}
+
+  {#snippet heroActions()}
     {#if health}
       <div class="flex items-center gap-2">
-        <span class="text-xs font-mono px-3 py-1.5 rounded-full border" style="color: var(--color-text-muted); border-color: var(--color-border);">v{health.version}</span>
-        <span class="text-xs font-mono px-3 py-1.5 rounded-full border" style="color: var(--color-text-muted); border-color: var(--color-border);">{health.node}</span>
+        <span class="text-xs font-mono px-3 py-1.5 rounded-[5px] border" style="color: var(--color-text-muted); border-color: var(--color-border);">v{health.version}</span>
+        <span class="text-xs font-mono px-3 py-1.5 rounded-[5px] border" style="color: var(--color-text-muted); border-color: var(--color-border);">{health.node}</span>
       </div>
     {/if}
+  {/snippet}
+
+  <!-- Header (Shrink-0) using PageHero -->
+  <div class="shrink-0">
+    <PageHero
+      title="Documentation"
+      badgeText="Runtime Architecture & Operations"
+      badgeIcon={heroBadgeIcon}
+      description="Konoha runtime manual — architecture, gates, APIs & operations"
+      actions={heroActions}
+    />
   </div>
 
   <!-- Mobile Responsive Sticky Section Bar (Pill Navigation) -->

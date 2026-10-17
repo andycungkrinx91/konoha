@@ -1,8 +1,10 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
+  import PageHero from "./PageHero.svelte";
 
   let memories = $state([]);
   let loading = $state(true);
@@ -68,11 +70,7 @@
 
   async function createMemory() {
     if (!newMemory.content.trim()) {
-      await sweetAlert.fire({
-        title: "Validation Error",
-        text: "Please provide memory content.",
-        icon: "warning"
-      });
+      toast.warning("Please provide memory content.");
       return;
     }
     try {
@@ -81,83 +79,53 @@
       newMemory.title = "";
       newMemory.content = "";
       newMemory.tags = "";
-      await sweetAlert.fire({
-        title: "Memory Saved",
-        text: "Persona memory added successfully!",
-        icon: "success"
-      });
+      toast.success("Persona memory added successfully!");
       await loadMemories();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Save Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Save failed: " + err.message);
     }
   }
 
   async function deleteMemory(id) {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Delete Memory?",
-      text: "Are you sure you want to permanently delete this persona memory item?",
-      icon: "warning",
+      message: "Are you sure you want to permanently delete this persona memory item?",
       confirmText: "Delete",
-      cancelText: "Keep"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       await api.delete("/api/v1/persona/" + id);
-      await sweetAlert.fire({
-        title: "Deleted",
-        text: "Memory item removed successfully.",
-        icon: "success"
-      });
+      toast.success("Memory item removed successfully.");
       await loadMemories();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Delete Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Delete failed: " + err.message);
     }
   }
 
   async function pruneAllMemories() {
     if (!memories || memories.length === 0) {
-      await sweetAlert.fire({
-        title: "No Memories",
-        text: "There are no persona memories to prune.",
-        icon: "info"
-      });
+      toast.info("There are no persona memories to prune.");
       return;
     }
 
     const scopeText = selectedAgent ? `for @${selectedAgent}` : "across all agents";
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Prune Persona Memories?",
-      text: `Are you sure you want to prune persona memories ${scopeText}?`,
-      icon: "warning",
+      message: `Are you sure you want to prune persona memories ${scopeText}?`,
       confirmText: "Prune",
-      cancelText: "Cancel"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       const payload = selectedAgent ? { agentName: selectedAgent } : {};
       const res = await api.post("/api/v1/persona/prune", payload);
-      await sweetAlert.fire({
-        title: "Memories Pruned",
-        text: `Successfully pruned ${res.deleted || 0} memory item(s).`,
-        icon: "success"
-      });
+      toast.success(`Successfully pruned ${res.deleted || 0} memory item(s).`);
       await loadMemories();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Prune Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Prune failed: " + err.message);
     }
   }
 
@@ -269,60 +237,45 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          Episodic Learning & Long-Term Recall
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Persona Memory
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          Permanent episodic learnings, behavioral rules, and contextual memory auto-injected into Ninja subagents without token waste.
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+  {/snippet}
 
-      <div class="flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={pruneAllMemories}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
-          title="Prune episodic memories"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          <span>Prune Memories</span>
-        </button>
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={pruneAllMemories}
+      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
+      title="Prune episodic memories"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      <span>Prune Memories</span>
+    </button>
 
-        <button
-          type="button"
-          onclick={() => { isCreateModalOpen = true; }}
-          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-md cursor-pointer"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Add Memory</span>
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      onclick={() => { isCreateModalOpen = true; }}
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[5px] font-bold text-xs text-white shadow-md cursor-pointer"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+      </svg>
+      <span>Add Memory</span>
+    </button>
+  {/snippet}
 
+  {#snippet heroChildren()}
     <!-- View Switcher Tabs -->
-    <div class="relative z-10 flex items-center gap-2 mt-6 pt-6 border-t theme-border/60 w-full">
+    <div class="relative z-10 flex items-center gap-2 mt-4 pt-4 border-t theme-border/60 w-full">
       <button
         type="button"
         onclick={() => { activeTab = "memories"; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'memories' ? 'btn-3d-primary' : ''}"
+        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'memories' ? 'btn-3d-primary' : ''}"
         style={activeTab !== "memories" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -334,7 +287,7 @@
       <button
         type="button"
         onclick={() => { activeTab = "soul"; loadSoul(); }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
+        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
         style={activeTab !== "soul" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-[var(--theme-warning)]' : 'text-status-warning'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -344,7 +297,18 @@
         <span>Will of Fire (Village Soul)</span>
       </button>
     </div>
-  </div>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Persona Memory"
+    badgeText="Episodic Learning & Long-Term Recall"
+    badgeIcon={heroBadgeIcon}
+    description="Permanent episodic learnings, behavioral rules, and contextual memory auto-injected into Ninja subagents without token waste."
+    actions={heroActions}
+  >
+    {@render heroChildren()}
+  </PageHero>
 
   {#if activeTab === "memories"}
   <!-- Filter & Search Controls -->
@@ -371,8 +335,8 @@
           bind:value={searchQuery}
           onkeydown={(e) => { if (e.key === "Enter") loadMemories(); }}
           placeholder="Search memories..."
-          class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border transition-all input-theme"
-          style="background-color: var(--color-surface); border-color: var(--color-border); color: #0f172a;"
+          class="w-full pl-9 pr-4 py-2 rounded-[5px] text-xs font-semibold theme-text border transition-all login-field-effect input-theme"
+          style="background-color: var(--color-surface); color: var(--color-text);"
         />
         <svg class="w-4 h-4 absolute left-3 top-2.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -700,7 +664,7 @@
             <select
               id="agent-select"
               bind:value={newMemory.agentName}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               {#each agents.filter(ag => ag.id) as ag}
                 <option value={ag.id}>{ag.name}{ag.title ? ` (${ag.title})` : ""}</option>
@@ -713,7 +677,7 @@
             <select
               id="memory-type-select"
               bind:value={newMemory.memoryType}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -730,7 +694,7 @@
             type="text"
             bind:value={newMemory.title}
             placeholder="e.g. Always enforce Pure Light mode"
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           />
         </div>
 
@@ -741,7 +705,7 @@
             bind:value={newMemory.content}
             rows="4"
             placeholder="Specific instruction, rule, pattern, or constraint to permanently remember..."
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           ></textarea>
         </div>
 
@@ -752,7 +716,7 @@
             type="text"
             bind:value={newMemory.tags}
             placeholder="ui, theme, accessibility"
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           />
         </div>
       </div>

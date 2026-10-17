@@ -3,6 +3,9 @@
 @custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
 :root {
+  --content-max-width: 80rem; /* 1280px standard width matching max-w-7xl */
+  --content-gutter: 2rem; /* 32px desktop horizontal gutter */
+  --content-gutter-mobile: 1rem; /* 16px mobile horizontal gutter */
   --color-primary: #0284c7;
   --color-accent: #06b6d4;
   --color-primary-glow: rgba(2, 132, 199, 0.12);
@@ -233,6 +236,32 @@ code, kbd, samp, pre, .font-mono {
   border-radius: 5px !important;
 }
 
+/* Universal Themed Scrollbars for Dark & Light Mode Across ALL 10 Themes */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb, color-mix(in srgb, var(--color-border) 75%, var(--theme-text-muted, #64748b))) var(--theme-scrollbar-track, transparent);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-scrollbar-track, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--theme-scrollbar-thumb, color-mix(in srgb, var(--color-border) 75%, var(--theme-text-muted, #64748b)));
+  border-radius: 4px;
+  border: 2px solid var(--theme-scrollbar-track, transparent);
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--theme-scrollbar-thumb-hover, var(--theme-border-strong, #475569));
+}
+
 /* Form Controls: read from the semantic theme contract, never browser defaults */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
 textarea,
@@ -266,11 +295,75 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
+/* Authoritative Console Content Container */
+.console-content-container {
+  max-width: var(--content-max-width, 80rem);
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--content-gutter-mobile, 1rem);
+  padding-right: var(--content-gutter-mobile, 1rem);
+}
+
+@media (min-width: 1024px) {
+  .console-content-container {
+    padding-left: var(--content-gutter, 2rem);
+    padding-right: var(--content-gutter, 2rem);
+  }
+}
+
 /* Explicit focus treatment for themed inputs that opt in */
 .input-theme:focus {
   outline: none;
   border-color: var(--theme-focus, var(--color-primary));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-focus, var(--color-primary)) 25%, transparent);
+}
+
+/* Post-Login Shared Field Effect (harmonized with Login.svelte reference) */
+.login-field-effect,
+input.login-field-effect,
+textarea.login-field-effect,
+select.login-field-effect {
+  border-radius: 5px !important;
+  background-color: var(--color-surface, #ffffff);
+  color: var(--theme-text, #0f172a);
+  border: 1px solid var(--theme-border-strong, rgba(0, 0, 0, 0.25)) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-field-effect:hover,
+input.login-field-effect:hover,
+textarea.login-field-effect:hover,
+select.login-field-effect:hover {
+  border-color: var(--theme-border-hover, color-mix(in srgb, var(--theme-border) 70%, var(--theme-text-muted)));
+}
+
+.login-field-effect:focus,
+.login-field-effect:focus-visible,
+input.login-field-effect:focus,
+input.login-field-effect:focus-visible,
+textarea.login-field-effect:focus,
+textarea.login-field-effect:focus-visible,
+select.login-field-effect:focus,
+select.login-field-effect:focus-visible {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--theme-focus, var(--color-primary));
+}
+
+.login-field-effect:disabled,
+input.login-field-effect:disabled,
+textarea.login-field-effect:disabled,
+select.login-field-effect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: var(--theme-border-subtle, var(--color-border));
+}
+
+.login-field-effect::placeholder,
+input.login-field-effect::placeholder,
+textarea.login-field-effect::placeholder {
+  color: #64748b;
 }
 
 /* Interaction states driven by the palette (replaces Tailwind hover:bg-slate-*) */

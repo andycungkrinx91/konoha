@@ -1,6 +1,8 @@
 <script>
   import { authState } from '#lib/state/authState.svelte.js';
   import PasswordChangeModal from '../../components/PasswordChangeModal.svelte';
+  import PageHero from '../../components/PageHero.svelte';
+  import { toast } from '#lib/state/toast.svelte.ts';
 
   let currentPassword = $state('');
   let newPassword = $state('');
@@ -30,6 +32,7 @@
     if (newPassword !== confirmPassword) {
       statusMessage = 'New password and confirmation do not match.';
       isError = true;
+      toast.warning('New password and confirmation do not match.');
       return;
     }
 
@@ -38,42 +41,40 @@
       await authState.changePassword(currentPassword, newPassword);
       statusMessage = 'Password updated successfully! Future logins will require this credential.';
       isError = false;
+      toast.success('Password updated successfully! Future logins will require this credential.');
       currentPassword = '';
       newPassword = '';
       confirmPassword = '';
     } catch (err) {
       statusMessage = err.message || 'Failed to update password.';
       isError = true;
+      toast.error('Failed to update password: ' + (err.message || 'Error'));
     } finally {
       isSubmitting = false;
     }
   }
 </script>
 
-<div class="space-y-6 max-w-4xl mx-auto">
-  <!-- Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style="border-color: var(--color-border);">
-    <div>
-      <h1 class="text-xl sm:text-2xl font-black tracking-tight" style="color: var(--color-text);">
-        Security & Settings
-      </h1>
-      <p class="text-xs sm:text-sm mt-0.5" style="color: var(--color-text-muted);">
-        Manage your Konoha Console access credentials, sessions, and security posture.
-      </p>
-    </div>
+<div class="space-y-6 w-full">
+  {#snippet heroActions()}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-xs font-semibold border {authState.isBootstrap ? 'bg-status-warning-soft text-status-warning border-status-warning-soft' : 'bg-status-success-soft text-status-success border-status-success-soft'}">
+      <span class="w-2 h-2 rounded-full {authState.isBootstrap ? 'bg-status-warning' : 'bg-status-success'}"></span>
+      {authState.isBootstrap ? 'Bootstrap Credential Active' : 'Hardened Password Active'}
+    </span>
+  {/snippet}
 
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-xs font-semibold border {authState.isBootstrap ? 'bg-status-warning-soft text-status-warning border-status-warning-soft' : 'bg-status-success-soft text-status-success border-status-success-soft'}">
-        <span class="w-2 h-2 rounded-full {authState.isBootstrap ? 'bg-status-warning' : 'bg-status-success'}"></span>
-        {authState.isBootstrap ? 'Bootstrap Credential Active' : 'Hardened Password Active'}
-      </span>
-    </div>
-  </div>
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Security & Settings"
+    badgeText="Salted scrypt Authentication"
+    description="Manage your Konoha Console access credentials, sessions, and security posture."
+    actions={heroActions}
+  />
 
-  <!-- Password Change Card -->
+  <!-- Password Change Card (3D Glass Metric Card) -->
   <div
-    class="glass-frost rounded-[6px] p-6 sm:p-8 border shadow-lg space-y-6"
-    style="background-color: var(--color-card-bg); border-color: var(--color-card-border);"
+    class="metric-card-3d rounded-[5px] p-6 sm:p-8 border space-y-6"
+    style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
   >
     <div class="flex items-start gap-4">
       <div class="w-12 h-12 rounded-[5px] flex items-center justify-center shrink-0 border-status-info-soft bg-status-info-soft text-status-info">
@@ -108,8 +109,8 @@
           type={showPasswords ? "text" : "password"}
           bind:value={currentPassword}
           placeholder="Enter current password"
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
-          style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="current-password"
         />
       </div>
@@ -124,8 +125,8 @@
           bind:value={newPassword}
           placeholder="Enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
-          style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="new-password"
         />
       </div>
@@ -140,8 +141,8 @@
           bind:value={confirmPassword}
           placeholder="Re-enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
-          style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="new-password"
         />
       </div>

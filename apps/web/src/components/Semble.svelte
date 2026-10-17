@@ -1,7 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import PageHero from "./PageHero.svelte";
 
   let status = $state(null);
   let savings = $state(null);
@@ -45,11 +46,7 @@
       searchResults = res;
     } catch (err) {
       searchError = err.message;
-      await sweetAlert.fire({
-        title: "Search Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Search failed: " + err.message);
     } finally {
       isSearching = false;
     }
@@ -58,40 +55,32 @@
   onMount(loadSembleData);
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          Default Codebase Discovery Server
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Semble MCP Engine
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          AI-powered semantic code search powered by MinishLab. Understands code intent, symbols, and architecture while burning ~98% fewer context tokens than legacy grep and file dumps.
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  {/snippet}
 
-      <div class="flex items-center gap-4 shrink-0">
-        <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold theme-text-secondary">Saved All-Time</div>
-          <div class="text-xl font-black text-[var(--theme-success)]">{savings ? savings.total_saved : "—"}</div>
-        </div>
-        <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold theme-text-secondary">Engine Type</div>
-          <div class="text-xl font-black text-[var(--theme-info)]">Neural + FTS</div>
-        </div>
-      </div>
+  {#snippet heroStats()}
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold theme-text-secondary">Saved All-Time</div>
+      <div class="text-xl font-black text-[var(--theme-success)]">{savings ? savings.total_saved : "—"}</div>
     </div>
-  </div>
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold theme-text-secondary">Engine Type</div>
+      <div class="text-xl font-black text-[var(--theme-info)]">Neural + FTS</div>
+    </div>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Semble MCP Engine"
+    badgeText="Default Codebase Discovery Server"
+    badgeIcon={heroBadgeIcon}
+    description="AI-powered semantic code search powered by MinishLab. Understands code intent, symbols, and architecture while burning ~98% fewer context tokens than legacy grep and file dumps."
+    stats={heroStats}
+  />
 
   {#if error}
     <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
@@ -174,7 +163,7 @@
           type="text"
           bind:value={searchQuery}
           placeholder="Describe symbol, bug, or feature (e.g. CSRF token validation logic)..."
-          class="w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-0 focus:outline-none"
+          class="w-full pl-10 pr-4 py-3 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect"
         />
         <svg class="w-4 h-4 absolute left-3.5 top-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -184,7 +173,7 @@
       <div class="flex items-center gap-3">
         <select
           bind:value={searchLimit}
-          class="px-3 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+          class="px-3 py-3 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
         >
           <option value={3}>Top 3</option>
           <option value={5}>Top 5</option>

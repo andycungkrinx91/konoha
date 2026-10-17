@@ -1,10 +1,10 @@
-// Svelte 5 Runes state management for Konoha Web UI
+// Svelte 5 Runes state management for Konoha Web UI with unified Toast integration
+import { toast } from '#lib/state/toast.svelte.ts';
 
 export function createUiState() {
   let activeScreen = $state('bridges');
   let notifications = $state([]);
   let isConnected = $state(false);
-  let nextNotificationId = 1;
 
   return {
     get activeScreen() { return activeScreen; },
@@ -13,11 +13,15 @@ export function createUiState() {
     get isConnected() { return isConnected; },
     set isConnected(val) { isConnected = val; },
     addNotification(text, type = 'info') {
-      const id = nextNotificationId++;
-      notifications = [...notifications, { id, text, type }];
-      setTimeout(() => {
-        notifications = notifications.filter(n => n.id !== id);
-      }, 4000);
+      if (type === 'success') {
+        toast.success(text);
+      } else if (type === 'error') {
+        toast.error(text);
+      } else if (type === 'warning') {
+        toast.warning(text);
+      } else {
+        toast.info(text);
+      }
     }
   };
 }

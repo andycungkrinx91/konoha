@@ -566,6 +566,28 @@ function scanNearestChunks(conn, queryVec, candidateK = 25) {
   return scored.slice(0, candidateK);
 }
 
+const FTS_STOP_WORDS = new Set([
+  'dan', 'atau', 'yang', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'adalah', 'ini', 'itu',
+  'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were'
+]);
+
+const FTS_MULTILINGUAL_SYNONYMS = {
+  'arsitektur': ['architecture', 'architect', 'kage-skill'],
+  'keamanan': ['security', 'audit', 'kage-skill'],
+  'keputusan': ['decision', 'kage-skill'],
+  'antarmuka': ['frontend', 'ui', 'jonin-skill'],
+  'styling': ['styling', 'tailwind', 'jonin-skill'],
+  'perbaikan': ['bug', 'fix', 'anbu-skill'],
+  'infrastruktur': ['infrastructure', 'anbu-skill'],
+  'backend': ['backend', 'anbu-skill'],
+  'pemetaan': ['mapping', 'genin-skill'],
+  'struktur': ['structure', 'genin-skill'],
+  'dependensi': ['dependency', 'dependencies', 'genin-skill'],
+  'berkas': ['file'],
+  'dokumentasi': ['documentation', 'tokubetsu-jonin-skill'],
+  'panduan': ['guide', 'tokubetsu-jonin-skill']
+};
+
 function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
   if (!query || !query.trim()) return [];
 
@@ -574,34 +596,13 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
   try {
     const cleanQ = query.replace(/[^a-zA-Z0-9_\-\s]/g, ' ').trim();
     if (cleanQ) {
-      const STOP_WORDS = new Set([
-        'dan', 'atau', 'yang', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'adalah', 'ini', 'itu',
-        'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were'
-      ]);
-      const MULTILINGUAL_SYNONYMS = {
-        'arsitektur': ['architecture', 'architect', 'kage-skill'],
-        'keamanan': ['security', 'audit', 'kage-skill'],
-        'keputusan': ['decision', 'kage-skill'],
-        'antarmuka': ['frontend', 'ui', 'jonin-skill'],
-        'styling': ['styling', 'tailwind', 'jonin-skill'],
-        'perbaikan': ['bug', 'fix', 'anbu-skill'],
-        'infrastruktur': ['infrastructure', 'anbu-skill'],
-        'backend': ['backend', 'anbu-skill'],
-        'pemetaan': ['mapping', 'genin-skill'],
-        'struktur': ['structure', 'genin-skill'],
-        'dependensi': ['dependency', 'dependencies', 'genin-skill'],
-        'berkas': ['file'],
-        'dokumentasi': ['documentation', 'tokubetsu-jonin-skill'],
-        'panduan': ['guide', 'tokubetsu-jonin-skill']
-      };
-
       const rawTokens = cleanQ.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
       const tokenSet = new Set();
       for (const t of rawTokens) {
-        if (STOP_WORDS.has(t) || t.length <= 1) continue;
+        if (FTS_STOP_WORDS.has(t) || t.length <= 1) continue;
         tokenSet.add(t);
-        if (MULTILINGUAL_SYNONYMS[t]) {
-          for (const syn of MULTILINGUAL_SYNONYMS[t]) tokenSet.add(syn);
+        if (FTS_MULTILINGUAL_SYNONYMS[t]) {
+          for (const syn of FTS_MULTILINGUAL_SYNONYMS[t]) tokenSet.add(syn);
         }
       }
 
@@ -673,6 +674,192 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
     const r = rowMap.get(sName);
     if (r) {
       results.push(Object.assign({}, r, { score: 1.0 - (i * 0.05) }));
+    }
+  }
+
+  return results;
+}
+
+async function findSkillHybrid(conn, query, options = {}) {
+  const topK = options.topK || options.limit || 10;
+  const candidateK = options.candidateK || 30;
+  if (!query || !query.trim()) {
+    const allRows = conn.prepare(`
+      SELECT name, skill_name, type, tags, byte_size, line_count, file_path
+      FROM skills
+      ORDER BY name ASC
+      LIMIT ?
+    `).all(topK);
+    return allRows.map(r => ({
+      ...r,
+      engine: 'all',
+      score: 1.0,
+      similarity: null
+    }));
+  }
+
+  const cleanQuery = query.trim();
+
+  // 1. Vector scan using real IBM Granite ONNX embeddings
+  const vecSkillMap = new Map();
+  const vecSkillNames = [];
+
+  try {
+    const chunkCountRow = conn.prepare("SELECT COUNT(*) as cnt FROM skill_chunks WHERE embedding IS NOT NULL").get();
+    const chunkCount = chunkCountRow ? chunkCountRow.cnt : 0;
+    if (chunkCount > 0 && isSemanticSearchEnabled()) {
+      const queryVec = await embedText(cleanQuery);
+      if (queryVec) {
+        const nearestChunks = scanNearestChunks(conn, queryVec, candidateK);
+        for (let i = 0; i < nearestChunks.length; i++) {
+          const [sName, _cIndex, cText, sim] = nearestChunks[i];
+          if (!vecSkillMap.has(sName)) {
+            vecSkillMap.set(sName, {
+              similarity: Number(sim.toFixed(4)),
+              rank: vecSkillNames.length + 1,
+              chunkText: (cText || '').slice(0, 200)
+            });
+            vecSkillNames.push(sName);
+          }
+        }
+      }
+    }
+  } catch (_) {
+    // Vector scan fallback
+  }
+
+  // 2. FTS5 Keyword BM25 scan
+  const ftsSkillMap = new Map();
+  const ftsSkillNames = [];
+  try {
+    const cleanQ = cleanQuery.replace(/[^a-zA-Z0-9_\-\s]/g, ' ').trim();
+    if (cleanQ) {
+      const rawTokens = cleanQ.split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+      const tokenSet = new Set();
+      for (const t of rawTokens) {
+        if (!FTS_STOP_WORDS.has(t) && t.length > 1) {
+          tokenSet.add(t);
+          if (FTS_MULTILINGUAL_SYNONYMS[t]) {
+            for (const syn of FTS_MULTILINGUAL_SYNONYMS[t]) tokenSet.add(syn);
+          }
+        }
+      }
+
+      let ftsSupported = true;
+      try {
+        const dbMod = require('./db');
+        if (dbMod.hasFts5Support && !dbMod.hasFts5Support(conn)) {
+          ftsSupported = false;
+        }
+      } catch (_) { /* best effort */ }
+
+      if (ftsSupported && tokenSet.size > 0) {
+        const ftsQuery = Array.from(tokenSet).map(t => `"${t}"*`).join(" OR ");
+        const ftsSql = `
+          SELECT name, bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) as rank
+          FROM skills_fts
+          WHERE skills_fts MATCH ?
+          ORDER BY rank ASC
+          LIMIT ?
+        `;
+        const rows = conn.prepare(ftsSql).all(ftsQuery, candidateK);
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          ftsSkillMap.set(r.name, { rank: i + 1, bm25: r.rank });
+          ftsSkillNames.push(r.name);
+        }
+      }
+    }
+  } catch (_) { /* best effort */ }
+
+  // Fallback to LIKE query if FTS5 returned 0
+  if (ftsSkillNames.length === 0) {
+    try {
+      const likeRows = conn.prepare(`
+        SELECT name FROM skills
+        WHERE name LIKE ? OR skill_name LIKE ? OR tags LIKE ?
+        ORDER BY byte_size ASC
+        LIMIT ?
+      `).all(`%${cleanQuery}%`, `%${cleanQuery}%`, `%${cleanQuery}%`, candidateK);
+      for (let i = 0; i < likeRows.length; i++) {
+        const r = likeRows[i];
+        if (!ftsSkillMap.has(r.name)) {
+          ftsSkillMap.set(r.name, { rank: i + 1, bm25: 0 });
+          ftsSkillNames.push(r.name);
+        }
+      }
+    } catch (_) { /* best effort */ }
+  }
+
+  // 3. Merging and Ranking via Reciprocal Rank Fusion
+  const allCandidateNames = new Set([...vecSkillNames, ...ftsSkillNames]);
+  if (allCandidateNames.size === 0) {
+    return [];
+  }
+
+  const kConstant = 60;
+  const scoredItems = [];
+
+  for (const sName of allCandidateNames) {
+    const inVec = vecSkillMap.has(sName);
+    const inFts = ftsSkillMap.has(sName);
+
+    const vecInfo = vecSkillMap.get(sName);
+    const ftsInfo = ftsSkillMap.get(sName);
+
+    const rrfVec = inVec ? (1.0 / (kConstant + vecInfo.rank)) : 0;
+    const rrfFts = inFts ? (1.0 / (kConstant + ftsInfo.rank)) : 0;
+    const combinedScore = rrfVec + rrfFts;
+
+    let engine = 'fts5';
+    if (inVec && inFts) {
+      engine = 'both';
+    } else if (inVec) {
+      engine = 'vector';
+    } else {
+      engine = 'fts5';
+    }
+
+    scoredItems.push({
+      name: sName,
+      engine,
+      score: combinedScore,
+      similarity: inVec ? vecInfo.similarity : null,
+      matched_chunk: inVec ? vecInfo.chunkText : null
+    });
+  }
+
+  scoredItems.sort((a, b) => b.score - a.score);
+  const topCandidates = scoredItems.slice(0, topK);
+
+  const maxScore = topCandidates[0]?.score || 1;
+  for (const item of topCandidates) {
+    item.normalized_score = Number((item.score / maxScore).toFixed(3));
+  }
+
+  const placeholders = topCandidates.map(() => '?').join(',');
+  const skillDetails = conn.prepare(`
+    SELECT name, skill_name, type, tags, byte_size, line_count, file_path
+    FROM skills
+    WHERE name IN (${placeholders})
+  `).all(...topCandidates.map(t => t.name));
+
+  const detailsMap = new Map();
+  for (const sd of skillDetails) {
+    detailsMap.set(sd.name, sd);
+  }
+
+  const results = [];
+  for (const item of topCandidates) {
+    const details = detailsMap.get(item.name);
+    if (details) {
+      results.push({
+        ...details,
+        engine: item.engine,
+        score: item.normalized_score,
+        similarity: item.similarity,
+        matched_chunk: item.matched_chunk
+      });
     }
   }
 
@@ -819,6 +1006,7 @@ module.exports = {
   reciprocalRankFusion,
   scanNearestChunks,
   findSkillSemantic,
+  findSkillHybrid,
   indexSingleSkillChunks,
   backfillAllEmbeddings,
   enableLoadExtensionSafe,

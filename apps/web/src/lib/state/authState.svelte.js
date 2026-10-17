@@ -15,6 +15,12 @@ function createAuthState() {
     showPasswordChangeModal = false;
   }
 
+  if (typeof window !== 'undefined') {
+    window.addEventListener('konoha:session-expired', () => {
+      resetSession();
+    });
+  }
+
   async function checkAuth() {
     isChecking = true;
     try {

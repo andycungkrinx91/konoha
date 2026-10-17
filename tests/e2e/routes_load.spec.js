@@ -14,4 +14,9 @@ test("Routes load cleanly without errors", async ({ page }) => {
   await expect(page.getByText("Mission Control Dashboard")).toBeVisible();
   await page.goto("http://127.0.0.1:4173/detector");
   await expect(page.getByText("Website AI Detector")).toBeVisible();
+  await page.goto("http://127.0.0.1:4173/agents");
+  await expect(page.getByText("Ninja Subagents")).toBeVisible();
+  await expect(page.locator("text=no such column")).toHaveCount(0);
+  await expect(page.getByText("@sannin")).toBeVisible();
+  await expect(page.getByText("@kage")).toBeVisible();
 });

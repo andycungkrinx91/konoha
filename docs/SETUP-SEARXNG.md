@@ -92,6 +92,9 @@ If DuckDuckGo HTML fails (e.g. captcha interception), the engine queries `https:
 ### Wikipedia OpenSearch
 For factual queries, if all web search endpoints fail, Wikipedia OpenSearch acts as a final fallback, ensuring the tool always returns a factual definition.
 
+### Multi-Source Blended Intelligence & Village Skills
+When searching in "All Sources" mode on the Konoha Web UI (`/search`), the engine concurrently executes web search, Wikipedia encyclopedic retrieval, and Konoha Village Skills hybrid search (`findSkillHybrid`), returning a unified citation list tagged with authentic source badges (`[DuckDuckGo]`, `[Wikipedia]`, `[SearXNG]`, `[Konoha Skills]`). Users can also filter citations specifically by provider using interactive source filter pills.
+
 ---
 
 ## ⚙️ Configuration & Logging

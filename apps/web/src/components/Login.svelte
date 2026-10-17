@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { authState } from '#lib/state/authState.svelte.js';
   import { themeState } from '#lib/state/themeState.svelte.js';
+  import { toast } from '#lib/state/toast.svelte.ts';
   import { backgroundScene } from './SharedRasenganBackground.svelte';
 
   // Single nominal login timeline (3,000 ms) per accepted submission.
@@ -68,6 +69,7 @@
 
     if (!password) {
       errorMessage = 'Enter your passphrase to continue.';
+      toast.warning('Enter your passphrase to continue.');
       passwordInputEl?.focus();
       return;
     }
@@ -117,7 +119,18 @@
     if (!outcome.ok) {
       authPhase = 'idle';
       isSubmitting = false;
-      errorMessage = outcome.error?.message || 'Authentication failed. Try again.';
+      const status = outcome.error?.status;
+      if (status === 429) {
+        const retryAfter = outcome.error?.data?.retry_after || '60';
+        errorMessage = `Too many attempts. Gateway cooling down — retry in ${retryAfter}s.`;
+        toast.warning(errorMessage);
+      } else if (status === 0 || outcome.error?.errorId === 'err_offline') {
+        errorMessage = 'Gateway server is unreachable or offline.';
+        toast.error(errorMessage);
+      } else {
+        errorMessage = 'Invalid passphrase. Access denied.';
+        toast.error('Invalid passphrase. Access denied.');
+      }
       passwordInputEl?.focus();
       passwordInputEl?.select();
       return;

@@ -174,7 +174,7 @@ konoha web
 - **2-Second Procedural 3D WebGL Rasengan Theme Transition**: Selecting any of the 10 themes triggers an epic 2-second procedural 3D Three.js Rasengan transition with dynamic theme palette, optical shatter flash (`animate-shatter-flash`), and ambient vignette that cleanly transitions the entire UI into the chosen palette without wall distortion, screen shaking, or countdown timers.
 - **Unified 3D Button Theme Consistency**: Interactive buttons throughout all dashboard and telemetry views leverage 3D tactile depth (`.btn-3d`, `.btn-3d-primary`, `.btn-3d-secondary`) powered dynamically by the active theme's CSS variables (`--theme-4gradient`, `--color-surface`, `--color-border`), strictly eliminating un-themed hardcoded dark backgrounds in light mode.
 - **Hardware-Accelerated 3D Motion**: Perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
-- **Accessible Typography & Modals**: Custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.
+- **Accessible Typography & Modals**: Custom Svelte 5 runes modern animated ToastHost, ConfirmModal, and FormDialogModal dialogs with body scroll-lock and Escape/backdrop close.
 
 ### 9. 🩺 Environment Doctor Screen (`Doctor.svelte`)
 - Comprehensive diagnostic checklist of 24+ components (Node.js, SQLite, MCP tools, client configs).

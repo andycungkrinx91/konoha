@@ -1,9 +1,10 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
   import { uiState } from "#lib/state/uiState.svelte.js";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
+  import PageHero from "./PageHero.svelte";
 
   // Telegram State
   let tgConfig = $state({
@@ -106,19 +107,11 @@
       }
       const res = await api.post("/api/v1/telegram/config", payload);
       if (res && res.ok) {
-        await sweetAlert.fire({
-          title: "Telegram Settings Saved",
-          text: "Telegram bot configuration persisted to SQLite.",
-          icon: "success"
-        });
+        toast.success("Telegram bot configuration persisted to SQLite.");
         await loadData();
       }
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Save Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Save failed: " + err.message);
     } finally {
       tgSaving = false;
     }
@@ -128,23 +121,16 @@
     try {
       const endpoint = tgConfig.enabled ? "/api/v1/telegram/disable" : "/api/v1/telegram/enable";
       await api.post(endpoint, {});
-      await sweetAlert.fire({
-        title: tgConfig.enabled ? "Integration Disabled" : "Integration Enabled",
-        text: tgConfig.enabled ? "Telegram task reports and poller turned off." : "Telegram notifications active.",
-        icon: "success"
-      });
+      toast.success(tgConfig.enabled ? "Telegram task reports and poller turned off." : "Telegram notifications active.");
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Toggle Action Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Toggle action failed: " + err.message);
     }
   }
 
   async function sendTelegramTest() {
     tgTesting = true;
+    const progressToast = toast.loading("Delivering test ping to Telegram...");
     try {
       const payload = {
         chat_id: tgChatIdInput.trim() || null,
@@ -152,24 +138,12 @@
       };
       const res = await api.post("/api/v1/telegram/test", payload);
       if (res && res.ok) {
-        await sweetAlert.fire({
-          title: "Ping Delivered!",
-          text: "Verification test ping successfully delivered to your Telegram chat. Check your Telegram app!",
-          icon: "success"
-        });
+        progressToast.success("Verification test ping successfully delivered to your Telegram chat!");
       } else {
-        await sweetAlert.fire({
-          title: "Telegram Test Ping Failed",
-          text: res?.error || "Could not deliver message to Telegram. Check bot token and chat ID.",
-          icon: "error"
-        });
+        progressToast.error(res?.error || "Could not deliver message to Telegram. Check bot token and chat ID.");
       }
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Test Request Failed",
-        text: err.message,
-        icon: "error"
-      });
+      progressToast.error("Test request failed: " + err.message);
     } finally {
       tgTesting = false;
     }
@@ -201,19 +175,11 @@
       };
       const res = await api.post("/api/v1/tunnel/config", payload);
       if (res && res.ok) {
-        await sweetAlert.fire({
-          title: "Tunnel Configuration Saved",
-          text: "Cloudflare Tunnel Token and domain settings saved to SQLite.",
-          icon: "success"
-        });
+        toast.success("Cloudflare Tunnel Token and domain settings saved to SQLite.");
         await loadData();
       }
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Save Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Save failed: " + err.message);
     } finally {
       tunnelSaving = false;
     }
@@ -224,18 +190,10 @@
     try {
       if (tunnelStatus.enabled) {
         await api.post("/api/v1/tunnel/stop", {});
-        await sweetAlert.fire({
-          title: "Tunnel Stopped",
-          text: "Cloudflare ingress tunnel supervisor process stopped.",
-          icon: "success"
-        });
+        toast.info("Cloudflare ingress tunnel supervisor process stopped.");
       } else {
         if (!isHostnameValid(tunnelCustomDomain)) {
-          await sweetAlert.fire({
-            title: "Hostname Required",
-            text: "A valid Public Hostname / Domain (e.g. remote.yourdomain.com) is required to start the tunnel.",
-            icon: "error"
-          });
+          toast.warning("A valid Public Hostname / Domain (e.g. remote.yourdomain.com) is required to start the tunnel.");
           return;
         }
         const payload = {
@@ -244,21 +202,13 @@
           domain: tunnelCustomDomain.trim() || undefined
         };
         const res = await api.post("/api/v1/tunnel/start", payload);
-        await sweetAlert.fire({
-          title: "Tunnel Initialized",
-          text: res?.status?.public_url
-            ? `Ingress established: ${res.status.public_url}`
-            : "Cloudflare tunnel process spawned via token in background.",
-          icon: "success"
-        });
+        toast.success(res?.status?.public_url
+          ? `Ingress established: ${res.status.public_url}`
+          : "Cloudflare tunnel process spawned via token in background.");
       }
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Tunnel Action Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Tunnel action failed: " + err.message);
     } finally {
       tunnelLoading = false;
     }
@@ -268,7 +218,7 @@
     if (!tunnelStatus.public_url) return;
     navigator.clipboard.writeText(tunnelStatus.public_url);
     copiedUrl = true;
-    uiState.addNotification("Public URL copied to clipboard", "success");
+    toast.success("Public URL copied to clipboard");
     setTimeout(() => { copiedUrl = false; }, 3000);
   }
 
@@ -282,19 +232,11 @@
       });
       if (res && res.ok) {
         newPromptText = "";
-        await sweetAlert.fire({
-          title: "Prompt Queued",
-          text: `Task #${res.prompt?.id || ""} dispatched to task queue!`,
-          icon: "success"
-        });
+        toast.success(`Task #${res.prompt?.id || ""} dispatched to task queue!`);
         await loadData();
       }
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Queue Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Queue failed: " + err.message);
     } finally {
       submittingPrompt = false;
     }
@@ -303,53 +245,42 @@
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape' && showGuideModal) showGuideModal = false; }} />
 
-<div class="space-y-8 max-w-7xl mx-auto">
+<div class="space-y-8 w-full">
+  {#snippet heroDesc()}
+    Cloudflare Zero Trust named tunnels (<span class="font-mono text-xs font-bold">cloudflared tunnel run --token</span>), Telegram task report alerts, and inbound queue prompting.
+  {/snippet}
+
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={() => { showGuideModal = true; }}
+      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
+    >
+      <svg class="w-4 h-4 text-[var(--theme-info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>Setup Guide</span>
+    </button>
+
+    <button
+      type="button"
+      onclick={loadData}
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Refresh Telemetry</span>
+    </button>
+  {/snippet}
+
   <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="glass-card-3d relative overflow-hidden rounded-[5px] p-8 border transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-[5px] text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          Remote Ingress &amp; Integrations
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black tracking-tight" style="color: var(--color-text);">
-          Remote Access Control
-        </h2>
-        <p class="text-sm font-semibold max-w-2xl leading-relaxed" style="color: var(--color-text-muted);">
-          Cloudflare Zero Trust named tunnels (<span class="font-mono text-xs font-bold">cloudflared tunnel run --token</span>), Telegram task report alerts, and inbound queue prompting.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={() => { showGuideModal = true; }}
-          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
-        >
-          <svg class="w-4 h-4 text-[var(--theme-info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>Setup Guide</span>
-        </button>
-
-        <button
-          type="button"
-          onclick={loadData}
-          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Refresh Telemetry</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  <PageHero
+    title="Remote Access Control"
+    badgeText="Remote Ingress & Integrations"
+    desc={heroDesc}
+    actions={heroActions}
+  />
 
   <!-- Primary Dual-Card Grid (3D Perspective View) -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 perspective-container">
@@ -419,8 +350,8 @@
               type={showToken ? "text" : "password"}
               bind:value={tgTokenInput}
               placeholder="e.g. 123456789:AAExampleBotTokenPlaceholder"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 focus:outline-hidden transition-colors"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
+              style="background: var(--color-surface); color: var(--color-text);"
             />
             <button
               type="button"
@@ -442,8 +373,8 @@
             type="text"
             bind:value={tgChatIdInput}
             placeholder="e.g. 123456789"
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden transition-colors"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
           <p class="text-[11px] font-medium mt-1" style="color: var(--color-text-muted);">
             Message <span class="font-mono font-bold" style="color: var(--color-primary);">@userinfobot</span> on Telegram to get your numeric user ID.
@@ -581,8 +512,8 @@
               type={showTunnelToken ? "text" : "password"}
               bind:value={tunnelTokenInput}
               placeholder="Paste token from: cloudflared tunnel run --token <TOKEN>"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 focus:outline-hidden transition-colors"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
+              style="background: var(--color-surface); color: var(--color-text);"
             />
             <button
               type="button"
@@ -607,8 +538,8 @@
             type="text"
             bind:value={tunnelCustomDomain}
             placeholder="e.g. remote.yourdomain.com"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden transition-colors"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
       </div>
@@ -661,8 +592,8 @@
         type="text"
         bind:value={newPromptText}
         placeholder="Type a prompt to queue for your workstation (e.g. run unit tests and fix lints)..."
-        class="flex-1 px-3.5 py-2.5 text-xs rounded-[5px] border focus:outline-hidden transition-colors"
-        style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+        class="flex-1 px-3.5 py-2.5 text-xs rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+        style="background: var(--color-surface); color: var(--color-text);"
         onkeydown={(e) => { if (e.key === "Enter") submitQueuePrompt(); }}
       />
       <button

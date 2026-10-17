@@ -143,7 +143,7 @@
             type={showPasswords ? 'text' : 'password'}
             bind:value={currentPassword}
             placeholder="Enter current password"
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="current-password"
             disabled={isSubmitting}
           />
@@ -160,7 +160,7 @@
             placeholder="Enter new strong password"
             required
             minlength={MIN_PASSWORD_LENGTH}
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="new-password"
             disabled={isSubmitting}
           />
@@ -177,7 +177,7 @@
             placeholder="Re-enter new password"
             required
             minlength={MIN_PASSWORD_LENGTH}
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="new-password"
             disabled={isSubmitting}
           />

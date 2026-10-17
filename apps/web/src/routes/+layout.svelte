@@ -6,7 +6,11 @@
   import { uiState } from '#lib/state/uiState.svelte.js';
   import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
-  import SweetAlertModal from '../components/SweetAlertModal.svelte';
+  import { toast } from '#lib/state/toast.svelte.ts';
+  import { confirm, formDialog } from '#lib/state/dialog.svelte.ts';
+  import ToastHost from '../components/ToastHost.svelte';
+  import ConfirmModal from '../components/ConfirmModal.svelte';
+  import FormDialogModal from '../components/FormDialogModal.svelte';
   import PasswordChangeModal from '../components/PasswordChangeModal.svelte';
   import Login from '../components/Login.svelte';
   import SharedRasenganBackground from '../components/SharedRasenganBackground.svelte';
@@ -70,9 +74,24 @@
   const activeNavItem = $derived(
     allNavItems.find(it => it.path === page.url.pathname || (it.path === '/dashboard' && page.url.pathname === '/'))
   );
-  const currentSection = $derived(
-    navSections.find(s => s.items.some(it => it.path === page.url.pathname || (it.path === '/dashboard' && page.url.pathname === '/')))
-  );
+  const breadcrumbLabel = $derived.by(() => {
+    if (page.status === 404) return 'Not Found';
+    if (page.status === 401) return 'Unauthorized';
+    if (page.status === 403) return 'Forbidden';
+    if (page.status === 429) return 'Too Many Requests';
+    if (page.status >= 500) return 'System Error';
+    if (page.status >= 400) return 'Error';
+    return activeNavItem?.label || (page.url.pathname.replace('/', '') ? page.url.pathname.replace('/', '') : 'Overview');
+  });
+
+  const currentSection = $derived.by(() => {
+    if (page.status >= 400) return { title: 'System' };
+    return navSections.find(s => s.items.some(it => it.path === page.url.pathname || (it.path === '/dashboard' && page.url.pathname === '/')));
+  });
+
+  const isDashboardRoute = $derived(page.url.pathname === '/dashboard' || page.url.pathname === '/');
+  const isDocsRoute = $derived(page.url.pathname === '/docs' || page.url.pathname.startsWith('/docs/'));
+  const isCustomLayoutRoute = $derived(isDashboardRoute || isDocsRoute);
 
   let isSidebarOpen = $state(true);
   let isMobileSidebarOpen = $state(false);
@@ -126,6 +145,11 @@
   }
 
   onMount(() => {
+    if (typeof window !== 'undefined') {
+      window.toast = toast;
+      window.confirmModal = confirm;
+      window.formDialogModal = formDialog;
+    }
     themeState.init();
     initToken();
     authState.checkAuth();
@@ -155,6 +179,11 @@
 <!-- Single Shared 3D Rasengan Background (Mounted Once at Root Level) -->
 <SharedRasenganBackground />
 
+<!-- Global Animated Feedback Layers -->
+<ToastHost />
+<ConfirmModal />
+<FormDialogModal />
+
 {#if authState.isChecking}
   <div class="fixed inset-0 flex items-center justify-center z-50" style="background-color: var(--theme-bg); color: var(--theme-text);" role="status" aria-live="polite">
     <div class="flex flex-col items-center gap-3">
@@ -165,7 +194,6 @@
 {:else if !authState.isAuthenticated}
   <Login />
   <ThemeSwitcher />
-  <SweetAlertModal />
 {:else}
 <div id="konoha-app-root" class="relative z-10 flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: transparent; color: var(--color-text);">
   <!-- Mobile Sidebar Backdrop Overlay -->
@@ -358,36 +386,31 @@
             <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--theme-crumb-parent, var(--color-text-muted));">{currentSection.title}</span>
             <span class="font-bold text-[11px]" style="color: var(--theme-crumb-separator, var(--color-border));">/</span>
           {/if}
-          <span class="font-extrabold capitalize text-xs" style="color: var(--theme-crumb-active, var(--color-text));">{activeNavItem?.label || page.url.pathname.replace('/', '') || 'Overview'}</span>
+          <span class="font-extrabold capitalize text-xs" style="color: var(--theme-crumb-active, var(--color-text));">{breadcrumbLabel}</span>
         </div>
       </div>
     </header>
 
     <!-- Page Body (padding clears the bottom floating theme FAB on mobile) -->
-    <div class="flex-1 overflow-y-auto p-4 pb-20 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: transparent;">
-      {@render children()}
+    <div class="flex-1 overflow-y-auto py-4 pb-20 lg:py-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: transparent;">
+      {#if isCustomLayoutRoute}
+        <!-- Explicit route exceptions: /dashboard and /docs retain their full-width layout with token gutters -->
+        <div class="w-full px-4 lg:px-8">
+          {@render children()}
+        </div>
+      {:else}
+        <!-- Unified standard console content wrapper: authoritative max width and centering -->
+        <div class="console-content-container mx-auto w-full">
+          {@render children()}
+        </div>
+      {/if}
     </div>
   </main>
 
   <!-- Floating Theme Switcher Button -->
   <ThemeSwitcher />
 
-  <!-- Global 3D SweetAlert Modal -->
-  <SweetAlertModal />
-
   <!-- Mandatory / On-Demand Password Change Modal -->
   <PasswordChangeModal />
-
-  <!-- Global Notification Toasts (Top-Right Placement - Zero Overlap with Bottom-Right Theme Switcher) -->
-  {#if uiState.notifications.length > 0}
-    <div class="fixed top-5 right-5 z-[100] space-y-2 max-w-[calc(100vw-2.5rem)] pointer-events-none">
-      {#each uiState.notifications as n (n.id)}
-        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-[var(--theme-overlay)] text-white border-[var(--theme-info)] flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
-          <span class="w-2 h-2 rounded-full bg-status-info animate-ping"></span>
-          <span>{n.text}</span>
-        </div>
-      {/each}
-    </div>
-  {/if}
 </div>
 {/if}

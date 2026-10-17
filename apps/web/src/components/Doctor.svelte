@@ -1,7 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import PageHero from "./PageHero.svelte";
 
   let doctor = $state(null);
   let loading = $state(true);
@@ -22,19 +23,12 @@
 
   async function triggerRepair() {
     repairing = true;
+    const progressToast = toast.loading("Running environment auto-repair...");
     try {
       doctor = await api.post("/api/v1/doctor/repair", { check: "all" });
-      await sweetAlert.fire({
-        title: "Repair Completed",
-        text: `Diagnostic audit completed successfully! ${doctor.repairsDone || 0} automated fixes applied.`,
-        icon: "success"
-      });
+      progressToast.success(`Diagnostic audit completed! ${doctor.repairsDone || 0} automated fixes applied.`);
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Repair Failed",
-        text: err.message,
-        icon: "error"
-      });
+      progressToast.error("Repair failed: " + err.message);
     } finally {
       repairing = false;
     }
@@ -43,48 +37,40 @@
   onMount(loadDoctor);
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          Runtime Health & Diagnostics
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Environment Doctor
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          Automated integrity audit and self-repair for 7 coding IDEs, RTK binaries, SQLite databases, and daemon processes.
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  {/snippet}
 
-      <div class="flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={triggerRepair}
-          disabled={repairing}
-          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
-        >
-          <svg class="w-4 h-4 {repairing ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            {#if repairing}
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            {:else}
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            {/if}
-          </svg>
-          <span>{repairing ? "Repairing..." : "Run Auto-Repair"}</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={triggerRepair}
+      disabled={repairing}
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
+    >
+      <svg class="w-4 h-4 {repairing ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {#if repairing}
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        {:else}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        {/if}
+      </svg>
+      <span>{repairing ? "Repairing..." : "Run Auto-Repair"}</span>
+    </button>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Environment Doctor"
+    badgeText="Runtime Health & Diagnostics"
+    badgeIcon={heroBadgeIcon}
+    description="Automated integrity audit and self-repair for 7 coding IDEs, RTK binaries, SQLite databases, and daemon processes."
+    actions={heroActions}
+  />
 
   {#if error}
     <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">

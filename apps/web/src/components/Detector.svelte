@@ -1,5 +1,6 @@
 <script>
   import { api } from '../lib/api.js';
+  import PageHero from './PageHero.svelte';
 
   let mode = $state('website'); // 'website' | 'document'
   let docInputMode = $state('path'); // 'path' | 'text'
@@ -48,29 +49,23 @@
   }
 </script>
 
-<div class="space-y-6">
-  <!-- Header -->
-  <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-    <div>
-      <h1 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-        {mode === 'website' ? 'Website AI Detector' : 'Document AI Detector'}
-      </h1>
-      <p class="theme-text-muted mt-1 text-sm lg:text-base">
-        {#if mode === 'website'}
-          Scan any website (directory or URL) for AI-generation fingerprints and score it 0–100.
-          <span class="font-semibold text-[var(--theme-success)]">0–20 = Human-Built</span> per PLAN_HUMAN_BUILT.
-        {:else}
-          Scan documents (.docx, .pdf, .pptx, .xlsx, .md, .txt) for AI fingerprints, sliding-window burstiness, and metadata.
-          <span class="font-semibold text-[var(--theme-success)]">Target: 0%–3% ZeroGPT Risk</span> for zero-AI human authenticity.
-        {/if}
-      </p>
-    </div>
+<div class="space-y-6 w-full">
+  {#snippet heroDesc()}
+    {#if mode === 'website'}
+      Scan any website (directory or URL) for AI-generation fingerprints and score it 0–100.
+      <span class="font-semibold text-[var(--theme-success)]">0–20 = Human-Built</span> per PLAN_HUMAN_BUILT.
+    {:else}
+      Scan documents (.docx, .pdf, .pptx, .xlsx, .md, .txt) for AI fingerprints, sliding-window burstiness, and metadata.
+      <span class="font-semibold text-[var(--theme-success)]">Target: 0%–3% ZeroGPT Risk</span> for zero-AI human authenticity.
+    {/if}
+  {/snippet}
 
+  {#snippet heroActions()}
     <!-- Mode toggle tabs with 3D Theme Gradient Styling -->
-    <div class="flex items-center gap-1.5 p-1.5 rounded-2xl border shrink-0" style="background-color: var(--color-surface); border-color: var(--color-border);">
+    <div class="flex items-center gap-1.5 p-1.5 rounded-[5px] border shrink-0" style="background-color: var(--color-surface); border-color: var(--color-border);">
       <button
         onclick={() => { mode = 'website'; result = null; error = null; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'website' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-bold transition flex items-center gap-1.5 {mode === 'website' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
@@ -79,7 +74,7 @@
       </button>
       <button
         onclick={() => { mode = 'document'; result = null; error = null; }}
-        class="btn-3d px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {mode === 'document' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-bold transition flex items-center gap-1.5 {mode === 'document' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -87,22 +82,30 @@
         <span>Document AI</span>
       </button>
     </div>
-  </div>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title={mode === 'website' ? 'Website AI Detector' : 'Document AI Detector'}
+    badgeText="Authenticity & Anti-Slop Audit"
+    desc={heroDesc}
+    actions={heroActions}
+  />
 
   <!-- Scan form -->
-  <div class="glass-card-3d p-6 rounded-3xl border">
+  <div class="glass-card-3d p-6 rounded-[5px] border">
     {#if mode === 'document'}
       <!-- Document input mode toggle -->
       <div class="flex items-center gap-2 mb-3">
         <button
           onclick={() => { docInputMode = 'path'; }}
-          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'path' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+          class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-semibold transition {docInputMode === 'path' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           File Path
         </button>
         <button
           onclick={() => { docInputMode = 'text'; }}
-          class="btn-3d px-3 py-1.5 rounded-lg text-xs font-semibold transition {docInputMode === 'text' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
+          class="btn-3d px-3 py-1.5 rounded-[5px] text-xs font-semibold transition {docInputMode === 'text' ? 'btn-3d-primary' : 'btn-3d-secondary'}"
         >
           Paste Text
         </button>
@@ -118,12 +121,12 @@
         bind:value={docText}
         placeholder="Paste your document text here for AI detection analysis..."
         rows="8"
-        class="w-full px-4 py-3 rounded-xl border input-theme theme-bg-surface theme-border text-sm resize-y mb-3"
+        class="w-full px-4 py-3 rounded-[5px] border login-field-effect input-theme theme-bg-surface theme-border text-sm resize-y mb-3"
       ></textarea>
       <button
         onclick={runScan}
         disabled={scanning || !docText.trim()}
-        class="btn-3d btn-3d-primary px-6 py-3 rounded-xl text-white font-bold text-sm disabled:opacity-40 transition shadow-md"
+        class="btn-3d btn-3d-primary px-6 py-3 rounded-[5px] text-white font-bold text-sm disabled:opacity-40 transition shadow-md"
       >
         {scanning ? 'Scanning…' : 'Analyze Text'}
       </button>
@@ -138,12 +141,12 @@
           bind:value={target}
           onkeydown={(e) => { if (e.key === 'Enter') runScan(); }}
           placeholder={mode === 'website' ? '/path/to/site or https://example.com' : '/path/to/document.docx or report.pdf'}
-          class="flex-1 px-4 py-3 rounded-xl border input-theme theme-bg-surface theme-border text-sm"
+          class="flex-1 px-4 py-3 rounded-[5px] border login-field-effect input-theme theme-bg-surface theme-border text-sm"
         />
         <button
           onclick={runScan}
           disabled={scanning || !target.trim()}
-          class="btn-3d btn-3d-primary px-6 py-3 rounded-xl text-white font-bold text-sm disabled:opacity-40 transition shadow-md"
+          class="btn-3d btn-3d-primary px-6 py-3 rounded-[5px] text-white font-bold text-sm disabled:opacity-40 transition shadow-md"
         >
           {scanning ? 'Scanning…' : 'Run Scan'}
         </button>

@@ -1,7 +1,9 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { uiState } from "#lib/state/uiState.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
+  import PageHero from "./PageHero.svelte";
 
   let clients = $state([]);
   let loading = $state(true);
@@ -37,10 +39,10 @@
       await api.post("/api/v1/clients/" + id + "/setup", {});
       const target = clients.find(c => c.id === id);
       if (target) target.configured = true;
-      uiState.addNotification(`Connected Konoha MCP tools for ${name}!`, "success");
+      toast.success(`Connected Konoha MCP tools for ${name}!`);
       await loadClients();
     } catch (err) {
-      uiState.addNotification(`Setup failed for ${name}: ${err.message}`, "error");
+      toast.error(`Setup failed for ${name}: ${err.message}`);
     } finally {
       actionInProgress = null;
     }
@@ -48,15 +50,23 @@
 
   async function removeClient(id, name) {
     if (actionInProgress) return;
+    const confirmed = await confirm({
+      title: `Disconnect ${name}?`,
+      message: `Are you sure you want to remove the Konoha MCP tool configuration from ${name}?`,
+      confirmText: "Disconnect",
+      variant: "danger"
+    });
+    if (!confirmed) return;
+
     actionInProgress = id;
     try {
       await api.post("/api/v1/clients/" + id + "/remove", {});
       const target = clients.find(c => c.id === id);
       if (target) target.configured = false;
-      uiState.addNotification(`Disconnected Konoha MCP tools from ${name}.`, "info");
+      toast.info(`Disconnected Konoha MCP tools from ${name}.`);
       await loadClients();
     } catch (err) {
-      uiState.addNotification(`Disconnect failed for ${name}: ${err.message}`, "error");
+      toast.error(`Disconnect failed for ${name}: ${err.message}`);
     } finally {
       actionInProgress = null;
     }
@@ -65,58 +75,54 @@
   onMount(loadClients);
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          Multi-Client Integration
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Coding Clients {clientCount > 0 ? `(${clientCount} IDEs & CLIs)` : (loading ? '' : '')}
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          {#if clientNamesSummary}
-            Auto-inject Konoha MCP tools and RTK output filtering into {clientNamesSummary}.
-          {:else if loading}
-            Checking supported coding clients and environments...
-          {:else}
-            Auto-inject Konoha MCP tools and RTK output filtering into supported IDEs and CLIs.
-          {/if}
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  {/snippet}
 
-      <div class="flex flex-wrap items-center gap-3 shrink-0">
-        <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold theme-text-secondary">Supported Clients</div>
-          <div class="text-xl font-black text-action-primary">
-            {#if loading && clientCount === 0}
-              ...
-            {:else}
-              {clientCount} {clientCount === 1 ? 'Platform' : 'Platforms'}
-            {/if}
-          </div>
-        </div>
-        <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold theme-text-secondary">Connected</div>
-          <div class="text-xl font-black text-[var(--theme-success)]">
-            {#if loading && clientCount === 0}
-              ...
-            {:else}
-              {configuredCount} Active
-            {/if}
-          </div>
-        </div>
+  {#snippet heroDesc()}
+    {#if clientNamesSummary}
+      Auto-inject Konoha MCP tools and RTK output filtering into {clientNamesSummary}.
+    {:else if loading}
+      Checking supported coding clients and environments...
+    {:else}
+      Auto-inject Konoha MCP tools and RTK output filtering into supported IDEs and CLIs.
+    {/if}
+  {/snippet}
+
+  {#snippet heroStats()}
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold theme-text-secondary">Supported Clients</div>
+      <div class="text-xl font-black text-action-primary">
+        {#if loading && clientCount === 0}
+          ...
+        {:else}
+          {clientCount} {clientCount === 1 ? 'Platform' : 'Platforms'}
+        {/if}
       </div>
     </div>
-  </div>
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold theme-text-secondary">Connected</div>
+      <div class="text-xl font-black text-[var(--theme-success)]">
+        {#if loading && clientCount === 0}
+          ...
+        {:else}
+          {configuredCount} Active
+        {/if}
+      </div>
+    </div>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title={`Coding Clients ${clientCount > 0 ? `(${clientCount} IDEs & CLIs)` : ''}`}
+    badgeText="Multi-Client Integration"
+    badgeIcon={heroBadgeIcon}
+    desc={heroDesc}
+    stats={heroStats}
+  />
 
   {#if error}
     <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">

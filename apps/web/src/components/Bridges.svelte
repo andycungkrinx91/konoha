@@ -1,8 +1,10 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
+  import PageHero from "./PageHero.svelte";
 
   let bridges = $state([]);
   let status = $state(null);
@@ -41,30 +43,21 @@
     gatewayBusy = true;
     try {
       await api.post("/api/v1/bridges/gateway/start");
-      await sweetAlert.fire({
-        title: "Gateway Started",
-        text: "Bridge Proxy Gateway is running on port 19999.",
-        icon: "success"
-      });
+      toast.success("Bridge Proxy Gateway is running on port 19999.");
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Start Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Gateway start failed: " + err.message);
     } finally {
       gatewayBusy = false;
     }
   }
 
   async function stopGateway() {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Stop Gateway?",
-      text: "Stopping the Bridge Proxy Gateway will interrupt local model routing on port 19999.",
-      icon: "warning",
+      message: "Stopping the Bridge Proxy Gateway will interrupt local model routing on port 19999.",
       confirmText: "Stop Gateway",
-      cancelText: "Cancel"
+      variant: "warning"
     });
     if (!confirmed) return;
 
@@ -72,28 +65,16 @@
     try {
       const res = await api.post("/api/v1/bridges/gateway/stop");
       if (res && res.gateway_running) {
-        await sweetAlert.fire({
-          title: "Stop Failed",
-          text: "Bridge Proxy Gateway port 19999 is still active and could not be released.",
-          icon: "error"
-        });
+        toast.error("Bridge Proxy Gateway port 19999 is still active and could not be released.");
       } else {
-        await sweetAlert.fire({
-          title: "Gateway Stopped",
-          text: "Bridge Proxy Gateway daemon has been stopped.",
-          icon: "info"
-        });
+        toast.info("Bridge Proxy Gateway daemon has been stopped.");
       }
       if (status) {
         status.gateway_running = res ? !!res.gateway_running : false;
       }
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Stop Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to stop gateway: " + err.message);
       await loadData();
     } finally {
       gatewayBusy = false;
@@ -104,18 +85,10 @@
     gatewayBusy = true;
     try {
       await api.post("/api/v1/bridges/gateway/restart");
-      await sweetAlert.fire({
-        title: "Gateway Restarted",
-        text: "Bridge Proxy Gateway restarted successfully on port 19999.",
-        icon: "success"
-      });
+      toast.success("Bridge Proxy Gateway restarted successfully on port 19999.");
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Restart Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Gateway restart failed: " + err.message);
     } finally {
       gatewayBusy = false;
     }
@@ -129,11 +102,7 @@
       models = res.models || [];
     } catch (err) {
       models = [];
-      await sweetAlert.fire({
-        title: "Failed to Fetch Models",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to fetch models: " + err.message);
     } finally {
       loadingModels = false;
     }
@@ -142,13 +111,10 @@
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
-      await sweetAlert.fire({
-        title: "Copied!",
-        text: `Model ID copied to clipboard: ${text}`,
-        icon: "success",
-        timer: 1500
-      });
-    } catch (_) {}
+      toast.success(`Model ID copied to clipboard: ${text}`);
+    } catch (_) {
+      toast.error("Failed to copy to clipboard");
+    }
   }
 
   let filteredModels = $derived(
@@ -170,51 +136,35 @@
       await api.patch("/api/v1/bridges/" + encodeURIComponent(bridge.name), {
         enabled: !bridge.enabled
       });
+      toast.success(`Bridge "${bridge.name}" ${!bridge.enabled ? 'enabled' : 'disabled'}.`);
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Update Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Update failed: " + err.message);
     }
   }
 
   async function deleteBridge(name) {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Delete Bridge?",
-      text: `Are you sure you want to permanently delete bridge "${name}"?`,
-      icon: "warning",
+      message: `Are you sure you want to permanently delete bridge "${name}"?`,
       confirmText: "Delete",
-      cancelText: "Keep"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       await api.del("/api/v1/bridges/" + encodeURIComponent(name));
-      await sweetAlert.fire({
-        title: "Deleted",
-        text: `Bridge "${name}" was successfully removed.`,
-        icon: "success"
-      });
+      toast.success(`Bridge "${name}" was successfully removed.`);
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Delete Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Delete failed: " + err.message);
     }
   }
 
   async function createBridge(e) {
     e.preventDefault();
     if (!newBridge.name || !newBridge.port) {
-      await sweetAlert.fire({
-        title: "Validation Error",
-        text: "Bridge name and port are required.",
-        icon: "warning"
-      });
+      toast.warning("Bridge name and port are required.");
       return;
     }
     try {
@@ -227,18 +177,10 @@
         model: "",
         target_url: ""
       };
-      await sweetAlert.fire({
-        title: "Bridge Created",
-        text: "New LLM proxy bridge configured and registered!",
-        icon: "success"
-      });
+      toast.success("New LLM proxy bridge configured and registered!");
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Creation Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Creation failed: " + err.message);
     }
   }
 
@@ -257,53 +199,45 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<div class="space-y-8 max-w-7xl mx-auto">
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+    </svg>
+  {/snippet}
+
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={openModelsModal}
+      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs transition-all shadow-sm cursor-pointer"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--color-primary);">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+      <span>Served Models</span>
+    </button>
+
+    <button
+      type="button"
+      onclick={() => { showCreateModal = true; }}
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all shadow-md cursor-pointer"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+      </svg>
+      <span>Create Bridge</span>
+    </button>
+  {/snippet}
+
   <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-          </svg>
-          Local LLM Proxy Gateway
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Bridge Management
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          Dynamic model routing via Bridge Router (port 19999). Expose local models (Ollama, vLLM, LMStudio) and cloud APIs with unified routing.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={openModelsModal}
-          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--color-primary);">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <span>Served Models</span>
-        </button>
-
-        <button
-          type="button"
-          onclick={() => { showCreateModal = true; }}
-          class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md cursor-pointer"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Create Bridge</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  <PageHero
+    title="Bridge Management"
+    badgeText="Local LLM Proxy Gateway"
+    badgeIcon={heroBadgeIcon}
+    description="Dynamic model routing via Bridge Router (port 19999). Expose local models (Ollama, vLLM, LMStudio) and cloud APIs with unified routing."
+    actions={heroActions}
+  />
 
   <!-- Gateway Status Banner with Real Daemon Controls -->
   {#if status}
@@ -530,7 +464,7 @@
                 bind:value={newBridge.name}
                 placeholder="e.g. ollama-local"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+                class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
               />
             </div>
             <div>
@@ -541,7 +475,7 @@
                 bind:value={newBridge.port}
                 placeholder="9001"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+                class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
               />
             </div>
           </div>
@@ -552,7 +486,7 @@
               <select
                 id="bridge-provider"
                 bind:value={newBridge.provider}
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+                class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
               >
                 <option value="openai">OpenAI Compatible</option>
                 <option value="anthropic">Anthropic</option>
@@ -568,7 +502,7 @@
                 type="text"
                 bind:value={newBridge.model}
                 placeholder="e.g. qwen2.5-coder:7b"
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+                class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
               />
             </div>
           </div>
@@ -580,7 +514,7 @@
               type="text"
               bind:value={newBridge.target_url}
               placeholder="http://127.0.0.1:11434/v1"
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             />
           </div>
 
@@ -650,7 +584,7 @@
               type="text"
               bind:value={modelsSearch}
               placeholder="Search model by ID, name, or provider..."
-              class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:bg-white focus:ring-0 focus:outline-none transition-all"
+              class="w-full pl-9 pr-4 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect transition-all"
             />
             <svg class="w-4 h-4 theme-text-muted absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

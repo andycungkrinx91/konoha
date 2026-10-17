@@ -1,8 +1,10 @@
 <script>
   import { onMount } from "svelte";
   import { api } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
   import { useScrollLock } from "#lib/scrollLock.svelte.js";
+  import PageHero from "./PageHero.svelte";
 
   let currentProject = $state(null);
   let projectMemories = $state([]);
@@ -72,11 +74,7 @@
 
   async function saveInvariants() {
     if (!currentProject?.project_path) {
-      await sweetAlert.fire({
-        title: "No Workspace Detected",
-        text: "Cannot save invariants: the active workspace path was not detected by the Konoha core.",
-        icon: "warning"
-      });
+      toast.warning("Cannot save invariants: no active workspace path detected.");
       return;
     }
     saving = true;
@@ -85,30 +83,21 @@
         projectPath: currentProject.project_path,
         contextSummary
       });
-      await sweetAlert.fire({
-        title: "Invariants Saved",
-        text: "Project architectural invariants updated and synced to Konoha memory!",
-        icon: "success"
-      });
+      toast.success("Project architectural invariants updated and synced to Konoha memory!");
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Save Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Save failed: " + err.message);
     } finally {
       saving = false;
     }
   }
 
   async function clearInvariants() {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Clear Invariants?",
-      text: "Are you sure you want to clear the architectural invariants saved for this workspace?",
-      icon: "warning",
+      message: "Are you sure you want to clear the architectural invariants saved for this workspace?",
       confirmText: "Clear Invariants",
-      cancelText: "Cancel"
+      variant: "danger"
     });
     if (!confirmed) return;
 
@@ -117,85 +106,55 @@
       const hash = currentProject?.project_hash || "current";
       await api.post(`/api/v1/projects/${hash}/prune`, { clearInvariants: true });
       contextSummary = "";
-      await sweetAlert.fire({
-        title: "Invariants Cleared",
-        text: "Architectural invariants have been cleared for this workspace.",
-        icon: "success"
-      });
+      toast.success("Architectural invariants have been cleared for this workspace.");
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Clear Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Clear failed: " + err.message);
     } finally {
       saving = false;
     }
   }
 
   async function deleteProjectContext(hash) {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Remove Project?",
-      text: "Are you sure you want to remove this project workspace profile?",
-      icon: "warning",
+      message: "Are you sure you want to remove this project workspace profile?",
       confirmText: "Remove",
-      cancelText: "Keep"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       await api.delete("/api/v1/projects/" + hash);
-      await sweetAlert.fire({
-        title: "Removed",
-        text: "Project profile removed successfully.",
-        icon: "success"
-      });
+      toast.success("Project profile removed successfully.");
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Remove Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Remove failed: " + err.message);
     }
   }
 
   async function deleteProjectMemory(memId) {
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Delete Learning?",
-      text: `Are you sure you want to delete this memory item (ID: ${memId})?`,
-      icon: "warning",
+      message: `Are you sure you want to delete this memory item (ID: ${memId})?`,
       confirmText: "Delete",
-      cancelText: "Keep"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       const hash = currentProject?.project_hash || "current";
       await api.delete(`/api/v1/projects/${hash}/memories/${memId}`);
-      await sweetAlert.fire({
-        title: "Memory Deleted",
-        text: "Project memory item removed successfully.",
-        icon: "success"
-      });
+      toast.success("Project memory item removed successfully.");
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Delete Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Delete failed: " + err.message);
     }
   }
 
   async function createProjectLearning() {
     if (!newLearning.content.trim()) {
-      await sweetAlert.fire({
-        title: "Validation Error",
-        text: "Please enter the learning or rule content to record.",
-        icon: "warning"
-      });
+      toast.warning("Please enter the learning or rule content to record.");
       return;
     }
 
@@ -211,93 +170,59 @@
       });
       isAddLearningOpen = false;
       newLearning = { agentName: "jonin", content: "", memoryType: "rule" };
-      await sweetAlert.fire({
-        title: "Learning Added",
-        text: "Project-scoped learning recorded successfully.",
-        icon: "success"
-      });
+      toast.success("Project-scoped learning recorded successfully.");
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Failed to Add",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Failed to add learning: " + err.message);
     }
   }
 
   async function pruneLearnings() {
     if (!projectMemories || projectMemories.length === 0) {
-      await sweetAlert.fire({
-        title: "No Learnings Found",
-        text: "There are currently 0 episodic learnings recorded for this workspace. Subagents automatically save verified learnings here during complex tasks, or you can add one directly using '+ Add Learning'.",
-        icon: "info"
-      });
+      toast.info("There are currently 0 episodic learnings recorded for this workspace.");
       return;
     }
 
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Prune All Learnings?",
-      text: `Remove all ${projectMemories.length} episodic learning(s) recorded for this workspace?`,
-      icon: "warning",
+      message: `Remove all ${projectMemories.length} episodic learning(s) recorded for this workspace?`,
       confirmText: "Prune Learnings",
-      cancelText: "Cancel"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       const hash = currentProject?.project_hash || "current";
       const res = await api.post(`/api/v1/projects/${hash}/prune`, {});
-      await sweetAlert.fire({
-        title: "Learnings Pruned",
-        text: `Successfully pruned ${res.deleted || 0} episodic learning(s).`,
-        icon: "success"
-      });
+      toast.success(`Successfully pruned ${res.deleted || 0} episodic learning(s).`);
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Prune Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Prune failed: " + err.message);
     }
   }
 
   async function pruneAllWorkspaces() {
     if (!allProjects || allProjects.length === 0) {
-      await sweetAlert.fire({
-        title: "No Workspaces",
-        text: "There are no registered workspaces to prune.",
-        icon: "info"
-      });
+      toast.info("There are no registered workspaces to prune.");
       return;
     }
 
     const count = allProjects.length;
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Prune All Workspaces?",
-      text: `Are you sure you want to prune all ${count} registered workspace profile(s)? This will wipe all workspace records from the registry.`,
-      icon: "warning",
+      message: `Are you sure you want to prune all ${count} registered workspace profile(s)? This will wipe all workspace records from the registry.`,
       confirmText: "Prune All Workspaces",
-      cancelText: "Cancel"
+      variant: "danger"
     });
     if (!confirmed) return;
 
     try {
       const res = await api.delete("/api/v1/projects", { confirm: true });
       allProjects = [];
-      await sweetAlert.fire({
-        title: "Workspaces Pruned",
-        text: `Successfully pruned ${res.deleted || count} registered workspace(s).`,
-        icon: "success"
-      });
+      toast.success(`Successfully pruned ${res.deleted || count} registered workspace(s).`);
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Prune Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Prune failed: " + err.message);
     }
   }
 
@@ -305,12 +230,11 @@
     const wsCount = allProjects ? allProjects.length : 0;
     const countText = wsCount > 0 ? `all ${wsCount} registered workspace(s)` : "all context memory";
 
-    const confirmed = await sweetAlert.confirm({
+    const confirmed = await confirm({
       title: "Prune Context & Workspaces?",
-      text: `Are you sure you want to prune ${countText}, clear architectural invariants, and remove episodic learnings?`,
-      icon: "warning",
+      message: `Are you sure you want to prune ${countText}, clear architectural invariants, and remove episodic learnings?`,
       confirmText: "Prune Context",
-      cancelText: "Cancel"
+      variant: "danger"
     });
     if (!confirmed) return;
 
@@ -321,18 +245,10 @@
       contextSummary = "";
       allProjects = [];
       projectMemories = [];
-      await sweetAlert.fire({
-        title: "Context Pruned",
-        text: `Successfully pruned ${resProjects.deleted || wsCount} workspace profile(s) and cleared context memory.`,
-        icon: "success"
-      });
+      toast.success(`Successfully pruned ${resProjects.deleted || wsCount} workspace profile(s) and cleared context memory.`);
       await loadContext();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Prune Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Prune failed: " + err.message);
     }
   }
 
@@ -341,54 +257,46 @@
 
 <svelte:window onkeydown={handleModalKeydown} />
 
-<div class="space-y-8 max-w-7xl mx-auto">
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    </svg>
+  {/snippet}
+
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={pruneProjectContext}
+      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
+      title="Prune all episodic learnings for this project"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      <span>Prune Context</span>
+    </button>
+
+    <button
+      type="button"
+      onclick={loadContext}
+      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs transition-all shadow-sm cursor-pointer"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Refresh</span>
+    </button>
+  {/snippet}
+
   <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          Workspace Architecture & Tech Stack
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Project Context Memory
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          Detected frameworks, styling engines, package managers, and permanent architectural invariants preserved across turns.
-        </p>
-      </div>
-
-      <div class="flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={pruneProjectContext}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
-          title="Prune all episodic learnings for this project"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          <span>Prune Context</span>
-        </button>
-
-        <button
-          type="button"
-          onclick={loadContext}
-          class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Refresh</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  <PageHero
+    title="Project Context Memory"
+    badgeText="Workspace Architecture & Tech Stack"
+    badgeIcon={heroBadgeIcon}
+    description="Detected frameworks, styling engines, package managers, and permanent architectural invariants preserved across turns."
+    actions={heroActions}
+  />
 
   {#if error}
     <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
@@ -475,7 +383,7 @@
           bind:value={contextSummary}
           rows="5"
           placeholder="e.g. Always use port 1404; Pure light mode is first-class default; zero dark mode enforcement; use Tailwind v4; no hamburger in header on mobile dock..."
-          class="w-full p-4 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-0 focus:outline-none leading-relaxed"
+          class="w-full p-4 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect leading-relaxed"
         ></textarea>
       </div>
 
@@ -676,7 +584,7 @@
             <select
               id="learning-agent-select"
               bind:value={newLearning.agentName}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               {#each agentOptions as ag}
                 <option value={ag.id}>{ag.name}</option>
@@ -689,7 +597,7 @@
             <select
               id="learning-type-select"
               bind:value={newLearning.memoryType}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -706,7 +614,7 @@
             bind:value={newLearning.content}
             rows="4"
             placeholder="e.g. Always use port 1404; Pure light mode is first-class default; use Tailwind v4 grid tokens..."
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
+            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           ></textarea>
         </div>
       </div>

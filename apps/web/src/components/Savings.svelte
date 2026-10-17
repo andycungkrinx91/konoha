@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
+  import PageHero from './PageHero.svelte';
 
   let savings = $state(null);
   let loading = $state(true);
@@ -72,40 +73,31 @@
   onMount(loadSavings);
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <span class="w-1.5 h-1.5 rounded-full bg-status-success-soft"></span>
-          Dual-Engine Context Optimizer
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
-          Token & Quota Optimization
-        </h2>
-        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
-          Comprehensive token reduction telemetry across <strong>Konoha FTS5 Database</strong> (bounded file & skill reads) and <strong>Semble MCP</strong> (semantic code search). Full parity with <code class="px-1.5 py-0.5 rounded theme-bg-soft theme-text font-mono text-xs">konoha savings</code> in TUI.
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroDesc()}
+    Comprehensive token reduction telemetry across <strong>Konoha FTS5 Database</strong> (bounded file & skill reads) and <strong>Semble MCP</strong> (semantic code search). Full parity with <code class="px-1.5 py-0.5 rounded theme-bg-soft theme-text font-mono text-xs">konoha savings</code> in TUI.
+  {/snippet}
 
-      <div class="flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={loadSavings}
-          class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-md"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Telemetry
-        </button>
-      </div>
-    </div>
-  </div>
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={loadSavings}
+      class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-[5px] text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-md"
+    >
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Refresh Telemetry
+    </button>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Token & Quota Optimization"
+    badgeText="Dual-Engine Context Optimizer"
+    desc={heroDesc}
+    actions={heroActions}
+  />
 
   {#if error}
     <div class="p-4 rounded-xl bg-status-danger-soft border-status-danger-soft text-status-danger text-sm font-semibold">
@@ -391,8 +383,8 @@
                 type="text"
                 bind:value={toolSearchQuery}
                 placeholder="Search tools (e.g. find_skill, anbu)..."
-                class="w-full pl-10 pr-4 py-2 rounded-xl text-xs border font-medium focus:outline-none transition-all"
-                style="background-color: var(--color-bg); border-color: var(--color-border); color: var(--color-text);"
+                class="w-full pl-10 pr-4 py-2 rounded-[5px] text-xs border font-medium login-field-effect focus:outline-none transition-all"
+                style="background-color: var(--color-bg); color: var(--color-text);"
               />
             </div>
 

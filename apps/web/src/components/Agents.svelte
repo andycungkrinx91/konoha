@@ -1,7 +1,9 @@
 <script>
   import { onMount } from "svelte";
   import { api, apiRequest } from "#lib/api.js";
-  import { sweetAlert } from "#lib/sweetAlert.svelte.js";
+  import { toast } from "#lib/state/toast.svelte.ts";
+  import { confirm } from "#lib/state/dialog.svelte.ts";
+  import PageHero from "./PageHero.svelte";
 
   let agents = $state([]);
   let allSkills = $state([]);
@@ -109,11 +111,7 @@
       }
       agents = [...agents];
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Toggle Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Toggle failed: " + err.message);
     }
   }
 
@@ -121,7 +119,7 @@
     const target = modelId === "" ? null : modelId;
     try {
       await api.patch(
- "/api/v1/agents/" + encodeURIComponent(agent.name) + "/model",
+        "/api/v1/agents/" + encodeURIComponent(agent.name) + "/model",
         { model: target }
       );
       if (target) {
@@ -130,12 +128,9 @@
         delete agent.model;
       }
       agents = [...agents];
+      toast.success(`Model updated for @${agent.name}`);
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Model Assignment Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Model assignment failed: " + err.message);
     }
   }
 
@@ -176,11 +171,7 @@
 
   function openEditModal(agent) {
     if (isOfficialAgent(agent.name)) {
-      sweetAlert.fire({
-        title: "Protected Official Ninja",
-        text: `Subagent "@${agent.name}" is a protected official Konoha ninja agent. Core attributes are immutable. You can toggle models and skills directly on the card.`,
-        icon: "info"
-      });
+      toast.info(`Subagent "@${agent.name}" is a protected official Konoha ninja agent. Core attributes are immutable. You can toggle models and skills directly on the card.`);
       return;
     }
     editAgentTarget = agent;
@@ -194,7 +185,7 @@
 
   async function handleCreateAgent() {
     if (!createName.trim()) {
-      await sweetAlert.fire({ title: "Name Required", text: "Please enter a name for the custom ninja.", icon: "warning" });
+      toast.warning("Please enter a name for the custom ninja.");
       return;
     }
     createSubmitting = true;
@@ -207,11 +198,11 @@
         instructions: createInstructions.trim() || undefined,
         model: createModel.trim() || null
       });
-      await sweetAlert.fire({ title: "Ninja Created", text: `Custom subagent "@${createName.trim()}" has been created.`, icon: "success" });
+      toast.success(`Custom subagent "@${createName.trim()}" has been created.`);
       showCreateModal = false;
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({ title: "Creation Failed", text: err.message, icon: "error" });
+      toast.error("Creation failed: " + err.message);
     } finally {
       createSubmitting = false;
     }
@@ -228,11 +219,11 @@
         instructions: editInstructions.trim(),
         model: editModel.trim() || null
       });
-      await sweetAlert.fire({ title: "Ninja Updated", text: `Custom subagent "@${editAgentTarget.name}" updated successfully.`, icon: "success" });
+      toast.success(`Custom subagent "@${editAgentTarget.name}" updated successfully.`);
       showEditModal = false;
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({ title: "Update Failed", text: err.message, icon: "error" });
+      toast.error("Update failed: " + err.message);
     } finally {
       editSubmitting = false;
     }
@@ -240,89 +231,71 @@
 
   async function deleteCustomAgent(name) {
     if (isOfficialAgent(name)) {
-      await sweetAlert.fire({
-        title: "Protected Official Ninja",
-        text: `Subagent "@${name}" is a protected official Konoha ninja agent and cannot be deleted.`,
-        icon: "warning"
-      });
+      toast.warning(`Subagent "@${name}" is a protected official Konoha ninja agent and cannot be deleted.`);
       return;
     }
 
-    const confirmed = await sweetAlert.fire({
+    const confirmed = await confirm({
       title: "Delete Custom Agent?",
-      text: `Are you sure you want to delete custom agent "@${name}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Delete",
-      cancelButtonText: "Cancel"
+      message: `Are you sure you want to delete custom agent "@${name}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger"
     });
 
     if (!confirmed) return;
 
     try {
       await api.delete(`/api/v1/agents/${encodeURIComponent(name)}`);
-      await sweetAlert.fire({
-        title: "Agent Deleted",
-        text: `Custom agent "@${name}" has been deleted.`,
-        icon: "success"
-      });
+      toast.success(`Custom agent "@${name}" has been deleted.`);
       await loadData();
     } catch (err) {
-      await sweetAlert.fire({
-        title: "Deletion Failed",
-        text: err.message,
-        icon: "error"
-      });
+      toast.error("Deletion failed: " + err.message);
     }
   }
 
   onMount(loadData);
 </script>
 
-<div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section: themed translucent surface with high-contrast typography -->
-  <div
-    class="glass-card-3d relative overflow-hidden rounded-[5px] p-8 border transition-all duration-300"
-    style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
-  >
-    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div class="space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-[5px] text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          Official Subagent Roster
-        </div>
-        <h2 class="text-2xl lg:text-3xl font-black tracking-tight" style="color: var(--color-text);">
-          Ninja Subagents (Protected Village Roster)
-        </h2>
-        <p class="text-sm font-semibold max-w-2xl leading-relaxed" style="color: var(--color-text-muted);">
-          Autonomous specialized agents orchestrating tasks, audits, research, and frontend builds. Official ninjas are permanently protected against deletion.
-        </p>
-      </div>
+<div class="space-y-8 w-full">
+  {#snippet heroBadgeIcon()}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  {/snippet}
 
-      <div class="flex flex-wrap items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onclick={openCreateModal}
-          class="btn-3d btn-3d-primary px-4 py-3 rounded-[5px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-md"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Custom Ninja
-        </button>
-        <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
-          <div class="text-xs font-bold" style="color: var(--color-text-muted);">Official Roster</div>
-          <div class="text-xl font-black text-[var(--theme-success)]">7 Protected</div>
-        </div>
-        <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
-          <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
-          <div class="text-xl font-black text-action-primary">{allSkills.length} Indexed</div>
-        </div>
-      </div>
+  {#snippet heroActions()}
+    <button
+      type="button"
+      onclick={openCreateModal}
+      class="btn-3d btn-3d-primary px-4 py-3 rounded-[5px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-md"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Add Custom Ninja
+    </button>
+  {/snippet}
+
+  {#snippet heroStats()}
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold" style="color: var(--color-text-muted);">Official Roster</div>
+      <div class="text-xl font-black text-[var(--theme-success)]">7 Protected</div>
     </div>
-  </div>
+    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+      <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
+      <div class="text-xl font-black text-action-primary">{allSkills.length} Indexed</div>
+    </div>
+  {/snippet}
+
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
+  <PageHero
+    title="Ninja Subagents (Protected Village Roster)"
+    badgeText="Official Subagent Roster"
+    badgeIcon={heroBadgeIcon}
+    description="Autonomous specialized agents orchestrating tasks, audits, research, and frontend builds. Official ninjas are permanently protected against deletion."
+    actions={heroActions}
+    stats={heroStats}
+  />
 
   {#if error}
     <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
@@ -434,8 +407,8 @@
                       setAgentModel(agent, val);
                     }
                   }}
-                  class="w-full p-2 rounded-[5px] border text-xs font-mono font-bold cursor-pointer"
-                  style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                  class="w-full p-2 rounded-[5px] border text-xs font-mono font-bold cursor-pointer login-field-effect"
+                  style="background: var(--color-surface); color: var(--color-text);"
                 >
                   <option value="">⤺ Inherit (host client default)</option>
                   {#if agent.model && !bridgeModels.some(m => m.id === agent.model)}
@@ -480,8 +453,8 @@
                       type="text"
                       bind:value={customModelInputs[agent.name]}
                       placeholder="e.g. claude-3-7-sonnet"
-                      class="flex-1 px-2.5 py-1.5 rounded-[5px] border text-xs font-mono"
-                      style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+                      class="flex-1 px-2.5 py-1.5 rounded-[5px] border text-xs font-mono login-field-effect"
+                      style="background: var(--color-surface); color: var(--color-text);"
                     />
                     <button
                       type="button"
@@ -575,16 +548,14 @@
 
       <div class="space-y-4 text-xs">
         <div>
-          <label for="create-ninja-name" class="font-bold block mb-1" style="color: var(--color-text);">
-            Subagent Name <span class="text-status-danger">*</span>
-          </label>
+          <label for="create-ninja-name" class="font-bold block mb-1" style="color: var(--color-text);">Name (ID) *</label>
           <input
             id="create-ninja-name"
             type="text"
             bind:value={createName}
-            placeholder="e.g. shinobi, auditor, visualizer"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            placeholder="e.g. shinobi-coder"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
           <p class="text-[11px] mt-1" style="color: var(--color-text-muted);">
             Unique identifier. Alphanumeric, underscores, or hyphens.
@@ -598,8 +569,8 @@
             type="text"
             bind:value={createTitle}
             placeholder="e.g. Visual Ninja Specialist"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
 
@@ -610,8 +581,8 @@
             type="text"
             bind:value={createPurpose}
             placeholder="e.g. Specialized UI component generator"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
 
@@ -622,8 +593,8 @@
             rows="2"
             bind:value={createDescription}
             placeholder="Brief explanation of when to dispatch this subagent..."
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
 
@@ -634,8 +605,8 @@
             rows="3"
             bind:value={createInstructions}
             placeholder="Prompt and standard operating procedures for this agent..."
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
 
@@ -645,8 +616,8 @@
             <select
               id="create-ninja-model"
               bind:value={createModel}
-              class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+              class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+              style="background: var(--color-surface); color: var(--color-text);"
             >
               <option value="">⤺ Inherit (host client default)</option>
               {#if bridgeModels.length > 0}
@@ -661,8 +632,8 @@
               type="text"
               bind:value={createModel}
               placeholder="Or custom model string..."
-              class="w-full px-3 py-1.5 text-xs font-mono rounded-[5px] border focus:outline-hidden"
-              style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+              class="w-full px-3 py-1.5 text-xs font-mono rounded-[5px] border focus:outline-hidden login-field-effect"
+              style="background: var(--color-surface); color: var(--color-text);"
             />
           </div>
         </div>
@@ -736,8 +707,8 @@
             type="text"
             bind:value={editTitle}
             placeholder="e.g. Visual Ninja Specialist"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
 
@@ -748,8 +719,8 @@
             type="text"
             bind:value={editPurpose}
             placeholder="e.g. Specialized UI component generator"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
 
@@ -760,8 +731,8 @@
             rows="2"
             bind:value={editDescription}
             placeholder="Brief explanation of when to dispatch this subagent..."
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
 
@@ -772,8 +743,8 @@
             rows="3"
             bind:value={editInstructions}
             placeholder="Prompt and standard operating procedures for this agent..."
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y"
-            style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
       </div>
