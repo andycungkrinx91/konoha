@@ -193,20 +193,10 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
 
         const trackCr = contrastRatio(trackRgb, cardRgb);
         const arcCr = contrastRatio(arcRgb, cardRgb);
-        if (trackCr < 2.2) {
-          console.log(`[Gauge Contrast Debug] theme=${theme} mode=${mode}:`, {
-            cardBg: gaugeContrast.cardBg,
-            trackStroke: gaugeContrast.trackStroke,
-            arcStroke: gaugeContrast.arcStroke,
-            cardRgb,
-            trackRgb,
-            arcRgb,
-            trackCr,
-            arcCr
-          });
-        }
-        expect(trackCr).toBeGreaterThanOrEqual(2.2);
-        expect(arcCr).toBeGreaterThanOrEqual(2.5);
+        console.log(`[Gauge Contrast Result] theme=${theme.padEnd(14)} mode=${mode.padEnd(5)}: track=${trackCr.toFixed(2)}:1, arc=${arcCr.toFixed(2)}:1`);
+
+        expect(trackCr).toBeGreaterThanOrEqual(3.0);
+        expect(arcCr).toBeGreaterThanOrEqual(3.0);
 
         // Verify no rectangular / box artifact around gauge
         const hasBoxArtifact = await page.evaluate(() => {
@@ -338,13 +328,13 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
     // Verify overlay completely unmounts from DOM
     await expect(transitionOverlay).toHaveCount(0);
 
-    // Verify rapid consecutive switches (5 rapid switches via themeState API) do not crash or leak
-    for (let i = 0; i < 5; i++) {
+    // Verify rapid consecutive switches (20 rapid switches via themeState API) do not crash or leak
+    for (let i = 0; i < 20; i++) {
       const nextTheme = THEMES[i % THEMES.length];
       await page.evaluate((t) => {
         if (window.__themeState) window.__themeState.applyTheme(t);
       }, nextTheme);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(60);
     }
 
     // Wait for final transition to settle
@@ -383,10 +373,22 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
     await page.goto("http://127.0.0.1:4173/skills");
     await expect(sharedBg).toHaveCount(1);
 
-    // Measure CDP performance metrics for 5 seconds
+    // Measure CDP performance metrics on /dashboard
     const client = await page.context().newCDPSession(page);
     await client.send('Performance.enable');
     const perfMetrics = await client.send('Performance.getMetrics');
-    console.log("CDP Performance Metrics on /dashboard with shared background:", JSON.stringify(perfMetrics.metrics.slice(0, 8), null, 2));
+
+    const metricsMap = Object.fromEntries(perfMetrics.metrics.map(m => [m.name, m.value]));
+    const heapUsedMB = (metricsMap.JSHeapUsedSize / (1024 * 1024)).toFixed(2);
+    const heapTotalMB = (metricsMap.JSHeapTotalSize / (1024 * 1024)).toFixed(2);
+    const docCount = metricsMap.Documents ?? 0;
+    const frameCount = metricsMap.Frames ?? 0;
+    const layoutCount = metricsMap.LayoutObjects ?? 0;
+    const listenersCount = metricsMap.JSEventListeners ?? 0;
+
+    console.log(`[CDP Verified Metrics] HeapUsed=${heapUsedMB}MB, HeapTotal=${heapTotalMB}MB, Documents=${docCount}, Frames=${frameCount}, LayoutObjects=${layoutCount}, Listeners=${listenersCount}`);
+
+    expect(parseFloat(heapUsedMB)).toBeLessThan(100);
+    expect(docCount).toBeLessThan(30);
   });
 });

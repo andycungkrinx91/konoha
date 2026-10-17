@@ -428,18 +428,18 @@ function readableAccent(found, tokens, isDark) {
 function computeGaugeTokens(found, tokens, isDark) {
   if (isDark) {
     // In Dark Mode: surface is dark (luminance <= 0.03).
-    // Track needs >= 3:1 against surface -> luminance >= 0.15.
-    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 25%, rgba(255, 255, 255, 0.45))`;
-    // Arc needs >= 3:1 against track and surface -> use bright vibrant stops.
+    // Ensure track has >= 3.0:1 contrast against surface (luminance >= 0.16)
+    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 20%, rgba(255, 255, 255, 0.58))`;
+    // Arc candidates: pick bright luminous accents so contrast against dark surface is >= 3.5:1
     const arcCandidates = [found.accent, found.gradient?.[3], found.color, found.gradient?.[2], '#38bdf8'].filter(Boolean);
-    const gaugeArcStart = arcCandidates.find(c => contrastRatio(c, tokens.surface) >= 3.5) || found.color || '#38bdf8';
+    const gaugeArcStart = arcCandidates.find(c => contrastRatio(c, tokens.surface) >= 3.5) || found.accent || '#38bdf8';
     const gaugeArcEnd = found.accent || found.gradient?.[3] || '#36dfff';
     return { gaugeTrack, gaugeArcStart, gaugeArcEnd };
   } else {
     // In Light Mode: surface is #ffffff (luminance 1.0).
-    // Track needs >= 3:1 against #ffffff -> luminance <= 0.30.
-    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 25%, #64748b)`;
-    // Arc needs >= 3:1 against track and #ffffff -> use rich saturated stops.
+    // Ensure track has >= 3.0:1 contrast against #ffffff (luminance <= 0.28)
+    const gaugeTrack = `color-mix(in srgb, ${tokens.border} 20%, #475569)`;
+    // Arc candidates: rich saturated stops with >= 3.5:1 against #ffffff
     const arcCandidates = [found.color, found.gradient?.[1], found.gradient?.[0], '#0f172a'].filter(Boolean);
     const gaugeArcStart = arcCandidates.find(c => contrastRatio(c, '#ffffff') >= 3.5) || found.color || '#0284c7';
     const gaugeArcEnd = found.gradient?.[0] || found.color || '#0369a1';

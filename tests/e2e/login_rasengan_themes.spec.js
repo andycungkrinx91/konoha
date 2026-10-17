@@ -87,7 +87,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
         // 1. Verify Light Mode clean white background
         if (mode === 'light') {
           const bgEvaluation = await page.evaluate(() => {
-            const container = document.querySelector('div.relative.min-h-screen');
+            const container = document.querySelector('#shared-rasengan-bg-root') || document.querySelector('div.relative.min-h-screen');
             const style = window.getComputedStyle(container);
             const docStyle = window.getComputedStyle(document.documentElement);
             return {

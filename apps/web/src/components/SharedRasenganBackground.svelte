@@ -87,7 +87,7 @@
 <div
   id="shared-rasengan-bg-root"
   class="fixed inset-0 w-screen h-screen pointer-events-none z-0 overflow-hidden select-none"
-  style="background: {isDark ? 'var(--theme-bg, #060f1e)' : 'var(--bg-login, #ffffff)'}; transition: background 0.3s ease;"
+  style="background: {isDark ? 'var(--theme-bg, #060f1e)' : 'var(--bg-login, #ffffff)'};"
   aria-hidden="true"
 >
   <!-- Ambient chakra glow fallback for Dark Mode -->

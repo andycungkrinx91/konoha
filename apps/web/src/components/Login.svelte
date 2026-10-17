@@ -158,7 +158,7 @@
 <div
   class="relative min-h-screen w-full flex items-center justify-center p-4 py-10 overflow-hidden"
   style="
-    background: {themeState.currentMode === 'light' ? 'var(--bg-login, #ffffff)' : 'transparent'};
+    background: transparent;
     color: var(--theme-text);
   "
 >
