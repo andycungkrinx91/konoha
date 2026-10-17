@@ -1795,14 +1795,15 @@ async function handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, metho
       }
     }
 
-    if (method === 'PATCH' && pathname === '/api/v1/sdlc/config') {
+    if ((method === 'PATCH' || method === 'POST') && pathname === '/api/v1/sdlc/config') {
       try {
         const sdlcManager = require('./sdlc_manager');
         const body = await parseBody(req);
         const projectPath = body.project_path || body.projectPath || process.cwd();
         const config = sdlcManager.setProjectSdlcConfig(projectPath, {
           dor_mode: body.dor_mode !== undefined ? body.dor_mode : null,
-          review_mode: body.review_mode !== undefined ? body.review_mode : null
+          review_mode: body.review_mode !== undefined ? body.review_mode : null,
+          hitl_mode: body.hitl_mode !== undefined ? body.hitl_mode : null
         });
         broadcastEvent('sdlc_config_updated', { project_path: projectPath, ...config });
         return sendJson(res, 200, { project_path: projectPath, ...config });

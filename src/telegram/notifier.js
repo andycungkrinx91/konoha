@@ -202,6 +202,10 @@ async function sendTelegramMessage(text, options = {}) {
     text: text
   };
 
+  if (options.reply_markup) {
+    body.reply_markup = options.reply_markup;
+  }
+
   const parseMode = options.parse_mode || (text.includes('<b>') ? 'HTML' : (text.includes('*') ? 'Markdown' : undefined));
   if (parseMode) {
     body.parse_mode = parseMode;
@@ -339,6 +343,104 @@ async function notifyKageReviewPassed({
 }
 
 /**
+ * Answer an incoming Telegram callback query (e.g. from an inline button click).
+ */
+async function answerCallbackQuery(callbackQueryId, text = '', options = {}) {
+  const config = configModule.getTelegramConfig();
+  const token = options.bot_token || config.bot_token;
+  if (!token || !callbackQueryId) return { ok: false };
+  const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, text: text }),
+      signal: AbortSignal.timeout(10000)
+    });
+    return await res.json();
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Edit existing message text and optionally inline keyboard on Telegram.
+ */
+async function editMessageText(chatId, messageId, text, options = {}) {
+  const config = configModule.getTelegramConfig();
+  const token = options.bot_token || config.bot_token;
+  if (!token || !chatId || !messageId) return { ok: false };
+  const url = `https://api.telegram.org/bot${token}/editMessageText`;
+  try {
+    const body = {
+      chat_id: chatId,
+      message_id: messageId,
+      text: text,
+      parse_mode: options.parse_mode || (text.includes('<b>') ? 'HTML' : undefined)
+    };
+    if (options.reply_markup) {
+      body.reply_markup = options.reply_markup;
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
+    });
+    return await res.json();
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * Dispatch an interactive HITL approval request with [✅ Approve] and [❌ Reject] inline buttons.
+ */
+async function sendInteractiveApproval({
+  taskId,
+  gate = 'Gate 1 (Plan Approval)',
+  title = 'Action Plan Approval Required',
+  planText = '',
+  client = 'Antigravity IDE/CLI',
+  chatId = null
+}) {
+  const config = configModule.getTelegramConfig();
+  if (!config.enabled || config.mode !== 'two_way') {
+    return { ok: false, skipped: true, reason: '2-way Telegram mode not active' };
+  }
+
+  const lines = [
+    `<b>🔒 [HITL APPROVAL REQUIRED — ${escapeHtml(gate.toUpperCase())}]</b>`,
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    `<b>Task ID:</b> <code>${escapeHtml(taskId)}</code>`,
+    `<b>Client:</b> ${escapeHtml(client)}`,
+    `<b>Title:</b> ${escapeHtml(title)}`,
+    '',
+    '<b>📋 Proposed Action Plan / Gate Verdict:</b>',
+    `<code>${escapeHtml((planText || '').slice(0, 1000))}</code>`,
+    '',
+    '<i>Tap a button below to approve or reject this phase:</i>',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+  ];
+
+  const markup = {
+    inline_keyboard: [
+      [
+        { text: '✅ Approve', callback_data: `hitl:approve:${taskId}` },
+        { text: '❌ Reject', callback_data: `hitl:reject:${taskId}` }
+      ]
+    ]
+  };
+
+  return await sendTelegramMessage(lines.join('\n'), {
+    force: true,
+    chat_id: chatId || config.chat_id,
+    reply_markup: markup,
+    parse_mode: 'HTML'
+  });
+}
+
+/**
  * Send a verification test ping.
  */
 async function sendTestPing(overrideChatId = null, overrideToken = null) {
@@ -354,6 +456,9 @@ module.exports = {
   sendTelegramMessage,
   sendTaskCompletedNotification,
   notifyKageReviewPassed,
+  sendInteractiveApproval,
+  answerCallbackQuery,
+  editMessageText,
   sendTestPing,
   isRecentlyNotified,
   recordNotificationSent

@@ -59,8 +59,11 @@ function readFileSafe(filePath) {
 /**
  * Re-anchor user prompt and constraints to prevent Lost-in-the-Middle context loss.
  */
-function getPromptSection(taskDir) {
-  const p = readFileSafe(path.join(taskDir, 'prompt.md')) || '';
+function getPromptSection(taskDir, status = null) {
+  let p = (status && status.prompt) ? status.prompt : '';
+  if (!p && taskDir) {
+    p = readFileSafe(path.join(taskDir, 'prompt.md')) || '';
+  }
   return p.trim() ? `\n\n## USER CONSTRAINTS & ORIGINAL PROMPT\n\n${p.trim()}\n` : '';
 }
 
@@ -346,6 +349,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     });
     const status = loadWorkflowStatus(resolvedTaskDir);
     status.task_id = taskId;
+    status.prompt = effPrompt;
     status.session_id = resolvedSessionId;
     status.project_path = resolvedProjPath;
     status.client = actClient;
@@ -771,9 +775,9 @@ function runMcpWorkflow(taskDir = null) {
   }
 
   if (phase === 'route') {
-    const prompt = readFileSafe(path.join(resolvedTaskDir, 'prompt.md'));
+    const prompt = status.prompt || readFileSafe(path.join(resolvedTaskDir, 'prompt.md'));
     if (!prompt) {
-      return JSON.stringify({ status: 'error', message: 'No prompt.md found in task directory.', phase: 'route' });
+      return JSON.stringify({ status: 'error', message: 'No task prompt found in workflow context.', phase: 'route' });
     }
     status.phase = 'explore';
     status.assigned_agent = 'genin';

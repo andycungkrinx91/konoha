@@ -4,6 +4,15 @@ All notable changes to the **Konoha** project will be documented in this file.
 
 ## [2.1.18] - Unreleased
 
+### Canonical 8-Phase Polyglot & Multi-Agent Architecture Refinement (PLAN_REFINE_WORKFLOW.md)
+
+- **Dynamic Polyglot Stack Detection (`src/mcp/stack_detector.js`)**: Dynamic runtime and validation matrix detection for Python (`uv`/`pytest`/`ruff`), Go (`go test`/`golangci-lint`), Rust (`cargo test`/`clippy`), PHP (`pest`/`phpstan`), Java (`gradlew test`/`check`), and Node/TS (`pnpm test`/`pnpm run lint`). Automated test coverage in `tests/test_stack_detector.js`.
+- **Configurable Two-Stage HITL Mode (`src/db.js`, `src/sdlc_manager.js`, `src/web_server.js`, `apps/web/src/components/Tasks.svelte`, `bin/commands/project.js`)**: Added `projects.hitl_mode` (`enabled` vs `disabled`), Web UI HITL Mode selector with 5px radius and `login-field-effect`, and CLI `konoha project set hitl-mode <val>`. Supports Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off) blocking when enabled, and hands-free autonomous execution when disabled.
+- **Telegram 2-Way Interactive Approvals (`src/telegram/poller.js`, `src/telegram/notifier.js`)**: Implemented `/approval list`, `/approval <id>`, inline keyboard buttons `[✅ Approve]` and `[❌ Reject]`, callback query handling updating `sdlc_tasks`, and strict mutual exclusion between 1-way and 2-way notifications. Automated test coverage in `tests/test_telegram_approval.js`.
+- **RTK Boundary & Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Enforced strict blocking on `rtk cat`, `rtk grep`, `cat`, `grep`, `rg`, `find`, redirecting to `konoha.read_file_range` and `konoha.token_efficient_grep`. Automated test coverage in `tests/test_guardrails_anti_cat.js`.
+- **Cross-Client Contract Injection v2.2.0 (`src/agent_contract.js`)**: Bumped `CONTRACT_VERSION` to `2.2.0-cross-client-1`, codified the 8-phase SDLC pipeline, eliminated file-based IPC (`prompt.md` / `delegate.md`), and refreshed managed contracts across all 8 clients (`CLAUDE.md`, `GEMINI.md`).
+- **Persona Card Parity & Ninja's Soul Harmonization (`apps/web/src/components/Persona.svelte`, `bin/commands/soul.js`, `src/persona_memory.js`, `SOUL.md`)**: Harmonized all display strings from `Will of Fire (Village Soul)` into `Ninja's Soul` while preserving the stable `will_of_fire` DB key. Enforced `.metric-card-3d` with 5px radius across all 17 cards on `/persona`.
+
 ### Complete User Feedback Overhaul, Animated Error Experience, Hybrid RRF Search & Themed Scrollbars
 
 - **Pure Svelte 5 Feedback System (`apps/web/src/lib/state/toast.svelte.ts`, `dialog.svelte.ts`)**: Permanently eliminated SweetAlert (`sweetAlert.svelte.js`, `SweetAlertModal.svelte`) and `window.alert` / `window.confirm`. Built native Svelte 5 runes feedback architecture:

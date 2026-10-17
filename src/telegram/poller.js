@@ -105,6 +105,7 @@ async function handleMessage(msg) {
       '',
       '<b>📋 Commands:</b>',
       '• <b>/session [number]</b> - View or switch target client session (or /session create &lt;client&gt; &lt;path&gt;)',
+      '• <b>/approval [list|id]</b> - List pending approvals or inspect task with [Approve]/[Reject] buttons',
       '• <b>/run &lt;task&gt;</b>      - Queue coding task for autonomous execution',
       '• <b>/sh &lt;cmd&gt;</b>        - Execute shell command in target workspace',
       '• <b>/status</b>          - View workspace status and pending tasks',
@@ -361,6 +362,97 @@ async function handleMessage(msg) {
     return;
   }
 
+  if (rawText.startsWith('/approval') || rawText.startsWith('/approvals')) {
+    const sdlcManager = require('../sdlc_manager');
+    const sub = rawText.replace(/^\/approvals?(?:@\w+)?\s*/i, '').trim();
+
+    if (!sub || sub === 'list' || sub === 'ls') {
+      const pendingTasks = sdlcManager.listTasks({
+        statuses: ['pending_plan_approval', 'pending_human_signoff']
+      });
+      if (!pendingTasks || pendingTasks.length === 0) {
+        await notifierModule.sendTelegramMessage(
+          '<b>✅ [NO PENDING APPROVALS]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNo tasks currently awaiting HITL approval.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          { force: true, chat_id: chatId, parse_mode: 'HTML' }
+        );
+        return;
+      }
+      const lines = [
+        '<b>📋 [PENDING HITL APPROVALS]</b>',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        `Found ${pendingTasks.length} task(s) awaiting approval:\n`
+      ];
+      pendingTasks.forEach((t, i) => {
+        lines.push(`${i + 1}. <code>${escapeHtml(t.id)}</code> [<b>${t.status}</b>]`);
+        lines.push(`   ${escapeHtml(t.description.slice(0, 70))}`);
+        lines.push(`   👉 View: <code>/approval ${t.id}</code>\n`);
+      });
+      lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await notifierModule.sendTelegramMessage(lines.join('\n'), { force: true, chat_id: chatId, parse_mode: 'HTML' });
+      return;
+    }
+
+    const taskId = sub.trim();
+    const task = sdlcManager.getTask(taskId);
+    if (!task) {
+      await notifierModule.sendTelegramMessage(
+        `<b>⚠️ [TASK NOT FOUND]</b>\nTask <code>${escapeHtml(taskId)}</code> does not exist.`,
+        { force: true, chat_id: chatId, parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    const evidence = task.evidence || {};
+    const planText = evidence.plan || evidence.todo_plan || task.description;
+    await notifierModule.sendInteractiveApproval({
+      taskId: task.id,
+      gate: task.status === 'pending_human_signoff' ? 'Gate 2 (Delivery Sign-Off)' : 'Gate 1 (Plan Approval)',
+      title: task.description,
+      planText: typeof planText === 'string' ? planText : JSON.stringify(planText, null, 2),
+      client: task.client || 'Konoha Agent',
+      chatId
+    });
+    return;
+  }
+
+  if (rawText.startsWith('/approve') || rawText.startsWith('/reject')) {
+    const isApprove = rawText.startsWith('/approve');
+    const taskId = rawText.replace(/^\/(?:approve|reject)(?:@\w+)?\s*/i, '').trim();
+    if (!taskId) {
+      await notifierModule.sendTelegramMessage(
+        `<b>Usage:</b> <code>/${isApprove ? 'approve' : 'reject'} &lt;task_id&gt;</code>`,
+        { force: true, chat_id: chatId, parse_mode: 'HTML' }
+      );
+      return;
+    }
+    const sdlcManager = require('../sdlc_manager');
+    const task = sdlcManager.getTask(taskId);
+    if (!task) {
+      await notifierModule.sendTelegramMessage(
+        `<b>⚠️ [TASK NOT FOUND]</b>\nTask <code>${escapeHtml(taskId)}</code> does not exist.`,
+        { force: true, chat_id: chatId, parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    if (isApprove) {
+      const newStatus = task.status === 'pending_human_signoff' ? 'completed' : 'in_progress';
+      sdlcManager.updateTask(taskId, { status: newStatus });
+      await notifierModule.sendTelegramMessage(
+        `<b>✅ [TASK APPROVED]</b>\nTask <code>${escapeHtml(taskId)}</code> status updated to <b>${newStatus}</b>.`,
+        { force: true, chat_id: chatId, parse_mode: 'HTML' }
+      );
+    } else {
+      const newStatus = task.status === 'pending_human_signoff' ? 'remediating' : 'blocked';
+      sdlcManager.updateTask(taskId, { status: newStatus });
+      await notifierModule.sendTelegramMessage(
+        `<b>❌ [TASK REJECTED]</b>\nTask <code>${escapeHtml(taskId)}</code> status updated to <b>${newStatus}</b>.`,
+        { force: true, chat_id: chatId, parse_mode: 'HTML' }
+      );
+    }
+    return;
+  }
+
   // Subagent Direct Dispatch: /kage, /anbu, /jonin, /genin, /chunin, /tokubetsu_jonin, /sannin
   const AGENT_SUBCOMMANDS = {
     kage: { name: 'Village Leader Kage', defaultPrompt: 'Execute Kage architecture and security risk assessment review on current workspace', icon: '🛡️' },
@@ -479,6 +571,56 @@ async function pollOnce(token, timeout = 30) {
   }
 }
 
+async function applyTaskVerdict(taskId, newStatus, isApproved, cb, chatId, messageId) {
+  const sdlcManager = require('../sdlc_manager');
+  sdlcManager.updateTask(taskId, { status: newStatus });
+  const icon = isApproved ? '✅' : '❌';
+  const label = isApproved ? 'APPROVED' : 'REJECTED';
+  await notifierModule.answerCallbackQuery(cb.id, `${icon} Task ${taskId} ${label.toLowerCase()}.`);
+  if (chatId && messageId) {
+    const user = cb.from?.username || cb.from?.first_name || 'user';
+    const text = [
+      `<b>${icon} [TASK ${label} VIA TELEGRAM]</b>`,
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      `<b>Task ID:</b> <code>${escapeHtml(taskId)}</code>`,
+      `<b>New Status:</b> <code>${newStatus}</code>`,
+      `<b>Decided By:</b> @${escapeHtml(user)}`,
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    ].join('\n');
+    await notifierModule.editMessageText(chatId, messageId, text, { parse_mode: 'HTML' });
+  }
+}
+
+/**
+ * Handle incoming callback query from interactive Telegram inline keyboard buttons.
+ */
+async function handleCallbackQuery(cb) {
+  if (!cb || !cb.data) return;
+  const match = cb.data.match(/^hitl:(approve|reject):(.+)$/);
+  if (!match) return;
+
+  const action = match[1];
+  const taskId = match[2];
+  const sdlcManager = require('../sdlc_manager');
+  const task = sdlcManager.getTask(taskId);
+
+  const chatId = cb.message?.chat?.id;
+  const messageId = cb.message?.message_id;
+
+  if (!task) {
+    await notifierModule.answerCallbackQuery(cb.id, `Task ${taskId} not found.`);
+    return;
+  }
+
+  if (action === 'approve') {
+    const newStatus = task.status === 'pending_human_signoff' ? 'completed' : 'in_progress';
+    await applyTaskVerdict(taskId, newStatus, true, cb, chatId, messageId);
+  } else if (action === 'reject') {
+    const newStatus = task.status === 'pending_human_signoff' ? 'remediating' : 'blocked';
+    await applyTaskVerdict(taskId, newStatus, false, cb, chatId, messageId);
+  }
+}
+
 /**
  * Start the polling loop.
  */
@@ -506,11 +648,25 @@ function startPoller() {
           currentOffset = update.update_id + 1;
         }
 
+        const allowedChatId = String(cfg.chat_id || '').trim();
+
+        if (update.callback_query) {
+          const cb = update.callback_query;
+          const incomingChatId = String(cb.message?.chat?.id || cb.from?.id || '').trim();
+          if (allowedChatId && incomingChatId === allowedChatId) {
+            try {
+              await handleCallbackQuery(cb);
+            } catch (cbErr) {
+              process.stderr.write(`[telegram poller] Callback query error: ${cbErr.message}\n`);
+            }
+          }
+          continue;
+        }
+
         const msg = update.message;
         if (!msg) continue;
 
         // Enforce strict chat_id whitelist with non-empty validation
-        const allowedChatId = String(cfg.chat_id || '').trim();
         if (!allowedChatId || String(msg.chat.id).trim() !== allowedChatId) {
           process.stderr.write(`[telegram poller] Dropped message from unauthorized chat ID: ${msg.chat?.id}\n`);
           continue;
@@ -544,5 +700,6 @@ module.exports = {
   startPoller,
   stopPoller,
   pollOnce,
-  handleMessage
+  handleMessage,
+  handleCallbackQuery
 };

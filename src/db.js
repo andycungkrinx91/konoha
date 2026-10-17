@@ -192,6 +192,7 @@ function setupSchema(conn) {
         tech_stack TEXT DEFAULT '{}',
         dor_mode TEXT DEFAULT 'advisory',
         review_mode TEXT DEFAULT 'self',
+        hitl_mode TEXT DEFAULT 'enabled',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -317,6 +318,10 @@ function setupSchema(conn) {
       `);
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  try {
+    conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
+  } catch (_) { /* column already exists */ }
 
   if (ftsSupported) {
     try {

@@ -8,6 +8,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   let configPath = $state('');
   let dorMode = $state('advisory');
   let reviewMode = $state('self');
+  let hitlMode = $state('enabled');
   let configLoading = $state(false);
   let savingConfig = $state(false);
 
@@ -25,7 +26,10 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   const statusColors = {
     draft: 'theme-bg-subtle theme-text-secondary theme-border',
     pending: 'badge-status badge-status-warning',
+    pending_plan_approval: 'badge-status badge-status-warning',
     in_progress: 'badge-status badge-status-info',
+    remediating: 'badge-status badge-status-warning',
+    pending_human_signoff: 'badge-status badge-status-warning',
     completed: 'badge-status badge-status-success',
     verified: 'badge-status badge-status-info',
     blocked: 'badge-status badge-status-danger'
@@ -43,6 +47,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       configPath = data.project_path || configPath;
       dorMode = data.dor_mode || 'advisory';
       reviewMode = data.review_mode || 'self';
+      hitlMode = data.hitl_mode || 'enabled';
     } catch (err) {
       toast.error('Failed to load SDLC config: ' + err.message);
     } finally {
@@ -60,10 +65,12 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       const data = await api.patch('/api/v1/sdlc/config', {
         project_path: configPath.trim(),
         dor_mode: dorMode,
-        review_mode: reviewMode
+        review_mode: reviewMode,
+        hitl_mode: hitlMode
       });
       dorMode = data.dor_mode || dorMode;
       reviewMode = data.review_mode || reviewMode;
+      hitlMode = data.hitl_mode || hitlMode;
       toast.success('SDLC configuration saved');
     } catch (err) {
       toast.error('Failed to save SDLC config: ' + err.message);
@@ -196,7 +203,7 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
   <!-- Project SDLC Config -->
   <section class="metric-card-3d rounded-[5px] p-6 space-y-4 border" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
     <h2 class="text-lg font-bold theme-text mb-4">Project Configuration</h2>
-    <div class="grid md:grid-cols-3 gap-4">
+    <div class="grid md:grid-cols-4 gap-4">
       <label class="block">
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">Project Path</span>
         <input
@@ -224,6 +231,16 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
         >
           <option value="self">Self</option>
           <option value="cross-provider">Cross-Provider</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">HITL Mode</span>
+        <select
+          bind:value={hitlMode}
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface login-field-effect input-theme"
+        >
+          <option value="enabled">Enabled (Safe)</option>
+          <option value="disabled">Disabled (Autonomous)</option>
         </select>
       </label>
     </div>

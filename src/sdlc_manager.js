@@ -72,6 +72,7 @@ function getDbConn(dbPath = null) {
     `);
     try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN session_id TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
     try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN client TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
+    try { conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';"); } catch (_) { /* column already exists */ }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return conn;
 }
@@ -411,37 +412,38 @@ function recordSlopResult(id, slopResult, slopCycles = null, dbPath = null) {
 
 function getProjectSdlcConfig(projectPath, dbPath = null) {
   if (!projectPath) {
-    return { dor_mode: 'advisory', review_mode: 'self' };
+    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: 'enabled' };
   }
   const conn = getDbConn(dbPath);
   try {
     const row = conn.prepare(`
-      SELECT dor_mode, review_mode FROM projects
+      SELECT dor_mode, review_mode, hitl_mode FROM projects
       WHERE project_path = ? OR project_hash = ?
       LIMIT 1
     `).get(projectPath, projectPath);
 
     return {
       dor_mode: row && row.dor_mode ? row.dor_mode : 'advisory',
-      review_mode: row && row.review_mode ? row.review_mode : 'self'
+      review_mode: row && row.review_mode ? row.review_mode : 'self',
+      hitl_mode: row && row.hitl_mode ? row.hitl_mode : 'enabled'
     };
   } catch (_) {
-    return { dor_mode: 'advisory', review_mode: 'self' };
+    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: 'enabled' };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
-function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null }, dbPath = null) {
+function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null, hitl_mode = null }, dbPath = null) {
   if (!projectPath) {
     throw new Error('Project path is required to set SDLC configuration.');
   }
   const conn = getDbConn(dbPath);
   try {
-    let row = conn.prepare('SELECT project_hash, dor_mode, review_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+    let row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
     if (!row) {
       personaMemory.saveOrUpdateProject(projectPath, '', null, dbPath || db.DB_PATH);
-      row = conn.prepare('SELECT project_hash, dor_mode, review_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
+      row = conn.prepare('SELECT project_hash, dor_mode, review_mode, hitl_mode FROM projects WHERE project_path = ? OR project_hash = ?').get(projectPath, projectPath);
     }
 
     const updates = [];
@@ -457,6 +459,12 @@ function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null
       const normalizedReview = (review_mode === 'cross-provider') ? 'cross-provider' : 'self';
       updates.push('review_mode = ?');
       params.push(normalizedReview);
+    }
+
+    if (hitl_mode !== null) {
+      const normalizedHitl = (hitl_mode === 'disabled' || hitl_mode === 'autonomous') ? 'disabled' : 'enabled';
+      updates.push('hitl_mode = ?');
+      params.push(normalizedHitl);
     }
 
     if (updates.length > 0 && row) {

@@ -32,7 +32,7 @@ ${C.bold}SUBCOMMANDS${C.reset}
   ${C.cyan}list${C.reset}                  📁 List all tracked project workspaces in Konoha.
   ${C.cyan}memory [path]${C.reset}         🧠 List persistent memories & episodic learnings for a project workspace.
   ${C.cyan}add [path] <summary>${C.reset}  ➕ Save architectural invariants or rules for a project.
-  ${C.cyan}set <dor-mode|review-mode> <val> [path]${C.reset} ⚙️ Configure SDLC DoR gate or review independence mode.
+  ${C.cyan}set <dor-mode|review-mode|hitl-mode> <val> [path]${C.reset} ⚙️ Configure SDLC DoR gate, review mode, or HITL approval gates.
   ${C.cyan}delete <path|hash>${C.reset}    🗑️ Remove a project workspace profile from memory.
   ${C.cyan}delete-memory <id>${C.reset}    ❌ Remove a single episodic learning item by ID.
   ${C.cyan}prune [path]${C.reset}          🧹 Prune all episodic learnings for a project workspace.
@@ -270,8 +270,15 @@ async function cmdProject(args) {
         if (updated.review_mode === 'cross-provider') {
           info('Note: Cross-provider review requires 2+ enabled bridges or different Model Assignments.');
         }
+      } else if (settingKey === 'hitl-mode' || settingKey === 'hitl') {
+        if (!['enabled', 'disabled', 'safe', 'autonomous'].includes(settingVal)) {
+          error('Invalid hitl-mode. Must be "enabled" or "disabled".');
+          return;
+        }
+        const updated = sdlcManager.setProjectSdlcConfig(targetPath, { hitl_mode: settingVal }, DB_PATH);
+        success(`Project hitl-mode set to "${updated.hitl_mode}" for ${targetPath}.`);
       } else {
-        error(`Unknown project setting: ${settingKey}. Supported: dor-mode, review-mode`);
+        error(`Unknown project setting: ${settingKey}. Supported: dor-mode, review-mode, hitl-mode`);
       }
     } catch (e) {
       error(`Failed to set project setting: ${e.message}`);

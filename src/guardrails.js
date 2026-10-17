@@ -59,10 +59,10 @@ function checkCommandGuardrails(command) {
     'Redact all secret values and never print, dump or commit them.';
 
   var REASON_READ_BYPASS =
-    'KONOHA RULE VIOLATION: using shell read tools to inspect repository files is forbidden. ' +
-    'Retry with "rtk <command>", or use the konoha MCP bounded file tools ' +
-    '(read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, ' +
-    'token_efficient_grep) or the semble MCP (search / find_related) instead.';
+    'KONOHA RULE VIOLATION: Shell file reading is strictly forbidden (including rtk cat/grep). ' +
+    'Use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, ' +
+    'get_file_structure, find_files_clean, token_efficient_grep) or the semble MCP ' +
+    '(search / find_related) instead.';
 
   // Layer 1: whole-command regex scans
   var wholeCommandPatterns = [
@@ -180,7 +180,7 @@ function checkCommandGuardrails(command) {
         }
       }
 
-      if (g === 0 && !parsed.rtk && READ_BYPASS_BINARIES.indexOf(parsed.bin) !== -1) {
+      if (g === 0 && READ_BYPASS_BINARIES.indexOf(parsed.bin) !== -1) {
         return { category: 'read-bypass', reason: REASON_READ_BYPASS };
       }
     }

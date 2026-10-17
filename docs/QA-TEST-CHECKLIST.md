@@ -291,6 +291,16 @@ npx aislop .
 | **3D Card Elevation Parity (`/persona`)** | Inspect Creed card, ADHD banner, 5 Universal Tenets, 7 Ninja Archetypes, and Episodic Memories on `/persona`. | Styled with `.metric-card-3d`, 5px border-radius, specular sheen, and 5px rounded badges, chips, buttons, and callout boxes across both tabs. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Ninja's Soul Harmonization** | Navigate to `/persona` and inspect tab button, status banners, core doctrine plaque, and CLI help. | Harmonized from `Will of Fire (Village Soul)` into `Ninja's Soul` with 0 console errors and clean test assertions. | `PASS` (verified in `tests/e2e/theme_and_navigation.spec.js`) |
 
+## 12. Canonical 8-Phase Polyglot & Multi-Agent Architecture Refinement (PLAN_REFINE_WORKFLOW.md)
+
+| Category / Component | Scenario / Test Procedure | Expected Verification Criteria | Verified Result |
+| :--- | :--- | :--- | :--- |
+| **Dynamic Polyglot Stack Detection** | Run `detectStack(dir)` on Python (`pyproject.toml`/`uv.lock`), Go (`go.mod`), Rust (`Cargo.toml`), PHP (`composer.json`), Java (`build.gradle`), and Node/TS (`package.json`). | Identifies ecosystem, manifest, package manager, and returns exact build, test, and lint commands wrapped with RTK. | `PASS` (automated in `tests/test_stack_detector.js`) |
+| **Configurable Two-Stage HITL Gates** | Toggle `hitl_mode` (`enabled` vs `disabled`) via CLI `konoha project set hitl-mode <val>` and Web UI `/tasks`. | Config persists in SQLite `projects.hitl_mode`; Gate 1 (Post-Phase 1 Plan Approval) and Gate 2 (Post-Phase 8 Delivery Sign-Off) enforce human approval when enabled and allow autonomous execution when disabled. | `PASS` (automated in `tests/test_sdlc_hitl.js` & agent-browser `/tasks`) |
+| **Telegram 2-Way Interactive Approvals** | Send `/approval list`, inspect task via `/approval <id>`, and tap inline keyboard buttons (`[✅ Approve]`, `[❌ Reject]`). | Updates `sdlc_tasks` status (`in_progress`, `completed`, `remediating`), answers callback query, and updates message text without duplicate broadcasts. | `PASS` (automated in `tests/test_telegram_approval.js`) |
+| **RTK Boundary & Anti-cat/Anti-grep Guardrail** | Execute `rtk cat`, `rtk grep`, `cat`, or `rg` commands through guardrail checker. | Intercepts and blocks shell file reading, redirecting agents to `konoha.read_file_range` and `konoha.token_efficient_grep`. | `PASS` (automated in `tests/test_guardrails_anti_cat.js`) |
+| **Cross-Client Contract Injection (v2.2.0)** | Inspect `buildAgentContract` version and validation across all 8 clients (Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP). | Injects `CONTRACT_VERSION = '2.2.0-cross-client-1'`, codifies 8-phase pipeline, 2-stage HITL, and cleans out file-based IPC (`prompt.md` / `delegate.md`). | `PASS` (automated in `tests/test_cross_client_contract.js`) |
+
 
 
 
