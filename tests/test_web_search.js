@@ -145,6 +145,40 @@ async function run() {
     }
     console.log('✓ Wikipedia fallback passed');
 
+    // 5. Startpage scraper fixture unit test
+    global.fetch = async (url, opts) => {
+      const urlStr = String(url);
+      if (urlStr.includes('startpage.com')) {
+        return {
+          ok: true,
+          text: async () => `
+            <!DOCTYPE html>
+            <html>
+              <body>
+                <div class="result">
+                  <a class="result-title" href="https://svelte.dev">Svelte Official</a>
+                </div>
+                <div class="result">
+                  <a class="wgl-title" href="https://kit.svelte.dev">SvelteKit Framework</a>
+                </div>
+              </body>
+            </html>
+          `
+        };
+      }
+      throw new Error('Not mocked: ' + urlStr);
+    };
+
+    const spResults = await server.queryStartpage('svelte', 2);
+    assert.ok(Array.isArray(spResults));
+    assert.strictEqual(spResults.length, 2);
+    assert.strictEqual(spResults[0].title, 'Svelte Official');
+    assert.strictEqual(spResults[0].url, 'https://svelte.dev');
+    assert.strictEqual(spResults[0].source, 'Startpage');
+    assert.strictEqual(spResults[1].title, 'SvelteKit Framework');
+    assert.strictEqual(spResults[1].url, 'https://kit.svelte.dev');
+    console.log('✓ Startpage scraper unit test passed');
+
     console.log('\nAll test_web_search tests passed!');
   } finally {
     global.fetch = originalFetch;

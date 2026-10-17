@@ -287,7 +287,7 @@ npx aislop .
 | **3D Card Elevation Parity (`/tasks`)** | Inspect Project Configuration, Definition of Ready Check, and Task list items on `/tasks`. | Styled with `.metric-card-3d`, 5px border-radius, theme gradient aura borders, and interactive hover elevation. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Search Multi-Source Blended Aggregation** | Query "SvelteKit" in "All Sources" blended mode. | Concurrently gathers citations from DuckDuckGo, Wikipedia Knowledge, and Konoha Village Skills, returning multi-source citations with distinct source badges. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Search Source Filters** | Select source filter tabs (`[All Sources]`, `[DuckDuckGo]`, `[SearXNG]`, `[Wikipedia]`, `[Village Skills]`). | Filters citations dynamically to the chosen engine, returning accurate source-tagged results. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
-| **Startpage HTML Scraper** | Execute search targeting Startpage provider. | Queries Startpage search endpoint with browser-like user agent, gracefully handling HTML result structures. | `PASS` (implemented in `src/mcp/web_search.js`) |
+| **Startpage HTML Scraper** | Execute search targeting Startpage provider. | Queries Startpage search endpoint with browser-like user agent, gracefully handling HTML result structures. | `IMPLEMENTED` (HTML parser verified via unit test mock in `tests/test_web_search.js`; live public endpoint protected by anti-bot challenge) |
 
 
 

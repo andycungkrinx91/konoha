@@ -83,6 +83,7 @@ const {
 // 6. Web Search
 const {
   runWebSearch,
+  queryStartpage
 } = require('./mcp/web_search');
 
 // 6b. Website AI Detector & Docs AI Detector
@@ -227,6 +228,8 @@ module.exports = {
   run_sannin: workflowModule.runSannin,
   runWebSearch,
   run_web_search: runWebSearch,
+  queryStartpage,
+  query_startpage: queryStartpage,
   runWebsiteAiDetector,
   run_website_ai_detector: runWebsiteAiDetector,
   website_ai_detector: runWebsiteAiDetector,

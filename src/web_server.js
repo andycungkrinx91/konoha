@@ -1600,43 +1600,52 @@ async function handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, metho
           }
         }
 
-        const rawRes = await webSearch.runWebSearch(cleanQuery, numResults, searchDepth, 'web_ui', {
-          engine: source,
-          blended: source === 'all'
-        });
-        let parsed = null;
-        try { parsed = JSON.parse(rawRes); } catch (_) { parsed = { status: 'success', results: [] }; }
-
-        if (source === 'all' && parsed && Array.isArray(parsed.results)) {
-          // If searching "all", seamlessly integrate top relevant Village Skills
-          try {
+        if (source === 'all') {
+          const webSearchPromise = webSearch.runWebSearch(cleanQuery, numResults, searchDepth, 'web_ui', {
+            engine: 'all',
+            blended: true
+          });
+          const skillsPromise = (async () => {
             const conn = db.getConnection(null, false);
             try {
-              const skillHits = await vectorSearch.findSkillHybrid(conn, cleanQuery, { topK: 2 });
-              if (Array.isArray(skillHits) && skillHits.length > 0) {
-                const formattedSkills = skillHits
-                  .filter(s => (s.score || 0) >= 0.3)
-                  .map(s => ({
-                    title: `[Skill] ` + s.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                    url: `/skills?q=${encodeURIComponent(s.name)}`,
-                    snippet: s.tags || s.matched_chunk || `Konoha Skill: ${s.name} (${s.type || 'skill'})`,
-                    source: `Konoha Skills (${(s.engine || 'fts5').toUpperCase()})`
-                  }));
-                if (formattedSkills.length > 0) {
-                  const combined = [...formattedSkills, ...parsed.results].slice(0, numResults + 1);
-                  parsed.results = combined.map((item, idx) => ({
-                    ...item,
-                    citation_id: idx + 1
-                  }));
-                  parsed.results_count = parsed.results.length;
-                }
-              }
+              return await vectorSearch.findSkillHybrid(conn, cleanQuery, { topK: 2 });
             } finally {
               conn.close();
             }
-          } catch (_) { /* best effort */ }
+          })();
+
+          const [webSettled, skillsSettled] = await Promise.allSettled([webSearchPromise, skillsPromise]);
+          let parsed = { status: 'success', results: [] };
+          if (webSettled.status === 'fulfilled') {
+            try { parsed = JSON.parse(webSettled.value); } catch (_) { parsed = { status: 'success', results: [] }; }
+          }
+          let formattedSkills = [];
+          if (skillsSettled.status === 'fulfilled' && Array.isArray(skillsSettled.value)) {
+            formattedSkills = skillsSettled.value
+              .filter(s => (s.score || 0) >= 0.3)
+              .map(s => ({
+                title: `[Skill] ` + s.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                url: `/skills?q=${encodeURIComponent(s.name)}`,
+                snippet: s.tags || s.matched_chunk || `Konoha Skill: ${s.name} (${s.type || 'skill'})`,
+                source: `Konoha Skills (${(s.engine || 'fts5').toUpperCase()})`
+              }));
+          }
+
+          const combined = [...formattedSkills, ...(parsed.results || [])].slice(0, numResults);
+          parsed.results = combined.map((item, idx) => ({
+            ...item,
+            citation_id: idx + 1
+          }));
+          parsed.results_count = parsed.results.length;
+          return sendJson(res, 200, parsed);
         }
 
+        const rawRes = await webSearch.runWebSearch(cleanQuery, numResults, searchDepth, 'web_ui', {
+          engine: source,
+          blended: false
+        });
+        let parsed = null;
+        try { parsed = JSON.parse(rawRes); } catch (_) { parsed = { status: 'success', results: [] }; }
         return sendJson(res, 200, parsed);
       } catch (err) {
         return sendJson(res, 500, { error: err.message });

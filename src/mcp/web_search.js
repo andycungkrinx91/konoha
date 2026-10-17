@@ -339,45 +339,53 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
       }
     } else {
       // requestedEngine === 'all' or 'web'
-      let webResults = null;
-      const candidates = await getCandidateInstances();
-      const bestInstance = await resolveBestInstance(candidates);
-      if (bestInstance) {
-        webResults = await querySearxng(bestInstance, q, numResults);
-        if (webResults && webResults.length > 0) {
-          logSearchActivity('SearXNG', q, webResults.length);
+      const webQueryPromise = (async () => {
+        let webResults = null;
+        const candidates = await getCandidateInstances();
+        const bestInstance = await resolveBestInstance(candidates);
+        if (bestInstance) {
+          webResults = await querySearxng(bestInstance, q, numResults);
+          if (webResults && webResults.length > 0) {
+            logSearchActivity('SearXNG', q, webResults.length);
+          }
         }
-      }
-      if (!webResults || webResults.length === 0) {
-        webResults = await queryDuckDuckGo(q, numResults);
-        if (webResults && webResults.length > 0) {
-          logSearchActivity('DuckDuckGo HTML', q, webResults.length);
+        if (!webResults || webResults.length === 0) {
+          webResults = await queryDuckDuckGo(q, numResults);
+          if (webResults && webResults.length > 0) {
+            logSearchActivity('DuckDuckGo HTML', q, webResults.length);
+          }
         }
-      }
-      if (!webResults || webResults.length === 0) {
-        webResults = await queryStartpage(q, numResults);
-        if (webResults && webResults.length > 0) {
-          logSearchActivity('Startpage HTML', q, webResults.length);
+        if (!webResults || webResults.length === 0) {
+          webResults = await queryStartpage(q, numResults);
+          if (webResults && webResults.length > 0) {
+            logSearchActivity('Startpage HTML', q, webResults.length);
+          }
         }
-      }
+        return webResults || [];
+      })();
 
-      if (webResults && webResults.length > 0) {
-        currentResults.push(...webResults);
-      }
-
-      // If blended mode is active, also retrieve Wikipedia definitions
-      if (isBlended && requestedEngine === 'all') {
+      const wikiPromise = (async () => {
+        if (!isBlended || requestedEngine !== 'all') return [];
         try {
           const wikiLimit = Math.min(2, Math.max(1, Math.floor(numResults / 2)));
           const wiki = await queryWikipedia(q, wikiLimit);
           if (wiki && wiki.length > 0) {
             logSearchActivity('Wikipedia OpenSearch', q, wiki.length);
-            currentResults.push(...wiki);
+            return wiki;
           }
         } catch (_) { /* best effort */ }
+        return [];
+      })();
+
+      const [webSettled, wikiSettled] = await Promise.allSettled([webQueryPromise, wikiPromise]);
+      if (webSettled.status === 'fulfilled' && Array.isArray(webSettled.value) && webSettled.value.length > 0) {
+        currentResults.push(...webSettled.value);
+      }
+      if (wikiSettled.status === 'fulfilled' && Array.isArray(wikiSettled.value) && wikiSettled.value.length > 0) {
+        currentResults.push(...wikiSettled.value);
       }
 
-      // If still zero results (e.g. offline or fallback test), query Wikipedia as final fallback
+      // If still zero results (e.g. offline fallback test), query Wikipedia as final fallback
       if (currentResults.length === 0) {
         const wiki = await queryWikipedia(q, numResults);
         if (wiki && wiki.length > 0) {
