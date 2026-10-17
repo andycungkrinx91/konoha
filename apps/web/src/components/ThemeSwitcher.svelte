@@ -134,6 +134,28 @@
       closeModal();
       return;
     }
+    if (dialogEl && ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      if (activeEl && activeEl.hasAttribute('data-theme-id')) {
+        const themeButtons = Array.from(dialogEl.querySelectorAll('button[data-theme-id]'));
+        const currentIndex = themeButtons.indexOf(activeEl);
+        if (currentIndex !== -1) {
+          e.preventDefault();
+          let nextIndex = currentIndex;
+          if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % themeButtons.length;
+          } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            nextIndex = (currentIndex - 1 + themeButtons.length) % themeButtons.length;
+          } else if (e.key === 'Home') {
+            nextIndex = 0;
+          } else if (e.key === 'End') {
+            nextIndex = themeButtons.length - 1;
+          }
+          themeButtons[nextIndex]?.focus();
+          return;
+        }
+      }
+    }
     if (e.key === 'Tab' && dialogEl) {
       const focusables = Array.from(
         dialogEl.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')
