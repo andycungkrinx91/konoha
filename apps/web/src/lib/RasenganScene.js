@@ -6,8 +6,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /**
  * Procedural Rasengan scene built with Three.js.
- * Ported 100% faithfully from ~/Downloads/rasengan-threejs/src/RasenganScene.js,
- * enhanced with dynamic theme palette colors and optional onPhaseChange callback.
+ * Enhanced with dynamic theme palette colors, mode awareness (NormalBlending on light,
+ * AdditiveBlending on dark), zero-leak lifecycle management, and visibility throttling.
  */
 export class RasenganScene {
   constructor(canvas, options = {}) {
@@ -15,49 +15,57 @@ export class RasenganScene {
     this.options = {
       bloom: true,
       pixelRatioCap: 1.75,
-      colors: ['#11aaff', '#45eaff', '#075dff', '#9beeff', '#167aff'],
+      colors: ['#0369A1', '#0284C7', '#075985', '#0E7490'],
       bgColor: '#020611',
       fogColor: '#030b1b',
-      transparent: false,
+      transparent: true,
+      mode: 'dark', // 'dark' | 'light'
       onPhaseChange: null,
       autoLoop: true,
       phaseDuration: 8.8,
       ...options
     };
+
+    this.mode = this.options.mode || 'dark';
+    this.isLight = this.mode === 'light';
+    this.hexColors = this.parseColors(this.options.colors);
+
     this.lastTime = performance.now();
     this.elapsed = 0;
     this.phase = 'CHARGING';
     this.phaseDuration = this.options.phaseDuration;
     this.disposed = false;
+    this.isTabHidden = typeof document !== 'undefined' && document.hidden;
     this.reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     this.scene = new THREE.Scene();
-    if (!this.options.transparent) {
+    if (!this.options.transparent && !this.isLight) {
       this.scene.background = new THREE.Color(this.options.bgColor);
       this.scene.fog = new THREE.FogExp2(this.options.fogColor, 0.035);
     }
+
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     this.camera.position.set(0, 0.35, 9.6);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      alpha: !!this.options.transparent,
+      alpha: !!this.options.transparent || this.isLight,
       powerPreference: 'high-performance'
     });
     this.renderer.setPixelRatio(Math.min((typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, this.options.pixelRatioCap));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.22;
+    this.renderer.toneMappingExposure = this.isLight ? 1.05 : 1.22;
 
-    this.ambientLight = new THREE.AmbientLight(0x174b8c, 1.4);
+    this.ambientLight = new THREE.AmbientLight(this.hexColors[0], this.isLight ? 2.0 : 1.4);
     this.scene.add(this.ambientLight);
 
-    this.keyLight = new THREE.PointLight(0x168eff, 100, 18);
+    this.keyLight = new THREE.PointLight(this.hexColors[1], this.isLight ? 60 : 100, 18);
     this.keyLight.position.set(2, 2.5, 4);
     this.scene.add(this.keyLight);
 
-    this.rimLight = new THREE.PointLight(0x08d9ff, 75, 14);
+    this.rimLight = new THREE.PointLight(this.hexColors[2], this.isLight ? 50 : 75, 14);
     this.rimLight.position.set(-3, -1, 2);
     this.scene.add(this.rimLight);
 
@@ -69,7 +77,7 @@ export class RasenganScene {
     this.makeShockwave();
     this.makeCrackOverlay();
 
-    if (this.options.bloom) {
+    if (this.options.bloom && !this.isLight) {
       try {
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -85,50 +93,119 @@ export class RasenganScene {
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this.onResize);
     }
+
+    this.onVisibilityChange = () => {
+      this.isTabHidden = typeof document !== 'undefined' && document.hidden;
+      if (!this.isTabHidden) {
+        this.lastTime = performance.now();
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+    }
+
     this.resize();
     this.playImpact();
     this.animate();
   }
 
-  updatePalette(colors, bgColor = null) {
-    if (!colors || colors.length === 0) return;
-    const hexColors = colors.map(c => new THREE.Color(c));
-    if (bgColor) {
-      this.scene.background = new THREE.Color(bgColor);
-      this.scene.fog.color = new THREE.Color(bgColor);
+  parseColors(colors) {
+    const list = Array.isArray(colors) && colors.length > 0 ? colors : ['#0369A1', '#0284C7', '#075985', '#0E7490'];
+    const parsed = list.map(c => new THREE.Color(c));
+    while (parsed.length < 4) {
+      parsed.push(parsed[0].clone());
     }
+    return parsed;
+  }
+
+  updatePalette(colors, mode = null) {
+    if (colors && colors.length > 0) {
+      this.hexColors = this.parseColors(colors);
+    }
+    if (mode && (mode === 'light' || mode === 'dark')) {
+      this.mode = mode;
+      this.isLight = this.mode === 'light';
+    }
+
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
     if (this.core) {
-      this.core.material.color.copy(hexColors[1] || hexColors[0]);
+      this.core.material.color.copy(this.hexColors[0]);
+      this.core.material.opacity = this.isLight ? 0.96 : 0.98;
     }
     if (this.coreGlow) {
-      this.coreGlow.material.color.copy(hexColors[0]);
+      this.coreGlow.material.color.copy(this.hexColors[1]);
+      this.coreGlow.material.blending = blend;
+      this.coreGlow.material.opacity = this.isLight ? 0.45 : 0.24;
+      this.coreGlow.material.needsUpdate = true;
     }
     if (this.outerGlow) {
-      this.outerGlow.material.color.copy(hexColors[2] || hexColors[0]);
+      this.outerGlow.material.color.copy(this.hexColors[2]);
+      this.outerGlow.material.blending = blend;
+      this.outerGlow.material.opacity = this.isLight ? 0.25 : 0.09;
+      this.outerGlow.material.needsUpdate = true;
     }
     if (this.ribbons) {
       this.ribbons.forEach((m, idx) => {
-        m.material.color.copy(hexColors[idx % hexColors.length]);
+        m.material.color.copy(this.hexColors[idx % this.hexColors.length]);
+        m.material.blending = blend;
+        m.material.opacity = this.isLight ? 0.92 : 0.92;
+        m.material.needsUpdate = true;
       });
     }
     if (this.rings) {
       this.rings.forEach((r, idx) => {
-        r.material.color.copy(hexColors[idx % hexColors.length]);
+        r.material.color.copy(this.hexColors[idx % this.hexColors.length]);
+        r.material.blending = blend;
+        r.material.opacity = this.isLight ? 0.75 : 0.65;
+        r.material.needsUpdate = true;
       });
     }
     if (this.particles) {
-      this.particles.material.color.copy(hexColors[1] || hexColors[0]);
+      this.particles.material.color.copy(this.hexColors[1]);
+      this.particles.material.blending = blend;
+      this.particles.material.opacity = this.isLight ? 0.95 : 0.9;
+      this.particles.material.needsUpdate = true;
+    }
+    if (this.shards) {
+      this.shards.forEach(s => {
+        s.material.color.copy(this.hexColors[1]);
+        s.material.emissive.copy(this.hexColors[0]);
+        s.material.opacity = this.isLight ? 0.9 : 0.78;
+        s.material.needsUpdate = true;
+      });
+    }
+    if (this.shockwave) {
+      this.shockwave.material.color.copy(this.hexColors[1]);
+      this.shockwave.material.blending = blend;
+      this.shockwave.material.needsUpdate = true;
+    }
+    if (this.flash) {
+      this.flash.color.copy(this.hexColors[2]);
+    }
+    if (this.crackGroup) {
+      this.crackGroup.children.forEach(c => {
+        c.material.color.copy(this.hexColors[0]);
+        c.material.blending = blend;
+        c.material.needsUpdate = true;
+      });
     }
     if (this.keyLight) {
-      this.keyLight.color.copy(hexColors[0]);
+      this.keyLight.color.copy(this.hexColors[1]);
     }
     if (this.rimLight) {
-      this.rimLight.color.copy(hexColors[2] || hexColors[0]);
+      this.rimLight.color.copy(this.hexColors[2]);
+    }
+    if (this.ambientLight) {
+      this.ambientLight.color.copy(this.hexColors[0]);
+    }
+    if (this.stars && this.stars.material) {
+      this.stars.material.color.copy(this.hexColors[2]);
     }
   }
 
   makeEnvironment() {
-    if (this.options.transparent) return;
+    if (this.options.transparent || this.isLight) return;
 
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
@@ -138,7 +215,7 @@ export class RasenganScene {
     floor.position.y = -2.5;
     this.scene.add(floor);
 
-    const grid = new THREE.GridHelper(80, 80, 0x0a4d85, 0x082344);
+    const grid = new THREE.GridHelper(80, 80, this.hexColors[0].getHex(), 0x082344);
     grid.position.y = -2.48;
     grid.material.transparent = true;
     grid.material.opacity = 0.2;
@@ -154,7 +231,7 @@ export class RasenganScene {
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
     this.stars = new THREE.Points(
       starGeo,
-      new THREE.PointsMaterial({ color: 0x4abfff, size: 0.018, transparent: true, opacity: 0.65 })
+      new THREE.PointsMaterial({ color: this.hexColors[2], size: 0.018, transparent: true, opacity: 0.65 })
     );
     this.scene.add(this.stars);
   }
@@ -165,19 +242,37 @@ export class RasenganScene {
 
     this.core = new THREE.Mesh(
       new THREE.SphereGeometry(0.7, 48, 32),
-      new THREE.MeshBasicMaterial({ color: 0x8beaff })
+      new THREE.MeshBasicMaterial({
+        color: this.hexColors[0],
+        transparent: true,
+        opacity: this.isLight ? 0.96 : 0.98
+      })
     );
     this.coreGroup.add(this.core);
 
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
     this.coreGlow = new THREE.Mesh(
       new THREE.SphereGeometry(0.92, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0x008dff, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.MeshBasicMaterial({
+        color: this.hexColors[1],
+        transparent: true,
+        opacity: this.isLight ? 0.45 : 0.24,
+        blending: blend,
+        depthWrite: false
+      })
     );
     this.coreGroup.add(this.coreGlow);
 
     this.outerGlow = new THREE.Mesh(
       new THREE.SphereGeometry(1.22, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0x006aff, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.MeshBasicMaterial({
+        color: this.hexColors[2],
+        transparent: true,
+        opacity: this.isLight ? 0.25 : 0.09,
+        blending: blend,
+        depthWrite: false
+      })
     );
     this.coreGroup.add(this.outerGlow);
     this.coreGroup.scale.setScalar(0.05);
@@ -185,7 +280,8 @@ export class RasenganScene {
 
   makeEnergyRibbons() {
     this.ribbons = [];
-    const colors = [0x11aaff, 0x45eaff, 0x075dff, 0x9beeff, 0x167aff];
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
     for (let r = 0; r < 7; r++) {
       const points = [];
       const turns = 2.2 + Math.random() * 1.2;
@@ -199,7 +295,13 @@ export class RasenganScene {
       const curve = new THREE.CatmullRomCurve3(points);
       const mesh = new THREE.Mesh(
         new THREE.TubeGeometry(curve, 400, r % 3 === 0 ? 0.018 : 0.009, 5, false),
-        new THREE.MeshBasicMaterial({ color: colors[r % colors.length], transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({
+          color: this.hexColors[r % this.hexColors.length],
+          transparent: true,
+          opacity: this.isLight ? 0.92 : 0.92,
+          blending: blend,
+          depthWrite: false
+        })
       );
       mesh.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
       this.coreGroup.add(mesh);
@@ -212,7 +314,12 @@ export class RasenganScene {
     for (let i = 0; i < 3; i++) {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(1.05 + i * 0.18, 0.012, 8, 120),
-        new THREE.MeshBasicMaterial({ color: colors[i], transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending })
+        new THREE.MeshBasicMaterial({
+          color: this.hexColors[i % this.hexColors.length],
+          transparent: true,
+          opacity: this.isLight ? 0.75 : 0.65,
+          blending: blend
+        })
       );
       ring.rotation.set(Math.PI * (0.3 + i * 0.22), Math.PI * (0.2 + i * 0.28), i * 1.1);
       this.ringGroup.add(ring);
@@ -232,9 +339,15 @@ export class RasenganScene {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.particlePositions, 3).setUsage(THREE.DynamicDrawUsage));
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
     this.particles = new THREE.Points(geo, new THREE.PointsMaterial({
-      color: 0x54dfff, size: 0.035, transparent: true, opacity: 0.9,
-      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+      color: this.hexColors[1],
+      size: this.isLight ? 0.038 : 0.035,
+      transparent: true,
+      opacity: this.isLight ? 0.95 : 0.9,
+      blending: blend,
+      depthWrite: false,
+      sizeAttenuation: true
     }));
     this.scene.add(this.particles);
   }
@@ -258,9 +371,17 @@ export class RasenganScene {
     this.scene.add(this.glassGroup);
     this.shards = [];
     const material = new THREE.MeshPhysicalMaterial({
-      color: 0x9bdcff, metalness: 0.15, roughness: 0.12, transmission: 0.35,
-      transparent: true, opacity: 0.78, thickness: 0.25, ior: 1.35,
-      emissive: 0x0b4d9e, emissiveIntensity: 0.65, side: THREE.DoubleSide
+      color: this.hexColors[1],
+      metalness: this.isLight ? 0.1 : 0.15,
+      roughness: this.isLight ? 0.2 : 0.12,
+      transmission: this.isLight ? 0.15 : 0.35,
+      transparent: true,
+      opacity: this.isLight ? 0.88 : 0.78,
+      thickness: 0.25,
+      ior: 1.35,
+      emissive: this.hexColors[0],
+      emissiveIntensity: this.isLight ? 0.45 : 0.65,
+      side: THREE.DoubleSide
     });
     for (let i = 0; i < 54; i++) {
       const angle = (i / 54) * Math.PI * 2 + (Math.random() - 0.5) * 0.13;
@@ -291,14 +412,21 @@ export class RasenganScene {
   }
 
   makeShockwave() {
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
     this.shockwave = new THREE.Mesh(
       new THREE.TorusGeometry(1, 0.035, 8, 128),
-      new THREE.MeshBasicMaterial({ color: 0x42dcff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.MeshBasicMaterial({
+        color: this.hexColors[1],
+        transparent: true,
+        opacity: 0,
+        blending: blend,
+        depthWrite: false
+      })
     );
     this.shockwave.rotation.x = 0.3;
     this.shockwave.scale.setScalar(0.01);
     this.scene.add(this.shockwave);
-    this.flash = new THREE.PointLight(0x55dfff, 0, 16);
+    this.flash = new THREE.PointLight(this.hexColors[2], 0, 16);
     this.flash.position.set(0, 0, 2);
     this.scene.add(this.flash);
   }
@@ -306,7 +434,13 @@ export class RasenganScene {
   makeCrackOverlay() {
     this.crackGroup = new THREE.Group();
     this.scene.add(this.crackGroup);
-    const mat = new THREE.LineBasicMaterial({ color: 0x7deaff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+    const mat = new THREE.LineBasicMaterial({
+      color: this.hexColors[0],
+      transparent: true,
+      opacity: 0,
+      blending: blend
+    });
     for (let ray = 0; ray < 18; ray++) {
       let angle = (ray / 18) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
       let x = 0;
@@ -359,7 +493,6 @@ export class RasenganScene {
   update(dt) {
     this.elapsed += dt;
     const t = this.elapsed;
-    // Normalized phase timeline relative to total duration
     const dur = this.phaseDuration;
     const chargeEnd = dur * (2.6 / 8.8);
     const crackEnd = dur * (3.35 / 8.8);
@@ -376,7 +509,7 @@ export class RasenganScene {
       const p = t / chargeEnd;
       coreScale = 0.05 + 0.88 * p * p;
       particleSpread = 0.65 + p * 0.35;
-      this.coreGlow.material.opacity = 0.15 + p * 0.22;
+      this.coreGlow.material.opacity = this.isLight ? (0.25 + p * 0.3) : (0.15 + p * 0.22);
     } else if (t < crackEnd) {
       this.phase = 'GLASS FRACTURE';
       coreScale = 0.93 + Math.sin(t * 35) * 0.035;
@@ -391,7 +524,7 @@ export class RasenganScene {
       flash = Math.max(0, 1 - p * 3) * 3;
       const shockP = Math.min(1, p * 1.5);
       this.shockwave.scale.setScalar(0.01 + shockP * 4.8);
-      this.shockwave.material.opacity = Math.max(0, 1 - shockP) * 0.85;
+      this.shockwave.material.opacity = Math.max(0, 1 - shockP) * (this.isLight ? 0.75 : 0.85);
     } else {
       this.phase = 'RECOVERY';
       const p = Math.min(1, (t - blastEnd) / (recoveryEnd - blastEnd));
@@ -410,19 +543,20 @@ export class RasenganScene {
       this.options.onPhaseChange(this.phase);
     }
 
+    const rotMultiplier = this.reducedMotion ? 0.08 : 1;
     this.coreGroup.scale.setScalar(coreScale);
-    this.coreGroup.rotation.y += dt * (this.phase === 'CHARGING' ? 1.8 : 3.5);
-    this.coreGroup.rotation.x += dt * 0.6;
-    this.ringGroup.rotation.x += dt * 0.3;
-    this.ringGroup.rotation.y -= dt * 0.55;
+    this.coreGroup.rotation.y += dt * (this.phase === 'CHARGING' ? 1.8 : 3.5) * rotMultiplier;
+    this.coreGroup.rotation.x += dt * 0.6 * rotMultiplier;
+    this.ringGroup.rotation.x += dt * 0.3 * rotMultiplier;
+    this.ringGroup.rotation.y -= dt * 0.55 * rotMultiplier;
 
     this.rings.forEach((ring, i) => {
       ring.scale.setScalar(0.65 + coreScale * 0.6 + Math.sin(t * 3 + i) * 0.04);
-      ring.material.opacity = 0.22 + coreScale * 0.5;
+      ring.material.opacity = this.isLight ? (0.35 + coreScale * 0.45) : (0.22 + coreScale * 0.5);
     });
 
-    this.coreGlow.material.opacity = Math.min(0.55, 0.15 + coreScale * 0.35);
-    this.outerGlow.material.opacity = Math.min(0.22, 0.04 + coreScale * 0.12);
+    this.coreGlow.material.opacity = this.isLight ? Math.min(0.65, 0.25 + coreScale * 0.35) : Math.min(0.55, 0.15 + coreScale * 0.35);
+    this.outerGlow.material.opacity = this.isLight ? Math.min(0.35, 0.1 + coreScale * 0.2) : Math.min(0.22, 0.04 + coreScale * 0.12);
     this.flash.intensity = flash * 85;
 
     this.crackGroup.children.forEach(c => {
@@ -436,10 +570,10 @@ export class RasenganScene {
       if (t >= crackEnd + u.delay && t < blastEnd) {
         const p = Math.min(1, (t - crackEnd - u.delay) / (blastEnd - crackEnd));
         s.position.copy(u.home).addScaledVector(u.velocity, p * 1.65);
-        s.rotation.x = u.homeRotation.x + u.spin.x * p;
-        s.rotation.y = u.homeRotation.y + u.spin.y * p;
-        s.rotation.z = u.homeRotation.z + u.spin.z * p;
-        s.material.opacity = 0.8 * (1 - p * 0.45);
+        s.rotation.x = u.homeRotation.x + u.spin.x * p * rotMultiplier;
+        s.rotation.y = u.homeRotation.y + u.spin.y * p * rotMultiplier;
+        s.rotation.z = u.homeRotation.z + u.spin.z * p * rotMultiplier;
+        s.material.opacity = (this.isLight ? 0.9 : 0.8) * (1 - p * 0.45);
       } else if (t >= blastEnd) {
         s.visible = false;
       }
@@ -448,7 +582,7 @@ export class RasenganScene {
     const positions = this.particlePositions;
     for (let i = 0; i < this.particleCount; i++) {
       const k = i * 3;
-      const velScale = (this.phase === 'EXPLOSION' ? 2.8 : this.phase === 'CHARGING' ? -0.12 : 0.25) * dt;
+      const velScale = (this.phase === 'EXPLOSION' ? 2.8 : this.phase === 'CHARGING' ? -0.12 : 0.25) * dt * rotMultiplier;
       positions[k] += this.particleVelocities[k] * velScale * particleSpread;
       positions[k + 1] += this.particleVelocities[k + 1] * velScale * particleSpread;
       positions[k + 2] += this.particleVelocities[k + 2] * velScale;
@@ -462,12 +596,13 @@ export class RasenganScene {
       }
     }
     this.particles.geometry.attributes.position.needsUpdate = true;
-    this.particles.material.opacity = this.phase === 'EXPLOSION' ? 0.98 : 0.55 + coreScale * 0.3;
-    this.particles.material.size = this.phase === 'EXPLOSION' ? 0.045 : 0.025;
+    this.particles.material.opacity = this.phase === 'EXPLOSION' ? 0.98 : (this.isLight ? 0.75 + coreScale * 0.2 : 0.55 + coreScale * 0.3);
+    this.particles.material.size = this.phase === 'EXPLOSION' ? 0.045 : (this.isLight ? 0.038 : 0.025);
 
     if (this.stars) {
-      this.stars.rotation.y += dt * 0.002;
+      this.stars.rotation.y += dt * 0.002 * rotMultiplier;
     }
+
     this.camera.position.x = Math.sin(t * 0.7) * 0.055;
     this.camera.position.y = 0.35 + Math.sin(t * 1.2) * 0.035;
     this.camera.position.z = this.phase === 'EXPLOSION' ? 9.6 - flash * 0.12 : 9.6;
@@ -493,11 +628,12 @@ export class RasenganScene {
   animate() {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(() => this.animate());
+    if (this.isTabHidden) return;
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.033);
     this.lastTime = now;
     this.update(dt);
-    if (this.composer) this.composer.render();
+    if (this.composer && !this.isLight) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }
 
@@ -506,6 +642,9 @@ export class RasenganScene {
     if (this.raf) cancelAnimationFrame(this.raf);
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.onResize);
+    }
+    if (typeof document !== 'undefined' && this.onVisibilityChange) {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
     }
     this.scene.traverse(obj => {
       obj.geometry?.dispose?.();

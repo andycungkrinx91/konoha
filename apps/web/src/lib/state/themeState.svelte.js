@@ -11,6 +11,10 @@ export const THEMES = [
     accent: '#FF4FA3',
     gradient: ['#10132B', '#35206B', '#8B5CF6', '#FF4FA3'],
     glow: 'rgba(139,92,246,0.22)',
+    rasengan: {
+      dark: ['#8B5CF6', '#FF4FA3', '#A78BFA', '#F43F5E'],
+      light: ['#7C3AED', '#DB2777', '#6D28D9', '#BE185D']
+    },
     // Light mode tokens
     light: {
       bg: '#fbfaff',
@@ -45,6 +49,10 @@ export const THEMES = [
     accent: '#36DFFF',
     gradient: ['#0B1729', '#124A72', '#0788C9', '#36DFFF'],
     glow: 'rgba(7,136,201,0.22)',
+    rasengan: {
+      dark: ['#0788C9', '#36DFFF', '#38BDF8', '#0284C7'],
+      light: ['#0369A1', '#0284C7', '#075985', '#0E7490']
+    },
     light: {
       bg: '#f0f9ff',
       surface: '#ffffff',
@@ -77,6 +85,10 @@ export const THEMES = [
     accent: '#B8FF49',
     gradient: ['#101D13', '#285225', '#68A82E', '#B8FF49'],
     glow: 'rgba(104,168,46,0.22)',
+    rasengan: {
+      dark: ['#68A82E', '#B8FF49', '#84CC16', '#4D7C0F'],
+      light: ['#4D7C0F', '#15803D', '#166534', '#3F6212']
+    },
     light: {
       bg: '#f7fee7',
       surface: '#ffffff',
@@ -109,6 +121,10 @@ export const THEMES = [
     accent: '#FF8748',
     gradient: ['#21102B', '#66245E', '#D946EF', '#FF8748'],
     glow: 'rgba(217,70,239,0.22)',
+    rasengan: {
+      dark: ['#D946EF', '#FF8748', '#C026D3', '#EA580C'],
+      light: ['#A21CAF', '#C2410C', '#86198F', '#9A3412']
+    },
     light: {
       bg: '#fdf4ff',
       surface: '#ffffff',
@@ -143,6 +159,10 @@ export const THEMES = [
     accent: '#B18CFF',
     gradient: ['#101A35', '#263F8F', '#4F83FF', '#B18CFF'],
     glow: 'rgba(79,131,255,0.22)',
+    rasengan: {
+      dark: ['#4F83FF', '#B18CFF', '#6366F1', '#818CF8'],
+      light: ['#1D4ED8', '#4338CA', '#6D28D9', '#2563EB']
+    },
     light: {
       bg: '#eff6ff',
       surface: '#ffffff',
@@ -175,6 +195,10 @@ export const THEMES = [
     accent: '#FF8A38',
     gradient: ['#251016', '#70202B', '#F04452', '#FF8A38'],
     glow: 'rgba(240,68,82,0.22)',
+    rasengan: {
+      dark: ['#F04452', '#FF8A38', '#DC2626', '#EA580C'],
+      light: ['#B91C1C', '#C2410C', '#991B1B', '#9A3412']
+    },
     light: {
       bg: '#fff1f2',
       surface: '#ffffff',
@@ -207,6 +231,10 @@ export const THEMES = [
     accent: '#65F5D5',
     gradient: ['#0C2525', '#11665E', '#19B5A5', '#65F5D5'],
     glow: 'rgba(25,181,165,0.22)',
+    rasengan: {
+      dark: ['#19B5A5', '#65F5D5', '#0D9488', '#14B8A6'],
+      light: ['#0F766E', '#047857', '#115E59', '#065F46']
+    },
     light: {
       bg: '#f0fdfa',
       surface: '#ffffff',
@@ -239,6 +267,10 @@ export const THEMES = [
     accent: '#35E8FF',
     gradient: ['#1C1030', '#633078', '#FF42C8', '#35E8FF'],
     glow: 'rgba(255,66,200,0.22)',
+    rasengan: {
+      dark: ['#FF42C8', '#35E8FF', '#C026D3', '#06B6D4'],
+      light: ['#A21CAF', '#0E7490', '#701A75', '#155E75']
+    },
     light: {
       bg: '#faf5ff',
       surface: '#ffffff',
@@ -273,6 +305,10 @@ export const THEMES = [
     accent: '#FFE477',
     gradient: ['#21190D', '#6B4517', '#D9A52E', '#FFE477'],
     glow: 'rgba(217,165,46,0.22)',
+    rasengan: {
+      dark: ['#D9A52E', '#FFE477', '#B45309', '#F59E0B'],
+      light: ['#92400E', '#B45309', '#78350F', '#A16207']
+    },
     light: {
       bg: '#fefce8',
       surface: '#ffffff',
@@ -305,6 +341,10 @@ export const THEMES = [
     accent: '#58FFE0',
     gradient: ['#0B211D', '#126447', '#21C98B', '#58FFE0'],
     glow: 'rgba(33,201,139,0.22)',
+    rasengan: {
+      dark: ['#21C98B', '#58FFE0', '#059669', '#10B981'],
+      light: ['#047857', '#0F766E', '#065F46', '#115E59']
+    },
     light: {
       bg: '#f0fdf4',
       surface: '#ffffff',
@@ -469,6 +509,16 @@ export function createThemeState() {
         document.documentElement.style.setProperty('--theme-gradient-3', g3);
         document.documentElement.style.setProperty('--theme-gradient-4', g4);
 
+        // Rasengan palette tokens (derived per mode and theme for high-contrast visibility)
+        const rasenganStops = found.rasengan
+          ? (isDark ? found.rasengan.dark : found.rasengan.light)
+          : [g1, g2, g3, g4];
+        document.documentElement.style.setProperty('--rasengan-1', rasenganStops[0]);
+        document.documentElement.style.setProperty('--rasengan-2', rasenganStops[1]);
+        document.documentElement.style.setProperty('--rasengan-3', rasenganStops[2]);
+        document.documentElement.style.setProperty('--rasengan-4', rasenganStops[3]);
+        document.documentElement.style.setProperty('--bg-login', isDark ? tokens.bg : '#ffffff');
+
         // Backward compatibility properties
         document.documentElement.style.setProperty('--theme-grad-1', g1);
         document.documentElement.style.setProperty('--theme-grad-2', g2);
@@ -610,6 +660,11 @@ export function createThemeState() {
   return {
     get currentTheme() { return currentTheme; },
     get currentMode() { return currentMode; },
+    get currentRasengan() {
+      const found = THEMES.find(t => t.id === currentTheme) || THEMES[0];
+      const isDark = currentMode === 'dark';
+      return found.rasengan ? (isDark ? found.rasengan.dark : found.rasengan.light) : [found.color, found.accent, found.color, found.accent];
+    },
     get isModalOpen() { return isModalOpen; },
     set isModalOpen(val) { isModalOpen = val; },
     applyTheme,
@@ -619,6 +674,12 @@ export function createThemeState() {
     themes: THEMES,
     groupedThemes: groupThemes(THEMES)
   };
+}
+
+export function getRasenganTokens(themeId, mode = 'light') {
+  const found = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const isDark = mode === 'dark';
+  return found.rasengan ? (isDark ? found.rasengan.dark : found.rasengan.light) : [found.color, found.accent, found.color, found.accent];
 }
 
 export const themeState = createThemeState();

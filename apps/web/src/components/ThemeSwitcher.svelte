@@ -1,5 +1,5 @@
 <script>
-  import { themeState, groupThemes, THEME_CATEGORIES } from '../lib/state/themeState.svelte.js';
+  import { themeState, groupThemes, THEME_CATEGORIES, getRasenganTokens } from '../lib/state/themeState.svelte.js';
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
 
   const TRANSITION_MS = 2000; // existing 2-second theme transition — preserved
@@ -65,9 +65,8 @@
 
   $effect(() => {
     if (isRasenganActive && themeCanvasEl) {
-      const palette = activeTheme.gradient && activeTheme.gradient.length >= 4
-        ? [activeTheme.gradient[0], activeTheme.gradient[1], activeTheme.gradient[2], activeTheme.gradient[3], activeTheme.accent]
-        : [activeTheme.color, activeTheme.accent, activeTheme.color, activeTheme.accent, activeTheme.color];
+      const palette = getRasenganTokens(themeState.currentTheme, themeState.currentMode);
+      const mode = themeState.currentMode;
 
       let disposed = false;
 
@@ -76,9 +75,10 @@
           if (disposed || !isRasenganActive || !themeCanvasEl) return;
           themeRasenganScene = new RasenganScene(themeCanvasEl, {
             colors: palette,
+            mode: mode,
             phaseDuration: TRANSITION_MS / 1000,
             transparent: true,
-            bloom: true
+            bloom: mode === 'dark'
           });
           themeRasenganScene.playImpact();
         })
@@ -113,6 +113,11 @@
     announce(`Theme changed to ${themeState.themes.find(t => t.id === id)?.name || id}`);
 
     if (impactTimer) clearTimeout(impactTimer);
+    if (themeRasenganScene) {
+      const newPalette = getRasenganTokens(id, themeState.currentMode);
+      themeRasenganScene.updatePalette(newPalette, themeState.currentMode);
+      themeRasenganScene.playImpact();
+    }
     isRasenganActive = true;
     impactTimer = setTimeout(() => {
       isRasenganActive = false;
@@ -304,8 +309,8 @@
 {#if isRasenganActive}
   <div class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden flex items-center justify-center" aria-hidden="true">
     <div class="absolute inset-0 animate-shatter-flash"></div>
-    <div class="relative w-80 h-80 sm:w-96 sm:h-96 flex items-center justify-center animate-huge-rasengan z-20">
-      <canvas bind:this={themeCanvasEl} class="w-full h-full rounded-full"></canvas>
+    <div class="relative w-[480px] h-[480px] sm:w-[640px] sm:h-[640px] max-w-[95vw] max-h-[95vh] flex items-center justify-center animate-huge-rasengan z-20 pointer-events-none">
+      <canvas bind:this={themeCanvasEl} class="w-full h-full block pointer-events-none"></canvas>
     </div>
   </div>
 {/if}

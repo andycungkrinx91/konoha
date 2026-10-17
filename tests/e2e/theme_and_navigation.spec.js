@@ -110,6 +110,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(modeToggle).toBeVisible();
     await modeToggle.click();
     await expect(page.getByRole("button", { name: "Light appearance mode" })).toBeVisible();
+    await page.waitForTimeout(350);
 
     const darkTokens = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);

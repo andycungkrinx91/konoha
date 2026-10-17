@@ -2387,6 +2387,22 @@ async function handleWebServerRequest(req, res, ctx) {
       });
     }
 
+    // Serve root assets directory if requested via /assets/
+    if (pathname.startsWith('/assets/')) {
+      const assetRel = pathname.slice('/assets/'.length);
+      const rootAssetPath = path.resolve(__dirname, '..', 'assets', assetRel);
+      if (fs.existsSync(rootAssetPath) && !fs.statSync(rootAssetPath).isDirectory()) {
+        const ext = path.extname(rootAssetPath).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': contentType });
+        const stream = fs.createReadStream(rootAssetPath);
+        stream.on('error', () => {
+          try { res.end(); } catch (_) { /* intentional best-effort fallback */ }
+        });
+        return stream.pipe(res);
+      }
+    }
+
     const distDir = getDistDir();
     let filePath = path.join(distDir, pathname === '/' ? 'index.html' : pathname);
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {

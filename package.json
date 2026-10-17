@@ -30,6 +30,7 @@
     "src/",
     "apps/web/build/",
     "apps/web/package.json",
+    "assets/",
     ".agents/",
     "README.md",
     "LICENSE",

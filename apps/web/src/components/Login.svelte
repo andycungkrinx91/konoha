@@ -26,14 +26,8 @@
   let rasenganScene = null;
   let authAttempt = 0; // invalidates superseded submissions/animations
 
-  const activeThemeObj = $derived(
-    THEMES.find(t => t.id === themeState.currentTheme) || THEMES[0]
-  );
-
   const activePalette = $derived(
-    activeThemeObj?.gradient && activeThemeObj.gradient.length >= 4
-      ? [activeThemeObj.gradient[0], activeThemeObj.gradient[1], activeThemeObj.gradient[2], activeThemeObj.gradient[3], activeThemeObj.accent]
-      : ['#38bdf8', '#818cf8', '#06b6d4', '#0284c7', '#0ea5e9']
+    themeState.currentRasengan
   );
 
   const phaseLabel = $derived(
@@ -48,8 +42,9 @@
   // Keep the 3D Rasengan palette in sync with live theme switches.
   $effect(() => {
     const palette = activePalette;
+    const mode = themeState.currentMode;
     if (rasenganScene) {
-      rasenganScene.updatePalette(palette);
+      rasenganScene.updatePalette(palette, mode);
     }
   });
 
@@ -172,13 +167,15 @@
         .then(({ RasenganScene }) => {
           if (disposed || !threeCanvasEl) return;
           rasenganScene = new RasenganScene(threeCanvasEl, {
-            bloom: true,
+            bloom: themeState.currentMode === 'dark',
             pixelRatioCap: 1.5,
-            colors: activePalette
+            colors: activePalette,
+            mode: themeState.currentMode,
+            transparent: true
           });
         })
         .catch(() => {
-          // WebGL unavailable — the static chakra glow below keeps the scene usable.
+          // WebGL unavailable — fallback keeps scene usable.
           if (threeCanvasEl) threeCanvasEl.hidden = true;
         });
     }
@@ -199,30 +196,25 @@
 <div
   class="relative min-h-screen w-full flex items-center justify-center p-4 py-10 overflow-hidden"
   style="
-    background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--theme-grad-2, #124a72) 38%, var(--theme-bg)) 0%, var(--theme-bg) 62%, color-mix(in srgb, var(--theme-bg) 80%, #000000) 100%);
+    background: var(--bg-login, #ffffff);
     color: var(--theme-text);
  "
 >
-  <!-- Procedural 3D Rasengan scene -->
+  <!-- Procedural 3D Rasengan scene with runtime theme palette and mode awareness -->
   <canvas
     bind:this={threeCanvasEl}
     class="absolute inset-0 w-full h-full block outline-none z-0 pointer-events-none"
     aria-hidden="true"
   ></canvas>
 
-  <!-- Static chakra glow fallback (visible without WebGL) -->
-  <div
-    class="absolute inset-0 z-0 pointer-events-none"
-    style="background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--theme-grad-3, #0788c9) 26%, transparent) 0%, transparent 55%);"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Ambient vignette keeps the form readable over the scene -->
-  <div
-    class="absolute inset-0 pointer-events-none z-[1]"
-    style="background: radial-gradient(ellipse at center, transparent 20%, color-mix(in srgb, var(--theme-bg) 70%, transparent) 75%, var(--theme-bg) 120%);"
-    aria-hidden="true"
-  ></div>
+  <!-- Ambient chakra glow fallback (visible in dark mode) -->
+  {#if themeState.currentMode === 'dark'}
+    <div
+      class="absolute inset-0 z-0 pointer-events-none"
+      style="background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--rasengan-1, #0788c9) 26%, transparent) 0%, transparent 55%);"
+      aria-hidden="true"
+    ></div>
+  {/if}
 
   <div
     class="relative z-10 w-full max-w-md transition-opacity duration-300"
@@ -232,29 +224,30 @@
     <div
       class="relative rounded-[6px] p-6 sm:p-8 border shadow-2xl overflow-hidden"
       style="
-        background: color-mix(in srgb, var(--theme-surface) 94%, transparent);
-        border-color: var(--theme-border-strong);
+        background: {themeState.currentMode === 'light' ? 'rgba(255, 255, 255, 0.94)' : 'color-mix(in srgb, var(--theme-surface) 94%, transparent)'};
+        backdrop-filter: blur(16px);
+        border-color: {themeState.currentMode === 'light' ? '#cbd5e1' : 'var(--theme-border-strong)'};
         color: var(--theme-text);
-        box-shadow: var(--theme-modal-shadow, 0 25px 60px -15px rgba(0, 0, 0, 0.45));
- "
+        box-shadow: {themeState.currentMode === 'light' ? '0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.12)' : 'var(--theme-modal-shadow, 0 25px 60px -15px rgba(0, 0, 0, 0.45))'};
+      "
     >
       <div class="absolute top-0 left-0 right-0 h-[3px]" style="background: var(--theme-4gradient-bar);" aria-hidden="true"></div>
 
       <header class="flex flex-col items-center text-center mb-6">
         <div
-          class="relative w-14 h-14 mb-3 rounded-full border flex items-center justify-center"
+          class="relative w-14 h-14 mb-3 rounded-full border flex items-center justify-center shadow-sm"
           style="border-color: var(--theme-border); background: var(--theme-gradient);"
           aria-hidden="true"
         >
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="var(--theme-surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3c4.97 0 9 4.03 9 9 0 3.12-1.59 5.87-4 7.5M12 21c-4.97 0-9-4.03-9-9 0-3.12 1.59-5.87 4-7.5" />
-            <circle cx="12" cy="12" r="3.5" fill="var(--theme-surface)" opacity="0.9" />
+            <circle cx="12" cy="12" r="3.5" fill="#ffffff" opacity="0.9" />
           </svg>
         </div>
-        <h1 class="text-xl font-black tracking-tight theme-text">
+        <h1 class="text-xl font-black tracking-tight" style="color: var(--theme-text);">
           KONOHA CONSOLE
         </h1>
-        <p class="text-xs mt-1 theme-text-secondary">
+        <p class="text-xs mt-1 font-medium" style="color: var(--theme-text-secondary);">
           Enter shinobi passphrase to access secure gateway
         </p>
       </header>
@@ -272,12 +265,13 @@
       <form onsubmit={handleSubmit} class="space-y-4" novalidate>
         <div>
           <div class="flex items-center justify-between gap-2 mb-1.5">
-            <label for="login-password" class="text-[11px] font-bold uppercase tracking-wider theme-text-secondary">
+            <label for="login-password" class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--theme-text-secondary);">
               Access Passphrase
             </label>
             {#if authState.isBootstrap}
               <span
-                class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] border theme-bg-muted theme-border theme-text"
+                class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] border"
+                style="background-color: var(--theme-surface-hover); border-color: var(--theme-border); color: var(--theme-text);"
                 title="Provisioned bootstrap credential — set a permanent password after signing in"
               >
                 Default: {DEFAULT_BOOTSTRAP_HINT}
@@ -297,7 +291,12 @@
               required
               aria-invalid={errorMessage ? 'true' : undefined}
               aria-describedby={authState.isBootstrap ? 'login-bootstrap-hint' : undefined}
-              class="w-full pl-4 pr-11 py-3 rounded-[5px] text-sm font-mono border input-theme theme-bg-surface theme-border theme-text"
+              class="w-full pl-4 pr-11 py-3 rounded-[5px] text-sm font-mono border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)] focus:border-transparent placeholder:text-slate-500"
+              style="
+                background-color: var(--color-surface, #ffffff);
+                color: var(--theme-text, #0f172a);
+                border-color: var(--theme-border-strong, #94a3b8);
+              "
               autocomplete="current-password"
               autocapitalize="off"
               spellcheck="false"
@@ -305,7 +304,8 @@
             <button
               type="button"
               onclick={() => showPassword = !showPassword}
-              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-[5px] cursor-pointer transition-colors hover:brightness-110 theme-text-secondary"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-[5px] cursor-pointer transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)]"
+              style="color: var(--theme-text-secondary);"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
               aria-controls="login-password"
@@ -324,7 +324,7 @@
           </div>
 
           {#if authState.isBootstrap}
-            <p id="login-bootstrap-hint" class="text-[11px] mt-1.5 theme-text-secondary">
+            <p id="login-bootstrap-hint" class="text-[11px] mt-1.5" style="color: var(--theme-text-secondary);">
               The provisioned bootstrap password is shown above. You will be required to set a permanent password after signing in.
             </p>
           {/if}
@@ -333,8 +333,8 @@
         <button
           type="submit"
           disabled={isSubmitting}
-          class="w-full py-3 rounded-[5px] text-xs font-black tracking-widest uppercase text-white shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2"
-          style="background: var(--theme-4gradient, linear-gradient(135deg, #0284c7 0%, #06b6d4 50%, #6366f1 100%));"
+          class="w-full py-3 rounded-[5px] text-xs font-black tracking-widest uppercase text-white shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)] focus:ring-offset-2"
+          style="background: var(--theme-btn-3d-bg, var(--theme-4gradient)); color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);"
         >
           {#if isSubmitting}
             <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
