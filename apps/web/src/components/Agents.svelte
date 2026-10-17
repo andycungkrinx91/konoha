@@ -308,7 +308,7 @@
         </button>
         <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="text-xs font-bold" style="color: var(--color-text-muted);">Official Roster</div>
-          <div class="text-xl font-black text-emerald-600">7 Protected</div>
+          <div class="text-xl font-black text-[var(--theme-success)]">7 Protected</div>
         </div>
         <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
@@ -319,13 +319,13 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-[5px] border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">
+    <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
       {error}
     </div>
   {/if}
 
   {#if loading}
-    <div class="flex items-center justify-center py-16 text-slate-600 text-sm font-semibold">
+    <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
         <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -362,8 +362,8 @@
 
               <div class="flex flex-col items-end gap-1">
                 {#if isOfficialAgent(agent.name)}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 flex items-center gap-1" title="Protected Village Ninja - Cannot be deleted">
-                    <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold badge-status badge-status-warning flex items-center gap-1" title="Protected Village Ninja - Cannot be deleted">
+                    <svg class="w-3 h-3 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     <span>Protected</span>
@@ -373,7 +373,7 @@
                     <button
                       type="button"
                       onclick={() => openEditModal(agent)}
-                      class="p-1 rounded-[5px] text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      class="p-1 rounded-[5px] theme-text-muted hover:text-blue-600 hover:bg-status-info-soft transition-colors cursor-pointer"
                       title="Edit custom ninja"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -383,7 +383,7 @@
                     <button
                       type="button"
                       onclick={() => deleteCustomAgent(agent.name)}
-                      class="p-1 rounded-[5px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      class="p-1 rounded-[5px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"
                       title="Delete custom agent"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -407,7 +407,7 @@
               <div class="flex items-center justify-between text-xs font-bold" style="color: var(--color-text);">
                 <span>Model Assignment</span>
                 {#if agent.model}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold badge-status badge-status-success">
                     assigned
                   </span>
                 {:else}

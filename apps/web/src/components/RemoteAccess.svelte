@@ -331,7 +331,7 @@
           onclick={() => { showGuideModal = true; }}
           class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
         >
-          <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-[var(--theme-info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>Setup Guide</span>
@@ -372,7 +372,7 @@
         <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
           tgConfig.enabled
             ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-            : "bg-slate-100 text-slate-600 border-slate-300"
+            : "theme-bg-subtle theme-text-secondary theme-border"
         }`}>
           {tgConfig.enabled ? (tgConfig.mode === "two_way" ? "Active (Two-Way)" : "Active (One-Way)") : "Disabled"}
         </span>
@@ -503,7 +503,7 @@
         <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
           tunnelStatus.enabled
             ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-            : "bg-slate-100 text-slate-600 border-slate-300"
+            : "theme-bg-subtle theme-text-secondary theme-border"
         }`}>
           {tunnelStatus.enabled ? "Connected" : "Inactive"}
         </span>
@@ -714,7 +714,7 @@
                       ? "bg-emerald-50 text-emerald-700 border-emerald-300"
                       : p.status === "processing"
                       ? "bg-amber-50 text-amber-700 border-amber-300"
-                      : "bg-slate-50 text-slate-700 border-slate-300"
+                      : "theme-bg-muted theme-text-secondary theme-border"
                   }`}>
                     {p.status.toUpperCase()}
                   </span>

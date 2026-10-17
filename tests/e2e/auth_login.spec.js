@@ -17,7 +17,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await page.goto("http://127.0.0.1:4173/");
 
     // Verify Cyberpunk Login UI elements
-    await expect(page.getByText("KONOHA CONSOLE")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
     await expect(page.getByText("Enter shinobi passphrase to access secure gateway")).toBeVisible();
     await expect(page.getByText("Default: konohagakure")).toBeVisible();
 
@@ -48,7 +48,8 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await page.getByRole("button", { name: "Login" }).click();
 
     // Verify 3s animation phase indicator or authenticating state appears
-    await expect(page.locator("text=/PHASE|CHARGING|AUTHENTICATING/i").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("[aria-live='polite']").filter({ hasText: /Charging chakra core|Authenticating/i }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("#login-password")).toBeDisabled();
 
     // 5. Verify Mandatory Password Change Modal appears
     await expect(page.getByRole("heading", { name: "Mandatory Password Change" })).toBeVisible({ timeout: 8000 });
@@ -59,6 +60,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await expect(page.getByRole("heading", { name: "Mandatory Password Change" })).toBeVisible();
 
     // 6. Complete password change to secure credential
+    await page.locator("#current-password").fill("konohagakure");
     const newPassInput = page.locator("#new-password");
     const confirmPassInput = page.locator("#confirm-password");
     await newPassInput.fill("secure-shinobi-2026!");
@@ -75,7 +77,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await themeFab.click();
 
     await expect(page.getByText("Konoha 4-Gradient Theme Palette")).toBeVisible();
-    await page.getByText("Byakugan Deep Ocean").click();
+    await page.getByRole("button", { name: "Byakugan Deep Ocean (active)" }).click();
 
     // Verify theme updated
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
@@ -86,7 +88,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await logoutBtn.click();
 
     // Returns to Cyberpunk Login screen
-    await expect(page.getByText("KONOHA CONSOLE")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible({ timeout: 5000 });
 
     // Assert zero uncaught JavaScript page errors
     expect(pageErrors).toEqual([]);
@@ -95,7 +97,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
   test("Accessibility and reduced motion preference", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto("http://127.0.0.1:4173/");
-    await expect(page.getByText("KONOHA CONSOLE")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
     const passwordInput = page.locator("#login-password");
     await expect(passwordInput).toBeVisible();
     const isReduced = await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);

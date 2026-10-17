@@ -96,6 +96,81 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("Theme contract mirrors in both appearance modes: palette tokens, chart colors, no light surfaces", async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.goto("http://127.0.0.1:4173/skills");
+    const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
+    await expect(themeFab).toBeVisible();
+
+    // Quick Light/Dark toggle sits next to the FAB (independent of the picker dialog)
+    const modeToggle = page.getByRole("button", { name: "Dark appearance mode" });
+    await expect(modeToggle).toBeVisible();
+    await modeToggle.click();
+    await expect(page.getByRole("button", { name: "Light appearance mode" })).toBeVisible();
+
+    const darkTokens = await page.evaluate(() => {
+      const style = getComputedStyle(document.documentElement);
+      const read = (name) => style.getPropertyValue(name).trim();
+      return {
+        mode: document.documentElement.getAttribute('data-mode'),
+        hasDarkClass: document.documentElement.classList.contains('theme-dark'),
+        bg: read('--theme-bg'),
+        surface: read('--theme-surface'),
+        text: read('--theme-text'),
+        muted: read('--theme-text-secondary'),
+        border: read('--theme-border'),
+        focus: read('--theme-focus'),
+        gradient: [1, 2, 3, 4].map(n => read(`--gradient-${n}`)),
+        themeGradient: read('--theme-gradient'),
+        shadow: read('--shadow-3d')
+      };
+    });
+    expect(darkTokens.mode).toBe('dark');
+    expect(darkTokens.hasDarkClass).toBe(true);
+    for (const key of ['bg', 'surface', 'text', 'muted', 'border', 'focus', 'themeGradient', 'shadow']) {
+      expect(darkTokens[key].length, `${key} token must resolve`).toBeGreaterThan(0);
+    }
+    expect(new Set(darkTokens.gradient).size).toBe(4);
+    expect(darkTokens.bg).not.toBe('#f8fafc');
+
+    // No light card surface may survive Dark Mode on the rendered page.
+    const lightSurfaces = await page.evaluate(() => {
+      const rgb = (value) => {
+        const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        return match ? { r: +match[1], g: +match[2], b: +match[3], a: match[4] === undefined ? 1 : +match[4] } : null;
+      };
+      const offenders = [];
+      for (const el of document.querySelectorAll('main *, aside *, [role="dialog"] *')) {
+        if (el.closest('[aria-hidden="true"]')) continue;
+        const c = rgb(getComputedStyle(el).backgroundColor);
+        if (c && c.a > 0.9 && c.r > 235 && c.g > 235 && c.b > 235) {
+          offenders.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().slice(0, 60)}`);
+        }
+      }
+      return offenders.slice(0, 10);
+    });
+    expect(lightSurfaces).toEqual([]);
+
+    // Palette selection keeps the Dark mode and applies 4 gradient stops
+    await themeFab.click();
+    await page.getByRole("button", { name: "Akatsuki Jade Matrix" }).click();
+    await expect(page.locator(".animate-huge-rasengan")).toBeVisible({ timeout: 1500 });
+    await expect(page.locator(".animate-huge-rasengan")).not.toBeVisible({ timeout: 4500 });
+    const afterSwitch = await page.evaluate(() => ({
+      mode: document.documentElement.getAttribute('data-mode'),
+      theme: document.documentElement.getAttribute('data-theme')
+    }));
+    expect(afterSwitch).toEqual({ mode: 'dark', theme: 'akatsuki' });
+
+    // Return to the persisted Light appearance for the remaining suite
+    await page.getByRole("button", { name: "Light appearance mode" }).click();
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light');
+
+    expect(pageErrors).toEqual([]);
+  });
+
   test("All primary navigation routes render cleanly without errors", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));

@@ -88,15 +88,37 @@ export const api = {
   del: (url, body) => apiRequest(url, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
 };
 
+class ApiError extends Error {
+  constructor(message, status, data) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+async function readJson(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) return null;
+  try {
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 export async function login(password) {
   const res = await fetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password })
   });
-  const data = await res.json();
+  const data = await readJson(res);
   if (!res.ok) {
-    throw new Error(data.error || 'Login failed');
+    throw new ApiError((data && data.error) || 'Login failed', res.status, data);
+  }
+  if (!data) {
+    throw new ApiError('Unexpected response from the authentication gateway', res.status, null);
   }
   if (data.token) {
     memoryToken = data.token;
@@ -105,41 +127,48 @@ export async function login(password) {
 }
 
 export async function getAuthStatus() {
-  const res = await fetch('/api/v1/auth/status');
+  const res = await fetch('/api/v1/auth/status', { cache: 'no-store' });
   if (!res.ok) {
     return { authenticated: false, is_bootstrap: false, requires_password_change: false };
   }
-  return res.json();
+  const data = await readJson(res);
+  if (!data) {
+    return { authenticated: false, is_bootstrap: false, requires_password_change: false };
+  }
+  return data;
+}
+
+async function csrfHeaders() {
+  let token = getToken();
+  if (!token) token = await initToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'X-Konoha-Web-Token': token } : {})
+  };
 }
 
 export async function changePassword(currentPassword, newPassword) {
-  let token = getToken();
-  if (!token) token = await initToken();
   const res = await fetch('/api/v1/auth/change-password', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'X-Konoha-Web-Token': token } : {})
-    },
+    headers: await csrfHeaders(),
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
   });
-  const data = await res.json();
+  const data = await readJson(res);
   if (!res.ok) {
-    throw new Error(data.error || 'Password change failed');
+    throw new ApiError((data && data.error) || 'Password change failed', res.status, data);
   }
   return data;
 }
 
 export async function logout() {
-  let token = getToken();
-  if (!token) token = await initToken();
-  const res = await fetch('/api/v1/auth/logout', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'X-Konoha-Web-Token': token } : {})
-    }
-  });
+  try {
+    const headers = await csrfHeaders();
+    await fetch('/api/v1/auth/logout', { method: 'POST', headers });
+  } catch (_) {
+    // Network or CSRF-bootstrap failure must still return the UI to the login surface.
+  }
   memoryToken = '';
-  return res.ok;
+  return true;
 }
+
+export { ApiError };

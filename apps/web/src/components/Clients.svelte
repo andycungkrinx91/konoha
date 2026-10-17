@@ -79,10 +79,10 @@
           </svg>
           Multi-Client Integration
         </div>
-        <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
           Coding Clients {clientCount > 0 ? `(${clientCount} IDEs & CLIs)` : (loading ? '' : '')}
         </h2>
-        <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
+        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
           {#if clientNamesSummary}
             Auto-inject Konoha MCP tools and RTK output filtering into {clientNamesSummary}.
           {:else if loading}
@@ -95,7 +95,7 @@
 
       <div class="flex flex-wrap items-center gap-3 shrink-0">
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold text-slate-600">Supported Clients</div>
+          <div class="text-xs font-bold theme-text-secondary">Supported Clients</div>
           <div class="text-xl font-black text-indigo-600">
             {#if loading && clientCount === 0}
               ...
@@ -105,8 +105,8 @@
           </div>
         </div>
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
-          <div class="text-xs font-bold text-slate-600">Connected</div>
-          <div class="text-xl font-black text-emerald-600">
+          <div class="text-xs font-bold theme-text-secondary">Connected</div>
+          <div class="text-xl font-black text-[var(--theme-success)]">
             {#if loading && clientCount === 0}
               ...
             {:else}
@@ -119,13 +119,13 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">
+    <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
       {error}
     </div>
   {/if}
 
   {#if loading}
-    <div class="flex items-center justify-center py-16 text-slate-600 text-sm font-semibold">
+    <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
         <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -142,34 +142,34 @@
             <!-- Client Header -->
             <div class="flex items-center justify-between gap-3 mb-4">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-sm shrink-0">
+                <div class="w-10 h-10 rounded-2xl border badge-status badge-status-info shadow-sm shrink-0">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 class="text-base font-black text-slate-900 tracking-tight">
+                <h3 class="text-base font-black theme-text tracking-tight">
                   {client.name}
                 </h3>
               </div>
 
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border {client.configured ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'}">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border {client.configured ? 'badge-status badge-status-success' : 'theme-bg-subtle theme-text-secondary theme-border-strong-b'}">
                 <span class="w-1.5 h-1.5 rounded-full {client.configured ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
                 {client.configured ? 'Active' : 'Unconfigured'}
               </span>
             </div>
 
             <!-- Configuration Path -->
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 mb-6">
-              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Config Location</div>
-              <div class="font-mono text-xs font-semibold text-slate-800 truncate" title={client.configPath}>
+            <div class="p-3 rounded-xl theme-bg-muted border theme-border mb-6">
+              <div class="text-[10px] font-bold theme-text-muted uppercase tracking-wider mb-1">Config Location</div>
+              <div class="font-mono text-xs font-semibold theme-text truncate" title={client.configPath}>
                 {client.configPath}
               </div>
             </div>
           </div>
 
           <!-- Actions -->
-          <div class="relative z-30 pt-4 border-t border-slate-200 flex items-center justify-between gap-3 pointer-events-auto">
-            <span class="text-[11px] font-semibold text-slate-600">
+          <div class="relative z-30 pt-4 border-t theme-border flex items-center justify-between gap-3 pointer-events-auto">
+            <span class="text-[11px] font-semibold theme-text-secondary">
               {client.configured ? 'MCP tools enabled' : 'Ready to link'}
             </span>
 
@@ -180,12 +180,12 @@
                 data-client-id="{client.id}"
                 disabled={actionInProgress === client.id}
                 onclick={(e) => { e.stopPropagation(); removeClient(client.id, client.name); }}
-                class="btn-3d relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
+                class="btn-3d relative z-30 pointer-events-auto px-4 py-1.5 rounded-xl text-xs font-bold badge-status badge-status-danger transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none inline-flex items-center gap-1.5"
                 style="transform: translateZ(25px);"
                 aria-label="Disconnect {client.name}"
               >
                 {#if actionInProgress === client.id}
-                  <svg class="animate-spin w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <svg class="animate-spin w-3.5 h-3.5 text-[var(--theme-danger)] shrink-0" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                   </svg>

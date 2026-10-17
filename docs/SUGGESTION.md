@@ -210,9 +210,9 @@ All animation assets under `assets/` have been converted from legacy GIF to nati
    - *Target*: `bin/cli.js`, `bin/commands/skill.js`, `bin/commands/data.js`
    - *Action*: Include `konoha data backup`, `konoha data rebuild-fts`, and `konoha data prune` explicitly in the quick-start examples of `konoha --help`.
 
-6. **Web UI Theme Switcher Accessible Focus Ring**:
-   - *Target*: `apps/web/src/components/ThemeSwitcher.svelte`
-   - *Action*: Ensure high-contrast keyboard navigation focus ring (`focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]`) on the floating bottom-right FAB to exceed WCAG 2.2 AA accessibility standards.
+6. **Web UI Theme Picker Accessible Focus Ring** (Resolved):
+   - *Target*: `apps/web/src/components/ThemeSwitcher.svelte`, `apps/web/src/app.css`
+   - *Resolution*: Every FAB, mode toggle, and palette button now inherits a token-driven `:focus-visible` outline (`2px solid var(--theme-focus)` with 2px offset) and the picker is a focus-trapped `role="dialog"` with `aria-labelledby`/`aria-describedby`, `aria-pressed` palette state, and Escape close — exceeding WCAG 2.2 AA focus visibility.
 
 ---
 

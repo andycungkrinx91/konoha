@@ -93,19 +93,21 @@
     return { strokeDashoffset: String(100 - p) };
   }
 
+  // Thresholds stay semantic; colors come from the theme contract so values keep
+  // >= 4.5:1 contrast on both Light and Dark palette surfaces.
   function pctTone(pct) {
     const p = pct ?? 0;
-    if (p >= 85) return '#dc2626';
-    if (p >= 60) return '#d97706';
-    return '#059669';
+    if (p >= 85) return 'var(--theme-danger)';
+    if (p >= 60) return 'var(--theme-warning)';
+    return 'var(--theme-success)';
   }
 
   const sdlcStatusColors = {
-    in_progress: '#2563eb',
-    completed: '#059669',
-    blocked: '#dc2626',
-    pending: '#d97706',
-    verified: '#7c3aed'
+    in_progress: 'var(--theme-info)',
+    completed: 'var(--theme-success)',
+    blocked: 'var(--theme-danger)',
+    pending: 'var(--theme-warning)',
+    verified: 'var(--theme-link)'
   };
 
   const rootDisk = $derived(metrics?.system?.disk?.mounts?.[0] ?? null);
@@ -442,7 +444,7 @@
           <p class="text-2xl font-black tabular-nums font-mono mt-1" style="color: var(--color-text);">{metrics.features.sdlc_total ?? 0}</p>
           <div class="flex flex-wrap gap-1 mt-1.5">
             {#each Object.entries(metrics.features.sdlc_by_status || {}) as [status, count]}
-              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono" style="color: {sdlcStatusColors[status] || '#475569'}; background: {(sdlcStatusColors[status] || '#475569')}1a;">
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono" style="color: {sdlcStatusColors[status] || 'var(--theme-text-secondary)'}; background: color-mix(in srgb, {sdlcStatusColors[status] || 'var(--theme-text-secondary)'} 12%, transparent);">
                 {status} {count}
               </span>
             {/each}

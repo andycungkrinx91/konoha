@@ -350,7 +350,7 @@ function createWebServer(options = {}) {
       const clientIp = getTrustedClientIp(req);
       try {
         const body = await parseBody(req);
-        const password = typeof body.password === 'string' ? body.password : '';
+        const password = body && typeof body === 'object' && typeof body.password === 'string' ? body.password : '';
         const result = webAuth.authenticate(password, clientIp);
         if (!result.success) {
           return sendJson(res, result.rateLimited ? 429 : 401, { error: result.error });
@@ -385,7 +385,8 @@ function createWebServer(options = {}) {
       const sessionId = getClientSessionId(req);
       try {
         const body = await parseBody(req);
-        const result = webAuth.updatePassword(sessionId, body.current_password, body.new_password);
+        const payload = body && typeof body === 'object' ? body : {};
+        const result = webAuth.updatePassword(sessionId, payload.current_password, payload.new_password);
         if (!result.success) {
           return sendJson(res, result.status || 400, { error: result.error });
         }

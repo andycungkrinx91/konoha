@@ -269,7 +269,7 @@ flowchart TD
         I2["Zero Mobile Header Toggle<br/>(No broken hamburger menu)"]
         I3["Archetype-Adaptive Mobile Dock<br/>(Fixed bottom navigation bar)"]
         I4["Fixed Left Sidebar (Desktop)<br/>(Dashboard / Admin / Infra builds)"]
-        I5["Floating Theme Switcher Modal<br/>(Bottom-left FAB, 10-theme picker)"]
+        I5["Floating Theme Picker Modal<br/>(Bottom-right FAB, 10 palettes × Light/Dark)"]
         I6["Hero Banner Carousel<br/>(4+ HD slides, 5000ms autoplay)"]
         I7["Mandatory package.json Scripts<br/>('build', 'lint', 'start', 'check')"]
     end

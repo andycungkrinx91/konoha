@@ -8,6 +8,7 @@ const assert = require('assert');
 const http = require('http');
 const { startWebServer } = require('../src/web_server');
 
+
 function request(options, body = null) {
   return new Promise((resolve, reject) => {
     const req = http.request(options, res => {
@@ -191,7 +192,60 @@ async function run() {
     assert.ok(newSessionCookie);
     console.log('✓ Login with new password succeeds with normal dashboard access');
 
-    // 11. Logout destroys session
+    // 11. Reusing the current password is rejected without clearing any state
+    const reuseCurrent = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/auth/change-password',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `konoha_session=${newSessionCookie}`,
+        'X-Konoha-Web-Token': serverToken
+      }
+    }, {
+      current_password: 'super-secure-ninja-2026!',
+      new_password: 'super-secure-ninja-2026!'
+    });
+    assert.strictEqual(reuseCurrent.status, 400);
+    assert.strictEqual(reuseCurrent.data.error, 'New password must differ from the current password');
+    console.log('✓ Reusing the current password rejected with 400');
+
+    // 12. Wrong current password is rejected
+    const wrongCurrent = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/auth/change-password',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `konoha_session=${newSessionCookie}`,
+        'X-Konoha-Web-Token': serverToken
+      }
+    }, {
+      current_password: 'not-the-current-password',
+      new_password: 'another-new-password-2026'
+    });
+    assert.strictEqual(wrongCurrent.status, 400);
+    assert.strictEqual(wrongCurrent.data.error, 'Current password is incorrect');
+    console.log('✓ Wrong current password rejected with 400');
+
+    // 13. Empty body is handled without crashing
+    const emptyBody = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/auth/change-password',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `konoha_session=${newSessionCookie}`,
+        'X-Konoha-Web-Token': serverToken
+      }
+    }, {});
+    assert.strictEqual(emptyBody.status, 400);
+    console.log('✓ Empty change-password payload rejected with 400');
+
+    // 14. Logout destroys session
     const logoutRes = await request({
       hostname: '127.0.0.1',
       port,

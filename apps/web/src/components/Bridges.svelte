@@ -271,10 +271,10 @@
           </svg>
           Local LLM Proxy Gateway
         </div>
-        <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
           Bridge Management
         </h2>
-        <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
+        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
           Dynamic model routing via Bridge Router (port 19999). Expose local models (Ollama, vLLM, LMStudio) and cloud APIs with unified routing.
         </p>
       </div>
@@ -317,11 +317,11 @@
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xs font-black text-emerald-800 uppercase tracking-wide">Proxy Gateway Online</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-success">
                 :{status.router_port || 19999}
               </span>
             </div>
-            <p class="text-xs font-semibold text-slate-600 mt-0.5">
+            <p class="text-xs font-semibold theme-text-secondary mt-0.5">
               Unified router multiplexing all active bridges on 127.0.0.1:{status.router_port || 19999}
             </p>
           </div>
@@ -330,11 +330,11 @@
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xs font-black text-amber-800 uppercase tracking-wide">Proxy Gateway Stopped</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-warning">
                 :{status.router_port || 19999}
               </span>
             </div>
-            <p class="text-xs font-semibold text-slate-600 mt-0.5">
+            <p class="text-xs font-semibold theme-text-secondary mt-0.5">
               Service daemon is not running. Start gateway to route requests via port {status.router_port || 19999}.
             </p>
           </div>
@@ -347,7 +347,7 @@
             type="button"
             onclick={restartGateway}
             disabled={gatewayBusy}
-            class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 transition-all cursor-pointer disabled:opacity-50"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-status-warning-soft hover:badge-status badge-status-warning transition-all cursor-pointer disabled:opacity-50"
             title="Restart the Gateway service"
           >
             Restart
@@ -356,7 +356,7 @@
             type="button"
             onclick={stopGateway}
             disabled={gatewayBusy}
-            class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-all cursor-pointer disabled:opacity-50"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-status-danger-soft hover:badge-status badge-status-danger transition-all cursor-pointer disabled:opacity-50"
             title="Stop the Gateway service"
           >
             Stop
@@ -381,25 +381,25 @@
   {/if}
 
   {#if error}
-    <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between">
+    <div class="p-4 rounded-2xl bg-status-danger-soft border badge-status badge-status-danger text-xs font-bold flex items-center justify-between">
       <span>{error}</span>
       <button type="button" onclick={loadData} class="underline hover:text-rose-900 cursor-pointer">Retry</button>
     </div>
   {/if}
 
   {#if loading}
-    <div class="p-12 text-center text-slate-500 font-bold text-xs">
+    <div class="p-12 text-center theme-text-muted font-bold text-xs">
       <div class="animate-spin w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-2"></div>
       Loading configured bridges...
     </div>
   {:else if bridges.length === 0}
     <div class="glass-card-3d p-12 text-center rounded-3xl border">
-      <div class="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center mx-auto mb-3">
+      <div class="w-12 h-12 rounded-2xl bg-status-info-soft border badge-statusinfo-soft text-purple-600 flex items-center justify-center mx-auto mb-3">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
         </svg>
       </div>
-      <p class="text-sm font-bold text-slate-800 mb-4">No LLM proxy bridges configured yet.</p>
+      <p class="text-sm font-bold theme-text mb-4">No LLM proxy bridges configured yet.</p>
       <button
         type="button"
         onclick={() => { showCreateModal = true; }}
@@ -416,7 +416,7 @@
     <div class="glass-card-3d rounded-3xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+          <thead class="border-b theme-border theme-bg-muted/80 text-[11px] font-extrabold theme-text-secondary uppercase tracking-wider">
             <tr>
               <th class="py-3.5 px-6">Bridge Name</th>
               <th class="py-3.5 px-6">Port</th>
@@ -427,33 +427,33 @@
               <th class="py-3.5 px-6 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y theme-divide-subtle">
             {#each bridges as b}
-              <tr class="hover:bg-purple-50/40 transition-colors">
-                <td class="py-4 px-6 font-black text-slate-900 font-mono">
+              <tr class="hover:bg-status-info-soft/40 transition-colors">
+                <td class="py-4 px-6 font-black theme-text font-mono">
                   {b.name}
                 </td>
                 <td class="py-4 px-6">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border-strong-b">
                     :{b.port}
                   </span>
                 </td>
                 <td class="py-4 px-6">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-info uppercase">
                     {b.provider}
                   </span>
                 </td>
-                <td class="py-4 px-6 text-slate-700 font-mono text-[11px]">
+                <td class="py-4 px-6 theme-text-secondary font-mono text-[11px]">
                   {b.target_url || "—"}
                 </td>
                 <td class="py-4 px-6">
                   {#if b.running}
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold badge-status badge-status-success">
                       <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                       Listening :{b.port}
                     </span>
                   {:else}
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold theme-bg-subtle theme-text-secondary border theme-border">
                       <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                       Inactive
                     </span>
@@ -467,9 +467,9 @@
                       class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer {b.enabled ? 'bg-emerald-500' : 'bg-slate-300'}"
                       title="Toggle active status"
                     >
-                      <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow {b.enabled ? 'translate-x-4.5' : 'translate-x-1'}"></span>
+                      <span class="inline-block h-3.5 w-3.5 transform rounded-full theme-bg-surface transition-transform shadow {b.enabled ? 'translate-x-4.5' : 'translate-x-1'}"></span>
                     </button>
-                    <span class="text-[11px] font-bold {b.enabled ? 'text-emerald-700' : 'text-slate-500'}">
+                    <span class="text-[11px] font-bold {b.enabled ? 'text-emerald-700' : 'theme-text-muted'}">
                       {b.enabled ? 'Enabled' : 'Disabled'}
                     </span>
                   </div>
@@ -478,7 +478,7 @@
                   <button
                     type="button"
                     onclick={() => deleteBridge(b.name)}
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    class="p-1.5 rounded-lg theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"
                     title="Delete bridge"
                   >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -507,11 +507,11 @@
         style="background: var(--glass-card); border-color: var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);"
       >
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-black text-slate-900">Configure New Bridge</h3>
+          <h3 class="text-lg font-black theme-text">Configure New Bridge</h3>
           <button
             type="button"
             onclick={() => { showCreateModal = false; }}
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+            class="p-1 rounded-lg theme-text-muted hover:text-slate-700 cursor-pointer"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -523,36 +523,36 @@
         <form onsubmit={createBridge} class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="bridge-name" class="block text-xs font-bold text-slate-800 mb-1">Bridge Name</label>
+              <label for="bridge-name" class="block text-xs font-bold theme-text mb-1">Bridge Name</label>
               <input
                 id="bridge-name"
                 type="text"
                 bind:value={newBridge.name}
                 placeholder="e.g. ollama-local"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
               />
             </div>
             <div>
-              <label for="bridge-port" class="block text-xs font-bold text-slate-800 mb-1">Port</label>
+              <label for="bridge-port" class="block text-xs font-bold theme-text mb-1">Port</label>
               <input
                 id="bridge-port"
                 type="number"
                 bind:value={newBridge.port}
                 placeholder="9001"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="bridge-provider" class="block text-xs font-bold text-slate-800 mb-1">Provider Type</label>
+              <label for="bridge-provider" class="block text-xs font-bold theme-text mb-1">Provider Type</label>
               <select
                 id="bridge-provider"
                 bind:value={newBridge.provider}
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
               >
                 <option value="openai">OpenAI Compatible</option>
                 <option value="anthropic">Anthropic</option>
@@ -562,25 +562,25 @@
               </select>
             </div>
             <div>
-              <label for="bridge-model" class="block text-xs font-bold text-slate-800 mb-1">Default Model (Optional)</label>
+              <label for="bridge-model" class="block text-xs font-bold theme-text mb-1">Default Model (Optional)</label>
               <input
                 id="bridge-model"
                 type="text"
                 bind:value={newBridge.model}
                 placeholder="e.g. qwen2.5-coder:7b"
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
               />
             </div>
           </div>
 
           <div>
-            <label for="bridge-target" class="block text-xs font-bold text-slate-800 mb-1">Upstream Target URL (Optional)</label>
+            <label for="bridge-target" class="block text-xs font-bold theme-text mb-1">Upstream Target URL (Optional)</label>
             <input
               id="bridge-target"
               type="text"
               bind:value={newBridge.target_url}
               placeholder="http://127.0.0.1:11434/v1"
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
             />
           </div>
 
@@ -613,28 +613,28 @@
       onkeydown={(e) => { if (e.key === 'Escape') showModelsModal = false; }}
     >
       <div
-        class="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-3xl p-6 border bg-white shadow-2xl overflow-hidden"
+        class="relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-3xl p-6 border theme-bg-surface shadow-2xl overflow-hidden"
         style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"
       >
         <!-- Modal Header -->
-        <div class="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+        <div class="flex items-center justify-between pb-4 border-b theme-border-subtle shrink-0">
           <div class="space-y-1">
             <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-200">
+              <span class="p-1.5 rounded-lg bg-status-info-soft text-purple-600 border badge-statusinfo-soft">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </span>
-              <h3 class="text-lg font-black text-slate-900">Served Models via Proxy Gateway</h3>
+              <h3 class="text-lg font-black theme-text">Served Models via Proxy Gateway</h3>
             </div>
-            <p class="text-xs font-semibold text-slate-600">
+            <p class="text-xs font-semibold theme-text-secondary">
               Aggregated model aliases routed through active bridges. Target with model prefix in requests.
             </p>
           </div>
           <button
             type="button"
             onclick={() => { showModelsModal = false; }}
-            class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            class="p-2 rounded-xl theme-text-muted hover:theme-text hover-bg-subtle transition-colors cursor-pointer"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -650,9 +650,9 @@
               type="text"
               bind:value={modelsSearch}
               placeholder="Search model by ID, name, or provider..."
-              class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all"
+              class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all"
             />
-            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 theme-text-muted absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -680,20 +680,20 @@
         </div>
 
         <!-- Models List Container -->
-        <div class="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
+        <div class="flex-1 overflow-y-auto border theme-border rounded-2xl">
           {#if loadingModels}
-            <div class="p-12 text-center text-slate-500">
+            <div class="p-12 text-center theme-text-muted">
               <div class="animate-spin w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-3"></div>
               <p class="text-xs font-bold">Querying models from active bridge endpoints...</p>
             </div>
           {:else if filteredModels.length === 0}
-            <div class="p-12 text-center text-slate-500">
-              <p class="text-sm font-bold text-slate-700">No models found</p>
+            <div class="p-12 text-center theme-text-muted">
+              <p class="text-sm font-bold theme-text-secondary">No models found</p>
               <p class="text-xs mt-1">Make sure target bridges are running and have valid endpoint URLs configured.</p>
             </div>
           {:else}
             <table class="w-full text-left text-xs">
-              <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider sticky top-0 z-10">
+              <thead class="border-b theme-border theme-bg-muted text-[11px] font-extrabold theme-text-secondary uppercase tracking-wider sticky top-0 z-10">
                 <tr>
                   <th class="py-3 px-4">Gateway Alias ID</th>
                   <th class="py-3 px-4">Base Model</th>
@@ -702,21 +702,21 @@
                   <th class="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+              <tbody class="divide-y theme-divide-subtle font-mono text-[11px]">
                 {#each filteredModels as m}
-                  <tr class="hover:bg-purple-50/30 transition-colors">
+                  <tr class="hover:bg-status-info-soft/30 transition-colors">
                     <td class="py-2.5 px-4 font-bold text-purple-700">
                       {m.id}
                     </td>
-                    <td class="py-2.5 px-4 text-slate-800">
+                    <td class="py-2.5 px-4 theme-text">
                       {m.model_name}
                     </td>
                     <td class="py-2.5 px-4">
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status badge-status-info">
                         {m.bridge}
                       </span>
                     </td>
-                    <td class="py-2.5 px-4 text-slate-600 font-sans text-xs">
+                    <td class="py-2.5 px-4 theme-text-secondary font-sans text-xs">
                       {m.owned_by || m.bridge}
                     </td>
                     <td class="py-2.5 px-4 text-right">
@@ -737,7 +737,7 @@
         </div>
 
         <!-- Modal Footer -->
-        <div class="pt-4 mt-2 flex items-center justify-between text-xs font-semibold text-slate-600 shrink-0">
+        <div class="pt-4 mt-2 flex items-center justify-between text-xs font-semibold theme-text-secondary shrink-0">
           <span>Showing {filteredModels.length} of {models.length} served model(s)</span>
           <button
             type="button"

@@ -152,10 +152,10 @@
 </script>
 
 {#if authState.isChecking}
-  <div class="fixed inset-0 flex items-center justify-center bg-slate-950 text-white z-50">
+  <div class="fixed inset-0 flex items-center justify-center z-50" style="background-color: var(--theme-bg); color: var(--theme-text);" role="status" aria-live="polite">
     <div class="flex flex-col items-center gap-3">
       <div class="w-10 h-10 rounded-full border-2 border-sky-400 border-t-transparent animate-spin"></div>
-      <p class="text-xs font-mono text-sky-300">SYNCHRONIZING WITH KONOHA GATEWAY...</p>
+      <p class="text-xs font-mono" style="color: var(--theme-focus);">SYNCHRONIZING WITH KONOHA GATEWAY...</p>
     </div>
   </div>
 {:else if !authState.isAuthenticated}
@@ -185,7 +185,7 @@
       <!-- Brand Header (Far-Left Logo + Sidebar Collapse Button) -->
       <div class="p-4 border-b flex items-center justify-between sticky top-0 z-10 glass-frost" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: var(--theme-sidebar-header-bg);">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-[5px] overflow-hidden flex items-center justify-center shadow-md border bg-white shrink-0" style="border-color: var(--color-primary);">
+          <div class="w-9 h-9 rounded-[5px] overflow-hidden flex items-center justify-center shadow-md border theme-bg-surface shrink-0" style="border-color: var(--color-primary);">
             <img src="/fox_kyubi_192.png" alt="Konoha Kyubi logo" class="w-full h-full object-cover" width="36" height="36" loading="eager" />
           </div>
           <div class="min-w-0">
@@ -204,7 +204,7 @@
               toggleSidebar();
             }
           }}
-          class="w-7 h-7 rounded-[5px] border flex items-center justify-center text-xs transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer shrink-0"
+          class="w-7 h-7 rounded-[5px] border flex items-center justify-center text-xs transition-colors hover-bg-subtle cursor-pointer shrink-0 theme-bg-surface"
           style="border-color: var(--color-border); color: var(--color-text-muted);"
           title={isMobileSidebarOpen ? "Close mobile menu" : "Collapse sidebar"}
           aria-label={isMobileSidebarOpen ? "Close mobile menu" : "Collapse sidebar"}
@@ -228,12 +228,12 @@
             <button
               type="button"
               onclick={() => toggleSection(section.title)}
-              class="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider select-none hover:bg-black/5 dark:hover:bg-white/5 rounded-[5px] transition-colors cursor-pointer text-left"
+              class="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider select-none hover-bg-muted rounded-[5px] transition-colors cursor-pointer text-left"
               style="color: {hasActiveChild ? 'var(--color-primary)' : 'var(--color-text-muted)'};"
               aria-expanded={isExpanded}
             >
               <div class="flex items-center gap-1.5 ml-1 text-left justify-start">
-                <span class="w-1.5 h-1.5 rounded-full shrink-0 {hasActiveChild ? 'shadow-xs' : 'bg-slate-400/40'}" style="{hasActiveChild ? 'background: var(--theme-4gradient);' : ''}"></span>
+                <span class="w-1.5 h-1.5 rounded-full shrink-0 {hasActiveChild ? 'shadow-xs' : 'bg-current opacity-40'}" style="{hasActiveChild ? 'background: var(--theme-4gradient);' : ''}"></span>
                 <span class="text-left">{section.title}</span>
               </div>
               <svg class="w-3.5 h-3.5 transition-transform duration-200 {isExpanded ? 'rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -275,7 +275,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'bg-white/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
                       {/if}
                     </a>
                   {/if}
@@ -386,7 +386,7 @@
         <button
           type="button"
           onclick={() => authState.logout()}
-          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-rose-500 hover:text-rose-600 border-rose-200 dark:border-rose-900/40 hover:scale-105 transition-all"
+          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-rose-500 hover:text-rose-600 border-status-danger-soft dark:border-rose-900/40 hover:scale-105 transition-all"
           title="Lock Console / Logout"
           aria-label="Logout"
         >

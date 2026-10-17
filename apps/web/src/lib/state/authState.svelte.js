@@ -8,6 +8,13 @@ function createAuthState() {
   let isChecking = $state(true);
   let showPasswordChangeModal = $state(false);
 
+  function resetSession() {
+    isAuthenticated = false;
+    isBootstrap = false;
+    requiresPasswordChange = false;
+    showPasswordChangeModal = false;
+  }
+
   async function checkAuth() {
     isChecking = true;
     try {
@@ -15,17 +22,16 @@ function createAuthState() {
       isAuthenticated = Boolean(status.authenticated);
       isBootstrap = Boolean(status.is_bootstrap);
       requiresPasswordChange = Boolean(status.requires_password_change);
-
-      if (isAuthenticated && requiresPasswordChange) {
-        showPasswordChangeModal = true;
-      }
+      showPasswordChangeModal = isAuthenticated && requiresPasswordChange;
     } catch (_) {
-      isAuthenticated = false;
+      resetSession();
     } finally {
       isChecking = false;
     }
   }
 
+  // Resolves with the server-confirmed result; `deferCommit` lets the caller
+  // finish its animation timeline before committing state.
   async function login(password, deferCommit = false) {
     const data = await apiLogin(password);
     if (!deferCommit) {
@@ -35,39 +41,42 @@ function createAuthState() {
   }
 
   function commitLogin(data) {
+    if (!data || typeof data !== 'object') return;
     isAuthenticated = true;
     isBootstrap = Boolean(data.is_bootstrap);
     requiresPasswordChange = Boolean(data.requires_password_change);
-
-    if (requiresPasswordChange) {
-      showPasswordChangeModal = true;
-    }
+    showPasswordChangeModal = requiresPasswordChange;
   }
 
+  // The server only clears the bootstrap flag after the new verifier is
+  // persisted, so local state mirrors the trusted response verbatim.
   async function changePassword(currentPassword, newPassword) {
     const result = await apiChangePassword(currentPassword, newPassword);
-    isBootstrap = false;
-    requiresPasswordChange = false;
-    showPasswordChangeModal = false;
+    if (result && result.ok) {
+      isBootstrap = false;
+      requiresPasswordChange = false;
+      showPasswordChangeModal = false;
+    }
     return result;
   }
 
   async function logout() {
     try {
       await apiLogout();
-    } catch (_) {}
-    isAuthenticated = false;
-    isBootstrap = false;
-    requiresPasswordChange = false;
-    showPasswordChangeModal = false;
+    } catch (_) {
+      // Ignore transport errors — local session state is cleared regardless.
+    }
+    resetSession();
   }
 
   function openPasswordChangeModal() {
-    showPasswordChangeModal = true;
+    if (isAuthenticated) {
+      showPasswordChangeModal = true;
+    }
   }
 
   function closePasswordChangeModal() {
-    // Cannot close if password change is strictly mandatory
+    // Cannot close while a password change is strictly mandatory.
     if (!requiresPasswordChange) {
       showPasswordChangeModal = false;
     }

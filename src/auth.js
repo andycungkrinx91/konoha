@@ -53,23 +53,44 @@ function verifyPasswordHash(password, stored) {
   }
 }
 
+// When the credential file is present and valid it is authoritative — the
+// bootstrap credential is NEVER silently reinstalled over an existing password
+// just because a read transiently failed.
+function isValidConfig(parsed) {
+  return Boolean(parsed && typeof parsed.hash === 'string' && typeof parsed.salt === 'string');
+}
+
 /**
  * Load or initialize the web auth configuration.
+ *
+ * - Existing valid file: returned as-is (and cached).
+ * - Unreadable file (I/O or JSON error): throws — never falls back to bootstrap.
+ * - Missing file: the bootstrap credential is provisioned and persisted on disk.
+ *   If persistence fails the throw propagates: an unpersisted bootstrap must never
+ *   be advertised as usable trusted server state.
  */
 function getAuthConfig() {
+  let exists = false;
   try {
-    if (fs.existsSync(AUTH_CONFIG_FILE)) {
-      const content = fs.readFileSync(AUTH_CONFIG_FILE, 'utf8');
-      const parsed = JSON.parse(content);
-      if (parsed && parsed.hash && parsed.salt) {
-        return parsed;
-      }
-    }
-  } catch (_) {
-    // Fall back to initializing default bootstrap config
+    exists = fs.existsSync(AUTH_CONFIG_FILE);
+  } catch (err) {
+    throw new Error(`Unable to inspect auth configuration: ${err.message}`);
   }
 
-  // Initialize with bootstrap password
+  if (exists) {
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(AUTH_CONFIG_FILE, 'utf8'));
+    } catch (err) {
+      throw new Error(`Unable to read auth configuration: ${err.message}`);
+    }
+    if (!isValidConfig(parsed)) {
+      throw new Error('Auth configuration is malformed: missing password verifier');
+    }
+    return parsed;
+  }
+
+  // Initialize with bootstrap password (operator provisioning input only).
   const initial = hashPassword(DEFAULT_BOOTSTRAP_PASSWORD);
   const config = {
     format: initial.format,
@@ -80,16 +101,7 @@ function getAuthConfig() {
     updated_at: new Date().toISOString()
   };
 
-  try {
-    const authDir = path.dirname(AUTH_CONFIG_FILE);
-    if (!fs.existsSync(authDir)) {
-      fs.mkdirSync(authDir, { recursive: true });
-    }
-    fs.writeFileSync(AUTH_CONFIG_FILE, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
-  } catch (_) {
-    // Best effort persistence
-  }
-
+  saveAuthConfig(config);
   return config;
 }
 
@@ -101,7 +113,10 @@ function saveAuthConfig(config) {
   if (!fs.existsSync(authDir)) {
     fs.mkdirSync(authDir, { recursive: true });
   }
-  fs.writeFileSync(AUTH_CONFIG_FILE, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
+  const payload = JSON.stringify(config, null, 2);
+  const tmpFile = `${AUTH_CONFIG_FILE}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  fs.writeFileSync(tmpFile, payload, { encoding: 'utf8', mode: 0o600 });
+  fs.renameSync(tmpFile, AUTH_CONFIG_FILE);
 }
 
 /**
@@ -139,6 +154,24 @@ function resetLoginRateLimit(ip) {
  * Attempt login with candidate password.
  */
 function authenticate(password, clientIp = '127.0.0.1') {
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (_) {
+    // Credential store unavailable: fail closed without revealing internals.
+    return { success: false, error: 'Authentication is temporarily unavailable' };
+  }
+
+  // Bootstrap provisioning state is trusted server state (never a client claim).
+  const requireBootstrap = config.is_bootstrap === true;
+
+  if (requireBootstrap && password !== DEFAULT_BOOTSTRAP_PASSWORD) {
+    // The provisioned credential is the only accepted login until the mandatory
+    // change completes.
+    recordLoginFailure(clientIp);
+    return { success: false, error: 'Invalid password' };
+  }
+
   const rate = checkLoginRateLimit(clientIp);
   if (!rate.allowed) {
     return {
@@ -156,7 +189,6 @@ function authenticate(password, clientIp = '127.0.0.1') {
     };
   }
 
-  const config = getAuthConfig();
   const isValid = verifyPasswordHash(password, config);
 
   if (!isValid) {
@@ -228,28 +260,47 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 400, error: 'New password must be at least 8 characters long' };
   }
 
-  const config = getAuthConfig();
-  if (currentPassword !== undefined) {
-    const isValid = verifyPasswordHash(currentPassword, config);
-    if (!isValid) {
-      return { success: false, status: 400, error: 'Current password is incorrect' };
-    }
+  if (typeof currentPassword !== 'string' || !currentPassword) {
+    return { success: false, status: 400, error: 'Current password is required' };
+  }
+
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (_) {
+    return { success: false, status: 500, error: 'Unable to read stored credentials' };
+  }
+
+  if (!verifyPasswordHash(currentPassword, config)) {
+    return { success: false, status: 400, error: 'Current password is incorrect' };
   }
 
   if (newPassword === DEFAULT_BOOTSTRAP_PASSWORD) {
     return { success: false, status: 400, error: 'Cannot set password to the default bootstrap credential' };
   }
 
+  if (newPassword === currentPassword) {
+    return { success: false, status: 400, error: 'New password must differ from the current password' };
+  }
+
   const newHash = hashPassword(newPassword);
-  config.format = newHash.format;
-  config.salt = newHash.salt;
-  config.hash = newHash.hash;
-  config.is_bootstrap = false;
-  config.updated_at = new Date().toISOString();
+  const nextConfig = {
+    ...config,
+    format: newHash.format,
+    salt: newHash.salt,
+    hash: newHash.hash,
+    is_bootstrap: false,
+    updated_at: new Date().toISOString()
+  };
 
-  saveAuthConfig(config);
-
-  // Update session state
+  // Persist first. On failure the bootstrap flag is retained so the mandatory
+  // change gate stays closed (failed changes never clear the flag).
+  try {
+    saveAuthConfig(nextConfig);
+  } catch (_) {
+    return { success: false, status: 500, error: 'Failed to persist new password' };
+  }
+  // Update every live session of this credential holder
   session.isBootstrap = false;
 
   return {
@@ -263,7 +314,19 @@ function updatePassword(sessionId, currentPassword, newPassword) {
  */
 function getAuthStatus(sessionId) {
   const session = getSession(sessionId);
-  const config = getAuthConfig();
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (_) {
+    // Trusted server state is unreadable: report undeterminable bootstrap status
+    // rather than inventing one; a live session is still denied protected access.
+    return {
+      authenticated: Boolean(session),
+      is_bootstrap: false,
+      requires_password_change: Boolean(session && session.isBootstrap),
+      credential_store_error: true
+    };
+  }
 
   if (!session) {
     return {

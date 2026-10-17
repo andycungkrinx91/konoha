@@ -12,7 +12,7 @@
   const SEVERITY_STYLES = {
     high: 'bg-red-100 text-red-700 border-red-200',
     medium: 'bg-amber-100 text-amber-700 border-amber-200',
-    low: 'bg-slate-100 text-slate-600 border-slate-200'
+    low: 'theme-bg-subtle theme-text-secondary theme-border'
   };
 
   function scoreColor(score) {
@@ -52,16 +52,16 @@
   <!-- Header -->
   <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
     <div>
-      <h1 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+      <h1 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
         {mode === 'website' ? 'Website AI Detector' : 'Document AI Detector'}
       </h1>
-      <p class="text-slate-500 mt-1 text-sm lg:text-base">
+      <p class="theme-text-muted mt-1 text-sm lg:text-base">
         {#if mode === 'website'}
           Scan any website (directory or URL) for AI-generation fingerprints and score it 0–100.
-          <span class="font-semibold text-emerald-600">0–20 = Human-Built</span> per PLAN_HUMAN_BUILT.
+          <span class="font-semibold text-[var(--theme-success)]">0–20 = Human-Built</span> per PLAN_HUMAN_BUILT.
         {:else}
           Scan documents (.docx, .pdf, .pptx, .xlsx, .md, .txt) for AI fingerprints, sliding-window burstiness, and metadata.
-          <span class="font-semibold text-emerald-600">Target: 0%–3% ZeroGPT Risk</span> for zero-AI human authenticity.
+          <span class="font-semibold text-[var(--theme-success)]">Target: 0%–3% ZeroGPT Risk</span> for zero-AI human authenticity.
         {/if}
       </p>
     </div>
@@ -110,7 +110,7 @@
     {/if}
 
     {#if mode === 'document' && docInputMode === 'text'}
-      <label class="block text-sm font-semibold text-slate-700 mb-2" for="detect-text">
+      <label class="block text-sm font-semibold theme-text-secondary mb-2" for="detect-text">
         Paste Document Text
       </label>
       <textarea
@@ -118,7 +118,7 @@
         bind:value={docText}
         placeholder="Paste your document text here for AI detection analysis..."
         rows="8"
-        class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm resize-y mb-3"
+        class="w-full px-4 py-3 rounded-xl border theme-border theme-bg-surface/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm resize-y mb-3"
       ></textarea>
       <button
         onclick={runScan}
@@ -128,7 +128,7 @@
         {scanning ? 'Scanning…' : 'Analyze Text'}
       </button>
     {:else}
-      <label class="block text-sm font-semibold text-slate-700 mb-2" for="detect-target">
+      <label class="block text-sm font-semibold theme-text-secondary mb-2" for="detect-target">
         {mode === 'website' ? 'Website Target' : 'Document File Path'}
       </label>
       <div class="flex flex-col sm:flex-row gap-3">
@@ -138,7 +138,7 @@
           bind:value={target}
           onkeydown={(e) => { if (e.key === 'Enter') runScan(); }}
           placeholder={mode === 'website' ? '/path/to/site or https://example.com' : '/path/to/document.docx or report.pdf'}
-          class="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
+          class="flex-1 px-4 py-3 rounded-xl border theme-border theme-bg-surface/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
         />
         <button
           onclick={runScan}
@@ -149,7 +149,7 @@
         </button>
       </div>
     {/if}
-    <p class="text-xs text-slate-400 mt-2">
+    <p class="text-xs theme-text-muted mt-2">
       {#if mode === 'website'}
         Checks generator meta tags, Lucide icons, shadcn/ui shapes, Vercel/Netlify signals, attribution comments, boilerplate text, and template asset names.
       {:else}
@@ -159,16 +159,16 @@
   </div>
 
   {#if error}
-    <div class="glass-card-3d p-6 rounded-3xl border border-red-200">
-      <p class="text-red-600 font-semibold text-sm">Scan failed</p>
-      <p class="text-slate-600 text-sm mt-1">{error}</p>
+    <div class="glass-card-3d p-6 rounded-3xl border badge-status-danger">
+      <p class="text-[var(--theme-danger)] font-semibold text-sm">Scan failed</p>
+      <p class="theme-text-secondary text-sm mt-1">{error}</p>
     </div>
   {/if}
 
   {#if result?.error}
-    <div class="glass-card-3d p-6 rounded-3xl border border-red-200">
-      <p class="text-red-600 font-semibold text-sm">Scan failed</p>
-      <p class="text-slate-600 text-sm mt-1">{result.error}</p>
+    <div class="glass-card-3d p-6 rounded-3xl border badge-status-danger">
+      <p class="text-[var(--theme-danger)] font-semibold text-sm">Scan failed</p>
+      <p class="theme-text-secondary text-sm mt-1">{result.error}</p>
     </div>
   {/if}
 
@@ -191,14 +191,14 @@
             </svg>
             <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
               <span class="text-3xl font-black font-mono tabular-nums" style="color: {scoreColor(result.score)}">{result.score}</span>
-              <span class="text-[10px] text-slate-400 font-semibold font-mono">/ 100</span>
+              <span class="text-[10px] theme-text-muted font-semibold font-mono">/ 100</span>
             </div>
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <p class="text-xl font-black text-slate-900">{result.label}</p>
+              <p class="text-xl font-black theme-text">{result.label}</p>
               {#if result.zerogpt_risk_score !== undefined}
-                <span class="px-2 py-0.5 rounded-md text-[11px] font-bold font-mono {result.zerogpt_risk_score <= 3.0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'}">
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-bold font-mono {result.zerogpt_risk_score <= 3.0 ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
                   ZeroGPT Risk: {result.zerogpt_risk_score}%
                 </span>
               {/if}
@@ -207,13 +207,13 @@
               {result.verdict}
             </p>
             {#if result.mode || result.stats?.files_scanned !== undefined}
-              <p class="text-xs text-slate-400 mt-2 break-all font-mono">{result.target} ({result.mode || 'directory'})</p>
-              <p class="text-xs text-slate-400 font-mono">
+              <p class="text-xs theme-text-muted mt-2 break-all font-mono">{result.target} ({result.mode || 'directory'})</p>
+              <p class="text-xs theme-text-muted font-mono">
                 {result.stats?.files_scanned || 0} files · {((result.stats?.bytes_scanned || 0) / 1024).toFixed(1)} KB · {result.stats?.elapsed_ms || 0} ms
               </p>
             {:else}
-              <p class="text-xs text-slate-400 mt-2 break-all font-mono">{result.target} ({result.format || 'document'})</p>
-              <p class="text-xs text-slate-400 font-mono">
+              <p class="text-xs theme-text-muted mt-2 break-all font-mono">{result.target} ({result.format || 'document'})</p>
+              <p class="text-xs theme-text-muted font-mono">
                 {result.stats?.words || 0} words · {result.stats?.sentences || 0} sentences · {result.stats?.paragraphs || 0} paragraphs · Burstiness {result.stats?.burstiness ?? 'N/A'} · {result.stats?.elapsed_ms || 0} ms
               </p>
             {/if}
@@ -224,13 +224,13 @@
 
     <!-- Findings -->
     <div class="metric-card-3d p-6 rounded-3xl border" style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));">
-      <h2 class="text-lg font-bold text-slate-900 mb-4">
+      <h2 class="text-lg font-bold theme-text mb-4">
         Findings {#if result.findings.length}({result.findings.length}){/if}
       </h2>
       {#if result.findings.length === 0}
-        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+        <div class="p-4 rounded-xl bg-status-success-soft border badge-status-success">
           <p class="text-emerald-700 font-semibold text-sm">No AI fingerprints detected</p>
-          <p class="text-emerald-600/80 text-xs mt-1">
+          <p class="text-[var(--theme-success)]/80 text-xs mt-1">
             {#if mode === 'website'}
               This site sits in the Human-Built band (score 0–20).
             {:else}
@@ -241,15 +241,15 @@
       {:else}
         <div class="space-y-3">
           {#each result.findings as f (f.rule)}
-            <div class="p-4 rounded-xl border bg-white/60">
+            <div class="p-4 rounded-xl border theme-bg-surface/60">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md border text-[11px] font-bold {SEVERITY_STYLES[f.severity] || SEVERITY_STYLES.low}">
                   {f.rule} · {f.severity}
                 </span>
-                <span class="text-sm font-semibold text-slate-800">{f.title}</span>
-                <span class="text-xs text-slate-400 font-mono ml-auto">+{f.weight}</span>
+                <span class="text-sm font-semibold theme-text">{f.title}</span>
+                <span class="text-xs theme-text-muted font-mono ml-auto">+{f.weight}</span>
               </div>
-              <p class="text-xs text-slate-500 mt-2 font-mono break-all">{f.evidence}</p>
+              <p class="text-xs theme-text-muted mt-2 font-mono break-all">{f.evidence}</p>
             </div>
           {/each}
         </div>

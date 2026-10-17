@@ -84,11 +84,11 @@
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           Dual-Engine Context Optimizer
         </div>
-        <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
           Token & Quota Optimization
         </h2>
-        <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
-          Comprehensive token reduction telemetry across <strong>Konoha FTS5 Database</strong> (bounded file & skill reads) and <strong>Semble MCP</strong> (semantic code search). Full parity with <code class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 font-mono text-xs">konoha savings</code> in TUI.
+        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
+          Comprehensive token reduction telemetry across <strong>Konoha FTS5 Database</strong> (bounded file & skill reads) and <strong>Semble MCP</strong> (semantic code search). Full parity with <code class="px-1.5 py-0.5 rounded theme-bg-soft theme-text font-mono text-xs">konoha savings</code> in TUI.
         </p>
       </div>
 
@@ -143,8 +143,8 @@
           </svg>
         </div>
         <div>
-          <h3 class="text-base font-black text-slate-900 tracking-tight">Combined Total Savings</h3>
-          <p class="text-xs font-semibold text-slate-600">Unified live metric from Konoha MCP + Semble Semantic Engine</p>
+          <h3 class="text-base font-black theme-text tracking-tight">Combined Total Savings</h3>
+          <p class="text-xs font-semibold theme-text-secondary">Unified live metric from Konoha MCP + Semble Semantic Engine</p>
         </div>
       </div>
 
@@ -268,7 +268,7 @@
 
       <!-- TUI-Style Visual Period Table -->
       <div class="glass-card-3d p-6 rounded-3xl border space-y-4">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+        <h4 class="text-xs font-bold uppercase tracking-wider theme-text flex items-center gap-2">
           <span>Visual Savings (Tokens & Thought Reasoning)</span>
         </h4>
         <div class="overflow-x-auto">
@@ -284,43 +284,43 @@
               </tr>
             </thead>
             <tbody class="divide-y font-semibold" style="border-color: var(--color-border);">
-              <tr class="hover:bg-slate-500/5 transition-colors">
-                <td class="py-3 px-4 font-bold text-slate-900">Today</td>
+              <tr class="hover-bg-muted transition-colors">
+                <td class="py-3 px-4 font-bold theme-text">Today</td>
                 <td class="py-3 px-4 font-mono">{today.calls || 0}</td>
                 <td class="py-3 px-4 font-mono">{formatBytes(today.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(today.pct_saved ?? today.pct ?? 0)}]</span>
+                    <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(today.pct_saved ?? today.pct ?? 0)}]</span>
                     <span class="font-mono text-xs font-bold text-emerald-700">{today.pct_saved ?? today.pct ?? 0}%</span>
                   </div>
                 </td>
-                <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(today.tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(today.tokens || 0)}</td>
                 <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(today.thought_tokens || 0)}</td>
               </tr>
-              <tr class="hover:bg-slate-500/5 transition-colors">
-                <td class="py-3 px-4 font-bold text-slate-900">Last 7 Days</td>
+              <tr class="hover-bg-muted transition-colors">
+                <td class="py-3 px-4 font-bold theme-text">Last 7 Days</td>
                 <td class="py-3 px-4 font-mono">{last7Days.calls || 0}</td>
                 <td class="py-3 px-4 font-mono">{formatBytes(last7Days.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(last7Days.pct_saved ?? last7Days.pct ?? 0)}]</span>
+                    <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(last7Days.pct_saved ?? last7Days.pct ?? 0)}]</span>
                     <span class="font-mono text-xs font-bold text-emerald-700">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
                   </div>
                 </td>
-                <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(last7Days.tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(last7Days.tokens || 0)}</td>
                 <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(last7Days.thought_tokens || 0)}</td>
               </tr>
-              <tr class="hover:bg-slate-500/5 transition-colors">
-                <td class="py-3 px-4 font-bold text-slate-900">All Time</td>
+              <tr class="hover-bg-muted transition-colors">
+                <td class="py-3 px-4 font-bold theme-text">All Time</td>
                 <td class="py-3 px-4 font-mono">{allTime.calls || 0}</td>
                 <td class="py-3 px-4 font-mono">{formatBytes(allTime.bytes || 0)}</td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <span class="font-mono text-emerald-600 text-xs tracking-tight">[{formatTuiBar(allTime.pct_saved ?? allTime.pct ?? 0)}]</span>
+                    <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(allTime.pct_saved ?? allTime.pct ?? 0)}]</span>
                     <span class="font-mono text-xs font-bold text-emerald-700">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
                   </div>
                 </td>
-                <td class="py-3 px-4 font-mono text-slate-900 font-bold">~{formatTokens(allTime.tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(allTime.tokens || 0)}</td>
                 <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(allTime.thought_tokens || 0)}</td>
               </tr>
             </tbody>
@@ -341,7 +341,7 @@
       <button
         type="button"
         onclick={() => isToolDropdownOpen = !isToolDropdownOpen}
-        class="w-full p-6 text-left flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer transition-colors duration-200 hover:bg-slate-500/5"
+        class="w-full p-6 text-left flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer transition-colors duration-200 hover-bg-muted"
         aria-expanded={isToolDropdownOpen}
       >
         <div class="flex items-center gap-3">
@@ -353,25 +353,25 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h4 class="text-base font-black text-slate-900 tracking-tight">
+              <h4 class="text-base font-black theme-text tracking-tight">
                 Savings by Tool Operation (By Call Type)
               </h4>
               <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
                 {toolList.length} Tool Operations
               </span>
             </div>
-            <p class="text-xs font-semibold text-slate-600 mt-0.5">
+            <p class="text-xs font-semibold theme-text-secondary mt-0.5">
               Detailed hit-rates, share of total invocations, and byte reduction per tool operation. Click to {isToolDropdownOpen ? 'collapse' : 'expand'}.
             </p>
           </div>
         </div>
 
         <div class="flex items-center gap-3 self-end md:self-auto shrink-0">
-          <span class="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-xl border border-slate-300">
+          <span class="text-xs font-mono font-bold theme-text-secondary theme-bg-subtle px-3 py-1 rounded-xl border theme-border-strong-b">
             {totalToolCalls.toLocaleString()} Total Invocations
           </span>
           <div class="w-8 h-8 rounded-full border flex items-center justify-center transition-transform duration-200" style="border-color: var(--color-border); background-color: var(--color-surface); transform: rotate({isToolDropdownOpen ? '180deg' : '0deg'})">
-            <svg class="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 theme-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -384,7 +384,7 @@
           <!-- Search & Category Filters -->
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <div class="relative w-full sm:w-80">
-              <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -445,7 +445,7 @@
               <tbody class="divide-y font-semibold" style="border-color: var(--color-border);">
                 {#if filteredTools.length === 0}
                   <tr>
-                    <td colspan="7" class="py-8 text-center text-slate-500">
+                    <td colspan="7" class="py-8 text-center theme-text-muted">
                       No tool operations match your filter query.
                     </td>
                   </tr>
@@ -453,36 +453,36 @@
                   {#each filteredTools as t, idx}
                     {@const sharePct = totalToolCalls > 0 ? Math.round(((t.calls ?? 0) / totalToolCalls) * 100) : 0}
                     {@const savedTokens = Math.round((t.bytes || 0) / 4)}
-                    <tr class="hover:bg-slate-500/5 transition-colors">
-                      <td class="py-3 px-3 font-mono text-slate-400 text-center">{idx + 1}.</td>
+                    <tr class="hover-bg-muted transition-colors">
+                      <td class="py-3 px-3 font-mono theme-text-muted text-center">{idx + 1}.</td>
                       <td class="py-3 px-4">
                         <span class="px-2.5 py-1 rounded-md font-mono font-bold text-xs border inline-block" style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-primary);">
                           {t.tool}
                         </span>
                       </td>
-                      <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                      <td class="py-3 px-4 text-right font-mono font-bold theme-text">
                         {(t.calls ?? 0).toLocaleString()}
                       </td>
                       <td class="py-3 px-4">
                         <div class="flex items-center gap-2">
-                          <span class="font-mono text-xs text-emerald-600 tracking-tight shrink-0 hidden sm:inline">
+                          <span class="font-mono text-xs text-[var(--theme-success)] tracking-tight shrink-0 hidden sm:inline">
                             {formatTuiBar(sharePct, 10)}
                           </span>
                           <div class="w-20 sm:w-28 h-2 rounded-full overflow-hidden shrink-0" style="background-color: var(--color-border);">
                             <div class="h-full rounded-full transition-all" style="width: {Math.max(4, sharePct)}%; background: linear-gradient(90deg, var(--color-primary) 0%, #10b981 100%);"></div>
                           </div>
-                          <span class="font-mono text-xs font-bold text-slate-800 shrink-0">{sharePct}%</span>
+                          <span class="font-mono text-xs font-bold theme-text shrink-0">{sharePct}%</span>
                         </div>
                       </td>
-                      <td class="py-3 px-4 font-mono text-slate-700">
+                      <td class="py-3 px-4 font-mono theme-text-secondary">
                         {formatBytes(t.bytes || 0)}
                       </td>
-                      <td class="py-3 px-4 font-mono font-bold text-slate-900">
+                      <td class="py-3 px-4 font-mono font-bold theme-text">
                         ~{formatTokens(savedTokens)}
                       </td>
                       <td class="py-3 px-4">
                         <div class="flex items-center gap-1.5">
-                          <span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border {(t.pct ?? 0) >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : ((t.pct ?? 0) > 0 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-300')}">
+                          <span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border {(t.pct ?? 0) >= 80 ? 'badge-status badge-status-success' : ((t.pct ?? 0) > 0 ? 'badge-status badge-status-warning' : 'theme-bg-subtle theme-text-secondary theme-border-strong-b')}">
                             {t.pct ?? 0}%
                           </span>
                         </div>
@@ -502,7 +502,7 @@
       <div class="space-y-5 pt-4 border-t" style="border-color: var(--color-border);">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+            <h3 class="text-lg font-black theme-text flex items-center gap-2">
               <span class="flex items-center gap-1.5 text-emerald-500">
                 <span>2.</span>
                 <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -511,9 +511,9 @@
               </span>
               <span>Semble MCP (Semantic Code Search) Savings</span>
             </h3>
-            <p class="text-xs font-semibold text-slate-600">Replaces massive repository file scans with on-demand neural embeddings</p>
+            <p class="text-xs font-semibold theme-text-secondary">Replaces massive repository file scans with on-demand neural embeddings</p>
           </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <span class="px-3 py-1 rounded-full text-xs font-bold badge-status badge-status-success">
             {semble.total_saved_pct ?? 0}% Efficiency
           </span>
         </div>
@@ -559,7 +559,7 @@
         <!-- Semble Call Types Breakdown (TUI Parity) -->
         {#if semble.call_types && semble.call_types.length > 0}
           <div class="glass-card-3d p-6 rounded-3xl border space-y-3">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900">
+            <h4 class="text-xs font-bold uppercase tracking-wider theme-text">
               Semble Calls by Operation
             </h4>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -567,9 +567,9 @@
                 <div class="p-4 rounded-xl border flex items-center justify-between" style="background-color: var(--color-bg); border-color: var(--color-border);">
                   <div class="flex items-center gap-2">
                     <span class="font-mono font-bold text-xs" style="color: var(--color-primary);">{st.name}</span>
-                    <span class="text-xs text-slate-600 font-semibold">• {st.calls} calls</span>
+                    <span class="text-xs theme-text-secondary font-semibold">• {st.calls} calls</span>
                   </div>
-                  <div class="flex items-center gap-2 font-mono text-xs font-bold text-slate-800">
+                  <div class="flex items-center gap-2 font-mono text-xs font-bold theme-text">
                     <span>{st.share_pct}% share</span>
                   </div>
                 </div>

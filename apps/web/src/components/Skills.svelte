@@ -509,7 +509,7 @@
         </span>
       {:else}
         <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
-          <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-3.5 h-3.5 text-[var(--theme-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <span>{vectorStats.embedded_chunks || vectorStats.total_chunks || 989} Vector Chunks (Dual Models Active)</span>
@@ -550,9 +550,9 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {#each Array(6) as _}
             <div class="p-5 rounded-2xl border animate-pulse space-y-3" style="background: var(--color-surface); border-color: var(--color-border);">
-              <div class="w-3/4 h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
-              <div class="w-1/2 h-3 rounded bg-slate-200 dark:bg-slate-700"></div>
-              <div class="w-full h-8 rounded-xl bg-slate-200 dark:bg-slate-700 pt-2"></div>
+              <div class="w-3/4 h-4 rounded theme-bg-soft"></div>
+              <div class="w-1/2 h-3 rounded theme-bg-soft"></div>
+              <div class="w-full h-8 rounded-xl theme-bg-soft pt-2"></div>
             </div>
           {/each}
         </div>
@@ -784,7 +784,7 @@
                 <button
                   type="button"
                   onclick={() => unembedSkillFromAgent(selectedSkill.name, selectedAgentToEmbed)}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-slate-700 dark:text-slate-300 border-slate-500/30 bg-slate-500/10"
+                  class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 cursor-pointer theme-text-secondary theme-border theme-bg-subtle"
                 >
                   Unembed
                 </button>
@@ -827,7 +827,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <span>Vector Chunks & Embeddings</span>
-                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}">
+                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-emerald-500/20 text-[var(--theme-success)] dark:text-emerald-400'}">
                     {selectedSkill.chunks_count || selectedSkill.chunks?.length || 0}
                   </span>
                 </button>
@@ -851,12 +851,12 @@
                     <div class="flex items-center gap-2">
                       <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                       <span class="font-bold" style="color: var(--color-text);">Models:</span>
-                      <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">IBM Granite 97M (ONNX) + MS MARCO MiniLM</span>
+                      <span class="font-mono text-[var(--theme-success)] dark:text-emerald-400 font-bold">IBM Granite 97M (ONNX) + MS MARCO MiniLM</span>
                     </div>
                     <div class="flex items-center gap-3 text-[11px] font-mono" style="color: var(--color-text-muted);">
                       <span>Embedding: <b class="text-indigo-600 dark:text-indigo-400">384-dim (Cosine)</b></span>
                       <span>RAG Reranker: <b class="text-indigo-600 dark:text-indigo-400">Cross-Encoder + RRF (k=60)</b></span>
-                      <span>Execution: <b class="text-emerald-600 dark:text-emerald-400">100% Offline INT8</b></span>
+                      <span>Execution: <b class="text-[var(--theme-success)] dark:text-emerald-400">100% Offline INT8</b></span>
                     </div>
                   </div>
 
@@ -876,8 +876,8 @@
                           <!-- Vector values snippet -->
                           {#if chunk.vector_sample && chunk.vector_sample.length > 0}
                             <div class="p-2.5 rounded-xl border text-[11px] font-mono overflow-x-auto" style="background: var(--color-surface-hover); border-color: var(--color-border);">
-                              <span class="font-bold text-slate-500 mr-2">Vector Sample:</span>
-                              <span class="text-emerald-600 dark:text-emerald-400">
+                              <span class="font-bold theme-text-muted mr-2">Vector Sample:</span>
+                              <span class="text-[var(--theme-success)] dark:text-emerald-400">
                                 [{chunk.vector_sample.join(', ')} ... 384 dimensions]
                               </span>
                             </div>
@@ -1161,10 +1161,10 @@
             {#each Array(4) as _}
               <div class="p-4 rounded-2xl border animate-pulse flex items-center justify-between" style="background: var(--color-surface); border-color: var(--color-border);">
                 <div class="space-y-2">
-                  <div class="w-32 h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
-                  <div class="w-48 h-3 rounded bg-slate-200 dark:bg-slate-700"></div>
+                  <div class="w-32 h-4 rounded theme-bg-soft"></div>
+                  <div class="w-48 h-3 rounded theme-bg-soft"></div>
                 </div>
-                <div class="w-20 h-8 rounded-xl bg-slate-200 dark:bg-slate-700"></div>
+                <div class="w-20 h-8 rounded-xl theme-bg-soft"></div>
               </div>
             {/each}
           </div>

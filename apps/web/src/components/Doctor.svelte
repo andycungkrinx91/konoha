@@ -57,10 +57,10 @@
           </svg>
           Runtime Health & Diagnostics
         </div>
-        <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
           Environment Doctor
         </h2>
-        <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
+        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
           Automated integrity audit and self-repair for 7 coding IDEs, RTK binaries, SQLite databases, and daemon processes.
         </p>
       </div>
@@ -87,13 +87,13 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">
+    <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
       {error}
     </div>
   {/if}
 
   {#if loading}
-    <div class="flex items-center justify-center py-16 text-slate-600 text-sm font-semibold">
+    <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
         <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -104,9 +104,9 @@
     </div>
   {:else if doctor}
     <!-- Status Summary Card -->
-    <div class="glass-card-3d p-6 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 {doctor.healthy ? 'border-emerald-300 bg-emerald-50/60' : 'border-amber-300 bg-amber-50/60'}">
+    <div class="glass-card-3d p-6 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 {doctor.healthy ? 'border-status-success-soft bg-status-success-soft/60' : 'border-status-warning-soft bg-status-warning-soft/60'}">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border {doctor.healthy ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-amber-100 text-amber-700 border-amber-300'}">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border {doctor.healthy ? 'badge-status badge-status-success' : 'badge-status badge-status-warning'}">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {#if doctor.healthy}
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
@@ -116,10 +116,10 @@
           </svg>
         </div>
         <div>
-          <h4 class="text-base font-black text-slate-900">
+          <h4 class="text-base font-black theme-text">
             {doctor.healthy ? "All Diagnostics Healthy & Operational" : "Action Recommended"}
           </h4>
-          <p class="text-xs font-semibold text-slate-700 mt-0.5">
+          <p class="text-xs font-semibold theme-text-secondary mt-0.5">
             {doctor.results ? doctor.results.length : 0} components evaluated • {doctor.repairsDone || 0} automated fixes applied
           </p>
         </div>
@@ -128,7 +128,7 @@
 
     <!-- Diagnostic Results Grid -->
     <div class="space-y-4">
-      <h3 class="text-lg font-black text-slate-900">
+      <h3 class="text-lg font-black theme-text">
         System Verification Checks
       </h3>
 
@@ -137,16 +137,16 @@
           <div class="glass-card-3d tilt-3d p-5 rounded-2xl border flex items-start justify-between gap-4">
             <div class="space-y-1 flex-1">
               <div class="flex items-center gap-2">
-                <span class="text-xs font-black text-slate-900">
+                <span class="text-xs font-black theme-text">
                   {item.component}
                 </span>
               </div>
-              <p class="text-xs font-semibold text-slate-700 leading-relaxed">
+              <p class="text-xs font-semibold theme-text-secondary leading-relaxed">
                 {item.details}
               </p>
             </div>
 
-            <span class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase border {item.status === 'HEALTHY' || item.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : item.status === 'REPAIRED' ? 'bg-teal-100 text-teal-800 border-teal-300' : item.status === 'INFO' ? 'bg-sky-100 text-sky-800 border-sky-300' : item.status === 'WARNING' || item.status === 'INACTIVE' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-rose-100 text-rose-800 border-rose-300'}">
+            <span class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase border {item.status === 'HEALTHY' || item.status === 'ACTIVE' ? 'badge-status badge-status-success' : item.status === 'REPAIRED' ? 'badge-status badge-status-success' : item.status === 'INFO' ? 'badge-status badge-status-info' : item.status === 'WARNING' || item.status === 'INACTIVE' ? 'badge-status badge-status-warning' : 'badge-status badge-status-danger'}">
               {item.status}
             </span>
           </div>

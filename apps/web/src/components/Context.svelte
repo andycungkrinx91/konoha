@@ -355,10 +355,10 @@
           </svg>
           Workspace Architecture & Tech Stack
         </div>
-        <h2 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+        <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
           Project Context Memory
         </h2>
-        <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
+        <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
           Detected frameworks, styling engines, package managers, and permanent architectural invariants preserved across turns.
         </p>
       </div>
@@ -367,7 +367,7 @@
         <button
           type="button"
           onclick={pruneProjectContext}
-          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
+          class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
           title="Prune all episodic learnings for this project"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -391,13 +391,13 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">
+    <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
       Failed to load project context: {error}
     </div>
   {/if}
 
   {#if loading}
-    <div class="flex items-center justify-center py-16 text-slate-600 text-sm font-semibold">
+    <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
         <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -409,27 +409,27 @@
   {:else}
     <!-- Active Workspace Overview Card -->
     <div class="glass-card-3d rounded-3xl p-6 lg:p-8 border space-y-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b theme-border">
         <div>
-          <span class="text-[10px] font-extrabold uppercase tracking-widest text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+          <span class="text-[10px] font-extrabold uppercase tracking-widest badge-status badge-status-info">
             Active Workspace
           </span>
-          <h3 class="text-xl font-black text-slate-900 mt-2">
+          <h3 class="text-xl font-black theme-text mt-2">
             {currentProject?.project_name || "Current Workspace"}
           </h3>
-          <p class="text-xs font-mono text-slate-600 mt-0.5">
+          <p class="text-xs font-mono theme-text-secondary mt-0.5">
             {currentProject?.project_path || "Path undetected"}
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <div class="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-xs font-bold">
+          <div class="px-3 py-1.5 rounded-xl border badge-status badge-status-info text-xs font-bold">
             Framework: <span class="capitalize">{currentProject?.framework || "General"}</span>
           </div>
-          <div class="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold">
+          <div class="px-3 py-1.5 rounded-xl border badge-status badge-status-success text-xs font-bold">
             Styling: <span>{currentProject?.styling || "CSS"}</span>
           </div>
-          <div class="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold">
+          <div class="px-3 py-1.5 rounded-xl border badge-status badge-status-warning text-xs font-bold">
             PM: <span>{currentProject?.package_manager || "pnpm"}</span>
           </div>
         </div>
@@ -439,10 +439,10 @@
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <div>
-            <h4 class="text-sm font-extrabold text-slate-900">
+            <h4 class="text-sm font-extrabold theme-text">
               Architectural Invariants & Constraints
             </h4>
-            <p class="text-xs font-semibold text-slate-600">
+            <p class="text-xs font-semibold theme-text-secondary">
               Rules permanently remembered and injected to subagents for this workspace.
             </p>
           </div>
@@ -453,7 +453,7 @@
                 type="button"
                 onclick={clearInvariants}
                 disabled={saving}
-                class="btn-3d px-3.5 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                class="btn-3d px-3.5 py-2 rounded-xl text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm disabled:opacity-50"
                 title="Clear architectural invariants for this workspace"
               >
                 Clear Invariants
@@ -475,18 +475,18 @@
           bind:value={contextSummary}
           rows="5"
           placeholder="e.g. Always use port 1404; Pure light mode is first-class default; zero dark mode enforcement; use Tailwind v4; no hamburger in header on mobile dock..."
-          class="w-full p-4 rounded-2xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white/90 focus:ring-2 focus:ring-purple-500 focus:outline-none leading-relaxed"
+          class="w-full p-4 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface/90 focus:ring-2 focus:ring-purple-500 focus:outline-none leading-relaxed"
         ></textarea>
       </div>
 
       <!-- Persistent Learnings for Active Project -->
-      <div class="pt-6 border-t border-slate-200 space-y-4">
+      <div class="pt-6 border-t theme-border space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h4 class="text-sm font-extrabold text-slate-900">
+            <h4 class="text-sm font-extrabold theme-text">
               Project-Scoped Learnings ({projectMemories ? projectMemories.length : 0})
             </h4>
-            <p class="text-xs font-semibold text-slate-600">
+            <p class="text-xs font-semibold theme-text-secondary">
               Episodic memories & rules preserved specifically for this workspace context.
             </p>
           </div>
@@ -507,7 +507,7 @@
             <button
               type="button"
               onclick={pruneLearnings}
-              class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
+              class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
               title="Prune all episodic learnings for this project"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -521,29 +521,29 @@
         {#if projectMemories && projectMemories.length > 0}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {#each projectMemories as pm}
-              <div class="p-3.5 rounded-xl border border-slate-200 bg-white/80 space-y-2 flex flex-col justify-between">
+              <div class="p-3.5 rounded-xl border theme-border theme-bg-surface/80 space-y-2 flex flex-col justify-between">
                 <div class="space-y-1">
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    <span class="text-[10px] font-extrabold badge-status badge-status-info">
                       @{pm.agent_name}
                     </span>
-                    <span class="text-[10px] font-bold text-slate-500 font-mono">
+                    <span class="text-[10px] font-bold theme-text-muted font-mono">
                       ID: {pm.id}
                     </span>
                   </div>
-                  <p class="text-xs font-semibold text-slate-800 leading-normal">
+                  <p class="text-xs font-semibold theme-text leading-normal">
                     {pm.content}
                   </p>
                 </div>
 
-                <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-                  <span class="text-[10px] text-slate-400 font-mono uppercase">
+                <div class="flex items-center justify-between pt-2 border-t theme-border-subtle text-[11px]">
+                  <span class="text-[10px] theme-text-muted font-mono uppercase">
                     {pm.memory_type || 'rule'}
                   </span>
                   <button
                     type="button"
                     onclick={() => deleteProjectMemory(pm.id)}
-                    class="text-rose-600 hover:text-rose-800 font-bold cursor-pointer inline-flex items-center gap-1 transition-colors"
+                    class="text-[var(--theme-danger)] hover:text-rose-800 font-bold cursor-pointer inline-flex items-center gap-1 transition-colors"
                     title="Delete this memory item"
                   >
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -556,9 +556,9 @@
             {/each}
           </div>
         {:else}
-          <div class="p-4 rounded-xl border border-dashed border-slate-300 bg-white/40 text-center">
-            <p class="text-xs font-bold text-slate-500">No episodic learnings saved for this project yet.</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Verified learnings auto-persist here during subagent delegations and auto-compact across turns.</p>
+          <div class="p-4 rounded-xl border border-dashed theme-border-strong-b theme-bg-surface/40 text-center">
+            <p class="text-xs font-bold theme-text-muted">No episodic learnings saved for this project yet.</p>
+            <p class="text-[11px] theme-text-muted mt-0.5">Verified learnings auto-persist here during subagent delegations and auto-compact across turns.</p>
           </div>
         {/if}
       </div>
@@ -569,10 +569,10 @@
       <div class="space-y-4 pt-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 class="text-lg font-black text-slate-900">
+            <h3 class="text-lg font-black theme-text">
               All Registered Workspaces ({allProjects.length})
             </h3>
-            <p class="text-xs font-semibold text-slate-600">
+            <p class="text-xs font-semibold theme-text-secondary">
               Registered workspace profiles and their cached contexts.
             </p>
           </div>
@@ -580,7 +580,7 @@
           <button
             type="button"
             onclick={pruneAllWorkspaces}
-            class="btn-3d self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
+            class="btn-3d self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
             title="Prune all registered workspace profiles"
           >
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -595,27 +595,27 @@
             <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between">
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-slate-900 truncate">
+                  <span class="text-xs font-bold theme-text truncate">
                     {proj.project_name}
                   </span>
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded theme-bg-subtle theme-text-secondary border theme-border">
                     {proj.framework || "App"}
                   </span>
                 </div>
-                <p class="text-[11px] font-mono text-slate-600 truncate">
+                <p class="text-[11px] font-mono theme-text-secondary truncate">
                   {proj.project_path}
                 </p>
                 {#if proj.context_summary}
-                  <p class="text-xs font-semibold text-slate-700 line-clamp-2">
+                  <p class="text-xs font-semibold theme-text-secondary line-clamp-2">
                     {proj.context_summary}
                   </p>
                 {/if}
               </div>
 
-              <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+              <div class="mt-4 pt-3 border-t theme-border flex items-center justify-between text-[11px]">
                 <div class="flex items-center gap-2">
                   {#if (currentProject?.project_hash === proj.project_hash) || (currentProject?.project_path === proj.project_path)}
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold badge-status badge-status-info">
                       Active
                     </span>
                   {:else}
@@ -627,12 +627,12 @@
                       Switch
                     </button>
                   {/if}
-                  <span class="font-mono text-slate-500">Hash: {proj.project_hash}</span>
+                  <span class="font-mono theme-text-muted">Hash: {proj.project_hash}</span>
                 </div>
                 <button
                   type="button"
                   onclick={() => deleteProjectContext(proj.project_hash)}
-                  class="text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
+                  class="text-[var(--theme-danger)] hover:text-rose-800 font-bold cursor-pointer"
                 >
                   Delete
                 </button>
@@ -648,20 +648,20 @@
 {#if isAddLearningOpen}
   <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
     <div
-      class="rise-3d relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-2xl backdrop-blur-xl"
+      class="rise-3d relative w-full max-w-lg overflow-hidden rounded-3xl border theme-border theme-bg-surface/95 p-6 shadow-2xl backdrop-blur-xl"
       style="box-shadow: var(--shadow-3d);"
     >
-      <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+      <div class="flex items-center justify-between pb-4 border-b theme-border">
         <div>
-          <h3 class="text-lg font-black text-slate-900">Add Project-Scoped Learning</h3>
-          <p class="text-xs font-semibold text-slate-500">Record an episodic rule or constraint specifically for this workspace.</p>
+          <h3 class="text-lg font-black theme-text">Add Project-Scoped Learning</h3>
+          <p class="text-xs font-semibold theme-text-muted">Record an episodic rule or constraint specifically for this workspace.</p>
         </div>
         <button
           type="button"
           onclick={() => { isAddLearningOpen = false; }}
           aria-label="Close modal"
           title="Close modal"
-          class="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+          class="p-1 rounded-xl theme-text-muted hover:text-slate-600 hover-bg-subtle transition-all cursor-pointer"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -672,11 +672,11 @@
       <div class="space-y-4 pt-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="learning-agent-select" class="block text-xs font-bold text-slate-800 mb-1">Target Agent</label>
+            <label for="learning-agent-select" class="block text-xs font-bold theme-text mb-1">Target Agent</label>
             <select
               id="learning-agent-select"
               bind:value={newLearning.agentName}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
             >
               {#each agentOptions as ag}
                 <option value={ag.id}>{ag.name}</option>
@@ -685,11 +685,11 @@
           </div>
 
           <div>
-            <label for="learning-type-select" class="block text-xs font-bold text-slate-800 mb-1">Memory Type</label>
+            <label for="learning-type-select" class="block text-xs font-bold theme-text mb-1">Memory Type</label>
             <select
               id="learning-type-select"
               bind:value={newLearning.memoryType}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -700,18 +700,18 @@
         </div>
 
         <div>
-          <label for="learning-content-input" class="block text-xs font-bold text-slate-800 mb-1">Learning Content</label>
+          <label for="learning-content-input" class="block text-xs font-bold theme-text mb-1">Learning Content</label>
           <textarea
             id="learning-content-input"
             bind:value={newLearning.content}
             rows="4"
             placeholder="e.g. Always use port 1404; Pure light mode is first-class default; use Tailwind v4 grid tokens..."
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500"
+            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
           ></textarea>
         </div>
       </div>
 
-      <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+      <div class="flex items-center justify-end gap-3 pt-4 border-t theme-border mt-4">
         <button
           type="button"
           onclick={() => { isAddLearningOpen = false; }}

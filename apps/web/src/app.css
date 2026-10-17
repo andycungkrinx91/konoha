@@ -14,10 +14,34 @@
   --color-text-muted: #334155;
   --color-card-bg: #ffffff;
   --color-card-border: #bae6fd;
+  --theme-bg: #f0f9ff;
+  --theme-surface: #ffffff;
+  --theme-surface-raised: #ffffff;
+  --theme-surface-hover: #f1f5f9;
+  --theme-surface-active: #f1f5f9;
+  --theme-overlay: rgba(15, 23, 42, 0.4);
+  --theme-text: #0f172a;
+  --theme-text-secondary: #334155;
+  --theme-muted: #334155;
+  --theme-text-disabled: #64748b;
+  --theme-text-inverse: #ffffff;
+  --theme-border: #bae6fd;
+  --theme-border-strong: rgba(0, 0, 0, 0.25);
+  --theme-border-subtle: color-mix(in srgb, var(--theme-border) 55%, var(--theme-surface));
+  --theme-border-hover: color-mix(in srgb, var(--theme-border) 70%, var(--theme-text-muted));
+  --theme-focus: #0284c7;
+  --theme-link: #0284c7;
+  --theme-selection: rgba(2, 132, 199, 0.2);
+  --theme-success: #10b981;
+  --theme-warning: #f59e0b;
+  --theme-danger: #ef4444;
+  --theme-info: #0ea5e9;
   --gradient-1: #0284c7;
   --gradient-2: #06b6d4;
   --gradient-3: #38bdf8;
   --gradient-4: #818cf8;
+  --theme-gradient: linear-gradient(135deg, #0284c7 0%, #06b6d4 33%, #38bdf8 66%, #818cf8 100%);
+  --theme-glow: rgba(2, 132, 199, 0.12);
   --theme-grad-1: #0284c7;
   --theme-grad-2: #06b6d4;
   --theme-grad-3: #38bdf8;
@@ -113,6 +137,7 @@ html.theme-light {
   --color-card-bg: #ffffff;
   --color-card-border: #e2e8f0;
   --color-accent: #6366f1;
+  --theme-border-subtle: color-mix(in srgb, var(--theme-border) 55%, var(--theme-surface));
 }
 
 html.theme-dark {
@@ -125,6 +150,27 @@ html.theme-dark {
   --color-card-bg: #121826;
   --color-card-border: #232e42;
   --color-accent: #38bdf8;
+  --theme-bg: #0b101b;
+  --theme-surface: #121826;
+  --theme-surface-raised: #121826;
+  --theme-surface-hover: #1e2638;
+  --theme-surface-active: #1e2638;
+  --theme-overlay: rgba(0, 0, 0, 0.7);
+  --theme-text: #f8fafc;
+  --theme-text-secondary: #94a3b8;
+  --theme-muted: #94a3b8;
+  --theme-text-disabled: #94a3b8;
+  --theme-text-inverse: #0f172a;
+  --theme-border: #232e42;
+  --theme-border-strong: rgba(255, 255, 255, 0.2);
+  --theme-border-subtle: color-mix(in srgb, var(--theme-border) 55%, var(--theme-surface));
+  --theme-focus: #38bdf8;
+  --theme-link: #7dd3fc;
+  --theme-selection: rgba(56, 189, 248, 0.3);
+  --theme-success: #34d399;
+  --theme-warning: #fbbf24;
+  --theme-danger: #f87171;
+  --theme-info: #38bdf8;
   --glass-card: linear-gradient(
     135deg,
     rgba(21, 29, 45, 0.94) 0%,
@@ -174,6 +220,99 @@ code, kbd, samp, pre, .font-mono {
 [class*="card"],
 .modal-card {
   border-radius: 5px !important;
+}
+
+/* Form Controls: read from the semantic theme contract, never browser defaults */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+textarea,
+select {
+  background-color: var(--theme-surface-raised, var(--color-card-bg));
+  color: var(--theme-text, var(--color-text));
+  border: 1px solid var(--theme-border, var(--color-border));
+  caret-color: var(--theme-text, var(--color-text));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--theme-muted, var(--color-text-muted));
+  opacity: 1;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: var(--theme-text-disabled, var(--color-text-muted));
+  cursor: not-allowed;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--theme-focus, var(--color-primary));
+  outline-offset: 2px;
+}
+
+/* Explicit focus treatment for themed inputs that opt in */
+.input-theme:focus {
+  outline: none;
+  border-color: var(--theme-focus, var(--color-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-focus, var(--color-primary)) 25%, transparent);
+}
+
+/* Interaction states driven by the palette (replaces Tailwind hover:bg-slate-*) */
+.hover-bg-muted:hover {
+  background-color: var(--theme-surface-hover);
+}
+
+.hover-bg-subtle:hover {
+  background-color: var(--theme-surface-active);
+}
+
+::selection {
+  background-color: var(--theme-selection, var(--color-primary-glow));
+  color: inherit;
+}
+
+/* Charts (inline SVG sparklines, gauges, grids) share one semantic palette */
+.chart-grid {
+  stroke: color-mix(in srgb, var(--theme-border, var(--color-border)) 85%, var(--theme-text, var(--color-text)));
+}
+
+.chart-axis-label {
+  fill: var(--theme-text-secondary, var(--color-text-muted));
+}
+
+.chart-surface {
+  background-color: var(--theme-surface, var(--color-surface));
+}
+
+
+/* Built-in default appearance mode (when JS has not applied a saved mode yet).
+   The ten-palette Light/Dark matrices are mirrored from
+   apps/web/src/lib/state/themeState.svelte.js and asserted by tests/test_theme_tokens.js. */
+html.theme-light {
+  --theme-text-disabled: #64748b;
+  --theme-focus: #0284c7;
+  --theme-link: #0284c7;
+  --theme-selection: rgba(2, 132, 199, 0.2);
+  --theme-success: #047857;
+  --theme-warning: #b45309;
+  --theme-danger: #b91c1c;
+  --theme-info: #0369a1;
+}
+
+html.theme-dark {
+  --theme-text-disabled: #94a3b8;
+  --theme-focus: #38bdf8;
+  --theme-link: #7dd3fc;
+  --theme-selection: rgba(56, 189, 248, 0.3);
+  --theme-success: #34d399;
+  --theme-warning: #fbbf24;
+  --theme-danger: #f87171;
+  --theme-info: #38bdf8;
 }
 
 /* 3D Glass & Advanced Perspective Utilities with Hardware Acceleration */
@@ -406,6 +545,111 @@ code, kbd, samp, pre, .font-mono {
 
 .theme-text {
   color: var(--color-text);
+}
+
+/* Palette-driven neutrals. Definitions live in @layer base so Tailwind utilities
+   (hover:*, dark:* overrides) can still refine them. Every value is a semantic
+   theme token — no hardcoded light surfaces survive Dark Mode. */
+@layer base {
+  .theme-bg-surface {
+    background-color: var(--theme-surface);
+  }
+
+  .theme-bg-muted {
+    background-color: var(--theme-surface-hover);
+  }
+
+  .theme-bg-subtle {
+    background-color: color-mix(in srgb, var(--theme-border) 45%, var(--theme-surface));
+  }
+
+  .theme-bg-soft {
+    background-color: color-mix(in srgb, var(--theme-border) 70%, var(--theme-surface));
+  }
+
+  .theme-border {
+    border-color: var(--theme-border);
+  }
+
+  .theme-border-subtle {
+    border-color: var(--theme-border-subtle);
+  }
+
+  .theme-border-strong-b {
+    border-color: var(--theme-border-strong);
+  }
+
+  .theme-border-hover {
+    border-color: var(--theme-border-hover);
+  }
+
+  .theme-divide {
+    border-color: var(--theme-border);
+  }
+
+  .theme-divide-subtle {
+    border-color: var(--theme-border-subtle);
+  }
+
+  .theme-text {
+    color: var(--theme-text);
+  }
+
+  .theme-text-secondary {
+    color: var(--theme-text-secondary);
+  }
+
+  .theme-text-muted {
+    color: var(--theme-text-muted);
+  }
+
+  .badge-status {
+    border-color: color-mix(in srgb, var(--badge-tone, var(--theme-info)) 45%, transparent);
+    background-color: color-mix(in srgb, var(--badge-tone, var(--theme-info)) 12%, var(--theme-surface));
+    color: var(--badge-tone, var(--theme-info));
+  }
+
+  .bg-status-success-soft { background-color: color-mix(in srgb, var(--theme-success) 12%, var(--theme-surface)); }
+  .bg-status-danger-soft { background-color: color-mix(in srgb, var(--theme-danger) 12%, var(--theme-surface)); }
+  .bg-status-warning-soft { background-color: color-mix(in srgb, var(--theme-warning) 14%, var(--theme-surface)); }
+  .bg-status-info-soft { background-color: color-mix(in srgb, var(--theme-info) 12%, var(--theme-surface)); }
+
+  .border-status-success-soft { border-color: color-mix(in srgb, var(--theme-success) 45%, transparent); }
+  .border-status-danger-soft { border-color: color-mix(in srgb, var(--theme-danger) 45%, transparent); }
+  .border-status-warning-soft { border-color: color-mix(in srgb, var(--theme-warning) 45%, transparent); }
+  .border-status-info-soft { border-color: color-mix(in srgb, var(--theme-info) 45%, transparent); }
+
+  .badge-status-success { --badge-tone: var(--theme-success); }
+  .badge-status-danger { --badge-tone: var(--theme-danger); }
+  .badge-status-warning { --badge-tone: var(--theme-warning); }
+  .badge-status-info { --badge-tone: var(--theme-info); }
+
+  @media (min-width: 40rem) {
+    .sm\:theme-bg-surface { background-color: var(--theme-surface); }
+    .sm\:theme-bg-muted { background-color: var(--theme-surface-hover); }
+  }
+
+  @media (min-width: 64rem) {
+    .lg\:theme-bg-surface { background-color: var(--theme-surface); }
+    .lg\:theme-bg-muted { background-color: var(--theme-surface-hover); }
+  }
+}
+
+.text-emerald-600 {
+  color: var(--theme-success, #047857);
+}
+
+.text-amber-600 {
+  color: var(--theme-warning, #b45309);
+}
+
+.text-rose-600,
+.text-red-600 {
+  color: var(--theme-danger, #b91c1c);
+}
+
+.text-sky-600 {
+  color: var(--theme-info, #0369a1);
 }
 
 .theme-text-muted {

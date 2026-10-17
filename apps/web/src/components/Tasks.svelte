@@ -21,16 +21,16 @@
 
   // Canonical SDLC task statuses (matches src/sdlc_manager.js + src/mcp/workflow.js).
   const statusColors = {
-    draft: 'bg-slate-100 text-slate-700 border-slate-300',
-    pending: 'bg-amber-100 text-amber-700 border-amber-300',
-    in_progress: 'bg-blue-100 text-blue-700 border-blue-300',
-    completed: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-    verified: 'bg-purple-100 text-purple-700 border-purple-300',
-    blocked: 'bg-rose-100 text-rose-700 border-rose-300'
+    draft: 'theme-bg-subtle theme-text-secondary theme-border',
+    pending: 'badge-status badge-status-warning',
+    in_progress: 'badge-status badge-status-info',
+    completed: 'badge-status badge-status-success',
+    verified: 'badge-status badge-status-info',
+    blocked: 'badge-status badge-status-danger'
   };
 
   function statusClass(status) {
-    return statusColors[status] || 'bg-slate-100 text-slate-700 border-slate-300';
+    return statusColors[status] || 'theme-bg-subtle theme-text-secondary theme-border';
   }
 
   async function loadConfig() {
@@ -190,31 +190,31 @@
       </svg>
       SDLC Governance
     </div>
-    <h1 class="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">SDLC Tasks</h1>
-    <p class="text-sm font-semibold text-slate-700 max-w-2xl leading-relaxed">
+    <h1 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">SDLC Tasks</h1>
+    <p class="text-sm font-semibold theme-text-secondary max-w-2xl leading-relaxed">
       Definition of Ready checks, cross-provider review enforcement, zero-AI-slop gate results, and per-project SDLC configuration.
     </p>
   </div>
 
   <!-- Project SDLC Config -->
-  <section class="rise-3d bg-white border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
-    <h2 class="text-lg font-bold text-slate-900 mb-4">Project Configuration</h2>
+  <section class="rise-3d theme-bg-surface border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
+    <h2 class="text-lg font-bold theme-text mb-4">Project Configuration</h2>
     <div class="grid md:grid-cols-3 gap-4">
       <label class="block">
-        <span class="block text-xs font-bold text-slate-600 mb-1.5">Project Path</span>
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Project Path</span>
         <input
           type="text"
           bind:value={configPath}
           placeholder="/absolute/path/to/project"
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
           style="border-color: var(--color-border, #e2e8f0);"
         />
       </label>
       <label class="block">
-        <span class="block text-xs font-bold text-slate-600 mb-1.5">DoR Mode</span>
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">DoR Mode</span>
         <select
           bind:value={dorMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
           style="border-color: var(--color-border, #e2e8f0);"
         >
           <option value="advisory">Advisory</option>
@@ -222,10 +222,10 @@
         </select>
       </label>
       <label class="block">
-        <span class="block text-xs font-bold text-slate-600 mb-1.5">Review Mode</span>
+        <span class="block text-xs font-bold theme-text-secondary mb-1.5">Review Mode</span>
         <select
           bind:value={reviewMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
           style="border-color: var(--color-border, #e2e8f0);"
         >
           <option value="self">Self</option>
@@ -258,16 +258,16 @@
   </section>
 
   <!-- DoR Checker -->
-  <section class="rise-3d bg-white border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
-    <h2 class="text-lg font-bold text-slate-900 mb-2">Definition of Ready Check</h2>
-    <p class="text-xs font-semibold text-slate-500 mb-4">
+  <section class="rise-3d theme-bg-surface border rounded-[5px] p-6 shadow-md" style="border-color: var(--color-border, #e2e8f0);">
+    <h2 class="text-lg font-bold theme-text mb-2">Definition of Ready Check</h2>
+    <p class="text-xs font-semibold theme-text-muted mb-4">
       Validate a task description before delegation — substance, placeholders, file references, and domain alignment.
     </p>
     <textarea
       bind:value={dorText}
       rows="3"
       placeholder="Describe the task to check against Definition of Ready gates..."
-      class="w-full px-3 py-2 rounded-[5px] border text-xs font-bold text-slate-700 bg-slate-50 focus:outline-none"
+      class="w-full px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
       style="border-color: var(--color-border, #e2e8f0);"
     ></textarea>
     <div class="mt-3">
@@ -289,7 +289,7 @@
     {#if dorResult}
       <div class="mt-5 rounded-[5px] border p-4 space-y-3" style="border-color: var(--color-border, #e2e8f0); background-color: var(--color-primary-glow, #faf5ff);">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="px-2.5 py-1 rounded-[5px] text-xs font-bold border flex items-center gap-1 {dorResult.ready ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}">
+          <span class="px-2.5 py-1 rounded-[5px] text-xs font-bold border flex items-center gap-1 {dorResult.ready ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
             {#if dorResult.ready}
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -307,7 +307,7 @@
           </span>
         </div>
         {#if dorResult.missing && dorResult.missing.length > 0}
-          <ul class="list-disc list-inside space-y-1 text-sm font-semibold text-slate-700">
+          <ul class="list-disc list-inside space-y-1 text-sm font-semibold theme-text-secondary">
             {#each dorResult.missing as reason (reason)}
               <li>{reason}</li>
             {/each}
@@ -322,14 +322,14 @@
   <!-- Tasks List -->
   <section class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-lg font-bold text-slate-900">Tasks ({tasks.length})</h2>
+      <h2 class="text-lg font-bold theme-text">Tasks ({tasks.length})</h2>
       <div class="flex items-center gap-2">
         <input
           type="text"
           bind:value={projectFilter}
           placeholder="Filter by project path…"
           title="Leave empty to show tasks from every project"
-          class="w-48 px-3 py-2 rounded-[5px] border text-xs font-bold text-slate-700 bg-slate-50 focus:outline-none"
+          class="w-48 px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
           style="border-color: var(--color-border, #e2e8f0);"
           onkeydown={(e) => { if (e.key === 'Enter') loadTasks(); }}
           onblur={() => loadTasks()}
@@ -337,7 +337,7 @@
         <select
           bind:value={statusFilter}
           onchange={loadTasks}
-          class="px-3 py-2 rounded-[5px] border text-xs font-bold text-slate-700 bg-slate-50 focus:outline-none"
+          class="px-3 py-2 rounded-[5px] border text-xs font-bold theme-text-secondary theme-bg-surface focus:outline-none"
           style="border-color: var(--color-border, #e2e8f0);"
         >
           <option value="">All Statuses</option>
@@ -363,7 +363,7 @@
         </button>
         {#if tasks.length > 0}
           <button
-            class="btn-3d inline-flex items-center gap-1.5 px-3 py-2 rounded-[5px] font-bold text-xs text-rose-700 bg-rose-50 border border-rose-200 cursor-pointer hover:bg-rose-100 disabled:opacity-50"
+            class="btn-3d inline-flex items-center gap-1.5 px-3 py-2 rounded-[5px] font-bold text-xs badge-status badge-status-danger cursor-pointer hover:bg-status-danger-soft disabled:opacity-50"
             onclick={clearAllTasks}
             disabled={tasksLoading}
             title="Clear tasks to prevent stale task hallucination"
@@ -378,55 +378,55 @@
     </div>
 
     {#if tasksLoading && tasks.length === 0}
-      <div class="rise-3d bg-white border rounded-[5px] p-10 flex items-center justify-center" style="border-color: var(--color-border, #e2e8f0);">
+      <div class="rise-3d theme-bg-surface border rounded-[5px] p-10 flex items-center justify-center" style="border-color: var(--color-border, #e2e8f0);">
         <svg class="animate-spin w-8 h-8" style="color: var(--color-primary, #7c3aed);" viewBox="0 0 24 24" fill="none">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>
       </div>
     {:else if tasks.length === 0}
-      <div class="rise-3d bg-white border rounded-[5px] p-10 text-center" style="border-color: var(--color-border, #e2e8f0);">
-        <p class="text-sm font-bold text-slate-500">No SDLC tasks found. Tasks are created automatically by agents during SDLC execution.</p>
+      <div class="rise-3d theme-bg-surface border rounded-[5px] p-10 text-center" style="border-color: var(--color-border, #e2e8f0);">
+        <p class="text-sm font-bold theme-text-muted">No SDLC tasks found. Tasks are created automatically by agents during SDLC execution.</p>
       </div>
     {:else}
       <div class="space-y-3">
         {#each tasks as task (task.id)}
-          <div class="rise-3d bg-white border rounded-[5px] shadow-sm overflow-hidden transition-all" style="border-color: var(--color-border, #e2e8f0);">
-            <div class="w-full p-4 sm:p-5 flex flex-wrap items-start justify-between gap-3 hover:bg-slate-50/60 transition-colors">
+          <div class="rise-3d theme-bg-surface border rounded-[5px] shadow-sm overflow-hidden transition-all" style="border-color: var(--color-border, #e2e8f0);">
+            <div class="w-full p-4 sm:p-5 flex flex-wrap items-start justify-between gap-3 hover-bg-muted transition-colors">
               <button
                 type="button"
                 class="min-w-0 flex-1 space-y-1.5 text-left cursor-pointer focus:outline-none"
                 onclick={() => toggleExpand(task.id)}
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <code class="text-xs font-bold text-slate-500">{task.id}</code>
+                  <code class="text-xs font-bold theme-text-muted">{task.id}</code>
                   <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border {statusClass(task.status)}">{task.status}</span>
-                  <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border bg-slate-100 text-slate-600 border-slate-300">
+                  <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border theme-bg-subtle theme-text-secondary theme-border-strong-b">
                     review: {task.review_mode || 'self'}
                   </span>
                   {#if task.dor_result && task.dor_result.ready !== undefined}
-                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border {task.dor_result.ready ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}">
+                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border {task.dor_result.ready ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
                       DoR: {task.dor_result.ready ? 'ready' : 'not ready'}
                     </span>
                   {/if}
                   {#if task.slop_result && task.slop_result.pass !== undefined}
-                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border {task.slop_result.pass ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}">
+                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border {task.slop_result.pass ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
                       Slop: {task.slop_result.pass ? 'clean' : 'findings'}
                     </span>
                   {/if}
                   {#if task.slop_cycles > 0}
-                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border bg-amber-100 text-amber-700 border-amber-300">
+                    <span class="px-2 py-0.5 rounded-[5px] text-xs font-bold border badge-status badge-status-warning">
                       {task.slop_cycles} cycle{task.slop_cycles === 1 ? '' : 's'}
                     </span>
                   {/if}
                 </div>
-                <p class="text-sm font-semibold text-slate-800 break-words line-clamp-2">{task.description}</p>
+                <p class="text-sm font-semibold theme-text break-words line-clamp-2">{task.description}</p>
               </button>
               <div class="flex items-center gap-2 shrink-0">
-                <span class="text-xs font-semibold text-slate-400">{task.updated_at || ''}</span>
+                <span class="text-xs font-semibold theme-text-muted">{task.updated_at || ''}</span>
                 <button
                   type="button"
-                  class="p-1.5 rounded-[5px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  class="p-1.5 rounded-[5px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"
                   onclick={(e) => deleteTask(task.id, e)}
                   title="Delete this task"
                   aria-label="Delete task"
@@ -437,7 +437,7 @@
                 </button>
                 <button
                   type="button"
-                  class="p-1.5 rounded-[5px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  class="p-1.5 rounded-[5px] theme-text-muted hover:theme-text hover-bg-subtle transition-colors cursor-pointer"
                   onclick={() => toggleExpand(task.id)}
                   title={expandedId === task.id ? 'Collapse details' : 'Expand details'}
                   aria-label="Toggle details"
@@ -450,15 +450,15 @@
             </div>
 
             {#if expandedId === task.id}
-              <div class="border-t px-4 sm:px-5 py-4 space-y-4 bg-slate-50" style="border-color: var(--color-border, #e2e8f0);">
+              <div class="border-t px-4 sm:px-5 py-4 space-y-4 theme-bg-muted" style="border-color: var(--color-border, #e2e8f0);">
                 {#if task.project_path}
-                  <p class="text-xs font-bold text-slate-500">Project: <code class="text-slate-600">{task.project_path}</code></p>
+                  <p class="text-xs font-bold theme-text-muted">Project: <code class="theme-text-secondary">{task.project_path}</code></p>
                 {/if}
 
                 {#if task.dor_result && task.dor_result.missing && task.dor_result.missing.length > 0}
                   <div>
-                    <h3 class="text-xs font-black text-slate-600 uppercase tracking-wide mb-1.5">DoR Missing Criteria</h3>
-                    <ul class="list-disc list-inside space-y-0.5 text-sm font-semibold text-slate-600">
+                    <h3 class="text-xs font-black theme-text-secondary uppercase tracking-wide mb-1.5">DoR Missing Criteria</h3>
+                    <ul class="list-disc list-inside space-y-0.5 text-sm font-semibold theme-text-secondary">
                       {#each task.dor_result.missing as reason (reason)}
                         <li>{reason}</li>
                       {/each}
@@ -468,26 +468,26 @@
 
                 {#if task.slop_result && Object.keys(task.slop_result).length > 0}
                   <div>
-                    <h3 class="text-xs font-black text-slate-600 uppercase tracking-wide mb-1.5">Zero-AI-Slop Gate</h3>
-                    <pre class="text-xs font-semibold text-slate-600 bg-white border rounded-[5px] p-3 overflow-x-auto" style="border-color: var(--color-border, #e2e8f0);">{JSON.stringify(task.slop_result, null, 2)}</pre>
+                    <h3 class="text-xs font-black theme-text-secondary uppercase tracking-wide mb-1.5">Zero-AI-Slop Gate</h3>
+                    <pre class="text-xs font-semibold theme-text-secondary theme-bg-surface border rounded-[5px] p-3 overflow-x-auto" style="border-color: var(--color-border, #e2e8f0);">{JSON.stringify(task.slop_result, null, 2)}</pre>
                   </div>
                 {/if}
 
                 {#if task.evidence && Object.keys(task.evidence).length > 0}
                   <div>
-                    <h3 class="text-xs font-black text-slate-600 uppercase tracking-wide mb-1.5">Evidence</h3>
-                    <pre class="text-xs font-semibold text-slate-600 bg-white border rounded-[5px] p-3 overflow-x-auto" style="border-color: var(--color-border, #e2e8f0);">{JSON.stringify(task.evidence, null, 2)}</pre>
+                    <h3 class="text-xs font-black theme-text-secondary uppercase tracking-wide mb-1.5">Evidence</h3>
+                    <pre class="text-xs font-semibold theme-text-secondary theme-bg-surface border rounded-[5px] p-3 overflow-x-auto" style="border-color: var(--color-border, #e2e8f0);">{JSON.stringify(task.evidence, null, 2)}</pre>
                   </div>
                 {/if}
 
                 {#if (!task.dor_result || Object.keys(task.dor_result).length === 0) && (!task.slop_result || Object.keys(task.slop_result).length === 0) && (!task.evidence || Object.keys(task.evidence).length === 0)}
-                  <p class="text-xs font-semibold text-slate-400">No gate results or evidence recorded for this task yet.</p>
+                  <p class="text-xs font-semibold theme-text-muted">No gate results or evidence recorded for this task yet.</p>
                 {/if}
 
                 <div class="flex justify-end pt-2 border-t" style="border-color: var(--color-border, #e2e8f0);">
                   <button
                     type="button"
-                    class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                    class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft cursor-pointer"
                     onclick={(e) => deleteTask(task.id, e)}
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
