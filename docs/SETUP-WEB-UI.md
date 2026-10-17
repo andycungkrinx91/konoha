@@ -152,22 +152,25 @@ konoha web
 - Instant search results with title, URL, snippet, and category badges.
 - 100% parity with `konoha search` CLI.
 
-### 8. 🎨 10 Light-Mode Themes & Chidori Azure 4-Gradient Aesthetic
-- **Default Theme: Chidori Azure**: Default out-of-the-box palette configured to `chidori` (Chidori Azure Light) for crackling sky-blue clarity and lightning focus.
-- **Universal 4-Gradient Theme System**: Every theme in the 10-theme light mode palette defines a calibrated 4-color gradient array (`--theme-grad-1` through `4`, `--theme-4gradient`, `--theme-4gradient-bar`, `--theme-4gradient-subtle`), displayed with visual 4-swatch previews in `ThemeSwitcher.svelte` and a top accent bar.
+### 8. 🎨 10 Refined Presets & Explicit Light / Dark Mode System
+- **Default Appearance: Light Mode**: Default out-of-the-box appearance is strictly Light Mode, with Byakugan Deep Ocean as the active default preset.
+- **Explicit Appearance Mode Selector**: Independently toggle between Light Mode and Dark Mode inside the Theme Picker (`themeState.setMode('light' | 'dark')`) with persistent storage across sessions. Switching appearance mode preserves the active preset, and switching presets preserves the chosen mode.
+- **10 Visually Distinct Presets Across 3 Categories**:
+  - *Cyberpunk*: Children of Midnight Violet, Byakugan Deep Ocean, Konoha Forest Aurora, Rasengan Cosmic Magenta
+  - *Hacker*: Sharingan Royal Indigo, Hokage Crimson Flame, Anbu Abyssal Emerald, Sage Mode Nebula Orchid
+  - *General UI*: Sound Imperial Bronze, Akatsuki Jade Matrix
+- **Canonical 4-Gradient Theme System**: Every theme defines a calibrated 4-color gradient array (`--gradient-1` through `4`, `--theme-grad-1` through `4`, `--theme-4gradient`, `--theme-4gradient-bar`, `--theme-4gradient-subtle`), displayed with visual 4-swatch previews in `ThemeSwitcher.svelte` and a top accent bar.
 - **Collapsible Submenu Accordion**: Sidebar navigation sections (`Overview`, `Clients & Finance`, `Tools & Integrations`, `Configuration`, `Operations`, `Resources`) feature interactive collapsible accordions that reveal sub-menus on click with smooth transitions and animated chevron indicators.
 - **Collapsible Sidebar (Open/Close Toggle)**: Dedicated desktop sidebar toggle button (`[ ⇤ ]` / `[ ◨ ]`) in both sidebar brand header and top main header, allowing the central content stage to expand to 100% full screen width for maximum center workspace.
 - **Mobile Menu Sidebar Toggle & Drawer Navigation**: In mobile view (`< lg`), the header renders a dedicated sidebar menu toggle button on the far left (`aria-label="Toggle mobile menu sidebar"`). Clicking it opens an accessible slide-out mobile drawer (`w-64 fixed inset-y-0 left-0 z-50 shadow-2xl`) with backdrop dismissal, providing comprehensive navigation access across all 15 screens.
 - **Footer Author Attribution Link**: The sidebar status footer embeds a permanent author attribution: `Created by Andy Setiyawan` with a high-contrast link to `https://www.linkedin.com/in/andy-setiyawan-452396170/` directly under SQLite FTS5 + Semble Localhost metrics.
 - **Universal 5px Card Border-Radius Invariant**: Strict 5px border-radius (`border-radius: 5px !important`) enforced across ALL cards (`.glass-card-3d`, `.theme-card`, `.card`, `[class*="card"]`, modals, and metric tiles).
-- **Akatsuki Dusk Plum Palette**: Redesigned `akatsuki` to a distinctive Dusk Plum and Fuchsia palette (`#86198f`, `#c026d3`, gradient: `['#581c87', '#701a75', '#86198f', '#c026d3']`), eliminating duplicate color with Sharingan Rose Light.
-- **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows.
+- **Enhanced Glassmorphism**: Amplified glassmorphism with 28px backdrop blur, 195% saturation, enhanced specular highlight edges (`--glass-edge`, `--glass-highlight`), and deep layered 3D shadows adapted to both Light Mode and Dark Mode.
 - **Authentic Rasengan Theme Switcher FAB**: Universal floating circular FAB button in the bottom-right corner (`fixed bottom-6 right-6 z-[100]`) featuring an authentic spinning SVG Rasengan with orbiting electric lightning bolts outside the rasengan orb, multi-stop radial gradient chakra containment orb, rapid clockwise and counter-clockwise swirling spiral filaments, and a pulsing energy core.
 - **2-Second Procedural 3D WebGL Rasengan Theme Transition**: Selecting any of the 10 themes triggers an epic 2-second procedural 3D Three.js Rasengan transition with dynamic theme palette, optical shatter flash (`animate-shatter-flash`), and ambient vignette that cleanly transitions the entire UI into the chosen palette without wall distortion, screen shaking, or countdown timers.
 - **Unified 3D Button Theme Consistency**: Interactive buttons throughout all dashboard and telemetry views leverage 3D tactile depth (`.btn-3d`, `.btn-3d-primary`, `.btn-3d-secondary`) powered dynamically by the active theme's CSS variables (`--theme-4gradient`, `--color-surface`, `--color-border`), strictly eliminating un-themed hardcoded dark backgrounds in light mode.
-- Pure light-mode gradient palettes (`chidori`, `byakugan`, `konoha-leaf`, `rasengan`, `sharingan`, `hokage-gold`, `anbu-shadow`, `sage-mode`, `sound-village`, `akatsuki`) with dynamic CSS variables and localStorage persistence.
-- Hardware-accelerated 3D perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
-- Accessible high-contrast typography and custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.
+- **Hardware-Accelerated 3D Motion**: Perspective tilt and hover animations (`scene-3d`, `tilt-3d`, `rise-3d`) with zero Chrome GPU lag and full `prefers-reduced-motion` support.
+- **Accessible Typography & Modals**: Custom Svelte 5 runes SweetAlert 3D dialogs with body scroll-lock and Escape/backdrop close.
 
 ### 9. 🩺 Environment Doctor Screen (`Doctor.svelte`)
 - Comprehensive diagnostic checklist of 24+ components (Node.js, SQLite, MCP tools, client configs).

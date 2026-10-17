@@ -26,8 +26,8 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
 
     // Verify presence of all 10 themes
     const themeNames = [
-      "Chidori Midnight Violet",
-      "Byakugan Deep Cyan",
+      "Children of Midnight Violet",
+      "Byakugan Deep Ocean",
       "Konoha Forest Aurora",
       "Rasengan Cosmic Magenta",
       "Sharingan Royal Indigo",
@@ -42,8 +42,31 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
       await expect(page.getByText(name)).toBeVisible();
     }
 
-    // Switch to Byakugan Deep Cyan (clicking a theme applies it and closes the modal)
-    await page.getByText("Byakugan Deep Cyan").click();
+    // Verify Appearance Mode Selector: Light vs Dark Mode
+    await expect(page.getByText("Appearance Mode")).toBeVisible();
+    const lightBtn = page.getByRole("button", { name: "Set Light Appearance Mode" });
+    const darkBtn = page.getByRole("button", { name: "Set Dark Appearance Mode" });
+    await expect(lightBtn).toBeVisible();
+    await expect(darkBtn).toBeVisible();
+
+    // Verify initial default is Light Mode
+    let dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
+    expect(dataMode).toBe('light');
+
+    // Switch to Dark Mode
+    await darkBtn.click();
+    dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
+    expect(dataMode).toBe('dark');
+    let hasThemeDark = await page.evaluate(() => document.documentElement.classList.contains('theme-dark'));
+    expect(hasThemeDark).toBe(true);
+
+    // Switch back to Light Mode
+    await lightBtn.click();
+    dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
+    expect(dataMode).toBe('light');
+
+    // Switch to Byakugan Deep Ocean (clicking a theme applies it and closes the modal)
+    await page.getByText("Byakugan Deep Ocean").click();
 
     // Verify modal automatically closed upon selection
     await expect(page.getByText("Konoha 4-Gradient Theme Palette")).not.toBeVisible();
@@ -305,7 +328,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     // Switch theme and verify theme attributes are active
     const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
     await themeFab.click();
-    await page.getByText("Byakugan Deep Cyan").click();
+    await page.getByText("Byakugan Deep Ocean").click();
 
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(dataTheme).toBe('byakugan');

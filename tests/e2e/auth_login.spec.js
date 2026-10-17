@@ -75,7 +75,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await themeFab.click();
 
     await expect(page.getByText("Konoha 4-Gradient Theme Palette")).toBeVisible();
-    await page.getByText("Byakugan Deep Cyan").click();
+    await page.getByText("Byakugan Deep Ocean").click();
 
     // Verify theme updated
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));

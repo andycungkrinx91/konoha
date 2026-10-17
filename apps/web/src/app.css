@@ -12,6 +12,10 @@
   --color-text-muted: #334155;
   --color-card-bg: #ffffff;
   --color-card-border: #bae6fd;
+  --gradient-1: #0284c7;
+  --gradient-2: #06b6d4;
+  --gradient-3: #38bdf8;
+  --gradient-4: #818cf8;
   --theme-grad-1: #0284c7;
   --theme-grad-2: #06b6d4;
   --theme-grad-3: #38bdf8;
@@ -107,6 +111,40 @@ html.theme-light {
   --color-card-bg: #ffffff;
   --color-card-border: #e2e8f0;
   --color-accent: #6366f1;
+}
+
+html.theme-dark {
+  --color-bg: #0b101b;
+  --color-surface: #121826;
+  --color-surface-hover: #1e2638;
+  --color-border: #232e42;
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-card-bg: #121826;
+  --color-card-border: #232e42;
+  --color-accent: #38bdf8;
+  --glass-card: linear-gradient(
+    135deg,
+    rgba(21, 29, 45, 0.94) 0%,
+    rgba(14, 20, 32, 0.88) 50%,
+    rgba(18, 25, 40, 0.92) 100%
+  );
+  --glass-header: linear-gradient(
+    180deg,
+    rgba(17, 24, 39, 0.92) 0%,
+    rgba(15, 23, 42, 0.86) 100%
+  );
+  --glass-sidebar: linear-gradient(
+    180deg,
+    rgba(15, 22, 36, 0.94) 0%,
+    rgba(11, 16, 27, 0.90) 100%
+  );
+  --glass-edge: inset 0 1.5px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  --glass-highlight: inset 0 1px 2px rgba(255, 255, 255, 0.15);
+  --shadow-3d:
+    0 12px 36px -4px rgba(0, 0, 0, 0.55),
+    0 8px 18px -4px rgba(0, 0, 0, 0.35),
+    var(--glass-edge);
 }
 
 body {

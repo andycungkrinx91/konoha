@@ -64,6 +64,10 @@
     isModalOpen = !isModalOpen;
   }
 
+  function setAppearanceMode(mode) {
+    themeState.setMode(mode);
+  }
+
   function handleModalKeydown(e) {
     if (e.key === 'Escape' && isModalOpen) isModalOpen = false;
   }
@@ -245,8 +249,42 @@
       <!-- Luminous Gradient Accent Flow Strip -->
       <div class="h-1 w-full rounded-full animate-gradient-flow" style="background: var(--theme-4gradient-bar);"></div>
 
+      <!-- Appearance Mode Selector (Light vs Dark Mode) -->
+      <div class="flex items-center justify-between p-2 rounded-[5px] border" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold" style="color: var(--color-text);">Appearance Mode</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] font-mono border" style="background-color: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text-muted);">
+            {themeState.currentMode === 'dark' ? 'Dark' : 'Light (Default)'}
+          </span>
+        </div>
+        <div class="flex items-center gap-1 p-0.5 rounded-[5px] border" style="background-color: var(--color-surface-hover); border-color: var(--color-border);">
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer {themeState.currentMode === 'light' ? 'bg-white text-slate-900 shadow-xs border border-slate-200 font-bold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}"
+            onclick={() => setAppearanceMode('light')}
+            aria-label="Set Light Appearance Mode"
+          >
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <span>Light</span>
+          </button>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer {themeState.currentMode === 'dark' ? 'bg-slate-900 text-white shadow-xs border border-slate-700 font-bold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}"
+            onclick={() => setAppearanceMode('dark')}
+            aria-label="Set Dark Appearance Mode"
+          >
+            <svg class="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+            <span>Dark</span>
+          </button>
+        </div>
+      </div>
+
       <!-- 10 Themes Grid (2 Columns) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto pr-1">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[55vh] overflow-y-auto pr-1">
         {#each THEMES as t}
           {@const isCurrent = themeState.currentTheme === t.id}
           {@const gradBg = t.gradient ? `linear-gradient(135deg, ${t.gradient[0]} 0%, ${t.gradient[1]} 33%, ${t.gradient[2]} 66%, ${t.gradient[3]} 100%)` : `linear-gradient(135deg, ${t.color}, ${t.accent})`}
@@ -268,9 +306,14 @@
             <div class="flex flex-col min-w-0 flex-1">
               <div class="flex items-center justify-between gap-1">
                 <span class="text-xs font-black truncate" style="color: var(--color-text);">{t.name}</span>
-                {#if isCurrent}
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full gradient-badge shrink-0">Active</span>
-                {/if}
+                <div class="flex items-center gap-1 shrink-0">
+                  <span class="text-[9px] px-1.5 py-0.2 rounded-[3px] border font-mono font-medium" style="background-color: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text-muted);">
+                    {t.category || 'Preset'}
+                  </span>
+                  {#if isCurrent}
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full gradient-badge shrink-0">Active</span>
+                  {/if}
+                </div>
               </div>
               <span class="text-[10px] truncate" style="color: var(--color-text-muted);">{t.description}</span>
               {#if t.gradient}
