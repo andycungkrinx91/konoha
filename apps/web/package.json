@@ -13,7 +13,7 @@
     "start": "node build/index.js",
     "check": "svelte-kit sync && svelte-check --threshold error",
     "lint": "svelte-kit sync && svelte-check --threshold error",
-    "test:e2e": "playwright test"
+    "test:e2e": "KONOHA_BOOTSTRAP_PASSWORD=konohagakure playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
