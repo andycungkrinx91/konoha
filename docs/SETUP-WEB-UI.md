@@ -70,7 +70,7 @@ konoha web
    │
    └── Frontend (apps/web/build/)
          ├── Built with SvelteKit 3 + Svelte 5 + Vite 8
-         ├── Cyberpunk 3D Login Page with Procedural Three.js Rasengan & HUD Telemetry ("KONOHA CHAKRA ENGINE // 3D PROCEDURAL with KONOHA MCP ORCHESTRATOR")
+         ├── Cyberpunk 3D Login Page with Procedural Three.js Rasengan & Dynamic Themes
          └── 10 Light-Mode Gradient Themes with Procedural 3D WebGL Rasengan Transition
 ```
 

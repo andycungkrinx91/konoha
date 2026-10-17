@@ -26,8 +26,15 @@ function createAuthState() {
     }
   }
 
-  async function login(password) {
+  async function login(password, deferCommit = false) {
     const data = await apiLogin(password);
+    if (!deferCommit) {
+      commitLogin(data);
+    }
+    return data;
+  }
+
+  function commitLogin(data) {
     isAuthenticated = true;
     isBootstrap = Boolean(data.is_bootstrap);
     requiresPasswordChange = Boolean(data.requires_password_change);
@@ -35,8 +42,6 @@ function createAuthState() {
     if (requiresPasswordChange) {
       showPasswordChangeModal = true;
     }
-
-    return data;
   }
 
   async function changePassword(currentPassword, newPassword) {
@@ -76,6 +81,7 @@ function createAuthState() {
     get showPasswordChangeModal() { return showPasswordChangeModal; },
     checkAuth,
     login,
+    commitLogin,
     changePassword,
     logout,
     openPasswordChangeModal,

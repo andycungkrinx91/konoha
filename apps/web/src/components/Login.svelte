@@ -8,7 +8,6 @@
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let authPhase = $state('idle'); // 'idle' | 'charging' | 'fracture' | 'impact' | 'reveal' | 'stable-loading'
-  let currentScenePhase = $state('CHARGING');
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -73,8 +72,8 @@
     let authResult = null;
     let authError = null;
 
-    // Trigger backend authentication
-    const authPromise = authState.login(password)
+    // Trigger backend authentication with deferred commit
+    const authPromise = authState.login(password, true)
       .then(res => {
         authPromiseSettled = true;
         authResult = res;
@@ -123,9 +122,11 @@
       authPhase = 'idle';
       isSubmitting = false;
       errorMessage = authError.message || 'Invalid password';
-    } else {
+    } else if (authResult) {
       authPhase = 'idle';
       isSubmitting = false;
+      // Commit authenticated state now that nominal 3s animation has concluded
+      authState.commitLogin(authResult);
     }
   }
 
@@ -143,10 +144,7 @@
           rasenganScene = new RasenganScene(threeCanvasEl, {
             bloom: true,
             pixelRatioCap: 1.5,
-            colors: palette,
-            onPhaseChange: (p) => {
-              currentScenePhase = p;
-            }
+            colors: palette
           });
         })
         .catch(err => {
@@ -199,25 +197,11 @@
     aria-hidden="true"
   ></div>
 
-  <!-- HUD Eyebrow Badge & Scene Telemetry -->
-  <div class="absolute left-6 top-6 pointer-events-none z-10 hidden sm:flex flex-col gap-1.5 text-shadow">
-    <div class="flex items-center gap-2.5 text-[10px] font-mono tracking-widest font-semibold uppercase" style="color: var(--color-accent, #79dfff);">
-      <span class="inline-block w-2 h-2 rounded-full animate-ping" style="background-color: var(--color-primary, #57e7ff); box-shadow: 0 0 12px var(--color-primary, #23bfff);"></span>
-      <span>KONOHA CHAKRA ENGINE // 3D PROCEDURAL with KONOHA MCP ORCHESTRATOR</span>
-    </div>
-    <div class="text-[11px] font-mono opacity-65 flex items-center gap-2" style="color: var(--color-text, #e2e8f0);">
-      <span>PHASE: <strong style="color: var(--color-primary, #38bdf8);">{currentScenePhase}</strong></span>
-      <span>•</span>
-      <span>THEME: <strong class="uppercase" style="color: var(--color-accent, #7dd3fc);">{themeState.currentTheme.replace('-', ' ')}</strong></span>
-    </div>
-  </div>
-
   <!-- 3D Parallax Login Container -->
   <div
     class="relative z-10 w-full max-w-md transition-all duration-500 ease-out"
-    class:opacity-20={authPhase !== 'idle'}
+    class:opacity-40={authPhase !== 'idle'}
     class:scale-95={authPhase !== 'idle'}
-    class:pointer-events-none={authPhase !== 'idle'}
     style="
       transform: perspective(1000px) rotateY({tiltX}deg) rotateX({tiltY}deg);
       transform-style: preserve-3d;

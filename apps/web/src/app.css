@@ -656,17 +656,6 @@ code, kbd, samp, pre, .font-mono {
   filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--theme-grad-1) 45%, transparent));
 }
 
-/* Rasengan Swirling Chakra Icon Animation */
-@keyframes spin-rasengan {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes spin-rasengan-reverse {
-  0% { transform: rotate(360deg); }
-  100% { transform: rotate(0deg); }
-}
-
 @keyframes pulse-rasengan-chakra {
   0%, 100% {
     transform: scale(1);
@@ -680,78 +669,24 @@ code, kbd, samp, pre, .font-mono {
   }
 }
 
-.animate-spin-rasengan {
-  animation: spin-rasengan 1.6s linear infinite;
-  transform-origin: center;
-}
-
-.animate-spin-rasengan-fast {
-  animation: spin-rasengan 0.6s linear infinite;
-  transform-origin: center;
-}
-
-.animate-spin-rasengan-reverse {
-  animation: spin-rasengan-reverse 2.2s linear infinite;
-  transform-origin: center;
-}
-
 .animate-pulse-rasengan {
   animation: pulse-rasengan-chakra 2s ease-in-out infinite;
   transform-origin: center;
 }
 
-/* 2-Second Huge Rasengan & Crystalline Glass Crack Theme Transition */
-@keyframes rasengan-huge-spin {
+/* 2-Second Procedural 3D Rasengan Theme Transition Container */
+@keyframes rasengan-huge-fade {
   0% {
-    transform: scale(0.65) rotate(0deg);
-    opacity: 0.2;
-    filter: brightness(1) drop-shadow(0 0 25px #38bdf8);
+    opacity: 0;
+    transform: scale(0.85);
   }
-  20% {
-    transform: scale(0.95) rotate(240deg);
-    opacity: 0.95;
-    filter: brightness(1.2) drop-shadow(0 0 45px #38bdf8);
-  }
-  50% {
-    transform: scale(1.05) rotate(720deg);
+  15% {
     opacity: 1;
-    filter: brightness(1.35) drop-shadow(0 0 70px #0284c7);
+    transform: scale(1);
   }
   85% {
-    transform: scale(1.15) rotate(1440deg);
     opacity: 1;
-    filter: brightness(1.5) drop-shadow(0 0 100px #38bdf8);
-  }
-  100% {
-    transform: scale(1.3) rotate(1800deg);
-    opacity: 0;
-    filter: brightness(2) drop-shadow(0 0 140px #ffffff);
-  }
-}
-
-.animate-huge-rasengan {
-  animation: rasengan-huge-spin 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transform-origin: center center;
-}
-
-@keyframes glass-crack-fissures {
-  0% {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  25% {
-    opacity: 0.75;
-    transform: scale(0.92);
-  }
-  60% {
-    opacity: 0.95;
     transform: scale(1);
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
-  }
-  88% {
-    opacity: 1;
-    transform: scale(1.03);
-    filter: drop-shadow(0 0 18px rgba(255, 255, 255, 1));
   }
   100% {
     opacity: 0;
@@ -759,8 +694,8 @@ code, kbd, samp, pre, .font-mono {
   }
 }
 
-.animate-glass-crack {
-  animation: glass-crack-fissures 2s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+.animate-huge-rasengan {
+  animation: rasengan-huge-fade 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center center;
 }
 
