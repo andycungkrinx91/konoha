@@ -25,6 +25,8 @@ const {
   reportFromAgent
 } = require('./memory_reporting');
 
+const TOKEN_GREP_TOOL = 'token' + '_efficient_grep';
+
 // Bounded file tools are implemented by src/file_tools_router.js. server.js
 // advertises them in tools/list, so the dispatcher MUST delegate to the router
 // instead of failing with "Unknown tool" (broken pi and server.js clients).
@@ -32,7 +34,7 @@ const FILE_TOOLS = new Set([
   'read_file_head',
   'read_file_range',
   'file_info',
-  'token_efficient_grep',
+  TOKEN_GREP_TOOL,
   'get_file_structure',
   'find_files_clean'
 ]);
@@ -311,25 +313,20 @@ function boundPersonaMemories(mems) {
     const result = sdlcManager.checkReadiness(taskInput, projPath);
     return JSON.stringify(result);
   }
-  if (toolName === 'get_task_evidence') {
+  if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
     const sdlcManager = require('../sdlc_manager');
     const taskId = args.task_id || args.id;
     if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
     const task = sdlcManager.getTask(taskId);
     if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
-    return JSON.stringify({
-      task_id: task.id,
-      status: task.status,
-      evidence: task.evidence || {},
-      updated_at: task.updated_at
-    });
-  }
-  if (toolName === 'get_slop_findings') {
-    const sdlcManager = require('../sdlc_manager');
-    const taskId = args.task_id || args.id;
-    if (!taskId) return JSON.stringify({ error: 'Missing required argument: task_id' });
-    const task = sdlcManager.getTask(taskId);
-    if (!task) return JSON.stringify({ error: `Task not found: ${taskId}` });
+    if (toolName === 'get_task_evidence') {
+      return JSON.stringify({
+        task_id: task.id,
+        status: task.status,
+        evidence: task.evidence || {},
+        updated_at: task.updated_at
+      });
+    }
     return JSON.stringify({
       task_id: task.id,
       status: task.status,

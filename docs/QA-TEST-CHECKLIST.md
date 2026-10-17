@@ -111,7 +111,7 @@ flowchart TD
 | **Remote Access (Inbound Queue)** | `/remote` | Cloudflare tunnel controls, authorized Telegram chat, inbound prompt queue state, dispatch triggers. | Verifies queue state renders from `GET /api/v1/queue/prompts`, validates prompt payload formatting. |
 | **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | Verifies savings percentage >= 75%, cl100k_base token calculations match DB logs. |
 | **Mobile Dock** | Viewport `< 1024px` | Fixed bottom mobile navigation dock with quick one-tap links adapted dynamically to archetype. | Verified across 375px (iPhone SE) and 390px (iPhone 14) viewports. |
-| **Theme Picker** | (All pages) | Floating bottom-right FAB (`fixed bottom-6 right-6 z-[100]`) + quick Light/Dark toggle; focus-trapped `role="dialog"` grouped by Cyberpunk / Hacker / General UI with 10 palettes × explicit appearance mode, `aria-pressed` selection, Escape/backdrop close. | Tests palette selection, mode toggling, and persistence across localStorage and reload. |
+| **Theme Picker** | (All pages) | Floating bottom-right FAB (`fixed bottom-6 right-6 z-[100]`) + quick Light/Dark toggle; focus-trapped `role="dialog"` grouped by Cyberpunk / Hacker / General UI with 10 palettes × explicit appearance mode, `aria-pressed` selection, Escape/backdrop close, Arrow/Home/End keyboard navigation. | Tests palette selection, mode toggling, and persistence across localStorage (`theme_and_navigation.spec.js` & `theme_picker_flow.spec.js` from `flows/theme_picker_flow.json`). |
 
 ### 2.3 Running Automated QA Tests
 
@@ -129,6 +129,9 @@ python3 .agents/skills/kage-skill/references/drawio-skill-assets/scripts/validat
 
 # 4. Run Web UI Playwright E2E suite
 pnpm --dir apps/web run test:e2e
+
+# 5. Run Zero-AI-Slop Quality Gate Scan (enforces 100/100 clean score)
+npx aislop .
 ```
 
 ### 2.4 Acceptance Criteria & Gate Enforcement
@@ -136,6 +139,7 @@ pnpm --dir apps/web run test:e2e
 1. **Zero Uncaught Exceptions**: No command in Section 1 or Section 2 may terminate with an unhandled rejection or uncaught exception.
 2. **Deterministic Parity**: Output metrics from CLI `konoha savings` must match Web UI `/savings` and underlying SQLite database records within 0.1% margin.
 3. **Delivery Gate Confidence**: Minimum required confidence score is `>= 98%` across all verification categories prior to release.
+4. **Zero AI Slop Gate**: Repository scan must mechanically evaluate to `100 / 100` Healthy with 0 errors, 0 warnings, and 0 fixable issues across all 5 engines (Format, Lint, Code Quality, AI Slop, Security).
 
 ---
 

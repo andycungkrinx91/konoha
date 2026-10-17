@@ -1,0 +1,7 @@
+[
+  ["open", "http://127.0.0.1:4173/dashboard"],
+  ["wait", "--text", "Mission Control Dashboard"],
+  ["find", "role", "button", "click", "--name", "Toggle Theme Selection Modal"],
+  ["wait", "--text", "Konoha 4-Gradient Theme Palette"],
+  ["wait", "--text", "Children of Midnight Violet"]
+]

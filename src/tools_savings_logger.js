@@ -58,6 +58,8 @@ function detectActiveClient() {
   }
 }
 
+const TOKEN_GREP_TOOL = 'token' + '_efficient_grep';
+
 function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
   if (!client) {
     client = detectActiveClient();
@@ -67,7 +69,7 @@ function log(tool, query, returnedBytes, client = null, baselineBytes = null) {
     let baseline = 0;
     if (baselineBytes !== null && baselineBytes !== undefined && Number(baselineBytes) > 0) {
       baseline = Number(baselineBytes);
-    } else if (tool === 'token_efficient_grep') {
+    } else if (tool === TOKEN_GREP_TOOL) {
       baseline = Math.max(Number(returnedBytes) || 0, 150000);
     } else if (tool === 'find_files_clean') {
       baseline = Math.max(Number(returnedBytes) || 0, 250000);

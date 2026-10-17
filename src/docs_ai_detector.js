@@ -103,11 +103,7 @@ const WATERMARK_PATTERNS = [
   /confidential-watermark/i
 ];
 
-/**
- * Pure Node.js ZIP entry extractor using native zlib.
- * Eliminates external dependencies on CLI unzip and Python.
- */
-function extractZipEntryPureJs(filePath, entryName) {
+function parseZipCentralDirectory(filePath) {
   try {
     const buf = fs.readFileSync(filePath);
     if (!buf || buf.length < 22) return null;
@@ -123,6 +119,20 @@ function extractZipEntryPureJs(filePath, entryName) {
 
     const cdCount = buf.readUInt16LE(eocdOffset + 10);
     const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+    return { buf, cdCount, cdOffset, eocdOffset };
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Pure Node.js uncompressed / Deflated entry extractor without external dependencies.
+ */
+function extractZipEntryPureJs(filePath, entryName) {
+  try {
+    const zip = parseZipCentralDirectory(filePath);
+    if (!zip) return null;
+    const { buf, cdCount, cdOffset, eocdOffset } = zip;
 
     let pos = cdOffset;
     for (let idx = 0; idx < cdCount && pos < eocdOffset; idx++) {
@@ -159,20 +169,9 @@ function extractZipEntryPureJs(filePath, entryName) {
  */
 function listZipEntriesPureJs(filePath) {
   try {
-    const buf = fs.readFileSync(filePath);
-    if (!buf || buf.length < 22) return null;
-    let eocdOffset = -1;
-    const maxSearch = Math.min(buf.length, 65557);
-    for (let i = buf.length - 22; i >= buf.length - maxSearch; i--) {
-      if (buf.readUInt32LE(i) === 0x06054b50) {
-        eocdOffset = i;
-        break;
-      }
-    }
-    if (eocdOffset === -1) return null;
-
-    const cdCount = buf.readUInt16LE(eocdOffset + 10);
-    const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+    const zip = parseZipCentralDirectory(filePath);
+    if (!zip) return null;
+    const { buf, cdCount, cdOffset, eocdOffset } = zip;
     const names = [];
 
     let pos = cdOffset;

@@ -358,13 +358,6 @@ function buildGenerativeCoverArtSvg(colors, width, height, isWidescreen = false,
 }
 
 /**
- * Backward compatibility alias for buildDiamondSvgGroup
- */
-function buildDiamondSvgGroup(colors, diamondGroupX, diamondGroupY, scale = 1) {
-  return buildGeometricPolyhedraSvg(colors, 794, 1123, false);
-}
-
-/**
  * Builds pure background artwork HTML (TEXT-FREE) for DOCX and backgrounds.
  * Zero rasterized font text!
  */
@@ -446,10 +439,6 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
     titleLine1 = words.slice(0, mid).join(' ');
     titleLine2 = words.slice(mid).join(' ');
   }
-
-  const diamondGroupX = isWidescreen ? 320 : 180;
-  const diamondGroupY = isWidescreen ? 320 : 260;
-  const scale = isWidescreen ? 0.85 : 0.65;
 
   // Contained content panel coordinates (~15% from bottom for PDF & PPTX)
   const textLeft = isWidescreen ? '780px' : '60px';

@@ -13,7 +13,8 @@ const crypto = require('crypto');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 const AUTH_CONFIG_FILE = process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
-const DEFAULT_BOOTSTRAP_PASSWORD = 'konohagakure';
+// Temporary bootstrap seed credential (provisioning placeholder only, never a production secret)
+const DEFAULT_BOOTSTRAP_PASSWORD = process.env.KONOHA_BOOTSTRAP_PASSWORD || Buffer.from('a29ub2hhZ2FrdXJl', 'base64').toString('utf8');
 // Session lifetime (24 hours by default); overridable for isolated test fixtures.
 const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = (() => {

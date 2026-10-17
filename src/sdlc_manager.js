@@ -83,21 +83,24 @@ function generateTaskId() {
 }
 
 function safeJsonParse(str, fallback = {}) {
-  if (!str) {
-    console.error('[sdlc] safeJson: empty input, returning fallback');
+  if (str === null || str === undefined || str === '') {
     return fallback;
   }
   if (typeof str === 'object') {
-    console.error('[sdlc] safeJson: non-string input coerced to fallback');
-    return str || fallback;
+    return str;
   }
+  let parsed = null;
+  let parseErr = null;
   try {
-    const res = JSON.parse(str);
-    return (res !== null && typeof res === 'object') ? res : fallback;
-  } catch (_) {
-    console.error('[sdlc] safeJson: parse failed, returning fallback');
+    parsed = JSON.parse(str);
+  } catch (err) {
+    parseErr = err;
+  }
+  if (parseErr) {
+    process.stderr.write(`[sdlc] safeJson: parse failed: ${parseErr.message}\n`);
     return fallback;
   }
+  return (parsed !== null && typeof parsed === 'object') ? parsed : fallback;
 }
 
 /**

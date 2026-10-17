@@ -23,6 +23,7 @@ const deployUtils = require('./deploy_utils');
 const { checkPortActive, killProcessOnPort } = require('./platform_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 const webAuth = require('./auth');
+const tunnelSecurity = require('./tunnel/security');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
 // copy, npm global package) via deployUtils.resolveWebUiDir()
@@ -191,127 +192,27 @@ function isBrowserClient(req) {
   return false;
 }
 
-function createWebServer(options = {}) {
-  const port = options.port !== undefined ? options.port : 1404;
-  const host = options.host || '127.0.0.1';
-  let sessionToken = options.token;
-  const tokenFile = path.join(SKILLS_DB_DIR, 'web_token');
-  if (!sessionToken) {
-    try {
-      if (fs.existsSync(tokenFile)) {
-        const stat = fs.statSync(tokenFile);
-        if (Date.now() - stat.mtimeMs < 24 * 60 * 60 * 1000) {
-          const cached = fs.readFileSync(tokenFile, 'utf8').trim();
-          if (cached && cached.length >= 16) {
-            sessionToken = cached;
-          }
-        }
-      }
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-  if (!sessionToken) {
-    sessionToken = crypto.randomBytes(16).toString('hex');
-    try {
-      if (!fs.existsSync(SKILLS_DB_DIR)) fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
-      fs.writeFileSync(tokenFile, sessionToken, { encoding: 'utf8', mode: 0o600 });
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  }
-  const sseClients = new Set();
-  // Delta-sample state for the /api/v1/system/metrics CPU gauges
-  const systemMetrics = { _lastCpuTimes: null, _lastCpuUsage: null, _lastHrtime: process.hrtime.bigint() };
 
-  function broadcastEvent(type, data) {
-    const payload = 'event: ' + type + '\n' + 'data: ' + JSON.stringify(data) + '\n\n';
-    for (const client of sseClients) {
-      try { client.write(payload); } catch (_) { sseClients.delete(client); }
-    }
-  }
+function spawnGatewayDaemon() {
+  const { spawn } = require('child_process');
+  const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
+    ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
+    : path.join(__dirname, 'file_tools_mcp.js');
+  const child = spawn(process.execPath || 'node', [mcpScript], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
+  });
+  child.unref();
+  try {
+    fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  return child;
+}
 
-  let svelteKitHandler = null;
-
-  async function getSvelteKitHandler() {
-    if (svelteKitHandler) return svelteKitHandler;
-    const resolvedWebDir = deployUtils.resolveWebUiDir() || WEB_UI_DIR;
-    const svelteKitHandlerPath = path.join(resolvedWebDir, 'build', 'handler.js');
-    if (fs.existsSync(svelteKitHandlerPath) && process.env.KONOHA_UI_ROUTER !== 'legacy') {
-      try {
-        // Guarantee ESM package boundary for SvelteKit handler to prevent [MODULE_TYPELESS_PACKAGE_JSON] warning
-        const buildDir = path.dirname(svelteKitHandlerPath);
-        const buildPkgPath = path.join(buildDir, 'package.json');
-        if (!fs.existsSync(buildPkgPath)) {
-          fs.writeFileSync(buildPkgPath, '{\n  "type": "module"\n}\n');
-        }
-        const appWebDir = path.dirname(buildDir);
-        const appWebPkg = path.join(appWebDir, 'package.json');
-        if (!fs.existsSync(appWebPkg)) {
-          fs.writeFileSync(appWebPkg, '{\n  "name": "konoha-web",\n  "type": "module",\n  "private": true\n}\n');
-        }
-        const { pathToFileURL } = require('url');
-        const mod = await import(pathToFileURL(svelteKitHandlerPath).href);
-        svelteKitHandler = mod.handler;
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-    }
-    return svelteKitHandler;
-  }
-
-  const server = http.createServer(async (req, res) => {
-    const parsedUrl = new URL(req.url, 'http://' + host + ':' + port);
-    const pathname = parsedUrl.pathname;
-    const method = req.method.toUpperCase();
-
-    // Loopback Host validation & active tunnel hostname verification
-    const rawHost = req.headers['host'];
-    let hostWithoutPort = '';
-    if (rawHost) {
-      const hStr = String(rawHost).trim().toLowerCase();
-      if (hStr.startsWith('[')) {
-        const endBracket = hStr.indexOf(']');
-        hostWithoutPort = endBracket !== -1 ? hStr.slice(0, endBracket + 1) : hStr;
-      } else {
-        hostWithoutPort = hStr.split(':')[0];
-      }
-    }
-
-    const isLoopbackHost = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(hostWithoutPort);
-    let isAllowedTunnelHost = false;
-    if (!isLoopbackHost && hostWithoutPort) {
-      try {
-        const tunnelMgr = require('./tunnel/manager');
-        const tunnelStatus = tunnelMgr.getTunnelStatus();
-        if (tunnelStatus && tunnelStatus.enabled) {
-          const allowedHosts = new Set();
-          if (tunnelStatus.custom_domain) {
-            try {
-              const normHost = tunnelMgr.normalizeAndValidateTunnelHostname(tunnelStatus.custom_domain);
-              allowedHosts.add(normHost);
-            } catch (_) {
-              /* invalid custom domain */
-            }
-          }
-          if (allowedHosts.has(hostWithoutPort)) {
-            isAllowedTunnelHost = true;
-          }
-        }
-      } catch (_) {
-        /* tunnel manager unavailable */
-      }
-    }
-
-    if (!isLoopbackHost && !isAllowedTunnelHost) {
-      return sendJson(res, 403, { error: 'Forbidden: Invalid or untrusted Host header' });
-    }
-
-    const tunnelSecurity = require('./tunnel/security');
-    const isRemote = tunnelSecurity.isRemoteRequest(req);
-
-    if (method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization, X-Konoha-Pin'
-      });
-      return res.end();
-    }
-
+async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
+  const { port, host, sessionToken, systemMetrics, broadcastEvent, isRemote } = ctx;
     // Remote PIN Authentication API Endpoint
     if (method === 'POST' && pathname === '/api/v1/auth/pin') {
       const clientIp = getTrustedClientIp(req);
@@ -958,20 +859,7 @@ function discoverClientModels() {
         if (alreadyRunning) {
           return sendJson(res, 200, { status: 'already_running', port: 19999, gateway_running: true });
         }
-        const { spawn } = require('child_process');
-        const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
-          ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
-          : path.join(__dirname, 'file_tools_mcp.js');
-        const child = spawn(process.execPath || 'node', [mcpScript], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-          env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
-        });
-        child.unref();
-        try {
-          fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        const child = spawnGatewayDaemon();
         await new Promise((r) => setTimeout(r, 1200));
         const nowRunning = await checkPortActive(19999);
         return sendJson(res, 200, { status: nowRunning ? 'started' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
@@ -1020,20 +908,7 @@ function discoverClientModels() {
         }
         await new Promise((r) => setTimeout(r, 400));
 
-        const { spawn } = require('child_process');
-        const mcpScript = fs.existsSync(path.join(SKILLS_DB_DIR, 'file_tools_mcp.js'))
-          ? path.join(SKILLS_DB_DIR, 'file_tools_mcp.js')
-          : path.join(__dirname, 'file_tools_mcp.js');
-        const child = spawn(process.execPath || 'node', [mcpScript], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-          env: Object.assign({}, process.env, { KONOHA_DAEMON: 'true' })
-        });
-        child.unref();
-        try {
-          fs.writeFileSync(path.join(SKILLS_DB_DIR, 'bridge.pid'), String(child.pid));
-        } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+        const child = spawnGatewayDaemon();
         await new Promise((r) => setTimeout(r, 1200));
         const nowRunning = await checkPortActive(19999);
         return sendJson(res, 200, { status: nowRunning ? 'running' : 'starting', port: 19999, gateway_running: nowRunning, pid: child.pid });
@@ -1139,6 +1014,12 @@ function discoverClientModels() {
       }
     }
 
+
+  return false;
+}
+
+async function handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
+  const { broadcastEvent } = ctx;
     if (method === 'GET' && pathname === '/api/v1/vectors/stats') {
       try {
         const conn = db.getConnection(null, false);
@@ -1380,8 +1261,9 @@ function discoverClientModels() {
       }
     }
 
-    if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && pathname.endsWith('/embed')) {
+    if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && (pathname.endsWith('/embed') || pathname.endsWith('/unembed'))) {
       try {
+        const isEmbed = pathname.endsWith('/embed');
         const parts = pathname.split('/');
         const skillName = decodeURIComponent(parts[4]);
         const body = await parseBody(req);
@@ -1390,27 +1272,12 @@ function discoverClientModels() {
           return sendJson(res, 400, { error: 'Agent name is required' });
         }
         const skillManager = require('./skill_manager');
-        const embedded = skillManager.embedSkillInAgent(skillName, agentName);
-        broadcastEvent('skills_updated', { action: 'embed', skill: skillName, agent: agentName });
-        return sendJson(res, 200, { ok: true, skill: skillName, agent: agentName, embedded });
-      } catch (err) {
-        return sendJson(res, 500, { error: err.message });
-      }
-    }
-
-    if (method === 'POST' && pathname.startsWith('/api/v1/skills/') && pathname.endsWith('/unembed')) {
-      try {
-        const parts = pathname.split('/');
-        const skillName = decodeURIComponent(parts[4]);
-        const body = await parseBody(req);
-        const agentName = (body.agent || body.agent_name || '').trim();
-        if (!agentName) {
-          return sendJson(res, 400, { error: 'Agent name is required' });
-        }
-        const skillManager = require('./skill_manager');
-        const unembedded = skillManager.unembedSkillFromAgent(skillName, agentName);
-        broadcastEvent('skills_updated', { action: 'unembed', skill: skillName, agent: agentName });
-        return sendJson(res, 200, { ok: true, skill: skillName, agent: agentName, unembedded });
+        const result = isEmbed
+          ? skillManager.embedSkillInAgent(skillName, agentName)
+          : skillManager.unembedSkillFromAgent(skillName, agentName);
+        const action = isEmbed ? 'embed' : 'unembed';
+        broadcastEvent('skills_updated', { action, skill: skillName, agent: agentName });
+        return sendJson(res, 200, { ok: true, skill: skillName, agent: agentName, [isEmbed ? 'embedded' : 'unembedded']: result });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -1744,6 +1611,12 @@ function discoverClientModels() {
       }
     }
 
+
+  return false;
+}
+
+async function handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
+  const { sessionToken, sseClients, broadcastEvent } = ctx;
     // ── SDLC Governance (Tasks, DoR, config) — web parity for `konoha task/project` TUI commands ──
 
     if (method === 'GET' && (pathname === '/api/v1/sdlc/tasks' || pathname === '/api/v1/tasks')) {
@@ -2417,6 +2290,76 @@ function discoverClientModels() {
 
     res.setHeader('Set-Cookie', `konoha-web-token=${sessionToken}; Path=/; SameSite=Strict; HttpOnly`);
 
+
+  return false;
+}
+
+async function handleWebServerRequest(req, res, ctx) {
+  const { port, host, sessionToken, getSvelteKitHandler } = ctx;
+  const parsedUrl = new URL(req.url, 'http://' + host + ':' + port);
+  const pathname = parsedUrl.pathname;
+  const method = req.method.toUpperCase();
+
+    // Loopback Host validation & active tunnel hostname verification
+    const rawHost = req.headers['host'];
+    let hostWithoutPort = '';
+    if (rawHost) {
+      const hStr = String(rawHost).trim().toLowerCase();
+      if (hStr.startsWith('[')) {
+        const endBracket = hStr.indexOf(']');
+        hostWithoutPort = endBracket !== -1 ? hStr.slice(0, endBracket + 1) : hStr;
+      } else {
+        hostWithoutPort = hStr.split(':')[0];
+      }
+    }
+
+    const isLoopbackHost = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(hostWithoutPort);
+    let isAllowedTunnelHost = false;
+    if (!isLoopbackHost && hostWithoutPort) {
+      try {
+        const tunnelMgr = require('./tunnel/manager');
+        const tunnelStatus = tunnelMgr.getTunnelStatus();
+        if (tunnelStatus && tunnelStatus.enabled) {
+          const allowedHosts = new Set();
+          if (tunnelStatus.custom_domain) {
+            try {
+              const normHost = tunnelMgr.normalizeAndValidateTunnelHostname(tunnelStatus.custom_domain);
+              allowedHosts.add(normHost);
+            } catch (_) {
+              /* invalid custom domain */
+            }
+          }
+          if (allowedHosts.has(hostWithoutPort)) {
+            isAllowedTunnelHost = true;
+          }
+        }
+      } catch (_) {
+        /* tunnel manager unavailable */
+      }
+    }
+
+    if (!isLoopbackHost && !isAllowedTunnelHost) {
+      return sendJson(res, 403, { error: 'Forbidden: Invalid or untrusted Host header' });
+    }
+
+    const isRemote = tunnelSecurity.isRemoteRequest(req);
+    ctx.isRemote = isRemote;
+
+    if (method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Konoha-Web-Token, Authorization, X-Konoha-Pin'
+      });
+      return res.end();
+    }
+
+    if (pathname.startsWith('/api/')) {
+      if (await handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+      if (await handleWorkflowApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+      if (await handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, method)) return true;
+      return sendJson(res, 404, { error: 'Not Found' });
+    }
+
     const skHandler = await getSvelteKitHandler();
     if (skHandler && !pathname.startsWith('/api/')) {
       if (!req.headers.cookie || !req.headers.cookie.includes('konoha-web-token=')) {
@@ -2453,7 +2396,93 @@ function discoverClientModels() {
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end('<!DOCTYPE html><html><head><title>Konoha Web UI</title></head><body style="font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:2rem;"><h1>🍃 Konoha Web UI</h1><p>Server running on port ' + port + '. Frontend initializing...</p></body></html>');
+
+}
+function createWebServer(options = {}) {
+  const port = options.port !== undefined ? options.port : 1404;
+  const host = options.host || '127.0.0.1';
+  let sessionToken = options.token;
+  const tokenFile = path.join(SKILLS_DB_DIR, 'web_token');
+  if (!sessionToken) {
+    try {
+      if (fs.existsSync(tokenFile)) {
+        const stat = fs.statSync(tokenFile);
+        if (Date.now() - stat.mtimeMs < 24 * 60 * 60 * 1000) {
+          const cached = fs.readFileSync(tokenFile, 'utf8').trim();
+          if (cached && cached.length >= 16) {
+            sessionToken = cached;
+          }
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  if (!sessionToken) {
+    sessionToken = crypto.randomBytes(16).toString('hex');
+    try {
+      if (!fs.existsSync(SKILLS_DB_DIR)) fs.mkdirSync(SKILLS_DB_DIR, { recursive: true });
+      fs.writeFileSync(tokenFile, sessionToken, { encoding: 'utf8', mode: 0o600 });
+    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+  const sseClients = new Set();
+  // Delta-sample state for the /api/v1/system/metrics CPU gauges
+  const systemMetrics = { _lastCpuTimes: null, _lastCpuUsage: null, _lastHrtime: process.hrtime.bigint() };
+
+  function broadcastEvent(type, data) {
+    const payload = 'event: ' + type + '\n' + 'data: ' + JSON.stringify(data) + '\n\n';
+    for (const client of sseClients) {
+      try { client.write(payload); } catch (_) { sseClients.delete(client); }
+    }
+  }
+
+  let svelteKitHandler = null;
+
+  async function getSvelteKitHandler() {
+    if (svelteKitHandler) return svelteKitHandler;
+    const resolvedWebDir = deployUtils.resolveWebUiDir() || WEB_UI_DIR;
+    const svelteKitHandlerPath = path.join(resolvedWebDir, 'build', 'handler.js');
+    if (fs.existsSync(svelteKitHandlerPath) && process.env.KONOHA_UI_ROUTER !== 'legacy') {
+      try {
+        // Guarantee ESM package boundary for SvelteKit handler to prevent [MODULE_TYPELESS_PACKAGE_JSON] warning
+        const buildDir = path.dirname(svelteKitHandlerPath);
+        const buildPkgPath = path.join(buildDir, 'package.json');
+        if (!fs.existsSync(buildPkgPath)) {
+          fs.writeFileSync(buildPkgPath, '{\n  "type": "module"\n}\n');
+        }
+        const appWebDir = path.dirname(buildDir);
+        const appWebPkg = path.join(appWebDir, 'package.json');
+        if (!fs.existsSync(appWebPkg)) {
+          fs.writeFileSync(appWebPkg, '{\n  "name": "konoha-web",\n  "type": "module",\n  "private": true\n}\n');
+        }
+        const { pathToFileURL } = require('url');
+        const mod = await import(pathToFileURL(svelteKitHandlerPath).href);
+        svelteKitHandler = mod.handler;
+      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
+    return svelteKitHandler;
+  }
+
+  const ctx = {
+    port,
+    host,
+    sessionToken,
+    sseClients,
+    systemMetrics,
+    broadcastEvent,
+    getSvelteKitHandler,
+    options
+  };
+
+  const server = http.createServer((req, res) => {
+    handleWebServerRequest(req, res, ctx).catch(err => {
+      try {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
+        }
+      } catch (_) { /* ignore */ }
+    });
   });
+
 
   return {
     server,

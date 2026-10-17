@@ -305,7 +305,9 @@ function getOmpStatus() {
     try {
       const text = fs.readFileSync(OMP_AGENTS_MD, 'utf-8');
       contractDeployed = text.includes(CONTRACT_START_MARKER) && text.includes(OMP_MANDATE_HEADING);
-    } catch (_) {}
+    } catch (_err) {
+      /* ignore unreadable file */
+    }
   }
 
   const rtkRuleFile = path.join(OMP_DIR, 'rules', 'rtk.md');

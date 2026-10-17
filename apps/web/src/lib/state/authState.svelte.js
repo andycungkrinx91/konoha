@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Svelte 5 Runes State for Konoha Authentication & Password Policy
 import { getAuthStatus, login as apiLogin, changePassword as apiChangePassword, logout as apiLogout } from '#lib/api.js';
 

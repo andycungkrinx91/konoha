@@ -206,7 +206,9 @@ async function cmdBridgeStop() {
           } else {
             process.kill(pid, 'SIGTERM');
           }
-        } catch (_) {}
+        } catch (_err) {
+          /* process may have already exited */
+        }
       }
     }
     await killProcessOnPort(19999);

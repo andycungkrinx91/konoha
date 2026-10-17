@@ -74,23 +74,11 @@ const {
 } = require('./mcp/build_spec');
 
 // 5. Workflow
+const workflowModule = require('./mcp/workflow');
 const {
   getResolvedTaskDir,
-  readFileSafe,
-  loadWorkflowStatus,
-  saveWorkflowStatus,
-  routeByKeywordsWithPrompt,
-  workflowHash,
-  workflowDispatch,
-  workflowDispatchCompleted,
-  isPentestTask,
-  isCleanValidation,
-  workflowParseTasks,
-  workflowReviewApproved,
-  cleanupTransientScratchFiles,
-  runMcpWorkflow,
-  runSannin
-} = require('./mcp/workflow');
+  readFileSafe
+} = workflowModule;
 
 // 6. Web Search
 const {
@@ -205,22 +193,9 @@ module.exports = {
   getMainModel,
   applyFileEdits,
   readFileSafe,
-  loadWorkflowStatus,
-  saveWorkflowStatus,
-  _load_workflow_status: loadWorkflowStatus,
-  _save_workflow_status: saveWorkflowStatus,
-  routeByKeywordsWithPrompt,
-  workflowHash,
-  workflowDispatch,
-  workflowDispatchCompleted,
-  isPentestTask,
-  isCleanValidation,
-  workflowParseTasks,
-  workflowReviewApproved,
-  cleanupTransientScratchFiles,
-  runMcpWorkflow,
-  runSannin,
-  runWebSearch,
+  _load_workflow_status: workflowModule.loadWorkflowStatus,
+  _save_workflow_status: workflowModule.saveWorkflowStatus,
+  ...workflowModule,
   assessValidationEvidence,
   reportFromAgent,
   getProjectContext,
@@ -248,8 +223,8 @@ module.exports = {
   get_project_context: getProjectContext,
   save_project_context: saveProjectContext,
   query_project_memory: queryProjectMemory,
-  run_mcp_workflow: runMcpWorkflow,
-  run_sannin: runSannin,
+  run_mcp_workflow: workflowModule.runMcpWorkflow,
+  run_sannin: workflowModule.runSannin,
   run_web_search: runWebSearch,
   run_website_ai_detector: runWebsiteAiDetector,
   website_ai_detector: runWebsiteAiDetector,

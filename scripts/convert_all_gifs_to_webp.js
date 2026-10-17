@@ -41,7 +41,6 @@ const TERMINAL_DEMOS = [
   'testing.gif'
 ];
 
-let useGitSource = false;
 let tmpDir = null;
 
 if (gifFiles.length === 0) {
@@ -58,9 +57,10 @@ if (gifFiles.length === 0) {
         fs.writeFileSync(tmpGif, gitOut.stdout);
         gifFiles.push(tmpGif);
       }
-    } catch (_) {}
+    } catch (_err) {
+      /* ignore git retrieval failure */
+    }
   }
-  useGitSource = true;
   console.log(`Extracted ${gifFiles.length} terminal demo GIFs from git history for high-quality re-encoding.\n`);
 } else {
   // If local gifs exist, filter out flow gifs if they are meant for generate_tokubetsu_flow_webp.js
@@ -120,7 +120,9 @@ for (const gifPath of gifFiles) {
   // Remove temporary or legacy gif
   try {
     fs.unlinkSync(gifPath);
-  } catch (_) {}
+  } catch (_err) {
+    /* ignore deletion failure */
+  }
 
   results.push({
     name: baseName,
@@ -137,7 +139,9 @@ for (const gifPath of gifFiles) {
 if (tmpDir && fs.existsSync(tmpDir)) {
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch (_) {}
+  } catch (_err) {
+    /* ignore temp dir cleanup failure */
+  }
 }
 
 console.log('\n====================================================');

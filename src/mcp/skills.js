@@ -259,6 +259,43 @@ function getServedSkillsSet(sessionId) {
   return SERVED_SKILLS_BY_SESSION.get(key);
 }
 
+function querySkillsByKeyword(conn, keyword, limit = 50) {
+  let rows = [];
+  if (!db.hasFts5Support || db.hasFts5Support(conn)) {
+    const sanitizedKeyword = sanitizeFts5Query(keyword);
+    try {
+      rows = conn.prepare(`
+        SELECT s.name, s.skill_name, s.type, s.tags,
+               s.content, s.byte_size, s.line_count, s.file_path,
+               bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
+        FROM skills_fts
+        JOIN skills s ON skills_fts.rowid = s.rowid
+        WHERE skills_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+      `).all(sanitizedKeyword, limit);
+    } catch (e) {
+      process.stderr.write(`  [Warning] FTS5 search query failed: ${e.message}. Falling back to LIKE search.\n`);
+      rows = [];
+    }
+  }
+
+  if (!rows || rows.length === 0) {
+    const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const likeKeyword = '%' + words.join('%') + '%';
+    rows = conn.prepare(`
+      SELECT name, skill_name, type, tags,
+             content, byte_size, line_count, file_path,
+             0 AS rank
+      FROM skills
+      WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
+      ORDER BY byte_size ASC
+      LIMIT ?
+    `).all(likeKeyword, likeKeyword, likeKeyword, limit);
+  }
+  return rows || [];
+}
+
 function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId = null) {
   process.stderr.write(`[mcp konoha] tool_call: find_skill(keyword='${keyword}', limit=${limit}, compact=${compact})\n`);
   try {
@@ -282,38 +319,7 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
     }
 
     if (!rows || rows.length === 0) {
-      if (!db.hasFts5Support || db.hasFts5Support(conn)) {
-        const sanitizedKeyword = sanitizeFts5Query(normKeyword);
-        try {
-          rows = conn.prepare(`
-            SELECT s.name, s.skill_name, s.type, s.tags,
-                   s.content, s.byte_size, s.line_count, s.file_path,
-                   bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-            FROM skills_fts
-            JOIN skills s ON skills_fts.rowid = s.rowid
-            WHERE skills_fts MATCH ?
-            ORDER BY rank
-            LIMIT 50
-          `).all(sanitizedKeyword);
-        } catch (e) {
-          process.stderr.write(`  [Warning] FTS5 search failed: ${e.message}. Falling back to LIKE search.\n`);
-          rows = [];
-        }
-      }
-    }
-
-    if (!rows || rows.length === 0) {
-      const words = normKeyword.replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-      const likeKeyword = '%' + words.join('%') + '%';
-      rows = conn.prepare(`
-        SELECT name, skill_name, type, tags,
-               content, byte_size, line_count, file_path,
-               0 AS rank
-        FROM skills
-        WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
-        ORDER BY byte_size ASC
-        LIMIT 50
-      `).all(likeKeyword, likeKeyword, likeKeyword);
+      rows = querySkillsByKeyword(conn, normKeyword, 50);
     }
 
     const visibleRows = [];
@@ -805,38 +811,7 @@ function optimizeReport(keyword = null, agentName = null) {
     let rows = [];
 
     if (keyword) {
-      if (!db.hasFts5Support || db.hasFts5Support(conn)) {
-        const sanitized = sanitizeFts5Query(keyword);
-        try {
-          rows = conn.prepare(`
-            SELECT s.name, s.skill_name, s.type, s.tags,
-                   s.content, s.byte_size, s.line_count, s.file_path,
-                   bm25(skills_fts, 10.0, 5.0, 8.0, 1.0) AS rank
-            FROM skills_fts
-            JOIN skills s ON skills_fts.rowid = s.rowid
-            WHERE skills_fts MATCH ?
-            ORDER BY rank
-            LIMIT 10
-          `).all(sanitized);
-        } catch (e) {
-          process.stderr.write(`  [Warning] FTS5 optimize_report query failed: ${e.message}. Falling back to LIKE.\n`);
-          rows = [];
-        }
-      }
-
-      if (!rows || rows.length === 0) {
-        const words = String(keyword).replace(/[^\w\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
-        const likeKeyword = '%' + words.join('%') + '%';
-        rows = conn.prepare(`
-          SELECT name, skill_name, type, tags,
-                 content, byte_size, line_count, file_path,
-                 0 AS rank
-          FROM skills
-          WHERE tags LIKE ? OR name LIKE ? OR skill_name LIKE ?
-          ORDER BY byte_size ASC
-          LIMIT 10
-        `).all(likeKeyword, likeKeyword, likeKeyword);
-      }
+      rows = querySkillsByKeyword(conn, keyword, 10);
     } else {
       rows = conn.prepare(`
         SELECT name, skill_name, type, tags,

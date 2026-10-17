@@ -53,15 +53,20 @@ function getDiagnostics(autoRepair = false) {
       return true;
     }
     if (autoRepair && fileExists(srcPath)) {
+      ensureDir(path.dirname(destPath));
+      let repairErr = null;
       try {
-        ensureDir(path.dirname(destPath));
         copyFile(srcPath, destPath);
-        record(label, 'REPAIRED', 'Restored missing file from package templates');
-        return true;
       } catch (e) {
-        record(label, 'FAILED', `Repair failed: ${e.message}`);
+        repairErr = e;
+      }
+      if (repairErr) {
+        process.stderr.write(`[doctor] Repair failed for ${label}: ${repairErr.message}\n`);
+        record(label, 'FAILED', `Repair failed: ${repairErr.message}`);
         return false;
       }
+      record(label, 'REPAIRED', 'Restored missing file from package templates');
+      return true;
     }
     record(label, 'FAILED', 'File missing');
 

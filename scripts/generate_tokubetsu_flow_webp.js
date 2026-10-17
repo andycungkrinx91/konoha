@@ -143,7 +143,7 @@ function buildHtmlPage(width, height, contentSvg, extraCss = '') {
 }
 
 // Renders a card node in Tokubetsu-Jonin standard
-function renderCard(x, y, w, h, col, title, detail, chips = [], badge = null) {
+function renderCard(x, y, w, h, col, title, detail, chips = [], _badge = null) {
   let chipHtml = '';
   if (chips && chips.length > 0) {
     const chipW = 60;
@@ -697,7 +697,9 @@ async function renderAndExportWebP(htmlContent, outputPath, width, height, total
   // Clean up temporary frame PNGs
   try {
     fs.rmSync(tmpFramesDir, { recursive: true, force: true });
-  } catch (_) {}
+  } catch (_err) {
+    /* ignore cleanup failure */
+  }
 
   // Validate resulting WebP binary
   const validation = validateAnimatedWebP(outputPath);
