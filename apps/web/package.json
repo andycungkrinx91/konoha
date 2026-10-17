@@ -24,9 +24,8 @@
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
+    "three": "^0.186.1",
     "vite": "^8.3.3"
   },
-  "dependencies": {
-    "three": "^0.186.1"
-  }
+  "dependencies": {}
 }

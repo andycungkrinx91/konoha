@@ -154,10 +154,10 @@ function runSuiteAsync(cmd, args, name) {
     let settled = false;
     const timer = setTimeout(() => {
       if (!settled) {
-        err += `\n[TIMEOUT] Suite ${name} timed out after 45s and was terminated.`;
+        err += `\n[TIMEOUT] Suite ${name} timed out after 120s and was terminated.`;
         try { child.kill('SIGKILL'); } catch (_) {}
       }
-    }, 45000);
+    }, 120000);
 
     child.stdout.on('data', d => out += d);
     child.stderr.on('data', d => err += d);

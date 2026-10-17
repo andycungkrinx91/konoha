@@ -832,15 +832,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       systemPrompt += `Available On-Demand Skills (call konoha.use_skills or konoha.get_skill to load): ${skillsList.join(', ')}\n\n`;
     }
     systemPrompt += (
-      'You can make file creations/edits directly by outputting conflict diff markers in your response.\n' +
       'To write a new file or edit an existing file, include this exact block in your response:\n' +
       'FILE: path/to/file\n' +
       '<<<<<<< original\n' +
       '[exact original code snippet to replace, leave empty for new files]\n' +
       '=======\n' +
       '[exact replacement code block]\n' +
-      '>>>>>>>\n\n' +
-      'Make sure to output the complete conflict diff block. You can output multiple diff blocks for multiple edits.'
+      '>>>>>>>\n'
     );
   }
 
