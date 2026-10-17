@@ -116,7 +116,14 @@ async function main() {
   // restarts a previously-running daemon, and cmdUiStart uses a port-specific
   {
     const uiLibPath = path.resolve(__dirname, '..', 'bin', 'lib', 'ui_commands.js');
-    const src = fs.readFileSync(CLI_PATH, 'utf8') + (fs.existsSync(uiLibPath) ? fs.readFileSync(uiLibPath, 'utf8') : '');
+    const initCmdPath = path.resolve(__dirname, '..', 'bin', 'commands', 'init.js');
+    const upgradeCmdPath = path.resolve(__dirname, '..', 'bin', 'commands', 'upgrade.js');
+    const runtimeLibPath = path.resolve(__dirname, '..', 'bin', 'lib', 'runtime.js');
+    const src = fs.readFileSync(CLI_PATH, 'utf8') +
+      (fs.existsSync(uiLibPath) ? fs.readFileSync(uiLibPath, 'utf8') : '') +
+      (fs.existsSync(initCmdPath) ? fs.readFileSync(initCmdPath, 'utf8') : '') +
+      (fs.existsSync(upgradeCmdPath) ? fs.readFileSync(upgradeCmdPath, 'utf8') : '') +
+      (fs.existsSync(runtimeLibPath) ? fs.readFileSync(runtimeLibPath, 'utf8') : '');
     ok('T3: cmdInit guards on options.skipUiAutoStart', src.includes('if (!options.skipUiAutoStart)'));
     ok('T3: cmdInit calls ensureUiDaemonAutoStart', /await ensureUiDaemonAutoStart\(\)/.test(src));
     ok('T3: cmdInit early-return (already-installed) path also auto-starts', (src.match(/options\.skipUiAutoStart/g) || []).length >= 2);

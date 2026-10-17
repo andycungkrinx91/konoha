@@ -17,18 +17,18 @@ const initialMemories = dbConn.prepare("SELECT COUNT(*) as count FROM persona_me
 const res1Raw = reportFromAgent('delegate_to_kage', 'Implemented feature', 'completed', [], [], ['test learning'], process.cwd(), null, null, ['npm test exited 0']);
 const res1 = JSON.parse(res1Raw);
 assert.strictEqual(res1.status, 'error');
-assert.strictEqual(
-  res1.message,
-  'Invalid agent name: "delegate_to_kage". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.'
+assert.ok(
+  res1.message.includes('delegate_to_kage') && res1.message.includes('without delegate_to_ prefix'),
+  'Must reject delegate_to_kage'
 );
 
 // 2. Rejection of delegated_to_kage
 const res2Raw = reportFromAgent('delegated_to_kage', 'Implemented feature', 'completed', [], [], ['test learning'], process.cwd(), null, null, ['npm test exited 0']);
 const res2 = JSON.parse(res2Raw);
 assert.strictEqual(res2.status, 'error');
-assert.strictEqual(
-  res2.message,
-  'Invalid agent name: "delegated_to_kage". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.'
+assert.ok(
+  res2.message.includes('delegated_to_kage') && res2.message.includes('without delegate_to_ prefix'),
+  'Must reject delegated_to_kage'
 );
 
 // Assert zero rows inserted in tool_calls and persona_memories

@@ -280,28 +280,30 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
     }
   }
 
-  for (const l of allLearnings) {
-    if (l && typeof l === 'string' && l.trim()) {
-      const content = l.trim();
-      try {
-        if (personaMemory.memoryContentExists({ content, agentName: cleanAgent, projectPath: pPath, dbPath: db.DB_PATH })) {
-          continue;
+  if (verified) {
+    for (const l of allLearnings) {
+      if (l && typeof l === 'string' && l.trim()) {
+        const content = l.trim();
+        try {
+          if (personaMemory.memoryContentExists({ content, agentName: cleanAgent, projectPath: pPath, dbPath: db.DB_PATH })) {
+            continue;
+          }
+          const cd = require('./client_detection');
+          const sessId = cd.getActiveSessionId(pPath);
+          const mid = personaMemory.saveMemory({
+            agentName: cleanAgent,
+            content,
+            title: `${cleanAgent} decision`,
+            memoryType: 'episodic',
+            importance: 2,
+            projectPath: pPath,
+            sessionId: sessId,
+            dbPath: db.DB_PATH
+          });
+          savedIds.push(mid);
+        } catch (e) {
+          process.stderr.write(`[mcp report_from_agent] Error saving learning: ${e.message}\n`);
         }
-        const cd = require('./client_detection');
-        const sessId = cd.getActiveSessionId(pPath);
-        const mid = personaMemory.saveMemory({
-          agentName: cleanAgent,
-          content,
-          title: `${cleanAgent} ${verified ? 'decision' : 'advisory learning'}`,
-          memoryType: 'episodic',
-          importance: verified ? 2 : 1,
-          projectPath: pPath,
-          sessionId: sessId,
-          dbPath: db.DB_PATH
-        });
-        savedIds.push(mid);
-      } catch (e) {
-        process.stderr.write(`[mcp report_from_agent] Error saving learning: ${e.message}\n`);
       }
     }
   }
