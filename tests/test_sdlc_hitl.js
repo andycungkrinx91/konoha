@@ -238,6 +238,86 @@ try {
   assert.strictEqual(auto2Res.phase, 'done');
   console.log('  ✓ Autonomous mode directly bypassed Gate 2 to done phase.');
 
+  // 8. Regression: Prompts with keywords ('continue', 'confirm', 'proceed', 'done', 'deliver', 'sign-off')
+  // must NEVER self-bypass Gate 1 or Gate 2 when hitl_mode is enabled.
+  console.log('  Testing Regression: Keyword-bearing prompts do not self-bypass gates...');
+  sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
+
+  // 8a. Gate 1 with prompt: "continue the refactor and confirm the pipeline, please proceed"
+  const taskDirKwGate1 = path.join(tmpDir, 'task_kw_gate1');
+  fs.mkdirSync(taskDirKwGate1, { recursive: true });
+  fs.writeFileSync(path.join(taskDirKwGate1, 'plan.md'), '# Plan\n- [anbu]: continue refactoring\n', 'utf8');
+  const statusKwGate1 = {
+    task_id: 'task_kw_gate1',
+    phase: 'plan',
+    prompt: 'continue the refactor and confirm the pipeline, please proceed with yes/ok',
+    project_path: tmpDir,
+    current_dispatch: { id: 'disp-kw-1', phase: 'plan', agent: 'kage' },
+    completed_dispatches: ['disp-kw-1'],
+    dispatch_results: { 'disp-kw-1': 'Plan generated' }
+  };
+  saveWorkflowStatus(taskDirKwGate1, statusKwGate1);
+  sdlc.createTask({ id: 'task_kw_gate1', description: statusKwGate1.prompt, status: 'in_progress', project_path: tmpDir });
+
+  const kwGate1Res = JSON.parse(runMcpWorkflow(taskDirKwGate1));
+  assert.strictEqual(kwGate1Res.status, 'pending_plan_approval', 'Keyword-bearing prompt must NOT self-bypass Gate 1');
+  assert.strictEqual(kwGate1Res.phase, 'plan_approval');
+
+  // Verify re-calling stays paused
+  const kwGate1PauseRes = JSON.parse(runMcpWorkflow(taskDirKwGate1));
+  assert.strictEqual(kwGate1PauseRes.status, 'pending_plan_approval');
+  console.log('  ✓ Gate 1 with "continue/confirm/proceed/yes" keywords strictly paused awaiting approval.');
+
+  // 8b. Gate 2 with prompt: "when done deliver the build, sign-off and approve"
+  const taskDirKwGate2 = path.join(tmpDir, 'task_kw_gate2');
+  fs.mkdirSync(taskDirKwGate2, { recursive: true });
+  fs.writeFileSync(path.join(taskDirKwGate2, 'kage_review.json'), JSON.stringify({
+    status: 'approved',
+    approved: true,
+    confidence: 100,
+    ai_slop_clean: true,
+    ai_slop_findings: 0,
+    security_reviewed: true,
+    rollback_reviewed: true,
+    rollback_plan: 'git revert',
+    verified_task_ids: ['task-kw-2'],
+    validation: ['exit 0']
+  }), 'utf8');
+  const statusKwGate2 = {
+    task_id: 'task_kw_gate2',
+    phase: 'review',
+    prompt: 'when done deliver the build, sign-off and approve all accepted changes',
+    project_path: tmpDir,
+    tasks: [{ id: 'task-kw-2', agent: 'anbu', task: 'Build', status: 'completed', validation: ['exit 0'] }],
+    completed_executors: ['task-kw-2'],
+    current_dispatch: { id: 'disp-kw-2', phase: 'review', agent: 'kage' },
+    completed_dispatches: ['disp-kw-2'],
+    dispatch_results: { 'disp-kw-2': 'Review approved' },
+    review: {
+      status: 'approved',
+      approved: true,
+      confidence: 100,
+      ai_slop_clean: true,
+      ai_slop_findings: 0,
+      security_reviewed: true,
+      rollback_reviewed: true,
+      rollback_plan: 'git revert',
+      verified_task_ids: ['task-kw-2'],
+      validation: ['exit 0']
+    }
+  };
+  saveWorkflowStatus(taskDirKwGate2, statusKwGate2);
+  sdlc.createTask({ id: 'task_kw_gate2', description: statusKwGate2.prompt, status: 'in_progress', project_path: tmpDir });
+
+  const kwGate2Res = JSON.parse(runMcpWorkflow(taskDirKwGate2));
+  assert.strictEqual(kwGate2Res.status, 'pending_human_signoff', 'Keyword-bearing prompt must NOT self-bypass Gate 2');
+  assert.strictEqual(kwGate2Res.phase, 'delivery_signoff');
+
+  // Verify re-calling stays paused
+  const kwGate2PauseRes = JSON.parse(runMcpWorkflow(taskDirKwGate2));
+  assert.strictEqual(kwGate2PauseRes.status, 'pending_human_signoff');
+  console.log('  ✓ Gate 2 with "done/deliver/sign-off/approve" keywords strictly paused awaiting sign-off.');
+
 } finally {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
 }

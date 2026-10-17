@@ -760,9 +760,8 @@ function runMcpWorkflow(taskDir = null) {
     const rootTaskId = status.task_id || path.basename(resolvedTaskDir);
     const rootTaskRecord = sdlcManager.getTask(rootTaskId);
     const isApprovedInDb = rootTaskRecord && (rootTaskRecord.status === 'in_progress' || rootTaskRecord.status === 'completed');
-    const isExplicitlyApproved = effPrompt && /\b(approved?|proceed|yes|ok|continue|confirm|go ahead)\b/i.test(effPrompt);
 
-    if (isApprovedInDb || isExplicitlyApproved || sdlcConfig.hitl_mode === 'disabled') {
+    if (isApprovedInDb || sdlcConfig.hitl_mode === 'disabled') {
       status.plan_approved = true;
       status.phase = 'execute';
       phase = 'execute';
@@ -789,9 +788,8 @@ function runMcpWorkflow(taskDir = null) {
     const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
     const rootTaskRecord = sdlcManager.getTask(rootId);
     const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
-    const isExplicitlySignedOff = effPrompt && /\b(sign[\s-]?off|approve|approved?|deliver|accepted?|done)\b/i.test(effPrompt);
 
-    if (isSignedOffInDb || isExplicitlySignedOff || sdlcConfig.hitl_mode === 'disabled') {
+    if (isSignedOffInDb || sdlcConfig.hitl_mode === 'disabled') {
       status.human_signed_off = true;
       status.phase = 'done';
       try {
@@ -1355,9 +1353,8 @@ function runMcpWorkflow(taskDir = null) {
     const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
     const rootTaskRecord = sdlcManager.getTask(rootId);
     const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
-    const isExplicitlySignedOff = effPrompt && /\b(sign[\s-]?off|approve|approved?|deliver|accepted?|done)\b/i.test(effPrompt);
 
-    if (sdlcConfig.hitl_mode === 'enabled' && !status.human_signed_off && !isSignedOffInDb && !isExplicitlySignedOff) {
+    if (sdlcConfig.hitl_mode === 'enabled' && !status.human_signed_off && !isSignedOffInDb) {
       status.phase = 'delivery_signoff';
       status.assigned_agent = 'sannin';
       try {
