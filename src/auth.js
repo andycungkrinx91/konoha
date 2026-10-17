@@ -14,7 +14,12 @@ const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
 const AUTH_CONFIG_FILE = process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
 const DEFAULT_BOOTSTRAP_PASSWORD = 'konohagakure';
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Session lifetime (24 hours by default); overridable for isolated test fixtures.
+const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = (() => {
+  const override = Number.parseInt(process.env.KONOHA_SESSION_TTL_MS || '', 10);
+  return Number.isFinite(override) && override > 0 ? override : DEFAULT_SESSION_TTL_MS;
+})();
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
 const SCRYPT_KEY_LEN = 64;
 
@@ -114,9 +119,21 @@ function saveAuthConfig(config) {
     fs.mkdirSync(authDir, { recursive: true });
   }
   const payload = JSON.stringify(config, null, 2);
-  const tmpFile = `${AUTH_CONFIG_FILE}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
-  fs.writeFileSync(tmpFile, payload, { encoding: 'utf8', mode: 0o600 });
-  fs.renameSync(tmpFile, AUTH_CONFIG_FILE);
+  // Write in place (O_TRUNC) instead of temp-file + rename: a rename would need
+  // write permission on the parent directory and can replace a symlink, while
+  // truncating the file itself only needs write permission on the file.
+  const fd = fs.openSync(AUTH_CONFIG_FILE, 'w', 0o600);
+  try {
+    fs.writeSync(fd, payload, null, 'utf8');
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.chmodSync(AUTH_CONFIG_FILE, 0o600);
+  } catch (_) {
+    // Best effort: keep the credential file owner-only where supported.
+  }
 }
 
 /**

@@ -18,10 +18,14 @@ Verify the effective author identity for the commit. Do not push the commit to a
 - The plan must be execution-ready, architecture-aware, and contain acceptance criteria and verification steps.
 - Update the plan as implementation progresses when necessary.
 - Never include root `PLAN.md` or files under `.omp/plans/` in a commit.
-- The root `.gitignore` must exclude:
+- The root `.gitignore` must exclude (single consolidated block):
   ```gitignore
   /PLAN.md
+  PLAN.md
   /.omp/plans/
+  .omp/plans/
+  .omp/plans
+  .omp/
   ```
 - Inspect the existing Git ignore rules and repository status before changing them.
 - If either path is already tracked, explicitly untrack it from the Git index (`git rm --cached`) without deleting the local file.
@@ -50,3 +54,8 @@ Required audit scope:
 - All relevant assets under `assets/`.
 - README files, architecture descriptions, configuration examples, and workflow documentation affected by the changes.
 - Open and inspect actual files; do not substitute automated scripts for manual review.
+- Review decisions:
+  - Manually read every file in scope before editing it.
+  - Correct only claims that the current implementation made stale.
+  - Record what was actually inspected and leave unrelated documents or assets untouched without claiming they were audited.
+  - Regenerate skill mirrors only through `node scripts/sync_skills.js` after editing the canonical `.agents/skills/` source.

@@ -54,11 +54,6 @@ key.pem
 *.crt
 
 # Local temporary or scratch files
-/PLAN.md
-/.omp/plans/
-PLAN.md
-.omp/plans/
-.omp/plans
 output.txt
 scratch/
 prompt.md
@@ -124,9 +119,10 @@ playwright/.cache/
 agent/
 docs/QA-TEST-CHECKLIST.md
 
-# Plans & Runtime Session State
-PLAN.md
+# Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
-.omp/
-.omp/plans/
+PLAN.md
 /.omp/plans/
+.omp/plans/
+.omp/plans
+.omp/
