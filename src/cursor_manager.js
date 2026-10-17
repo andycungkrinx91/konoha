@@ -95,14 +95,16 @@ function generateCursorSubagent(agent) {
   instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
 
   if (agent.skills && agent.skills.length > 0) {
-    const loadingInstruction = `Before work: call konoha.find_skill with keywords from the task prompt to load relevant domain references. After discovery, load full skill content with konoha.get_skill.`;
+    const findSkillCalls = agent.skills.map(s => `find_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const getSkillCalls = agent.skills.map(s => `get_skill("${s}", agent='${agent.name}')`).join('. ') + '.';
+    const loadingInstruction = `After discovery, load the full skill content with ${getSkillCalls}`;
     const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
     const logMatch = instructions.match(logPattern);
     if (logMatch) {
       const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `${loadingInstruction} ` + instructions.slice(insertIndex);
+      instructions = instructions.slice(0, insertIndex) + `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions.slice(insertIndex);
     } else {
-      instructions = `${loadingInstruction} ` + instructions;
+      instructions = `Before work: ${findSkillCalls} ${loadingInstruction} ` + instructions;
     }
   }
 

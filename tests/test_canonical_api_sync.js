@@ -3,7 +3,7 @@
 
 /**
  * test_canonical_api_sync.js
- * Regression test locking the canonical MCP tool count (35 tools) and
+ * Regression test locking the canonical MCP tool count (45 tools) and
  * ensuring docs/architecture/CANONICAL-API.md remains in 100% sync with live listToolSchemas().
  */
 
@@ -21,8 +21,8 @@ console.log('Running test_canonical_api_sync.js...');
 
 // 1. Tool count lock
 const schemas = listToolSchemas();
-assert.strictEqual(schemas.length, 40, `Expected exactly 40 canonical MCP tools, found ${schemas.length}`);
-console.log('  ✓ Canonical tool count is locked at 40.');
+assert.strictEqual(schemas.length, 45, `Expected exactly 45 canonical MCP tools, found ${schemas.length}`);
+console.log('  ✓ Canonical tool count is locked at 45.');
 
 // 2. Specific schema parameter integrity checks
 const findSkill = schemas.find(t => t.name === 'find_skill');

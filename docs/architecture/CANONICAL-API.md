@@ -24,7 +24,7 @@ All tools (45 active) are served through the `konoha` MCP server over stdio JSON
 | `find_skill` | `keyword: string, limit?: number, agent?: string, compact?: boolean, task_id?: string` | Search indexed skills across repositories. | JSON array of matched skills & snippets |
 | `list_skills` | `agent?: string, fields?: array` | List indexed skills. | JSON array of skill records |
 | `get_skill` | `name: string, agent?: string, token_budget?: number, section?: string, task_id?: string` | Retrieve a skill or reference by name. | Markdown skill text with section metadata |
-| `use_skills` | `skills?: any, name?: string, agent?: string, token_budget?: number, section?: string, task_id?: string` | Load and activate specific skill(s) by name from the database, with automatic fallback to mirror skills and warning if missing in database. | Skill activation & guidelines JSON |
+| `use_skills` | `skills?: any, skill?: string, names?: any, name?: string, agent?: string, token_budget?: number, budget?: number, section?: string, task_id?: string, session_id?: string` | Load and activate specific skill(s) by name from the database, with automatic fallback to mirror skills and warning if missing in database. | Skill activation & guidelines JSON |
 | `optimize_report` | `keyword?: string, agent?: string` | Analyze skill token footprint. | Formatted skill token analysis |
 | `build_from_source` | `name: string, source_dir: string, framework: string, taste_dials?: object` | Return a source-fidelity build specification. | Structured JSON specification |
 | `build_from_text` | `name: string, description: string, framework: string, taste_dials?: object` | Return a text-driven build specification. | Structured JSON specification |
