@@ -320,6 +320,9 @@ async function notifyKageReviewPassed({
   if (!config.enabled) {
     return { ok: false, error: 'Telegram integration is disabled' };
   }
+  if (config.mode === 'two_way') {
+    return { ok: true, skipped: true, reason: 'Suppressed in two_way mode to prevent duplicate notification' };
+  }
   if (!config.bot_token) {
     return { ok: false, error: 'Telegram bot_token is not configured' };
   }

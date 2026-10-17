@@ -71,30 +71,25 @@ async function run() {
 
     // Phase 2: Full delegation cycle for anbu
     console.log('Testing Phase 2: Full delegation cycle...');
-    const taskCycle = setupTask(taskRoot, 'cycle', 'fix the api endpoint bug, deploy via ci/cd docker');
-    const resCycle1 = JSON.parse(server.runSannin(null, taskCycle));
+    const taskCycle = setupTask(taskRoot, 'cycle');
+    const promptText = 'fix the api endpoint bug, deploy via ci/cd docker';
+    const resCycle1 = JSON.parse(server.runSannin(promptText, taskCycle));
     assert.strictEqual(resCycle1.status, 'routed');
     assert.strictEqual(resCycle1.selected_agent, 'anbu');
     assert.strictEqual(resCycle1.phase, 'delegation');
-    assert.ok(resCycle1.instructions.includes('Write `delegate.md`'));
+    assert.ok(resCycle1.instructions.includes('Call `anbu`'));
+    assert.ok(resCycle1.instructions.includes('konoha.report_from_agent'));
 
-    const delegateContent = '---\nagent: anbu\npriority: high\n---\n\n## Task\n\nFix the failing API endpoint and redeploy to production.\n';
-    fs.writeFileSync(path.join(taskCycle, 'delegate.md'), delegateContent, 'utf8');
-
-    const resCycle2 = JSON.parse(server.runMcpAgent('anbu', null, null, null, null, null, null, taskCycle));
+    const taskInstruction = 'Fix the failing API endpoint and redeploy to production.';
+    const resCycle2 = JSON.parse(server.runMcpAgent('anbu', taskInstruction, null, null, null, null, null, taskCycle));
     assert.strictEqual(resCycle2.status, 'ready');
     assert.strictEqual(resCycle2.phase, 'execution');
     assert.strictEqual(resCycle2.agent, 'anbu');
     assert.strictEqual(resCycle2.task_dir, taskCycle);
-    assert.strictEqual(fs.existsSync(path.join(taskCycle, 'result.md')), false);
 
-    const resultContent = '## Result\n\nFixed the API endpoint bug; redeployed successfully.\n';
-    fs.writeFileSync(path.join(taskCycle, 'result.md'), resultContent, 'utf8');
-
-    const resCycle3 = JSON.parse(server.runSannin(null, taskCycle));
-    assert.strictEqual(resCycle3.status, 'completed');
-    assert.strictEqual(resCycle3.phase, 'result');
-    assert.strictEqual(resCycle3.result, resultContent.trim());
+    const resultContent = 'Fixed the API endpoint bug; redeployed successfully.';
+    const resCycle3 = JSON.parse(server.reportFromAgent('anbu', resultContent, 'completed', [], [], [], taskRoot, taskCycle));
+    assert.strictEqual(resCycle3.status, 'recorded');
     console.log('✓ Phase 2 delegation cycle passed');
 
     // Phase 3: Skill loading verification
@@ -110,21 +105,20 @@ async function run() {
     assert.ok(instrAnbu.includes('## TASK INSTRUCTIONS'));
     assert.ok(instrAnbu.includes('Fix this API bug end-to-end.'));
     assert.ok(instrAnbu.includes('## Execution Protocol'));
-    assert.ok(instrAnbu.includes('result.md'));
+    assert.ok(instrAnbu.includes('report_from_agent'));
 
     const taskJoninSkill = setupTask(taskRoot, 'jonin_skill', null, 'Build a SvelteKit dashboard component.\n');
     const resJoninSkill = JSON.parse(server.runMcpAgent('jonin', null, null, null, null, null, null, taskJoninSkill));
     assert.strictEqual(resJoninSkill.status, 'ready');
     assert.ok(resJoninSkill.instructions.includes('jonin-skill'));
 
-    const taskSanninInstr = setupTask(taskRoot, 'sannin_instr', 'build a sveltekit landing page component');
-    const resSanninInstr = JSON.parse(server.runSannin(null, taskSanninInstr));
+    const taskSanninInstr = setupTask(taskRoot, 'sannin_instr');
+    const resSanninInstr = JSON.parse(server.runSannin('build a sveltekit landing page component', taskSanninInstr));
     assert.strictEqual(resSanninInstr.status, 'routed');
     assert.ok(resSanninInstr.instructions.includes('**Selected Agent**: `jonin`'));
     assert.ok(resSanninInstr.instructions.includes('**Reason**:'));
-    assert.ok(resSanninInstr.instructions.includes('Write `delegate.md`'));
     assert.ok(resSanninInstr.instructions.includes('Call `jonin`'));
-    assert.ok(resSanninInstr.instructions.includes('Write `result.md`'));
+    assert.ok(resSanninInstr.instructions.includes('konoha.report_from_agent'));
     assert.ok(resSanninInstr.instructions.includes('build a sveltekit landing page component'));
     console.log('✓ Phase 3 skill loading passed');
 
@@ -134,8 +128,8 @@ async function run() {
     delete process.env.ANTIGRAVITY_CONVERSATION_ID;
     delete process.env.AGY_SESSION;
 
-    const taskAttr = setupTask(taskRoot, 'attribution', 'do the thing');
-    server.runSannin(null, taskAttr);
+    const taskAttr = setupTask(taskRoot, 'attribution');
+    server.runSannin('do the thing', taskAttr);
 
     const conn = db.getConnection(DB_PATH);
     const row = conn.prepare("SELECT client FROM tool_calls ORDER BY id DESC LIMIT 1").get();

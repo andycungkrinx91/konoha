@@ -57,6 +57,187 @@ try {
   assert.strictEqual(cliReadBack.hitl_mode, 'disabled');
   console.log('  ✓ CLI command "konoha project set hitl-mode disabled" updated database.');
 
+  // Restore hitl_mode to enabled for workflow gate testing
+  sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
+  const { runMcpWorkflow, saveWorkflowStatus } = require('../src/mcp/workflow');
+
+  // 5. Workflow Gate 1 (Plan Approval) blocking in enabled mode
+  console.log('  Testing Workflow Gate 1 (Plan Approval)...');
+  const taskDirGate1 = path.join(tmpDir, 'task_gate1');
+  fs.mkdirSync(taskDirGate1, { recursive: true });
+  fs.writeFileSync(path.join(taskDirGate1, 'plan.md'), '# Implementation Plan\n- [anbu]: Build backend auth API\n- [jonin]: Build frontend auth form\n', 'utf8');
+  const statusGate1 = {
+    task_id: 'task_gate1',
+    phase: 'plan',
+    prompt: 'Implement auth system',
+    project_path: tmpDir,
+    current_dispatch: {
+      id: 'disp-plan-1',
+      phase: 'plan',
+      agent: 'kage'
+    },
+    completed_dispatches: ['disp-plan-1'],
+    dispatch_results: { 'disp-plan-1': 'Plan generated' }
+  };
+  saveWorkflowStatus(taskDirGate1, statusGate1);
+  sdlc.createTask({ id: 'task_gate1', description: 'Implement auth system', status: 'in_progress', project_path: tmpDir });
+
+  // Run workflow -> should pause at Gate 1
+  const gate1Res = JSON.parse(runMcpWorkflow(taskDirGate1));
+  assert.strictEqual(gate1Res.status, 'pending_plan_approval', 'Must return pending_plan_approval when hitl_mode is enabled');
+  assert.strictEqual(gate1Res.phase, 'plan_approval');
+  assert.strictEqual(gate1Res.hitl_gate, 'Gate 1 (Plan Approval)');
+
+  // Verify task in DB updated to pending_plan_approval
+  const dbTaskGate1 = sdlc.getTask('task_gate1');
+  assert.strictEqual(dbTaskGate1.status, 'pending_plan_approval', 'DB task status must be pending_plan_approval');
+
+  // Verify re-running without approval stays paused
+  const gate1PauseRes = JSON.parse(runMcpWorkflow(taskDirGate1));
+  assert.strictEqual(gate1PauseRes.status, 'pending_plan_approval');
+
+  // Human approves plan: update task status in DB to in_progress
+  sdlc.updateTask('task_gate1', { status: 'in_progress' });
+  const gate1ApprovedRes = JSON.parse(runMcpWorkflow(taskDirGate1));
+  assert.strictEqual(gate1ApprovedRes.status, 'ready');
+  assert.strictEqual(gate1ApprovedRes.phase, 'execute');
+  assert.strictEqual(gate1ApprovedRes.agent, 'anbu');
+  console.log('  ✓ Workflow Gate 1 (Plan Approval) enforced and approved successfully.');
+
+  // 6. Workflow Gate 2 (Delivery Sign-Off) blocking in enabled mode
+  console.log('  Testing Workflow Gate 2 (Delivery Sign-Off)...');
+  const taskDirGate2 = path.join(tmpDir, 'task_gate2');
+  fs.mkdirSync(taskDirGate2, { recursive: true });
+  fs.writeFileSync(path.join(taskDirGate2, 'kage_review.json'), JSON.stringify({
+    status: 'approved',
+    approved: true,
+    confidence: 100,
+    ai_slop_clean: true,
+    ai_slop_findings: 0,
+    security_reviewed: true,
+    rollback_reviewed: true,
+    rollback_plan: 'git revert',
+    verified_task_ids: ['task-1'],
+    validation: ['npm test exit 0']
+  }), 'utf8');
+  const statusGate2 = {
+    task_id: 'task_gate2',
+    phase: 'review',
+    prompt: 'Implement auth system',
+    project_path: tmpDir,
+    tasks: [{ id: 'task-1', agent: 'anbu', task: 'Build auth', status: 'completed', validation: ['npm test exit 0'] }],
+    completed_executors: ['task-1'],
+    current_dispatch: { id: 'disp-rev-1', phase: 'review', agent: 'kage' },
+    completed_dispatches: ['disp-rev-1'],
+    dispatch_results: { 'disp-rev-1': 'Review approved' },
+    review: {
+      status: 'approved',
+      approved: true,
+      confidence: 100,
+      ai_slop_clean: true,
+      ai_slop_findings: 0,
+      security_reviewed: true,
+      rollback_reviewed: true,
+      rollback_plan: 'git revert',
+      verified_task_ids: ['task-1'],
+      validation: ['npm test exit 0']
+    }
+  };
+  saveWorkflowStatus(taskDirGate2, statusGate2);
+  sdlc.createTask({ id: 'task_gate2', description: 'Implement auth system', status: 'in_progress', project_path: tmpDir });
+
+  // Run workflow -> should pause at Gate 2
+  const gate2Res = JSON.parse(runMcpWorkflow(taskDirGate2));
+  assert.strictEqual(gate2Res.status, 'pending_human_signoff', 'Must return pending_human_signoff when hitl_mode is enabled');
+  assert.strictEqual(gate2Res.phase, 'delivery_signoff');
+  assert.strictEqual(gate2Res.hitl_gate, 'Gate 2 (Delivery Sign-Off)');
+
+  // Verify task in DB updated to pending_human_signoff
+  const dbTaskGate2 = sdlc.getTask('task_gate2');
+  assert.strictEqual(dbTaskGate2.status, 'pending_human_signoff', 'DB task status must be pending_human_signoff');
+
+  // Verify re-running without sign-off stays paused
+  const gate2PauseRes = JSON.parse(runMcpWorkflow(taskDirGate2));
+  assert.strictEqual(gate2PauseRes.status, 'pending_human_signoff');
+
+  // Human signs off: update task to completed in DB
+  sdlc.updateTask('task_gate2', { status: 'completed' });
+  const gate2SignedRes = JSON.parse(runMcpWorkflow(taskDirGate2));
+  assert.strictEqual(gate2SignedRes.status, 'completed');
+  assert.strictEqual(gate2SignedRes.phase, 'done');
+  console.log('  ✓ Workflow Gate 2 (Delivery Sign-Off) enforced and concluded successfully.');
+
+  // 7. Workflow Autonomous Mode (hitl_mode: disabled) bypasses gates
+  console.log('  Testing Autonomous Mode (hitl_mode: disabled)...');
+  sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' }, dbPath);
+
+  // Autonomous Gate 1 bypass
+  const taskDirAuto1 = path.join(tmpDir, 'task_auto1');
+  fs.mkdirSync(taskDirAuto1, { recursive: true });
+  fs.writeFileSync(path.join(taskDirAuto1, 'plan.md'), '# Implementation Plan\n- [anbu]: Build backend\n', 'utf8');
+  const statusAuto1 = {
+    task_id: 'task_auto1',
+    phase: 'plan',
+    prompt: 'Auto task',
+    project_path: tmpDir,
+    current_dispatch: { id: 'disp-auto-1', phase: 'plan', agent: 'kage' },
+    completed_dispatches: ['disp-auto-1'],
+    dispatch_results: { 'disp-auto-1': 'Plan generated' }
+  };
+  saveWorkflowStatus(taskDirAuto1, statusAuto1);
+  sdlc.createTask({ id: 'task_auto1', description: 'Auto task', status: 'in_progress', project_path: tmpDir });
+
+  const auto1Res = JSON.parse(runMcpWorkflow(taskDirAuto1));
+  assert.strictEqual(auto1Res.status, 'ready');
+  assert.strictEqual(auto1Res.phase, 'execute', 'Autonomous mode must bypass Gate 1 directly to execute');
+  console.log('  ✓ Autonomous mode directly bypassed Gate 1 to execute phase.');
+
+  // Autonomous Gate 2 bypass
+  const taskDirAuto2 = path.join(tmpDir, 'task_auto2');
+  fs.mkdirSync(taskDirAuto2, { recursive: true });
+  fs.writeFileSync(path.join(taskDirAuto2, 'kage_review.json'), JSON.stringify({
+    status: 'approved',
+    approved: true,
+    confidence: 100,
+    ai_slop_clean: true,
+    ai_slop_findings: 0,
+    security_reviewed: true,
+    rollback_reviewed: true,
+    rollback_plan: 'git revert',
+    verified_task_ids: ['task-auto-2'],
+    validation: ['exit 0']
+  }), 'utf8');
+  const statusAuto2 = {
+    task_id: 'task_auto2',
+    phase: 'review',
+    prompt: 'Auto task 2',
+    project_path: tmpDir,
+    tasks: [{ id: 'task-auto-2', agent: 'anbu', task: 'Build backend', status: 'completed', validation: ['exit 0'] }],
+    completed_executors: ['task-auto-2'],
+    current_dispatch: { id: 'disp-auto-2', phase: 'review', agent: 'kage' },
+    completed_dispatches: ['disp-auto-2'],
+    dispatch_results: { 'disp-auto-2': 'Review approved' },
+    review: {
+      status: 'approved',
+      approved: true,
+      confidence: 100,
+      ai_slop_clean: true,
+      ai_slop_findings: 0,
+      security_reviewed: true,
+      rollback_reviewed: true,
+      rollback_plan: 'git revert',
+      verified_task_ids: ['task-auto-2'],
+      validation: ['exit 0']
+    }
+  };
+  saveWorkflowStatus(taskDirAuto2, statusAuto2);
+  sdlc.createTask({ id: 'task_auto2', description: 'Auto task 2', status: 'in_progress', project_path: tmpDir });
+
+  const auto2Res = JSON.parse(runMcpWorkflow(taskDirAuto2));
+  assert.strictEqual(auto2Res.status, 'completed', 'Autonomous mode must bypass Gate 2 directly to completed');
+  assert.strictEqual(auto2Res.phase, 'done');
+  console.log('  ✓ Autonomous mode directly bypassed Gate 2 to done phase.');
+
 } finally {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
 }

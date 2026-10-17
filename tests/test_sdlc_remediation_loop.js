@@ -119,11 +119,9 @@ async function run() {
     assert.strictEqual(step1Res.slop_cycles, 1);
     assert.ok(step1Res.message.includes('Dispatched remediation task to Anbu (cycle 1)'));
 
-    // Check that delegate.md was written for Anbu
-    const delegateContent = fs.readFileSync(path.join(tmpWorkflowDir, 'delegate.md'), 'utf8');
-    assert.ok(delegateContent.includes('agent: anbu'));
-    assert.ok(delegateContent.includes('Phase: Remediation (Anti-Slop Cycle 1)'));
-    assert.ok(delegateContent.includes('Overly verbose filler comments'));
+    // Verify structured remediation task for Anbu
+    assert.strictEqual(step1Res.agent, 'anbu');
+    assert.ok(step1Res.task.includes('Overly verbose filler comments'));
 
     // Verify updated status.json
     const updatedStatus = JSON.parse(fs.readFileSync(path.join(tmpWorkflowDir, 'status.json'), 'utf8'));
@@ -182,9 +180,8 @@ async function run() {
       assert.strictEqual(joninStepRes.slop_cycles, 1);
       assert.ok(joninStepRes.message.includes('Dispatched remediation task to Jonin (cycle 1)'));
 
-      const joninDelegate = fs.readFileSync(path.join(tmpJoninDir, 'delegate.md'), 'utf8');
-      assert.ok(joninDelegate.includes('agent: jonin'));
-      assert.ok(joninDelegate.includes('Generic AI purple gradients'));
+      assert.strictEqual(joninStepRes.agent, 'jonin');
+      assert.ok(joninStepRes.task.includes('Generic AI purple gradients'));
       console.log('✓ Workflow remediation loop auto-dispatch to Jonin for UI tasks verified');
     } finally {
       fs.rmSync(tmpJoninDir, { recursive: true, force: true });

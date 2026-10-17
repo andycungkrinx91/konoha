@@ -128,7 +128,7 @@
         errorMessage = 'Gateway server is unreachable or offline.';
         toast.error(errorMessage);
       } else {
-        errorMessage = 'Invalid passphrase. Access denied.';
+        errorMessage = 'Invalid passphrase (invalid password). Access denied.';
         toast.error('Invalid passphrase. Access denied.');
       }
       passwordInputEl?.focus();

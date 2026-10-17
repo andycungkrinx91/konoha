@@ -35,8 +35,8 @@ const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
 // Workflow artifacts live in the task dir, never in the workspace root —
 // give agents an actionable hint when they look for them in the wrong place.
 const WORKFLOW_FILENAMES = new Set([
-  'prompt.md', 'plan.md', 'result.md', 'delegate.md', 'findings.md',
-  'final_report.md', 'final_docs.md', 'kage_review.json', 'status.json'
+  'plan.md', 'findings.md', 'final_report.md', 'final_docs.md',
+  'kage_review.json', 'status.json'
 ]);
 
 function annotateWorkflowFileHint(text) {
@@ -50,12 +50,8 @@ function annotateWorkflowFileHint(text) {
     const base = path.basename(rawPath).toLowerCase();
     if (!WORKFLOW_FILENAMES.has(base)) return text;
     const taskDir = getResolvedTaskDir(null);
-    if (base === 'prompt.md' || base === 'delegate.md' || base === 'result.md') {
-      parsed.hint = `'${base}' is deprecated. Task instructions and context are passed directly via structured tool arguments (task, context, constraints) or persisted in SQLite (sdlc_tasks).`;
-    } else {
-      parsed.hint = `'${base}' is a workflow artifact and lives in the task directory, not the workspace root. ` +
-        `Current task dir: ${taskDir}. Use get_resolved_task_dir to resolve it, then read files there.`;
-    }
+    parsed.hint = `'${base}' is a workflow artifact and lives in the task directory, not the workspace root. ` +
+      `Current task dir: ${taskDir}. Use get_resolved_task_dir to resolve it, then read files there.`;
     return JSON.stringify(parsed);
   } catch (_) {
     return text;

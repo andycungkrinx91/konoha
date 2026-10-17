@@ -380,7 +380,7 @@ function ensureAntigravityMcpSchemas() {
       parameters: {
         type: 'object',
         properties: {
-          prompt: { type: 'string', description: 'The task prompt. If not provided, reads from prompt.md in task_dir.' },
+          prompt: { type: 'string', description: 'The task prompt directly passed from chat context or instructions.' },
           task_dir: { type: 'string', description: 'Task workspace directory.' }
         }
       }

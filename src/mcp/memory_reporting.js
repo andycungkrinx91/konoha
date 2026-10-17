@@ -263,22 +263,7 @@ function reportFromAgent(agentName, summary, status = 'completed', filesCreated 
 
 
   const savedIds = [];
-  let allLearnings = Array.isArray(learnings) ? [...learnings] : [];
-  if (allLearnings.length === 0 && taskDir && fs.existsSync(taskDir)) {
-    const resPath = path.join(taskDir, 'result.md');
-    if (fs.existsSync(resPath)) {
-      try {
-        const resText = fs.readFileSync(resPath, 'utf8');
-        const match = resText.match(/##\s*(?:Key\s*)?(?:Learnings|Decisions|Takeaways)\s*\n([\s\S]*?)(?:\n##|$)/i);
-        if (match && match[1]) {
-          const bullets = match[1].split('\n')
-            .map(l => l.replace(/^[\s*\->]+/, '').trim())
-            .filter(l => l.length > 10);
-          allLearnings.push(...bullets);
-        }
-      } catch (_) { /* non-fatal best effort */ }
-    }
-  }
+  const allLearnings = Array.isArray(learnings) ? [...learnings] : [];
 
   if (verified) {
     for (const l of allLearnings) {
@@ -864,7 +849,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '1. Execute the task directly as described in TASK INSTRUCTIONS above.\n' +
     '2. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
     '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (run `rtk aislop scan --changes` to verify `ai_slop_clean: true` and `ai_slop_findings: 0`).\n' +
-    '4. When complete, write your summary to `result.md` in the task directory (or report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response).'
+    '4. When complete, report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response.'
   );
   const instruction = `${systemPrompt}\n\n` + taskTail;
 

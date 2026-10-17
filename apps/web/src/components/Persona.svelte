@@ -312,7 +312,7 @@
 
   {#if activeTab === "memories"}
   <!-- Filter & Search Controls -->
-  <div class="space-y-3">
+  <div class="metric-card-3d rounded-[5px] p-5 border space-y-4" style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));">
     <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
       <!-- Agent Filter Tabs -->
       <div class="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">

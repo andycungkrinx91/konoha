@@ -20,11 +20,13 @@ const WORKFLOW_PHASES = Object.freeze([
   'route',
   'explore',
   'plan',
+  'plan_approval',
   'research',
   'execute',
   'document',
   'review',
   'synthesize',
+  'delivery_signoff',
   'done'
 ]);
 
@@ -54,17 +56,6 @@ function readFileSafe(filePath) {
     if (fs.existsSync(filePath)) return fs.readFileSync(filePath, 'utf8');
   } catch (_) { /* ignore */ }
   return null;
-}
-
-/**
- * Re-anchor user prompt and constraints to prevent Lost-in-the-Middle context loss.
- */
-function getPromptSection(taskDir, status = null) {
-  let p = (status && status.prompt) ? status.prompt : '';
-  if (!p && taskDir) {
-    p = readFileSafe(path.join(taskDir, 'prompt.md')) || '';
-  }
-  return p.trim() ? `\n\n## USER CONSTRAINTS & ORIGINAL PROMPT\n\n${p.trim()}\n` : '';
 }
 
 // ── 100% AI-Slop Gate (mechanical enforcement) ─────────────────────────────
@@ -167,7 +158,10 @@ function saveWorkflowStatus(taskDir, status) {
 
 function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   let p = prompt;
-  if (!p) p = readFileSafe(path.join(taskDir, 'prompt.md')) || '';
+  if (!p) {
+    const st = loadWorkflowStatus(taskDir);
+    p = st.prompt || '';
+  }
   if (!p) return 'kage';
 
   const promptLower = p.toLowerCase();
@@ -267,75 +261,58 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   }
   fs.mkdirSync(resolvedTaskDir, { recursive: true });
 
-  // Stale-state guard: task directories are reused across prompts (the default
-  // resolver returns the most-recently-modified dir). If a NEW prompt is supplied
-  // and it differs from the stored prompt.md, any existing result.md / status.json
-  // / delegate.md artifacts belong to a PREVIOUS task and must never be returned
-  // or reused. Without this guard, sannin instantly "completes" every new task
-  // with the previous task's result, which makes the workflow appear to never run.
-  const promptPath = path.join(resolvedTaskDir, 'prompt.md');
-  const storedPrompt = readFileSafe(promptPath);
+  const taskId = path.basename(resolvedTaskDir);
+  const sdlcManager = require('../sdlc_manager');
+  let status = loadWorkflowStatus(resolvedTaskDir);
+
   const normalizedPrompt = (s) => (s || '').replace(/\r\n/g, '\n').trim();
-  const resultPath = path.join(resolvedTaskDir, 'result.md');
   const isNewTaskInReusedDir =
     prompt !== null &&
-    (storedPrompt === null || normalizedPrompt(prompt) !== normalizedPrompt(storedPrompt));
+    prompt !== undefined &&
+    typeof prompt === 'string' &&
+    prompt.trim() !== '' &&
+    status.prompt &&
+    normalizedPrompt(prompt) !== normalizedPrompt(status.prompt);
 
   if (isNewTaskInReusedDir) {
     const staleArtifacts = [
-      'result.md', 'status.json', 'delegate.md', 'plan.md',
-      'findings.md', 'kage_review.json', 'final_docs.md',
+      'status.json', 'plan.md', 'findings.md', 'kage_review.json', 'final_docs.md'
     ];
     for (const f of staleArtifacts) {
-      try { fs.rmSync(path.join(resolvedTaskDir, f), { force: true }); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+      try { fs.rmSync(path.join(resolvedTaskDir, f), { force: true }); } catch (_) { /* best-effort cleanup */ }
     }
+    status = loadWorkflowStatus(resolvedTaskDir);
   }
 
-  if (fs.existsSync(resultPath)) {
-    try {
-      const result = fs.readFileSync(resultPath, 'utf8').trim();
-      const taskId = path.basename(resolvedTaskDir);
-      try {
-        const sdlcManager = require('../sdlc_manager');
-        sdlcManager.updateTask(taskId, { status: 'completed' });
-      } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-      const res = JSON.stringify({
-        status: 'completed',
-        phase: 'result',
-        result,
-        task_id: taskId,
-        task_dir: resolvedTaskDir,
-        session_id: resolvedSessionId,
-        client: actClient
-      });
-      logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
-      return res;
-    } catch (e) {
-      return JSON.stringify({ status: 'error', message: `Failed to read result.md: ${e.message}` });
-    }
+  if (status.phase === 'done' || status.status === 'completed') {
+    const res = JSON.stringify({
+      status: 'completed',
+      phase: 'done',
+      task_id: taskId,
+      task_dir: resolvedTaskDir,
+      session_id: resolvedSessionId,
+      client: actClient
+    });
+    logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+    return res;
   }
 
   let effPrompt = prompt;
-  if (!effPrompt) {
-    if (fs.existsSync(promptPath)) {
-      try {
-        effPrompt = fs.readFileSync(promptPath, 'utf8').trim();
-      } catch (e) {
-        return JSON.stringify({ status: 'error', message: `Failed to read prompt.md: ${e.message}` });
-      }
+  if (!effPrompt || typeof effPrompt !== 'string' || !effPrompt.trim()) {
+    if (status && status.prompt) {
+      effPrompt = status.prompt;
     } else {
-      return JSON.stringify({ status: 'error', message: 'No prompt provided and prompt.md not found in task directory.' });
+      const existingTask = sdlcManager.getTask(taskId);
+      if (existingTask && existingTask.description) {
+        effPrompt = existingTask.description;
+      } else {
+        return JSON.stringify({ status: 'error', message: 'No prompt provided for task execution.' });
+      }
     }
-  } else {
-    try {
-      fs.writeFileSync(path.join(resolvedTaskDir, 'prompt.md'), effPrompt, 'utf8');
-    } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 
-  const sdlcManager = require('../sdlc_manager');
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
-  const taskId = path.basename(resolvedTaskDir);
 
   try {
     sdlcManager.createTask({
@@ -412,7 +389,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
       '\n\n### ⚡ Website & UI Scaffolding Notice\n' +
       '- For text-based builds, call `konoha.build_from_text(name, description, framework)` FIRST to get framework-native directives and mandatory Konoha design invariants (far-left logo, no mobile hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, hero carousel).\n' +
       '- For mockup builds with images, call `konoha.build_from_source(name, source_dir, framework)` FIRST.\n' +
-      '- Pass the returned directives into `delegate.md` under constraints before delegating to `jonin`.\n' +
+      '- Pass the returned directives directly as structured tool constraints when calling `jonin`.\n' +
       '- Jonin implements the complete working website with an inline `README.md` and validates cleanly via framework validation commands. DO NOT delegate to `tokubetsu_jonin` or other subagents unless technical documentation was explicitly requested by the user.'
     );
   }
@@ -433,10 +410,9 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     `Task directory: \`${resolvedTaskDir}\`\n` +
     `SDLC Task ID: \`${taskId}\`\n\n` +
     '## Delegation Steps\n\n' +
-    '1. Write `delegate.md` in the task directory with the frontmatter (agent name, priority) and the task instructions.\n' +
-    `2. Call \`${selectedAgent}\` with \`task_dir=${resolvedTaskDir}\` and \`task_id=${taskId}\` — it will read delegate.md and prepare the task for execution.\n` +
-    `3. Write \`result.md\` to the same task directory when done (or call \`report_from_agent\` with \`task_id="${taskId}"\`).\n` +
-    `4. After \`result.md\` exists, call \`sannin\` again with \`task_dir=${resolvedTaskDir}\` to receive the final result.\n\n` +
+    `1. Call \`${selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${taskId}"\`, \`project_path="${resolvedProjPath}"\`).\n` +
+    `2. Subagent executes task and reports verification via \`konoha.report_from_agent\` with \`task_id="${taskId}"\`.\n` +
+    `3. Call \`sannin\` with \`task_dir=${resolvedTaskDir}\` to advance the workflow.\n\n` +
     `## Original Prompt\n\n${effPrompt}` +
     advisoryText +
     buildGuidance +
@@ -769,13 +745,79 @@ function runMcpWorkflow(taskDir = null) {
   status.session_id = status.session_id || cd.getActiveSessionId();
   status.client = status.client || cd.detectActiveClient() || '';
 
+  const sdlcManager = require('../sdlc_manager');
+  const { getWorkspaceRoot } = require('./runtime_state');
+  const resolvedProjPath = status.project_path || getWorkspaceRoot() || process.cwd();
+  const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
+  const effPrompt = status.prompt || '';
+
   let phase = status.phase || 'route';
   if (phase === 'done') {
     return JSON.stringify({ status: 'completed', phase: 'done' });
   }
 
+  if (phase === 'plan_approval') {
+    const rootTaskId = status.task_id || path.basename(resolvedTaskDir);
+    const rootTaskRecord = sdlcManager.getTask(rootTaskId);
+    const isApprovedInDb = rootTaskRecord && (rootTaskRecord.status === 'in_progress' || rootTaskRecord.status === 'completed');
+    const isExplicitlyApproved = effPrompt && /\b(approved?|proceed|yes|ok|continue|confirm|go ahead)\b/i.test(effPrompt);
+
+    if (isApprovedInDb || isExplicitlyApproved || sdlcConfig.hitl_mode === 'disabled') {
+      status.plan_approved = true;
+      status.phase = 'execute';
+      phase = 'execute';
+      try {
+        sdlcManager.updateTask(rootTaskId, { status: 'in_progress' });
+      } catch (_) { /* ignore */ }
+      saveWorkflowStatus(resolvedTaskDir, status);
+    } else {
+      const res = JSON.stringify({
+        status: 'pending_plan_approval',
+        phase: 'plan_approval',
+        hitl_gate: 'Gate 1 (Plan Approval)',
+        task_id: rootTaskId,
+        message: 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1). Approve via laptop IDE or Telegram bot to proceed.',
+        tasks: status.tasks,
+        task_dir: resolvedTaskDir
+      });
+      logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+      return res;
+    }
+  }
+
+  if (phase === 'delivery_signoff') {
+    const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
+    const rootTaskRecord = sdlcManager.getTask(rootId);
+    const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
+    const isExplicitlySignedOff = effPrompt && /\b(sign[\s-]?off|approve|approved?|deliver|accepted?|done)\b/i.test(effPrompt);
+
+    if (isSignedOffInDb || isExplicitlySignedOff || sdlcConfig.hitl_mode === 'disabled') {
+      status.human_signed_off = true;
+      status.phase = 'done';
+      try {
+        sdlcManager.updateTask(rootId, { status: 'completed' });
+      } catch (_) { /* ignore */ }
+      saveWorkflowStatus(resolvedTaskDir, status);
+      cleanupTransientScratchFiles(resolvedTaskDir);
+      const res = JSON.stringify({ status: 'completed', phase: 'done', task_id: rootId, task_dir: resolvedTaskDir });
+      logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+      return res;
+    } else {
+      const res = JSON.stringify({
+        status: 'pending_human_signoff',
+        phase: 'delivery_signoff',
+        hitl_gate: 'Gate 2 (Delivery Sign-Off)',
+        task_id: rootId,
+        message: 'Delivery paused awaiting human sign-off (Gate 2). Approve via laptop IDE or Telegram bot to conclude task.',
+        task_dir: resolvedTaskDir
+      });
+      logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
+      return res;
+    }
+  }
+
   if (phase === 'route') {
-    const prompt = status.prompt || readFileSafe(path.join(resolvedTaskDir, 'prompt.md'));
+    const prompt = status.prompt || effPrompt;
     if (!prompt) {
       return JSON.stringify({ status: 'error', message: 'No task prompt found in workflow context.', phase: 'route' });
     }
@@ -824,13 +866,14 @@ function runMcpWorkflow(taskDir = null) {
         if (status.tasks.length === 0) {
           status.tasks = [{ id: 'task-1', agent: 'anbu', task: 'Execute the approved implementation plan.', status: 'pending', result: '', validation: [] }];
         }
+        const rootTaskId = status.task_id || path.basename(resolvedTaskDir);
+
         try {
-          const sdlcManager = require('../sdlc_manager');
           for (const t of status.tasks) {
             sdlcManager.createTask({
               id: t.id,
               description: t.task,
-              status: 'in_progress',
+              status: 'pending',
               project_path: resolvedTaskDir,
               session_id: status.session_id || '',
               client: status.client || ''
@@ -839,6 +882,45 @@ function runMcpWorkflow(taskDir = null) {
         } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
         status.pending_executors = status.tasks.map(t => t.id);
         status.completed_executors = [];
+
+        if (sdlcConfig.hitl_mode === 'enabled' && !status.plan_approved) {
+          status.phase = 'plan_approval';
+          status.assigned_agent = 'sannin';
+          try {
+            sdlcManager.updateTask(rootTaskId, {
+              status: 'pending_plan_approval',
+              evidence: {
+                todo_plan: planContent,
+                tasks: status.tasks
+              }
+            });
+          } catch (_) { /* ignore */ }
+          saveWorkflowStatus(resolvedTaskDir, status);
+
+          try {
+            const notifier = require('../telegram/notifier');
+            notifier.sendInteractiveApproval({
+              taskId: rootTaskId,
+              gate: 'Gate 1 (Plan Approval)',
+              title: `Action Plan for ${rootTaskId}`,
+              planText: planContent,
+              client: status.client || 'Konoha Agent'
+            });
+          } catch (_) { /* ignore */ }
+
+          return JSON.stringify({
+            status: 'pending_plan_approval',
+            phase: 'plan_approval',
+            hitl_gate: 'Gate 1 (Plan Approval)',
+            task_id: rootTaskId,
+            message: 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1). Approve via laptop IDE or Telegram bot to proceed.',
+            plan: planContent,
+            tasks: status.tasks,
+            task_dir: resolvedTaskDir
+          });
+        }
+
+        status.plan_approved = true;
         status.phase = 'execute';
         phase = 'execute';
       }
@@ -985,13 +1067,14 @@ function runMcpWorkflow(taskDir = null) {
 
           const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', remediationAgent, fixTaskId, fixTaskText);
           const agentUpper = remediationAgent.charAt(0).toUpperCase() + remediationAgent.slice(1);
-          fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${remediationAgent}\npriority: high\nPhase: Remediation (Anti-Slop Cycle ${status.slop_cycles})\ndispatch_id: ${dispatch.id}\n\n## TASK\n\n${fixTaskText}\n\n## REMEDIATION GATE (TWO-STEP, TARGET 100%)\n\nFix every finding, then re-run the full two-step review: Step 1 \`aislop_scan\` (aislop scanner) → Step 2 \`anti-slop\` rule review. The synthesis gate mechanically requires a perfect 100/100 scan (zero findings of any severity).\n` + getPromptSection(resolvedTaskDir), 'utf8');
 
           return JSON.stringify({
             status: 'remediation',
             phase: 'execute',
             agent: remediationAgent,
             dispatch_id: dispatch.id,
+            task_id: fixTaskId,
+            task: fixTaskText,
             task_dir: resolvedTaskDir,
             slop_cycles: status.slop_cycles,
             message: `Anti-slop Delivery Gate reported findings. Dispatched remediation task to ${agentUpper} (cycle ${status.slop_cycles}).`
@@ -1007,10 +1090,9 @@ function runMcpWorkflow(taskDir = null) {
 
   if (phase === 'explore') {
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'explore', 'genin');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: genin\npriority: medium\nPhase: Explore\ndispatch_id: ${dispatch.id}\n\n## TASK\n\n${readFileSafe(path.join(resolvedTaskDir, 'prompt.md')) || ''}\n\nRead-only exploration. Write findings.md and result.md for this dispatch.\n`, 'utf8');
     status.assigned_agent = 'genin';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'explore', agent: 'genin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+    return JSON.stringify({ status: 'ready', phase: 'explore', agent: 'genin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, task: effPrompt });
   }
 
   if (phase === 'plan') {
@@ -1019,10 +1101,9 @@ function runMcpWorkflow(taskDir = null) {
     const findingsSummary = findingsRaw.length > 500
       ? findingsRaw.slice(0, 500).trim() + `...\n\n*(Full findings: \`${path.join(resolvedTaskDir, 'findings.md')}\`)*`
       : findingsRaw;
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: high\nPhase: Plan\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nAnalyze the findings and produce plan.md with unique \`- [agent]: task\` entries. Set needs_research or needs_replan explicitly when applicable.\n\n## FINDINGS\n\n${findingsSummary}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+    return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary });
   }
 
   if (phase === 'research') {
@@ -1030,10 +1111,9 @@ function runMcpWorkflow(taskDir = null) {
     const planContext = readFileSafe(path.join(resolvedTaskDir, 'plan.md')) || '';
     const qLine = planContext.split(/\r?\n/).find(l => l.startsWith('research_query:'));
     const query = qLine ? qLine.slice('research_query:'.length).trim() : '';
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: chunin\npriority: medium\nPhase: Research\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nConduct web research on: ${query || 'the plan requirements'}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'chunin';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'research', agent: 'chunin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+    return JSON.stringify({ status: 'ready', phase: 'research', agent: 'chunin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, query: query || 'plan requirements' });
   }
 
   if (phase === 'execute') {
@@ -1054,10 +1134,9 @@ function runMcpWorkflow(taskDir = null) {
       }
     } else {
       const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', nextTask.agent, nextTask.id, nextTask.task);
-      fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: ${nextTask.agent}\npriority: high\nPhase: Execute\ndispatch_id: ${dispatch.id}\ntask_id: ${nextTask.id}\n\n## TASK\n\n${nextTask.task}\n\n## DELIVERY GATE (TWO-STEP, TARGET 100%)\n\nBefore writing result.md: Step 1 run \`aislop_scan\` (aislop scanner) on all changed files — zero findings required. Step 2 run the \`anti-slop\` rule review (load the \`antislop\` skill via konoha.get_skill) and fix violations. The kage review + workflow synthesis mechanically enforce a perfect 100/100 scan — delivery is blocked below it.\n\nWrite result.md and validation evidence for this task.\n` + getPromptSection(resolvedTaskDir), 'utf8');
       status.assigned_agent = nextTask.agent;
       saveWorkflowStatus(resolvedTaskDir, status);
-      return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+      return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, task: nextTask.task, dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
     }
   }
 
@@ -1066,7 +1145,7 @@ function runMcpWorkflow(taskDir = null) {
     const attempt = (status.document_attempts || 0) + 1;
     const taskTitle = isRegen
       ? `## TASK: REGENERATE DELIVERABLE (< 3.0% AI DETECTION QUALITY GATE FAILED)\n\nPrevious attempt failed the strict < 3.0% threshold.\n\n${status.document_gate.feedback}\n\n`
-      : '## TASK\n\nDocument the completed work and validation evidence in final_docs.md and result.md.\n';
+      : '## TASK\n\nDocument the completed work and validation evidence in final_docs.md.\n';
 
     const fontDirectives = (
       '\n### 🖋️ Mandatory Konoha Font System Directives:\n' +
@@ -1083,7 +1162,6 @@ function runMcpWorkflow(taskDir = null) {
     );
 
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'document', 'tokubetsu-jonin');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: tokubetsu-jonin\npriority: ${isRegen ? 'high' : 'medium'}\nPhase: Document${isRegen ? ` (Regeneration Attempt ${attempt})` : ''}\ndispatch_id: ${dispatch.id}\n\n${taskTitle}${fontDirectives}\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'tokubetsu-jonin';
     saveWorkflowStatus(resolvedTaskDir, status);
     return JSON.stringify({
@@ -1092,6 +1170,7 @@ function runMcpWorkflow(taskDir = null) {
       agent: 'tokubetsu-jonin',
       dispatch_id: dispatch.id,
       task_dir: resolvedTaskDir,
+      task: taskTitle + fontDirectives,
       attempts: attempt,
       feedback: isRegen ? status.document_gate.feedback : null
     });
@@ -1116,10 +1195,17 @@ function runMcpWorkflow(taskDir = null) {
       ? 'The mechanical gate requires a 100/100 aislop scan (zero findings of any severity) before synthesis.'
       : 'Run the two-step review (Step 1 aislop_scan, Step 2 anti-slop rules) and verify 0 findings.';
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'review', 'kage');
-    fs.writeFileSync(path.join(resolvedTaskDir, 'delegate.md'), `agent: kage\npriority: critical\nPhase: Review\ndispatch_id: ${dispatch.id}\n\n## TASK\n\nVerify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_plan, ai_slop_findings, ai_slop_clean, and findings.\n` + getPromptSection(resolvedTaskDir), 'utf8');
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'review', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, aislop_gate: gate });
+    return JSON.stringify({
+      status: 'ready',
+      phase: 'review',
+      agent: 'kage',
+      dispatch_id: dispatch.id,
+      task_dir: resolvedTaskDir,
+      task: `Verify every task in status.json is completed, required files exist, validation evidence has no errors or warnings, security/rollback checks are documented. Run the TWO-STEP Zero-AI-Slop review: Step 1 aislop_scan (scanner), Step 2 call konoha.anti_slop tool (final verify zero slop across all changes & enforce antislop skill Delivery Gate) — TARGET 100%: zero findings of any severity. ${gateTarget}${gate.enforced ? ` Current mechanical scan: score ${gate.score ?? 'n/a'}, findings ${gate.findings ?? 'n/a'}.` : ''} Write kage_review.json with approved, verified_task_ids, validation, security_reviewed, rollback_plan, ai_slop_findings, ai_slop_clean, and findings.`,
+      aislop_gate: gate
+    });
   }
 
   if (phase === 'synthesize') {
@@ -1149,7 +1235,7 @@ function runMcpWorkflow(taskDir = null) {
       return res;
     }
 
-    const prompt = readFileSafe(path.join(resolvedTaskDir, 'prompt.md')) || '';
+    const prompt = status.prompt || '';
     const reviewRaw = readFileSafe(path.join(resolvedTaskDir, 'kage_review.json'));
     let reviewData = {};
     if (reviewRaw) {
@@ -1265,13 +1351,55 @@ function runMcpWorkflow(taskDir = null) {
 
     const reportPath = path.join(resolvedTaskDir, 'final_report.md');
     fs.writeFileSync(reportPath, report, 'utf8');
+
+    const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
+    const rootTaskRecord = sdlcManager.getTask(rootId);
+    const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
+    const isExplicitlySignedOff = effPrompt && /\b(sign[\s-]?off|approve|approved?|deliver|accepted?|done)\b/i.test(effPrompt);
+
+    if (sdlcConfig.hitl_mode === 'enabled' && !status.human_signed_off && !isSignedOffInDb && !isExplicitlySignedOff) {
+      status.phase = 'delivery_signoff';
+      status.assigned_agent = 'sannin';
+      try {
+        sdlcManager.updateTask(rootId, {
+          status: 'pending_human_signoff',
+          evidence: {
+            confidence: confidenceVal,
+            report_path: reportPath
+          }
+        });
+      } catch (_) { /* ignore */ }
+      saveWorkflowStatus(resolvedTaskDir, status);
+
+      try {
+        const notifier = require('../telegram/notifier');
+        notifier.sendInteractiveApproval({
+          taskId: rootId,
+          gate: 'Gate 2 (Delivery Sign-Off)',
+          title: `Delivery Sign-Off (${confidenceVal}% Confidence)`,
+          planText: `Kage Review Gate approved with ${confidenceVal}% confidence.\nFinal report: ${path.basename(reportPath)}\nAwaiting human delivery sign-off.`,
+          client: status.client || 'Konoha Agent'
+        });
+      } catch (_) { /* ignore */ }
+
+      return JSON.stringify({
+        status: 'pending_human_signoff',
+        phase: 'delivery_signoff',
+        hitl_gate: 'Gate 2 (Delivery Sign-Off)',
+        task_id: rootId,
+        confidence: confidenceVal,
+        message: `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2). Approve via laptop IDE or Telegram bot to conclude task.`,
+        report: reportPath,
+        task_dir: resolvedTaskDir
+      });
+    }
+
+    status.human_signed_off = true;
     status.phase = 'done';
     status.history.push({ phase: 'synthesize', agent: 'sannin' });
     saveWorkflowStatus(resolvedTaskDir, status);
     cleanupTransientScratchFiles(resolvedTaskDir);
     try {
-      const rootId = path.basename(resolvedTaskDir);
-      const sdlcManager = require('../sdlc_manager');
       sdlcManager.updateTask(rootId, { status: 'completed' });
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 

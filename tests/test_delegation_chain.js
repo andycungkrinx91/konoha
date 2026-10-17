@@ -109,8 +109,9 @@ async function run() {
     // 2. Route jonin frontend
     const td2 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td2, 'prompt.md'), 'Build a responsive SvelteKit dashboard page with Tailwind CSS');
-      const [resp] = await client.callTool('sannin', { task_dir: td2 });
+      const prompt2 = 'Build a responsive SvelteKit dashboard page with Tailwind CSS';
+      fs.writeFileSync(path.join(td2, 'prompt.md'), prompt2);
+      const [resp] = await client.callTool('sannin', { prompt: prompt2, task_dir: td2 });
       assert.strictEqual(resp.selected_agent, 'jonin');
     } finally {
       fs.rmSync(td2, { recursive: true, force: true });
@@ -119,8 +120,9 @@ async function run() {
     // 3. Route anbu backend
     const td3 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td3, 'prompt.md'), 'Debug the API endpoint middleware error handling');
-      const [resp] = await client.callTool('sannin', { task_dir: td3 });
+      const prompt3 = 'Debug the API endpoint middleware error handling';
+      fs.writeFileSync(path.join(td3, 'prompt.md'), prompt3);
+      const [resp] = await client.callTool('sannin', { prompt: prompt3, task_dir: td3 });
       assert.strictEqual(resp.selected_agent, 'anbu');
     } finally {
       fs.rmSync(td3, { recursive: true, force: true });
@@ -129,8 +131,9 @@ async function run() {
     // 4. Route chunin research
     const td4 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td4, 'prompt.md'), 'Research the latest web search best practices for evidence synthesis');
-      const [resp] = await client.callTool('sannin', { task_dir: td4 });
+      const prompt4 = 'Research the latest web search best practices for evidence synthesis';
+      fs.writeFileSync(path.join(td4, 'prompt.md'), prompt4);
+      const [resp] = await client.callTool('sannin', { prompt: prompt4, task_dir: td4 });
       assert.strictEqual(resp.selected_agent, 'chunin');
     } finally {
       fs.rmSync(td4, { recursive: true, force: true });
@@ -139,8 +142,9 @@ async function run() {
     // 5. Route kage architecture
     const td5 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td5, 'prompt.md'), 'Security audit and architecture risk assessment of the auth system');
-      const [resp] = await client.callTool('sannin', { task_dir: td5 });
+      const prompt5 = 'Security audit and architecture risk assessment of the auth system';
+      fs.writeFileSync(path.join(td5, 'prompt.md'), prompt5);
+      const [resp] = await client.callTool('sannin', { prompt: prompt5, task_dir: td5 });
       assert.strictEqual(resp.selected_agent, 'kage');
     } finally {
       fs.rmSync(td5, { recursive: true, force: true });
@@ -149,8 +153,9 @@ async function run() {
     // 6. Route default kage no keywords
     const td6 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td6, 'prompt.md'), 'do something complicated with no keywords');
-      const [resp] = await client.callTool('sannin', { task_dir: td6 });
+      const prompt6 = 'do something complicated with no keywords';
+      fs.writeFileSync(path.join(td6, 'prompt.md'), prompt6);
+      const [resp] = await client.callTool('sannin', { prompt: prompt6, task_dir: td6 });
       assert.strictEqual(resp.selected_agent, 'kage');
     } finally {
       fs.rmSync(td6, { recursive: true, force: true });
@@ -159,8 +164,9 @@ async function run() {
     // 7. Route tokubetsu_jonin docs
     const td7 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td7, 'prompt.md'), 'Write a PRD and technical documentation for the new feature');
-      const [resp] = await client.callTool('sannin', { task_dir: td7 });
+      const prompt7 = 'Write a PRD and technical documentation for the new feature';
+      fs.writeFileSync(path.join(td7, 'prompt.md'), prompt7);
+      const [resp] = await client.callTool('sannin', { prompt: prompt7, task_dir: td7 });
       assert.strictEqual(resp.selected_agent, 'tokubetsu_jonin');
     } finally {
       fs.rmSync(td7, { recursive: true, force: true });
@@ -169,8 +175,9 @@ async function run() {
     // 8. Route genin explore
     const td8 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td8, 'prompt.md'), 'explore the codebase trace the auth flow find call graph');
-      const [resp] = await client.callTool('sannin', { task_dir: td8 });
+      const prompt8 = 'explore the codebase trace the auth flow find call graph';
+      fs.writeFileSync(path.join(td8, 'prompt.md'), prompt8);
+      const [resp] = await client.callTool('sannin', { prompt: prompt8, task_dir: td8 });
       assert.strictEqual(resp.selected_agent, 'genin');
     } finally {
       fs.rmSync(td8, { recursive: true, force: true });
@@ -243,12 +250,10 @@ async function run() {
     // 14. Sannin result phase
     const td14 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      fs.writeFileSync(path.join(td14, 'prompt.md'), 'Build a feature');
-      fs.writeFileSync(path.join(td14, 'result.md'), 'Task completed successfully');
-      const [resp] = await client.callTool('sannin', { task_dir: td14 });
+      fs.writeFileSync(path.join(td14, 'status.json'), JSON.stringify({ status: 'completed', phase: 'done', result: 'Task completed successfully' }), 'utf8');
+      const [resp] = await client.callTool('sannin', { prompt: 'Build a feature', task_dir: td14 });
       assert.strictEqual(resp.status, 'completed');
-      assert.strictEqual(resp.phase, 'result');
-      assert.ok(resp.result.includes('Task completed successfully'));
+      assert.strictEqual(resp.phase, 'done');
     } finally {
       fs.rmSync(td14, { recursive: true, force: true });
     }

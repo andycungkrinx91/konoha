@@ -30,7 +30,8 @@ async function run() {
     assert.strictEqual(res1.status, 'ready');
     assert.strictEqual(res1.phase, 'review');
     assert.strictEqual(res1.agent, 'kage');
-    assert.ok(fs.existsSync(path.join(tmpDir, 'delegate.md')));
+    assert.ok(res1.dispatch_id);
+    assert.ok(res1.task.includes('Verify every task'));
     console.log('✓ Kage review dispatch passed');
 
     // 2. Kage review rejection on validation errors
@@ -135,8 +136,17 @@ async function run() {
     fs.writeFileSync(path.join(tmpDir, 'result.md'), 'Kage review verified all tasks and security requirements.', 'utf8');
 
     const res4 = JSON.parse(server.runMcpWorkflow(tmpDir));
-    assert.strictEqual(res4.status, 'completed');
-    assert.strictEqual(res4.phase, 'done');
+    if (res4.status === 'pending_human_signoff') {
+      const sdlc = require('../src/sdlc_manager');
+      const rootId = path.basename(tmpDir);
+      sdlc.updateTask(rootId, { status: 'completed' });
+      const res4Final = JSON.parse(server.runMcpWorkflow(tmpDir));
+      assert.strictEqual(res4Final.status, 'completed');
+      assert.strictEqual(res4Final.phase, 'done');
+    } else {
+      assert.strictEqual(res4.status, 'completed');
+      assert.strictEqual(res4.phase, 'done');
+    }
     assert.ok(fs.existsSync(path.join(tmpDir, 'final_report.md')));
     const finalReportContent = fs.readFileSync(path.join(tmpDir, 'final_report.md'), 'utf8');
     assert.ok(finalReportContent.includes('Minimum Required: ≥ 98%'), 'Report must specify Minimum Required: ≥ 98%');
