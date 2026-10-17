@@ -123,3 +123,10 @@ playwright/.cache/
 
 agent/
 docs/QA-TEST-CHECKLIST.md
+
+# Plans & Runtime Session State
+PLAN.md
+/PLAN.md
+.omp/
+.omp/plans/
+/.omp/plans/

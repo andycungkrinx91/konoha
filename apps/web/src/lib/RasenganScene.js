@@ -18,6 +18,7 @@ export class RasenganScene {
       colors: ['#11aaff', '#45eaff', '#075dff', '#9beeff', '#167aff'],
       bgColor: '#020611',
       fogColor: '#030b1b',
+      transparent: false,
       onPhaseChange: null,
       autoLoop: true,
       phaseDuration: 8.8,
@@ -31,15 +32,17 @@ export class RasenganScene {
     this.reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(this.options.bgColor);
-    this.scene.fog = new THREE.FogExp2(this.options.fogColor, 0.035);
+    if (!this.options.transparent) {
+      this.scene.background = new THREE.Color(this.options.bgColor);
+      this.scene.fog = new THREE.FogExp2(this.options.fogColor, 0.035);
+    }
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     this.camera.position.set(0, 0.35, 9.6);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      alpha: false,
+      alpha: !!this.options.transparent,
       powerPreference: 'high-performance'
     });
     this.renderer.setPixelRatio(Math.min((typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, this.options.pixelRatioCap));
@@ -125,6 +128,8 @@ export class RasenganScene {
   }
 
   makeEnvironment() {
+    if (this.options.transparent) return;
+
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
       new THREE.MeshStandardMaterial({ color: 0x030a16, roughness: 0.3, metalness: 0.6 })
@@ -460,7 +465,9 @@ export class RasenganScene {
     this.particles.material.opacity = this.phase === 'EXPLOSION' ? 0.98 : 0.55 + coreScale * 0.3;
     this.particles.material.size = this.phase === 'EXPLOSION' ? 0.045 : 0.025;
 
-    this.stars.rotation.y += dt * 0.002;
+    if (this.stars) {
+      this.stars.rotation.y += dt * 0.002;
+    }
     this.camera.position.x = Math.sin(t * 0.7) * 0.055;
     this.camera.position.y = 0.35 + Math.sin(t * 1.2) * 0.035;
     this.camera.position.z = this.phase === 'EXPLOSION' ? 9.6 - flash * 0.12 : 9.6;

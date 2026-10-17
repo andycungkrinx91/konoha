@@ -203,7 +203,7 @@
   <div class="absolute left-6 top-6 pointer-events-none z-10 hidden sm:flex flex-col gap-1.5 text-shadow">
     <div class="flex items-center gap-2.5 text-[10px] font-mono tracking-widest font-semibold uppercase" style="color: var(--color-accent, #79dfff);">
       <span class="inline-block w-2 h-2 rounded-full animate-ping" style="background-color: var(--color-primary, #57e7ff); box-shadow: 0 0 12px var(--color-primary, #23bfff);"></span>
-      <span>KONOHA CHAKRA ENGINE // 3D PROCEDURAL</span>
+      <span>KONOHA CHAKRA ENGINE // 3D PROCEDURAL with KONOHA MCP ORCHESTRATOR</span>
     </div>
     <div class="text-[11px] font-mono opacity-65 flex items-center gap-2" style="color: var(--color-text, #e2e8f0);">
       <span>PHASE: <strong style="color: var(--color-primary, #38bdf8);">{currentScenePhase}</strong></span>
@@ -214,7 +214,10 @@
 
   <!-- 3D Parallax Login Container -->
   <div
-    class="relative z-10 w-full max-w-md transition-transform duration-200 ease-out"
+    class="relative z-10 w-full max-w-md transition-all duration-500 ease-out"
+    class:opacity-20={authPhase !== 'idle'}
+    class:scale-95={authPhase !== 'idle'}
+    class:pointer-events-none={authPhase !== 'idle'}
     style="
       transform: perspective(1000px) rotateY({tiltX}deg) rotateX({tiltY}deg);
       transform-style: preserve-3d;
@@ -235,29 +238,27 @@
         style="background: var(--theme-4gradient-bar, linear-gradient(90deg, #38bdf8, #818cf8, #06b6d4, #38bdf8));"
       ></div>
 
-      <!-- Header with Central Rasengan Chakra Indicator -->
+      <!-- Header with Shinobi Chakra Emblem -->
       <div class="flex flex-col items-center text-center mb-7">
         <div class="relative w-16 h-16 mb-3 flex items-center justify-center">
           <!-- Chakra Aura Halo -->
           <span
-            class="absolute inset-0 rounded-full blur-[8px] animate-pulse-rasengan"
-            style="background-color: color-mix(in srgb, var(--color-primary, #38bdf8) 50%, transparent);"
+            class="absolute inset-0 rounded-full blur-[10px] transition-all duration-500"
+            style="background-color: color-mix(in srgb, var(--color-primary, #38bdf8) 45%, transparent);"
           ></span>
 
-          <!-- Swirling Mini-Orb SVG in Card -->
-          <svg class="w-14 h-14 relative z-10 animate-spin-rasengan" viewBox="0 0 100 100" fill="none">
-            <defs>
-              <radialGradient id="login-card-rasengan-core" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#ffffff" />
-                <stop offset="45%" stop-color="var(--color-primary, #38bdf8)" />
-                <stop offset="100%" stop-color="var(--theme-grad-1, #0284c7)" />
-              </radialGradient>
-            </defs>
-            <circle cx="50" cy="50" r="42" fill="url(#login-card-rasengan-core)" opacity="0.85" />
-            <path d="M50 8 C70 12, 90 28, 92 50 C94 65, 84 82, 68 90 C52 96, 30 92, 18 78 C8 66, 8 45, 18 32 C28 18, 42 12, 50 14" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
-            <path d="M50 92 C32 88, 12 72, 8 50 C6 35, 16 18, 32 10 C48 4, 70 8, 82 22 C92 34, 92 55, 82 68 C72 82, 58 88, 50 86" stroke="var(--color-accent, #7dd3fc)" stroke-width="2" stroke-linecap="round" />
-            <circle cx="50" cy="50" r="12" fill="#ffffff" class="animate-pulse-rasengan" />
-          </svg>
+          <!-- High-Tech Shinobi Seal Icon -->
+          <div
+            class="relative z-10 w-14 h-14 rounded-full border flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105"
+            style="background: radial-gradient(circle, color-mix(in srgb, var(--color-primary, #38bdf8) 25%, transparent) 0%, rgba(15, 23, 42, 0.9) 80%); border-color: color-mix(in srgb, var(--color-primary, #38bdf8) 50%, transparent);"
+          >
+            <svg class="w-8 h-8 text-sky-300 drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" stroke="var(--color-accent, #818cf8)" stroke-width="1.2" stroke-dasharray="3 2" opacity="0.75" />
+              <path d="M12 3c4.97 0 9 4.03 9 9 0 3.12-1.59 5.87-4 7.5M12 21c-4.97 0-9-4.03-9-9 0-3.12 1.59-5.87 4-7.5" stroke="var(--color-primary, #38bdf8)" stroke-width="2" />
+              <circle cx="12" cy="12" r="3.5" fill="var(--color-primary, #38bdf8)" opacity="0.9" />
+              <circle cx="12" cy="12" r="1.5" fill="#ffffff" />
+            </svg>
+          </div>
         </div>
 
         <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
@@ -353,137 +354,29 @@
     </div>
   </div>
 
-  <!-- Mandatory 3-Second Cinematic Rasengan Login Transition Overlay -->
+  <!-- Mandatory 3-Second Cinematic Rasengan Login Transition HUD (Unobstructed 3D View) -->
   {#if authPhase !== 'idle'}
     <div
-      class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden flex items-center justify-center"
+      class="fixed inset-0 z-50 pointer-events-none overflow-hidden flex flex-col justify-end pb-12 sm:pb-16 items-center"
       aria-hidden="true"
     >
-      <!-- Atmospheric Backdrop Blur -->
-      <div class="absolute inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity duration-300"></div>
-
-      <!-- Phase C: Shatter White Flash -->
-      {#if authPhase === 'impact' || authPhase === 'reveal'}
-        <div class="absolute inset-0 animate-shatter-flash pointer-events-none"></div>
-      {/if}
-
-      <!-- Phase B & C: Radial Glass Crack Layer -->
-      {#if authPhase === 'fracture' || authPhase === 'impact' || authPhase === 'reveal'}
-        <svg class="absolute inset-0 w-full h-full animate-glass-crack" viewBox="0 0 1000 1000" preserveAspectRatio="none" fill="none">
-          <defs>
-            <filter id="login-glass-specular" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <radialGradient id="login-crack-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
-              <stop offset="35%" stop-color="var(--color-primary, #38bdf8)" stop-opacity="0.6" />
-              <stop offset="70%" stop-color="var(--color-accent, #818cf8)" stop-opacity="0.25" />
-              <stop offset="100%" stop-color="transparent" stop-opacity="0" />
-            </radialGradient>
-          </defs>
-
-          <!-- Central Point of Impact Fracture -->
-          <circle cx="500" cy="500" r="160" fill="url(#login-crack-glow)" />
-
-          <!-- Deep Radial Impact Fissures -->
-          <g stroke="#ffffff" stroke-linecap="round" filter="url(#login-glass-specular)" opacity="0.95">
-            <path d="M500 500 L560 380 L620 320 L740 240 L880 160" stroke-width="3.5" />
-            <path d="M500 500 L420 370 L340 310 L220 220 L100 140" stroke-width="3" />
-            <path d="M500 500 L590 580 L680 660 L800 780 L920 890" stroke-width="3.5" />
-            <path d="M500 500 L410 590 L320 670 L210 790 L90 910" stroke-width="3.2" />
-            <path d="M500 500 L510 320 L505 180 L495 50" stroke-width="2.8" />
-            <path d="M500 500 L510 680 L515 820 L520 950" stroke-width="2.8" />
-            <path d="M500 500 L320 505 L180 495 L40 500" stroke-width="2.8" />
-            <path d="M500 500 L680 508 L820 512 L960 515" stroke-width="2.8" />
-          </g>
-        </svg>
-      {/if}
-
-      <!-- Center Big Charging/Exploding Rasengan Orb in Transition -->
-      <div class="relative flex items-center justify-center">
-        <div
-          class="w-44 h-44 rounded-full flex items-center justify-center transition-transform duration-300"
-          class:animate-ping-once={authPhase === 'impact'}
-        >
-          <span
-            class="absolute inset-0 rounded-full blur-[14px] animate-pulse-rasengan"
-            style="background-color: color-mix(in srgb, var(--color-primary, #38bdf8) 60%, transparent);"
-          ></span>
-          <svg class="w-36 h-36 relative z-10 animate-spin-rasengan" viewBox="0 0 100 100" fill="none">
-            <circle cx="50" cy="50" r="44" fill="url(#login-card-rasengan-core)" />
-            <circle cx="50" cy="50" r="14" fill="#ffffff" class="animate-pulse-rasengan" />
-          </svg>
-        </div>
-      </div>
-
-      <!-- Real-Time Phase Status Text -->
-      <div class="absolute bottom-16 left-1/2 -translate-x-1/2 text-center pointer-events-none">
-        <p class="text-xs font-mono tracking-widest uppercase text-sky-300 animate-pulse">
+      <!-- Real-Time Phase Status Telemetry HUD -->
+      <div class="relative z-10 px-6 py-3 rounded-full border border-sky-400/40 bg-slate-950/75 backdrop-blur-md shadow-[0_0_30px_rgba(2,132,199,0.35)] text-center animate-in fade-in zoom-in-95 duration-200">
+        <p class="text-xs sm:text-sm font-mono tracking-widest uppercase font-semibold flex items-center gap-3" style="color: var(--color-accent, #79dfff);">
+          <span class="inline-block w-2.5 h-2.5 rounded-full animate-ping" style="background-color: var(--color-primary, #38bdf8); box-shadow: 0 0 10px var(--color-primary, #38bdf8);"></span>
           {#if authPhase === 'charging'}
-            [PHASE 1/4] CHARGING CHAKRA CORE...
+            <span>[PHASE 1/4] CHARGING 3D CHAKRA CORE...</span>
           {:else if authPhase === 'fracture'}
-            [PHASE 2/4] GLASS FRACTURE RESONANCE...
+            <span>[PHASE 2/4] GLASS FRACTURE RESONANCE...</span>
           {:else if authPhase === 'impact'}
-            [PHASE 3/4] IMPACT SHOCKWAVE DISCHARGE...
+            <span>[PHASE 3/4] IMPACT SHOCKWAVE DISCHARGE...</span>
           {:else if authPhase === 'reveal'}
-            [PHASE 4/4] GATEWAY REVEAL & VERIFICATION...
+            <span>[PHASE 4/4] GATEWAY REVEAL & VERIFICATION...</span>
           {:else if authPhase === 'stable-loading'}
-            [SYNCHRONIZING WITH GATEWAY...]
+            <span>[SYNCHRONIZING WITH GATEWAY...]</span>
           {/if}
         </p>
       </div>
     </div>
   {/if}
 </div>
-
-<style>
-  @keyframes spinRasengan {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes pulseRasengan {
-    0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.08); opacity: 1; }
-  }
-
-  @keyframes glassCrack {
-    0% { transform: scale(0.96); opacity: 0; }
-    30% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(1.03); opacity: 0.9; }
-  }
-
-  @keyframes shatterFlash {
-    0% { background-color: rgba(255, 255, 255, 0.7); }
-    100% { background-color: transparent; }
-  }
-
-  .animate-spin-rasengan {
-    animation: spinRasengan 1.5s linear infinite;
-  }
-
-  .animate-pulse-rasengan {
-    animation: pulseRasengan 1.2s ease-in-out infinite;
-  }
-
-  .animate-glass-crack {
-    animation: glassCrack 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .animate-shatter-flash {
-    animation: shatterFlash 0.5s ease-out forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-spin-rasengan,
-    .animate-pulse-rasengan,
-    .animate-glass-crack,
-    .animate-shatter-flash {
-      animation: none !important;
-    }
-  }
-</style>
