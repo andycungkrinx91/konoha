@@ -26,12 +26,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node build/index.js',
+    command: 'node ../../src/web_server.js',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     env: {
       PORT: '4173',
-      HOST: '127.0.0.1'
+      HOST: '127.0.0.1',
+      KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json'
     },
     timeout: 30000,
   },

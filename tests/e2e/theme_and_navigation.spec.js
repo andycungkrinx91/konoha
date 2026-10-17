@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loginAndUnlock } from './auth_helper.js';
 
 test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAndUnlock(page);
+  });
+
   test("Theme switcher FAB opens modal, displays 10 4-gradient themes, and updates theme correctly", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
@@ -130,6 +135,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await page.goto("http://127.0.0.1:4173/skills");
 
     // Check presence of 3D buttons
+    await expect(page.locator(".btn-3d").first()).toBeVisible({ timeout: 10000 });
     const btnCount = await page.locator(".btn-3d").count();
     expect(btnCount).toBeGreaterThan(0);
 

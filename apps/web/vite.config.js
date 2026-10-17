@@ -11,6 +11,9 @@ export default defineConfig({
       adapter: adapter({ out: 'build' })
     })
   ],
+  ssr: {
+    noExternal: ['three']
+  },
   server: {
     port: 1404,
     strictPort: true

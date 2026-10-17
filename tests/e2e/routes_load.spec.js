@@ -6,10 +6,11 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { loginAndUnlock } from './auth_helper.js';
 
 test("Routes load cleanly without errors", async ({ page }) => {
-  await page.goto("http://127.0.0.1:4173/");
-  await page.waitForURL("**/dashboard");
+  await loginAndUnlock(page);
+  await page.goto("http://127.0.0.1:4173/dashboard");
   await expect(page.getByText("Mission Control Dashboard")).toBeVisible();
   await page.goto("http://127.0.0.1:4173/detector");
   await expect(page.getByText("Website AI Detector")).toBeVisible();

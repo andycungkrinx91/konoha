@@ -22,6 +22,7 @@ const sembleManager = require('./semble_manager');
 const deployUtils = require('./deploy_utils');
 const { checkPortActive, killProcessOnPort } = require('./platform_utils');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
+const webAuth = require('./auth');
 
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
 // copy, npm global package) via deployUtils.resolveWebUiDir()
@@ -164,6 +165,30 @@ function getTrustedClientIp(req) {
     if (xff && typeof xff === 'string') return xff.split(',')[0].trim();
   }
   return remoteIp || '127.0.0.1';
+}
+
+function getClientSessionId(req) {
+  if (!req || !req.headers) return null;
+  const cookieHeader = req.headers.cookie || '';
+  const match = cookieHeader.match(/konoha_session=([^;]+)/);
+  if (match) return decodeURIComponent(match[1].trim());
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  const xSession = req.headers['x-konoha-session'];
+  if (xSession) return String(xSession).trim();
+  return null;
+}
+
+function isBrowserClient(req) {
+  if (!req || !req.headers) return false;
+  if (req.headers['sec-fetch-site'] || req.headers['sec-fetch-mode'] || req.headers['sec-ch-ua']) return true;
+  const cookie = req.headers.cookie || '';
+  if (cookie.includes('konoha_session=') || cookie.includes('konoha-web-token=')) return true;
+  const ua = String(req.headers['user-agent'] || '');
+  if (ua.includes('Mozilla/') || ua.includes('Chrome/') || ua.includes('Safari/')) return true;
+  return false;
 }
 
 function createWebServer(options = {}) {
@@ -320,13 +345,74 @@ function createWebServer(options = {}) {
       }
     }
 
+    // Web UI Password Authentication API Endpoints
+    if (method === 'POST' && pathname === '/api/v1/auth/login') {
+      const clientIp = getTrustedClientIp(req);
+      try {
+        const body = await parseBody(req);
+        const password = typeof body.password === 'string' ? body.password : '';
+        const result = webAuth.authenticate(password, clientIp);
+        if (!result.success) {
+          return sendJson(res, result.rateLimited ? 429 : 401, { error: result.error });
+        }
+        res.setHeader('Set-Cookie', [
+          `konoha_session=${encodeURIComponent(result.sessionId)}; Path=/; SameSite=Strict; HttpOnly`,
+          `konoha-web-token=${sessionToken}; Path=/; SameSite=Strict; HttpOnly`
+        ]);
+        return sendJson(res, 200, {
+          ok: true,
+          sessionId: result.sessionId,
+          token: sessionToken,
+          is_bootstrap: result.isBootstrap,
+          requires_password_change: result.requiresPasswordChange
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && (pathname === '/api/v1/auth/status' || pathname === '/api/v1/auth/session')) {
+      const sessionId = getClientSessionId(req);
+      const status = webAuth.getAuthStatus(sessionId);
+      return sendJson(res, 200, {
+        ok: true,
+        ...status,
+        token: sessionToken
+      });
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/auth/change-password') {
+      const sessionId = getClientSessionId(req);
+      try {
+        const body = await parseBody(req);
+        const result = webAuth.updatePassword(sessionId, body.current_password, body.new_password);
+        if (!result.success) {
+          return sendJson(res, result.status || 400, { error: result.error });
+        }
+        return sendJson(res, 200, { ok: true, message: result.message });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/auth/logout') {
+      const sessionId = getClientSessionId(req);
+      if (sessionId) {
+        webAuth.destroySession(sessionId);
+      }
+      res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
+      return sendJson(res, 200, { ok: true });
+    }
+
     // Ingress Gate for Remote Traffic (Cloudflare Tunnel / ngrok / WAN)
     if (isRemote) {
-      // Allow static assets, health check, and PIN auth endpoint through
+      // Allow static assets, health check, and auth endpoints through
       const isStaticOrHealth = pathname.startsWith('/_app/') ||
                                pathname === '/favicon.png' ||
                                pathname === '/api/v1/health' ||
-                               pathname === '/api/v1/auth/pin';
+                               pathname === '/api/v1/auth/pin' ||
+                               pathname === '/api/v1/auth/login' ||
+                               pathname === '/api/v1/auth/status';
       if (!isStaticOrHealth) {
         const auth = tunnelSecurity.verifyRemoteAccess(req);
         if (!auth.authenticated) {
@@ -340,9 +426,45 @@ function createWebServer(options = {}) {
     }
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/v1/')) {
-      const tokenHeader = req.headers['x-konoha-web-token'];
-      if (!tokenHeader || tokenHeader !== sessionToken) {
-        return sendJson(res, 403, { error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' });
+      if (pathname !== '/api/v1/auth/pin' && pathname !== '/api/v1/auth/login') {
+        const tokenHeader = req.headers['x-konoha-web-token'];
+        if (!tokenHeader || tokenHeader !== sessionToken) {
+          return sendJson(res, 403, { error: 'Forbidden: Invalid or missing X-Konoha-Web-Token CSRF header' });
+        }
+      }
+    }
+
+    // Session Authentication & Mandatory Password Change Enforcement
+    const isPublicApi = pathname === '/api/v1/health' ||
+                        pathname === '/api/v1/csrf' ||
+                        pathname === '/api/v1/token' ||
+                        pathname === '/api/v1/auth/login' ||
+                        pathname === '/api/v1/auth/pin' ||
+                        pathname === '/api/v1/auth/status' ||
+                        pathname === '/api/v1/auth/session';
+
+    if (pathname.startsWith('/api/v1/') && !isPublicApi) {
+      const sessionId = getClientSessionId(req);
+      const session = sessionId ? webAuth.getSession(sessionId) : null;
+      const hasMasterToken = req.headers['x-konoha-web-token'] === sessionToken;
+      const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+      const isBrowser = isBrowserClient(req);
+
+      if (isBrowser) {
+        if (!session) {
+          return sendJson(res, 401, { error: 'Unauthorized: Authentication required', requires_login: true });
+        }
+      } else if (!isLoopback && !hasMasterToken && !session) {
+        return sendJson(res, 401, { error: 'Unauthorized: Authentication required', requires_login: true });
+      }
+
+      if (session && session.isBootstrap) {
+        if (pathname !== '/api/v1/auth/change-password' && pathname !== '/api/v1/auth/logout') {
+          return sendJson(res, 403, {
+            error: 'Mandatory password change required before normal dashboard access',
+            requires_password_change: true
+          });
+        }
       }
     }
 

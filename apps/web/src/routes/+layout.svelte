@@ -7,6 +7,9 @@
   import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
   import SweetAlertModal from '../components/SweetAlertModal.svelte';
+  import PasswordChangeModal from '../components/PasswordChangeModal.svelte';
+  import Login from '../components/Login.svelte';
+  import { authState } from '#lib/state/authState.svelte.js';
 
   let { children } = $props();
 
@@ -55,7 +58,9 @@
       items: [
         { id: 'tasks', path: '/tasks', label: 'SDLC Tasks', iconSvg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
         { id: 'doctor', path: '/doctor', label: 'Health & Doctor', iconSvg: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-        { id: 'docs', path: '/docs', label: 'Documentation', iconSvg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
+        { id: 'docs', path: '/docs', label: 'Documentation', iconSvg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+        { id: 'settings', path: '/settings', label: 'Settings & Auth', iconSvg: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+        { id: 'logout', action: 'logout', label: 'Logout / Lock', iconSvg: 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1', badge: 'Lock' }
       ]
     }
   ];
@@ -122,6 +127,7 @@
   onMount(() => {
     themeState.init();
     initToken();
+    authState.checkAuth();
     checkHealth();
     const interval = setInterval(checkHealth, 10000);
 
@@ -145,6 +151,18 @@
   });
 </script>
 
+{#if authState.isChecking}
+  <div class="fixed inset-0 flex items-center justify-center bg-slate-950 text-white z-50">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-10 h-10 rounded-full border-2 border-sky-400 border-t-transparent animate-spin"></div>
+      <p class="text-xs font-mono text-sky-300">SYNCHRONIZING WITH KONOHA GATEWAY...</p>
+    </div>
+  </div>
+{:else if !authState.isAuthenticated}
+  <Login />
+  <ThemeSwitcher />
+  <SweetAlertModal />
+{:else}
 <div id="konoha-app-root" class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
   <!-- Mobile Sidebar Backdrop Overlay -->
   {#if isMobileSidebarOpen}
@@ -226,23 +244,41 @@
             {#if isExpanded}
               <div class="space-y-0.5 pt-0.5 pb-1 pl-1 transition-all duration-200">
                 {#each section.items as item}
-                  {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
-                  <a
-                    href={item.path}
-                    onclick={closeMobileSidebar}
-                    class="nav-depth gradient-sidemenu-item flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 {isActive ? 'gradient-sidemenu-active' : ''}"
-                    style="{isActive ? '' : 'color: var(--color-text-muted);'}"
-                  >
-                    <div class="flex items-center gap-2 min-w-0">
-                      <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
-                      </svg>
-                      <span class="truncate">{item.label}</span>
-                    </div>
-                    {#if item.badge}
-                      <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'bg-white/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
-                    {/if}
-                  </a>
+                  {#if item.action === 'logout'}
+                    <button
+                      type="button"
+                      onclick={() => { closeMobileSidebar(); authState.logout(); }}
+                      class="nav-depth gradient-sidemenu-item w-full flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 cursor-pointer text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                    >
+                      <div class="flex items-center gap-2 min-w-0">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
+                        </svg>
+                        <span class="truncate">{item.label}</span>
+                      </div>
+                      {#if item.badge}
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 bg-rose-500/20 text-rose-500 border border-rose-500/30">{item.badge}</span>
+                      {/if}
+                    </button>
+                  {:else}
+                    {@const isActive = page.url.pathname === item.path || (item.path === '/dashboard' && page.url.pathname === '/')}
+                    <a
+                      href={item.path}
+                      onclick={closeMobileSidebar}
+                      class="nav-depth gradient-sidemenu-item flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 {isActive ? 'gradient-sidemenu-active' : ''}"
+                      style="{isActive ? '' : 'color: var(--color-text-muted);'}"
+                    >
+                      <div class="flex items-center gap-2 min-w-0">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.iconSvg} />
+                        </svg>
+                        <span class="truncate">{item.label}</span>
+                      </div>
+                      {#if item.badge}
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'bg-white/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
+                      {/if}
+                    </a>
+                  {/if}
                 {/each}
               </div>
             {/if}
@@ -334,7 +370,36 @@
       </div>
 
       <!-- Action Buttons & Status -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Change Password Button -->
+        <button
+          type="button"
+          onclick={() => authState.openPasswordChangeModal()}
+          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer hover:scale-105 transition-all"
+          style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
+          title="Security Passphrase Settings"
+          aria-label="Security Settings"
+        >
+          <svg class="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span class="hidden md:inline">Password</span>
+        </button>
+
+        <!-- Lock / Logout Button -->
+        <button
+          type="button"
+          onclick={() => authState.logout()}
+          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-rose-500 hover:text-rose-600 border-rose-200 dark:border-rose-900/40 hover:scale-105 transition-all"
+          title="Lock Console / Logout"
+          aria-label="Logout"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span class="hidden md:inline">Logout</span>
+        </button>
+
         <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-[5px] border text-[11px] font-mono" style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
           <span>127.0.0.1:{health.port || 1404}</span>
@@ -357,6 +422,9 @@
   <!-- Global 3D SweetAlert Modal -->
   <SweetAlertModal />
 
+  <!-- Mandatory / On-Demand Password Change Modal -->
+  <PasswordChangeModal />
+
   <!-- Global Notification Toasts (Top-Right Placement - Zero Overlap with Bottom-Right Theme Switcher) -->
   {#if uiState.notifications.length > 0}
     <div class="fixed top-5 right-5 z-[100] space-y-2 max-w-[calc(100vw-2.5rem)] pointer-events-none">
@@ -369,3 +437,4 @@
     </div>
   {/if}
 </div>
+{/if}

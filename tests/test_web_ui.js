@@ -269,9 +269,10 @@ async function run() {
     // 8. Clients endpoint
     const clients = await request({ hostname: '127.0.0.1', port, path: '/api/v1/clients', method: 'GET' });
     assert.strictEqual(clients.status, 200);
-    assert.strictEqual(clients.data.length, 7);
+    assert.strictEqual(clients.data.length, 8);
     assert.ok(clients.data.some(c => c.id === 'pi' && c.name === 'Pi (pi.dev)'));
-    console.log('✓ GET /api/v1/clients passed (7 clients incl. Pi)');
+    assert.ok(clients.data.some(c => c.id === 'omp' && c.name === 'OMP Agent'));
+    console.log('✓ GET /api/v1/clients passed (8 clients incl. Pi and OMP)');
 
     // 8a. Client disconnect & setup endpoints
     const removeAg = await request({

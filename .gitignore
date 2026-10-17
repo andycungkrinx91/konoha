@@ -54,6 +54,8 @@ key.pem
 *.crt
 
 # Local temporary or scratch files
+/PLAN.md
+/.omp/plans/
 PLAN.md
 .omp/plans/
 .omp/plans

@@ -36,7 +36,7 @@
 <svelte:window onkeydown={handleModalKeydown} />
 
 <!-- Floating Bottom-Right Theme Switcher Button (FAB) with Rasengan Icon -->
-<div class="fixed bottom-6 right-6 z-50">
+<div class="fixed bottom-6 right-6 z-[100] pointer-events-auto">
   <button
     type="button"
     onclick={toggleModal}
@@ -226,7 +226,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={() => isModalOpen = false}
   >
     <!-- Centered Modal Popup Dialog with 3D 4-Color Gradient Engine -->

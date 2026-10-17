@@ -61,18 +61,24 @@ konoha web
    │
    ├── Embedded API Server (src/web_server.js)
    │     ├── Bound to 127.0.0.1:1404 (Localhost only)
+   │     ├── Password-only authentication via salted scrypt hashing (src/auth.js)
+   │     ├── Bootstrap credential ('konohagakure') with mandatory password change enforcement
    │     ├── Serves session token via HttpOnly cookie; exposes CSRF token via GET /api/v1/csrf
    │     ├── Requires X-Konoha-Web-Token on POST / PATCH / DELETE
    │     ├── Realtime updates via Server-Sent Events (/api/v1/events)
    │     └── Serves JSON API (/api/v1/*) over existing Konoha core functions
    │
    └── Frontend (apps/web/build/)
-         ├── Built with SvelteKit 3 (RC) + Svelte 5 + Vite 8
+         ├── Built with SvelteKit 3 + Svelte 5 + Vite 8
+         ├── Cyberpunk 3D Login Page with 3-Second Cinematic Rasengan Sequence
          └── 10 Light-Mode Gradient Themes with Byakugan 3D Glassmorphism Aesthetic
 ```
 
-### Security & CSRF Hardening
+### Security & Authentication Hardening
 - **Localhost Bound**: The server binds strictly to `127.0.0.1` by default.
+- **Salted Scrypt Password Authentication**: Passwords are verified server-side using cryptographic salted scrypt key derivation (`crypto.scryptSync`, `N=16384, r=8, p=1`, 64-byte key) with timing-safe comparison (`crypto.timingSafeEqual`). Plaintext passwords are never stored or logged.
+- **Bootstrap Password Gating**: On initial installation, the default credential is `konohagakure`. Users logging in with the bootstrap credential are automatically gated by a mandatory password change workflow before normal dashboard access is granted.
+- **Rate-Limiting Protection**: Repeated invalid login attempts trigger IP-based progressive throttling to protect against brute-force attacks.
 - **CSRF Token Invariant**: Every session generates a secure random token passed via the `X-Konoha-Web-Token` header for all state-changing mutations (`POST`, `PUT`, `PATCH`, `DELETE`). Requests missing or with an invalid token are rejected with HTTP 403 Forbidden.
 - **Zero Raw Secrets Rendered**: API keys entered for local LLM bridges are write-only and never echoed back in plaintext.
 

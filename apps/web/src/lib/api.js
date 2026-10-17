@@ -87,3 +87,59 @@ export const api = {
   delete: (url, body) => apiRequest(url, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }),
   del: (url, body) => apiRequest(url, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
 };
+
+export async function login(password) {
+  const res = await fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Login failed');
+  }
+  if (data.token) {
+    memoryToken = data.token;
+  }
+  return data;
+}
+
+export async function getAuthStatus() {
+  const res = await fetch('/api/v1/auth/status');
+  if (!res.ok) {
+    return { authenticated: false, is_bootstrap: false, requires_password_change: false };
+  }
+  return res.json();
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  let token = getToken();
+  if (!token) token = await initToken();
+  const res = await fetch('/api/v1/auth/change-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-Konoha-Web-Token': token } : {})
+    },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Password change failed');
+  }
+  return data;
+}
+
+export async function logout() {
+  let token = getToken();
+  if (!token) token = await initToken();
+  const res = await fetch('/api/v1/auth/logout', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-Konoha-Web-Token': token } : {})
+    }
+  });
+  memoryToken = '';
+  return res.ok;
+}

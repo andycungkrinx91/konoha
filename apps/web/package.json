@@ -16,7 +16,7 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "1.50.1",
+    "@playwright/test": "^1.64.1",
     "@sveltejs/adapter-node": "^6.0.0",
     "@sveltejs/kit": "^3.0.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -26,11 +26,7 @@
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.3"
   },
-  "pnpm": {
-    "overrides": {
-      "devalue": ">=6.0.2",
-      "source-map-js": ">=1.2.2",
-      "playwright-core": "^1.63.0"
-    }
+  "dependencies": {
+    "three": "^0.186.1"
   }
 }
