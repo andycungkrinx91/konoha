@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { authState } from '#lib/state/authState.svelte.js';
   import { themeState, THEMES } from '#lib/state/themeState.svelte.js';
-  import { RasenganScene } from '#lib/RasenganScene.js';
 
   let password = $state('');
   let showPassword = $state(false);
@@ -130,29 +129,34 @@
     }
   }
 
-  // Mount Three.js Rasengan Scene
+  // Mount Three.js Rasengan Scene (Dynamic Import for optimized code splitting)
   onMount(() => {
+    let disposed = false;
     if (threeCanvasEl) {
       const palette = activeThemeObj?.gradient && activeThemeObj.gradient.length >= 4
         ? [activeThemeObj.gradient[0], activeThemeObj.gradient[1], activeThemeObj.gradient[2], activeThemeObj.gradient[3], activeThemeObj.accent]
         : ['#11aaff', '#45eaff', '#075dff', '#9beeff', '#167aff'];
 
-      try {
-        rasenganScene = new RasenganScene(threeCanvasEl, {
-          bloom: true,
-          pixelRatioCap: 1.5,
-          colors: palette,
-          onPhaseChange: (p) => {
-            currentScenePhase = p;
-          }
+      import('#lib/RasenganScene.js')
+        .then(({ RasenganScene }) => {
+          if (disposed || !threeCanvasEl) return;
+          rasenganScene = new RasenganScene(threeCanvasEl, {
+            bloom: true,
+            pixelRatioCap: 1.5,
+            colors: palette,
+            onPhaseChange: (p) => {
+              currentScenePhase = p;
+            }
+          });
+        })
+        .catch(err => {
+          // Fallback gracefully if WebGL fails
+          console.warn('Rasengan Three.js dynamic import fallback:', err);
         });
-      } catch (err) {
-        // Fallback gracefully if WebGL fails
-        console.warn('Rasengan Three.js initialization fallback:', err);
-      }
     }
 
     return () => {
+      disposed = true;
       if (rasenganScene) {
         rasenganScene.dispose();
         rasenganScene = null;

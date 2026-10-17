@@ -14,6 +14,9 @@ export default defineConfig({
   ssr: {
     noExternal: ['three']
   },
+  build: {
+    chunkSizeWarningLimit: 1200
+  },
   server: {
     port: 1404,
     strictPort: true
