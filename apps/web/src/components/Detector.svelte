@@ -10,8 +10,8 @@
   let error = $state(null);
 
   const SEVERITY_STYLES = {
-    high: 'bg-red-100 text-red-700 border-red-200',
-    medium: 'bg-amber-100 text-amber-700 border-amber-200',
+    high: 'badge-status badge-status-danger',
+    medium: 'badge-status badge-status-warning',
     low: 'theme-bg-subtle theme-text-secondary theme-border'
   };
 
@@ -229,7 +229,7 @@
       </h2>
       {#if result.findings.length === 0}
         <div class="p-4 rounded-xl bg-status-success-soft border badge-status-success">
-          <p class="text-emerald-700 font-semibold text-sm">No AI fingerprints detected</p>
+          <p class="text-status-success font-semibold text-sm">No AI fingerprints detected</p>
           <p class="text-[var(--theme-success)]/80 text-xs mt-1">
             {#if mode === 'website'}
               This site sits in the Human-Built band (score 0–20).

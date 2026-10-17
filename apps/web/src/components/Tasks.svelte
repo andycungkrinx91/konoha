@@ -116,9 +116,9 @@
   }
 
   function confidenceClass(confidence) {
-    if (confidence === 'high') return 'bg-emerald-100 text-emerald-700 border-emerald-300';
-    if (confidence === 'medium') return 'bg-amber-100 text-amber-700 border-amber-300';
-    return 'bg-rose-100 text-rose-700 border-rose-300';
+    if (confidence === 'high') return 'bg-emerald-100 text-status-success border-status-success-soft';
+    if (confidence === 'medium') return 'bg-amber-100 text-status-warning border-status-warning-soft';
+    return 'bg-rose-100 text-status-danger border-status-danger-soft';
   }
 
   async function deleteTask(id, e) {
@@ -313,7 +313,7 @@
             {/each}
           </ul>
         {:else if dorResult.ready}
-          <p class="text-sm font-semibold text-emerald-700">Task passes all Definition of Ready criteria.</p>
+          <p class="text-sm font-semibold text-status-success">Task passes all Definition of Ready criteria.</p>
         {/if}
       </div>
     {/if}

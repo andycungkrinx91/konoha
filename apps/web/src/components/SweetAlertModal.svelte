@@ -11,7 +11,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200"
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-md animate-in fade-in duration-200"
     onclick={(e) => { if (e.target === e.currentTarget) sweetAlert.handleCancel(); }}
   >
     <!-- 3D Perspective Modal Card with 4-Color Theme Gradient Accent & Border -->
@@ -70,7 +70,7 @@
           <div class="text-sm font-medium theme-text-secondary leading-relaxed max-w-full mx-auto space-y-2.5">
             {#each sweetAlert.text.split('\n') as line}
               {#if line.trim().startsWith('/') || line.trim().startsWith('C:\\') || line.trim().startsWith('~')}
-                <div class="font-mono text-xs p-2.5 rounded-[5px] bg-slate-900/5 theme-text border theme-border/80 break-all select-all text-left shadow-inner max-h-32 overflow-y-auto">
+                <div class="font-mono text-xs p-2.5 rounded-[5px] bg-[var(--theme-overlay)] 5 theme-text border theme-border/80 break-all select-all text-left shadow-inner max-h-32 overflow-y-auto">
                   {line.trim()}
                 </div>
               {:else if line.trim()}

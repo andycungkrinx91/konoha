@@ -21,8 +21,8 @@
       return;
     }
 
-    if (newPassword === 'konohagakure') {
-      statusMessage = 'Cannot reuse the default bootstrap password.';
+    if (!currentPassword) {
+      statusMessage = 'Enter your current password.';
       isError = true;
       return;
     }
@@ -63,8 +63,8 @@
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-xs font-semibold {authState.isBootstrap ? 'bg-amber-500/15 text-amber-600 border border-amber-500/30' : 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30'}">
-        <span class="w-2 h-2 rounded-full {authState.isBootstrap ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-xs font-semibold border {authState.isBootstrap ? 'bg-status-warning-soft text-status-warning border-status-warning-soft' : 'bg-status-success-soft text-status-success border-status-success-soft'}">
+        <span class="w-2 h-2 rounded-full {authState.isBootstrap ? 'bg-status-warning' : 'bg-status-success'}"></span>
         {authState.isBootstrap ? 'Bootstrap Credential Active' : 'Hardened Password Active'}
       </span>
     </div>
@@ -76,7 +76,7 @@
     style="background-color: var(--color-card-bg); border-color: var(--color-card-border);"
   >
     <div class="flex items-start gap-4">
-      <div class="w-12 h-12 rounded-[5px] flex items-center justify-center shrink-0 border border-sky-400/40 bg-sky-500/10 text-sky-500">
+      <div class="w-12 h-12 rounded-[5px] flex items-center justify-center shrink-0 border border-status-info-soft bg-status-info-soft text-status-info">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
@@ -93,7 +93,7 @@
     </div>
 
     {#if statusMessage}
-      <div class="p-3 rounded-[5px] text-xs font-semibold border {isError ? 'border-rose-500/30 bg-rose-500/10 text-rose-600' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'} animate-in fade-in">
+      <div role={isError ? 'alert' : 'status'} class="p-3 rounded-[5px] text-xs font-semibold border animate-in fade-in {isError ? 'badge-status badge-status-danger' : 'badge-status badge-status-success'}">
         {statusMessage}
       </div>
     {/if}
@@ -107,8 +107,8 @@
           id="settings-current-password"
           type={showPasswords ? "text" : "password"}
           bind:value={currentPassword}
-          placeholder="Default: konohagakure"
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border focus:outline-none transition-colors"
+          placeholder="Enter current password"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
           style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           autocomplete="current-password"
         />
@@ -124,7 +124,7 @@
           bind:value={newPassword}
           placeholder="Enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border focus:outline-none transition-colors"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
           style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           autocomplete="new-password"
         />
@@ -140,7 +140,7 @@
           bind:value={confirmPassword}
           placeholder="Re-enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border focus:outline-none transition-colors"
+          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border input-theme"
           style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           autocomplete="new-password"
         />
@@ -151,7 +151,7 @@
           <input
             type="checkbox"
             bind:checked={showPasswords}
-            class="rounded text-sky-600 focus:ring-0 cursor-pointer"
+            class="rounded cursor-pointer accent-[var(--color-primary)]"
           />
           Show password characters
         </label>

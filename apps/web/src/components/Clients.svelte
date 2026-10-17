@@ -96,7 +96,7 @@
       <div class="flex flex-wrap items-center gap-3 shrink-0">
         <div class="glass-card-3d px-4 py-3 rounded-2xl border text-center">
           <div class="text-xs font-bold theme-text-secondary">Supported Clients</div>
-          <div class="text-xl font-black text-indigo-600">
+          <div class="text-xl font-black text-action-primary">
             {#if loading && clientCount === 0}
               ...
             {:else}
@@ -127,7 +127,7 @@
   {#if loading}
     <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
-        <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin w-5 h-5 text-action-primary" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
@@ -153,7 +153,7 @@
               </div>
 
               <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border {client.configured ? 'badge-status badge-status-success' : 'theme-bg-subtle theme-text-secondary theme-border-strong-b'}">
-                <span class="w-1.5 h-1.5 rounded-full {client.configured ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+                <span class="w-1.5 h-1.5 rounded-full {client.configured ? 'bg-status-success-soft' : 'bg-indicator-idle'}"></span>
                 {client.configured ? 'Active' : 'Unconfigured'}
               </span>
             </div>

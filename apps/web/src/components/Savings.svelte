@@ -81,7 +81,7 @@
     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="space-y-2">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border" style="background-color: var(--color-primary-glow); color: var(--color-primary); border-color: var(--color-primary);">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-status-success-soft"></span>
           Dual-Engine Context Optimizer
         </div>
         <h2 class="text-2xl lg:text-3xl font-black theme-text tracking-tight">
@@ -108,7 +108,7 @@
   </div>
 
   {#if error}
-    <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-sm font-semibold">
+    <div class="p-4 rounded-xl bg-status-danger-soft/10 border border-status-danger-soft text-status-danger text-sm font-semibold">
       {error}
     </div>
   {/if}
@@ -137,7 +137,7 @@
       style="border-color: var(--color-border); box-shadow: var(--shadow-3d);"
     >
       <div class="flex items-center gap-2.5 mb-4">
-        <div class="w-8 h-8 rounded-[5px] flex items-center justify-center bg-amber-500/10 text-amber-500 border border-amber-500/30">
+        <div class="w-8 h-8 rounded-[5px] flex items-center justify-center bg-status-warning-soft text-status-warning border border-status-warning-soft">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
           </svg>
@@ -291,11 +291,11 @@
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(today.pct_saved ?? today.pct ?? 0)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{today.pct_saved ?? today.pct ?? 0}%</span>
+                    <span class="font-mono text-xs font-bold text-status-success">{today.pct_saved ?? today.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(today.tokens || 0)}</td>
-                <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(today.thought_tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono text-status-warning">{formatTokens(today.thought_tokens || 0)}</td>
               </tr>
               <tr class="hover-bg-muted transition-colors">
                 <td class="py-3 px-4 font-bold theme-text">Last 7 Days</td>
@@ -304,11 +304,11 @@
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(last7Days.pct_saved ?? last7Days.pct ?? 0)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
+                    <span class="font-mono text-xs font-bold text-status-success">{last7Days.pct_saved ?? last7Days.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(last7Days.tokens || 0)}</td>
-                <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(last7Days.thought_tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono text-status-warning">{formatTokens(last7Days.thought_tokens || 0)}</td>
               </tr>
               <tr class="hover-bg-muted transition-colors">
                 <td class="py-3 px-4 font-bold theme-text">All Time</td>
@@ -317,11 +317,11 @@
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-[var(--theme-success)] text-xs tracking-tight">[{formatTuiBar(allTime.pct_saved ?? allTime.pct ?? 0)}]</span>
-                    <span class="font-mono text-xs font-bold text-emerald-700">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
+                    <span class="font-mono text-xs font-bold text-status-success">{allTime.pct_saved ?? allTime.pct ?? 0}%</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 font-mono theme-text font-bold">~{formatTokens(allTime.tokens || 0)}</td>
-                <td class="py-3 px-4 font-mono text-amber-700">{formatTokens(allTime.thought_tokens || 0)}</td>
+                <td class="py-3 px-4 font-mono text-status-warning">{formatTokens(allTime.thought_tokens || 0)}</td>
               </tr>
             </tbody>
           </table>
@@ -503,7 +503,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-black theme-text flex items-center gap-2">
-              <span class="flex items-center gap-1.5 text-emerald-500">
+              <span class="flex items-center gap-1.5 text-status-success">
                 <span>2.</span>
                 <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

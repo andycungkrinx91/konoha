@@ -221,7 +221,7 @@
         antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
         adhd_shaping: 'Lead with verified documentation answer, numbered evidence points, cap citations to 5, end with concrete recommendation.'
       },
-      'tokubetsu-jonin': {
+ 'tokubetsu-jonin': {
         name: '⬡ Tokubetsu-Jonin',
         role: 'The Authentic Scribe (Humanist Writer)',
         voice: 'Writing must be human, clear, and compelling. Documents that people actually enjoy reading.',
@@ -337,7 +337,7 @@
         class="btn-3d px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
         style={activeTab !== "soul" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
-        <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-amber-200' : 'text-amber-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-[var(--theme-warning)]' : 'text-status-warning'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
         </svg>
@@ -393,7 +393,7 @@
         <button
           type="button"
           onclick={() => { selectedType = t.id; loadMemories(); }}
-          class="px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
+          class="px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-action-primary text-white border-action-primary shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
         >
           {t.label}
         </button>
@@ -412,7 +412,7 @@
   {#if loading}
     <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
-        <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin w-5 h-5 text-action-primary" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
@@ -480,7 +480,7 @@
     {#if loadingSoul && !soulData}
       <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
         <div class="flex items-center gap-3">
-          <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+          <svg class="animate-spin w-5 h-5 text-action-primary" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
@@ -495,7 +495,7 @@
       {#if soulError}
         <div class="p-3 rounded-xl border badge-status badge-status-warning text-xs font-semibold flex items-center justify-between">
           <span>Notice: Displaying offline Village Soul doctrine ({soulError})</span>
-          <button type="button" onclick={loadSoul} class="underline text-amber-900 cursor-pointer font-bold">Retry</button>
+          <button type="button" onclick={loadSoul} class="underline text-status-warning cursor-pointer font-bold">Retry</button>
         </div>
       {/if}
 
@@ -512,7 +512,7 @@
           <span>Konohagakure Core Doctrine — Will of Fire</span>
         </div>
         <blockquote class="text-base sm:text-lg italic border-l-4 pl-4 py-1 leading-relaxed" style="color: var(--color-text); border-color: var(--color-primary);">
-          "{soulData.will_of_fire || 'Where tree leaves dance, one shall find flames.'}"
+ "{soulData.will_of_fire || 'Where tree leaves dance, one shall find flames.'}"
         </blockquote>
         <p class="text-xs font-semibold theme-text-secondary">
           The Will of Fire is the unyielding philosophy binding every Ninja agent in Konohagakure.
@@ -526,9 +526,9 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <div class="space-y-1 text-xs">
-          <div class="font-black text-amber-900 tracking-wide uppercase flex items-center gap-2">
+          <div class="font-black text-status-warning tracking-wide uppercase flex items-center gap-2">
             <span>Universal i-have-adhd Doctrine Enforced Across All Souls</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-200 badge-status badge-status-warning">
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase badge-status badge-status-warning">
               Active in All 7 Spirits
             </span>
           </div>
@@ -541,7 +541,7 @@
       <!-- The 5 Universal Tenets -->
       <div class="space-y-3">
         <h3 class="text-base font-black theme-text tracking-tight flex items-center gap-2">
-          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <span>Five Universal Tenets of the Village</span>
@@ -571,7 +571,7 @@
       <!-- The 7 Ninja Archetypes -->
       <div class="space-y-3">
         <h3 class="text-base font-black theme-text tracking-tight flex items-center gap-2">
-          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
           <span>Seven Ninja Archetypes &amp; Spirits</span>
@@ -595,7 +595,7 @@
 
                 <div class="p-3 rounded-xl theme-bg-muted border theme-border/80">
                   <p class="text-[11px] font-medium italic theme-text leading-relaxed">
-                    "{arch.voice || ""}"
+ "{arch.voice || ""}"
                   </p>
                 </div>
 
@@ -610,7 +610,7 @@
 
                 {#if arch.adhd_shaping}
                   <div class="space-y-1 p-2.5 rounded-xl bg-status-warning-soft/60 border badge-statuswarning-soft/80">
-                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-status-warning flex items-center gap-1">
                       <svg class="w-3 h-3 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
@@ -624,8 +624,8 @@
 
                 {#if arch.antislop_skills && arch.antislop_skills.length > 0}
                   <div class="space-y-1.5 p-2.5 rounded-xl bg-status-info-soft/60 border badge-statusinfo-soft/80">
-                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
-                      <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-action-primary flex items-center gap-1">
+                      <svg class="w-3 h-3 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span>Anti-Slop Skills</span>
@@ -643,7 +643,7 @@
 
               <div class="pt-3 border-t theme-border-subtle flex items-center justify-between text-[10px] font-semibold theme-text-muted">
                 <span>Archetype Spirit</span>
-                <span class="text-emerald-700 font-bold flex items-center gap-1">
+                <span class="text-status-success font-bold flex items-center gap-1">
                   <svg class="w-3 h-3 text-[var(--theme-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
                   </svg>
@@ -663,7 +663,7 @@
 {#if isCreateModalOpen}
   <div
     role="presentation"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-md animate-in fade-in duration-150"
     onclick={(e) => { if (e.target === e.currentTarget) isCreateModalOpen = false; }}
     onkeydown={(e) => { if (e.key === 'Escape') isCreateModalOpen = false; }}
   >

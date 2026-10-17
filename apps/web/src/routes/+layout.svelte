@@ -154,7 +154,7 @@
 {#if authState.isChecking}
   <div class="fixed inset-0 flex items-center justify-center z-50" style="background-color: var(--theme-bg); color: var(--theme-text);" role="status" aria-live="polite">
     <div class="flex flex-col items-center gap-3">
-      <div class="w-10 h-10 rounded-full border-2 border-sky-400 border-t-transparent animate-spin"></div>
+      <div class="w-10 h-10 rounded-full border-2 border-[var(--theme-focus)] border-t-transparent animate-spin"></div>
       <p class="text-xs font-mono" style="color: var(--theme-focus);">SYNCHRONIZING WITH KONOHA GATEWAY...</p>
     </div>
   </div>
@@ -224,7 +224,7 @@
         {#each navSections as section}
           {@const isExpanded = openSections.has(section.title)}
           {@const hasActiveChild = section.items.some(it => page.url.pathname === it.path || (it.path === '/dashboard' && page.url.pathname === '/'))}
-          <div class="rounded-[5px] overflow-hidden border transition-all duration-200 {hasActiveChild ? 'border-sky-500/30 shadow-xs' : 'border-transparent'}" style="{hasActiveChild ? 'background: linear-gradient(90deg, color-mix(in srgb, var(--theme-grad-1) 14%, transparent) 0%, color-mix(in srgb, var(--theme-grad-2) 6%, transparent) 100%);' : ''}">
+          <div class="rounded-[5px] overflow-hidden border transition-all duration-200 {hasActiveChild ? 'border-[var(--theme-focus)] shadow-xs' : 'border-transparent'}" style="{hasActiveChild ? 'background: linear-gradient(90deg, color-mix(in srgb, var(--theme-grad-1) 14%, transparent) 0%, color-mix(in srgb, var(--theme-grad-2) 6%, transparent) 100%);' : ''}">
             <button
               type="button"
               onclick={() => toggleSection(section.title)}
@@ -248,7 +248,7 @@
                     <button
                       type="button"
                       onclick={() => { closeMobileSidebar(); authState.logout(); }}
-                      class="nav-depth gradient-sidemenu-item w-full flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 cursor-pointer text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                      class="nav-depth gradient-sidemenu-item w-full flex items-center justify-between px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-all duration-150 cursor-pointer text-status-danger hover:text-status-danger hover:bg-status-danger-soft/10"
                     >
                       <div class="flex items-center gap-2 min-w-0">
                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,7 +257,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 bg-rose-500/20 text-rose-500 border border-rose-500/30">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 bg-status-danger-soft/20 text-status-danger border border-status-danger-soft">{item.badge}</span>
                       {/if}
                     </button>
                   {:else}
@@ -275,7 +275,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-white border border-white/40' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'}">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-[var(--theme-text-inverse)] border border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft/20 text-status-success border border-status-success-soft'}">{item.badge}</span>
                       {/if}
                     </a>
                   {/if}
@@ -291,7 +291,7 @@
     <div class="p-4 border-t shrink-0 transition-colors duration-200 w-64" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: var(--theme-sidebar-footer-bg);">
       <div class="flex items-center justify-between text-xs mb-2" style="color: var(--color-text-muted);">
         <span class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full {uiState.isConnected ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-500'}"></span>
+          <span class="w-2 h-2 rounded-full {uiState.isConnected ? 'bg-status-success shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-status-danger-soft'}"></span>
           <span class="text-xs font-medium">{uiState.isConnected ? 'Live MCP Gateway' : 'Disconnected'}</span>
         </span>
         <span class="font-mono text-[11px]" style="color: var(--color-text-muted);">:{health.port || 1404}</span>
@@ -376,7 +376,7 @@
           title="Security Passphrase Settings"
           aria-label="Security Settings"
         >
-          <svg class="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-3.5 h-3.5 text-status-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
           <span class="hidden md:inline">Password</span>
@@ -386,7 +386,7 @@
         <button
           type="button"
           onclick={() => authState.logout()}
-          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-rose-500 hover:text-rose-600 border-status-danger-soft dark:border-rose-900/40 hover:scale-105 transition-all"
+          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-status-danger hover:text-status-danger border-status-danger-soft hover:scale-105 transition-all"
           title="Lock Console / Logout"
           aria-label="Logout"
         >
@@ -397,10 +397,10 @@
         </button>
 
         <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-[5px] border text-[11px] font-mono" style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
           <span>127.0.0.1:{health.port || 1404}</span>
         </div>
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold bg-status-success-soft/10 text-status-success border border-status-success-soft/20">
           SSE Active
         </span>
       </div>
@@ -425,8 +425,8 @@
   {#if uiState.notifications.length > 0}
     <div class="fixed top-5 right-5 z-[100] space-y-2 max-w-[calc(100vw-2.5rem)] pointer-events-none">
       {#each uiState.notifications as n (n.id)}
-        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-slate-900/95 text-white border-sky-500/50 flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
-          <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+        <div class="px-4 py-3 rounded-[5px] text-xs font-semibold shadow-2xl border backdrop-blur-2xl bg-[var(--theme-overlay)] 95 text-white border-[var(--theme-info)] flex items-center gap-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
+          <span class="w-2 h-2 rounded-full bg-status-info animate-ping"></span>
           <span>{n.text}</span>
         </div>
       {/each}

@@ -201,7 +201,7 @@
   style="
     background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--theme-grad-2, #124a72) 38%, var(--theme-bg)) 0%, var(--theme-bg) 62%, color-mix(in srgb, var(--theme-bg) 80%, #000000) 100%);
     color: var(--theme-text);
-  "
+ "
 >
   <!-- Procedural 3D Rasengan scene -->
   <canvas
@@ -236,7 +236,7 @@
         border-color: var(--theme-border-strong);
         color: var(--theme-text);
         box-shadow: var(--theme-modal-shadow, 0 25px 60px -15px rgba(0, 0, 0, 0.45));
-      "
+ "
     >
       <div class="absolute top-0 left-0 right-0 h-[3px]" style="background: var(--theme-4gradient-bar);" aria-hidden="true"></div>
 

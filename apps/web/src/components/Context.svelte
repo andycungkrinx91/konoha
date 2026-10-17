@@ -399,7 +399,7 @@
   {#if loading}
     <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
-        <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin w-5 h-5 text-action-primary" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
@@ -543,7 +543,7 @@
                   <button
                     type="button"
                     onclick={() => deleteProjectMemory(pm.id)}
-                    class="text-[var(--theme-danger)] hover:text-rose-800 font-bold cursor-pointer inline-flex items-center gap-1 transition-colors"
+                    class="text-[var(--theme-danger)] hover:text-status-danger font-bold cursor-pointer inline-flex items-center gap-1 transition-colors"
                     title="Delete this memory item"
                   >
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -622,7 +622,7 @@
                     <button
                       type="button"
                       onclick={() => switchWorkspace(proj.project_path)}
-                      class="text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer underline"
+                      class="text-action-primary hover:text-action-primary font-bold cursor-pointer underline"
                     >
                       Switch
                     </button>
@@ -632,7 +632,7 @@
                 <button
                   type="button"
                   onclick={() => deleteProjectContext(proj.project_hash)}
-                  class="text-[var(--theme-danger)] hover:text-rose-800 font-bold cursor-pointer"
+                  class="text-[var(--theme-danger)] hover:text-status-danger font-bold cursor-pointer"
                 >
                   Delete
                 </button>
@@ -646,7 +646,7 @@
 </div>
 
 {#if isAddLearningOpen}
-  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-md animate-in fade-in duration-200">
     <div
       class="rise-3d relative w-full max-w-lg overflow-hidden rounded-3xl border theme-border theme-bg-surface/95 p-6 shadow-2xl backdrop-blur-xl"
       style="box-shadow: var(--shadow-3d);"
@@ -661,7 +661,7 @@
           onclick={() => { isAddLearningOpen = false; }}
           aria-label="Close modal"
           title="Close modal"
-          class="p-1 rounded-xl theme-text-muted hover:text-slate-600 hover-bg-subtle transition-all cursor-pointer"
+          class="p-1 rounded-xl theme-text-muted theme-text-secondary hover-bg-subtle transition-all cursor-pointer"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

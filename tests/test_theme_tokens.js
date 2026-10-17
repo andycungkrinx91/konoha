@@ -106,8 +106,13 @@ async function run() {
   assert.ok(dark.includes('--theme-text-disabled: #94a3b8'), 'Dark disabled text must stay legible (#94a3b8)');
   assert.ok(dark.includes('--theme-success: #34d399'), 'Dark success accent must be lifted for contrast');
 
-  // 5. Palette-driven neutral utilities exist for both modes.
-  for (const util of ['theme-bg-surface', 'theme-text-muted', 'badge-status-danger', 'bg-status-info-soft']) {
+  // 5. Palette-driven neutral and status utilities exist for both modes.
+  for (const util of [
+    'theme-bg-surface', 'theme-text-muted', 'badge-status-danger', 'bg-status-info-soft',
+    'text-status-success', 'text-status-warning', 'text-status-danger', 'text-status-info',
+    'bg-status-success', 'bg-status-danger', 'bg-action-primary', 'text-required',
+    'bg-status-warning', 'bg-indicator-idle'
+  ]) {
     assert.ok(appCss.includes(`.${util}`), `app.css is missing .${util}`);
   }
 
@@ -122,7 +127,7 @@ async function run() {
       }
       if (!entry.name.endsWith('.svelte')) continue;
       const content = fs.readFileSync(full, 'utf-8');
-      const matches = content.match(/(?<![\w:-])(bg-white|bg-slate-(50|100|200)|bg-gray-(50|100|200)|text-slate-(400|500|600|700|800|900)|text-gray-(400|500|600|700|800|900)|border-slate-(100|200|300)|border-gray-(200|300)|divide-slate-(100|200))\b/g);
+      const matches = content.match(/(?<![\w:-])(bg-white|bg-slate-(50|100|200|300)|bg-gray-(50|100|200)|text-slate-(400|500|600|700|800|900)|text-gray-(400|500|600|700|800|900)|border-slate-(100|200|300)|border-gray-(200|300)|divide-slate-(100|200)|dark:|(text|bg|border)-(purple|indigo|violet|fuchsia|blue|cyan|teal|emerald|green|lime|yellow|amber|orange|red|rose|sky)-(200|300|400|500|600|700|800|900))\b/g);
       if (matches) offenders.push(`${path.relative(ROOT, full)}: ${[...new Set(matches)].join(', ')}`);
     }
   };

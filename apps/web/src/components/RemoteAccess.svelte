@@ -371,7 +371,7 @@
         </div>
         <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
           tgConfig.enabled
-            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+            ? "bg-status-success-soft text-status-success border-status-success-soft"
             : "theme-bg-subtle theme-text-secondary theme-border"
         }`}>
           {tgConfig.enabled ? (tgConfig.mode === "two_way" ? "Active (Two-Way)" : "Active (One-Way)") : "Disabled"}
@@ -459,8 +459,8 @@
             onclick={toggleTelegramEnabled}
             class={`btn-3d px-3.5 py-2 text-xs font-bold rounded-[5px] border cursor-pointer ${
               tgConfig.enabled
-                ? "border-amber-300 bg-amber-50 text-amber-700"
-                : "border-emerald-300 bg-emerald-50 text-emerald-700"
+                ? "border-status-warning-soft bg-status-warning-soft text-status-warning"
+                : "border-status-success-soft bg-status-success-soft text-status-success"
             }`}
           >
             {tgConfig.enabled ? "Disable Integration" : "Enable Integration"}
@@ -502,7 +502,7 @@
         </div>
         <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
           tunnelStatus.enabled
-            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+            ? "bg-status-success-soft text-status-success border-status-success-soft"
             : "theme-bg-subtle theme-text-secondary theme-border"
         }`}>
           {tunnelStatus.enabled ? "Connected" : "Inactive"}
@@ -517,7 +517,7 @@
         </div>
         <div class="flex items-center justify-between text-xs">
           <span style="color: var(--color-text-muted);">Mode:</span>
-          <span class="font-bold text-emerald-700">Zero Trust Named Tunnel (Token Run)</span>
+          <span class="font-bold text-status-success">Zero Trust Named Tunnel (Token Run)</span>
         </div>
         <div class="flex items-center justify-between text-xs">
           <span style="color: var(--color-text-muted);">Command:</span>
@@ -600,7 +600,7 @@
 
         <div>
           <label for="tunnel-custom-domain" class="text-xs font-bold block mb-1" style="color: var(--color-text);">
-            Public Hostname / Domain <span class="text-rose-500">*</span>
+            Public Hostname / Domain <span class="text-status-danger">*</span>
           </label>
           <input
             id="tunnel-custom-domain"
@@ -630,7 +630,7 @@
           disabled={tunnelLoading || (!tunnelStatus.enabled && !isHostnameValid(tunnelCustomDomain))}
           class={`btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer transition-colors ${
             tunnelStatus.enabled
-              ? "bg-rose-600 hover:bg-rose-700"
+              ? "badge-status badge-status-danger hover:brightness-110"
               : "btn-3d-primary"
           }`}
         >
@@ -699,8 +699,8 @@
                 <td class="py-2.5 px-3">
                   <span class={`px-2 py-0.5 text-[10px] font-bold rounded-[5px] border ${
                     p.source === "telegram"
-                      ? "bg-sky-50 text-sky-700 border-sky-300"
-                      : "bg-purple-50 text-purple-700 border-purple-300"
+                      ? "bg-status-info-soft text-status-info border-status-info-soft"
+                      : "bg-status-info-soft text-action-primary border-status-info-soft"
                   }`}>
                     {p.source.toUpperCase()}
                   </span>
@@ -711,9 +711,9 @@
                 <td class="py-2.5 px-3">
                   <span class={`px-2.5 py-0.5 text-[10px] font-bold rounded-[5px] border ${
                     p.status === "completed"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                      ? "bg-status-success-soft text-status-success border-status-success-soft"
                       : p.status === "processing"
-                      ? "bg-amber-50 text-amber-700 border-amber-300"
+                      ? "bg-status-warning-soft text-status-warning border-status-warning-soft"
                       : "theme-bg-muted theme-text-secondary theme-border"
                   }`}>
                     {p.status.toUpperCase()}
@@ -737,7 +737,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     role="presentation"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 35 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={(e) => { if (e.target === e.currentTarget) showGuideModal = false; }}
   >
     <div

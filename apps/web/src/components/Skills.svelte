@@ -499,7 +499,7 @@
 
       {#if searchMode === 'registry'}
         <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold badge-3d-subtle flex items-center gap-1">
-          <svg class="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-3 h-3 text-status-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
           </svg>
           <span>skills.sh Public Registry</span>
@@ -508,7 +508,7 @@
           {registryResults.length} found
         </span>
       {:else}
-        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
+        <span class="px-2.5 py-1 rounded-lg border text-[11px] font-bold text-status-success border-status-success-soft bg-status-success-soft/10 flex items-center gap-1.5" title="Offline Neural RAG: {vectorStats.model || 'IBM Granite Multilingual'} + {vectorStats.reranker || 'MS MARCO MiniLM Reranker'}">
           <svg class="w-3.5 h-3.5 text-[var(--theme-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -537,7 +537,7 @@
               skills.sh Global Registry Search
             </h2>
             <p class="text-xs" style="color: var(--color-text-muted);">
-              Equivalent to <code class="px-1.5 py-0.5 rounded font-mono text-[11px] bg-slate-500/10">konoha skill search {searchQuery || 'react'}</code> · 1-click install
+              Equivalent to <code class="px-1.5 py-0.5 rounded font-mono text-[11px] theme-bg-subtle">konoha skill search {searchQuery || 'react'}</code> · 1-click install
             </p>
           </div>
         </div>
@@ -557,7 +557,7 @@
           {/each}
         </div>
       {:else if registryError}
-        <div class="p-6 rounded-2xl border text-xs text-red-500 bg-red-500/10 border-red-500/30">
+        <div class="p-6 rounded-2xl border text-xs text-status-danger bg-status-danger-soft border-status-danger-soft">
           Failed to query skills.sh registry: {registryError}
         </div>
       {:else if registryResults.length === 0}
@@ -590,7 +590,7 @@
                     </span>
                   </div>
                   {#if item.installs !== undefined}
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 bg-indigo-500/10">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 text-action-primary border-status-info-soft bg-status-info-soft">
                       {item.installs.toLocaleString()} installs
                     </span>
                   {/if}
@@ -617,7 +617,7 @@
               <div class="pt-2 border-t" style="border-color: var(--color-border);">
                 {#if installed}
                   <div class="w-full py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 opacity-80" style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text-muted);">
-                    <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Already Installed in Village</span>
@@ -653,7 +653,7 @@
       <p class="text-xs font-semibold" style="color: var(--color-text-muted);">Loading skills from SQLite FTS5 registry...</p>
     </div>
   {:else if error}
-    <div class="p-6 rounded-3xl border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 text-xs font-bold">
+    <div class="p-6 rounded-3xl border border-status-danger-soft bg-status-danger-soft/10 text-status-danger text-xs font-bold">
       Failed to load skills: {error}
     </div>
   {:else}
@@ -665,7 +665,7 @@
             <p class="text-xs font-bold" style="color: var(--color-text);">No local skills found</p>
             {#if searchQuery}
               <p class="text-[11px]" style="color: var(--color-text-muted);">
-                "{searchQuery}" is not installed locally.
+ "{searchQuery}" is not installed locally.
               </p>
               <button
                 type="button"
@@ -745,7 +745,7 @@
                 <button
                   type="button"
                   onclick={() => deleteSkill(selectedSkill.name)}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all text-rose-700 dark:text-rose-300 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 cursor-pointer"
+                  class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all text-status-danger border-status-danger-soft bg-status-danger-soft/10 hover:bg-status-danger-soft/20 cursor-pointer"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -758,7 +758,7 @@
             <!-- Embed Into Agent Controller -->
             <div class="p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4" style="background: var(--color-surface-hover); border-color: var(--color-border);">
               <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="w-2 h-2 rounded-full bg-status-success-soft animate-pulse"></span>
                 <span class="text-xs font-bold" style="color: var(--color-text);">Embed / Unembed for Ninja Subagent:</span>
               </div>
 
@@ -776,7 +776,7 @@
                 <button
                   type="button"
                   onclick={() => embedSkillInAgent(selectedSkill.name, selectedAgentToEmbed)}
-                  class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-emerald-800 dark:text-emerald-200 border-emerald-500/30 bg-emerald-500/15"
+                  class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-status-success border-status-success-soft bg-status-success-soft/15"
                 >
                   Embed
                 </button>
@@ -827,7 +827,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <span>Vector Chunks & Embeddings</span>
-                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-emerald-500/20 text-[var(--theme-success)] dark:text-emerald-400'}">
+                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-status-success-soft/20 text-[var(--theme-success)] '}">
                     {selectedSkill.chunks_count || selectedSkill.chunks?.length || 0}
                   </span>
                 </button>
@@ -849,26 +849,26 @@
                   <!-- Model Info Banner -->
                   <div class="p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs" style="background: var(--color-surface-hover); border-color: var(--color-border);">
                     <div class="flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span class="w-2 h-2 rounded-full bg-status-success-soft animate-pulse"></span>
                       <span class="font-bold" style="color: var(--color-text);">Models:</span>
-                      <span class="font-mono text-[var(--theme-success)] dark:text-emerald-400 font-bold">IBM Granite 97M (ONNX) + MS MARCO MiniLM</span>
+                      <span class="font-mono text-[var(--theme-success)] font-bold">IBM Granite 97M (ONNX) + MS MARCO MiniLM</span>
                     </div>
                     <div class="flex items-center gap-3 text-[11px] font-mono" style="color: var(--color-text-muted);">
-                      <span>Embedding: <b class="text-indigo-600 dark:text-indigo-400">384-dim (Cosine)</b></span>
-                      <span>RAG Reranker: <b class="text-indigo-600 dark:text-indigo-400">Cross-Encoder + RRF (k=60)</b></span>
-                      <span>Execution: <b class="text-[var(--theme-success)] dark:text-emerald-400">100% Offline INT8</b></span>
+                      <span>Embedding: <b class="text-action-primary ">384-dim (Cosine)</b></span>
+                      <span>RAG Reranker: <b class="text-action-primary ">Cross-Encoder + RRF (k=60)</b></span>
+                      <span>Execution: <b class="text-[var(--theme-success)] ">100% Offline INT8</b></span>
                     </div>
                   </div>
 
                   {#if selectedSkill.chunks && selectedSkill.chunks.length > 0}
                     <div class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
                       {#each selectedSkill.chunks as chunk}
-                        <div class="p-4 rounded-2xl border space-y-2.5 transition-all hover:border-emerald-500/40" style="background: var(--color-surface); border-color: var(--color-border);">
+                        <div class="p-4 rounded-2xl border space-y-2.5 transition-all hover:border-status-success-soft" style="background: var(--color-surface); border-color: var(--color-border);">
                           <div class="flex items-center justify-between gap-2">
-                            <span class="text-xs font-bold px-2 py-0.5 rounded-lg border text-indigo-700 dark:text-indigo-300 border-indigo-500/30 bg-indigo-500/10 font-mono">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-lg border text-action-primary border-status-info-soft bg-status-info-soft font-mono">
                               Chunk #{chunk.chunk_index + 1}
                             </span>
-                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-lg border text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10">
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-lg border text-status-success border-status-success-soft bg-status-success-soft/10">
                               384-dim Float32 Vector
                             </span>
                           </div>
@@ -877,7 +877,7 @@
                           {#if chunk.vector_sample && chunk.vector_sample.length > 0}
                             <div class="p-2.5 rounded-xl border text-[11px] font-mono overflow-x-auto" style="background: var(--color-surface-hover); border-color: var(--color-border);">
                               <span class="font-bold theme-text-muted mr-2">Vector Sample:</span>
-                              <span class="text-[var(--theme-success)] dark:text-emerald-400">
+                              <span class="text-[var(--theme-success)] ">
                                 [{chunk.vector_sample.join(', ')} ... 384 dimensions]
                               </span>
                             </div>
@@ -893,7 +893,7 @@
                   {:else}
                     <div class="p-8 text-center rounded-2xl border space-y-3" style="background: var(--color-surface-hover); border-color: var(--color-border);">
                       <p class="text-xs font-semibold" style="color: var(--color-text-muted);">No vector chunks generated for this skill yet.</p>
-                      <p class="text-[11px]" style="color: var(--color-text-muted);">Click below or run <code class="px-1.5 py-0.5 rounded bg-slate-500/20 font-mono">konoha migrate</code> to vectorize all skills into sqlite-vector.</p>
+                      <p class="text-[11px]" style="color: var(--color-text-muted);">Click below or run <code class="px-1.5 py-0.5 rounded theme-bg-subtle font-mono">konoha migrate</code> to vectorize all skills into sqlite-vector.</p>
                       <button
                         type="button"
                         onclick={reembedVectorSkills}
@@ -959,7 +959,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={() => isCreateModalOpen = false}
   >
     <div
@@ -1092,7 +1092,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={() => isRegistryModalOpen = false}
   >
     <div
@@ -1169,7 +1169,7 @@
             {/each}
           </div>
         {:else if registryError}
-          <div class="p-4 rounded-2xl border text-xs text-red-500 bg-red-500/10" style="border-color: rgba(239, 68, 68, 0.3);">
+          <div class="p-4 rounded-2xl border text-xs text-status-danger bg-status-danger-soft" style="border-color: rgba(239, 68, 68, 0.3);">
             Failed to fetch from skills.sh registry: {registryError}
           </div>
         {:else if registryResults.length === 0}
@@ -1224,7 +1224,7 @@
                     class="px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 opacity-80"
                     style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text-muted);"
                   >
-                    <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-3.5 h-3.5 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Installed</span>

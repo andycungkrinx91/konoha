@@ -311,12 +311,12 @@
       <div class="flex items-center gap-3.5">
         {#if status.gateway_running}
           <span class="relative flex h-3.5 w-3.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-success opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-status-success-soft"></span>
           </span>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black text-emerald-800 uppercase tracking-wide">Proxy Gateway Online</span>
+              <span class="text-xs font-black text-status-success uppercase tracking-wide">Proxy Gateway Online</span>
               <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-success">
                 :{status.router_port || 19999}
               </span>
@@ -326,10 +326,10 @@
             </p>
           </div>
         {:else}
-          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500"></span>
+          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-status-warning-soft"></span>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black text-amber-800 uppercase tracking-wide">Proxy Gateway Stopped</span>
+              <span class="text-xs font-black text-status-warning uppercase tracking-wide">Proxy Gateway Stopped</span>
               <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold badge-status badge-status-warning">
                 :{status.router_port || 19999}
               </span>
@@ -366,7 +366,7 @@
             type="button"
             onclick={startGateway}
             disabled={gatewayBusy}
-            class="px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            class="px-4 py-1.5 rounded-xl text-xs font-bold bg-action-primary hover:brightness-110 text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
             title="Start the Gateway service"
           >
             Start Gateway
@@ -383,18 +383,18 @@
   {#if error}
     <div class="p-4 rounded-2xl bg-status-danger-soft border badge-status badge-status-danger text-xs font-bold flex items-center justify-between">
       <span>{error}</span>
-      <button type="button" onclick={loadData} class="underline hover:text-rose-900 cursor-pointer">Retry</button>
+      <button type="button" onclick={loadData} class="underline hover:text-status-danger cursor-pointer">Retry</button>
     </div>
   {/if}
 
   {#if loading}
     <div class="p-12 text-center theme-text-muted font-bold text-xs">
-      <div class="animate-spin w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+      <div class="animate-spin w-6 h-6 border-2 border-action-primary border-t-transparent rounded-full mx-auto mb-2"></div>
       Loading configured bridges...
     </div>
   {:else if bridges.length === 0}
     <div class="glass-card-3d p-12 text-center rounded-3xl border">
-      <div class="w-12 h-12 rounded-2xl bg-status-info-soft border badge-statusinfo-soft text-purple-600 flex items-center justify-center mx-auto mb-3">
+      <div class="w-12 h-12 rounded-2xl bg-status-info-soft border badge-statusinfo-soft text-action-primary flex items-center justify-center mx-auto mb-3">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
         </svg>
@@ -449,12 +449,12 @@
                 <td class="py-4 px-6">
                   {#if b.running}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold badge-status badge-status-success">
-                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      <span class="h-1.5 w-1.5 rounded-full bg-status-success-soft"></span>
                       Listening :{b.port}
                     </span>
                   {:else}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold theme-bg-subtle theme-text-secondary border theme-border">
-                      <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                      <span class="h-1.5 w-1.5 rounded-full bg-indicator-idle"></span>
                       Inactive
                     </span>
                   {/if}
@@ -464,12 +464,12 @@
                     <button
                       type="button"
                       onclick={() => toggleBridge(b)}
-                      class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer {b.enabled ? 'bg-emerald-500' : 'bg-slate-300'}"
+                      class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer {b.enabled ? 'bg-status-success-soft' : 'bg-indicator-idle'}"
                       title="Toggle active status"
                     >
                       <span class="inline-block h-3.5 w-3.5 transform rounded-full theme-bg-surface transition-transform shadow {b.enabled ? 'translate-x-4.5' : 'translate-x-1'}"></span>
                     </button>
-                    <span class="text-[11px] font-bold {b.enabled ? 'text-emerald-700' : 'theme-text-muted'}">
+                    <span class="text-[11px] font-bold {b.enabled ? 'text-status-success' : 'theme-text-muted'}">
                       {b.enabled ? 'Enabled' : 'Disabled'}
                     </span>
                   </div>
@@ -498,7 +498,7 @@
   {#if showCreateModal}
     <div
       role="presentation"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-md"
       onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}
       onkeydown={(e) => { if (e.key === 'Escape') showCreateModal = false; }}
     >
@@ -511,7 +511,7 @@
           <button
             type="button"
             onclick={() => { showCreateModal = false; }}
-            class="p-1 rounded-lg theme-text-muted hover:text-slate-700 cursor-pointer"
+            class="p-1 rounded-lg theme-text-muted hover:text-status-info cursor-pointer"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -620,7 +620,7 @@
         <div class="flex items-center justify-between pb-4 border-b theme-border-subtle shrink-0">
           <div class="space-y-1">
             <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-status-info-soft text-purple-600 border badge-statusinfo-soft">
+              <span class="p-1.5 rounded-lg bg-status-info-soft text-action-primary border badge-statusinfo-soft">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
@@ -683,7 +683,7 @@
         <div class="flex-1 overflow-y-auto border theme-border rounded-2xl">
           {#if loadingModels}
             <div class="p-12 text-center theme-text-muted">
-              <div class="animate-spin w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-3"></div>
+              <div class="animate-spin w-6 h-6 border-2 border-action-primary border-t-transparent rounded-full mx-auto mb-3"></div>
               <p class="text-xs font-bold">Querying models from active bridge endpoints...</p>
             </div>
           {:else if filteredModels.length === 0}
@@ -705,7 +705,7 @@
               <tbody class="divide-y theme-divide-subtle font-mono text-[11px]">
                 {#each filteredModels as m}
                   <tr class="hover:bg-status-info-soft/30 transition-colors">
-                    <td class="py-2.5 px-4 font-bold text-purple-700">
+                    <td class="py-2.5 px-4 font-bold text-action-primary">
                       {m.id}
                     </td>
                     <td class="py-2.5 px-4 theme-text">

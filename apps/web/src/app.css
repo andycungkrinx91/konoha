@@ -603,6 +603,31 @@ html.theme-dark {
     color: var(--theme-text-muted);
   }
 
+  /* Status text tokens: readable in both modes on themed surfaces */
+  .text-status-success { color: var(--theme-success); }
+  .text-status-warning { color: var(--theme-warning); }
+  .text-status-danger { color: var(--theme-danger); }
+  .text-status-info { color: var(--theme-info); }
+
+  /* Solid status dots/fills (indicators stay visible in Dark Mode) */
+  .bg-status-success { background-color: var(--theme-success); }
+  .bg-status-warning { background-color: var(--theme-warning); }
+  .bg-status-danger { background-color: var(--theme-danger); }
+  .bg-status-info { background-color: var(--theme-info); }
+
+  /* Secondary call-to-action fill driven by the active palette */
+  .bg-action-primary { background-color: var(--theme-link); color: var(--theme-text-inverse); }
+  .text-action-primary { color: var(--theme-link); }
+
+  /* Spinner strokes */
+  .border-action-primary { border-color: var(--theme-link); }
+
+  /* Form validation asterisk */
+  .text-required { color: var(--theme-danger); }
+
+  /* Neutral placeholder dots for idle indicators */
+  .bg-indicator-idle { background-color: var(--theme-text-disabled); }
+
   .badge-status {
     border-color: color-mix(in srgb, var(--badge-tone, var(--theme-info)) 45%, transparent);
     background-color: color-mix(in srgb, var(--badge-tone, var(--theme-info)) 12%, var(--theme-surface));

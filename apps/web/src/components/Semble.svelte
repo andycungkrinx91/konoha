@@ -110,10 +110,10 @@
         <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.today?.tokens_saved ?? '—'}</div>
         <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
           <span>{savings.today?.calls ?? 0} search queries</span>
-          <span class="text-emerald-700 font-bold">Optimal context</span>
+          <span class="text-status-success font-bold">Optimal context</span>
         </div>
         <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-emerald-500 rounded-full" style="width: 99%"></div>
+          <div class="h-full bg-status-success-soft rounded-full" style="width: 99%"></div>
         </div>
       </div>
 
@@ -125,10 +125,10 @@
         <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.last_7_days?.tokens_saved ?? '—'}</div>
         <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
           <span>{savings.last_7_days?.calls ?? 0} searches</span>
-          <span class="text-sky-700 font-bold">Consistently ~99%</span>
+          <span class="text-status-info font-bold">Consistently ~99%</span>
         </div>
         <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-sky-500 rounded-full" style="width: 99%"></div>
+          <div class="h-full bg-status-info rounded-full" style="width: 99%"></div>
         </div>
       </div>
 
@@ -140,10 +140,10 @@
         <div class="text-3xl font-black theme-text tracking-tight mb-1">{savings.total_saved ?? '—'}</div>
         <div class="text-xs font-semibold theme-text-secondary flex items-center justify-between">
           <span>{savings.total_calls ?? 0} total queries</span>
-          <span class="text-purple-700 font-bold">Net Saved</span>
+          <span class="text-action-primary font-bold">Net Saved</span>
         </div>
         <div class="w-full h-1.5 theme-bg-soft rounded-full mt-3 overflow-hidden">
-          <div class="h-full bg-purple-600 rounded-full" style="width: {savings.total_saved_pct ?? 0}%"></div>
+          <div class="h-full bg-action-primary rounded-full" style="width: {savings.total_saved_pct ?? 0}%"></div>
         </div>
       </div>
     </div>
@@ -162,7 +162,7 @@
       </div>
       {#if status}
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {(status.available ?? status.configured) ? 'badge-status badge-status-success' : 'badge-status badge-status-danger'}">
-          <span class="w-1.5 h-1.5 rounded-full {(status.available ?? status.configured) ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+          <span class="w-1.5 h-1.5 rounded-full {(status.available ?? status.configured) ? 'bg-status-success-soft' : 'bg-status-danger-soft'}"></span>
           {(status.available ?? status.configured) ? "Engine Online" : "Engine Offline"}
         </span>
       {/if}
@@ -214,7 +214,7 @@
           {#each searchResults.results || [] as r}
             <div class="p-4 rounded-2xl border theme-border theme-bg-surface/90 space-y-2 hover:border-status-info-soft transition-colors">
               <div class="flex items-center justify-between">
-                <span class="font-mono text-xs font-bold text-purple-700 break-all">
+                <span class="font-mono text-xs font-bold text-action-primary break-all">
                   {r.file_path}
                 </span>
                 <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold theme-bg-subtle theme-text border theme-border">

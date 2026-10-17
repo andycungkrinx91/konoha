@@ -16,11 +16,11 @@
   let searchError = $state(null);
 
   const quickQueries = [
-    'SvelteKit 5 runes',
-    'MCP protocol specification',
-    'Rust RTK token killer',
-    'SearXNG architecture fallback',
-    'Kubernetes Helm chart scaffold'
+ 'SvelteKit 5 runes',
+ 'MCP protocol specification',
+ 'Rust RTK token killer',
+ 'SearXNG architecture fallback',
+ 'Kubernetes Helm chart scaffold'
   ];
 
   async function loadStatus() {
@@ -157,7 +157,7 @@
 
       <button
         onclick={clearCache}
-        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-amber-700 dark:text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
+        class="btn-3d px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-status-warning border-status-warning-soft bg-status-warning-soft hover:bg-status-warning-soft/20"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -181,7 +181,7 @@
           <span class="text-xs font-mono font-bold" style="color: var(--color-primary);">
             {engineStatus?.best_instance || engineStatus?.custom_url || 'Dynamic Public Selector'}
           </span>
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="w-2 h-2 rounded-full bg-status-success-soft animate-pulse"></span>
         </div>
         <div class="text-[11px] mt-0.5" style="color: var(--color-text-muted);">
           Cached Candidates: <span class="font-semibold" style="color: var(--color-text);">{engineStatus?.cached_candidates_count || 0}</span> ·
@@ -317,8 +317,8 @@
 
   <!-- Error State -->
   {#if searchError}
-    <div class="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 text-xs font-semibold flex items-center gap-3">
-      <svg class="w-5 h-5 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="p-4 rounded-2xl border border-status-danger-soft bg-status-danger-soft/10 text-status-danger text-xs font-semibold flex items-center gap-3">
+      <svg class="w-5 h-5 shrink-0 text-status-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span>{searchError}</span>
@@ -353,7 +353,7 @@
                   <span class="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
                     [#{item.citation_id}]
                   </span>
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border tracking-wide uppercase text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border tracking-wide uppercase text-status-success border-status-success-soft bg-status-success-soft/10">
                     {item.source || 'Web'}
                   </span>
                   <span class="text-[11px] font-mono truncate max-w-md" style="color: var(--color-text-muted);">

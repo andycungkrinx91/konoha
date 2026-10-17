@@ -16,17 +16,17 @@
     anbu: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
     chunin: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9",
     genin: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-    "tokubetsu-jonin": "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+ "tokubetsu-jonin": "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
   };
 
   const OFFICIAL_AGENTS = new Set([
-    'sannin',
-    'genin',
-    'kage',
-    'chunin',
-    'jonin',
-    'anbu',
-    'tokubetsu-jonin'
+ 'sannin',
+ 'genin',
+ 'kage',
+ 'chunin',
+ 'jonin',
+ 'anbu',
+ 'tokubetsu-jonin'
   ]);
 
   function isOfficialAgent(name) {
@@ -36,16 +36,16 @@
   }
 
   const OFFICIAL_SKILLS = [
-    "sannin-skill",
-    "genin-skill",
-    "kage-skill",
-    "chunin-skill",
-    "jonin-skill",
-    "anbu-skill",
-    "tokubetsu-jonin-skill",
-    "konoha",
-    "antislop",
-    "i-have-adhd"
+ "sannin-skill",
+ "genin-skill",
+ "kage-skill",
+ "chunin-skill",
+ "jonin-skill",
+ "anbu-skill",
+ "tokubetsu-jonin-skill",
+ "konoha",
+ "antislop",
+ "i-have-adhd"
   ];
 
   function getSkillsForAgent(agent) {
@@ -92,7 +92,7 @@
     const targetState = !currentChecked;
     try {
       await api.patch(
-        "/api/v1/agents/" + encodeURIComponent(agent.name) + "/skills/" + encodeURIComponent(skillName),
+ "/api/v1/agents/" + encodeURIComponent(agent.name) + "/skills/" + encodeURIComponent(skillName),
         { embedded: targetState }
       );
       if (targetState) {
@@ -115,7 +115,7 @@
     const target = modelId === "" ? null : modelId;
     try {
       await api.patch(
-        "/api/v1/agents/" + encodeURIComponent(agent.name) + "/model",
+ "/api/v1/agents/" + encodeURIComponent(agent.name) + "/model",
         { model: target }
       );
       if (target) {
@@ -312,7 +312,7 @@
         </div>
         <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
-          <div class="text-xl font-black text-purple-600">{allSkills.length} Indexed</div>
+          <div class="text-xl font-black text-action-primary">{allSkills.length} Indexed</div>
         </div>
       </div>
     </div>
@@ -327,7 +327,7 @@
   {#if loading}
     <div class="flex items-center justify-center py-16 theme-text-secondary text-sm font-semibold">
       <div class="flex items-center gap-3">
-        <svg class="animate-spin w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin w-5 h-5 text-action-primary" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
@@ -373,7 +373,7 @@
                     <button
                       type="button"
                       onclick={() => openEditModal(agent)}
-                      class="p-1 rounded-[5px] theme-text-muted hover:text-blue-600 hover:bg-status-info-soft transition-colors cursor-pointer"
+                      class="p-1 rounded-[5px] theme-text-muted hover:text-status-info hover:bg-status-info-soft transition-colors cursor-pointer"
                       title="Edit custom ninja"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -457,7 +457,7 @@
                     <button
                       type="button"
                       onclick={() => applyCustomModel(agent)}
-                      class="btn-3d px-2.5 py-1.5 rounded-[5px] text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                      class="btn-3d px-2.5 py-1.5 rounded-[5px] text-xs font-bold text-white bg-action-primary hover:brightness-110 cursor-pointer"
                     >
                       Set
                     </button>
@@ -511,7 +511,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     role="presentation"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 35 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}
   >
     <div
@@ -547,7 +547,7 @@
       <div class="space-y-4 text-xs">
         <div>
           <label for="create-ninja-name" class="font-bold block mb-1" style="color: var(--color-text);">
-            Subagent Name <span class="text-rose-500">*</span>
+            Subagent Name <span class="text-status-danger">*</span>
           </label>
           <input
             id="create-ninja-name"
@@ -666,7 +666,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     role="presentation"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--theme-overlay)] 35 backdrop-blur-sm animate-in fade-in duration-150"
     onclick={(e) => { if (e.target === e.currentTarget) showEditModal = false; }}
   >
     <div
