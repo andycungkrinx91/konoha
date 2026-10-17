@@ -849,10 +849,10 @@ flowchart TD
         LocalSupervisor --> WebServer["Konoha Web Server (Port 1404)<br/>GET/POST /api/v1/* &amp; UI Routes"]
         WebServer --> ModeCheck{"Request Origin &amp; Auth Mode"}
         ModeCheck -- "Localhost (127.0.0.1)" --> AllowDirect["Allow Direct Access<br/>(Zero friction local dev)"]
-        ModeCheck -- "Tunnel Ingress (Mode A: Zero Trust)" --> EdgeHeaderCheck{"Has Valid Header<br/>Cf-Access-Authenticated-User-Email?"}
+        ModeCheck -- "Tunnel Ingress (Named tunnel: Zero Trust)" --> EdgeHeaderCheck{"Valid CF-Access-Jwt-Assertion<br/>or Authenticated-User-Email?"}
         EdgeHeaderCheck -- "Yes" --> Authenticated["Authenticated Request<br/>Identity injected into req.user"]
-        EdgeHeaderCheck -- "No" --> DenyAccess["401 Unauthorized<br/>Edge Identity Required"]
-        ModeCheck -- "Tunnel Ingress (Mode B: PIN Auth)" --> PinCheck{"Has Valid PIN Header<br/>x-konoha-pin or cookie?"}
+        EdgeHeaderCheck -- "No" --> DenyAccess["401 Unauthorized<br/>PIN / Edge Identity Required"]
+        ModeCheck -- "Tunnel Ingress (Quick tunnel or no edge identity)" --> PinCheck{"Constant-time auth_pin<br/>x-konoha-pin / bearer / cookie?"}
         PinCheck -- "Valid PIN" --> Authenticated
         PinCheck -- "Invalid PIN" --> DenyAccess
     end

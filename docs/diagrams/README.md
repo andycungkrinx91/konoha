@@ -31,7 +31,7 @@
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, KonohaProgressBar with live pulse timers, animated braille spinner (startSpinner, TTY-only), non-destructive user skill & config preservation (zero pruning of pre-existing skills, additive-only sync, managed boundary injection, custom agent union-merge), in-process runtime sync, cross-client MCP auto-registration | `docs/ARCHITECTURE.md` | `bin/cli.js:cmdUpgrade`, `bin/cli.js:KonohaProgressBar`, `bin/cli.js:cmdInit`, `src/deploy_utils.js` |
 | 13 QA Automation Workflow | Bounded token-preserving pipeline, `agent-browser` scoped exploration, flow declaration (`tests/e2e/flows/*.json`), deterministic `qa_codify`, `qa_e2e_run` RED/GREEN loop, remediation fix branches (Anbu backend / Jonin UI), Zero-AI-Slop gate, Anbu QA evidence (`run_id`), Kage review gate | `docs/QA-AUTOMATION.md` | `src/qa_tools.js`, `src/file_tools_router.js`, `docs/QA-AUTOMATION.md`, `tests/e2e/` |
 | 14 Remote Access & Telegram Inbound/Outbound | Zero-emoji task reporting, whitelisted long polling daemon (`/run`, `/status`, `/savings`, `/kage`), chat ID gating | `docs/TELEGRAM_INTEGRATION_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md` | `src/telegram/notifier.js`, `src/telegram/poller.js`, `bin/cli.js:cmdTelegram` |
-| 15 Cloudflare Zero Trust Ingress & Prompt Queue | Cloudflare Quick Tunnel supervisor, edge identity Mode A authentication (`Cf-Access-Authenticated-User-Email`), SQLite prompt queue & atomic inbox mirror, SvelteKit Remote Access dashboard | `docs/CLOUDFLARE_TUNNEL_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md` | `src/tunnel/manager.js`, `src/tunnel/security.js`, `src/queue/inbox.js`, `apps/web/src/components/RemoteAccess.svelte` |
+| 15 Cloudflare Zero Trust Ingress & Autonomy Pipeline | Cloudflare Quick Tunnel supervisor, Zero Trust JWT/email validation on named tunnels, constant-time `auth_pin` fallback, scrypt password login, SQLite prompt queue & atomic inbox mirror, SvelteKit Remote Access dashboard | `docs/CLOUDFLARE_TUNNEL_GUIDE.md`, `docs/ALL-WORKFLOW-DIAGRAMS.md` | `src/tunnel/manager.js`, `src/tunnel/security.js`, `src/queue/inbox.js`, `apps/web/src/components/RemoteAccess.svelte` |
 
 ## Enterprise Cloud Architecture Diagrams (Official AWS / GCP / Azure Style)
 
@@ -53,7 +53,7 @@ In addition to `konoha-architecture.drawio`, `konoha-enterprise-architecture.dra
 | 12 CLI Upgrade & Progress Engine | 7-stage interactive upgrade pipeline, pulse timers, and atomic client sync | AWS Systems Manager, CodeDeploy, CloudWatch | CLI Upgrade Pipeline |
 | 13 QA Automation Workflow | Bounded token QA pipeline, agent-browser explorer, Playwright codifier, and RED/GREEN loop | AWS Systems Manager, Device Farm, Lambda, S3 | QA Automation Pipeline |
 | 14 Remote Access & Telegram Inbound/Outbound | Zero-emoji task reporting, whitelisted long polling, bi-directional command ingress, and session switcher | AWS API Gateway, SQS, SNS, Lambda, DynamoDB | Telegram Remote Ingress |
-| 15 Cloudflare Zero Trust Ingress & Prompt Queue | Cloudflare Quick Tunnel supervisor, edge identity header validation, and SQLite prompt_queue | Cloudflare Access, AWS API Gateway, SQS, DynamoDB | Zero Trust Ingress & Queue |
+| 15 Cloudflare Zero Trust Ingress & Autonomy Pipeline | Cloudflare Quick Tunnel supervisor, edge identity / PIN validation, and SQLite prompt_queue | Cloudflare Access, AWS API Gateway, SQS, DynamoDB | Zero Trust Ingress & Queue |
 
 ## Source policy
 

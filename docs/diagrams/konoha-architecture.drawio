@@ -1224,7 +1224,7 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="p15-title" parent="1" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#0f172a;" value="15 Cloudflare Zero Trust Ingress &amp;amp; Prompt Queue Engine" vertex="1">
+                <mxCell id="p15-title" parent="1" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#0f172a;" value="15 Cloudflare Zero Trust Ingress &amp;amp; Autonomy Pipeline" vertex="1">
                     <mxGeometry height="30" width="800" x="40" y="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="p15-sub1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#f59e0b;strokeWidth=2;verticalAlign=top;fontStyle=1;fontColor=#b45309;" value="Public Ingress Layer (src/tunnel/manager.js &amp;amp; security.js)" vertex="1">
@@ -1239,7 +1239,7 @@
                 <mxCell id="p15-cloudflared" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#475569;fontColor=#0f172a;" value="cloudflared Tunnel Daemon&#xa;trycloudflare.com / Named&#xa;Supervisor: src/tunnel/manager.js" vertex="1">
                     <mxGeometry height="70" width="220" x="560" y="115" as="geometry"/>
                 </mxCell>
-                <mxCell id="p15-webui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Local Web UI (Port 1404)&#xa;Mode A: Header Validation&#xa;Cf-Access-Authenticated-User-Email" vertex="1">
+                <mxCell id="p15-webui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#065f46;fontStyle=1;" value="Local Web UI (Port 1404)&#xa;Zero Trust JWT/Email headers&#xa;else constant-time auth_pin&#xa;then scrypt password login" vertex="1">
                     <mxGeometry height="70" width="240" x="840" y="115" as="geometry"/>
                 </mxCell>
                 <mxCell id="p15-sub2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#059669;strokeWidth=2;verticalAlign=top;fontStyle=1;fontColor=#065f46;" value="Unified Inbound Prompt Queue &amp;amp; Storage (src/queue/ &amp;amp; src/db.js)" vertex="1">
