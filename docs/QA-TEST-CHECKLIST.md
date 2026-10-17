@@ -111,7 +111,7 @@ flowchart TD
 | **Inbound Queue** | `/queue` | Inbound prompt queue, prioritization state, dispatch triggers. | Verifies empty state when idle, validates prompt payload formatting. |
 | **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | Verifies savings percentage >= 75%, cl100k_base token calculations match DB logs. |
 | **Mobile Dock** | Viewport `< 1024px` | Fixed bottom mobile navigation dock with quick one-tap links adapted dynamically to archetype. | Verified across 375px (iPhone SE) and 390px (iPhone 14) viewports. |
-| **Theme Switcher** | (All pages) | Floating bottom-left FAB (`fixed bottom-6 left-6 z-50`), pure light mode first-class, 10 selectable palette themes. | Tests theme selection persistence across localStorage and reload. |
+| **Theme Switcher** | (All pages) | Floating bottom-right FAB (`fixed bottom-6 right-6 z-[100]`), pure light mode first-class, 10 selectable palette themes. | Tests theme selection persistence across localStorage and reload. |
 
 ### 2.3 Running Automated QA Tests
 

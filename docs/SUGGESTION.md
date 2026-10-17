@@ -212,7 +212,7 @@ All animation assets under `assets/` have been converted from legacy GIF to nati
 
 6. **Web UI Theme Switcher Accessible Focus Ring**:
    - *Target*: `apps/web/src/components/ThemeSwitcher.svelte`
-   - *Action*: Ensure high-contrast keyboard navigation focus ring (`focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]`) on the floating bottom-left FAB to exceed WCAG 2.2 AA accessibility standards.
+   - *Action*: Ensure high-contrast keyboard navigation focus ring (`focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]`) on the floating bottom-right FAB to exceed WCAG 2.2 AA accessibility standards.
 
 ---
 
