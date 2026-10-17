@@ -1,7 +1,8 @@
 <script>
   import { onMount } from 'svelte';
   import { authState } from '#lib/state/authState.svelte.js';
-  import { themeState, THEMES } from '#lib/state/themeState.svelte.js';
+  import { themeState } from '#lib/state/themeState.svelte.js';
+  import { backgroundScene } from './SharedRasenganBackground.svelte';
 
   // Single nominal login timeline (3,000 ms) per accepted submission.
   const PHASE_FRACTURE_MS = 900;
@@ -21,14 +22,8 @@
 
   let tiltX = $state(0);
   let tiltY = $state(0);
-  let threeCanvasEl = $state(null);
   let passwordInputEl = $state(null);
-  let rasenganScene = null;
   let authAttempt = 0; // invalidates superseded submissions/animations
-
-  const activePalette = $derived(
-    themeState.currentRasengan
-  );
 
   const phaseLabel = $derived(
     authPhase === 'charging' ? 'Charging chakra core'
@@ -38,15 +33,6 @@
             : authPhase === 'stable-loading' ? 'Synchronizing with gateway'
               : ''
   );
-
-  // Keep the 3D Rasengan palette in sync with live theme switches.
-  $effect(() => {
-    const palette = activePalette;
-    const mode = themeState.currentMode;
-    if (rasenganScene) {
-      rasenganScene.updatePalette(palette, mode);
-    }
-  });
 
   function handlePointerMove(e) {
     if (reducedMotion || typeof window === 'undefined') return;
@@ -94,7 +80,7 @@
     authPhase = 'charging';
     tiltX = 0;
     tiltY = 0;
-    rasenganScene?.playImpact();
+    backgroundScene.playImpact();
 
     const fractureTimer = setTimeout(() => {
       if (attempt === authAttempt && authPhase === 'charging') authPhase = 'fracture';
@@ -152,7 +138,6 @@
   }
 
   onMount(() => {
-    let disposed = false;
     const motionQuery = typeof window !== 'undefined' && window.matchMedia
       ? window.matchMedia('(prefers-reduced-motion: reduce)')
       : null;
@@ -162,31 +147,8 @@
 
     passwordInputEl?.focus();
 
-    if (threeCanvasEl) {
-      import('#lib/RasenganScene.js')
-        .then(({ RasenganScene }) => {
-          if (disposed || !threeCanvasEl) return;
-          rasenganScene = new RasenganScene(threeCanvasEl, {
-            bloom: themeState.currentMode === 'dark',
-            pixelRatioCap: 1.5,
-            colors: activePalette,
-            mode: themeState.currentMode,
-            transparent: true
-          });
-        })
-        .catch(() => {
-          // WebGL unavailable — fallback keeps scene usable.
-          if (threeCanvasEl) threeCanvasEl.hidden = true;
-        });
-    }
-
     return () => {
-      disposed = true;
       motionQuery?.removeEventListener?.('change', onMotionChange);
-      if (rasenganScene) {
-        rasenganScene.dispose();
-        rasenganScene = null;
-      }
     };
   });
 </script>
@@ -196,26 +158,10 @@
 <div
   class="relative min-h-screen w-full flex items-center justify-center p-4 py-10 overflow-hidden"
   style="
-    background: var(--bg-login, #ffffff);
+    background: {themeState.currentMode === 'light' ? 'var(--bg-login, #ffffff)' : 'transparent'};
     color: var(--theme-text);
- "
+  "
 >
-  <!-- Procedural 3D Rasengan scene with runtime theme palette and mode awareness -->
-  <canvas
-    bind:this={threeCanvasEl}
-    class="absolute inset-0 w-full h-full block outline-none z-0 pointer-events-none"
-    aria-hidden="true"
-  ></canvas>
-
-  <!-- Ambient chakra glow fallback (visible in dark mode) -->
-  {#if themeState.currentMode === 'dark'}
-    <div
-      class="absolute inset-0 z-0 pointer-events-none"
-      style="background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--rasengan-1, #0788c9) 26%, transparent) 0%, transparent 55%);"
-      aria-hidden="true"
-    ></div>
-  {/if}
-
   <div
     class="relative z-10 w-full max-w-md transition-opacity duration-300"
     class:opacity-60={authPhase !== 'idle'}

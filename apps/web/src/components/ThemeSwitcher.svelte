@@ -1,8 +1,10 @@
 <script>
+  import { onMount } from 'svelte';
   import { themeState, groupThemes, THEME_CATEGORIES, getRasenganTokens } from '../lib/state/themeState.svelte.js';
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
 
-  const TRANSITION_MS = 2000; // existing 2-second theme transition — preserved
+  const TRANSITION_MS = 1400; // Fast and cinematic 1.4s full-screen theme transition
+  const COVER_MS = 450; // Apply theme under full expansion cover
 
   const MODES = [
     {
@@ -24,14 +26,33 @@
 
   let isModalOpen = $state(false);
   let isRasenganActive = $state(false);
+  let transitionPalette = $state(['#0369a1', '#0284c7', '#075985', '#0e7490']);
+  let reducedMotion = $state(false);
   let liveMessage = $state('');
   let dialogEl = $state(null);
   let impactTimer = null;
+  let applyTimer = null;
   let liveTimer = null;
   let themeCanvasEl = $state(null);
   let themeRasenganScene = null;
   let searchQuery = $state('');
   let selectedCategory = $state('All');
+
+  onMount(() => {
+    const mq = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    reducedMotion = Boolean(mq?.matches);
+    const onChange = (e) => { reducedMotion = e.matches; };
+    mq?.addEventListener?.('change', onChange);
+    return () => {
+      mq?.removeEventListener?.('change', onChange);
+      if (impactTimer) clearTimeout(impactTimer);
+      if (applyTimer) clearTimeout(applyTimer);
+      if (themeRasenganScene) {
+        themeRasenganScene.dispose();
+        themeRasenganScene = null;
+      }
+    };
+  });
 
   useScrollLock(() => isModalOpen);
 
@@ -64,15 +85,18 @@
   }
 
   $effect(() => {
-    if (isRasenganActive && themeCanvasEl) {
-      const palette = getRasenganTokens(themeState.currentTheme, themeState.currentMode);
+    if (isRasenganActive && themeCanvasEl && !reducedMotion) {
+      const palette = transitionPalette;
       const mode = themeState.currentMode;
-
       let disposed = false;
 
       import('#lib/RasenganScene.js')
         .then(({ RasenganScene }) => {
           if (disposed || !isRasenganActive || !themeCanvasEl) return;
+          if (themeRasenganScene) {
+            themeRasenganScene.dispose();
+            themeRasenganScene = null;
+          }
           themeRasenganScene = new RasenganScene(themeCanvasEl, {
             colors: palette,
             mode: mode,
@@ -83,7 +107,6 @@
           themeRasenganScene.playImpact();
         })
         .catch(() => {
-          // WebGL unavailable — the CSS shatter flash still marks the change.
           if (themeCanvasEl) themeCanvasEl.hidden = true;
         });
 
@@ -109,18 +132,41 @@
 
   function selectTheme(id) {
     closeModal();
-    themeState.applyTheme(id);
+
+    // 1. Read NEWLY SELECTED theme's 4-gradient tokens immediately
+    const mode = themeState.currentMode;
+    const targetPalette = getRasenganTokens(id, mode);
+    transitionPalette = targetPalette;
+
+    // 2. Clear any running transition to safely restart
+    if (impactTimer) {
+      clearTimeout(impactTimer);
+      impactTimer = null;
+    }
+    if (applyTimer) {
+      clearTimeout(applyTimer);
+      applyTimer = null;
+    }
+
+    isRasenganActive = true;
+
+    // Apply new theme immediately so the underlying page is ready under the full-screen effect
+    themeState.applyTheme(id, mode);
     announce(`Theme changed to ${themeState.themes.find(t => t.id === id)?.name || id}`);
 
-    if (impactTimer) clearTimeout(impactTimer);
+    // If an existing scene is live, update its palette immediately
     if (themeRasenganScene) {
-      const newPalette = getRasenganTokens(id, themeState.currentMode);
-      themeRasenganScene.updatePalette(newPalette, themeState.currentMode);
+      themeRasenganScene.updatePalette(targetPalette, mode);
       themeRasenganScene.playImpact();
     }
-    isRasenganActive = true;
+
+    // Conclude transition and cleanly dispose
     impactTimer = setTimeout(() => {
       isRasenganActive = false;
+      if (themeRasenganScene) {
+        themeRasenganScene.dispose();
+        themeRasenganScene = null;
+      }
       impactTimer = null;
     }, TRANSITION_MS);
   }
@@ -305,13 +351,27 @@
   </button>
 </div>
 
-<!-- 2-Second Procedural 3D Rasengan Theme Transition Overlay -->
+<!-- Full-Viewport Procedural 3D Rasengan Theme Transition Overlay (Topmost Layer) -->
 {#if isRasenganActive}
-  <div class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden flex items-center justify-center" aria-hidden="true">
-    <div class="absolute inset-0 animate-shatter-flash"></div>
-    <div class="relative w-[480px] h-[480px] sm:w-[640px] sm:h-[640px] max-w-[95vw] max-h-[95vh] flex items-center justify-center animate-huge-rasengan z-20 pointer-events-none">
-      <canvas bind:this={themeCanvasEl} class="w-full h-full block pointer-events-none"></canvas>
-    </div>
+  <div class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden w-screen h-screen flex items-center justify-center animate-huge-rasengan" aria-hidden="true">
+    <!-- Theme palette-tinted ambient flash -->
+    <div
+      class="absolute inset-0 transition-opacity duration-300 animate-shatter-flash"
+      style="background: radial-gradient(circle at center, {transitionPalette[0]}33 0%, {transitionPalette[1]}18 50%, transparent 80%);"
+    ></div>
+
+    {#if !reducedMotion}
+      <canvas
+        bind:this={themeCanvasEl}
+        class="absolute inset-0 w-full h-full block pointer-events-none"
+      ></canvas>
+    {:else}
+      <!-- Reduced motion: clean full-screen color wash without 3D spinning -->
+      <div
+        class="absolute inset-0 transition-opacity duration-500"
+        style="background-color: {transitionPalette[0]}; opacity: 0.22;"
+      ></div>
+    {/if}
   </div>
 {/if}
 

@@ -6,10 +6,10 @@
   import { uiState } from '#lib/state/uiState.svelte.js';
   import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
-  import RasenganOrb from '../components/RasenganOrb.svelte';
   import SweetAlertModal from '../components/SweetAlertModal.svelte';
   import PasswordChangeModal from '../components/PasswordChangeModal.svelte';
   import Login from '../components/Login.svelte';
+  import SharedRasenganBackground from '../components/SharedRasenganBackground.svelte';
   import { authState } from '#lib/state/authState.svelte.js';
 
   let { children } = $props();
@@ -152,6 +152,9 @@
   });
 </script>
 
+<!-- Single Shared 3D Rasengan Background (Mounted Once at Root Level) -->
+<SharedRasenganBackground />
+
 {#if authState.isChecking}
   <div class="fixed inset-0 flex items-center justify-center z-50" style="background-color: var(--theme-bg); color: var(--theme-text);" role="status" aria-live="polite">
     <div class="flex flex-col items-center gap-3">
@@ -164,7 +167,7 @@
   <ThemeSwitcher />
   <SweetAlertModal />
 {:else}
-<div id="konoha-app-root" class="flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: var(--color-bg); color: var(--color-text);">
+<div id="konoha-app-root" class="relative z-10 flex h-screen overflow-hidden font-sans transition-colors duration-200" style="background-color: transparent; color: var(--color-text);">
   <!-- Mobile Sidebar Backdrop Overlay -->
   {#if isMobileSidebarOpen}
     <div
@@ -310,7 +313,7 @@
   </aside>
 
   <!-- Main Content Stage (Expands to Full Width When Sidebar is Collapsed) -->
-  <main class="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out" style="background-color: var(--color-bg); color: var(--color-text);">
+  <main class="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out" style="background-color: transparent; color: var(--color-text);">
     <!-- Top 4-Gradient Vibrant Accent Stripe -->
     <div class="h-1 w-full shrink-0 animate-gradient-flow" style="background: var(--theme-4gradient-bar);"></div>
 
@@ -352,21 +355,16 @@
 
         <div class="flex items-center gap-2 text-xs">
           {#if currentSection}
-            <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--color-text-muted);">{currentSection.title}</span>
-            <span style="color: var(--color-border);">/</span>
+            <span class="uppercase tracking-widest text-[10px] font-bold" style="color: var(--theme-crumb-parent, var(--color-text-muted));">{currentSection.title}</span>
+            <span class="font-bold text-[11px]" style="color: var(--theme-crumb-separator, var(--color-border));">/</span>
           {/if}
-          <span class="font-extrabold capitalize text-xs gradient-text">{activeNavItem?.label || page.url.pathname.replace('/', '') || 'Overview'}</span>
+          <span class="font-extrabold capitalize text-xs" style="color: var(--theme-crumb-active, var(--color-text));">{activeNavItem?.label || page.url.pathname.replace('/', '') || 'Overview'}</span>
         </div>
-      </div>
-
-      <!-- Header Right: Animated 3D Rasengan Visual (Every Page) -->
-      <div class="flex items-center gap-2 sm:gap-3">
-        <RasenganOrb />
       </div>
     </header>
 
     <!-- Page Body (padding clears the bottom floating theme FAB on mobile) -->
-    <div class="flex-1 overflow-y-auto p-4 pb-20 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: var(--color-bg);">
+    <div class="flex-1 overflow-y-auto p-4 pb-20 lg:p-8 lg:pb-8 transition-colors duration-200 perspective-container" style="background-color: transparent;">
       {@render children()}
     </div>
   </main>

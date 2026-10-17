@@ -198,10 +198,8 @@
           <stop offset="100%" stop-color="var(--theme-grad-4)" />
         </linearGradient>
         <linearGradient id="dashboard-3d-gauge-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="var(--theme-grad-1)" />
-          <stop offset="40%" stop-color="var(--theme-grad-2)" />
-          <stop offset="80%" stop-color="var(--theme-grad-3)" />
-          <stop offset="100%" stop-color="var(--theme-grad-4)" />
+          <stop offset="0%" stop-color="var(--theme-gauge-arc-start)" />
+          <stop offset="100%" stop-color="var(--theme-gauge-arc-end)" />
         </linearGradient>
       </defs>
     </svg>
@@ -290,14 +288,14 @@
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">Gauge</span>
         </div>
         <div class="relative w-40 h-40 my-3">
-          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-1) 25%, var(--color-border))" stroke-width="4.5" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90 overflow-visible">
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--theme-gauge-track)" stroke-width="4" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.cpu.system_pct).strokeDashoffset}
               class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
-            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.system_pct ?? '—'}%</span>
+          <div class="absolute inset-0 m-auto w-24 h-24 flex flex-col items-center justify-center rounded-full gauge-center-3d pointer-events-none">
+            <span class="text-2xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.cpu.system_pct ?? '—'}%</span>
             <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">System</span>
           </div>
         </div>
@@ -323,14 +321,14 @@
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">RAM</span>
         </div>
         <div class="relative w-40 h-40 my-3">
-          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border))" stroke-width="4.5" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90 overflow-visible">
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--theme-gauge-track)" stroke-width="4" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.memory.used_pct).strokeDashoffset}
               class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
-            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.memory.used_pct}%</span>
+          <div class="absolute inset-0 m-auto w-24 h-24 flex flex-col items-center justify-center rounded-full gauge-center-3d pointer-events-none">
+            <span class="text-2xl font-black tabular-nums font-mono" style="color: var(--color-text);">{metrics.system.memory.used_pct}%</span>
             <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Used</span>
           </div>
         </div>
@@ -348,14 +346,14 @@
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono gradient-badge">Storage</span>
         </div>
         <div class="relative w-40 h-40 my-3">
-          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-3) 25%, var(--color-border))" stroke-width="4.5" />
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
+          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90 overflow-visible">
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--theme-gauge-track)" stroke-width="4" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(rootDisk?.used_pct).strokeDashoffset}
               class="metric-gauge-3d" />
           </svg>
-          <div class="absolute inset-2 flex flex-col items-center justify-center rounded-full gauge-center-3d">
-            <span class="text-3xl font-black tabular-nums font-mono" style="color: var(--color-text);">{rootDisk?.used_pct ?? '—'}%</span>
+          <div class="absolute inset-0 m-auto w-24 h-24 flex flex-col items-center justify-center rounded-full gauge-center-3d pointer-events-none">
+            <span class="text-2xl font-black tabular-nums font-mono" style="color: var(--color-text);">{rootDisk?.used_pct ?? '—'}%</span>
             <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-muted);">Root FS</span>
           </div>
         </div>

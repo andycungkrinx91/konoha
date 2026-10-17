@@ -53,6 +53,12 @@
   --rasengan-2: #0284c7;
   --rasengan-3: #075985;
   --rasengan-4: #0e7490;
+  --theme-crumb-active: var(--color-text, #0f172a);
+  --theme-crumb-parent: var(--color-text-muted, #334155);
+  --theme-crumb-separator: #64748b;
+  --theme-gauge-track: #94a3b8;
+  --theme-gauge-arc-start: #0284c7;
+  --theme-gauge-arc-end: #0369a1;
   --theme-4gradient-subtle: linear-gradient(135deg, rgba(2, 132, 199, 0.14) 0%, rgba(6, 182, 212, 0.14) 33%, rgba(56, 189, 248, 0.14) 66%, rgba(129, 140, 248, 0.14) 100%);
   --theme-sidebar-bg: linear-gradient(
     180deg,
@@ -942,25 +948,44 @@ html.theme-dark .modal-card,
 }
 
 /* 3D Gauge & Dial Utilities */
+@keyframes gauge-lamp-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--theme-gauge-arc-start) 45%, transparent));
+    opacity: 0.94;
+  }
+  50% {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--theme-gauge-arc-end) 80%, transparent));
+    opacity: 1;
+  }
+}
+
 .metric-gauge-3d {
-  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--theme-grad-1) 35%, transparent));
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: gauge-lamp-glow 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-gauge-3d {
+    animation: none !important;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--theme-gauge-arc-start) 60%, transparent));
+  }
 }
 
 .gauge-center-3d {
-  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6) 60%, rgba(240, 243, 248, 0.85) 100%);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 40%, transparent);
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.9),
-    inset 0 -2px 4px rgba(15, 23, 42, 0.08),
-    0 8px 18px -4px color-mix(in srgb, var(--theme-grad-1) 15%, rgba(15, 23, 42, 0.12));
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.6),
+    inset 0 -1.5px 3px rgba(15, 23, 42, 0.08);
 }
 
 html.theme-dark .gauge-center-3d,
 [data-mode="dark"] .gauge-center-3d {
-  background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--theme-grad-1) 18%, var(--color-surface)) 0%, var(--color-surface) 60%, color-mix(in srgb, var(--theme-grad-2) 12%, var(--color-bg)) 100%) !important;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent) !important;
+  border-color: color-mix(in srgb, var(--theme-border) 60%, transparent) !important;
   box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.08),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-    0 8px 18px -4px color-mix(in srgb, var(--theme-grad-1) 30%, rgba(0, 0, 0, 0.6)) !important;
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.08),
+    inset 0 -1.5px 3px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* 3D Progress Bar Track with Channel Depth & Specular Cap */

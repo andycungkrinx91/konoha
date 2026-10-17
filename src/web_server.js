@@ -2376,17 +2376,6 @@ async function handleWebServerRequest(req, res, ctx) {
       return sendJson(res, 404, { error: 'Not Found' });
     }
 
-    const skHandler = await getSvelteKitHandler();
-    if (skHandler && !pathname.startsWith('/api/')) {
-      if (!req.headers.cookie || !req.headers.cookie.includes('konoha-web-token=')) {
-        req.headers.cookie = (req.headers.cookie ? req.headers.cookie + '; ' : '') + 'konoha-web-token=' + sessionToken;
-      }
-      return skHandler(req, res, () => {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-      });
-    }
-
     // Serve root assets directory if requested via /assets/
     if (pathname.startsWith('/assets/')) {
       const assetRel = pathname.slice('/assets/'.length);
@@ -2401,6 +2390,17 @@ async function handleWebServerRequest(req, res, ctx) {
         });
         return stream.pipe(res);
       }
+    }
+
+    const skHandler = await getSvelteKitHandler();
+    if (skHandler && !pathname.startsWith('/api/')) {
+      if (!req.headers.cookie || !req.headers.cookie.includes('konoha-web-token=')) {
+        req.headers.cookie = (req.headers.cookie ? req.headers.cookie + '; ' : '') + 'konoha-web-token=' + sessionToken;
+      }
+      return skHandler(req, res, () => {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      });
     }
 
     const distDir = getDistDir();
