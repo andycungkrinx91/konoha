@@ -135,6 +135,15 @@
       </div>
     </div>
     <div class="flex items-center gap-3">
+      <!-- Looping Telemetry Lamp Visual Pulse (Dynamic Glow from Theme & Mode) -->
+      <div
+        class="telemetry-lamp-container flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm select-none"
+        style="background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));"
+        title="Active Telemetry Lamp — Looping Theme Pulse"
+      >
+        <span class="telemetry-lamp-beacon" aria-hidden="true"></span>
+        <span class="text-xs font-mono font-bold tracking-wide" style="color: var(--color-primary);">Pulse Active</span>
+      </div>
       {#if lastUpdated}
         <span class="text-xs font-mono px-3 py-1.5 rounded-full border" style="color: var(--color-text-muted); border-color: var(--color-border);">
           Updated {lastUpdated.toLocaleTimeString()}
@@ -282,7 +291,7 @@
         </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-1) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-1) 25%, var(--color-border))" stroke-width="4.5" />
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.cpu.system_pct).strokeDashoffset}
               class="metric-gauge-3d" />
@@ -315,7 +324,7 @@
         </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-2) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-2) 25%, var(--color-border))" stroke-width="4.5" />
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(metrics.system.memory.used_pct).strokeDashoffset}
               class="metric-gauge-3d" />
@@ -340,7 +349,7 @@
         </div>
         <div class="relative w-40 h-40 my-3">
           <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-3) 12%, var(--color-border))" stroke-width="4.5" />
+            <circle cx="21" cy="21" r="15.915" fill="none" stroke="color-mix(in srgb, var(--theme-grad-3) 25%, var(--color-border))" stroke-width="4.5" />
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="url(#dashboard-3d-gauge-grad)" stroke-width="4.5"
               stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset={ringStroke(rootDisk?.used_pct).strokeDashoffset}
               class="metric-gauge-3d" />

@@ -12,7 +12,6 @@ const antigravity = require('../src/antigravity_manager');
 const cursor = require('../src/cursor_manager');
 const clients = require('../src/mcp_clients_manager');
 const opencode = require('../src/opencode_manager');
-const codex = require('../src/codex_manager');
 
 const agents = [
   'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'
@@ -39,7 +38,8 @@ const generated = {
   agentsMain: agentManager.generateAgentsMd(agents),
   commandRule: contract.buildMainAgentContract('commandcode'),
   openCodeRule: contract.buildMainAgentContract('opencode'),
-  codexRule: contract.buildMainAgentContract('codex')
+  codexRule: contract.buildMainAgentContract('codex'),
+  ompRule: require('../src/omp_manager').buildOmpManagedContract()
 };
 
 for (const [name, text] of Object.entries(generated)) {

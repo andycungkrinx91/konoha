@@ -463,6 +463,12 @@ export function createThemeState() {
         document.documentElement.style.setProperty('--gradient-3', g3);
         document.documentElement.style.setProperty('--gradient-4', g4);
 
+        // Canonical 4-gradient properties
+        document.documentElement.style.setProperty('--theme-gradient-1', g1);
+        document.documentElement.style.setProperty('--theme-gradient-2', g2);
+        document.documentElement.style.setProperty('--theme-gradient-3', g3);
+        document.documentElement.style.setProperty('--theme-gradient-4', g4);
+
         // Backward compatibility properties
         document.documentElement.style.setProperty('--theme-grad-1', g1);
         document.documentElement.style.setProperty('--theme-grad-2', g2);

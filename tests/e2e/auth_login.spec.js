@@ -84,7 +84,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     expect(dataTheme).toBe('byakugan');
 
     // 9. Test Logout
-    const logoutBtn = page.getByRole("button", { name: "Logout", exact: true });
+    const logoutBtn = page.getByRole("button", { name: /Logout \/ Lock|Logout/i }).first();
     await logoutBtn.click();
 
     // Returns to Cyberpunk Login screen

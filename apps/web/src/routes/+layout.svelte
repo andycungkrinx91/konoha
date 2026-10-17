@@ -6,6 +6,7 @@
   import { uiState } from '#lib/state/uiState.svelte.js';
   import { themeState } from '#lib/state/themeState.svelte.js';
   import ThemeSwitcher from '../components/ThemeSwitcher.svelte';
+  import RasenganOrb from '../components/RasenganOrb.svelte';
   import SweetAlertModal from '../components/SweetAlertModal.svelte';
   import PasswordChangeModal from '../components/PasswordChangeModal.svelte';
   import Login from '../components/Login.svelte';
@@ -192,7 +193,7 @@
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
               Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.1.18'}</span>
             </h1>
-            <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Ninja Agent Village</p>
+            <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Konoha MCP Orchestrator</p>
           </div>
         </div>
         <button
@@ -287,18 +288,11 @@
       </nav>
     </div>
 
-    <!-- System Status Footer: Live MCP Gateway -->
+    <!-- System Status Footer -->
     <div class="p-4 border-t shrink-0 transition-colors duration-200 w-64" style="border-color: color-mix(in srgb, var(--theme-grad-2) 20%, var(--color-border)); background: var(--theme-sidebar-footer-bg);">
-      <div class="flex items-center justify-between text-xs mb-2" style="color: var(--color-text-muted);">
-        <span class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full {uiState.isConnected ? 'bg-status-success shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-status-danger-soft'}"></span>
-          <span class="text-xs font-medium">{uiState.isConnected ? 'Live MCP Gateway' : 'Disconnected'}</span>
-        </span>
-        <span class="font-mono text-[11px]" style="color: var(--color-text-muted);">:{health.port || 1404}</span>
-      </div>
-      <div class="text-[10px] flex justify-between pt-1" style="color: var(--color-text-muted);">
-        <span>SQLite FTS5 + Semble</span>
-        <span>Localhost</span>
+      <div class="flex items-center gap-2 text-xs mb-2" style="color: var(--color-text-muted);">
+        <span class="w-2 h-2 rounded-full {uiState.isConnected ? 'bg-status-success shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-status-danger-soft'}"></span>
+        <span class="text-xs font-medium">Listen on 127.0.0.1:1404</span>
       </div>
       <div class="text-[10px] flex items-center justify-between pt-1.5 border-t mt-1.5" style="border-color: color-mix(in srgb, var(--theme-grad-2) 15%, var(--color-border)); color: var(--color-text-muted);">
         <span>Created by</span>
@@ -365,44 +359,9 @@
         </div>
       </div>
 
-      <!-- Action Buttons & Status -->
+      <!-- Header Right: Animated 3D Rasengan Visual (Every Page) -->
       <div class="flex items-center gap-2 sm:gap-3">
-        <!-- Change Password Button -->
-        <button
-          type="button"
-          onclick={() => authState.openPasswordChangeModal()}
-          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer hover:scale-105 transition-all"
-          style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
-          title="Security Passphrase Settings"
-          aria-label="Security Settings"
-        >
-          <svg class="w-3.5 h-3.5 text-status-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <span class="hidden md:inline">Password</span>
-        </button>
-
-        <!-- Lock / Logout Button -->
-        <button
-          type="button"
-          onclick={() => authState.logout()}
-          class="btn-3d px-2.5 py-1 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer text-status-danger hover:text-status-danger border-status-danger-soft hover:scale-105 transition-all"
-          title="Lock Console / Logout"
-          aria-label="Logout"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          <span class="hidden md:inline">Logout</span>
-        </button>
-
-        <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-[5px] border text-[11px] font-mono" style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text);">
-          <span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
-          <span>127.0.0.1:{health.port || 1404}</span>
-        </div>
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[11px] font-semibold bg-status-success-soft text-status-success border-status-success-soft/20">
-          SSE Active
-        </span>
+        <RasenganOrb />
       </div>
     </header>
 

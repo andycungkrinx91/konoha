@@ -170,3 +170,47 @@ npx aislop .
 | **2-Second Theme Transition** | Click a theme option in Theme Switcher FAB modal. | Displays 2-second (2000ms) procedural 3D Three.js Rasengan sequence with dynamic theme palette, then cleanly dismisses. | `PASS` (automated in `tests/e2e/theme_and_navigation.spec.js`) |
 | **Git Ignore & Untrack Rule** | Inspect `.gitignore` and `git status`. | `/PLAN.md` and `/.omp/plans/` excluded; `PLAN.md` untracked from Git index without deleting local file. | `PASS` (verified via `git status`) |
 
+---
+
+## Section 4: Web UI Modernization, 3D Rasengan & 4-Gradient Theme Parity QA
+
+| Test Item | Verification Scenario | Expected Outcome | Status |
+| :--- | :--- | :--- | :--- |
+| **Dark Mode Donut Metrics** | Toggle Dark Mode on `/dashboard`. | CPU, Memory, Disk gauge center circles render with theme surface/dark-mode palette; text values (`#f8fafc`) maintain `>= 7:1` AAA contrast against background. | `PASS` (verified in `Dashboard.svelte` & `app.css`) |
+| **Donut Track High-Contrast Delineation** | Inspect gauge track strokes in Dark Mode. | Background tracks use `25%` theme gradient mix with clear border definition against card surface. | `PASS` (verified) |
+| **Looping Telemetry Lamp Pulse** | Observe top header of Mission Control on `/dashboard`. | Continuous looping lamp pulse beacon glows with active theme gradient and primary glow; respects `prefers-reduced-motion: reduce`. | `PASS` (verified via `@keyframes telemetry-lamp-glow`) |
+| **Global 3D Rasengan Visual** | Navigate across `/dashboard`, `/clients`, `/agents`, `/bridges`, `/savings`, `/skills`, `/persona`, `/settings`. | Top header right side embeds animated 3D Rasengan sphere on every page: crimson red in Light Mode, electric cyan/blue in Dark Mode; pauses rotation under `prefers-reduced-motion`. | `PASS` (verified via `RasenganOrb.svelte`) |
+| **Theme Switcher 4-Gradient Dark Styling** | Open Theme Switcher modal in Dark Mode. | Modal container (`#konoha-theme-picker`) applies active theme's 4-gradient custom properties (`--theme-gradient-*`) with vibrant depth; zero hardcoded white surfaces. | `PASS` (verified in `ThemeSwitcher.svelte` & `themeState.svelte.js`) |
+| **Theme Switcher Modal Toggle Removal** | Open Theme Switcher popup modal. | Light/Dark appearance mode group is cleanly removed from inside the modal; mode switching preserved via quick external toggle button. | `PASS` (verified in `ThemeSwitcher.svelte`) |
+| **Header Control Sanitization** | Inspect top application header bar (`+layout.svelte`). | Password settings button, Logout button, `127.0.0.1:1404` badge, and `SSE Active` badge are cleanly removed from top header. | `PASS` (verified in `+layout.svelte`) |
+| **Sidebar Footer Gateway Status** | Inspect bottom of fixed left sidebar. | Status displays indicator dot with exact text `Listen on 127.0.0.1:1404`; `SQLite FTS5 + Semble` and `Localhost` labels are removed; author profile link preserved. | `PASS` (verified in `+layout.svelte`) |
+| **Product Branding Wording** | Inspect brand logo subtitle and documentation overview. | User-facing `Ninja Agent Village` wording replaced with `Konoha MCP Orchestrator`. | `PASS` (verified in `+layout.svelte` and `Docs.svelte`) |
+| **Authentic Client Logos Rendering** | Navigate to `/clients` and inspect all 8 cards. | Displays verified, official local vendor SVG brand assets for Cursor, Claude Code, Antigravity, Codex, OpenCode, Command Code, Pi, and OMP; zero generic placeholder icons; includes text fallback. | `PASS` (verified in `Clients.svelte` & `assets/logos/`) |
+
+---
+
+## Section 5: Real 9router Endpoint Discovery & Configuration QA
+
+| Test Item | Verification Scenario | Expected Outcome | Status |
+| :--- | :--- | :--- | :--- |
+| **9router Safe Auto-Detection Probe** | Probe local environment without crashing (`is9RouterInstalled()`). | Checks `9router` command availability on PATH, `~/.config/9router`, and client configuration references. Does not crash or throw if binary is absent. | `PASS` (automated in `tests/test_nine_router.js`) |
+| **Local Service Responsiveness Probe** | Probe `http://127.0.0.1:20128/v1/models` (`probe9RouterEndpoint()`). | Performs non-blocking HTTP GET with 1500ms timeout; returns `{ ok: true, data }` when running, `{ ok: false, error }` when offline without hanging. | `PASS` (automated in `tests/test_nine_router.js`) |
+| **Real Endpoint Discovery & Prefixing** | Query `GET /api/v1/bridges/models` when 9router is running. | Returns discovered models with full endpoint IDs containing provider prefix (e.g. `9router-ag/gemini-3.8-flash-high`, `9router-sp/glm-5.3-flash`, `9router-cx/gpt-6.1-sol`). | `PASS` (verified against live 9router gateway) |
+| **Agent Model Selector Categorization** | Open `/agents` subagent configuration card. | Models dropdown cleanly separates `9router Endpoints (Auto-Detected Local Gateway)` from other bridge/client models, with live connection status badge. | `PASS` (verified in `Agents.svelte`) |
+| **Non-Destructive Assignment Persistence** | Select a 9router endpoint for a subagent (e.g. `kage`). | Calls `PATCH /api/v1/agents/kage/model` with full ID; updates `~/.agents/agents.yaml` and SQLite `agents` table; does not silently remap existing assignments. | `PASS` (verified in `agent_manager.js`) |
+| **Offline 9router Graceful Degradation** | Stop 9router daemon or probe with closed port. | UI reports `9router not detected locally` or `service offline — run 9router to activate`; does NOT fabricate synthetic or fake models. | `PASS` (verified) |
+
+---
+
+## Section 6: OMP & Cross-Client / Cross-Platform Workflow Integration QA
+
+| Test Item | Verification Scenario | Expected Outcome | Status |
+| :--- | :--- | :--- | :--- |
+| **OMP Setup & Registration** | Execute `ompManager.ensureOmpSetup()` / `POST /api/v1/clients/omp/setup`. | Atomically registers `konoha`, `semble`, and `aislop` in `~/.omp/agent/mcp.json` with `ACTIVE_CLIENT=omp` and `KONOHA_CLIENT=omp`. | `PASS` (automated in `tests/test_omp_manager.js`) |
+| **OMP Contract & Mandate Injection** | Check `~/.omp/agent/AGENTS.md`. | Injects managed `<!-- KONOHA-CONTRACT-START/END -->` block including OMP Workflow Mandate (Sannin routing, Step 0 classification, Branch B scaffolding invariants, delivery gate). | `PASS` (automated in `tests/test_omp_manager.js`) |
+| **OMP RTK Rule Deployment** | Check `~/.omp/rules/rtk.md`. | Automatically deploys mandatory RTK execution rule into OMP global rules directory. | `PASS` (automated in `tests/test_omp_manager.js`) |
+| **Cross-Client Contract Validation** | Execute `node tests/test_cross_client_contract.js`. | Verifies contract text validity and resume safety across all 8 clients: Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. | `PASS` (automated in `tests/test_cross_client_contract.js`) |
+| **Cross-Client Disconnect Isolation** | Call `removeClient('omp')` / `POST /api/v1/clients/omp/remove`. | Removes only Konoha-managed server keys from `mcp.json` and preserves any custom third-party MCP servers. | `PASS` (automated in `tests/test_omp_manager.js`) |
+| **Antigravity Extension Scoping** | Verify VSIX installation scope. | Confirms `konoha-bridge-1.7.0.vsix` is strictly scoped to Antigravity IDE (`~/.antigravity-ide/extensions/`) and never installed into Cursor, VS Code, or OMP. | `PASS` (verified in `cli.js`) |
+
+

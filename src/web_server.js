@@ -847,7 +847,23 @@ function discoverClientModels() {
         for (const cm of clientModels) {
           models.push(cm);
         }
-        return sendJson(res, 200, { models, total: models.length });
+        const nineRouter = require('./nine_router');
+        const nineRouterModels = await nineRouter.discover9RouterModels();
+        for (const nm of nineRouterModels) {
+          models.push(nm);
+        }
+        const nineRouterStatus = await nineRouter.get9RouterStatus();
+        return sendJson(res, 200, { models, total: models.length, nine_router: nineRouterStatus });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'GET' && (pathname === '/api/v1/9router/status' || pathname === '/api/v1/router/status')) {
+      try {
+        const nineRouter = require('./nine_router');
+        const status = await nineRouter.get9RouterStatus();
+        return sendJson(res, 200, status);
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

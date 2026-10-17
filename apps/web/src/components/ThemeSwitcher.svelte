@@ -328,7 +328,7 @@
       aria-describedby="theme-picker-description theme-picker-active"
       tabindex="-1"
       class="modal-card modal-3d w-full max-w-2xl max-h-[calc(100dvh-2rem)] flex flex-col rounded-[5px] border shadow-2xl overflow-hidden glass-frost-strong"
-      style="border-color: var(--theme-modal-border, var(--color-border)); color: var(--theme-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
+      style="border-color: var(--theme-modal-border, var(--color-border)); color: var(--theme-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d)); {themeState.currentMode === 'dark' ? 'background: linear-gradient(180deg, color-mix(in srgb, var(--theme-gradient-1, var(--theme-grad-1)) 22%, var(--color-surface)) 0%, color-mix(in srgb, var(--theme-gradient-2, var(--theme-grad-2)) 14%, var(--color-surface)) 45%, color-mix(in srgb, var(--theme-gradient-3, var(--theme-grad-3)) 18%, var(--color-card-bg)) 100%), radial-gradient(ellipse at top left, color-mix(in srgb, var(--theme-gradient-4, var(--theme-grad-4)) 25%, transparent) 0%, transparent 70%);' : ''}"
     >
       <div class="h-1 w-full shrink-0 animate-gradient-flow" style="background: var(--theme-4gradient-bar);" aria-hidden="true"></div>
 
@@ -356,33 +356,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-      </div>
-
-      <!-- Appearance Mode & Live Token Strip -->
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 border-b theme-border theme-bg-muted">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-xs font-bold theme-text">Appearance Mode</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] font-mono border theme-bg-surface theme-border theme-text-secondary">
-            {themeState.currentMode === 'dark' ? 'Dark' : 'Light (Default)'}
-          </span>
-        </div>
-        <div role="group" aria-label="Appearance mode" class="flex items-center gap-1 p-0.5 rounded-[5px] border theme-bg-surface theme-border">
-          {#each MODES as m (m.id)}
-            {@const isActive = themeState.currentMode === m.id}
-            <button
-              type="button"
-              class="px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border {isActive ? 'theme-bg-muted theme-text theme-border-hover font-bold' : 'border-transparent theme-text-secondary hover-bg-subtle hover:theme-text'}"
-              onclick={() => selectMode(m.id)}
-              aria-label={m.aria}
-              aria-pressed={isActive}
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d={m.icon} />
-              </svg>
-              <span>{m.label}</span>
-            </button>
-          {/each}
-        </div>
       </div>
 
       <!-- Search & Category Filter Bar -->

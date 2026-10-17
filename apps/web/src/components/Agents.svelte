@@ -6,8 +6,12 @@
   let agents = $state([]);
   let allSkills = $state([]);
   let bridgeModels = $state([]);
+  let nineRouterStatus = $state(null);
   let loading = $state(true);
   let error = $state("");
+
+  let nineRouterModels = $derived(bridgeModels.filter(m => m.bridge === '9router' || m.source === '9router'));
+  let otherModels = $derived(bridgeModels.filter(m => m.bridge !== '9router' && m.source !== '9router'));
 
   const rankIcons = {
     sannin: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z",
@@ -78,8 +82,10 @@
       try {
         const modelsRes = await api.get("/api/v1/bridges/models");
         bridgeModels = modelsRes.models || [];
+        nineRouterStatus = modelsRes.nine_router || null;
       } catch (_) {
         bridgeModels = [];
+        nineRouterStatus = null;
       }
     } catch (err) {
       error = err.message;
@@ -435,15 +441,38 @@
                   {#if agent.model && !bridgeModels.some(m => m.id === agent.model)}
                     <option value={agent.model}>{agent.model} (Custom Assigned)</option>
                   {/if}
-                  {#if bridgeModels.length > 0}
-                    <optgroup label="Discovered Client / Bridge Models">
-                      {#each bridgeModels as m}
+                  {#if nineRouterModels.length > 0}
+                    <optgroup label="9router Endpoints (Auto-Detected Local Gateway)">
+                      {#each nineRouterModels as m}
+                        <option value={m.id}>{m.id}</option>
+                      {/each}
+                    </optgroup>
+                  {/if}
+                  {#if otherModels.length > 0}
+                    <optgroup label="LLM Bridges & Connected Clients">
+                      {#each otherModels as m}
                         <option value={m.id}>{m.model_name || m.id} {m.bridge ? `(${m.bridge})` : ''}</option>
                       {/each}
                     </optgroup>
                   {/if}
                   <option value="__custom__">✎ Custom model string...</option>
                 </select>
+
+                {#if nineRouterStatus?.running}
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono text-status-success pt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+                    <span>9router active ({nineRouterModels.length} endpoints on :{nineRouterStatus.port})</span>
+                  </div>
+                {:else if nineRouterStatus?.installed}
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono text-status-warning pt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-status-warning"></span>
+                    <span>9router installed (service offline — run `9router` to activate)</span>
+                  </div>
+                {:else}
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono theme-text-muted pt-0.5">
+                    <span>9router not detected locally</span>
+                  </div>
+                {/if}
 
                 {#if customModelInputs[agent.name] !== undefined || (agent.model && !bridgeModels.some(m => m.id === agent.model))}
                   <div class="flex items-center gap-1.5 pt-1">

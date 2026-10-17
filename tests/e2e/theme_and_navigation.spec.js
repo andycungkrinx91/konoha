@@ -42,30 +42,31 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
       await expect(page.getByText(name)).toBeVisible();
     }
 
-    // Verify Appearance Mode Selector: Light vs Dark Mode
-    await expect(page.getByText("Appearance Mode")).toBeVisible();
-    const lightBtn = page.getByRole("button", { name: "Set Light Appearance Mode" });
-    const darkBtn = page.getByRole("button", { name: "Set Dark Appearance Mode" });
-    await expect(lightBtn).toBeVisible();
-    await expect(darkBtn).toBeVisible();
+    // Verify Appearance Mode Selector is removed from inside the modal (Feedback Item 5)
+    await expect(page.getByText("Appearance Mode")).not.toBeVisible();
 
     // Verify initial default is Light Mode
     let dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
     expect(dataMode).toBe('light');
 
-    // Switch to Dark Mode
-    await darkBtn.click();
+    // Close modal to test quick appearance toggle button
+    await page.getByRole("button", { name: "Close theme modal" }).click();
+
+    // Quick appearance toggle: switch to Dark Mode
+    const quickModeBtn = page.getByRole("button", { name: /appearance mode/i });
+    await quickModeBtn.click();
     dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
     expect(dataMode).toBe('dark');
     let hasThemeDark = await page.evaluate(() => document.documentElement.classList.contains('theme-dark'));
     expect(hasThemeDark).toBe(true);
 
-    // Switch back to Light Mode
-    await lightBtn.click();
+    // Switch back to Light Mode via quick appearance toggle
+    await quickModeBtn.click();
     dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
     expect(dataMode).toBe('light');
 
-    // Switch to Byakugan Deep Ocean (clicking a theme applies it and closes the modal)
+    // Reopen modal to select Byakugan Deep Ocean
+    await themeFab.click();
     await page.getByText("Byakugan Deep Ocean").click();
 
     // Verify modal automatically closed upon selection
@@ -250,15 +251,19 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("Footer attribution displays 'Created by Andy Setiyawan' with verified LinkedIn link under SQLite FTS5 + Semble", async ({ page }) => {
+  test("Footer attribution displays 'Created by Andy Setiyawan' with verified LinkedIn link under Listen on 127.0.0.1:1404", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
     await page.goto("http://127.0.0.1:4173/dashboard");
 
-    // Verify footer status block exists
-    const statusFooter = page.locator("aside").locator("text=SQLite FTS5 + Semble");
+    // Verify footer status block exists with Listen on 127.0.0.1:1404
+    const statusFooter = page.locator("aside").locator("text=Listen on 127.0.0.1:1404");
     await expect(statusFooter).toBeVisible();
+
+    // Verify SQLite FTS5 + Semble and Localhost are removed
+    await expect(page.locator("aside").locator("text=SQLite FTS5 + Semble")).not.toBeVisible();
+    await expect(page.locator("aside").locator("text=Localhost")).not.toBeVisible();
 
     // Verify 'Created by Andy Setiyawan' attribution link exists
     const authorLink = page.locator("a[href='https://www.linkedin.com/in/andy-setiyawan-452396170/']");

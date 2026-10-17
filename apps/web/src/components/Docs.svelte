@@ -170,7 +170,7 @@
       <section id="overview" class="glass-card-3d p-6 lg:p-8 rounded-3xl border scroll-mt-6" style="border-color: var(--color-border);">
         <h3 class="text-xl font-black tracking-tight mb-3" style="color: var(--color-text);">Overview</h3>
         <p class="text-sm leading-relaxed mb-4" style="color: var(--color-text-muted);">
-          Konoha is a multi-client AI agent orchestrator ("Ninja Agent Village") that turns a single prompt into a governed
+          Konoha is a multi-client AI agent orchestrator ("Konoha MCP Orchestrator") that turns a single prompt into a governed
           engineering workflow: exploration, planning, execution, review, and documentation — each phase owned by a
           specialized agent, each delivery gated by mechanical quality checks.
         </p>
