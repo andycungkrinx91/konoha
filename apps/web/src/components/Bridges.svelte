@@ -258,7 +258,7 @@
 <svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
@@ -530,7 +530,7 @@
                 bind:value={newBridge.name}
                 placeholder="e.g. ollama-local"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
               />
             </div>
             <div>
@@ -541,7 +541,7 @@
                 bind:value={newBridge.port}
                 placeholder="9001"
                 required
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
               />
             </div>
           </div>
@@ -552,7 +552,7 @@
               <select
                 id="bridge-provider"
                 bind:value={newBridge.provider}
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
               >
                 <option value="openai">OpenAI Compatible</option>
                 <option value="anthropic">Anthropic</option>
@@ -568,7 +568,7 @@
                 type="text"
                 bind:value={newBridge.model}
                 placeholder="e.g. qwen2.5-coder:7b"
-                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+                class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
               />
             </div>
           </div>
@@ -580,7 +580,7 @@
               type="text"
               bind:value={newBridge.target_url}
               placeholder="http://127.0.0.1:11434/v1"
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
             />
           </div>
 
@@ -650,7 +650,7 @@
               type="text"
               bind:value={modelsSearch}
               placeholder="Search model by ID, name, or provider..."
-              class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all"
+              class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:bg-white focus:ring-0 focus:outline-none transition-all"
             />
             <svg class="w-4 h-4 theme-text-muted absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

@@ -342,7 +342,7 @@
 <svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
@@ -475,7 +475,7 @@
           bind:value={contextSummary}
           rows="5"
           placeholder="e.g. Always use port 1404; Pure light mode is first-class default; zero dark mode enforcement; use Tailwind v4; no hamburger in header on mobile dock..."
-          class="w-full p-4 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface/90 focus:ring-2 focus:ring-purple-500 focus:outline-none leading-relaxed"
+          class="w-full p-4 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-0 focus:outline-none leading-relaxed"
         ></textarea>
       </div>
 
@@ -521,7 +521,7 @@
         {#if projectMemories && projectMemories.length > 0}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {#each projectMemories as pm}
-              <div class="p-3.5 rounded-xl border theme-border theme-bg-surface/80 space-y-2 flex flex-col justify-between">
+              <div class="p-3.5 rounded-xl border theme-border theme-bg-surface space-y-2 flex flex-col justify-between">
                 <div class="space-y-1">
                   <div class="flex items-center justify-between">
                     <span class="text-[10px] font-extrabold badge-status badge-status-info">
@@ -556,7 +556,7 @@
             {/each}
           </div>
         {:else}
-          <div class="p-4 rounded-xl border border-dashed theme-border-strong-b theme-bg-surface/40 text-center">
+          <div class="p-4 rounded-xl border border-dashed theme-border-strong-b theme-bg-muted text-center">
             <p class="text-xs font-bold theme-text-muted">No episodic learnings saved for this project yet.</p>
             <p class="text-[11px] theme-text-muted mt-0.5">Verified learnings auto-persist here during subagent delegations and auto-compact across turns.</p>
           </div>
@@ -648,7 +648,7 @@
 {#if isAddLearningOpen}
   <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--theme-overlay)] 40 backdrop-blur-md animate-in fade-in duration-200">
     <div
-      class="rise-3d relative w-full max-w-lg overflow-hidden rounded-3xl border theme-border theme-bg-surface/95 p-6 shadow-2xl backdrop-blur-xl"
+      class="rise-3d relative w-full max-w-lg overflow-hidden rounded-3xl border theme-border theme-bg-surface p-6 shadow-2xl backdrop-blur-xl"
       style="box-shadow: var(--shadow-3d);"
     >
       <div class="flex items-center justify-between pb-4 border-b theme-border">
@@ -676,7 +676,7 @@
             <select
               id="learning-agent-select"
               bind:value={newLearning.agentName}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
             >
               {#each agentOptions as ag}
                 <option value={ag.id}>{ag.name}</option>
@@ -689,7 +689,7 @@
             <select
               id="learning-type-select"
               bind:value={newLearning.memoryType}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -706,7 +706,7 @@
             bind:value={newLearning.content}
             rows="4"
             placeholder="e.g. Always use port 1404; Pure light mode is first-class default; use Tailwind v4 grid tokens..."
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
           ></textarea>
         </div>
       </div>

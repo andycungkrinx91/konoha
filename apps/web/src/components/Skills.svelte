@@ -443,7 +443,7 @@
         bind:value={searchQuery}
         oninput={handleSearchInput}
         placeholder={searchMode === "registry" ? "Search skills.sh global registry (e.g. react, docker, k8s, nextjs)..." : (searchMode === "vector" ? "Semantic Vector Search (e.g. cloud deployment, cyber defense, mobile layout)..." : "Search local skills by name, tag, or topic (e.g. helm, cybersecurity, sveltekit)...")}
-        class="w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 font-medium"
+        class="w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs input-theme font-medium"
         style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
       />
       {#if searchQuery}
@@ -827,7 +827,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <span>Vector Chunks & Embeddings</span>
-                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-surface/20 text-white' : 'bg-status-success-soft text-[var(--theme-success)] '}">
+                  <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono {activeTab === 'vectors' ? 'theme-bg-muted' : 'bg-status-success-soft text-[var(--theme-success)] '}">
                     {selectedSkill.chunks_count || selectedSkill.chunks?.length || 0}
                   </span>
                 </button>
@@ -1001,7 +1001,7 @@
             type="text"
             bind:value={newSkill.name}
             placeholder="e.g. docker-compose-scaffolding, redis-caching-skill"
-            class="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 font-mono"
+            class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme font-mono"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -1013,7 +1013,7 @@
             type="text"
             bind:value={newSkill.description}
             placeholder="Standard Operating Procedures for scaffolding docker-compose clusters..."
-            class="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 font-medium"
+            class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme font-medium"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -1026,7 +1026,7 @@
               type="text"
               bind:value={newSkill.tags}
               placeholder="docker, devops, compose, backend"
-              class="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2"
+              class="w-full px-3.5 py-2.5 rounded-xl border text-xs input-theme"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             />
           </div>
@@ -1053,7 +1053,7 @@
             id="skill-content"
             rows="8"
             bind:value={newSkill.content}
-            class="w-full p-3.5 rounded-xl border text-xs font-mono focus:outline-none focus:ring-2 leading-relaxed"
+            class="w-full p-3.5 rounded-xl border text-xs font-mono input-theme leading-relaxed"
             style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text);"
           ></textarea>
         </div>
@@ -1136,7 +1136,7 @@
           bind:value={registryQuery}
           oninput={handleRegistrySearchInput}
           placeholder="Search skills.sh (e.g. docker, kubernetes, security, react)..."
-          class="w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 font-medium"
+          class="w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs input-theme font-medium"
           style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text);"
         />
         {#if registryQuery}

@@ -206,7 +206,7 @@
           type="text"
           bind:value={configPath}
           placeholder="/absolute/path/to/project"
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
           style="border-color: var(--color-border, #e2e8f0);"
         />
       </label>
@@ -214,7 +214,7 @@
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">DoR Mode</span>
         <select
           bind:value={dorMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
           style="border-color: var(--color-border, #e2e8f0);"
         >
           <option value="advisory">Advisory</option>
@@ -225,7 +225,7 @@
         <span class="block text-xs font-bold theme-text-secondary mb-1.5">Review Mode</span>
         <select
           bind:value={reviewMode}
-          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface focus:outline-none focus:ring-2"
+          class="w-full px-3 py-2 rounded-[5px] border text-sm font-semibold theme-text theme-bg-surface input-theme"
           style="border-color: var(--color-border, #e2e8f0);"
         >
           <option value="self">Self</option>

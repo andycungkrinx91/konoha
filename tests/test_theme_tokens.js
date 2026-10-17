@@ -127,7 +127,7 @@ async function run() {
       }
       if (!entry.name.endsWith('.svelte')) continue;
       const content = fs.readFileSync(full, 'utf-8');
-      const matches = content.match(/(?<![\w:-])(bg-white|bg-slate-(50|100|200|300)|bg-gray-(50|100|200)|text-slate-(400|500|600|700|800|900)|text-gray-(400|500|600|700|800|900)|border-slate-(100|200|300)|border-gray-(200|300)|divide-slate-(100|200)|dark:|(text|bg|border)-(purple|indigo|violet|fuchsia|blue|cyan|teal|emerald|green|lime|yellow|amber|orange|red|rose|sky)-(200|300|400|500|600|700|800|900))\b/g);
+      const matches = content.match(/(?<![\w:-])(bg-white|bg-slate-(50|100|200|300)|bg-gray-(50|100|200)|text-slate-(400|500|600|700|800|900)|text-gray-(400|500|600|700|800|900)|border-slate-(100|200|300)|border-gray-(200|300)|divide-slate-(100|200)|dark:|(text|bg|border|focus:ring)-(purple|indigo|violet|fuchsia|blue|cyan|teal|emerald|green|lime|yellow|amber|orange|red|rose|sky)-(200|300|400|500|600|700|800|900))\b/g);
       if (matches) offenders.push(`${path.relative(ROOT, full)}: ${[...new Set(matches)].join(', ')}`);
     }
   };

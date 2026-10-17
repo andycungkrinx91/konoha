@@ -270,7 +270,7 @@
 <svelte:window onkeydown={handleModalKeydown} />
 
 <div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
@@ -371,7 +371,7 @@
           bind:value={searchQuery}
           onkeydown={(e) => { if (e.key === "Enter") loadMemories(); }}
           placeholder="Search memories..."
-          class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border transition-all focus:outline-none focus:ring-2"
+          class="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold theme-text border transition-all input-theme"
           style="background-color: var(--color-surface); border-color: var(--color-border); color: #0f172a;"
         />
         <svg class="w-4 h-4 absolute left-3 top-2.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -420,7 +420,7 @@
       </div>
     </div>
   {:else if memories.length === 0}
-    <div class="p-12 text-center rounded-3xl border border-dashed theme-border-strong-b theme-bg-surface/60">
+    <div class="p-12 text-center rounded-3xl border border-dashed theme-border-strong-b theme-bg-muted">
       <p class="text-sm font-bold theme-text">No persona memories found.</p>
       <p class="text-xs font-semibold theme-text-secondary mt-1">Use the "Add Memory" button to save rules or learnings.</p>
     </div>
@@ -548,7 +548,7 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {#each (soulData.tenets || []) as tenet, idx}
-            <div class="glass-card-3d rounded-2xl p-4 border theme-bg-surface/90 space-y-2" style="border-color: var(--color-border);">
+            <div class="glass-card-3d rounded-2xl p-4 border theme-bg-surface space-y-2" style="border-color: var(--color-border);">
               <div class="flex items-center gap-2">
                 <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0" style="background-color: var(--color-primary, #7c3aed);">
                   {idx + 1}
@@ -578,7 +578,7 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {#each Object.entries(soulData.archetypes || {}) as [key, arch]}
-            <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between theme-bg-surface/95 space-y-4" style="border-color: var(--color-border);">
+            <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between theme-bg-surface space-y-4" style="border-color: var(--color-border);">
               <div class="space-y-3">
                 <div class="flex items-center justify-between gap-2 border-b theme-border-subtle pb-2">
                   <h4 class="text-sm font-black theme-text">
@@ -700,7 +700,7 @@
             <select
               id="agent-select"
               bind:value={newMemory.agentName}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
             >
               {#each agents.filter(ag => ag.id) as ag}
                 <option value={ag.id}>{ag.name}{ag.title ? ` (${ag.title})` : ""}</option>
@@ -713,7 +713,7 @@
             <select
               id="memory-type-select"
               bind:value={newMemory.memoryType}
-              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+              class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -730,7 +730,7 @@
             type="text"
             bind:value={newMemory.title}
             placeholder="e.g. Always enforce Pure Light mode"
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
           />
         </div>
 
@@ -741,7 +741,7 @@
             bind:value={newMemory.content}
             rows="4"
             placeholder="Specific instruction, rule, pattern, or constraint to permanently remember..."
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
           ></textarea>
         </div>
 
@@ -752,7 +752,7 @@
             type="text"
             bind:value={newMemory.tags}
             placeholder="ui, theme, accessibility"
-            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+            class="w-full px-3 py-2 rounded-xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
           />
         </div>
       </div>

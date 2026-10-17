@@ -118,7 +118,7 @@
         bind:value={docText}
         placeholder="Paste your document text here for AI detection analysis..."
         rows="8"
-        class="w-full px-4 py-3 rounded-xl border theme-border theme-bg-surface/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm resize-y mb-3"
+        class="w-full px-4 py-3 rounded-xl border input-theme theme-bg-surface theme-border text-sm resize-y mb-3"
       ></textarea>
       <button
         onclick={runScan}
@@ -138,7 +138,7 @@
           bind:value={target}
           onkeydown={(e) => { if (e.key === 'Enter') runScan(); }}
           placeholder={mode === 'website' ? '/path/to/site or https://example.com' : '/path/to/document.docx or report.pdf'}
-          class="flex-1 px-4 py-3 rounded-xl border theme-border theme-bg-surface/80 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
+          class="flex-1 px-4 py-3 rounded-xl border input-theme theme-bg-surface theme-border text-sm"
         />
         <button
           onclick={runScan}
@@ -241,7 +241,7 @@
       {:else}
         <div class="space-y-3">
           {#each result.findings as f (f.rule)}
-            <div class="p-4 rounded-xl border theme-bg-surface/60">
+            <div class="p-4 rounded-xl border theme-bg-muted theme-border">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md border text-[11px] font-bold {SEVERITY_STYLES[f.severity] || SEVERITY_STYLES.low}">
                   {f.rule} · {f.severity}

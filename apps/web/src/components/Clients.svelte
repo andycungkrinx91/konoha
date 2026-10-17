@@ -66,7 +66,7 @@
 </script>
 
 <div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <div
     class="rise-3d relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"

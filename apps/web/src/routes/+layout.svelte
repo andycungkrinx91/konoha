@@ -275,7 +275,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-surface/25 text-[var(--theme-text-inverse)] border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft text-status-success border-status-success-soft'}">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-muted text-[var(--theme-text-inverse)] border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft text-status-success border-status-success-soft'}">{item.badge}</span>
                       {/if}
                     </a>
                   {/if}

@@ -59,7 +59,7 @@
 </script>
 
 <div class="space-y-8 max-w-7xl mx-auto">
-  <!-- Hero Section with Light Glass Gradient & High Contrast Typography -->
+  <!-- Hero Section: themed translucent surface with high-contrast typography -->
   <div
     class="relative overflow-hidden rounded-3xl p-8 border shadow-xl transition-all duration-300"
     style="background: linear-gradient(135deg, var(--theme-surface) 0%, color-mix(in srgb, var(--theme-surface) 82%, transparent) 100%), var(--color-primary-glow); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
@@ -174,7 +174,7 @@
           type="text"
           bind:value={searchQuery}
           placeholder="Describe symbol, bug, or feature (e.g. CSRF token validation logic)..."
-          class="w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface/95 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          class="w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-0 focus:outline-none"
         />
         <svg class="w-4 h-4 absolute left-3.5 top-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -184,7 +184,7 @@
       <div class="flex items-center gap-3">
         <select
           bind:value={searchLimit}
-          class="px-3 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface focus:ring-2 focus:ring-purple-500"
+          class="px-3 py-3 rounded-2xl text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface input-theme"
         >
           <option value={3}>Top 3</option>
           <option value={5}>Top 5</option>
@@ -212,7 +212,7 @@
 
         <div class="space-y-3">
           {#each searchResults.results || [] as r}
-            <div class="p-4 rounded-2xl border theme-border theme-bg-surface/90 space-y-2 hover:border-status-info-soft transition-colors">
+            <div class="p-4 rounded-2xl border theme-border theme-bg-surface space-y-2 hover:border-status-info-soft transition-colors">
               <div class="flex items-center justify-between">
                 <span class="font-mono text-xs font-bold text-action-primary break-all">
                   {r.file_path}

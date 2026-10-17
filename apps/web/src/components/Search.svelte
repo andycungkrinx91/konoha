@@ -236,7 +236,7 @@
           type="text"
           bind:value={query}
           placeholder="Search the web with SearXNG (e.g. SvelteKit 5 runes, RTK benchmarks, MCP spec)..."
-          class="w-full pl-12 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all font-medium"
+          class="w-full pl-12 pr-4 py-3 rounded-xl border text-sm input-theme transition-all font-medium"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
         />
         {#if query}
