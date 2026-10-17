@@ -1901,7 +1901,7 @@ async function handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, metho
       }
     }
 
-    // Soul & Will of Fire Endpoints
+    // Soul & Ninja's Soul Endpoints
     if (method === 'GET' && pathname === '/api/v1/soul') {
       try {
         const personaMemory = require('./persona_memory');

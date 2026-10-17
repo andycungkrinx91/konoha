@@ -974,7 +974,7 @@ function resolveSoulPath(projectPath = null) {
 
 function parseSoulMarkdown(rawMarkdown) {
   const result = {
-    title: 'The Soul of Konoha: The Will of Fire',
+    title: "The Soul of Konoha: Ninja's Soul",
     will_of_fire: "Where tree leaves dance, one shall find flames. The fire's shadow will illuminate the village, and once again, tree leaves shall bud anew.",
     universal_adhd_standard: 'i-have-adhd (Lead with next action, numbered tasks, end with one concrete step, cap visible lists to 5, matter-of-fact errors, zero filler)',
     tenets: [

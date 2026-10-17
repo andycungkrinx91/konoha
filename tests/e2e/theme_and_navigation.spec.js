@@ -503,7 +503,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          title: "The Will of Fire Doctrine",
+          title: "Ninja's Soul Doctrine",
           path: "/home/user/.agents/SOUL.md",
           will_of_fire: "Where tree leaves dance, one shall find flames."
         })

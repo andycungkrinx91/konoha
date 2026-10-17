@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * bin/commands/soul.js — Will of Fire Tenets & Subagent Archetype Spirits.
+ * bin/commands/soul.js — Ninja's Soul Tenets & Subagent Archetype Spirits.
  */
 
 const { C, log, header } = require("../lib/format");
@@ -44,7 +44,7 @@ async function cmdSoul(args = []) {
     return;
   }
 
-  header('The Soul of Konoha — Will of Fire');
+  header("The Soul of Konoha — Ninja's Soul");
   log(`  ${C.dim}Every subagent in the village carries this core philosophy and operational ethos.${C.reset}`);
   log(`  ${C.yellow}Universal i-have-adhd Standard:${C.reset} ${C.dim}Lead with action, numbered steps, cap lists to 5, zero filler.${C.reset}\n`);
 

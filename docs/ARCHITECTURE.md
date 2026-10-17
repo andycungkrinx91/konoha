@@ -96,7 +96,7 @@ flowchart TB
 | **Specialist Delegation Subagents (7)** | `sannin`, `kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin` | In-line direct subagent delegation for specialized frontend, backend, security, and doc tasks. |
 | **AI Fingerprint Detection (2)** | `website_ai_detector`, `docs_ai_detector` | Website (0-20 Human-Built target) and Document AI detectors (.docx, .pdf, .pptx, text). |
 | **Project Context & Memory (4)** | `get_project_context`, `save_project_context`, `query_project_memory`, `report_from_agent` | Episodic architectural memory and context tracking across client workspaces. |
-| **Persona Memory & Soul (5)** | `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, `get_soul` | Agent & user persona traits, patterns, architectural rules, and Will of Fire soul doctrine in SQLite and markdown. |
+| **Persona Memory & Soul (5)** | `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, `get_soul` | Agent & user persona traits, patterns, architectural rules, and Ninja's Soul doctrine in SQLite and markdown. |
 | **SDLC Governance & Quality Gates (4)** | `anti_slop`, `check_readiness`, `get_task_evidence`, `get_slop_findings` | Deterministic rule-based anti-slop verification pre-gate, DoR auditing, automated task evidence collection, and slop findings query. |
 | **Intel & Web Search (1)** | `web_search` | Real-time web evidence gathering and documentation lookups with Wikipedia fallback. |
 | **Skills Migration & Administration (2)** | `get_resolved_task_dir`, `migrate_skills` | Isolated session task directory resolution and cross-workspace skill synchronization. |

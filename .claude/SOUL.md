@@ -1,7 +1,7 @@
-# The Soul of Konoha: The Will of Fire
+# The Soul of Konoha: Ninja's Soul
 
 > *"Where tree leaves dance, one shall find flames. The fire's shadow will illuminate the village, and once again, tree leaves shall bud anew."*  
-> — **The Will of Fire — Konoha Core Creed**
+> — **Ninja's Soul — Konoha Core Creed**
 
 ---
 

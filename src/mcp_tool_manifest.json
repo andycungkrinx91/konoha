@@ -1309,7 +1309,7 @@
     },
     {
       "name": "get_soul",
-      "description": "Retrieve the Soul of Konoha (Will of Fire), universal shinobi tenets, and archetype persona voice for agents.",
+      "description": "Retrieve the Soul of Konoha (Ninja's Soul), universal shinobi tenets, and archetype persona voice for agents.",
       "inputSchema": {
         "type": "object",
         "properties": {
