@@ -120,6 +120,11 @@
     }, TRANSITION_MS);
   }
 
+  function resetToDefault() {
+    selectMode('light');
+    selectTheme('byakugan');
+  }
+
   function selectMode(mode) {
     if (themeState.currentMode === mode) return;
     themeState.setMode(mode);
@@ -390,9 +395,19 @@
             type="search"
             bind:value={searchQuery}
             placeholder="Search 10 palettes (Byakugan, Hokage, Emerald)..."
-            class="w-full pl-8 pr-3 py-1.5 rounded-[4px] text-xs border theme-bg-surface theme-border theme-text placeholder:theme-text-secondary focus:outline-none focus:ring-1 focus:ring-[var(--theme-focus)]"
+            class="w-full pl-8 pr-7 py-1.5 rounded-[4px] text-xs border theme-bg-surface theme-border theme-text placeholder:theme-text-secondary focus:outline-none focus:ring-1 focus:ring-[var(--theme-focus)]"
             aria-label="Search theme palettes"
           />
+          {#if searchQuery}
+            <button
+              type="button"
+              onclick={() => { searchQuery = ''; }}
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs opacity-60 hover:opacity-100 theme-text cursor-pointer"
+              aria-label="Clear search input"
+            >
+              ✕
+            </button>
+          {/if}
         </div>
         <div role="tablist" aria-label="Theme categories" class="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0">
           {#each categories as cat}
@@ -448,6 +463,7 @@
                     <span class="flex flex-col min-w-0 flex-1">
                       <span class="flex items-center gap-1.5">
                         <span class="text-xs font-bold truncate theme-text">{t.name}</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded font-mono opacity-60 theme-bg-muted theme-border border">{t.category}</span>
                         {#if isCurrent}
                           <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 gradient-badge">Active</span>
                         {/if}
@@ -470,7 +486,18 @@
       <!-- Footer with token summary & keyboard instructions -->
       <div class="px-5 py-2.5 border-t flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono theme-border theme-text-secondary">
         <span><kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">Esc</kbd> close · <kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">↑</kbd><kbd class="px-1 py-0.5 rounded border theme-bg-surface theme-border">↓</kbd> navigate</span>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            onclick={resetToDefault}
+            class="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold border transition-all cursor-pointer theme-bg-surface theme-border hover-bg-muted theme-text flex items-center gap-1"
+            title="Restore default Byakugan Light theme"
+          >
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Reset Default</span>
+          </button>
           <span>{themeState.themes.length} palettes · 4 stops each</span>
         </div>
       </div>
