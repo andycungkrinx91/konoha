@@ -26,7 +26,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants |
 | `konoha task` | `<subcommand> [options]` | Native SDLC governance tasks, readiness gates, and audits |
 | `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
-| `konoha soul` | `[--json]` | Display Village Soul / Will of Fire doctrine, tenets, and archetype spirits |
+| `konoha soul` | `[--json]` | Display Ninja's Soul doctrine, tenets, and archetype spirits |
 | `konoha doctor` | - | Run self-healing diagnostics on environment and configurations |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
 | `konoha search` | `<query> [--num=<n>] [--depth=<d>] [--json]` | Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia) |

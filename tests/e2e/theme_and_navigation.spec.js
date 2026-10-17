@@ -182,7 +182,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
       { path: "/savings", heading: "Token Savings" },
       { path: "/agents", heading: "Ninja Subagents" },
       { path: "/skills", heading: "Skills & Vectors" },
-      { path: "/persona", heading: "Will of Fire" },
+      { path: "/persona", heading: "Ninja's Soul" },
       { path: "/detector", heading: "Website AI Detector" },
       { path: "/remote", heading: "Remote Access" },
       { path: "/tasks", heading: "SDLC Tasks" }
@@ -297,7 +297,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(bottomDock).toHaveCount(0);
 
     // Initially, sidebar drawer is closed on mobile
-    const sidebar = page.locator("aside");
+    const sidebar = page.locator("aside.glass-frost");
     await expect(sidebar).not.toBeVisible();
 
     // Click mobile sidebar toggle to open drawer
@@ -517,8 +517,8 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(page.getByRole("button", { name: "Episodic (Learnings)" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Strict Rules" })).toBeVisible();
 
-    // Click Will of Fire (Village Soul) tab
-    await page.getByRole("button", { name: "Will of Fire (Village Soul)" }).click();
+    // Click Ninja's Soul tab
+    await page.getByRole("button", { name: "Ninja's Soul" }).click();
 
     // Verify Will of Fire quote is visible
     await expect(page.getByText("Where tree leaves dance, one shall find flames.")).toBeVisible();

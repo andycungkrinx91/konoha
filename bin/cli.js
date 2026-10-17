@@ -89,7 +89,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}project${C.reset}           📁 Manage persistent project workspaces, detected stacks, and invariants.
   ${C.cyan}task${C.reset}              📋 Native SDLC governance tasks, readiness gates, and audits.
   ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
-  ${C.cyan}soul${C.reset}              🔥 Display Village Soul / Will of Fire doctrine, tenets, and archetype spirits.
+  ${C.cyan}soul${C.reset}              🔥 Display Ninja's Soul doctrine, tenets, and archetype spirits.
   ${C.cyan}doctor${C.reset}            🩺 Run environment diagnostics to detect/fix integration issues.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
   ${C.cyan}search${C.reset}            🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).

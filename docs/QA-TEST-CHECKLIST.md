@@ -288,6 +288,8 @@ npx aislop .
 | **Search Multi-Source Blended Aggregation** | Query "SvelteKit" in "All Sources" blended mode. | Concurrently gathers citations from DuckDuckGo, Wikipedia Knowledge, and Konoha Village Skills, returning multi-source citations with distinct source badges. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Search Source Filters** | Select source filter tabs (`[All Sources]`, `[DuckDuckGo]`, `[SearXNG]`, `[Wikipedia]`, `[Village Skills]`). | Filters citations dynamically to the chosen engine, returning accurate source-tagged results. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
 | **Startpage HTML Scraper** | Execute search targeting Startpage provider. | Queries Startpage search endpoint with browser-like user agent, gracefully handling HTML result structures. | `IMPLEMENTED` (HTML parser verified via unit test mock in `tests/test_web_search.js`; live public endpoint protected by anti-bot challenge) |
+| **3D Card Elevation Parity (`/persona`)** | Inspect Creed card, ADHD banner, 5 Universal Tenets, 7 Ninja Archetypes, and Episodic Memories on `/persona`. | Styled with `.metric-card-3d`, 5px border-radius, specular sheen, and 5px rounded badges, chips, buttons, and callout boxes across both tabs. | `PASS` (automated in `tests/e2e/ui_consistency.spec.js`) |
+| **Ninja's Soul Harmonization** | Navigate to `/persona` and inspect tab button, status banners, core doctrine plaque, and CLI help. | Harmonized from `Will of Fire (Village Soul)` into `Ninja's Soul` with 0 console errors and clean test assertions. | `PASS` (verified in `tests/e2e/theme_and_navigation.spec.js`) |
 
 
 

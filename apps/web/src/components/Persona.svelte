@@ -130,7 +130,7 @@
   }
 
   const DEFAULT_SOUL = {
-    title: 'The Soul of Konoha: The Will of Fire',
+    title: "The Soul of Konoha: Ninja's Soul",
     will_of_fire: "Where tree leaves dance, one shall find flames. The fire's shadow will illuminate the village, and once again, tree leaves shall bud anew.",
     universal_adhd_standard: 'i-have-adhd (Lead with next action, numbered tasks, end with one concrete step, cap visible lists to 5, matter-of-fact errors, zero filler)',
     tenets: [
@@ -294,7 +294,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
         </svg>
-        <span>Will of Fire (Village Soul)</span>
+        <span>Ninja's Soul</span>
       </button>
     </div>
   {/snippet}
@@ -320,7 +320,7 @@
           <button
             type="button"
             onclick={() => { selectedAgent = ag.id; loadMemories(); }}
-            class="btn-3d px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
+            class="btn-3d px-3.5 py-1.5 rounded-[5px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
             style={selectedAgent !== ag.id ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
           >
             {ag.name}
@@ -357,7 +357,7 @@
         <button
           type="button"
           onclick={() => { selectedType = t.id; loadMemories(); }}
-          class="px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-action-primary text-white border-action-primary shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
+          class="px-3 py-1 rounded-[5px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-action-primary text-white border-action-primary shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
         >
           {t.label}
         </button>
@@ -367,7 +367,7 @@
 
   <!-- Error State -->
   {#if error}
-    <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
+    <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
       Failed to load memories: {error}
     </div>
   {/if}
@@ -384,29 +384,32 @@
       </div>
     </div>
   {:else if memories.length === 0}
-    <div class="p-12 text-center rounded-3xl border border-dashed theme-border-strong-b theme-bg-muted">
+    <div class="metric-card-3d p-12 text-center rounded-[5px] border border-dashed theme-border-strong-b" style="border-color: var(--color-border);">
       <p class="text-sm font-bold theme-text">No persona memories found.</p>
       <p class="text-xs font-semibold theme-text-secondary mt-1">Use the "Add Memory" button to save rules or learnings.</p>
     </div>
   {:else}
-    <!-- Grid of Memories with 3D Glass Cards -->
-    <div class="scene-3d grid grid-cols-1 md:grid-cols-2 gap-5">
+    <!-- Grid of Memories with 3D Metric Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
       {#each memories as m}
-        <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between">
+        <div
+          class="metric-card-3d rounded-[5px] p-5 border flex flex-col justify-between"
+          style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
+        >
           <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold border badge-status badge-status-info">
+                <span class="px-2.5 py-0.5 rounded-[5px] text-[11px] font-bold border badge-status badge-status-info">
                   @{m.agent_name}
                 </span>
-                <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border theme-bg-subtle theme-text theme-border">
+                <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase border theme-bg-subtle theme-text theme-border">
                   {m.memory_type || "RULE"}
                 </span>
               </div>
               <button
                 type="button"
                 onclick={() => deleteMemory(m.id)}
-                class="btn-3d p-1.5 rounded-lg theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
+                class="btn-3d p-1.5 rounded-[5px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
                 title="Delete memory"
                 aria-label="Delete memory"
               >
@@ -448,51 +451,56 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
-          <span>Loading Will of Fire doctrine...</span>
+          <span>Loading Ninja's Soul doctrine...</span>
         </div>
       </div>
     {:else if soulError && !soulData}
-      <div class="p-4 rounded-2xl border badge-status badge-status-danger text-xs font-semibold">
-        Failed to load Village Soul: {soulError}
+      <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
+        Failed to load Ninja's Soul: {soulError}
       </div>
     {:else if soulData}
       {#if soulError}
-        <div class="p-3 rounded-xl border badge-status badge-status-warning text-xs font-semibold flex items-center justify-between">
-          <span>Notice: Displaying offline Village Soul doctrine ({soulError})</span>
+        <div class="p-3 rounded-[5px] border badge-status badge-status-warning text-xs font-semibold flex items-center justify-between">
+          <span>Notice: Displaying offline Ninja's Soul doctrine ({soulError})</span>
           <button type="button" onclick={loadSoul} class="underline text-status-warning cursor-pointer font-bold">Retry</button>
         </div>
       {/if}
 
-      <!-- Will of Fire Creed Card (3D Luxury Plaque) -->
+      <!-- Ninja's Soul Creed Card (3D Luxury Plaque) -->
       <div
-        class="metric-card-3d rounded-2xl p-6 sm:p-8 border space-y-4"
-        style="border-color: color-mix(in srgb, var(--theme-grad-1) 35%, var(--color-border));"
+        class="metric-card-3d rounded-[5px] p-6 sm:p-8 border space-y-4"
+        style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
       >
         <div class="flex items-center gap-2 text-xs font-black tracking-wider uppercase gradient-text">
           <svg class="w-4 h-4 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
           </svg>
-          <span>Konohagakure Core Doctrine — Will of Fire</span>
+          <span>Konohagakure Core Doctrine — Ninja's Soul</span>
         </div>
         <blockquote class="text-base sm:text-lg italic border-l-4 pl-4 py-1 leading-relaxed" style="color: var(--color-text); border-color: var(--color-primary);">
- "{soulData.will_of_fire || 'Where tree leaves dance, one shall find flames.'}"
+          "{soulData.will_of_fire || 'Where tree leaves dance, one shall find flames.'}"
         </blockquote>
-        <p class="text-xs font-semibold theme-text-secondary">
-          The Will of Fire is the unyielding philosophy binding every Ninja agent in Konohagakure.
+        <p class="text-xs font-semibold theme-text-secondary leading-relaxed">
+          Ninja's Soul is the unyielding philosophy binding every Ninja agent in Konohagakure.
           It commands absolute factual truth, silent deliberation, architectural respect, anti-slop rigor, and zero wasted tokens.
         </p>
       </div>
 
       <!-- Universal i-have-adhd Doctrine Banner -->
-      <div class="p-4 rounded-2xl border badge-statuswarning-soft bg-status-warning-soft/70 theme-text flex items-start gap-3">
-        <svg class="w-5 h-5 text-[var(--theme-warning)] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <div class="space-y-1 text-xs">
-          <div class="font-black text-status-warning tracking-wide uppercase flex items-center gap-2">
+      <div
+        class="metric-card-3d rounded-[5px] p-5 border flex items-start gap-3.5"
+        style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));"
+      >
+        <div class="w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0 shadow-xs text-white" style="background: var(--theme-4gradient);">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div class="space-y-1 text-xs flex-1">
+          <div class="font-black text-status-warning tracking-wide uppercase flex flex-wrap items-center gap-2">
             <span>Universal i-have-adhd Doctrine Enforced Across All Souls</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase badge-status badge-status-warning">
+            <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase badge-status badge-status-warning">
               Active in All 7 Spirits
             </span>
           </div>
@@ -512,21 +520,26 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {#each (soulData.tenets || []) as tenet, idx}
-            <div class="glass-card-3d rounded-2xl p-4 border theme-bg-surface space-y-2" style="border-color: var(--color-border);">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0" style="background-color: var(--color-primary, #7c3aed);">
-                  {idx + 1}
-                </span>
-                <h4 class="text-xs font-black theme-text truncate">{tenet.name}</h4>
-                {#if idx === 1}
-                  <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase badge-status badge-status-warning shrink-0">
-                    i-have-adhd
+            <div
+              class="metric-card-3d rounded-[5px] p-5 border flex flex-col justify-between space-y-3"
+              style="border-color: color-mix(in srgb, var(--theme-grad-2) 28%, var(--color-border));"
+            >
+              <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-[5px] flex items-center justify-center text-xs font-black text-white shrink-0 shadow-xs" style="background: var(--theme-4gradient);">
+                    {idx + 1}
                   </span>
-                {/if}
+                  <h4 class="text-xs font-black theme-text truncate">{tenet.name}</h4>
+                  {#if idx === 1}
+                    <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-black uppercase badge-status badge-status-warning shrink-0">
+                      i-have-adhd
+                    </span>
+                  {/if}
+                </div>
+                <p class="text-xs font-semibold theme-text-secondary leading-relaxed pl-8">
+                  {tenet.summary}
+                </p>
               </div>
-              <p class="text-xs font-semibold theme-text-secondary leading-relaxed pl-8">
-                {tenet.summary}
-              </p>
             </div>
           {/each}
         </div>
@@ -542,13 +555,23 @@
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {#each Object.entries(soulData.archetypes || {}) as [key, arch]}
-            <div class="glass-card-3d tilt-3d rounded-2xl p-5 border flex flex-col justify-between theme-bg-surface space-y-4" style="border-color: var(--color-border);">
+            <div
+              class="metric-card-3d rounded-[5px] p-5 border flex flex-col justify-between space-y-4"
+              style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
+            >
               <div class="space-y-3">
                 <div class="flex items-center justify-between gap-2 border-b theme-border-subtle pb-2">
-                  <h4 class="text-sm font-black theme-text">
-                    {arch.name || key}
-                  </h4>
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border badge-status badge-status-info">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-[5px] flex items-center justify-center shadow-xs text-white shrink-0" style="background: var(--theme-4gradient);">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <h4 class="text-sm font-black theme-text">
+                      {arch.name || key}
+                    </h4>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase border badge-status badge-status-info">
                     {key}
                   </span>
                 </div>
@@ -557,9 +580,9 @@
                   {arch.role || ""}
                 </p>
 
-                <div class="p-3 rounded-xl theme-bg-muted border theme-border/80">
+                <div class="p-3 rounded-[5px] theme-bg-muted border theme-border/80">
                   <p class="text-[11px] font-medium italic theme-text leading-relaxed">
- "{arch.voice || ""}"
+                    "{arch.voice || ""}"
                   </p>
                 </div>
 
@@ -573,7 +596,7 @@
                 {/if}
 
                 {#if arch.adhd_shaping}
-                  <div class="space-y-1 p-2.5 rounded-xl bg-status-warning-soft/60 border badge-statuswarning-soft/80">
+                  <div class="space-y-1 p-2.5 rounded-[5px] bg-status-warning-soft/60 border badge-statuswarning-soft/80">
                     <span class="text-[10px] font-extrabold uppercase tracking-wider text-status-warning flex items-center gap-1">
                       <svg class="w-3 h-3 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -587,7 +610,7 @@
                 {/if}
 
                 {#if arch.antislop_skills && arch.antislop_skills.length > 0}
-                  <div class="space-y-1.5 p-2.5 rounded-xl bg-status-info-soft/60 border badge-statusinfo-soft/80">
+                  <div class="space-y-1.5 p-2.5 rounded-[5px] bg-status-info-soft/60 border badge-statusinfo-soft/80">
                     <span class="text-[10px] font-extrabold uppercase tracking-wider text-action-primary flex items-center gap-1">
                       <svg class="w-3 h-3 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -596,7 +619,7 @@
                     </span>
                     <div class="flex flex-wrap gap-1.5 pt-0.5">
                       {#each arch.antislop_skills as skill}
-                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border theme-bg-surface badge-status badge-status-info shadow-xs">
+                        <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold border theme-bg-surface badge-status badge-status-info shadow-xs">
                           {skill}
                         </span>
                       {/each}

@@ -176,29 +176,42 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
     }
   });
 
-  test('Card style consistency: /settings, /search, and /tasks render metric-card-3d with 5px radius', async ({ page }) => {
+  test('Card style consistency: /settings, /search, /tasks, and /persona render metric-card-3d with 5px radius', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
-    for (const route of ['/settings', '/search', '/tasks']) {
+    for (const route of ['/settings', '/search', '/tasks', '/persona']) {
       await page.goto(`http://127.0.0.1:4173${route}`);
       await page.waitForTimeout(400);
 
-      const cards = await page.evaluate(() => {
-        const els = Array.from(document.querySelectorAll('.metric-card-3d'));
-        return els.map(el => {
-          const s = window.getComputedStyle(el);
-          return {
-            borderRadius: s.borderRadius,
-            borderStyle: s.borderStyle,
-            borderWidth: s.borderWidth
-          };
+      const checkCards = async (label) => {
+        const cards = await page.evaluate(() => {
+          const els = Array.from(document.querySelectorAll('.metric-card-3d'));
+          return els.map(el => {
+            const s = window.getComputedStyle(el);
+            return {
+              borderRadius: s.borderRadius,
+              borderStyle: s.borderStyle,
+              borderWidth: s.borderWidth
+            };
+          });
         });
-      });
 
-      expect(cards.length, `Route ${route} must have at least one .metric-card-3d`).toBeGreaterThanOrEqual(1);
-      for (const card of cards) {
-        expect(card.borderRadius, `Route ${route} card radius`).toBe('5px');
-        expect(card.borderStyle).toBe('solid');
+        expect(cards.length, `Route ${route} (${label}) must have at least one .metric-card-3d`).toBeGreaterThanOrEqual(1);
+        for (const card of cards) {
+          expect(card.borderRadius, `Route ${route} (${label}) card radius`).toBe('5px');
+          expect(card.borderStyle).toBe('solid');
+        }
+      };
+
+      await checkCards('default view');
+
+      if (route === '/persona') {
+        const soulTab = page.getByRole('button', { name: "Ninja's Soul" });
+        if (await soulTab.isVisible()) {
+          await soulTab.click();
+          await page.waitForTimeout(400);
+          await checkCards("Ninja's Soul tab");
+        }
       }
     }
   });
