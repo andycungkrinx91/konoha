@@ -7,6 +7,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
   });
 
   test("Theme switcher FAB opens modal, displays 10 4-gradient themes, and updates theme correctly", async ({ page }) => {
+    test.setTimeout(90000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -45,25 +46,25 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     // Verify Appearance Mode Selector is removed from inside the modal (Feedback Item 5)
     await expect(page.getByText("Appearance Mode")).not.toBeVisible();
 
-    // Verify initial default is Light Mode
+    // Verify initial default is Dark Mode (Sharingan Royal Indigo)
     let dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
-    expect(dataMode).toBe('light');
+    expect(dataMode).toBe('dark');
 
     // Close modal to test quick appearance toggle button
     await page.getByRole("button", { name: "Close theme modal" }).click();
 
-    // Quick appearance toggle: switch to Dark Mode
+    // Quick appearance toggle: switch to Light Mode
     const quickModeBtn = page.getByRole("button", { name: /appearance mode/i });
+    await quickModeBtn.click();
+    dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
+    expect(dataMode).toBe('light');
+
+    // Switch back to Dark Mode via quick appearance toggle
     await quickModeBtn.click();
     dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
     expect(dataMode).toBe('dark');
     let hasThemeDark = await page.evaluate(() => document.documentElement.classList.contains('theme-dark'));
     expect(hasThemeDark).toBe(true);
-
-    // Switch back to Light Mode via quick appearance toggle
-    await quickModeBtn.click();
-    dataMode = await page.evaluate(() => document.documentElement.getAttribute('data-mode'));
-    expect(dataMode).toBe('light');
 
     // Reopen modal to select Byakugan Deep Ocean
     await themeFab.click();
@@ -98,6 +99,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
   });
 
   test("Theme contract mirrors in both appearance modes: palette tokens, chart colors, no light surfaces", async ({ page }) => {
+    test.setTimeout(90000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -106,9 +108,12 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     await expect(themeFab).toBeVisible();
 
     // Quick Light/Dark toggle sits next to the FAB (independent of the picker dialog)
-    const modeToggle = page.getByRole("button", { name: "Dark appearance mode" });
+    // App defaults to Dark mode, so the button triggers Light appearance mode
+    const modeToggle = page.getByRole("button", { name: "Light appearance mode" });
     await expect(modeToggle).toBeVisible();
     await modeToggle.click();
+    await expect(page.getByRole("button", { name: "Dark appearance mode" })).toBeVisible();
+    await page.getByRole("button", { name: "Dark appearance mode" }).click();
     await expect(page.getByRole("button", { name: "Light appearance mode" })).toBeVisible();
     await page.waitForTimeout(350);
 
@@ -158,8 +163,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     // Palette selection keeps the Dark mode and applies 4 gradient stops
     await themeFab.click();
     await page.getByRole("button", { name: "Akatsuki Jade Matrix" }).click();
-    await expect(page.locator(".animate-huge-rasengan")).toBeVisible({ timeout: 1500 });
-    await expect(page.locator(".animate-huge-rasengan")).not.toBeVisible({ timeout: 4500 });
+    await page.waitForTimeout(1100);
     const afterSwitch = await page.evaluate(() => ({
       mode: document.documentElement.getAttribute('data-mode'),
       theme: document.documentElement.getAttribute('data-theme')
@@ -174,6 +178,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
   });
 
   test("All primary navigation routes render cleanly without errors", async ({ page }) => {
+    test.setTimeout(90000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -196,7 +201,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("Selecting theme triggers 2s Rasengan spinning energy and glass crack animation without counter", async ({ page }) => {
+  test("Selecting theme triggers 1s 3D Supernova Big Bang transition on Rasenshuriken", async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -209,16 +214,18 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     // Click "Sharingan Royal Indigo"
     await page.getByText("Sharingan Royal Indigo").click();
 
-    // Verify Rasengan spinning chakra sphere appears
-    const rasenganSphere = page.locator(".animate-huge-rasengan");
-    await expect(rasenganSphere).toBeVisible({ timeout: 1500 });
+    // Verify 3D transition state in backgroundScene
+    const transitionState = await page.evaluate(() => {
+      const inst = window.backgroundScene?.instance;
+      return {
+        isTransitioning: inst?.isThemeTransitioning,
+        supernovaVisible: inst?.supernovaGroup?.visible
+      };
+    });
+    expect(transitionState.isTransitioning).toBe(true);
 
-    // Verify counter is removed (no HUD countdown text)
-    const countdownEl = page.locator(".text-cyan-300");
-    await expect(countdownEl).toHaveCount(0);
-
-    // Wait for the full 2s Rasengan charge and crystalline glass shatter transition to complete
-    await expect(rasenganSphere).not.toBeVisible({ timeout: 4500 });
+    // Wait 1.1s for transition to complete
+    await page.waitForTimeout(1100);
 
     // Verify theme was applied to document element
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));

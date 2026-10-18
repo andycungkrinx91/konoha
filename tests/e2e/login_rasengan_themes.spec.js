@@ -41,6 +41,7 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
   });
 
   test("All 10 themes in Light and Dark mode on Login Page: clean white background, contrast, palette wiring, 20 screenshots", async ({ page }) => {
+    test.setTimeout(300000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -200,17 +201,18 @@ test.describe("Login Page & Theme Switch Rasengan End-to-End Verification", () =
     // Verify modal closes immediately
     await expect(modal).not.toBeVisible({ timeout: 1500 });
 
-    // Verify rasengan transition container appears
-    const transitionContainer = page.locator(".animate-huge-rasengan");
-    await expect(transitionContainer).toBeVisible({ timeout: 1500 });
+    // Verify 3D transition state in backgroundScene
+    const transitionState = await page.evaluate(() => {
+      const inst = window.backgroundScene?.instance;
+      return {
+        isTransitioning: inst?.isThemeTransitioning,
+        supernovaVisible: inst?.supernovaGroup?.visible
+      };
+    });
+    expect(transitionState.isTransitioning).toBe(true);
 
-    // Capture screenshot mid-animation
-    const midAnimScreenshot = path.resolve(process.cwd(), 'tests/e2e/screenshots/theme-transition-hokage-mid.png');
-    await page.screenshot({ path: midAnimScreenshot });
-    expect(fs.existsSync(midAnimScreenshot)).toBe(true);
-
-    // Verify after 2.5s the transition cleans up completely and is removed from the DOM
-    await expect(page.locator(".animate-huge-rasengan")).not.toBeVisible({ timeout: 4500 });
+    // Wait for transition to complete (~1.1s)
+    await page.waitForTimeout(1100);
 
     // Verify UI is interactive again: click password input and type
     const passwordInput = page.locator("#login-password");

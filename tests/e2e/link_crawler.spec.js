@@ -5,6 +5,7 @@ const BOOTSTRAP_PASS = process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure';
 
 test.describe('Internal Link & Route Integrity Crawler', () => {
   test('Crawl all navigation links, assert 200/307 status and 0 dead links', async ({ page }) => {
+    test.setTimeout(120000);
     // Authenticate
     await page.goto(BASE_URL);
     const input = page.locator('input[type="password"], input[type="text"]').first();

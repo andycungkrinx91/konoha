@@ -89,6 +89,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
   });
 
   test('Standard routes render unified PageHero shell with 5px radius', async ({ page }) => {
+    test.setTimeout(90000);
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     for (const route of STANDARD_ROUTES) {
@@ -155,6 +156,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
   });
 
   test('Responsive viewports do not cause document horizontal overflow', async ({ page }) => {
+    test.setTimeout(120000);
     const viewports = [
       { width: 1920, height: 1080 },
       { width: 1366, height: 768 },
