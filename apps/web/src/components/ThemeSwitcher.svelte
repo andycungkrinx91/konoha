@@ -2,9 +2,7 @@
   import { onMount } from 'svelte';
   import { themeState, groupThemes, THEME_CATEGORIES, getRasenganTokens } from '../lib/state/themeState.svelte.js';
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
-
-  const TRANSITION_MS = 1400; // Fast and cinematic 1.4s full-screen theme transition
-  const COVER_MS = 450; // Apply theme under full expansion cover
+  import { backgroundScene } from './SharedRasenganBackground.svelte';
 
   const MODES = [
     {
@@ -25,16 +23,10 @@
   const allGroups = groupThemes();
 
   let isModalOpen = $state(false);
-  let isRasenganActive = $state(false);
-  let transitionPalette = $state(['#0369a1', '#0284c7', '#075985', '#0e7490']);
   let reducedMotion = $state(false);
   let liveMessage = $state('');
   let dialogEl = $state(null);
-  let impactTimer = null;
-  let applyTimer = null;
   let liveTimer = null;
-  let themeCanvasEl = $state(null);
-  let themeRasenganScene = null;
   let searchQuery = $state('');
   let selectedCategory = $state('All');
 
@@ -45,12 +37,6 @@
     mq?.addEventListener?.('change', onChange);
     return () => {
       mq?.removeEventListener?.('change', onChange);
-      if (impactTimer) clearTimeout(impactTimer);
-      if (applyTimer) clearTimeout(applyTimer);
-      if (themeRasenganScene) {
-        themeRasenganScene.dispose();
-        themeRasenganScene = null;
-      }
     };
   });
 
@@ -84,42 +70,6 @@
       : `linear-gradient(135deg, ${t.color}, ${t.accent})`;
   }
 
-  $effect(() => {
-    if (isRasenganActive && themeCanvasEl && !reducedMotion) {
-      const palette = transitionPalette;
-      const mode = themeState.currentMode;
-      let disposed = false;
-
-      import('#lib/RasenganScene.js')
-        .then(({ RasenganScene }) => {
-          if (disposed || !isRasenganActive || !themeCanvasEl) return;
-          if (themeRasenganScene) {
-            themeRasenganScene.dispose();
-            themeRasenganScene = null;
-          }
-          themeRasenganScene = new RasenganScene(themeCanvasEl, {
-            colors: palette,
-            mode: mode,
-            phaseDuration: TRANSITION_MS / 1000,
-            transparent: true,
-            bloom: mode === 'dark'
-          });
-          themeRasenganScene.playImpact();
-        })
-        .catch(() => {
-          if (themeCanvasEl) themeCanvasEl.hidden = true;
-        });
-
-      return () => {
-        disposed = true;
-        if (themeRasenganScene) {
-          themeRasenganScene.dispose();
-          themeRasenganScene = null;
-        }
-      };
-    }
-  });
-
   function closeModal() {
     isModalOpen = false;
     searchQuery = '';
@@ -136,39 +86,13 @@
     // 1. Read NEWLY SELECTED theme's 4-gradient tokens immediately
     const mode = themeState.currentMode;
     const targetPalette = getRasenganTokens(id, mode);
-    transitionPalette = targetPalette;
 
-    // 2. Clear any running transition to safely restart
-    if (impactTimer) {
-      clearTimeout(impactTimer);
-      impactTimer = null;
-    }
-    if (applyTimer) {
-      clearTimeout(applyTimer);
-      applyTimer = null;
-    }
+    // 2. Trigger the 1s Big Bang animation using the SAME 3D Rasenshuriken
+    backgroundScene.triggerThemeSupernova(targetPalette, mode);
 
-    isRasenganActive = true;
-
-    // Apply new theme immediately so the underlying page is ready under the full-screen effect
+    // 3. Apply new theme immediately so the underlying page is ready
     themeState.applyTheme(id, mode);
     announce(`Theme changed to ${themeState.themes.find(t => t.id === id)?.name || id}`);
-
-    // If an existing scene is live, update its palette immediately
-    if (themeRasenganScene) {
-      themeRasenganScene.updatePalette(targetPalette, mode);
-      themeRasenganScene.playImpact();
-    }
-
-    // Conclude transition and cleanly dispose
-    impactTimer = setTimeout(() => {
-      isRasenganActive = false;
-      if (themeRasenganScene) {
-        themeRasenganScene.dispose();
-        themeRasenganScene = null;
-      }
-      impactTimer = null;
-    }, TRANSITION_MS);
   }
 
   function resetToDefault() {
@@ -350,30 +274,6 @@
     </span>
   </button>
 </div>
-
-<!-- Full-Viewport Procedural 3D Rasengan Theme Transition Overlay (Topmost Layer) -->
-{#if isRasenganActive}
-  <div class="fixed inset-0 z-[9999] pointer-events-none overflow-hidden w-screen h-screen flex items-center justify-center animate-huge-rasengan" aria-hidden="true">
-    <!-- Theme palette-tinted ambient flash -->
-    <div
-      class="absolute inset-0 transition-opacity duration-300 animate-shatter-flash"
-      style="background: radial-gradient(circle at center, {transitionPalette[0]}33 0%, {transitionPalette[1]}18 50%, transparent 80%);"
-    ></div>
-
-    {#if !reducedMotion}
-      <canvas
-        bind:this={themeCanvasEl}
-        class="absolute inset-0 w-full h-full block pointer-events-none"
-      ></canvas>
-    {:else}
-      <!-- Reduced motion: clean full-screen color wash without 3D spinning -->
-      <div
-        class="absolute inset-0 transition-opacity duration-500"
-        style="background-color: {transitionPalette[0]}; opacity: 0.22;"
-      ></div>
-    {/if}
-  </div>
-{/if}
 
 <!-- Theme Picker Dialog -->
 {#if isModalOpen}

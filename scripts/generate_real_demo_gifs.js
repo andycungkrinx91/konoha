@@ -167,6 +167,7 @@ function executeRealCommand(cmdArgs, extraEnv = null, cwd = null) {
     TERM: 'xterm-256color',
     COLUMNS: '110',
     LINES: '32',
+    KONOHA_SEMANTIC_SEARCH: '0',
     ...extraEnv,
   };
 

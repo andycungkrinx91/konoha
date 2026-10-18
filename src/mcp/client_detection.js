@@ -285,9 +285,10 @@ function detectActiveAgent() {
               client TEXT NOT NULL,
               workspace_root TEXT NOT NULL,
               session_id TEXT NOT NULL,
+              project_hash TEXT,
               transcript_path TEXT,
               last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              PRIMARY KEY (client, workspace_root)
+              PRIMARY KEY (client, workspace_root, session_id)
             )
           `).run();
 
@@ -304,16 +305,22 @@ function detectActiveAgent() {
           if (sessId) {
             const actClient = getActiveClient() || 'unknown';
             const wsRoot = getWorkspaceRoot() || 'unknown';
-            conn.prepare(`
-              INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
-              VALUES (?, ?, ?, ?, datetime('now'))
-            `).run(actClient, wsRoot, sessId, fpath);
+            let pHash = '';
             if (wsRoot && wsRoot !== 'unknown' && fs.existsSync(wsRoot)) {
               try {
                 const personaMemory = require('../persona_memory');
+                pHash = personaMemory.computeProjectHash(wsRoot) || '';
                 personaMemory.saveOrUpdateProject(wsRoot);
               } catch (_) { /* non-fatal best effort */ }
             }
+            conn.prepare(`
+              INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
+              VALUES (?, ?, ?, ?, ?, datetime('now'))
+              ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+                last_active_at = excluded.last_active_at,
+                project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash),
+                transcript_path = COALESCE(excluded.transcript_path, active_sessions.transcript_path)
+            `).run(actClient, wsRoot, sessId, pHash, fpath);
           }
         } catch (err) {
           process.stderr.write(`  [Warning] Failed to write active session: ${err.message}\n`);

@@ -200,6 +200,7 @@ async function run() {
     assert.ok(capturedReplies[1].text.includes('telegram_sh_ok'), 'Must include sanitized stdout');
 
     // Test notifyKageReviewPassed in One-Way mode
+    tgConfig.saveTelegramConfig({ mode: 'one_way' });
     capturedReplies = [];
     const kageRes = await tgNotifier.notifyKageReviewPassed({
       title: 'Kage Final Gate Review: APPROVED',

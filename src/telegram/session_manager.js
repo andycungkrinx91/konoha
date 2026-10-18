@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const dbModule = require('../db');
+const personaMemory = require('../persona_memory');
 
 const CLIENT_DISPLAY_NAMES = {
   antigravity: 'Antigravity IDE/CLI',
@@ -179,7 +180,6 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
   // 3. For Antigravity sessions, check brain directory and transcript freshness
   const clientNorm = (sess.client || '').toLowerCase();
   if (clientNorm === 'antigravity' || clientNorm === 'agy') {
-    // If we are NOT in an antigravity process and there is no active brain directory, this session is inactive
     const brainCli = sess.session_id && sess.session_id !== 'default'
       ? path.join(os.homedir(), '.gemini/antigravity-cli/brain', sess.session_id)
       : null;
@@ -187,10 +187,6 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
       ? path.join(os.homedir(), '.gemini/antigravity-ide/brain', sess.session_id)
       : null;
     const brainDir = (brainCli && fs.existsSync(brainCli)) ? brainCli : ((brainIde && fs.existsSync(brainIde)) ? brainIde : null);
-
-    if (!brainDir && !currentConvId) {
-      return false;
-    }
 
     if (brainDir) {
       let newestMtime = 0;
@@ -214,6 +210,10 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
         return (now - newestMtime) <= maxIdleMs;
       }
     }
+
+    // When brainDir is absent (e.g. session created via Telegram, remote ingress, mock test, or new session),
+    // rely on last_active_at freshness and workspace directory existence
+    return lastActiveMs > 0 && (now - lastActiveMs) <= maxIdleMs;
   }
 
   // 4. For OMP Agent sessions, check active session file freshness
@@ -252,28 +252,30 @@ function touchCurrentSession(conn) {
                           process.env.GEMINI_CONVERSATION_ID ||
                           null;
     const now = new Date().toISOString();
+    const pHash = personaMemory.computeProjectHash(cwd);
 
     if (currentConvId) {
       conn.prepare(`
-        INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run('antigravity', cwd, currentConvId, null, now);
-
-      conn.prepare(`
-        DELETE FROM active_sessions
-        WHERE workspace_root = ? AND client IN ('agy', 'antigravity') AND session_id != ?
-      `).run(cwd, currentConvId);
+        INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+          last_active_at = excluded.last_active_at,
+          project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash)
+      `).run('antigravity', cwd, currentConvId, pHash, null, now);
       return;
     }
 
     // Check if running under OMP or OMP session exists for current workspace
     const ompSess = findOmpSessionForWorkspace(cwd);
-    if (ompSess && (Date.now() - ompSess.mtimeMs) <= (45 * 60 * 1000)) {
+    if (ompSess && (Date.now() - ompSess.mtimeMs) <= (2 * 3600 * 1000)) {
       const ompSessionId = path.parse(ompSess.name).name;
       conn.prepare(`
-        INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run('omp', cwd, ompSessionId, ompSess.path, now);
+        INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+          last_active_at = excluded.last_active_at,
+          project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash)
+      `).run('omp', cwd, ompSessionId, pHash, ompSess.path, now);
       return;
     }
   } catch (_) { /* ignore */ }
@@ -289,7 +291,7 @@ function getActiveSessions() {
 
   try {
     const rows = conn.prepare(`
-      SELECT client, workspace_root, session_id, transcript_path, last_active_at
+      SELECT client, workspace_root, session_id, project_hash, transcript_path, last_active_at
       FROM active_sessions
       ORDER BY last_active_at DESC
       LIMIT 50
@@ -307,7 +309,7 @@ function getActiveSessions() {
 
       let normClient = CANONICAL_CLIENT_MAP[r.client.toLowerCase()] || r.client.toLowerCase();
       const normWs = path.normalize(r.workspace_root);
-      const key = `${normClient}:${normWs}`;
+      const key = `${normClient}:${normWs}:${r.session_id || 'default'}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
@@ -316,6 +318,7 @@ function getActiveSessions() {
         client: normClient,
         workspace_root: normWs,
         session_id: r.session_id || 'default',
+        project_hash: r.project_hash || '',
         last_active_at: r.last_active_at || ''
       });
     }
@@ -324,7 +327,6 @@ function getActiveSessions() {
     const cwd = path.normalize(process.cwd());
     const hasCwd = sessions.some(s => s.workspace_root === cwd);
     if (!hasCwd && isRealWorkspace(cwd)) {
-      // Determine appropriate client rather than hardcoding antigravity
       const ompSess = findOmpSessionForWorkspace(cwd);
       let detectedClient = 'omp';
       let sessId = 'default';
@@ -334,6 +336,18 @@ function getActiveSessions() {
       } else if (ompSess) {
         detectedClient = 'omp';
         sessId = path.parse(ompSess.name).name;
+      } else {
+        try {
+          const cd = require('../mcp/client_detection');
+          const det = cd.detectActiveClient();
+          if (det && det !== 'unattributed' && det !== 'unknown') {
+            detectedClient = CANONICAL_CLIENT_MAP[det] || det;
+          } else {
+            detectedClient = 'antigravity';
+          }
+        } catch (_) {
+          detectedClient = 'antigravity';
+        }
       }
 
       sessions.unshift({
@@ -341,6 +355,7 @@ function getActiveSessions() {
         client: detectedClient,
         workspace_root: cwd,
         session_id: sessId,
+        project_hash: personaMemory.computeProjectHash(cwd),
         last_active_at: new Date().toISOString()
       });
       // Re-index
@@ -349,13 +364,23 @@ function getActiveSessions() {
 
     if (sessions.length === 0) {
       const ompSess = findOmpSessionForWorkspace(cwd);
-      const detectedClient = ompSess ? 'omp' : 'unattributed';
-      const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
+      let detectedClient = ompSess ? 'omp' : 'antigravity';
+      let sessId = ompSess ? path.parse(ompSess.name).name : 'default';
+      try {
+        const cd = require('../mcp/client_detection');
+        const det = cd.detectActiveClient();
+        if (det && det !== 'unattributed' && det !== 'unknown') {
+          detectedClient = CANONICAL_CLIENT_MAP[det] || det;
+        }
+      } catch (_) {
+        /* fallback to default detected client */
+      }
       sessions.push({
         index: 1,
         client: detectedClient,
         workspace_root: cwd,
         session_id: sessId,
+        project_hash: personaMemory.computeProjectHash(cwd),
         last_active_at: new Date().toISOString()
       });
     }
@@ -364,13 +389,14 @@ function getActiveSessions() {
   } catch (_) {
     const cwd = path.normalize(process.cwd());
     const ompSess = findOmpSessionForWorkspace(cwd);
-    const detectedClient = ompSess ? 'omp' : 'unattributed';
-    const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
+    let detectedClient = ompSess ? 'omp' : 'antigravity';
+    let sessId = ompSess ? path.parse(ompSess.name).name : 'default';
     return [{
       index: 1,
       client: detectedClient,
       workspace_root: cwd,
       session_id: sessId,
+      project_hash: personaMemory.computeProjectHash(cwd),
       last_active_at: new Date().toISOString()
     }];
   }
@@ -565,12 +591,19 @@ function createSession(chatId, clientInput, pathInput) {
   ensureTable(conn);
   const now = new Date().toISOString();
   const sessionId = `sess_${canonicalClient}_${Date.now()}`;
+  const pHash = personaMemory.computeProjectHash(resolvedPath);
+  try {
+    personaMemory.saveOrUpdateProject(resolvedPath);
+  } catch (_) { /* non-fatal best effort */ }
 
   try {
     conn.prepare(`
-      INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(canonicalClient, resolvedPath, sessionId, null, now);
+      INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, transcript_path, last_active_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+        last_active_at = excluded.last_active_at,
+        project_hash = excluded.project_hash
+    `).run(canonicalClient, resolvedPath, sessionId, pHash, null, now);
   } catch (err) {
     return {
       success: false,
@@ -591,7 +624,8 @@ function createSession(chatId, clientInput, pathInput) {
   }
 
   const sessions = getActiveSessions();
-  const found = sessions.find(s => s.workspace_root === resolvedPath && s.client === canonicalClient);
+  const found = sessions.find(s => s.session_id === sessionId) ||
+                sessions.find(s => s.workspace_root === resolvedPath && s.client === canonicalClient);
   const idx = found ? found.index : 1;
 
   return {
@@ -599,11 +633,72 @@ function createSession(chatId, clientInput, pathInput) {
     session: {
       client: canonicalClient,
       workspace_root: resolvedPath,
-      session_id: sessionId
+      session_id: sessionId,
+      project_hash: pHash
     },
     index: idx,
     totalSessions: sessions.length
   };
+}
+
+/**
+ * Delete a session from active_sessions by index or session_id.
+ */
+function deleteSession(chatId, selector) {
+  if (!selector || typeof selector !== 'string' || !selector.trim()) {
+    return {
+      success: false,
+      error: 'Please specify a session number to delete (e.g. /session delete 2).'
+    };
+  }
+
+  const clean = selector.trim();
+  const sessions = getActiveSessions();
+  const idx = parseInt(clean, 10);
+  let targetSess = null;
+
+  if (!isNaN(idx) && idx >= 1 && idx <= sessions.length) {
+    targetSess = sessions[idx - 1];
+  } else {
+    targetSess = sessions.find(s => s.session_id === clean);
+  }
+
+  if (!targetSess) {
+    return {
+      success: false,
+      error: `Session "${clean}" not found. Available sessions: 1 to ${sessions.length}.`
+    };
+  }
+
+  const conn = dbModule.getConnection();
+  try {
+    conn.prepare(`
+      DELETE FROM active_sessions
+      WHERE client = ? AND workspace_root = ? AND session_id = ?
+    `).run(targetSess.client, targetSess.workspace_root, targetSess.session_id);
+
+    // If active target for this chat was deleted, re-target to first remaining session
+    const remaining = getActiveSessions();
+    if (remaining.length > 0) {
+      conn.prepare(`
+        INSERT OR REPLACE INTO telegram_session_targets (chat_id, client, workspace_root, session_id, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `).run(String(chatId), remaining[0].client, remaining[0].workspace_root, remaining[0].session_id);
+    } else {
+      conn.prepare(`DELETE FROM telegram_session_targets WHERE chat_id = ?`).run(String(chatId));
+    }
+
+    return {
+      success: true,
+      removedSession: targetSess,
+      totalSessions: remaining.length
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to delete session: ${err.message}`
+    };
+  }
 }
 
 /**
@@ -648,9 +743,10 @@ function formatSessionList(chatId) {
   });
 
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('<b>🎯 Usage:</b> <code>/session &lt;number&gt;</code>');
+  lines.push('<b>🎯 Switch:</b> <code>/session &lt;number&gt;</code>');
   lines.push(`<b>💡 Example:</b> <code>/session 1</code>${sessions.length > 1 ? ` or <code>/session 2</code>` : ''}`);
   lines.push('<b>➕ Create:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>');
+  lines.push('<b>🗑️ Delete:</b> <code>/session delete &lt;number&gt;</code>');
 
   return lines.join('\n');
 }
@@ -666,6 +762,7 @@ module.exports = {
   getTargetSession,
   setTargetSession,
   createSession,
+  deleteSession,
   formatSessionList,
   formatTimeAgo
 };

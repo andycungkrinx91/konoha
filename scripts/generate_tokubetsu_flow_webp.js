@@ -204,57 +204,62 @@ function generateOrchestrationHtml() {
   const W = 1200;
   const H = 675;
 
-  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `Single-Thread Persona Adoption via MCP Tools · v${PKG_VERSION}`, '83–98% TOKEN SAVINGS', C.azure);
-  const footer = renderFooter(W, H, '45 canonical MCP tools · 7 coding clients · zero process cold-start · transparent contracts');
+  const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `Two-Stage HITL Gates (Gate 1 & Gate 2) & Single-Thread Persona Adoption · v${PKG_VERSION}`, '83–98% TOKEN SAVINGS', C.azure);
+  const footer = renderFooter(W, H, '45 canonical MCP tools · 7 coding clients · Gate 1 (pending_plan_approval) · Gate 2 (pending_human_signoff)');
 
   const cards = [
-    renderCard(50, 100, 190, 56, C.azure, 'USER PROMPT', 'user · resume prompt'),
-    renderCard(320, 92, 260, 72, C.violet, 'PRIMARY ORCHESTRATOR', 'main agent · 7 coding clients'),
-    renderCard(50, 215, 350, 60, C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
-    renderCard(490, 215, 360, 60, C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · aislop_scan'),
-    renderCard(320, 325, 360, 60, C.violet, '3. STRUCTURED MCP DELEGATION', 'jonin / anbu / kage dispatch'),
-    renderCard(330, 435, 530, 76, C.violet, '4. SPECIALIST NINJA AGENTS', 'single-thread persona adoption', ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu']),
-    renderCard(50, 560, 180, 54, C.teal, '5. REPORT', 'report_from_agent'),
-    renderCard(290, 550, 240, 64, C.amber, '6. KAGE REVIEW GATE', 'zero-AI-slop · ≥98% conf'),
-    renderCard(590, 560, 180, 54, C.violet, '7. SYNTHESIZE', 'sannin final report'),
-    renderCard(830, 560, 170, 54, C.azure, 'RESPONSE', 'deliver to user')
+    renderCard(40, 95, 180, 56, C.azure, 'USER PROMPT', 'user · resume prompt'),
+    renderCard(260, 88, 240, 70, C.violet, 'PRIMARY ORCHESTRATOR', 'main agent · 7 coding clients'),
+    renderCard(40, 195, 270, 56, C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
+    renderCard(340, 195, 280, 56, C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · aislop_scan'),
+    renderCard(650, 190, 270, 66, C.amber, 'GATE 1: PLAN APPROVAL', 'pending_plan_approval · IDE / Telegram'),
+    renderCard(320, 295, 340, 58, C.violet, '3. STRUCTURED MCP DELEGATION', 'task, context, constraints, skills'),
+    renderCard(280, 390, 580, 76, C.violet, '4. SPECIALIST NINJA AGENTS', 'single-thread persona adoption', ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu']),
+    renderCard(30, 520, 130, 54, C.teal, '5. REPORT', 'report_from_agent'),
+    renderCard(180, 510, 200, 64, C.amber, '6. KAGE REVIEW GATE', 'zero-AI-slop · ≥98% conf'),
+    renderCard(400, 510, 240, 64, C.amber, 'GATE 2: DELIVERY SIGN-OFF', 'pending_human_signoff · HITL verdict'),
+    renderCard(660, 520, 160, 54, C.violet, '7. SYNTHESIZE', 'sannin final report'),
+    renderCard(840, 520, 150, 54, C.azure, 'RESPONSE', 'deliver to user')
   ].join('\n');
 
   const paths = `
     <!-- Path Tracks -->
-    <path class="bg-track" d="M 240 128 L 320 128" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 240 128 L 320 128" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
+    <path class="bg-track" d="M 220 123 L 260 123" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 220 123 L 260 123" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
 
-    <path class="bg-track" d="M 400 164 C 400 190, 225 185, 225 215" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 400 164 C 400 190, 225 185, 225 215" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
+    <path class="bg-track" d="M 340 158 C 340 180, 175 175, 175 195" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 340 158 C 340 180, 175 175, 175 195" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
 
-    <path class="bg-track" d="M 500 164 C 500 190, 670 185, 670 215" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 500 164 C 500 190, 670 185, 670 215" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
+    <path class="bg-track" d="M 420 158 C 420 180, 480 175, 480 195" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 420 158 C 420 180, 480 175, 480 195" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
 
-    <path class="bg-track" d="M 225 275 C 225 305, 420 300, 420 325" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 225 275 C 225 305, 420 300, 420 325" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
+    <path class="bg-track" d="M 620 223 L 650 223" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 620 223 L 650 223" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
 
-    <path class="bg-track" d="M 670 275 C 670 305, 580 300, 580 325" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 670 275 C 670 305, 580 300, 580 325" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
+    <path class="bg-track" d="M 785 256 C 785 285, 660 295, 660 324" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 785 256 C 785 285, 660 295, 660 324" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
 
-    <path class="bg-track" d="M 500 385 L 500 435" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 500 385 L 500 435" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
+    <path class="bg-track" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 490 353 L 490 390" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
 
-    <path class="bg-track" d="M 400 511 C 400 535, 140 535, 140 560" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 400 511 C 400 535, 140 535, 140 560" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
+    <path class="bg-track" d="M 380 466 C 380 500, 95 490, 95 520" stroke="${C.teal}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 380 466 C 380 500, 95 490, 95 520" stroke="${C.teal}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-teal)" />
 
-    <path class="bg-track" d="M 230 585 L 290 585" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 230 585 L 290 585" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
+    <path class="bg-track" d="M 160 547 L 180 547" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 160 547 L 180 547" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
 
-    <path class="bg-track" d="M 530 585 L 590 585" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 530 585 L 590 585" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
+    <path class="bg-track" d="M 380 542 L 400 542" stroke="${C.amber}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 380 542 L 400 542" stroke="${C.amber}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-amber)" />
 
-    <path class="bg-track" d="M 770 585 L 830 585" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
-    <path class="flow-path" d="M 770 585 L 830 585" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
+    <path class="bg-track" d="M 640 542 L 660 542" stroke="${C.violet}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 640 542 L 660 542" stroke="${C.violet}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-violet)" />
+
+    <path class="bg-track" d="M 820 547 L 840 547" stroke="${C.azure}" stroke-width="6" stroke-opacity="0.15" fill="none" />
+    <path class="flow-path" d="M 820 547 L 840 547" stroke="${C.azure}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 6" fill="none" marker-end="url(#arrow-azure)" />
 
     <!-- Remediation Loop -->
-    <path d="M 370 550 C 300 480, 300 400, 370 355" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
-    <text x="245" y="445" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="${C.crimson}">REMEDIATION LOOP</text>
+    <path d="M 280 510 C 230 440, 230 360, 320 324" stroke="${C.crimson}" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 5" fill="none" marker-end="url(#arrow-crimson)" opacity="0.85" />
+    <text x="180" y="420" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="${C.crimson}">REMEDIATION LOOP</text>
   `;
 
   return buildHtmlPage(W, H, `${header}\n${paths}\n${cards}\n${footer}`);
@@ -332,7 +337,7 @@ function generateJoninHtml() {
     renderCard(440, 240, 320, 84, C.violet, '♦ JONIN BUILDER ENGINE', 'Tailwind CSS v4 · Framer Motion · Pure Light', ['Next.js', 'Nuxt', 'Svelte', 'Angular']),
     renderCard(820, 210, 330, 72, C.emerald, 'FRAMEWORK CLI GATES', 'pnpm build (0 errors) · pnpm lint (0 warnings)'),
     renderCard(820, 340, 330, 72, C.amber, 'TWO-STEP ZERO-AI-SLOP GATE', '100/100 mechanical scan · antislop verified'),
-    renderCard(820, 470, 330, 72, C.emerald, 'PRODUCTION DELIVERABLE', 'High-fidelity accessible web application')
+    renderCard(820, 470, 330, 72, C.emerald, 'GATE 2 & PRODUCTION DELIVERY', 'pending_human_signoff · 100% exact fidelity')
   ].join('\n');
 
   const paths = `
@@ -371,8 +376,8 @@ function generateKageHtml() {
   const W = 1200;
   const H = 675;
 
-  const header = renderHeader(W, 'KAGE PRE-DELIVERY REVIEW & CONFIDENCE GATE', `Two-Step Zero-AI-Slop Pre-Gate & 98% Minimum Confidence Verification · v${PKG_VERSION}`, '98% CONFIDENCE GATE', C.amber);
-  const footer = renderFooter(W, H, 'Step 1: aislop_scan (100/100) · Step 2: antislop audit (0 findings) · Socket CI (0 High/Med) · Hard stop <98%');
+  const header = renderHeader(W, 'KAGE PRE-DELIVERY REVIEW & CONFIDENCE GATE', `Two-Step Zero-AI-Slop Pre-Gate, 98% Confidence & Gate 2 Delivery Sign-Off · v${PKG_VERSION}`, '98% CONFIDENCE GATE', C.amber);
+  const footer = renderFooter(W, H, 'Step 1: aislop_scan (100/100) · Step 2: antislop audit (0 findings) · Gate 2 (pending_human_signoff) · Hard stop <98%');
 
   const leftPanel = `
     <!-- 5-Category Matrix Panel -->
@@ -423,7 +428,7 @@ function generateKageHtml() {
       <!-- Summary Pill -->
       <rect x="30" y="415" width="470" height="38" rx="8" fill="#FFFFFF" stroke="${C.emerald}" stroke-width="1.5" />
       <text x="45" y="439" font-family="'Inter', sans-serif" font-size="11" font-weight="700" fill="${C.emerald}">AUDIT VERDICT:</text>
-      <text x="145" y="439" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="${C.slateDark}">Zero findings, clean exit codes, 100% tests verified</text>
+      <text x="145" y="439" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="${C.slateDark}">100% Tests Verified · Gate 1 &amp; Gate 2 Two-Stage HITL Approved</text>
     </g>
   `;
 
@@ -445,18 +450,25 @@ function generateKageHtml() {
         <text x="0" y="52" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" fill="${C.slateMed}">Target Threshold: ≥ 98.0%</text>
       </g>
 
+      <!-- Gate 2: Human Sign-Off Badge / Card -->
+      <g transform="translate(55, 305)">
+        <rect width="400" height="38" rx="8" fill="#FEF3C7" stroke="${C.amber}" stroke-width="1.5" />
+        <circle cx="20" cy="19" r="5" fill="${C.amber}" />
+        <text x="34" y="24" font-family="'Inter', sans-serif" font-size="11" font-weight="700" fill="${C.slateDark}">GATE 2 SIGN-OFF: <tspan fill="${C.amber}">pending_human_signoff</tspan> · HITL Approved</text>
+      </g>
+
       <!-- Status Card -->
-      <g transform="translate(55, 330)">
-        <rect width="400" height="42" rx="8" fill="#F0FDF4" stroke="${C.emerald}" stroke-width="1.5" />
-        <circle cx="24" cy="21" r="5" fill="${C.emerald}" />
-        <text x="38" y="26" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="${C.emerald}">EVALUATION: PASS (100.0% CONFIDENCE)</text>
+      <g transform="translate(55, 355)">
+        <rect width="400" height="38" rx="8" fill="#F0FDF4" stroke="${C.emerald}" stroke-width="1.5" />
+        <circle cx="20" cy="19" r="5" fill="${C.emerald}" />
+        <text x="34" y="24" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.emerald}">EVALUATION: PASS (100.0% CONFIDENCE)</text>
       </g>
 
       <!-- Verdict Stamp -->
-      <g class="verdict-stamp" transform="translate(255, 420) rotate(-4)">
-        <rect x="-170" y="-22" width="340" height="44" rx="8" fill="#F0FDF4" stroke="${C.emerald}" stroke-width="2.5" />
-        <rect x="-165" y="-17" width="330" height="34" rx="6" fill="none" stroke="${C.emerald}" stroke-width="1" stroke-opacity="0.5" />
-        <text x="0" y="6" text-anchor="middle" font-family="'Inter', sans-serif" font-size="14" font-weight="800" fill="${C.emerald}" letter-spacing="1">DELIVERY APPROVED · 100% CONFIDENCE</text>
+      <g class="verdict-stamp" transform="translate(255, 435) rotate(-4)">
+        <rect x="-170" y="-20" width="340" height="40" rx="8" fill="#F0FDF4" stroke="${C.emerald}" stroke-width="2.5" />
+        <rect x="-165" y="-15" width="330" height="30" rx="6" fill="none" stroke="${C.emerald}" stroke-width="1" stroke-opacity="0.5" />
+        <text x="0" y="5" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="800" fill="${C.emerald}" letter-spacing="1">DELIVERY APPROVED · 100% CONFIDENCE</text>
       </g>
     </g>
   `;
@@ -486,7 +498,7 @@ function generateQaHtml() {
     renderCard(540, 410, 280, 64, C.azure, 'UI BUG FIX (♦ JONIN)', 'Tailwind CSS / responsive fix'),
 
     renderCard(140, 560, 380, 72, C.teal, '6. EVIDENCE PERSISTENCE', 'Save run_id to SQLite sdlc_tasks & report'),
-    renderCard(660, 560, 380, 72, C.emerald, '7. KAGE VERIFICATION GATE', '100% clean evidence & delivery sign-off')
+    renderCard(660, 560, 380, 72, C.emerald, '7. GATE 2 & DELIVERY SIGN-OFF', 'pending_human_signoff · Kage ≥98% confidence')
   ].join('\n');
 
   const paths = `
@@ -537,8 +549,8 @@ function generateTelegramHtml() {
   const W = 1200;
   const H = 760;
 
-  const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & CLOUDFLARE TUNNEL', `Zero-Port Ingress, Whitelisted Poller, and Real-Time Execution Notifier · v${PKG_VERSION}`, 'DUAL-MODE INGRESS', C.azure);
-  const footer = renderFooter(W, H, 'Zero-emoji concise reporting · interactive shell execution · secure background task daemon');
+  const header = renderHeader(W, 'TELEGRAM REMOTE AUTOMATION & TWO-STAGE HITL GATES', `Interactive Gate 1 & Gate 2 Inline Keyboards, Cloudflare Tunnel & Zero-Port Ingress · v${PKG_VERSION}`, 'HITL GATES ENABLED', C.azure);
+  const footer = renderFooter(W, H, 'Interactive [Approve] / [Reject] callbacks · /approval list · /doctor diagnostics · /session switcher');
 
   const topTrackContainer = `
     <!-- Track A: Outbound Reporter -->
@@ -562,22 +574,22 @@ function generateTelegramHtml() {
       <rect width="1100" height="46" rx="8" fill="#FFFFFF" stroke="${C.emerald}" stroke-width="1.5" filter="url(#cardShadow)" />
       <circle cx="24" cy="23" r="5" fill="${C.emerald}" />
       <text x="38" y="28" font-family="'Inter', sans-serif" font-size="12" font-weight="700" fill="${C.slateDark}">SECURITY GUARDRAILS:</text>
-      <text x="195" y="28" font-family="'Inter', sans-serif" font-size="11" fill="${C.slateMed}">Zero Open Inbound Ports · Chat ID Whitelist · isDangerousCommand Guard · Mode A SSO / Mode B PIN Auth (x-konoha-pin)</text>
+      <text x="195" y="28" font-family="'Inter', sans-serif" font-size="11" fill="${C.slateMed}">Zero Open Inbound Ports · Chat ID Whitelist · Two-Stage HITL Verification · Mode A SSO / Mode B PIN Auth (x-konoha-pin)</text>
     </g>
   `;
 
   const cards = [
     // Top Track Cards
-    renderCard(80, 180, 220, 68, C.azure, 'SDLC TASK EVENT', 'task queued / running / done'),
-    renderCard(350, 180, 230, 68, C.teal, 'ZERO-EMOJI NOTIFIER', 'src/telegram/notifier.js'),
-    renderCard(630, 180, 230, 68, C.violet, 'HTTPS TELEGRAM API', 'POST /sendMessage'),
-    renderCard(910, 180, 210, 68, C.emerald, 'AUTHORIZED USER', 'chat_id whitelist delivery'),
+    renderCard(80, 180, 220, 68, C.azure, 'SDLC TASK EVENT', 'task queued / running / sign-off'),
+    renderCard(350, 180, 230, 68, C.teal, 'TWO-STAGE HITL NOTIFIER', 'Gate 1 & Gate 2 inline buttons'),
+    renderCard(630, 180, 230, 68, C.violet, 'HTTPS TELEGRAM API', 'POST /sendMessage & callbacks'),
+    renderCard(910, 180, 210, 68, C.emerald, 'AUTHORIZED USER', 'one-tap [Approve] / [Reject] buttons'),
 
     // Bottom Track Cards
-    renderCard(80, 480, 220, 72, C.azure, 'USER MOBILE COMMAND', '/run, /status, /sh, /kage...'),
-    renderCard(350, 480, 230, 72, C.violet, 'WHITELISTED POLLER', 'long polling timeout=30'),
-    renderCard(630, 480, 230, 72, C.amber, 'SUBAGENT DISPATCH', 'direct enqueue prompt_queue'),
-    renderCard(910, 480, 210, 72, C.emerald, 'AUTONOMOUS WORKER', 'worker.js execution loop')
+    renderCard(80, 480, 220, 72, C.azure, 'USER COMMANDS & ACTIONS', '/approval, /doctor, /session, /sh, /run'),
+    renderCard(350, 480, 230, 72, C.violet, 'WHITELISTED POLLER', 'long polling timeout=30 · callbacks'),
+    renderCard(630, 480, 230, 72, C.amber, 'TWO-STAGE HITL RESOLUTION', 'pending_plan_approval & sign-off'),
+    renderCard(910, 480, 210, 72, C.emerald, 'AUTONOMOUS WORKER', 'resumes SDLC execution DAG')
   ].join('\n');
 
   const paths = `

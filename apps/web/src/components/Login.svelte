@@ -286,8 +286,8 @@
           </div>
 
           {#if authState.isBootstrap}
-            <p id="login-bootstrap-hint" class="text-[11px] mt-1.5" style="color: var(--theme-text-secondary);">
-              The provisioned bootstrap password is shown above. You will be required to set a permanent password after signing in.
+            <p id="login-bootstrap-hint" class="text-[11px] mt-1.5 flex items-center justify-between" style="color: var(--theme-text-secondary);">
+              <span>fresh install: default passphrase is <span class="font-mono font-bold" style="color: var(--theme-focus);">{DEFAULT_BOOTSTRAP_HINT}</span></span>
             </p>
           {/if}
         </div>

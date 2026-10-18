@@ -291,11 +291,9 @@ async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
         if (!result.success) {
           return sendJson(res, result.status || 400, { error: result.error });
         }
-        if (result.requires_login) {
-          res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
-        }
-        broadcastEvent('auth_state_changed', { action: 'password_changed', requires_login: Boolean(result.requires_login) });
-        return sendJson(res, 200, { ok: true, message: result.message, requires_login: Boolean(result.requires_login) });
+        res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
+        broadcastEvent('auth_state_changed', { action: 'password_changed', requires_login: true });
+        return sendJson(res, 200, { ok: true, message: result.message, requires_login: true });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

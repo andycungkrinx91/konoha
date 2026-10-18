@@ -20,6 +20,7 @@ const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 const server = require('../src/server');
+const sdlcManager = require('../src/sdlc_manager');
 
 async function run() {
   console.log('Running test_anti_slop_gate tests...');
@@ -94,8 +95,10 @@ async function run() {
     console.log('✓ Blocked when ai_slop fields missing passed');
 
     // 3. Approved when ai_slop clean
+    sdlcManager.setProjectSdlcConfig(tmpDir, { hitl_mode: 'disabled' });
     let status3 = {
       phase: 'review',
+      project_path: tmpDir,
       tasks: [
         { id: 'task-1', agent: 'anbu', task: 'Build backend', status: 'completed', result: 'Done', validation: ['pass'] }
       ],
@@ -206,11 +209,9 @@ async function run() {
       }
     };
     server.saveWorkflowStatus(tmpDir, status4);
-    server.runMcpWorkflow(tmpDir);
+    const res4 = JSON.parse(server.runMcpWorkflow(tmpDir));
 
-    const delegatePath = path.join(tmpDir, 'delegate.md');
-    assert.ok(fs.existsSync(delegatePath));
-    const promptText = fs.readFileSync(delegatePath, 'utf-8');
+    const promptText = res4.task || '';
     assert.ok(promptText.includes('aislop_scan'));
     assert.ok(promptText.includes('ai_slop_findings'));
     assert.ok(promptText.includes('ai_slop_clean'));

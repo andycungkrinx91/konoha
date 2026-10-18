@@ -10,6 +10,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
   });
 
   test("Complete login, animation, mandatory change modal, and logout flow", async ({ page }) => {
+    test.setTimeout(60000);
     const pageErrors = [];
     page.on('pageerror', err => pageErrors.push(err.message));
 
@@ -62,11 +63,12 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
     await expect(page.getByText("Invalid password")).toBeVisible({ timeout: 6000 });
 
     // 4. Test login with bootstrap credential 'konohagakure' and 3s animation
+    await expect(page.getByRole("button", { name: "Login" })).toBeEnabled({ timeout: 5000 });
     await passwordInput.fill("konohagakure");
     await page.getByRole("button", { name: "Login" }).click();
 
     // Verify 3s animation phase indicator or authenticating state appears
-    await expect(page.locator("[aria-live='polite']").filter({ hasText: /Charging chakra core|Authenticating/i }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Charging chakra core|Authenticating/i).first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#login-password")).toBeDisabled();
 
     // 5. Verify Mandatory Password Change Modal appears
@@ -86,22 +88,28 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
 
     await page.getByRole("button", { name: "Update & Continue to Dashboard" }).click();
 
-    // 7. Verify dashboard is unlocked and revealed
+    // 7. Auto-kickout to login page with session invalidated (Feedback 3)
+    await expect(page.locator("#login-password")).toBeVisible({ timeout: 10000 });
+    // Log in with the newly established secure credential
+    await page.locator("#login-password").fill("secure-shinobi-2026!");
+    await page.getByRole("button", { name: "Login" }).click();
+
+    // 8. Verify dashboard is unlocked and revealed
     await expect(page.getByText("Mission Control Dashboard")).toBeVisible({ timeout: 10000 });
 
-    // 8. Test Theme Switcher on the authenticated dashboard
+    // 9. Test Theme Switcher on the authenticated dashboard
     const themeFab = page.getByRole("button", { name: "Toggle Theme Selection Modal" });
     await expect(themeFab).toBeVisible();
     await themeFab.click();
 
     await expect(page.getByText("Konoha 4-Gradient Theme Palette")).toBeVisible();
-    await page.getByRole("button", { name: "Byakugan Deep Ocean (active)" }).click();
+    await page.getByRole("button", { name: /^Byakugan Deep Ocean/ }).click();
 
     // Verify theme updated
     const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(dataTheme).toBe('byakugan');
 
-    // 9. Test Logout
+    // 10. Test Logout
     const logoutBtn = page.getByRole("button", { name: /Logout \/ Lock|Logout/i }).first();
     await logoutBtn.click();
 

@@ -1191,7 +1191,9 @@ function runMcpWorkflow(taskDir = null) {
       : '## TASK\n\nDocument the completed work and validation evidence in final_docs.md.\n';
 
     const fontDirectives = (
-      '\n### 🖋️ Mandatory Konoha Font System Directives:\n' +
+      '\n### 🖋️ Mandatory Tokubetsu-Jonin Document Engineering Directives:\n' +
+      '- Official Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/tools/document_engine.js.\n' +
+      '- Skill Retrieval via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"). Never read raw markdown files directly.\n' +
       '- Cover / Main Titles: Inter Display / Inter Bold (32pt, high impact, -0.02em letter spacing)\n' +
       '- Headings (H1–H3, Table Headers): Inter SemiBold / Bold\n' +
       '- Content / Body: Inter Regular (~10.5–11 pt for A4, line spacing 1.5–1.6)\n' +

@@ -9,7 +9,35 @@ async function testSkillsRegistryAndInstall() {
   assert.strictEqual(typeof skillManager.searchRegistry, 'function', 'skillManager.searchRegistry should be exported');
   assert.strictEqual(typeof skillManager.addSkill, 'function', 'skillManager.addSkill should be exported');
   assert.strictEqual(typeof skillManager.addSkillDirect, 'function', 'skillManager.addSkillDirect should be exported');
+  assert.strictEqual(typeof skillManager.validateInputs, 'function', 'skillManager.validateInputs should be exported');
   console.log('✓ skillManager exports verified');
+
+  // Verify URL scheme validation: file:// allowed, ftp:// and path traversal rejected
+  assert.doesNotThrow(() => {
+    skillManager.validateInputs('file:///tmp/local-skill-repo', 'my-local-skill');
+  }, 'file:// repository URLs must be accepted for local/air-gapped environments');
+
+  assert.doesNotThrow(() => {
+    skillManager.validateInputs('https://github.com/example/skill', 'valid-skill-name');
+  }, 'https:// repository URLs must be accepted');
+
+  assert.doesNotThrow(() => {
+    skillManager.validateInputs('git@github.com:example/skill.git', 'git-ssh-skill');
+  }, 'git@ repository URLs must be accepted');
+
+  assert.throws(() => {
+    skillManager.validateInputs('ftp://example.com/skill', 'ftp-skill');
+  }, /Invalid repository URL/, 'ftp:// URLs must be rejected');
+
+  assert.throws(() => {
+    skillManager.validateInputs('file:///tmp/repo', '../traversal-skill');
+  }, /Invalid skill name/, 'Path traversal in skill name must be rejected');
+
+  assert.throws(() => {
+    skillManager.validateInputs('file:///tmp/repo', 'nested/slash/skill');
+  }, /Invalid skill name/, 'Slashes in skill name must be rejected');
+
+  console.log('✓ file:// acceptance, ftp:// rejection, and path-traversal guardrails verified');
 
   try {
     const results = await skillManager.searchRegistry('docker');

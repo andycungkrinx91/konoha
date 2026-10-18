@@ -448,12 +448,12 @@ function computeGaugeTokens(found, tokens, isDark) {
 }
 
 export function createThemeState() {
-  let currentTheme = $state('byakugan');
-  let currentMode = $state('light'); // 'light' | 'dark' — default is Light Mode
+  let currentTheme = $state('sharingan');
+  let currentMode = $state('dark'); // Default is Dark Mode with Sharingan Royal Indigo
   let isModalOpen = $state(false);
 
   function applyTheme(themeId = currentTheme, mode = currentMode) {
-    const found = THEMES.find(t => t.id === themeId) || THEMES[1]; // fallback to byakugan
+    const found = THEMES.find(t => t.id === themeId) || THEMES.find(t => t.id === 'sharingan') || THEMES[0];
     currentTheme = found.id;
     currentMode = mode === 'dark' ? 'dark' : 'light';
 
@@ -679,8 +679,8 @@ export function createThemeState() {
 
   function init() {
     if (typeof window !== 'undefined') {
-      let savedTheme = 'byakugan';
-      let savedMode = 'light'; // Default is strictly Light Mode
+      let savedTheme = 'sharingan';
+      let savedMode = 'dark'; // Default is Dark Mode with Sharingan Royal Indigo
 
       try {
         const themeVal = localStorage.getItem('konoha-theme');

@@ -146,9 +146,10 @@ function setupSchema(conn) {
         client TEXT NOT NULL,
         workspace_root TEXT NOT NULL,
         session_id TEXT NOT NULL,
+        project_hash TEXT,
         transcript_path TEXT,
         last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (client, workspace_root)
+        PRIMARY KEY (client, workspace_root, session_id)
     );
 
     -- Agents table
@@ -338,6 +339,49 @@ function setupSchema(conn) {
   try {
     conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';");
   } catch (_) { /* column already exists */ }
+
+  // Auto-migrate active_sessions to support multi-session per workspace: PRIMARY KEY (client, workspace_root, session_id)
+  try {
+    const sessionCols = conn.prepare("PRAGMA table_info(active_sessions)").all();
+    const hasProjectHash = sessionCols.some(c => c.name === 'project_hash');
+    const pkCols = sessionCols.filter(c => c.pk > 0);
+    const hasSessionIdPk = pkCols.some(c => c.name === 'session_id');
+
+    if (!hasProjectHash || !hasSessionIdPk) {
+      conn.exec(`
+        BEGIN TRANSACTION;
+        CREATE TABLE IF NOT EXISTS active_sessions_migrated (
+            client TEXT NOT NULL,
+            workspace_root TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            project_hash TEXT,
+            transcript_path TEXT,
+            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (client, workspace_root, session_id)
+        );
+        INSERT OR IGNORE INTO active_sessions_migrated (client, workspace_root, session_id, transcript_path, last_active_at)
+        SELECT client, workspace_root, session_id, transcript_path, last_active_at
+        FROM active_sessions;
+        DROP TABLE active_sessions;
+        ALTER TABLE active_sessions_migrated RENAME TO active_sessions;
+        COMMIT;
+      `);
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  try {
+    const unhashedRows = conn.prepare("SELECT rowid, workspace_root FROM active_sessions WHERE project_hash IS NULL OR project_hash = ''").all();
+    if (unhashedRows.length > 0) {
+      const personaMemory = require('./persona_memory');
+      const updateStmt = conn.prepare("UPDATE active_sessions SET project_hash = ? WHERE rowid = ?");
+      for (const r of unhashedRows) {
+        if (r.workspace_root) {
+          const ph = personaMemory.computeProjectHash(r.workspace_root);
+          if (ph) updateStmt.run(ph, r.rowid);
+        }
+      }
+    }
+  } catch (_) { /* intentional best-effort fallback */ }
 
   if (ftsSupported) {
     try {

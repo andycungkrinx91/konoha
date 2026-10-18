@@ -1,6 +1,7 @@
 <script>
   import { authState } from '#lib/state/authState.svelte.js';
   import { useScrollLock } from '#lib/scrollLock.svelte.js';
+  import { toast } from '#lib/state/toast.svelte.ts';
 
   const MIN_PASSWORD_LENGTH = 8;
 
@@ -49,9 +50,8 @@
       currentPassword = '';
       newPassword = '';
       confirmPassword = '';
-      successMessage = 'Password updated. Dashboard access granted.';
+      toast.success('Passphrase updated successfully. Please log in with your new passphrase.');
     } catch (err) {
-      // The server keeps the bootstrap flag on failure, so the dialog stays open.
       errorMessage = err.message || 'Failed to update password.';
     } finally {
       isSubmitting = false;

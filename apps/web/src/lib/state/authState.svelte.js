@@ -3,7 +3,7 @@ import { getAuthStatus, login as apiLogin, changePassword as apiChangePassword, 
 
 function createAuthState() {
   let isAuthenticated = $state(false);
-  let isBootstrap = $state(false);
+  let isBootstrap = $state(true);
   let requiresPasswordChange = $state(false);
   let isChecking = $state(true);
   let showPasswordChangeModal = $state(false);
@@ -54,17 +54,12 @@ function createAuthState() {
     showPasswordChangeModal = requiresPasswordChange;
   }
 
-  // The server clears sessions after voluntary password changes; local state resets to force fresh login.
+  // Password changes invalidate all active sessions; local state resets to force clean login.
   async function changePassword(currentPassword, newPassword) {
     const result = await apiChangePassword(currentPassword, newPassword);
     if (result && result.ok) {
-      if (result.requires_login) {
-        resetSession();
-      } else {
-        isBootstrap = false;
-        requiresPasswordChange = false;
-        showPasswordChangeModal = false;
-      }
+      resetSession();
+      await checkAuth();
     }
     return result;
   }

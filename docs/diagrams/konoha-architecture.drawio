@@ -691,13 +691,13 @@
                 <mxCell id="p8-discover" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;;overflow=visible;" value="2. Discover skill + code&#xa;Konoha MCP + Semble MCP" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="270" as="geometry"/>
                 </mxCell>
-                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. Write delegate.md&#xa;isolated task directory" vertex="1">
+                <mxCell id="p8-delegate" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="3. Structured Tool Call&#xa;task, context, constraints" vertex="1">
                     <mxGeometry height="80" width="300" x="760" y="410" as="geometry"/>
                 </mxCell>
                 <mxCell id="p8-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;;overflow=visible;" value="4. Invoke selected agent tool&#xa;persona + instructions" vertex="1">
                     <mxGeometry height="85" width="330" x="1120" y="270" as="geometry"/>
                 </mxCell>
-                <mxCell id="p8-result" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" value="5. Agent writes result.md" vertex="1">
+                <mxCell id="p8-result" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;;overflow=visible;" value="5. Agent structured report&#xa;evidence &amp; metrics" vertex="1">
                     <mxGeometry height="70" width="300" x="1150" y="400" as="geometry"/>
                 </mxCell>
                 <mxCell id="p8-close" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;;overflow=visible;" value="6. sannin closes loop&#xa;orchestrator synthesizes" vertex="1">
@@ -840,29 +840,35 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha WORKFLOW_PHASES Orchestration Pipeline &amp; Kage Reviewer Gate" vertex="1">
+                <mxCell id="p11-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="11 Konoha WORKFLOW_PHASES Orchestration Pipeline &amp; Two-Stage HITL Gates" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-route" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="1. Route Phase&#xa;(Prompt Analysis &amp; DoR Gate)" vertex="1">
                     <mxGeometry height="70" width="150" x="50" y="180" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-explore" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" value="2. Explore Phase&#xa;(Genin: Read-only Scout)" vertex="1">
-                    <mxGeometry height="70" width="180" x="240" y="180" as="geometry"/>
+                    <mxGeometry height="70" width="160" x="240" y="180" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-plan" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" value="3. Plan Phase&#xa;(Kage Architect &amp; Tasks)" vertex="1">
-                    <mxGeometry height="70" width="180" x="460" y="180" as="geometry"/>
+                <mxCell id="p11-plan" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontStyle=1;align=center;" value="3. Plan Phase&#xa;(Kage Architect &amp; PRD)" vertex="1">
+                    <mxGeometry height="70" width="160" x="440" y="180" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="4. Execute Phase&#xa;(Anbu: Backend, QA &amp; Dev/Local Pentest · Jonin: UI)" vertex="1">
-                    <mxGeometry height="70" width="200" x="680" y="180" as="geometry"/>
+                <mxCell id="p11-gate1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="GATE 1: PLAN APPROVAL&#xa;(pending_plan_approval&#xa;IDE / Telegram Bot)" vertex="1">
+                    <mxGeometry height="70" width="190" x="640" y="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="p11-exec" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="4. Execute Phase&#xa;(Anbu: Backend/QA · Jonin: UI)" vertex="1">
+                    <mxGeometry height="70" width="190" x="870" y="180" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-doc" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" value="5. Document Phase&#xa;(Tokubetsu: Docs &amp; Specs)" vertex="1">
-                    <mxGeometry height="70" width="190" x="920" y="180" as="geometry"/>
+                    <mxGeometry height="70" width="180" x="1100" y="180" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-review" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fee2e2;strokeColor=#ef4444;fontStyle=1;align=left;spacingLeft=15;" value="6. Review Phase (MANDATORY GATE)&#xa;Kage Reviewer Gate:&#xa;• Zero-AI-Slop Pre-Gate (aislop_scan: 0 findings)&#xa;• Kage → Anbu Anti-Slop Remediation Loop&#xa;• Cross-Provider Review Independence&#xa;• 98% Minimum Confidence Gate (≥ 98% required)&#xa;• 100% Task Verification in status.json&#xa;• Clean Validation Evidence (0 errors/warnings)&#xa;• Security Audit &amp; CVE Check&#xa;• Writes kage_review.json &amp; sdlc_tasks" vertex="1">
-                    <mxGeometry height="190" width="430" x="680" y="320" as="geometry"/>
+                    <mxGeometry height="190" width="430" x="850" y="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="p11-gate2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef08a;strokeColor=#ca8a04;fontStyle=1;align=center;" value="GATE 2: DELIVERY SIGN-OFF&#xa;(pending_human_signoff&#xa;Verdict Sign-Off)" vertex="1">
+                    <mxGeometry height="70" width="190" x="620" y="440" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-synth" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;align=center;" value="7. Synthesize Phase&#xa;(Sannin Final Report)" vertex="1">
-                    <mxGeometry height="70" width="180" x="400" y="440" as="geometry"/>
+                    <mxGeometry height="70" width="170" x="390" y="440" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-done" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=1;align=center;" value="8. Done Phase&#xa;(Delivered to User)" vertex="1">
                     <mxGeometry height="70" width="160" x="150" y="440" as="geometry"/>
@@ -873,16 +879,22 @@
                 <mxCell id="p11-e2" edge="1" parent="1" source="p11-explore" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;" target="p11-plan">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-e3" edge="1" parent="1" source="p11-plan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d97706;strokeWidth=2;" target="p11-exec">
+                <mxCell id="p11-e3" edge="1" parent="1" source="p11-plan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d97706;strokeWidth=2;" target="p11-gate1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-e4" edge="1" parent="1" source="p11-exec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="p11-doc">
+                <mxCell id="p11-e3b" edge="1" parent="1" source="p11-gate1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ca8a04;strokeWidth=2;" target="p11-exec">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-e5" edge="1" parent="1" source="p11-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ea580c;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.78;entryY=0;entryDx=0;entryDy=0;" target="p11-review">
+                <mxCell id="p11-e4" edge="1" parent="1" source="p11-exec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;" target="p11-doc">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="p11-e6" edge="1" parent="1" source="p11-review" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ef4444;strokeWidth=2;curved=0;" target="p11-synth">
+                <mxCell id="p11-e5" edge="1" parent="1" source="p11-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ea580c;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.79;entryY=0;entryDx=0;entryDy=0;" target="p11-review">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="p11-e6" edge="1" parent="1" source="p11-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ef4444;strokeWidth=2;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="p11-gate2">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="p11-e6b" edge="1" parent="1" source="p11-gate2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ca8a04;strokeWidth=2;" target="p11-synth">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="p11-e7" edge="1" parent="1" source="p11-synth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#059669;strokeWidth=2;" target="p11-done">

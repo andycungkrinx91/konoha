@@ -315,7 +315,7 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Authoritative Shared Width & Gutter Tokens**: Implemented `--content-max-width: 80rem` (1280px), `--content-gutter: 2rem` (32px), and `--content-gutter-mobile: 1rem` (16px) in `apps/web/src/app.css`. Applied uniformly through `.console-content-container` in `apps/web/src/routes/+layout.svelte` to all standard console routes (`/clients`, `/bridges`, `/remote`, `/savings`, `/agents`, `/skills`, `/persona`, `/context`, `/search`, `/semble`, `/detector`, `/tasks`, `/doctor`, `/settings`), centering with symmetric margins to the right of the sidebar.
    - **Explicit Route Layout Exceptions**: Preserved `/dashboard` and `/docs` as explicit exceptions via `isCustomLayoutRoute` in `+layout.svelte`, retaining their full content stage width and custom scrolling behavior.
    - **Unified PageHero Component**: Created reusable `apps/web/src/components/PageHero.svelte` implementing the measured `/remote` reference hero (`glass-card-3d rounded-[5px] p-8 border`, 3D gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast typography, and responsive badge/actions/stats snippets) across all standard routes and `/docs`.
-   - **Post-Login Form Field Styling**: Applied `.login-field-effect` across all post-login form inputs, selects, and textareas, matching `Login.svelte` reference (`rounded-[5px]`, `background-color: var(--color-surface)`, `border: 1px solid var(--theme-border-strong)`, and `focus:ring-2 focus:ring-[var(--theme-focus)] focus:border-transparent`).
+   - **Post-Login Form Field Styling**: Applied `.login-field-effect` across all post-login form inputs, selects, and textareas, matching `Login.svelte` reference (`rounded-[3px]`, `background-color: var(--color-surface)`, `border: 1px solid var(--theme-border-strong)`, and travelling neon focus border sweep with ambient glow).
 38. **Atomic Authentication Reset, Travelling Neon Focus & Dynamic Toast Theming (v2.2.0)**:
    - **Atomic Bootstrap Reset & Recovery**: Implemented `resetAuthToDefault()` in `src/auth.js` to restore default credentials (`konohagakure`, `is_bootstrap: true`) and purge stale sessions without requiring authenticated state. Added CLI commands `konoha web reset-password` and `konoha auth reset`.
    - **Credential Isolation**: Configured `apps/web/playwright.config.js` with `reuseExistingServer: false` and isolated test credentials (`KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json'`), eliminating test runner credential pollution on user environments.
@@ -359,8 +359,10 @@ flowchart TD
     P1 --> P2["Phase 2: Explore<br/><b>(⚑ Genin)</b>"]
     P2 --> P3["Phase 3: Plan<br/><b>(◎ Kage)</b>"]
 
-    %% Research Decision Branch
-    P3 --> DecisionResearch{"needs_research?"}
+    %% Gate 1: Human-in-the-Loop Plan Approval
+    P3 --> Gate1{"Gate 1: Plan Approval<br/><b>(pending_plan_approval)</b>"}
+    Gate1 -->|Approved / Autonomous| DecisionResearch{"needs_research?"}
+    Gate1 -->|Rejected| P3
     DecisionResearch -->|Yes| P4["Phase 4: Research<br/><b>(▫ Chunin)</b>"]
     DecisionResearch -->|No| P5["Phase 5: Execute<br/><b>(♦ Jonin / ♠ Anbu)</b>"]
     P4 --> P5
@@ -373,7 +375,9 @@ flowchart TD
     P7 --> DecisionReview{"Zero-AI-Slop & Confidence Gate"}
     DecisionReview -->|slop findings > 0| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu)</b>"]
     Remediation -->|re-evaluate| P7
-    DecisionReview -->|"0 findings, 100% tests<br/>≥ 98% confidence"| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
+    DecisionReview -->|"0 findings, 100% tests<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
+    Gate2 -->|Signed Off / Autonomous| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
+    Gate2 -->|Changes Requested| P5
 
     %% Final Delivery
     P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
@@ -387,7 +391,7 @@ flowchart TD
 
     class UserPrompt,DeliveryReport startEnd;
     class P1,P2,P3,P4,P5,P6,P7 phase;
-    class DecisionResearch,DecisionReview decision;
+    class Gate1,DecisionResearch,DecisionReview,Gate2 decision;
     class Remediation remediation;
     class P8 approved;
 
@@ -456,7 +460,7 @@ flowchart TD
    - **Secure Form Dialogs (`FormDialogModal.svelte`)**: Interactive dialog supporting multi-field inputs, dynamic validation, password visibility toggle, dirty-state confirmation, and secret clearing on close.
    - **Animated Error Experience (`apps/web/src/routes/+error.svelte`)**: Universal error view rendered inside the full application layout with persistent header and sidebar navigation. Features animated SVG themes (radar sweep for 404, security lock for 401/403, hourglass for 429 cooldown, reactor core for 5xx), sanitized "Copy Details" action, and automatic HTTP 307 redirect for `/skill` -> `/skills`.
    - **True Hybrid RRF Skill Search (`src/vector_search.js`, `apps/web/src/components/Skills.svelte`)**: Consolidated search interface combining SQLite FTS5 BM25 keyword matching with IBM Granite 97M ONNX 384-dimensional dense neural vector embeddings fused via Reciprocal Rank Fusion (`k=60`). Provides transparent engine badges (`FTS5 + Vector`, `Vector`, `FTS5`) and relevance scores.
-   - **Universal Themed Scrollbars & Visual Parity (`apps/web/src/app.css`)**: Standards-compliant `scrollbar-color` and `::-webkit-scrollbar` variables eliminating white scrollbar tracks in dark mode. Full `.login-field-effect` harmonization across all post-login form elements with 5px card border-radius parity.
+   - **Universal Themed Scrollbars & Visual Parity (`apps/web/src/app.css`)**: Standards-compliant `scrollbar-color` and `::-webkit-scrollbar` variables eliminating white scrollbar tracks in dark mode. Full `.login-field-effect` harmonization across all post-login form elements with standardized 3px input border-radius parity.
 
 10. **Dual-Track Execution Engine, Polyglot Stack Detection & 2-Way HITL Approvals (v2.2.0)**:
    - **Dual-Track Execution Engine (Point 1.3)**: Distinguishes between Fast-Track Direct Execution and the Full SDLC Pipeline. Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/sannin`), quick questions, single-file edits, typo fixes, and ad-hoc inspections bypass the 8-phase DAG and Gate 1 pause for immediate turnaround with zero pipeline overhead. Greenfield builds and multi-subsystem refactors execute through the Canonical 8-Phase DAG.

@@ -467,8 +467,6 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     updated_at: new Date().toISOString()
   };
 
-  const wasBootstrap = Boolean(config.is_bootstrap);
-
   // Persist first. On failure the bootstrap flag is retained so the mandatory
   // change gate stays closed (failed changes never clear the flag).
   try {
@@ -477,18 +475,14 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 500, error: 'Failed to persist new password' };
   }
 
-  if (wasBootstrap) {
-    // Initial bootstrap password change: upgrade session in place so operator continues directly to dashboard
-    session.isBootstrap = false;
-  } else {
-    // Voluntary password change from /settings: invalidate all sessions to force re-authentication (Feedback 4)
-    destroyAllSessions();
-  }
+  // Any password change (both initial bootstrap change and settings change)
+  // MUST invalidate all sessions to clear credentials and force clean re-authentication
+  destroyAllSessions();
 
   return {
     success: true,
-    message: 'Password changed successfully',
-    requires_login: !wasBootstrap
+    message: 'Password changed successfully. Please log in with your new passphrase.',
+    requires_login: true
   };
 }
 

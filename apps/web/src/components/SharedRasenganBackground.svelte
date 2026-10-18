@@ -5,13 +5,22 @@
       if (this.instance && typeof this.instance.playImpact === 'function') {
         this.instance.playImpact();
       }
+    },
+    triggerThemeSupernova(palette, mode) {
+      if (this.instance && typeof this.instance.triggerThemeSupernova === 'function') {
+        this.instance.triggerThemeSupernova(palette, mode);
+      }
     }
   };
+  if (typeof window !== 'undefined') {
+    window.backgroundScene = backgroundScene;
+  }
 </script>
 
 <script>
   import { onMount } from 'svelte';
   import { themeState } from '#lib/state/themeState.svelte.js';
+  import { authState } from '#lib/state/authState.svelte.js';
 
   let canvasEl = $state(null);
   let scene = null;
@@ -19,6 +28,7 @@
 
   const activePalette = $derived(themeState.currentRasengan);
   const isDark = $derived(themeState.currentMode === 'dark');
+  const isAuthenticated = $derived(authState.isAuthenticated);
 
   // Keep the 3D Rasengan scene in sync with live theme and mode switches
   $effect(() => {
@@ -26,6 +36,14 @@
     const mode = themeState.currentMode;
     if (scene) {
       scene.updatePalette(palette, mode);
+    }
+  });
+
+  // Switch between 8s login Supernova cycle and peaceful post-login cosmic planetary orbit
+  $effect(() => {
+    const isAuth = isAuthenticated;
+    if (scene && typeof scene.setPostLoginMode === 'function') {
+      scene.setPostLoginMode(isAuth);
     }
   });
 
@@ -48,7 +66,8 @@
             transparent: true,
             bloom: isDark,
             pixelRatioCap: 1.5,
-            phaseDuration: 8.8
+            phaseDuration: 8.0,
+            isPostLogin: Boolean(authState.isAuthenticated)
           });
           backgroundScene.instance = scene;
 

@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /**
  * Procedural Rasengan scene built with Three.js.
@@ -22,7 +23,8 @@ export class RasenganScene {
       mode: 'dark', // 'dark' | 'light'
       onPhaseChange: null,
       autoLoop: true,
-      phaseDuration: 8.8,
+      phaseDuration: 8.0,
+      isPostLogin: false,
       ...options
     };
 
@@ -30,9 +32,14 @@ export class RasenganScene {
     this.isLight = this.mode === 'light';
     this.hexColors = this.parseColors(this.options.colors);
 
+    this.isPostLogin = Boolean(this.options.isPostLogin);
+    this.isThemeTransitioning = false;
+    this.themeTransitionElapsed = 0;
+    this.themeTransitionDuration = 1.0;
+
     this.lastTime = performance.now();
     this.elapsed = 0;
-    this.phase = 'CHARGING';
+    this.phase = this.isPostLogin ? 'COSMIC_ORBIT' : 'CHARGING';
     this.phaseDuration = this.options.phaseDuration;
     this.disposed = false;
     this.isTabHidden = typeof document !== 'undefined' && document.hidden;
@@ -70,12 +77,12 @@ export class RasenganScene {
     this.scene.add(this.rimLight);
 
     this.makeEnvironment();
+    this.makeCosmicUniverseStarfield();
     this.makeCore();
     this.makeEnergyRibbons();
     this.makeParticles();
-    this.makeGlass();
-    this.makeShockwave();
-    this.makeCrackOverlay();
+    this.makeSupernovaBigBang();
+    this.makeRasenshuriken();
 
     if (this.options.bloom && !this.isLight) {
       try {
@@ -127,6 +134,9 @@ export class RasenganScene {
       this.isLight = this.mode === 'light';
     }
 
+    this.applyPaletteToModel();
+    this.applyPaletteToSupernova();
+
     const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
 
     if (this.core) {
@@ -167,28 +177,8 @@ export class RasenganScene {
       this.particles.material.opacity = this.isLight ? 0.95 : 0.9;
       this.particles.material.needsUpdate = true;
     }
-    if (this.shards) {
-      this.shards.forEach(s => {
-        s.material.color.copy(this.hexColors[1]);
-        s.material.emissive.copy(this.hexColors[0]);
-        s.material.opacity = this.isLight ? 0.9 : 0.78;
-        s.material.needsUpdate = true;
-      });
-    }
-    if (this.shockwave) {
-      this.shockwave.material.color.copy(this.hexColors[1]);
-      this.shockwave.material.blending = blend;
-      this.shockwave.material.needsUpdate = true;
-    }
     if (this.flash) {
-      this.flash.color.copy(this.hexColors[2]);
-    }
-    if (this.crackGroup) {
-      this.crackGroup.children.forEach(c => {
-        c.material.color.copy(this.hexColors[0]);
-        c.material.blending = blend;
-        c.material.needsUpdate = true;
-      });
+      this.flash.color.copy(this.hexColors[3]);
     }
     if (this.keyLight) {
       this.keyLight.color.copy(this.hexColors[1]);
@@ -202,6 +192,177 @@ export class RasenganScene {
     if (this.stars && this.stars.material) {
       this.stars.material.color.copy(this.hexColors[2]);
     }
+  }
+
+  setPostLoginMode(isPostLogin) {
+    this.isPostLogin = Boolean(isPostLogin);
+    if (this.isPostLogin) {
+      if (this.supernovaGroup) this.supernovaGroup.visible = false;
+      if (this.flash) this.flash.intensity = 0;
+      this.phase = 'COSMIC_ORBIT';
+      if (this.rasenshurikenGroup) {
+        this.rasenshurikenGroup.scale.setScalar(4.2);
+      }
+    } else {
+      if (this.supernovaGroup) this.supernovaGroup.visible = true;
+      this.phase = 'CHARGING';
+      this.phaseDuration = 8.0;
+      if (this.rasenshurikenGroup) {
+        this.rasenshurikenGroup.scale.setScalar(3.2);
+      }
+    }
+  }
+
+  triggerThemeSupernova(newColors, mode = null) {
+    this.updatePalette(newColors, mode);
+    this.isThemeTransitioning = true;
+    this.themeTransitionStartedAt = performance.now();
+    this.themeTransitionDuration = 1.0; // exactly 1 second Big Bang burst
+    if (this.supernovaGroup) {
+      this.supernovaGroup.visible = true;
+    }
+  }
+
+  createCosmicOrbTexture() {
+    const size = 64;
+    const data = new Uint8Array(size * size * 4);
+    const half = size / 2;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) * 4;
+        const nx = (x - half + 0.5) / half;
+        const ny = (y - half + 0.5) / half;
+        const r = Math.sqrt(nx * nx + ny * ny);
+
+        if (r >= 1.0) {
+          data[idx + 3] = 0;
+          continue;
+        }
+
+        // Pure circular/spherical smooth orb with radiant core and Gaussian falloff
+        // Strictly circular symmetry: NO spikes, NO star rays, NO square artifacts
+        const core = Math.exp(-r * r * 8.0);
+        const halo = Math.pow(Math.max(0, 1.0 - r), 2.2);
+        const intensity = Math.min(1.0, core * 0.85 + halo * 0.65);
+
+        data[idx] = 255;
+        data[idx + 1] = 255;
+        data[idx + 2] = 255;
+        data[idx + 3] = Math.floor(intensity * 255);
+      }
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  createSupernovaLightTexture() {
+    const size = 128;
+    const data = new Uint8Array(size * size * 4);
+    const half = size / 2;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) * 4;
+        const nx = (x - half + 0.5) / half;
+        const ny = (y - half + 0.5) / half;
+        const r = Math.sqrt(nx * nx + ny * ny);
+
+        if (r >= 1.0) {
+          data[idx + 3] = 0;
+          continue;
+        }
+
+        // Intense radiant solar burst with blinding white core
+        const core = Math.exp(-r * 2.8);
+        const halo = Math.pow(Math.max(0, 1.0 - r), 1.35);
+        const glow = Math.min(1.0, core * 1.3 + halo * 0.7);
+
+        data[idx] = 255;
+        data[idx + 1] = 255;
+        data[idx + 2] = 255;
+        data[idx + 3] = Math.floor(glow * 255);
+      }
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  makeCosmicUniverseStarfield() {
+    this.starfieldGroup = new THREE.Group();
+    this.scene.add(this.starfieldGroup);
+
+    this.orbTexture = this.createCosmicOrbTexture();
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
+    const createLayer = (count, size) => {
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i++) {
+        const k = i * 3;
+        // Full-screen viewing frustum coverage from deep cosmos to near foreground
+        let x = (Math.random() - 0.5) * 88;
+        let y = (Math.random() - 0.5) * 60;
+        let z = -45 + Math.random() * 52; // from z = -45 up to z = 7.0 in front of camera
+
+        // Gently displace stars from Rasenshuriken core center
+        if (x * x + y * y < 2.5 && Math.abs(z) < 2.5) {
+          x += (x >= 0 ? 2.0 : -2.0);
+          y += (y >= 0 ? 2.0 : -2.0);
+        }
+
+        positions[k] = x;
+        positions[k + 1] = y;
+        positions[k + 2] = z;
+
+        const c = (i % 5 === 0)
+          ? new THREE.Color(this.isLight ? '#0f172a' : '#ffffff')
+          : this.hexColors[i % this.hexColors.length].clone();
+
+        if (this.isLight && i % 5 !== 0) {
+          c.multiplyScalar(0.42);
+        }
+
+        colors[k] = c.r;
+        colors[k + 1] = c.g;
+        colors[k + 2] = c.b;
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const points = new THREE.Points(
+        geo,
+        new THREE.PointsMaterial({
+          size,
+          map: this.orbTexture,
+          vertexColors: true,
+          transparent: true,
+          opacity: this.isLight ? 0.82 : 0.92,
+          blending: blend,
+          depthWrite: false,
+          sizeAttenuation: true
+        })
+      );
+      this.starfieldGroup.add(points);
+      return points;
+    };
+
+    // 1. Distant tiny cosmic orbs (3,000 points)
+    this.cosmicStars1 = createLayer(3000, this.isLight ? 0.08 : 0.07);
+    // 2. Midground field orbs (2,000 points)
+    this.cosmicStars2 = createLayer(2000, this.isLight ? 0.14 : 0.12);
+    // 3. Radiant glowing orbs (1,000 points)
+    this.cosmicStars3 = createLayer(1000, this.isLight ? 0.24 : 0.20);
+
+    this.cosmicStarCount = 6000;
+    this.cosmicStars = this.cosmicStars2; // backwards-compat alias
   }
 
   makeEnvironment() {
@@ -366,172 +527,528 @@ export class RasenganScene {
     if (initial) this.particleSeeds[i] = Math.random();
   }
 
-  makeGlass() {
-    this.glassGroup = new THREE.Group();
-    this.scene.add(this.glassGroup);
-    this.shards = [];
-    const material = new THREE.MeshPhysicalMaterial({
-      color: this.hexColors[1],
-      metalness: this.isLight ? 0.1 : 0.15,
-      roughness: this.isLight ? 0.2 : 0.12,
-      transmission: this.isLight ? 0.15 : 0.35,
-      transparent: true,
-      opacity: this.isLight ? 0.88 : 0.78,
-      thickness: 0.25,
-      ior: 1.35,
-      emissive: this.hexColors[0],
-      emissiveIntensity: this.isLight ? 0.45 : 0.65,
-      side: THREE.DoubleSide
-    });
-    for (let i = 0; i < 54; i++) {
-      const angle = (i / 54) * Math.PI * 2 + (Math.random() - 0.5) * 0.13;
-      const radius = 1.2 + Math.random() * 1.15;
-      const w = 0.13 + Math.random() * 0.3;
-      const h = 0.2 + Math.random() * 0.52;
-      const shape = new THREE.Shape();
-      shape.moveTo(0, h * 0.65);
-      shape.lineTo(w * 0.5, -h * 0.35);
-      shape.lineTo(-w * (0.3 + Math.random() * 0.4), -h * 0.5);
-      shape.closePath();
-      const geometry = new THREE.ShapeGeometry(shape);
-      const shard = new THREE.Mesh(geometry, material.clone());
-      shard.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, (Math.random() - 0.5) * 1.1);
-      shard.rotation.set(Math.random() * 3, Math.random() * 3, angle);
-      shard.userData = {
-        home: shard.position.clone(),
-        homeRotation: shard.rotation.clone(),
-        velocity: new THREE.Vector3(Math.cos(angle) * (1 + Math.random() * 2), Math.sin(angle) * (1 + Math.random() * 2), (Math.random() - 0.5) * 2),
-        spin: new THREE.Vector3(Math.random() * 3, Math.random() * 3, Math.random() * 3),
-        delay: Math.random() * 0.42,
-        seed: Math.random()
-      };
-      shard.visible = false;
-      this.glassGroup.add(shard);
-      this.shards.push(shard);
-    }
-  }
+  makeSupernovaBigBang() {
+    this.supernovaGroup = new THREE.Group();
+    this.scene.add(this.supernovaGroup);
 
-  makeShockwave() {
     const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
-    this.shockwave = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.035, 8, 128),
+
+    // 1. Central Relativistic Plasma Starburst Fireball
+    this.supernovaCore = new THREE.Mesh(
+      new THREE.SphereGeometry(1.6, 32, 24),
       new THREE.MeshBasicMaterial({
-        color: this.hexColors[1],
+        color: this.hexColors[3],
         transparent: true,
         opacity: 0,
         blending: blend,
         depthWrite: false
       })
     );
-    this.shockwave.rotation.x = 0.3;
-    this.shockwave.scale.setScalar(0.01);
-    this.scene.add(this.shockwave);
-    this.flash = new THREE.PointLight(this.hexColors[2], 0, 16);
+    this.supernovaGroup.add(this.supernovaCore);
+
+    // 2. Multi-Ring Relativistic Shockwaves (4 concentric rings with staggered angles)
+    this.supernovaRings = [];
+    for (let r = 0; r < 4; r++) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1.2 + r * 0.45, 0.042, 8, 96),
+        new THREE.MeshBasicMaterial({
+          color: this.hexColors[(r + 1) % this.hexColors.length],
+          transparent: true,
+          opacity: 0,
+          blending: blend,
+          depthWrite: false
+        })
+      );
+      ring.rotation.set(
+        Math.PI * 0.2 + r * 0.35,
+        Math.PI * 0.15 + r * 0.25,
+        r * 0.8
+      );
+      ring.userData = {
+        baseRotX: ring.rotation.x,
+        baseRotY: ring.rotation.y,
+        baseRotZ: ring.rotation.z,
+        delay: r * 0.08,
+        speed: 2.2 + r * 0.5
+      };
+      this.supernovaGroup.add(ring);
+      this.supernovaRings.push(ring);
+    }
+
+    // 3. Coronal Starburst Rays (32 volumetric 3D energy rays blasting in all directions)
+    this.supernovaRaysGroup = new THREE.Group();
+    this.supernovaGroup.add(this.supernovaRaysGroup);
+    this.supernovaRays = [];
+
+    for (let i = 0; i < 32; i++) {
+      // Golden spiral distribution on sphere
+      const phi = Math.acos(1 - 2 * (i + 0.5) / 32);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+
+      const dir = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.sin(phi) * Math.sin(theta),
+        Math.cos(phi)
+      );
+
+      const rayLength = 2.5 + (i % 5) * 0.6;
+      const pts = [
+        new THREE.Vector3(0, 0, 0),
+        dir.clone().multiplyScalar(rayLength)
+      ];
+      const rayGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const rayMat = new THREE.LineBasicMaterial({
+        color: this.hexColors[i % 2 === 0 ? 3 : 2],
+        transparent: true,
+        opacity: 0,
+        blending: blend,
+        linewidth: 2
+      });
+
+      const ray = new THREE.Line(rayGeo, rayMat);
+      ray.userData = {
+        dir: dir.clone(),
+        baseLength: rayLength,
+        speed: 1.5 + (i % 3) * 0.5
+      };
+      this.supernovaRaysGroup.add(ray);
+      this.supernovaRays.push(ray);
+    }
+
+    // 4. Stellar Flash Light
+    this.flash = new THREE.PointLight(this.hexColors[3], 0, 20);
     this.flash.position.set(0, 0, 2);
     this.scene.add(this.flash);
-  }
 
-  makeCrackOverlay() {
-    this.crackGroup = new THREE.Group();
-    this.scene.add(this.crackGroup);
-    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
-    const mat = new THREE.LineBasicMaterial({
-      color: this.hexColors[0],
+    // 5. Radiant Supernova Core Light Flare (localized to central 3D core, never full-screen)
+    const lightGeo = new THREE.PlaneGeometry(6, 6);
+    const lightMat = new THREE.MeshBasicMaterial({
+      map: this.createSupernovaLightTexture(),
+      color: this.hexColors[3],
       transparent: true,
       opacity: 0,
-      blending: blend
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
     });
-    for (let ray = 0; ray < 18; ray++) {
-      let angle = (ray / 18) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
-      let x = 0;
-      let y = 0;
-      const points = [new THREE.Vector3(x, y, 0)];
-      const length = 1.4 + Math.random() * 1.05;
-      const steps = 4 + Math.floor(Math.random() * 4);
-      for (let s = 0; s < steps; s++) {
-        angle += (Math.random() - 0.5) * 0.42;
-        const d = (length / steps) * (0.75 + Math.random() * 0.5);
-        x += Math.cos(angle) * d;
-        y += Math.sin(angle) * d;
-        points.push(new THREE.Vector3(x, y, 0));
+    this.supernovaLightGlow = new THREE.Mesh(lightGeo, lightMat);
+    this.supernovaLightGlow.position.set(0, 0, 0.2);
+    this.supernovaGroup.add(this.supernovaLightGlow);
+  }
+
+  applyPaletteToSupernova() {
+    if (!this.supernovaGroup) return;
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
+    if (this.supernovaLightGlow && this.supernovaLightGlow.material) {
+      this.supernovaLightGlow.material.color.copy(this.hexColors[3]);
+      this.supernovaLightGlow.material.needsUpdate = true;
+    }
+
+    if (this.supernovaCore && this.supernovaCore.material) {
+      this.supernovaCore.material.color.copy(this.hexColors[3]);
+      this.supernovaCore.material.blending = blend;
+      this.supernovaCore.material.needsUpdate = true;
+    }
+
+    if (this.supernovaRings) {
+      this.supernovaRings.forEach((ring, idx) => {
+        ring.material.color.copy(this.hexColors[(idx + 1) % this.hexColors.length]);
+        ring.material.blending = blend;
+        ring.material.needsUpdate = true;
+      });
+    }
+
+    if (this.supernovaRays) {
+      this.supernovaRays.forEach((ray, idx) => {
+        ray.material.color.copy(this.hexColors[idx % 2 === 0 ? 3 : 2]);
+        ray.material.blending = blend;
+        ray.material.needsUpdate = true;
+      });
+    }
+
+    if (this.flash) {
+      this.flash.color.copy(this.hexColors[3]);
+    }
+
+    const starLayers = [this.cosmicStars1, this.cosmicStars2, this.cosmicStars3].filter(Boolean);
+    starLayers.forEach((stars) => {
+      if (!stars.geometry?.attributes?.color) return;
+      const colors = stars.geometry.attributes.color.array;
+      const count = colors.length / 3;
+      for (let i = 0; i < count; i++) {
+        const k = i * 3;
+        const c = (i % 5 === 0)
+          ? new THREE.Color(this.isLight ? '#0f172a' : '#ffffff')
+          : this.hexColors[i % this.hexColors.length].clone();
+
+        if (this.isLight && i % 5 !== 0) {
+          c.multiplyScalar(0.42);
+        }
+        colors[k] = c.r;
+        colors[k + 1] = c.g;
+        colors[k + 2] = c.b;
       }
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), mat.clone());
-      line.position.z = 0.95;
-      line.visible = false;
-      this.crackGroup.add(line);
-      for (let b = 0; b < 2; b++) {
-        const index = 1 + Math.floor(Math.random() * (points.length - 1));
-        const p = points[index];
-        const branchAngle = angle + (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.8);
-        const branchEnd = p.clone().add(new THREE.Vector3(Math.cos(branchAngle) * (0.2 + Math.random() * 0.5), Math.sin(branchAngle) * (0.2 + Math.random() * 0.5), 0));
-        const branch = new THREE.Line(new THREE.BufferGeometry().setFromPoints([p, branchEnd]), mat.clone());
-        branch.position.z = 0.96;
-        branch.visible = false;
-        this.crackGroup.add(branch);
+      stars.geometry.attributes.color.needsUpdate = true;
+      stars.material.blending = blend;
+      stars.material.needsUpdate = true;
+    });
+  }
+
+  makeRasenshuriken() {
+    this.rasenshurikenGroup = new THREE.Group();
+    this.rasenshurikenGroup.position.set(0, 0, 0);
+    this.rasenshurikenGroup.rotation.x = 0.52;
+    // Login page: 3.2 (clean & smaller!); post-login: 4.2
+    this.rasenshurikenGroup.scale.setScalar(this.isPostLogin ? 4.2 : 3.2);
+    this.scene.add(this.rasenshurikenGroup);
+
+    this.modelMaterials = [];
+    this.windNode = null;
+    this.effectNode = null;
+    this.rasenganNode = null;
+    this.rasenshurikenModel = null;
+
+    try {
+      const loader = new GLTFLoader();
+      loader.load(
+        '/rasenshuriken/scene.gltf',
+        (gltf) => {
+          if (this.disposed) {
+            gltf.scene?.traverse((obj) => {
+              obj.geometry?.dispose?.();
+              if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+              else obj.material?.dispose?.();
+            });
+            return;
+          }
+
+          this.rasenshurikenModel = gltf.scene;
+
+          // Compute exact bounding box and center at local origin
+          const box = new THREE.Box3().setFromObject(gltf.scene);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          gltf.scene.position.sub(center);
+
+          // Locate structural sub-nodes for individual rotational animations
+          this.windNode = gltf.scene.getObjectByName('wind_0');
+          this.effectNode = gltf.scene.getObjectByName('effect_3');
+          this.rasenganNode = gltf.scene.getObjectByName('rasengan_11');
+
+          // Collect materials and configure properties
+          this.modelMaterials = [];
+          gltf.scene.traverse((node) => {
+            if (node.isMesh && node.material) {
+              node.material = node.material.clone();
+              node.material.transparent = true;
+              node.material.depthWrite = false;
+              node.material.side = THREE.DoubleSide;
+              this.modelMaterials.push({
+                name: node.name,
+                material: node.material,
+                parentName: node.parent?.name || ''
+              });
+            }
+          });
+
+          this.applyPaletteToModel();
+          this.rasenshurikenGroup.add(gltf.scene);
+
+          // Once the 3D glTF Rasenshuriken is loaded, smoothly hide procedural core
+          if (this.coreGroup) {
+            this.coreGroup.visible = false;
+          }
+          if (this.ringGroup) {
+            this.ringGroup.visible = false;
+          }
+        },
+        undefined,
+        (err) => {
+          console.warn('Rasenshuriken glTF loading fallback:', err?.message || err);
+        }
+      );
+    } catch (e) {
+      console.warn('GLTFLoader error:', e?.message || e);
+    }
+  }
+
+  applyPaletteToModel() {
+    if (!this.modelMaterials || this.modelMaterials.length === 0) return;
+    const blend = this.isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
+    for (const item of this.modelMaterials) {
+      const mat = item.material;
+      const name = item.name;
+      const parent = item.parentName;
+
+      mat.blending = blend;
+      mat.depthWrite = false;
+      mat.transparent = true;
+
+      // 4-Color Gradient Mapping across Rasenshuriken structural layers:
+      // Stop 0 (hexColors[0]): Deep core chakra base
+      // Stop 1 (hexColors[1]): Inner swirling vortex chakra
+      // Stop 2 (hexColors[2]): Outer wind shuriken blades & energy shield
+      // Stop 3 (hexColors[3]): Razor-sharp tip accents & radial shockwave aura
+      if (name === 'Object_6' || parent.includes('wind') || parent.includes('Tube_2')) {
+        // Outer 4 Wind Shuriken Blades
+        mat.color.copy(this.hexColors[2]);
+        mat.opacity = this.isLight ? 0.94 : 0.96;
+      } else if (name === 'Object_27' || parent.includes('Sphere UV_14')) {
+        // Inner dense Rasengan sphere core
+        mat.color.copy(this.hexColors[0]);
+        mat.opacity = this.isLight ? 0.96 : 0.98;
+      } else if (name === 'Object_25' || parent.includes('Sphere UV 2_13')) {
+        // Middle Rasengan sphere
+        mat.color.copy(this.hexColors[1]);
+        mat.opacity = this.isLight ? 0.86 : 0.76;
+      } else if (name === 'Object_23' || parent.includes('Sphere UV 1_12')) {
+        // Outer Rasengan boundary sphere
+        mat.color.copy(this.hexColors[2]);
+        mat.opacity = this.isLight ? 0.68 : 0.48;
+      } else if (name === 'Object_17' || parent.includes('Radial_8')) {
+        // Radial shockwave aura disc
+        mat.color.copy(this.hexColors[3]);
+        mat.opacity = this.isLight ? 0.88 : 0.80;
+      } else if (name === 'Object_13' || parent.includes('Plane 1_6')) {
+        // Outer vortex plane
+        mat.color.copy(this.hexColors[3]);
+        mat.opacity = this.isLight ? 0.86 : 0.78;
+      } else if (name === 'Object_15' || parent.includes('Plane 2_7')) {
+        // Diagonal energy plane
+        mat.color.copy(this.hexColors[2]);
+        mat.opacity = this.isLight ? 0.88 : 0.82;
+      } else if (name === 'Object_11' || parent.includes('Plane_5')) {
+        // Swirling vortex plane
+        mat.color.copy(this.hexColors[0]);
+        mat.opacity = this.isLight ? 0.90 : 0.85;
+      } else if (name === 'Object_9' || parent.includes('Plane_4')) {
+        // Spiral energy trails
+        mat.color.copy(this.hexColors[1]);
+        mat.opacity = this.isLight ? 0.92 : 0.88;
+      } else if (name === 'Object_20' || parent.includes('Tube 1_10')) {
+        // Vortex tube
+        mat.color.copy(this.hexColors[1]);
+        mat.opacity = this.isLight ? 0.88 : 0.85;
+      } else {
+        mat.color.copy(this.hexColors[1]);
+        mat.opacity = this.isLight ? 0.88 : 0.85;
       }
+      mat.needsUpdate = true;
     }
   }
 
   playImpact() {
     this.elapsed = 0;
     this.phase = 'CHARGING';
-    this.shards.forEach(s => {
-      s.visible = false;
-      s.position.copy(s.userData.home);
-      s.rotation.copy(s.userData.homeRotation);
-    });
-    this.crackGroup.children.forEach(c => {
-      c.visible = false;
-      c.material.opacity = 0;
-    });
-    this.shockwave.scale.setScalar(0.01);
-    this.shockwave.material.opacity = 0;
-    this.flash.intensity = 0;
-    this.coreGroup.visible = true;
+    if (this.rasenshurikenGroup) {
+      this.rasenshurikenGroup.visible = true;
+    }
+    if (this.supernovaCore) {
+      this.supernovaCore.scale.setScalar(0.01);
+      this.supernovaCore.material.opacity = 0;
+    }
+    if (this.supernovaRings) {
+      this.supernovaRings.forEach(r => {
+        r.scale.setScalar(0.01);
+        r.material.opacity = 0;
+      });
+    }
+    if (this.supernovaRays) {
+      this.supernovaRays.forEach(r => {
+        r.scale.setScalar(0.01);
+        r.material.opacity = 0;
+      });
+    }
+    if (this.flash) {
+      this.flash.intensity = 0;
+    }
+    if (this.coreGroup) this.coreGroup.visible = !this.rasenshurikenModel;
   }
 
   update(dt) {
     this.elapsed += dt;
     const t = this.elapsed;
-    const dur = this.phaseDuration;
-    const chargeEnd = dur * (2.6 / 8.8);
-    const crackEnd = dur * (3.35 / 8.8);
-    const blastEnd = dur * (5.6 / 8.8);
-    const recoveryEnd = dur;
+    const rotMultiplier = this.reducedMotion ? 0.08 : 1;
 
-    let coreScale = 0.05;
+    // Continuously rotate and sparkle the 6,000 full-screen 3D stars in the universe
+    if (this.starfieldGroup) {
+      this.starfieldGroup.rotation.y += dt * 0.008 * rotMultiplier;
+      this.starfieldGroup.rotation.x += dt * 0.004 * rotMultiplier;
+      this.starfieldGroup.rotation.z += dt * 0.003 * rotMultiplier;
+
+      // Real-time dynamic sparkling & twinkling across full screen
+      if (this.cosmicStars1?.material) {
+        this.cosmicStars1.material.opacity = (this.isLight ? 0.72 : 0.85) + Math.sin(t * 1.8) * 0.12;
+      }
+      if (this.cosmicStars2?.material) {
+        this.cosmicStars2.material.opacity = (this.isLight ? 0.68 : 0.80) + Math.sin(t * 2.7 + 1.2) * 0.16;
+      }
+      if (this.cosmicStars3?.material) {
+        this.cosmicStars3.material.opacity = (this.isLight ? 0.62 : 0.78) + Math.sin(t * 3.6 + 2.5) * 0.20;
+      }
+    }
+
+    // 1. Theme Change 1-Second Big Bang Mode (runs on the SAME Rasenshuriken!)
+    if (this.isThemeTransitioning) {
+      const p = Math.min(1.0, (performance.now() - this.themeTransitionStartedAt) / (this.themeTransitionDuration * 1000));
+      const lightPeak = Math.max(0, 1.0 - p * 1.3);
+
+      if (this.supernovaGroup) this.supernovaGroup.visible = true;
+      if (this.supernovaLightGlow) {
+        this.supernovaLightGlow.scale.setScalar(0.4 + p * 2.2);
+        this.supernovaLightGlow.material.opacity = Math.max(0, 1.0 - p * 1.25) * 0.9;
+      }
+      if (this.supernovaCore) {
+        this.supernovaCore.scale.setScalar(0.2 + p * 5.5);
+        this.supernovaCore.material.opacity = Math.max(0, 1.0 - p * 1.3) * (this.isLight ? 0.88 : 0.95);
+      }
+      if (this.supernovaRings) {
+        this.supernovaRings.forEach(ring => {
+          ring.scale.setScalar(Math.max(0.1, p * (4.2 + ring.userData.speed)));
+          ring.material.opacity = Math.max(0, 1.0 - p * 1.2) * (this.isLight ? 0.85 : 0.95);
+          ring.rotation.x += dt * 2.0;
+          ring.rotation.y += dt * 2.5;
+        });
+      }
+      if (this.supernovaRaysGroup && this.supernovaRays) {
+        this.supernovaRaysGroup.rotation.y += dt * 4.0;
+        this.supernovaRays.forEach(ray => {
+          ray.scale.setScalar(0.2 + p * 3.8);
+          ray.material.opacity = Math.max(0, 1.0 - p * 1.2);
+        });
+      }
+      if (this.flash) {
+        this.flash.intensity = lightPeak * 45;
+      }
+      // Rapid spinning during 1s supernova theme transition
+      if (this.windNode) {
+        this.windNode.rotation.y += dt * 14.0 * rotMultiplier;
+      }
+      if (this.rasenganNode) {
+        this.rasenganNode.rotation.y -= dt * 10.0 * rotMultiplier;
+      }
+      if (this.rasenshurikenGroup) {
+        this.rasenshurikenGroup.rotation.y += dt * 8.0 * rotMultiplier;
+        this.rasenshurikenGroup.rotation.z += dt * 3.5 * rotMultiplier;
+        this.rasenshurikenGroup.scale.setScalar(this.isPostLogin ? 4.2 : 3.2);
+      }
+
+      if (p >= 1.0) {
+        this.isThemeTransitioning = false;
+        if (this.supernovaGroup) this.supernovaGroup.visible = !this.isPostLogin;
+        if (this.supernovaLightGlow) this.supernovaLightGlow.material.opacity = 0;
+        if (this.flash) this.flash.intensity = 0;
+        if (this.rasenshurikenGroup) {
+          this.rasenshurikenGroup.scale.setScalar(this.isPostLogin ? 4.2 : 3.2);
+        }
+      }
+    }
+
+    // 2. Post-Login Mode: No Big Bang, just slowly spin like planets with thousand of stars
+    if (this.isPostLogin) {
+      this.phase = 'COSMIC_ORBIT';
+      if (!this.isThemeTransitioning) {
+        if (this.supernovaGroup) this.supernovaGroup.visible = false;
+        if (this.flash) this.flash.intensity = 0;
+      }
+
+      if (this.rasenshurikenGroup) {
+        this.rasenshurikenGroup.scale.setScalar(4.2);
+        this.rasenshurikenGroup.position.y = Math.sin(t * 0.4) * 0.08;
+        this.rasenshurikenGroup.position.x = Math.cos(t * 0.3) * 0.05;
+        this.rasenshurikenGroup.rotation.x = 0.48 + Math.sin(t * 0.35) * 0.02;
+        this.rasenshurikenGroup.rotation.z = Math.sin(t * 0.25) * 0.015;
+
+        // Slow planetary rotation like celestial bodies in deep space
+        if (this.windNode && !this.isThemeTransitioning) {
+          this.windNode.rotation.y += dt * 1.0 * rotMultiplier;
+        }
+        if (this.rasenganNode) {
+          this.rasenganNode.rotation.y -= dt * 0.8 * rotMultiplier;
+          this.rasenganNode.rotation.x += dt * 0.4 * rotMultiplier;
+          this.rasenganNode.rotation.z += dt * 0.2 * rotMultiplier;
+        }
+        if (this.effectNode) {
+          this.effectNode.rotation.y += dt * 0.6 * rotMultiplier;
+          this.effectNode.scale.setScalar(1.0 + Math.sin(t * 1.5) * 0.02);
+        }
+      }
+
+      // Gentle 3D camera drift in deep space
+      this.camera.position.x = Math.sin(t * 0.2) * 0.12;
+      this.camera.position.y = 0.35 + Math.sin(t * 0.28) * 0.08;
+      this.camera.position.z = 9.6 + Math.sin(t * 0.16) * 0.12;
+      this.camera.lookAt(0, 0, 0);
+
+      // Core group scale
+      this.coreGroup.scale.setScalar(0.4);
+      this.coreGroup.rotation.y += dt * 0.6 * rotMultiplier;
+
+      // Particles slowly drift like cosmic stardust
+      const positions = this.particlePositions;
+      for (let i = 0; i < this.particleCount; i++) {
+        const k = i * 3;
+        const velScale = 0.08 * dt * rotMultiplier;
+        positions[k] += this.particleVelocities[k] * velScale;
+        positions[k + 1] += this.particleVelocities[k + 1] * velScale;
+        positions[k + 2] += this.particleVelocities[k + 2] * velScale;
+        if (Math.hypot(positions[k], positions[k + 1]) > 3.0 || Math.abs(positions[k + 2]) > 3.5) {
+          this.resetParticle(i);
+        }
+      }
+      this.particles.geometry.attributes.position.needsUpdate = true;
+      this.particles.material.opacity = this.isLight ? 0.6 : 0.75;
+      this.particles.material.size = this.isLight ? 0.028 : 0.022;
+
+      if (this.bloom) {
+        this.bloom.strength = 1.15;
+      }
+
+      return this.phase;
+    }
+
+    // 3. Login Page Mode: Exactly 8.0s duration, scale 4.8 (MORE BIGGER!)
+    const dur = 8.0;
+    const chargeEnd = dur * (3.6 / 8.0);      // 3.6s
+    const singularityEnd = dur * (4.5 / 8.0); // 4.5s
+    const blastEnd = dur * (6.6 / 8.0);       // 6.6s
+    const recoveryEnd = dur;                   // 8.0s
+
+    let coreScale = 0.1;
     let particleSpread = 1;
-    let crackOpacity = 0;
+    let supernovaOpacity = 0;
     let flash = 0;
 
     if (t < chargeEnd) {
       this.phase = 'CHARGING';
       const p = t / chargeEnd;
-      coreScale = 0.05 + 0.88 * p * p;
-      particleSpread = 0.65 + p * 0.35;
+      coreScale = 0.1 + 0.9 * Math.pow(p, 1.4);
+      particleSpread = 0.5 + p * 0.5;
       this.coreGlow.material.opacity = this.isLight ? (0.25 + p * 0.3) : (0.15 + p * 0.22);
-    } else if (t < crackEnd) {
-      this.phase = 'GLASS FRACTURE';
-      coreScale = 0.93 + Math.sin(t * 35) * 0.035;
-      crackOpacity = Math.min(1, (t - chargeEnd) / (dur * 0.02)) * 0.95;
-      flash = 0.3;
+    } else if (t < singularityEnd) {
+      this.phase = 'SINGULARITY';
+      const p = (t - chargeEnd) / (singularityEnd - chargeEnd);
+      coreScale = Math.max(0.65, 1.0 - p * 0.35 + Math.sin(t * 24) * 0.03);
+      particleSpread = Math.max(0.3, 1.0 - p * 0.6);
+      supernovaOpacity = p * 0.7;
+      flash = 0.2 + p * 0.5;
     } else if (t < blastEnd) {
-      this.phase = 'EXPLOSION';
-      const p = (t - crackEnd) / (blastEnd - crackEnd);
-      coreScale = Math.max(0.04, 1.02 * (1 - p) + 0.04);
-      particleSpread = 1 + p * 5;
-      crackOpacity = Math.max(0, 1 - p * 1.6);
-      flash = Math.max(0, 1 - p * 3) * 3;
-      const shockP = Math.min(1, p * 1.5);
-      this.shockwave.scale.setScalar(0.01 + shockP * 4.8);
-      this.shockwave.material.opacity = Math.max(0, 1 - shockP) * (this.isLight ? 0.75 : 0.85);
+      this.phase = 'SUPERNOVA';
+      const p = (t - singularityEnd) / (blastEnd - singularityEnd);
+      coreScale = Math.max(0.04, 0.7 * (1 - p * 0.7) + 0.04);
+      particleSpread = 1.0 + p * 4.5;
+      supernovaOpacity = Math.max(0, 1.0 - p * 1.3);
+      flash = Math.max(0, 1.0 - p * 1.8) * 3.5;
     } else {
       this.phase = 'RECOVERY';
       const p = Math.min(1, (t - blastEnd) / (recoveryEnd - blastEnd));
-      coreScale = 0.04 + p * 0.42;
-      particleSpread = 5.5 * (1 - p) + 1;
-      crackOpacity = 0;
-      if (t > recoveryEnd) {
+      coreScale = 0.4 + p * 0.6;
+      particleSpread = 5.5 * (1 - p) + 1.0;
+      supernovaOpacity = 0;
+      flash = 0;
+      if (t >= recoveryEnd) {
         if (this.options.autoLoop) {
           this.elapsed = 0;
         }
@@ -543,73 +1060,150 @@ export class RasenganScene {
       this.options.onPhaseChange(this.phase);
     }
 
-    const rotMultiplier = this.reducedMotion ? 0.08 : 1;
+    // 3D glTF Rasenshuriken dynamic rotational & hovering animation on login (scale 3.2, clean & smaller!)
+    if (this.rasenshurikenGroup) {
+      const shurikenScale = this.phase === 'SUPERNOVA'
+        ? Math.max(1.8, 3.2 * (1.0 + Math.sin((t - singularityEnd) * 1.2) * 0.15))
+        : this.phase === 'SINGULARITY'
+          ? Math.max(2.2, 3.2 - (t - chargeEnd) * 0.5)
+          : 3.2;
+
+      this.rasenshurikenGroup.scale.setScalar(shurikenScale);
+      this.rasenshurikenGroup.position.y = Math.sin(t * 1.2) * 0.05;
+      this.rasenshurikenGroup.rotation.x = 0.52 + Math.sin(t * 0.8) * 0.018;
+      this.rasenshurikenGroup.rotation.z = Math.sin(t * 0.6) * 0.012;
+
+      // Outer 4 Wind Blades rotate slower and smoother (majestic aerodynamic rotation)
+      if (this.windNode && !this.isThemeTransitioning) {
+        const windSpeed = (this.phase === 'SUPERNOVA' ? 4.8 : this.phase === 'SINGULARITY' ? 3.6 : 2.6);
+        this.windNode.rotation.y += dt * windSpeed * rotMultiplier;
+      }
+
+      // Central Rasengan spheres rotate smoothly across multiple axes
+      if (this.rasenganNode) {
+        this.rasenganNode.rotation.y -= dt * 2.2 * rotMultiplier;
+        this.rasenganNode.rotation.x += dt * 1.0 * rotMultiplier;
+        this.rasenganNode.rotation.z += dt * 0.6 * rotMultiplier;
+      }
+
+      // Surrounding vortex aura and effect planes
+      if (this.effectNode) {
+        this.effectNode.rotation.y += dt * 1.8 * rotMultiplier;
+        const pulse = 1.0 + Math.sin(t * 2.5) * 0.025;
+        this.effectNode.scale.set(pulse, 1.0, pulse);
+      }
+    }
+
+    // Supernova Big Bang Objects Animation on login
+    if (!this.isThemeTransitioning) {
+      if (this.supernovaLightGlow) {
+        if (this.phase === 'SUPERNOVA') {
+          const p = (t - singularityEnd) / (blastEnd - singularityEnd);
+          this.supernovaLightGlow.scale.setScalar(0.4 + p * 2.0);
+          this.supernovaLightGlow.material.opacity = Math.max(0, 1.0 - p * 1.2) * 0.9;
+        } else {
+          this.supernovaLightGlow.scale.setScalar(0.01);
+          this.supernovaLightGlow.material.opacity = 0;
+        }
+      }
+
+      if (this.supernovaCore) {
+        if (this.phase === 'SUPERNOVA') {
+          const p = (t - singularityEnd) / (blastEnd - singularityEnd);
+          this.supernovaCore.scale.setScalar(0.2 + p * 5.2);
+          this.supernovaCore.material.opacity = supernovaOpacity * (this.isLight ? 0.88 : 0.95);
+        } else if (this.phase === 'SINGULARITY') {
+          const p = (t - chargeEnd) / (singularityEnd - chargeEnd);
+          this.supernovaCore.scale.setScalar(0.1 + p * 0.5);
+          this.supernovaCore.material.opacity = supernovaOpacity * 0.7;
+        } else {
+          this.supernovaCore.scale.setScalar(0.01);
+          this.supernovaCore.material.opacity = 0;
+        }
+      }
+
+      if (this.supernovaRings) {
+        this.supernovaRings.forEach(ring => {
+          if (this.phase === 'SUPERNOVA') {
+            const p = (t - singularityEnd) / (blastEnd - singularityEnd);
+            const ringScale = Math.max(0.05, (p - ring.userData.delay) * (4.2 + ring.userData.speed));
+            ring.scale.setScalar(ringScale);
+            ring.material.opacity = Math.max(0, 1.0 - p * 1.2) * (this.isLight ? 0.8 : 0.9);
+            ring.rotation.x = ring.userData.baseRotX + t * 0.8 * rotMultiplier;
+            ring.rotation.y = ring.userData.baseRotY + t * 1.1 * rotMultiplier;
+          } else {
+            ring.scale.setScalar(0.01);
+            ring.material.opacity = 0;
+          }
+        });
+      }
+
+      if (this.supernovaRaysGroup && this.supernovaRays) {
+        if (this.phase === 'SUPERNOVA') {
+          const p = (t - singularityEnd) / (blastEnd - singularityEnd);
+          this.supernovaRaysGroup.rotation.y += dt * 0.9 * rotMultiplier;
+          this.supernovaRaysGroup.rotation.z += dt * 0.6 * rotMultiplier;
+          this.supernovaRays.forEach(ray => {
+            ray.scale.setScalar(0.1 + p * (3.0 + ray.userData.speed));
+            ray.material.opacity = Math.max(0, 1.0 - p * 1.3) * (this.isLight ? 0.75 : 0.85);
+          });
+        } else {
+          this.supernovaRays.forEach(ray => {
+            ray.scale.setScalar(0.01);
+            ray.material.opacity = 0;
+          });
+        }
+      }
+
+      this.flash.intensity = flash * 45;
+    }
+
     this.coreGroup.scale.setScalar(coreScale);
-    this.coreGroup.rotation.y += dt * (this.phase === 'CHARGING' ? 1.8 : 3.5) * rotMultiplier;
-    this.coreGroup.rotation.x += dt * 0.6 * rotMultiplier;
-    this.ringGroup.rotation.x += dt * 0.3 * rotMultiplier;
-    this.ringGroup.rotation.y -= dt * 0.55 * rotMultiplier;
+    this.coreGroup.rotation.y += dt * (this.phase === 'CHARGING' ? 1.2 : 2.0) * rotMultiplier;
+    this.coreGroup.rotation.x += dt * 0.4 * rotMultiplier;
+    this.ringGroup.rotation.x += dt * 0.2 * rotMultiplier;
+    this.ringGroup.rotation.y -= dt * 0.35 * rotMultiplier;
 
     this.rings.forEach((ring, i) => {
-      ring.scale.setScalar(0.65 + coreScale * 0.6 + Math.sin(t * 3 + i) * 0.04);
+      ring.scale.setScalar(0.65 + coreScale * 0.6 + Math.sin(t * 2.5 + i) * 0.03);
       ring.material.opacity = this.isLight ? (0.35 + coreScale * 0.45) : (0.22 + coreScale * 0.5);
     });
 
     this.coreGlow.material.opacity = this.isLight ? Math.min(0.65, 0.25 + coreScale * 0.35) : Math.min(0.55, 0.15 + coreScale * 0.35);
     this.outerGlow.material.opacity = this.isLight ? Math.min(0.35, 0.1 + coreScale * 0.2) : Math.min(0.22, 0.04 + coreScale * 0.12);
-    this.flash.intensity = flash * 85;
 
-    this.crackGroup.children.forEach(c => {
-      c.visible = crackOpacity > 0.01;
-      c.material.opacity = crackOpacity;
-    });
-
-    this.shards.forEach(s => {
-      const u = s.userData;
-      if (t >= crackEnd + u.delay && t < blastEnd + 0.2) s.visible = true;
-      if (t >= crackEnd + u.delay && t < blastEnd) {
-        const p = Math.min(1, (t - crackEnd - u.delay) / (blastEnd - crackEnd));
-        s.position.copy(u.home).addScaledVector(u.velocity, p * 1.65);
-        s.rotation.x = u.homeRotation.x + u.spin.x * p * rotMultiplier;
-        s.rotation.y = u.homeRotation.y + u.spin.y * p * rotMultiplier;
-        s.rotation.z = u.homeRotation.z + u.spin.z * p * rotMultiplier;
-        s.material.opacity = (this.isLight ? 0.9 : 0.8) * (1 - p * 0.45);
-      } else if (t >= blastEnd) {
-        s.visible = false;
-      }
-    });
-
+    // Particle dynamics: gathering during CHARGING, collapsing in SINGULARITY, blasting in SUPERNOVA
     const positions = this.particlePositions;
     for (let i = 0; i < this.particleCount; i++) {
       const k = i * 3;
-      const velScale = (this.phase === 'EXPLOSION' ? 2.8 : this.phase === 'CHARGING' ? -0.12 : 0.25) * dt * rotMultiplier;
+      const velScale = (this.phase === 'SUPERNOVA' ? 2.2 : this.phase === 'CHARGING' ? -0.06 : 0.15) * dt * rotMultiplier;
       positions[k] += this.particleVelocities[k] * velScale * particleSpread;
       positions[k + 1] += this.particleVelocities[k + 1] * velScale * particleSpread;
       positions[k + 2] += this.particleVelocities[k + 2] * velScale;
-      const limit = 1.8 + particleSpread * 0.75;
-      if (Math.hypot(positions[k], positions[k + 1]) > limit || Math.abs(positions[k + 2]) > 3) {
+      const limit = 2.2 + particleSpread * 0.8;
+      if (Math.hypot(positions[k], positions[k + 1]) > limit || Math.abs(positions[k + 2]) > 3.5) {
         this.resetParticle(i);
       }
       if (this.phase === 'CHARGING') {
-        positions[k] *= 1 - dt * 0.12;
-        positions[k + 1] *= 1 - dt * 0.12;
+        positions[k] *= 1 - dt * 0.08;
+        positions[k + 1] *= 1 - dt * 0.08;
       }
     }
     this.particles.geometry.attributes.position.needsUpdate = true;
-    this.particles.material.opacity = this.phase === 'EXPLOSION' ? 0.98 : (this.isLight ? 0.75 + coreScale * 0.2 : 0.55 + coreScale * 0.3);
-    this.particles.material.size = this.phase === 'EXPLOSION' ? 0.045 : (this.isLight ? 0.038 : 0.025);
+    this.particles.material.opacity = this.phase === 'SUPERNOVA' ? 0.98 : (this.isLight ? 0.75 + coreScale * 0.2 : 0.55 + coreScale * 0.3);
+    this.particles.material.size = this.phase === 'SUPERNOVA' ? 0.042 : (this.isLight ? 0.035 : 0.024);
 
     if (this.stars) {
-      this.stars.rotation.y += dt * 0.002 * rotMultiplier;
+      this.stars.rotation.y += dt * 0.0015 * rotMultiplier;
     }
 
-    this.camera.position.x = Math.sin(t * 0.7) * 0.055;
-    this.camera.position.y = 0.35 + Math.sin(t * 1.2) * 0.035;
-    this.camera.position.z = this.phase === 'EXPLOSION' ? 9.6 - flash * 0.12 : 9.6;
+    this.camera.position.x = Math.sin(t * 0.5) * 0.04;
+    this.camera.position.y = 0.35 + Math.sin(t * 0.8) * 0.025;
+    this.camera.position.z = this.phase === 'SUPERNOVA' ? 9.6 - flash * 0.15 : 9.6;
     this.camera.lookAt(0, 0, 0);
 
     if (this.bloom) {
-      this.bloom.strength = this.phase === 'EXPLOSION' ? 1.75 : this.phase === 'CHARGING' ? 1.05 + coreScale * 0.4 : 1.2;
+      this.bloom.strength = this.phase === 'SUPERNOVA' ? 1.85 : this.phase === 'SINGULARITY' ? 1.4 : 1.15;
     }
 
     return this.phase;

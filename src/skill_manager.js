@@ -20,8 +20,8 @@ function validateSkillName(skillName) {
 
 function validateInputs(repoUrl, skillName) {
   validateSkillName(skillName);
-  if (!repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://')) {
-    throw new Error('Invalid repository URL. Must be a valid HTTPS or SSH Git URL.');
+  if (!repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://') && !repoUrl.startsWith('file://')) {
+    throw new Error('Invalid repository URL. Must be a valid HTTPS, SSH, or local file:// Git URL.');
   }
 }
 
@@ -287,7 +287,7 @@ function runInteractiveSearch(query) {
 // Add skill directly from a repository URL
 function addSkillDirect(repoUrl, skillName, options = {}) {
   let normalizedRepo = (repoUrl || '').trim();
-  if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://')) {
+  if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://') && !normalizedRepo.startsWith('file://')) {
     if (normalizedRepo.includes('/') && !normalizedRepo.includes(' ')) {
       normalizedRepo = `https://github.com/${normalizedRepo}`;
     }
@@ -380,7 +380,7 @@ function addSkillDirect(repoUrl, skillName, options = {}) {
 
 // Add skill either by name (lookup from registry or scaffold local) or direct repo URL
 async function addSkill(nameOrUrl, optionalName, options = {}) {
-  if (optionalName || nameOrUrl.startsWith('https://') || nameOrUrl.startsWith('git@') || nameOrUrl.startsWith('http://')) {
+  if (optionalName || nameOrUrl.startsWith('https://') || nameOrUrl.startsWith('git@') || nameOrUrl.startsWith('http://') || nameOrUrl.startsWith('file://')) {
     const repoUrl = nameOrUrl;
     const skillName = optionalName;
     if (!skillName) {
@@ -540,6 +540,8 @@ function autoMigrateProjectSkills(projectRoot) {
 }
 
 module.exports = {
+  validateInputs,
+  validateSkillName,
   listInstalledSkills,
   searchRegistry,
   removeSkill,

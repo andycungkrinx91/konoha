@@ -31,6 +31,10 @@ export async function loginAndUnlock(page) {
           'X-Konoha-Web-Token': data.token
         }
       });
+      // Any password change terminates sessions; re-login with new password to establish fresh session
+      await page.request.post("http://127.0.0.1:4173/api/v1/auth/login", {
+        data: { password: "secure-shinobi-2026!" }
+      });
     }
   }
 

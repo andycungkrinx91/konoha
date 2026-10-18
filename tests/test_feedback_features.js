@@ -1,5 +1,8 @@
 'use strict';
 
+const { assertSandbox } = require('./helpers/sandbox_guard');
+assertSandbox();
+
 /**
  * tests/test_feedback_features.js — Regression & Integration test suite for:
  * 1. Post-password-change SSE broadcast (auth_state_changed)
@@ -75,6 +78,19 @@ async function run() {
 
     // ── 3. Feedback 5: Telegram Session Manager Dynamic OMP Detection ───────────
     console.log('Testing Feedback 5: Telegram session manager dynamic OMP detection...');
+    // Seed hermetic OMP session fixture for current workspace so test passes under any $HOME
+    const testCwd = path.normalize(process.cwd());
+    const ompCandidates = [];
+    if (testCwd.startsWith(require('os').homedir())) {
+      const rel = path.relative(require('os').homedir(), testCwd);
+      ompCandidates.push('-' + rel.replace(/\//g, '-'));
+    }
+    ompCandidates.push('-' + testCwd.replace(/^\//, '').replace(/\//g, '-'));
+    const ompDir = path.join(require('os').homedir(), '.omp', 'agent', 'sessions', ompCandidates[0]);
+    fs.mkdirSync(ompDir, { recursive: true });
+    const fixtureJsonl = path.join(ompDir, 'session-test-hermetic.jsonl');
+    fs.writeFileSync(fixtureJsonl, '{"timestamp": ' + Date.now() + ', "role": "user"}\n', 'utf8');
+
     const sessions = sessionManager.getActiveSessions();
     assert.ok(sessions.length > 0, 'Active sessions list must not be empty');
     const hasOmp = sessions.some(s => s.client === 'omp');

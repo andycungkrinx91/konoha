@@ -2,30 +2,30 @@
   <img src="assets/konoha_logo_kyubi.png" alt="Konoha Logo" width="320">
 </p>
 
-[![Release](https://img.shields.io/badge/Release-v2.2.0-blue.svg)](CHANGELOG.md)
-[![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=rocket&logoColor=white)](README.md)
+[![Release](https://img.shields.io/badge/Release-v2.2.0-blue.svg?logo=git&logoColor=white)](CHANGELOG.md)
+[![Antigravity](https://img.shields.io/badge/Antigravity-IDE%20%7C%20CLI-7c3aed?logo=google&logoColor=white)](README.md)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE%20%7C%20CLI-000000?logo=cursor&logoColor=white)](README.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-CLI-d97757?logo=anthropic&logoColor=white)](README.md)
-[![OpenCode](https://img.shields.io/badge/OpenCode-CLI-10b981)](README.md)
-[![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue)](README.md)
-[![Codex](https://img.shields.io/badge/Codex-CLI-purple)](README.md)
-[![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange)](README.md)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)](README.md)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=node.js&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-45%20Canonical-10b981)](README.md)
-[![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6)](README.md)
-[![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a)](docs/BENCHMARK.md)
+[![OpenCode](https://img.shields.io/badge/OpenCode-CLI-10b981?logo=vscodium&logoColor=white)](README.md)
+[![Command Code](https://img.shields.io/badge/Command%20Code-CLI-blue?logo=gnubash&logoColor=white)](README.md)
+[![Codex](https://img.shields.io/badge/Codex-CLI-purple?logo=github&logoColor=white)](README.md)
+[![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-45%20Canonical-10b981?logo=openapiinitiative&logoColor=white)](README.md)
+[![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white)](README.md)
+[![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white)](docs/BENCHMARK.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
-[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue)](docs/SETUP-SEARXNG.md)
+[![SearXNG](https://img.shields.io/badge/SearXNG-Zero%20API--Key%20Search-blue?logo=searxng&logoColor=white)](docs/SETUP-SEARXNG.md)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?logo=telegram&logoColor=white)](docs/TELEGRAM_INTEGRATION_GUIDE.md)
 [![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Zero%20Trust%20Tunnel-F38020?logo=cloudflare&logoColor=white)](docs/CLOUDFLARE_TUNNEL_GUIDE.md)
-[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.0_2026-10-18.md)
-[![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red)](README.md)
-[![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981)](README.md)
-[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.0-blue)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.0_2026-10-18.md)
-[![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen)](README.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buy-me-a-coffee&logoColor=white)](https://saweria.co/andycungkrinx)
+[![Crypto Vault](https://img.shields.io/badge/Crypto%20Vault-AES--256--GCM-success?logo=1password&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.0_2026-10-18.md)
+[![Cybersecurity](https://img.shields.io/badge/Cybersecurity-817%20Skills%20(MITRE)-red?logo=kalilinux&logoColor=white)](README.md)
+[![Zero AI Slop](https://img.shields.io/badge/Zero--AI--Slop-100%2F100%20Gate-10b981?logo=sonar&logoColor=white)](README.md)
+[![Security Policy](https://img.shields.io/badge/Compliance-Google%20Policy%20v2.2.0-blue?logo=googlecloud&logoColor=white)](docs/SecurityCompliance/security_compliance_report_google_policy_2.2.0_2026-10-18.md)
+[![Tests](https://img.shields.io/badge/Tests-141%20Suites%20Passing-brightgreen?logo=vitest&logoColor=white)](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Saweria-orange?logo=buymeacoffee&logoColor=white)](https://saweria.co/andycungkrinx)
 
 ---
 
@@ -35,7 +35,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 
 <p align="center">
   <a href="https://saweria.co/andycungkrinx">
-    <img src="https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Donate via Saweria">
+    <img src="https://img.shields.io/badge/Donate-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Donate via Saweria">
   </a>
 </p>
 
@@ -137,27 +137,30 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | | **Shell Output Compaction** | `rtk` (Rust Token Killer) | Global CLI proxy compresses noisy command outputs (60–95% savings) | ✅ `ACTIVE` |
 | | **Auto-Compaction** | `src/mcp/runtime_state.js` | Automatic badge compaction on turn ≥ 2 (preserves tech stack) | ✅ `ACTIVE` |
 | | **Hybrid Vector RAG** | `src/vector_search.js` | IBM Granite multilingual + MS MARCO MiniLM neural reranker | ✅ `ACTIVE` |
-| **SDLC Quality Gates** | **Definition-of-Readiness (DoR)** | `src/sdlc_dor.js` | Enforced/advisory check blocks unready, ambiguous prompts | ✅ `ACTIVE` |
+| **SDLC Quality Gates** | **Two-Stage HITL Gates** | `src/mcp/workflow.js` | Gate 1 (`pending_plan_approval`) & Gate 2 (`pending_human_signoff`) via Desktop IDE / Telegram | ✅ `ACTIVE` |
+| | **Dual-Track Execution Engine** | `src/mcp/workflow.js` | Direct request fast-track (`/kage`, `/anbu`) vs Canonical 8-Phase Master SDLC DAG | ✅ `ACTIVE` |
+| | **Definition-of-Readiness (DoR)** | `src/sdlc_dor.js` | Enforced/advisory check blocks unready, ambiguous prompts | ✅ `ACTIVE` |
 | | **Two-Step Zero-AI-Slop Gate** | `aislop_scan` + `anti_slop` | Mechanically requires 100/100 scan & 0 findings before synthesis | ✅ `ACTIVE` |
 | | **Kage Confidence Gate** | `src/workflow_gates.js` | Strict ≥ 98% verification score required across all categories | ✅ `ACTIVE` |
 | | **Supply-Chain Security Gate** | Socket CLI (`socket ci`) | Mechanical blocker on High/Medium dependency vulnerabilities | ✅ `ACTIVE` |
 | | **Autonomous Remediation Loop**| `src/sdlc_remediation.js` | Bounded circuit breaker (7 cycles) for auto-fixing slop findings | ✅ `ACTIVE` |
 | **Frontend & UI Engine** | **Taste-Skill v2 Dials** | `Leonxlnx/taste-skill` | `DESIGN_VARIANCE`, `MOTION_INTENSITY`, `VISUAL_DENSITY` | ✅ `ACTIVE` |
 | | **4 Supported Frameworks** | `src/mcp/build_spec.js` | Official CLI scaffolding: Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+ | ✅ `ACTIVE` |
-| | **10 Palette Themes × Light/Dark** | `apps/web/src/` | Pure light-mode first class with explicit Dark mode; floating bottom-right theme picker FAB | ✅ `ACTIVE` |
+| | **10 Palette Themes × Light/Dark** | `apps/web/src/` | Pure light-mode first class + dark mode; floating bottom-left theme picker FAB (`fixed bottom-6 left-6 z-50`) with neon focus | ✅ `ACTIVE` |
 | | **Image Mockup Replication** | `build_from_source` | 100% exact layout, spacing, typography, and asset replication | ✅ `ACTIVE` |
 | | **AI-Website Fingerprint Detector**| `src/ai_detector.js` | Heuristic engine detecting AI generators (0–20 = Human-Built band) | ✅ `ACTIVE` |
 | **Document Engineering** | **Office Deliverables** | `src/tools/document_engine.js` | DOCX, PDF, XLSX, PPTX with < 3% ZeroGPT AI target & discrete sections | ✅ `ACTIVE` |
 | | **Animated WebP Pipeline** | `src/tools/document_engine.js` | Canonical .webp export with pure Node.js structural bitstream validation | ✅ `ACTIVE` |
 | **Remote Operations & Mobile** | **Cloudflare Zero Trust Ingress**| `src/tunnel/` | Out-of-band tunnel (`/remote`) with Edge PIN & Cloudflare Access | ✅ `ACTIVE` |
-| | **1-Way Gate Telegram Alerts** | `src/telegram/` | Real-time task deliverable & audit dispatch upon Kage pass | ✅ `ACTIVE` |
-| | **2-Way Remote Prompting Bot** | `src/telegram/` | Inbound mobile commands (`/run`, `/sh`, `/session`, `/status`) | ✅ `ACTIVE` |
+| | **Two-Stage Telegram Approvals** | `src/telegram/` | Real-time Gate 1 & Gate 2 interactive approval buttons, `/approval list`, `/doctor`, `/session` | ✅ `ACTIVE` |
 | | **Persistent Prompt Queue** | `src/queue/` | SQLite atomic state machine (`pending` -> `processing` -> `completed`) | ✅ `ACTIVE` |
-| **Security & Cryptography** | **AES-256-GCM Crypto Vault** | `src/crypto_vault.js` | AEAD authenticated encryption at rest for tokens & credentials | ✅ `ACTIVE` |
+| **Security & Cryptography** | **Argon2id Memory-Hard Auth**| `src/auth.js` | Salted Argon2id passphrase verification + CLI reset (`konoha auth reset`) | ✅ `ACTIVE` |
+| | **AES-256-GCM Crypto Vault** | `src/crypto_vault.js` | AEAD authenticated encryption at rest for tokens & credentials | ✅ `ACTIVE` |
 | | **PBKDF2 Key Derivation** | `src/crypto_vault.js` | 100,000 SHA-256 iterations with host-fingerprint salt | ✅ `ACTIVE` |
 | | **Zero Plaintext Secrets Invariant**| Whole repo | Automatic masking (`12345***:***abcd`) across APIs, logs, and TUI | ✅ `ACTIVE` |
 | | **Offensive Red-Teaming Skills** | `anbu-skill` | 817 Anthropic cybersecurity skills & MITRE ATT&CK techniques | ✅ `ACTIVE` |
-| **Cross-Client Ecosystem** | **7 Supported Coding Clients** | `src/client_detection.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi | ✅ `ACTIVE` |
+| **Cross-Client Ecosystem** | **8 Supported Coding Clients** | `src/client_detection.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP | ✅ `ACTIVE` |
+| | **Hermetic Session Isolation** | `src/db.js` | Composite PK `(client, workspace_root, session_id)` with `project_hash` preventing cross-session leakage | ✅ `ACTIVE` |
 
 ---
 
@@ -1010,6 +1013,7 @@ The destructive-command, git-safety, secret-protection, and MCP read-bypass guar
 | **Command Code** | `~/.local/bin/konoha-native-blocker-cc.js` PreToolUse hook — denies the native `read_file` tool **and** guards `shell_command` calls |
 | **Antigravity IDE/CLI** | `~/.konoha/antigravity_tool_sanitize_hook.js` PreToolUse hook — DENY-3 runs the full shared guardrail check on every `run_command` |
 | **Pi (pi.dev)** | `~/.pi/agent/extensions/konoha-blocker.ts` extension — blocks native reads and enforces the guardrails on `bash`/`bash_command` tool calls |
+| **OMP** | Runtime contract (`~/.omp/agent/AGENTS.md`) — enforces MCP tool boundaries, RTK command prefixing, and 8-phase SDLC DAG execution |
 | **Codex / Cursor / OpenCode** | No blocking-hook capability — prompt-only rules remain |
 
 Blocked command categories: **destructive** (`rm -rf /`, `mkfs`, `dd of=/dev/…`, `DROP DATABASE`, `chmod 777`, recursive `chown`, `curl | sh`), **destructive-git** (`git reset --hard`, `git push --force`, `git clean -f`, `git checkout -- .`, `git rebase -i`), **secrets** (`.env*`, `secrets.yaml`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa`, `credentials` — never `rtk`-exempt), and **read-bypass** (bare `cat`/`grep`/`find`/`rg`/… — retry with `rtk <command>` or use the konoha/semble MCP tools).

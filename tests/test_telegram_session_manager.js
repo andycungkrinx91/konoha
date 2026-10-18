@@ -255,6 +255,18 @@ async function run() {
     // Verify formatSessionList now reflects creation command
     const updatedList = sessionManager.formatSessionList('chat_999');
     assert.ok(updatedList.includes('/session create &lt;client&gt; &lt;path&gt;'), 'List displays /session create');
+    assert.ok(updatedList.includes('/session delete &lt;number&gt;'), 'List displays /session delete');
+
+    // 11. Test deleteSession
+    const beforeDelSessions = sessionManager.getActiveSessions();
+    const countBefore = beforeDelSessions.length;
+    const delRes = sessionManager.deleteSession('chat_999', '1');
+    assert.strictEqual(delRes.success, true, 'deleteSession index 1 succeeds');
+    const afterDelSessions = sessionManager.getActiveSessions();
+    assert.strictEqual(afterDelSessions.length, countBefore - 1, 'Session count decreases by 1');
+
+    const errDel = sessionManager.deleteSession('chat_999', '9999');
+    assert.strictEqual(errDel.success, false, 'Invalid index fails cleanly');
 
     console.log('✓ All multi-session selection, creation, and dynamic agent tests passed cleanly.');
   } finally {

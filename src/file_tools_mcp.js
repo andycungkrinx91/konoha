@@ -256,12 +256,22 @@ function handleRequest(req) {
       }
       runtimeState.setActiveSessionId(sessId);
 
+      const personaMemory = require("./persona_memory");
+      const effectiveRoot = root || process.cwd();
+      const pHash = personaMemory.computeProjectHash(effectiveRoot);
+      try {
+        personaMemory.saveOrUpdateProject(effectiveRoot);
+      } catch (_) { /* non-fatal best effort */ }
+
       const db = require("./db");
       const conn = db.getConnection();
       conn.prepare(`
-        INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, last_active_at)
-        VALUES (?, ?, ?, datetime('now'))
-      `).run(activeClient || 'unknown', root || process.cwd(), sessId);
+        INSERT INTO active_sessions (client, workspace_root, session_id, project_hash, last_active_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(client, workspace_root, session_id) DO UPDATE SET
+          last_active_at = excluded.last_active_at,
+          project_hash = COALESCE(excluded.project_hash, active_sessions.project_hash)
+      `).run(activeClient || 'unknown', effectiveRoot, sessId, pHash);
       conn.close();
     } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 

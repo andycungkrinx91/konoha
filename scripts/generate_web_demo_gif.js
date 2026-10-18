@@ -160,6 +160,19 @@ async function main() {
   registerFonts();
   await ensureWebServer();
 
+  // Check if web auth is already in bootstrap state to avoid redundant session destruction
+  let isAlreadyBootstrap = false;
+  try {
+    const { getAuthConfig } = require('../src/auth');
+    isAlreadyBootstrap = Boolean(getAuthConfig()?.is_bootstrap);
+  } catch (_) {
+    isAlreadyBootstrap = false;
+  }
+
+  if (!isAlreadyBootstrap) {
+    spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
+  }
+
   // Set viewport + launch real browser
   console.log('▶ Launching Chromium with viewport 1280x800...');
   const cachedChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
@@ -168,83 +181,133 @@ async function main() {
       path.join(process.env.HOME || '', '.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'),
     ].find((p) => p && fs.existsSync(p));
   const browser = await chromium.launch(cachedChromium ? { executablePath: cachedChromium } : {});
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-  // (url, filename, display_url, badge, duration_ms)
-  const pages = [
-    ['http://127.0.0.1:1404/', '00_login.png', 'http://127.0.0.1:1404/ • Cyberpunk Login Gateway', 'PASSPHRASE AUTH • 10-THEMES', 2800],
-    ['http://127.0.0.1:1404/dashboard', '01_dashboard.png', 'http://127.0.0.1:1404/dashboard • Mission Control', 'CPU · MEMORY · DISK · FEATURE METRICS', 3000],
-    ['http://127.0.0.1:1404/agents', '02_agents.png', 'http://127.0.0.1:1404/agents • Ninja Subagents', '7 NINJAS • MODEL CONFIG', 2400],
-    ['http://127.0.0.1:1404/bridges', '03_bridges.png', 'http://127.0.0.1:1404/bridges • LLM Bridge Gateway', 'GATEWAY :19999 • SIDECAR :1313', 2200],
-    ['http://127.0.0.1:1404/skills', '04_skills.png', 'http://127.0.0.1:1404/skills • Skills Registry', '68 SKILLS • EMBED / UNEMBED', 2200],
-    ['http://127.0.0.1:1404/savings', '05_savings.png', 'http://127.0.0.1:1404/savings • Token Savings Breakdown', 'TOOL-BY-TOOL METRICS', 2200],
-    ['http://127.0.0.1:1404/context', '06_context.png', 'http://127.0.0.1:1404/context • Project Memory', 'PERSISTENT INVARIANTS', 2000],
-    ['http://127.0.0.1:1404/persona', '07_persona.png', 'http://127.0.0.1:1404/persona • Episodic Memory', 'SQLITE FTS5 SEARCH', 2000],
-    ['http://127.0.0.1:1404/search', '08_search.png', 'http://127.0.0.1:1404/search • Multi-Source Search', 'SEARXNG • ZERO-API-KEY', 2000],
-    ['http://127.0.0.1:1404/doctor', '09_doctor.png', 'http://127.0.0.1:1404/doctor • Village Diagnostics', '7 CLIENTS SELF-HEALING', 2000],
-    ['http://127.0.0.1:1404/tasks', '10_tasks.png', 'http://127.0.0.1:1404/tasks • SDLC Tasks & Governance', 'DOR GATES • ANTI-SLOP AUDIT', 2200],
-    ['http://127.0.0.1:1404/clients', '11_clients.png', 'http://127.0.0.1:1404/clients • Client Setup', 'ANTIGRAVITY · PI · CURSOR', 2000],
-    ['http://127.0.0.1:1404/detector', '12_detector.png', 'http://127.0.0.1:1404/detector • Website AI Detector', 'AI FINGERPRINTS • 0-20 HUMAN-BUILT', 3200],
-    ['http://127.0.0.1:1404/remote', '13_remote.png', 'http://127.0.0.1:1404/remote • Remote Access & Telegram Bot', 'TELEGRAM BOT · TUNNEL · PROMPT QUEUE', 3000],
-    ['http://127.0.0.1:1404/docs', '14_docs.png', 'http://127.0.0.1:1404/docs • Documentation', 'ARCHITECTURE • API • CLI REFERENCE', 2400],
-  ];
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-  const frames = [];
-  for (const [url, fname, dispUrl, badge, dur] of pages) {
-    const outPath = path.join(TMP_FRAMES_DIR, fname);
-    console.log(`  • Capturing: ${dispUrl} ...`);
+    // (url, filename, display_url, badge, duration_ms)
+    const pages = [
+      ['http://127.0.0.1:1404/', '00_login.png', 'http://127.0.0.1:1404/ • Cyberpunk Login Gateway', 'PASSPHRASE AUTH • 10-THEMES', 2800],
+      ['http://127.0.0.1:1404/dashboard', '01_dashboard.png', 'http://127.0.0.1:1404/dashboard • Mission Control', 'CPU · MEMORY · DISK · FEATURE METRICS', 3000],
+      ['http://127.0.0.1:1404/agents', '02_agents.png', 'http://127.0.0.1:1404/agents • Ninja Subagents', '7 NINJAS • MODEL CONFIG', 2400],
+      ['http://127.0.0.1:1404/bridges', '03_bridges.png', 'http://127.0.0.1:1404/bridges • LLM Bridge Gateway', 'GATEWAY :19999 • SIDECAR :1313', 2200],
+      ['http://127.0.0.1:1404/skills', '04_skills.png', 'http://127.0.0.1:1404/skills • Skills Registry', '68 SKILLS • EMBED / UNEMBED', 2200],
+      ['http://127.0.0.1:1404/savings', '05_savings.png', 'http://127.0.0.1:1404/savings • Token Savings Breakdown', 'TOOL-BY-TOOL METRICS', 2200],
+      ['http://127.0.0.1:1404/context', '06_context.png', 'http://127.0.0.1:1404/context • Project Memory', 'PERSISTENT INVARIANTS', 2000],
+      ['http://127.0.0.1:1404/persona', '07_persona.png', 'http://127.0.0.1:1404/persona • Episodic Memory', 'SQLITE FTS5 SEARCH', 2000],
+      ['http://127.0.0.1:1404/search', '08_search.png', 'http://127.0.0.1:1404/search • Multi-Source Search', 'SEARXNG • ZERO-API-KEY', 2000],
+      ['http://127.0.0.1:1404/doctor', '09_doctor.png', 'http://127.0.0.1:1404/doctor • Village Diagnostics', '7 CLIENTS SELF-HEALING', 2000],
+      ['http://127.0.0.1:1404/tasks', '10_tasks.png', 'http://127.0.0.1:1404/tasks • SDLC Tasks & Governance', 'DOR GATES • ANTI-SLOP AUDIT', 2200],
+      ['http://127.0.0.1:1404/clients', '11_clients.png', 'http://127.0.0.1:1404/clients • Client Setup', 'ANTIGRAVITY · PI · CURSOR', 2000],
+      ['http://127.0.0.1:1404/detector', '12_detector.png', 'http://127.0.0.1:1404/detector • Website AI Detector', 'AI FINGERPRINTS • 0-20 HUMAN-BUILT', 3200],
+      ['http://127.0.0.1:1404/remote', '13_remote.png', 'http://127.0.0.1:1404/remote • Remote Access & Telegram Bot', 'TELEGRAM BOT · TUNNEL · PROMPT QUEUE', 3000],
+      ['http://127.0.0.1:1404/docs', '14_docs.png', 'http://127.0.0.1:1404/docs • Documentation', 'ARCHITECTURE • API • CLI REFERENCE', 2400],
+    ];
 
-    // Navigate to URL and take a screenshot
-    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-    if (url === 'http://127.0.0.1:1404/') {
-      const passInput = await page.$('#login-password');
-      if (passInput) {
-        await passInput.focus();
-        await page.waitForTimeout(600);
+    const frames = [];
+    for (const [url, fname, dispUrl, badge, dur] of pages) {
+      const outPath = path.join(TMP_FRAMES_DIR, fname);
+      console.log(`  • Capturing: ${dispUrl} ...`);
+
+      // Navigate to URL and take a screenshot
+      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+      if (url === 'http://127.0.0.1:1404/') {
+        await page.waitForSelector('#login-password', { timeout: 15000 });
+        const passInput = await page.$('#login-password');
+        if (passInput) {
+          await passInput.focus();
+          await page.waitForTimeout(800);
+        }
+      } else if (url.endsWith('/dashboard')) {
+        // Ensure app root has mounted
+        await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
+        // Wait for telemetry cards to be fully loaded and rendered
+        console.log('    ⟳ Waiting for Mission Control dashboard telemetry to fully load...');
+        await page.waitForSelector('text=SYSTEM CPU', { timeout: 25000 });
+        await page.waitForSelector('text=VILLAGE TELEMETRY', { timeout: 15000 });
+        await page.waitForSelector('text=CPU UTILIZATION', { timeout: 15000 });
+        // Ensure no error alert exists
+        const errorAlert = await page.$('text=Failed to load metrics');
+        if (errorAlert) {
+          console.warn('    ⚠️ Metrics error detected, waiting for next telemetry poll...');
+          await page.waitForTimeout(6000);
+        }
+        // Allow sparkline and gauge animations to stabilize
+        await page.waitForTimeout(2500);
+      } else if (url.endsWith('/detector')) {
+        // Run a real scan against a fixture site so the demo shows findings.
+        const fixtureDir = path.join('/tmp', 'konoha-demo-ai-site');
+        fs.mkdirSync(path.join(fixtureDir, 'components', 'ui'), { recursive: true });
+        const demoHtml = Buffer.from(
+          'PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgbmFtZT0iZ2VuZXJhdG9yIiBjb250ZW50PSJ2MC5kZXYiPjx0aXRsZT5DcmVhdGUgTmV4dCBBcHA8L3RpdGxlPjwvaGVhZD48Ym9keT48aSBkYXRhLWx1Y2lkZT0icGFsZXR0ZSI+PC9pPjwhLS0gQnVpbHQgd2l0aCB2MCAtLT48cD5HZXQgc3RhcnRlZCBieSBlZGl0aW5nIGFwcC9wYWdlLnRzeDwvcD48L2JvZHk+PC9odG1sPg==',
+          'base64'
+        ).toString('utf8');
+        fs.writeFileSync(path.join(fixtureDir, 'index.html'), demoHtml);
+        fs.writeFileSync(path.join(fixtureDir, 'package.json'),
+          JSON.stringify({ name: 'demo', dependencies: { [Buffer.from('bHVjaWRlLXJlYWN0', 'base64').toString('utf8')]: '^1.0.0' } }, null, 2));
+        await page.fill('#detect-target', fixtureDir);
+        await page.click('button:has-text("Run Scan")');
+        await page.waitForSelector('text=Findings', { timeout: 20000 });
+        await page.waitForTimeout(800);
+      } else {
+        await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
+        await page.waitForTimeout(1200);
       }
-    } else if (url.endsWith('/dashboard')) {
-      // Wait for the first 5s metrics poll so the Grafana panels render data.
-      await page.waitForTimeout(6500);
-    } else if (url.endsWith('/detector')) {
-      // Run a real scan against a fixture site so the demo shows findings.
-      const fixtureDir = path.join('/tmp', 'konoha-demo-ai-site');
-      fs.mkdirSync(path.join(fixtureDir, 'components', 'ui'), { recursive: true });
-      const demoHtml = Buffer.from(
-        'PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgbmFtZT0iZ2VuZXJhdG9yIiBjb250ZW50PSJ2MC5kZXYiPjx0aXRsZT5DcmVhdGUgTmV4dCBBcHA8L3RpdGxlPjwvaGVhZD48Ym9keT48aSBkYXRhLWx1Y2lkZT0icGFsZXR0ZSI+PC9pPjwhLS0gQnVpbHQgd2l0aCB2MCAtLT48cD5HZXQgc3RhcnRlZCBieSBlZGl0aW5nIGFwcC9wYWdlLnRzeDwvcD48L2JvZHk+PC9odG1sPg==',
-        'base64'
-      ).toString('utf8');
-      fs.writeFileSync(path.join(fixtureDir, 'index.html'), demoHtml);
-      fs.writeFileSync(path.join(fixtureDir, 'package.json'),
-        JSON.stringify({ name: 'demo', dependencies: { [Buffer.from('bHVjaWRlLXJlYWN0', 'base64').toString('utf8')]: '^1.0.0' } }, null, 2));
-      await page.fill('#detect-target', fixtureDir);
-      await page.click('button:has-text("Run Scan")');
-      await page.waitForSelector('text=Findings', { timeout: 20000 });
-      await page.waitForTimeout(800);
-    } else {
-      await page.waitForTimeout(1200);
+      await page.screenshot({ path: outPath });
+
+      if (url === 'http://127.0.0.1:1404/') {
+        try {
+          console.log('    ⟳ Performing authentication and clearing mandatory bootstrap modal...');
+          await page.fill('#login-password', 'konohagakure');
+          await page.click('button:has-text("LOGIN")');
+
+          // Wait for mandatory password modal to appear
+          await page.waitForSelector('#current-password', { timeout: 15000 });
+          await page.fill('#current-password', 'konohagakure');
+          await page.fill('#new-password', 'konohagakure2026!');
+          await page.fill('#confirm-password', 'konohagakure2026!');
+          await page.click('button:has-text("Update & Continue to Dashboard")');
+
+          // After password update, auto-kickout to login page occurs (Feedback 3)
+          await page.waitForSelector('#login-password', { timeout: 15000 });
+          await page.fill('#login-password', 'konohagakure2026!');
+          await page.click('button:has-text("LOGIN")');
+
+          // Wait for dashboard root to be active
+          await page.waitForSelector('#konoha-app-root', { timeout: 15000 });
+          await page.waitForTimeout(1500);
+        } catch (err) {
+          console.warn('    ⚠️ Note on auth flow:', err.message);
+        }
+      }
+
+      // Build composite frame
+      const frameCanvas = await compositeBrowserFrame(outPath, dispUrl, badge);
+      frames.push({ canvas: frameCanvas, duration: dur });
     }
-    await page.screenshot({ path: outPath });
 
-    // Build composite frame
-    const frameCanvas = await compositeBrowserFrame(outPath, dispUrl, badge);
-    frames.push({ canvas: frameCanvas, duration: dur });
+    const isGif = process.argv.includes('--gif');
+    const outExt = isGif ? '.gif' : '.webp';
+    const outName = `demo-web${outExt}`;
+    console.log(`\n▶ Compiling ${frames.length} frames into assets/${outName} ...`);
+    const outputPath = path.join(ASSETS_DIR, outName);
+    if (isGif) {
+      saveGif(frames, outputPath);
+    } else {
+      saveWebP(frames, outputPath);
+    }
+
+    const sizeKb = fs.statSync(outputPath).size / 1024;
+    console.log(`✨ Successfully saved assets/${outName} (${sizeKb.toFixed(1)} KB, ${frames.length} frames)!`);
+  } finally {
+    try {
+      await browser.close();
+    } catch (_) {
+      /* ignore browser close error during shutdown */
+    }
+    // Reset web auth back to clean bootstrap state (guaranteed cleanup)
+    spawnSync('node', [path.join(ROOT_DIR, 'bin', 'cli.js'), 'auth', 'reset'], { stdio: 'inherit', cwd: ROOT_DIR });
   }
-
-  await browser.close();
-
-  const isGif = process.argv.includes('--gif');
-  const outExt = isGif ? '.gif' : '.webp';
-  const outName = `demo-web${outExt}`;
-  console.log(`\n▶ Compiling ${frames.length} frames into assets/${outName} ...`);
-  const outputPath = path.join(ASSETS_DIR, outName);
-  if (isGif) {
-    saveGif(frames, outputPath);
-  } else {
-    saveWebP(frames, outputPath);
-  }
-
-  const sizeKb = fs.statSync(outputPath).size / 1024;
-  console.log(`✨ Successfully saved assets/${outName} (${sizeKb.toFixed(1)} KB, ${frames.length} frames)!`);
 }
 
 if (require.main === module) {
