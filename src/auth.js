@@ -222,23 +222,7 @@ function authenticate(password, clientIp = '127.0.0.1') {
     };
   }
 
-  let isValid = verifyPasswordHash(password, config);
-  if (!isValid && config.is_bootstrap) {
-    const bootstrapPassword = resolveBootstrapPassword();
-    if (password === bootstrapPassword) {
-      const rehashed = hashPassword(bootstrapPassword);
-      config.format = rehashed.format;
-      config.salt = rehashed.salt;
-      config.hash = rehashed.hash;
-      config.updated_at = new Date().toISOString();
-      try {
-        saveAuthConfig(config);
-      } catch (_) {
-        // Ignore persistence errors during opportunistic auto-healing
-      }
-      isValid = true;
-    }
-  }
+  const isValid = verifyPasswordHash(password, config);
 
   if (!isValid) {
     recordLoginFailure(clientIp);
@@ -320,15 +304,11 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     return { success: false, status: 500, error: 'Unable to read stored credentials' };
   }
 
-  let currentValid = verifyPasswordHash(currentPassword, config);
-  if (!currentValid && config.is_bootstrap && currentPassword === resolveBootstrapPassword()) {
-    currentValid = true;
-  }
-  if (!currentValid) {
+  if (!verifyPasswordHash(currentPassword, config)) {
     return { success: false, status: 400, error: 'Current password is incorrect' };
   }
 
-  if (config.is_bootstrap && (newPassword === resolveBootstrapPassword() || verifyPasswordHash(newPassword, config))) {
+  if (config.is_bootstrap && verifyPasswordHash(newPassword, config)) {
     return { success: false, status: 400, error: 'Cannot set password to the default bootstrap credential' };
   }
 

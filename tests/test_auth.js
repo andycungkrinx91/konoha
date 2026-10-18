@@ -106,6 +106,16 @@ async function main() {
       return;
     }
 
+    if (process.env.KONOHA_ISO_SCENARIO === 'heal-stale') {
+      const login = await call(port, 'POST', '/api/v1/auth/login', { body: { password: 'konohagakure' } });
+      assert.strictEqual(login.status, 200, 'Stale bootstrap config must auto-heal and allow konohagakure login: ' + JSON.stringify(login.data));
+      assert.strictEqual(login.data.ok, true);
+      assert.strictEqual(login.data.is_bootstrap, true);
+      assert.strictEqual(login.data.requires_password_change, true);
+      console.log('HEAL_STALE_OK');
+      return;
+    }
+
     const login = await call(port, 'POST', '/api/v1/auth/login', { body: { password: 'konohagakure' } });
     assert.strictEqual(login.status, 200, 'bootstrap login: ' + JSON.stringify(login.data));
     const session = cookieOf(login.headers, 'konoha_session');
@@ -449,13 +459,6 @@ async function run() {
   }
 }
 
-async function fetchWithToken(port, method, pathName, { body, cookie, token } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (cookie) headers.Cookie = cookie;
-  if (token) headers['X-Konoha-Web-Token'] = token;
-  return request({ hostname: '127.0.0.1', port, path: pathName, method, headers }, body);
-}
-
 let ISOLATION_PORT = 0;
 
 async function runPersistenceAndExpiryScenarios(basePort, authFile) {
@@ -492,6 +495,23 @@ async function runPersistenceAndExpiryScenarios(basePort, authFile) {
   assert.strictEqual(expiry.status, 0, `session-expiry scenario failed: ${expiry.stderr || expiry.stdout}`);
   assert.ok(expiry.stdout.includes('EXPIRY_OK'));
   console.log('✓ Expired sessions are denied and reported unauthenticated');
+
+  // D. Stale random bootstrap verifier on disk auto-heals to default bootstrap credential.
+  const healFile = path.join(fixtureDir, 'stale_bootstrap', 'web_auth.json');
+  fs.mkdirSync(path.dirname(healFile), { recursive: true });
+  const randomOldHash = hashPassword('old-random-generated-secret-12345');
+  fs.writeFileSync(healFile, JSON.stringify({
+    format: randomOldHash.format,
+    salt: randomOldHash.salt,
+    hash: randomOldHash.hash,
+    is_bootstrap: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }), { mode: 0o600 });
+  const heal = runIsolated('heal-stale', healFile);
+  assert.strictEqual(heal.status, 0, `stale-bootstrap-heal scenario failed: ${heal.stderr || heal.stdout}`);
+  assert.ok(heal.stdout.includes('HEAL_STALE_OK'));
+  console.log('✓ Stale random bootstrap hash auto-healed to default bootstrap credential');
 
   fs.rmSync(fixtureDir, { recursive: true, force: true });
 }
