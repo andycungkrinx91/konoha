@@ -96,6 +96,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
   ${C.cyan}service${C.reset}           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
   ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
+  ${C.cyan}webhook${C.reset}           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
   ${C.cyan}tunnel${C.reset}            🚇 Manage Cloudflare and ngrok public ingress tunnels.
   ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
   ${C.cyan}queue${C.reset}             📬 Background task prompt queue and execution worker.
@@ -257,6 +258,12 @@ async function main() {
       case 'telegram':
         await cmdTelegram(args);
         break;
+      case 'webhook':
+      case 'webhooks': {
+        const { cmdWebhook } = require('./commands/webhook');
+        await cmdWebhook(args);
+        break;
+      }
       case 'tunnel':
         await cmdTunnel(args);
         break;

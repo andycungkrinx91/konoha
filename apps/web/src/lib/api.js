@@ -225,6 +225,26 @@ export async function changePassword(currentPassword, newPassword) {
   return data;
 }
 
+export async function resetPassword(currentPassword) {
+  let res;
+  try {
+    res = await fetch('/api/v1/auth/reset-password', {
+      method: 'POST',
+      headers: await csrfHeaders(),
+      body: JSON.stringify({ current_password: currentPassword })
+    });
+  } catch (_) {
+    throw new ApiError('Gateway server is unreachable or offline', 0, null, 'err_offline');
+  }
+
+  const data = await readJson(res);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || 'Password reset failed';
+    throw new ApiError(msg, res.status, data, data?.error_id);
+  }
+  return data;
+}
+
 export async function logout() {
   try {
     const headers = await csrfHeaders();

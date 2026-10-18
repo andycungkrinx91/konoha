@@ -303,6 +303,21 @@ npx aislop .
 | **Cross-Client Contract Injection (v2.2.0)** | Inspect `buildAgentContract` version and validation across all 8 clients (Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, Pi, OMP). | Injects `CONTRACT_VERSION = '2.2.0-cross-client-1'`, codifies 8-phase pipeline, 2-stage HITL, and cleans out file-based IPC (`prompt.md` / `delegate.md`). | `PASS` (automated in `tests/test_cross_client_contract.js`) |
 | **Dual-Track Execution Engine (Point 1.3)** | Dispatch slash commands (`/anbu <prompt>`, `/jonin <prompt>`, etc.) or targeted fixes vs fullstack greenfield tasks. | Slash commands and targeted single-file fixes are classified as `fast_track`, bypassing 8-phase DAG and Gate 1 plan pause with zero pipeline overhead. Greenfield builds execute through the Canonical 8-Phase DAG governed by `hitl_mode`. | `PASS` (automated in `tests/test_sdlc_hitl.js`) |
 
+---
+
+## 13. Feedback Overhaul & Security Hardening (Argon2id, Webhooks, SSE Refresh & OMP Isolation)
+
+| Category / Component | Scenario / Test Procedure | Expected Verification Criteria | Verified Result |
+| :--- | :--- | :--- | :--- |
+| **Argon2id Password Encryption** | Hash new passwords and verify password hashes against stored verifiers in `src/auth.js`. | Uses Argon2id (`$argon2id$v=19$m=65536,p=4,t=3$...`) for password storage; maintains backward-compatible timing-safe verification for legacy scrypt hashes; rejects invalid passwords. | `PASS` (automated in `tests/test_feedback_features.js`) |
+| **Password Reset to Default & Session Invalidation** | Request password reset to default from `/settings` with valid current password vs invalid credentials. | Rejects unauthorized or unauthenticated requests with 400/401; authorized reset resets password to default (`konohagakure`), terminates all active sessions (`destroyAllSessions()`), and forces redirect to login screen. | `PASS` (automated in `tests/test_feedback_features.js`) |
+| **SSE-Driven Post-Password-Change Refresh** | Complete password update on web console. | Server broadcasts `auth_state_changed` over SSE (`/api/v1/events`); `+layout.svelte` and `Dashboard.svelte` auto-refresh auth state and reload metrics in background without full browser reload. | `PASS` (verified in `tests/test_feedback_features.js` & E2E) |
+| **Clean Login Page Interface** | Inspect `Login.svelte` elements on desktop and mobile viewports. | Tagline `Enter shinobi passphrase to access secure gateway` is completely removed; input label displays `Default Passphrase (konohagakure)`. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
+| **Dynamic OMP Telegram Session Detection** | Execute `/session list` in Telegram while working inside OMP agent. | Dynamically checks `~/.omp/agent/sessions/` for active workspace session; attributes workspace session to `omp` rather than phantom `antigravity`. | `PASS` (automated in `tests/test_feedback_features.js`) |
+| **Outbound Webhook Management (Web UI & CLI)** | Create, list, test, and delete webhooks via `/remote` and CLI `konoha webhook ...` with Bearer, API Key, and Custom Header auth. | Persists webhooks in SQLite `webhooks` table; encrypts tokens with crypto vault; dispatches HTTP POST payloads with accurate auth headers (`Authorization: Bearer ...`, `X-API-Key: ...`, custom headers); records delivery status code and timestamp. | `PASS` (automated in `tests/test_feedback_features.js`) |
+| **OMP MCP Isolation & Server Registration** | Verify OMP MCP configuration via `ensureOmpSetup` and inspect `~/.omp/agent/mcp.json`. | Configures Konoha MCP servers with `ACTIVE_CLIENT: "omp"` and `KONOHA_CLIENT: "omp"`; prevents cross-client configuration contamination. | `PASS` (automated in `tests/test_feedback_features.js`) |
+| **Active Sidebar Badge Neon Styling** | Inspect active menu item badges in dark and light modes. | Active badge applies `.active-sidemenu-neon-badge` with vibrant neon glow using active 4-gradient tokens (`var(--theme-grad-1)`, `var(--theme-grad-2)`); high-contrast readability in dark and light appearance modes. | `PASS` (automated in `tests/test_feedback_features.js`) |
+
 
 
 

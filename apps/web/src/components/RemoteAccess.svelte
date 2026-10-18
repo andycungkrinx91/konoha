@@ -46,6 +46,16 @@
   let newPromptText = $state("");
   let submittingPrompt = $state(false);
 
+  // Webhook State (Feedback 6)
+  let webhooks = $state([]);
+  let whNameInput = $state("");
+  let whUrlInput = $state("");
+  let whAuthType = $state("none");
+  let whTokenInput = $state("");
+  let whCustomHeader = $state("");
+  let whSaving = $state(false);
+  let whTesting = $state(null);
+
   let copiedUrl = $state(false);
   let showGuideModal = $state(false);
 
@@ -53,10 +63,11 @@
 
   async function loadData() {
     try {
-      const [tgRes, tunRes, qRes] = await Promise.all([
+      const [tgRes, tunRes, qRes, whRes] = await Promise.all([
         api.get("/api/v1/telegram/config"),
         api.get("/api/v1/tunnel/status"),
-        api.get("/api/v1/queue/prompts?limit=15")
+        api.get("/api/v1/queue/prompts?limit=15"),
+        api.get("/api/v1/webhooks")
       ]);
 
       if (tgRes && tgRes.ok) {
@@ -84,8 +95,70 @@
       if (qRes && qRes.ok) {
         prompts = qRes.prompts || [];
       }
+
+      if (whRes && whRes.ok) {
+        webhooks = whRes.webhooks || [];
+      }
     } catch (err) {
       uiState.addNotification(`Failed to load remote access data: ${err.message}`, "error");
+    }
+  }
+
+  async function saveWebhook() {
+    if (!whNameInput.trim() || !whUrlInput.trim()) {
+      toast.warning("Webhook name and full endpoint URL are required.");
+      return;
+    }
+    whSaving = true;
+    try {
+      const payload = {
+        name: whNameInput.trim(),
+        url: whUrlInput.trim(),
+        auth_type: whAuthType,
+        auth_token: whTokenInput.trim(),
+        custom_header: whCustomHeader.trim()
+      };
+      const res = await api.post("/api/v1/webhooks", payload);
+      if (res && res.ok) {
+        toast.success(`Webhook "${whNameInput}" created successfully!`);
+        whNameInput = "";
+        whUrlInput = "";
+        whAuthType = "none";
+        whTokenInput = "";
+        whCustomHeader = "";
+        await loadData();
+      }
+    } catch (err) {
+      toast.error("Failed to add webhook: " + err.message);
+    } finally {
+      whSaving = false;
+    }
+  }
+
+  async function testWebhook(id) {
+    whTesting = id;
+    try {
+      const res = await api.post(`/api/v1/webhooks/${id}/test`, {});
+      if (res && res.ok) {
+        toast.success(`Webhook test delivered successfully! Status: HTTP ${res.status}`);
+      } else {
+        toast.error(`Webhook test failed: ${res.error || `HTTP ${res.status}`}`);
+      }
+      await loadData();
+    } catch (err) {
+      toast.error("Test failed: " + err.message);
+    } finally {
+      whTesting = null;
+    }
+  }
+
+  async function deleteWebhook(id, name) {
+    try {
+      await api.delete(`/api/v1/webhooks/${id}`);
+      toast.info(`Webhook "${name}" deleted.`);
+      await loadData();
+    } catch (err) {
+      toast.error("Delete failed: " + err.message);
     }
   }
 
@@ -657,6 +730,168 @@
             {/each}
           </tbody>
         </table>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Card 4: Webhook Outbound Integration (Feedback 6) -->
+  <div
+    class="glass-card-3d p-6 rounded-[5px] border space-y-6"
+    style="background: var(--color-surface); border-color: color-mix(in srgb, var(--theme-grad-1) 25%, var(--color-border));"
+  >
+    <div class="flex items-start justify-between gap-4 border-b pb-4" style="border-color: var(--color-border);">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-[5px] flex items-center justify-center font-bold text-white shadow-sm" style="background: var(--theme-4gradient);">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-base font-bold flex items-center gap-2" style="color: var(--color-text);">
+            Outbound Webhook Integration
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-[5px] border bg-status-success-soft text-status-success border-status-success-soft">
+              {webhooks.length} Active
+            </span>
+          </h2>
+          <p class="text-xs" style="color: var(--color-text-muted);">
+            Broadcast task dispatches and event alerts to external HTTP endpoints (Discord, Slack, n8n, Zapier, custom servers).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Webhook Creation Form -->
+    <div class="p-4 rounded-[5px] border space-y-4" style="background: color-mix(in srgb, var(--color-surface) 95%, var(--theme-grad-1)); border-color: var(--color-border);">
+      <div class="text-xs font-bold uppercase tracking-wider" style="color: var(--color-primary);">Add Webhook Target</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="wh-name" class="text-xs font-bold block mb-1" style="color: var(--color-text);">Webhook Name</label>
+          <input
+            id="wh-name"
+            type="text"
+            bind:value={whNameInput}
+            placeholder="e.g. Discord Village Alerts or CI/CD Pipeline"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+            style="background: var(--color-surface); color: var(--color-text);"
+          />
+        </div>
+        <div>
+          <label for="wh-url" class="text-xs font-bold block mb-1" style="color: var(--color-text);">Full Endpoint URL</label>
+          <input
+            id="wh-url"
+            type="url"
+            bind:value={whUrlInput}
+            placeholder="https://example.com/api/webhook or Discord/Slack URL"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+            style="background: var(--color-surface); color: var(--color-text);"
+          />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="wh-auth-type" class="text-xs font-bold block mb-1" style="color: var(--color-text);">Authentication Type</label>
+          <select
+            id="wh-auth-type"
+            bind:value={whAuthType}
+            class="w-full px-3 py-2 text-xs font-bold rounded-[5px] border focus:outline-hidden cursor-pointer"
+            style="background: var(--color-surface); color: var(--color-text);"
+          >
+            <option value="none">No Auth (Public / Webhook URL)</option>
+            <option value="bearer">Bearer Token (Authorization: Bearer ...)</option>
+            <option value="api_key">API Key (X-API-Key: ...)</option>
+            <option value="jwt">JWT Token (Authorization: Bearer &lt;jwt&gt;)</option>
+            <option value="custom_header">Custom Header</option>
+          </select>
+        </div>
+
+        {#if whAuthType !== 'none'}
+          <div>
+            <label for="wh-token" class="text-xs font-bold block mb-1" style="color: var(--color-text);">
+              {whAuthType === 'api_key' ? 'API Key Secret' : (whAuthType === 'jwt' ? 'JWT Token' : 'Bearer Token')}
+            </label>
+            <input
+              id="wh-token"
+              type="password"
+              bind:value={whTokenInput}
+              placeholder="Enter secret token or key"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+              style="background: var(--color-surface); color: var(--color-text);"
+            />
+          </div>
+        {/if}
+
+        {#if whAuthType === 'custom_header'}
+          <div>
+            <label for="wh-header" class="text-xs font-bold block mb-1" style="color: var(--color-text);">Custom Header Name</label>
+            <input
+              id="wh-header"
+              type="text"
+              bind:value={whCustomHeader}
+              placeholder="e.g. X-Webhook-Secret"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+              style="background: var(--color-surface); color: var(--color-text);"
+            />
+          </div>
+        {/if}
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button
+          type="button"
+          onclick={saveWebhook}
+          disabled={whSaving}
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shadow-md"
+        >
+          {whSaving ? "Saving..." : "Add Webhook"}
+        </button>
+      </div>
+    </div>
+
+    <!-- Webhooks List -->
+    {#if webhooks.length === 0}
+      <div class="p-6 text-center rounded-[5px] border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+        <p class="text-xs">No outbound webhooks configured yet. Add your first webhook endpoint above.</p>
+      </div>
+    {:else}
+      <div class="space-y-3">
+        {#each webhooks as wh}
+          <div class="p-3.5 rounded-[5px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style="background: var(--color-surface); border-color: var(--color-border);">
+            <div class="space-y-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-xs" style="color: var(--color-text);">{wh.name}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] border font-mono uppercase {wh.auth_type !== 'none' ? 'bg-status-info-soft text-status-info border-status-info-soft' : 'theme-bg-muted theme-text-secondary theme-border'}">
+                  {wh.auth_type}
+                </span>
+                {#if wh.last_status}
+                  <span class={`text-[10px] px-1.5 py-0.5 rounded-[4px] border font-mono ${wh.last_status >= 200 && wh.last_status < 300 ? 'bg-status-success-soft text-status-success border-status-success-soft' : 'bg-status-danger-soft text-status-danger border-status-danger-soft'}`}>
+                    HTTP {wh.last_status}
+                  </span>
+                {/if}
+              </div>
+              <p class="text-xs font-mono truncate" style="color: var(--color-text-muted);" title={wh.url}>
+                {wh.url}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onclick={() => testWebhook(wh.id)}
+                disabled={whTesting === wh.id}
+                class="btn-3d btn-3d-secondary px-3 py-1.5 text-xs font-bold rounded-[5px] border cursor-pointer"
+              >
+                {whTesting === wh.id ? "Testing..." : "Test Ping"}
+              </button>
+              <button
+                type="button"
+                onclick={() => deleteWebhook(wh.id, wh.name)}
+                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[5px] border border-status-danger-soft bg-status-danger-soft text-status-danger cursor-pointer hover:bg-status-danger hover:text-white transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        {/each}
       </div>
     {/if}
   </div>

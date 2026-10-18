@@ -18,7 +18,7 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
 
     // Verify Cyberpunk Login UI elements
     await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
-    await expect(page.getByText("Enter shinobi passphrase to access secure gateway")).toBeVisible();
+    await expect(page.getByText("Default Passphrase (konohagakure)")).toBeVisible();
     await expect(page.getByText("Default: konohagakure")).toBeVisible();
 
     const passwordInput = page.locator("#login-password");

@@ -1,5 +1,5 @@
 // Svelte 5 Runes State for Konoha Authentication & Password Policy
-import { getAuthStatus, login as apiLogin, changePassword as apiChangePassword, logout as apiLogout } from '#lib/api.js';
+import { getAuthStatus, login as apiLogin, changePassword as apiChangePassword, resetPassword as apiResetPassword, logout as apiLogout } from '#lib/api.js';
 
 function createAuthState() {
   let isAuthenticated = $state(false);
@@ -54,14 +54,25 @@ function createAuthState() {
     showPasswordChangeModal = requiresPasswordChange;
   }
 
-  // The server only clears the bootstrap flag after the new verifier is
-  // persisted, so local state mirrors the trusted response verbatim.
+  // The server clears sessions after voluntary password changes; local state resets to force fresh login.
   async function changePassword(currentPassword, newPassword) {
     const result = await apiChangePassword(currentPassword, newPassword);
     if (result && result.ok) {
-      isBootstrap = false;
-      requiresPasswordChange = false;
-      showPasswordChangeModal = false;
+      if (result.requires_login) {
+        resetSession();
+      } else {
+        isBootstrap = false;
+        requiresPasswordChange = false;
+        showPasswordChangeModal = false;
+      }
+    }
+    return result;
+  }
+
+  async function resetPassword(currentPassword) {
+    const result = await apiResetPassword(currentPassword);
+    if (result && result.ok) {
+      resetSession();
     }
     return result;
   }
@@ -98,7 +109,9 @@ function createAuthState() {
     login,
     commitLogin,
     changePassword,
+    resetPassword,
     logout,
+    resetSession,
     openPasswordChangeModal,
     closePasswordChangeModal
   };

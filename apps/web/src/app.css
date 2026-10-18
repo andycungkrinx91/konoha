@@ -962,6 +962,21 @@ html.theme-dark .modal-card,
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
+.active-sidemenu-neon-badge {
+  background: rgba(0, 0, 0, 0.72) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--theme-grad-1, #38bdf8) !important;
+  box-shadow:
+    0 0 10px -1px var(--theme-grad-1, #38bdf8),
+    0 0 4px 0 var(--theme-grad-2, #818cf8),
+    inset 0 0 6px rgba(255, 255, 255, 0.25) !important;
+  text-shadow:
+    0 0 4px var(--theme-grad-1, #38bdf8),
+    0 1px 2px rgba(0, 0, 0, 0.8) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+}
+
 .gradient-sidemenu-item {
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }

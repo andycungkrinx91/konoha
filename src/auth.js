@@ -39,10 +39,37 @@ const loginRateLimit = new Map();
 // Active sessions: sessionId -> { sessionId, isBootstrap, createdAt, expiresAt, lastActive }
 const activeSessions = new Map();
 
+let argon2 = null;
+try {
+  argon2 = require('argon2');
+} catch (_) {
+  // Graceful fallback if native module fails to load
+}
+
 /**
- * Hash a password using scrypt with a cryptographic random salt.
+ * Hash a password using Argon2id (or salted scrypt fallback).
  */
 function hashPassword(password, salt = null) {
+  if (argon2) {
+    try {
+      const { spawnSync } = require('child_process');
+      const script = "const a = require('argon2'); a.hash(process.argv[1], { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));";
+      const res = spawnSync(process.execPath, ['-e', script, password], { encoding: 'utf8', timeout: 5000 });
+      if (res.status === 0 && res.stdout && res.stdout.startsWith('$argon2id$')) {
+        const rawHash = res.stdout.trim();
+        const parts = rawHash.split('$');
+        const extractedSalt = parts[4] || '';
+        return {
+          format: 'argon2id',
+          salt: extractedSalt,
+          hash: rawHash
+        };
+      }
+    } catch (_) {
+      // Fallback to scrypt on worker spawn failure
+    }
+  }
+
   const saltBuf = salt ? Buffer.from(salt, 'hex') : crypto.randomBytes(16);
   const derived = crypto.scryptSync(password, saltBuf, SCRYPT_KEY_LEN, SCRYPT_PARAMS);
   return {
@@ -53,10 +80,26 @@ function hashPassword(password, salt = null) {
 }
 
 /**
- * Timing-safe password verification against stored scrypt hash.
+ * Timing-safe password verification against stored Argon2id or scrypt hash.
  */
 function verifyPasswordHash(password, stored) {
-  if (!stored || !stored.hash || !stored.salt) return false;
+  if (!stored || !stored.hash) return false;
+  if (typeof stored.hash === 'string' && stored.hash.startsWith('$argon2')) {
+    if (argon2) {
+      try {
+        const { spawnSync } = require('child_process');
+        const script = "const a = require('argon2'); a.verify(process.argv[1], process.argv[2]).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));";
+        const res = spawnSync(process.execPath, ['-e', script, stored.hash, password], { encoding: 'utf8', timeout: 5000 });
+        return res.status === 0;
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // Fallback to scrypt verification
+  if (!stored.salt) return false;
   try {
     const saltBuf = Buffer.from(stored.salt, 'hex');
     const expectedHashBuf = Buffer.from(stored.hash, 'hex');
@@ -281,6 +324,64 @@ function destroySession(sessionId) {
 }
 
 /**
+ * Invalidate all active sessions across all users/tokens.
+ */
+function destroyAllSessions() {
+  activeSessions.clear();
+}
+
+/**
+ * Reset password back to default bootstrap credential.
+ * Requires a valid active session.
+ */
+function resetPasswordToDefault(sessionId, currentPassword) {
+  const session = getSession(sessionId);
+  if (!session) {
+    return { success: false, status: 401, error: 'Unauthorized: Session invalid or expired' };
+  }
+
+  if (typeof currentPassword !== 'string' || !currentPassword) {
+    return { success: false, status: 400, error: 'Current password is required to reset' };
+  }
+
+  let config;
+  try {
+    config = getAuthConfig();
+  } catch (_) {
+    return { success: false, status: 500, error: 'Unable to read stored credentials' };
+  }
+
+  if (!verifyPasswordHash(currentPassword, config)) {
+    return { success: false, status: 400, error: 'Current password is incorrect' };
+  }
+
+  const defaultBootstrap = resolveBootstrapPassword();
+  const newHash = hashPassword(defaultBootstrap);
+  const nextConfig = {
+    ...config,
+    format: newHash.format,
+    salt: newHash.salt,
+    hash: newHash.hash,
+    is_bootstrap: true,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    saveAuthConfig(nextConfig);
+  } catch (_) {
+    return { success: false, status: 500, error: 'Failed to persist reset credentials' };
+  }
+
+  // Destroy all active sessions so any client must re-authenticate with default password
+  destroyAllSessions();
+
+  return {
+    success: true,
+    message: 'Password reset to default bootstrap credential successfully'
+  };
+}
+
+/**
  * Change the password.
  */
 function updatePassword(sessionId, currentPassword, newPassword) {
@@ -326,6 +427,8 @@ function updatePassword(sessionId, currentPassword, newPassword) {
     updated_at: new Date().toISOString()
   };
 
+  const wasBootstrap = Boolean(config.is_bootstrap);
+
   // Persist first. On failure the bootstrap flag is retained so the mandatory
   // change gate stays closed (failed changes never clear the flag).
   try {
@@ -333,12 +436,19 @@ function updatePassword(sessionId, currentPassword, newPassword) {
   } catch (_) {
     return { success: false, status: 500, error: 'Failed to persist new password' };
   }
-  // Update every live session of this credential holder
-  session.isBootstrap = false;
+
+  if (wasBootstrap) {
+    // Initial bootstrap password change: upgrade session in place so operator continues directly to dashboard
+    session.isBootstrap = false;
+  } else {
+    // Voluntary password change from /settings: invalidate all sessions to force re-authentication (Feedback 4)
+    destroyAllSessions();
+  }
 
   return {
     success: true,
-    message: 'Password changed successfully'
+    message: 'Password changed successfully',
+    requires_login: !wasBootstrap
   };
 }
 
@@ -384,7 +494,9 @@ module.exports = {
   authenticate,
   getSession,
   destroySession,
+  destroyAllSessions,
   updatePassword,
+  resetPasswordToDefault,
   getAuthStatus,
   checkLoginRateLimit
 };

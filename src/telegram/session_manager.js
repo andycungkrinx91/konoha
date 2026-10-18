@@ -102,6 +102,49 @@ function formatTimeAgo(dateStr) {
 }
 
 /**
+ * Dynamically locate active OMP session file for a workspace.
+ */
+function findOmpSessionForWorkspace(wsPath) {
+  if (!wsPath || typeof wsPath !== 'string') return null;
+  const norm = path.normalize(wsPath);
+  const candidates = [];
+  if (norm.startsWith(os.homedir())) {
+    const rel = path.relative(os.homedir(), norm);
+    candidates.push('-' + rel.replace(/\//g, '-'));
+  }
+  candidates.push('-' + norm.replace(/^\//, '').replace(/\//g, '-'));
+
+  const baseDir = path.join(os.homedir(), '.omp', 'agent', 'sessions');
+  if (!fs.existsSync(baseDir)) return null;
+
+  for (const cand of candidates) {
+    const sessDir = path.join(baseDir, cand);
+    if (!fs.existsSync(sessDir)) continue;
+    try {
+      const files = fs.readdirSync(sessDir).filter(f => f.endsWith('.jsonl'));
+      let newest = null;
+      let newestMtime = 0;
+      for (const f of files) {
+        const full = path.join(sessDir, f);
+        try {
+          const st = fs.statSync(full);
+          if (st.mtimeMs > newestMtime) {
+            newestMtime = st.mtimeMs;
+            newest = { path: full, name: f, mtimeMs: st.mtimeMs };
+          }
+        } catch (_) {
+          // File access race fallback
+        }
+      }
+      if (newest) return newest;
+    } catch (_) {
+      // Directory read error fallback
+    }
+  }
+  return null;
+}
+
+/**
  * Check if a session is genuinely alive on the local workstation.
  */
 function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
@@ -136,49 +179,64 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
   // 3. For Antigravity sessions, check brain directory and transcript freshness
   const clientNorm = (sess.client || '').toLowerCase();
   if (clientNorm === 'antigravity' || clientNorm === 'agy') {
-    if (sess.session_id && sess.session_id !== 'default') {
-      const brainCli = path.join(os.homedir(), '.gemini/antigravity-cli/brain', sess.session_id);
-      const brainIde = path.join(os.homedir(), '.gemini/antigravity-ide/brain', sess.session_id);
-      const brainDir = fs.existsSync(brainCli) ? brainCli : (fs.existsSync(brainIde) ? brainIde : null);
+    // If we are NOT in an antigravity process and there is no active brain directory, this session is inactive
+    const brainCli = sess.session_id && sess.session_id !== 'default'
+      ? path.join(os.homedir(), '.gemini/antigravity-cli/brain', sess.session_id)
+      : null;
+    const brainIde = sess.session_id && sess.session_id !== 'default'
+      ? path.join(os.homedir(), '.gemini/antigravity-ide/brain', sess.session_id)
+      : null;
+    const brainDir = (brainCli && fs.existsSync(brainCli)) ? brainCli : ((brainIde && fs.existsSync(brainIde)) ? brainIde : null);
 
-      if (brainDir) {
-        let newestMtime = 0;
-        const transcriptPath = path.join(brainDir, '.system_generated', 'logs', 'transcript.jsonl');
-        const promptPath = path.join(brainDir, 'prompt.md');
-        if (fs.existsSync(transcriptPath)) {
-          try {
-            newestMtime = Math.max(newestMtime, fs.statSync(transcriptPath).mtimeMs);
-          } catch (_) {
-            /* file access error fallback */
-          }
+    if (!brainDir && !currentConvId) {
+      return false;
+    }
+
+    if (brainDir) {
+      let newestMtime = 0;
+      const transcriptPath = path.join(brainDir, '.system_generated', 'logs', 'transcript.jsonl');
+      const promptPath = path.join(brainDir, 'prompt.md');
+      if (fs.existsSync(transcriptPath)) {
+        try {
+          newestMtime = Math.max(newestMtime, fs.statSync(transcriptPath).mtimeMs);
+        } catch (_) {
+          // Transcript access fallback
         }
-        if (fs.existsSync(promptPath)) {
-          try {
-            newestMtime = Math.max(newestMtime, fs.statSync(promptPath).mtimeMs);
-          } catch (_) {
-            /* file access error fallback */
-          }
+      }
+      if (fs.existsSync(promptPath)) {
+        try {
+          newestMtime = Math.max(newestMtime, fs.statSync(promptPath).mtimeMs);
+        } catch (_) {
+          // Prompt access fallback
         }
-        if (newestMtime > 0) {
-          return (now - newestMtime) <= maxIdleMs;
-        }
+      }
+      if (newestMtime > 0) {
+        return (now - newestMtime) <= maxIdleMs;
       }
     }
   }
 
-  // 4. For Claude Code sessions, check transcript freshness if path exists
+  // 4. For OMP Agent sessions, check active session file freshness
+  if (clientNorm === 'omp') {
+    const ompSess = findOmpSessionForWorkspace(sess.workspace_root);
+    if (ompSess) {
+      return (now - ompSess.mtimeMs) <= maxIdleMs;
+    }
+  }
+
+  // 5. For Claude Code sessions, check transcript freshness if path exists
   if (clientNorm === 'claudecode' || clientNorm === 'claude') {
     if (sess.transcript_path && fs.existsSync(sess.transcript_path)) {
       try {
         const mtime = fs.statSync(sess.transcript_path).mtimeMs;
         return (now - mtime) <= maxIdleMs;
       } catch (_) {
-        /* file access error fallback */
+        // Transcript access fallback
       }
     }
   }
 
-  // 5. Fallback for manual or generic sessions: check last_active_at
+  // 6. Fallback for manual or generic sessions: check last_active_at
   return lastActiveMs > 0 && (now - lastActiveMs) <= maxIdleMs;
 }
 
@@ -187,12 +245,15 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
  */
 function touchCurrentSession(conn) {
   try {
+    const cwd = path.normalize(process.cwd());
+    if (!isRealWorkspace(cwd)) return;
+
     const currentConvId = process.env.ANTIGRAVITY_CONVERSATION_ID ||
                           process.env.GEMINI_CONVERSATION_ID ||
                           null;
-    const cwd = path.normalize(process.cwd());
-    if (currentConvId && isRealWorkspace(cwd)) {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
+
+    if (currentConvId) {
       conn.prepare(`
         INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
         VALUES (?, ?, ?, ?, ?)
@@ -202,6 +263,18 @@ function touchCurrentSession(conn) {
         DELETE FROM active_sessions
         WHERE workspace_root = ? AND client IN ('agy', 'antigravity') AND session_id != ?
       `).run(cwd, currentConvId);
+      return;
+    }
+
+    // Check if running under OMP or OMP session exists for current workspace
+    const ompSess = findOmpSessionForWorkspace(cwd);
+    if (ompSess && (Date.now() - ompSess.mtimeMs) <= (45 * 60 * 1000)) {
+      const ompSessionId = path.parse(ompSess.name).name;
+      conn.prepare(`
+        INSERT OR REPLACE INTO active_sessions (client, workspace_root, session_id, transcript_path, last_active_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run('omp', cwd, ompSessionId, ompSess.path, now);
+      return;
     }
   } catch (_) { /* ignore */ }
 }
@@ -250,15 +323,24 @@ function getActiveSessions() {
     // Always ensure current workspace is present
     const cwd = path.normalize(process.cwd());
     const hasCwd = sessions.some(s => s.workspace_root === cwd);
-    const currentConvId = process.env.ANTIGRAVITY_CONVERSATION_ID ||
-                          process.env.GEMINI_CONVERSATION_ID ||
-                          'default';
     if (!hasCwd && isRealWorkspace(cwd)) {
+      // Determine appropriate client rather than hardcoding antigravity
+      const ompSess = findOmpSessionForWorkspace(cwd);
+      let detectedClient = 'omp';
+      let sessId = 'default';
+      if (process.env.ANTIGRAVITY_CONVERSATION_ID || process.env.GEMINI_CONVERSATION_ID) {
+        detectedClient = 'antigravity';
+        sessId = process.env.ANTIGRAVITY_CONVERSATION_ID || process.env.GEMINI_CONVERSATION_ID;
+      } else if (ompSess) {
+        detectedClient = 'omp';
+        sessId = path.parse(ompSess.name).name;
+      }
+
       sessions.unshift({
         index: 1,
-        client: 'antigravity',
+        client: detectedClient,
         workspace_root: cwd,
-        session_id: currentConvId,
+        session_id: sessId,
         last_active_at: new Date().toISOString()
       });
       // Re-index
@@ -266,25 +348,29 @@ function getActiveSessions() {
     }
 
     if (sessions.length === 0) {
+      const ompSess = findOmpSessionForWorkspace(cwd);
+      const detectedClient = ompSess ? 'omp' : 'omp';
+      const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
       sessions.push({
         index: 1,
-        client: 'antigravity',
+        client: detectedClient,
         workspace_root: cwd,
-        session_id: currentConvId,
+        session_id: sessId,
         last_active_at: new Date().toISOString()
       });
     }
 
     return sessions;
   } catch (_) {
-    const currentConvId = process.env.ANTIGRAVITY_CONVERSATION_ID ||
-                          process.env.GEMINI_CONVERSATION_ID ||
-                          'default';
+    const cwd = path.normalize(process.cwd());
+    const ompSess = findOmpSessionForWorkspace(cwd);
+    const detectedClient = ompSess ? 'omp' : 'omp';
+    const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
     return [{
       index: 1,
-      client: 'antigravity',
-      workspace_root: path.normalize(process.cwd()),
-      session_id: currentConvId,
+      client: detectedClient,
+      workspace_root: cwd,
+      session_id: sessId,
       last_active_at: new Date().toISOString()
     }];
   }

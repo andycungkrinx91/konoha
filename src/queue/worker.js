@@ -199,6 +199,23 @@ async function finalizeTaskResult(task, { isSuccess, summary, duration, client, 
   } catch (_) {
     /* intentional best-effort fallback: notification failure must not crash queue worker */
   }
+
+  try {
+    const wm = require('../webhook_manager');
+    await wm.dispatchWebhookEvent('task_completed', {
+      title: task.prompt.trim(),
+      taskId: task.id,
+      summary,
+      status: isSuccess ? 'SUCCESS' : 'FAILED',
+      duration,
+      client,
+      agent,
+      tokenReduction,
+      kageScore: evaluatedKageScore
+    });
+  } catch (_) {
+    /* intentional best-effort fallback: webhook dispatch must not crash queue worker */
+  }
 }
 
 /**

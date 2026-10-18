@@ -39,7 +39,18 @@
   onMount(() => {
     loadMetrics();
     const interval = setInterval(loadMetrics, POLL_MS);
-    return () => clearInterval(interval);
+    const handleAuthRefreshed = () => {
+      loadMetrics();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('konoha:auth-refreshed', handleAuthRefreshed);
+    }
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('konoha:auth-refreshed', handleAuthRefreshed);
+      }
+    };
   });
 
   function formatBytes(bytes) {

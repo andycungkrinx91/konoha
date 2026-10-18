@@ -48,9 +48,8 @@ function isOmpInstalled() {
 }
 
 function getOmpConfigPath() {
+  // Primary OMP MCP configuration is strictly ~/.omp/agent/mcp.json
   if (fileExists(OMP_MCP_CONFIG)) return OMP_MCP_CONFIG;
-  const legacyConfig = path.join(OMP_DIR, 'mcp.json');
-  if (fileExists(legacyConfig)) return legacyConfig;
   return OMP_MCP_CONFIG;
 }
 
@@ -167,6 +166,20 @@ function registerOmpMcp(options = {}) {
 
     writeJsonAtomic(configPath, existing);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);
+
+    // Also mirror to legacy ~/.omp/mcp.json if ~/.omp directory exists to prevent client fallback drift
+    try {
+      const legacyPath = path.join(OMP_DIR, 'mcp.json');
+      if (fileExists(legacyPath)) {
+        const legacyExisting = readJsonSafe(legacyPath) || {};
+        legacyExisting.mcpServers = legacyExisting.mcpServers || {};
+        Object.assign(legacyExisting.mcpServers, servers);
+        writeJsonAtomic(legacyPath, legacyExisting);
+      }
+    } catch (_) {
+      // Best-effort mirror to legacy path
+    }
+
     return { ok: true, configPath };
   } catch (err) {
     if (!silent) console.warn(`⚠ Could not register OMP MCP config: ${err.message}`);

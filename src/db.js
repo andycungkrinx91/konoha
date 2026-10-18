@@ -241,6 +241,22 @@ function setupSchema(conn) {
         updated_at TEXT NOT NULL
     );
 
+    -- Webhook Outbound Integrations (Feedback 6)
+    CREATE TABLE IF NOT EXISTS webhooks (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        auth_type TEXT CHECK (auth_type IN ('none', 'bearer', 'api_key', 'jwt', 'custom_header')) DEFAULT 'none',
+        auth_token TEXT DEFAULT '',
+        custom_header TEXT DEFAULT '',
+        events TEXT DEFAULT 'all',
+        last_status INTEGER DEFAULT NULL,
+        last_delivered_at TEXT DEFAULT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
     -- Public Tunnel Orchestrator Configuration
     CREATE TABLE IF NOT EXISTS tunnel_config (
         id INTEGER PRIMARY KEY CHECK (id = 1),

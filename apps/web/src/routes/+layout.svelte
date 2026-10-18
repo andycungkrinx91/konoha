@@ -167,6 +167,14 @@
           uiState.addNotification(`Bridge ${payload.name || ''} updated`, 'info');
         } catch (_) {}
       });
+      eventSource.addEventListener('auth_state_changed', async () => {
+        try {
+          await authState.checkAuth();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('konoha:auth-refreshed'));
+          }
+        } catch (_) {}
+      });
     } catch (_) {}
 
     return () => {
@@ -307,7 +315,7 @@
                         <span class="truncate">{item.label}</span>
                       </div>
                       {#if item.badge}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'theme-bg-muted text-[var(--theme-text-inverse)] border-[var(--theme-text-inverse)]/40' : 'bg-status-success-soft text-status-success border-status-success-soft'}">{item.badge}</span>
+                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono shrink-0 {isActive ? 'active-sidemenu-neon-badge' : 'bg-status-success-soft text-status-success border-status-success-soft'}">{item.badge}</span>
                       {/if}
                     </a>
                   {/if}

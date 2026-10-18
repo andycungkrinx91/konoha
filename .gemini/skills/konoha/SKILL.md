@@ -603,6 +603,14 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Telegram 2-Way Interactive Approvals**: Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot. Supports `/approval list` and `/approval <id>`. Enforces strict mutual exclusion between 1-way and 2-way modes to eliminate duplicate notifications. Broadcasts completion alerts across all clients.
     - **Dynamic Polyglot Stack Detector (`src/mcp/stack_detector.js`)**: Inspects workspace manifests and dynamically selects native ecosystem commands across Node/TS, Python, Go, Rust, PHP, and Java.
     - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `semble.search`.
+102. **Argon2id Authentication, Outbound Webhooks & OMP Isolation Hardening (v2.2.0+)**:
+    - **Argon2id Password Storage & Timing-Safe Verification**: Passwords are encrypted with Argon2id (`$argon2id$v=19$m=65536,p=4,t=3$...`) for state-of-the-art resistance to offline brute-force attacks, while maintaining backward-compatible verification for existing salted scrypt hashes.
+    - **Authorized Password Management & Session Termination**: Voluntary password updates or resets from `/settings` enforce authorization (requiring current valid password) and immediately terminate all active sessions (`destroyAllSessions()`), forcing re-authentication at the login page.
+    - **SSE-Driven Post-Password-Change Data Refresh**: Upon password change, `auth_state_changed` is broadcast over Server-Sent Events (`/api/v1/events`). `+layout.svelte` and `Dashboard.svelte` subscribe to the event and refresh background metrics seamlessly without requiring full manual browser reload.
+    - **Clean Login Interface**: Removed extraneous taglines from the login card and updated the passphrase label to `Default Passphrase (konohagakure)`.
+    - **Outbound Webhook Engine (`src/webhook_manager.js`, `konoha webhook ...`)**: Supports full endpoint URLs with optional Bearer, API Key, JWT, or Custom Header authentication for external event notifications (task completion, health alerts).
+    - **Dynamic OMP Agent Session Detection**: `src/telegram/session_manager.js` dynamically scans `~/.omp/agent/sessions/` for active OMP session files, eliminating phantom `antigravity` session misattribution when running inside OMP.
+    - **Active Sidebar Badge Neon Glow**: Active menu badges on selected navigation links render a vibrant neon glow effect utilizing active 4-gradient tokens (`var(--theme-grad-1)`, `var(--theme-grad-2)`) for high-contrast legibility in dark and light modes.
 
 
 

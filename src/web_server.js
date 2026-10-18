@@ -291,7 +291,28 @@ async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
         if (!result.success) {
           return sendJson(res, result.status || 400, { error: result.error });
         }
-        return sendJson(res, 200, { ok: true, message: result.message });
+        if (result.requires_login) {
+          res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
+        }
+        broadcastEvent('auth_state_changed', { action: 'password_changed', requires_login: Boolean(result.requires_login) });
+        return sendJson(res, 200, { ok: true, message: result.message, requires_login: Boolean(result.requires_login) });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/auth/reset-password') {
+      const sessionId = getClientSessionId(req);
+      try {
+        const body = await parseBody(req);
+        const payload = body && typeof body === 'object' ? body : {};
+        const result = webAuth.resetPasswordToDefault(sessionId, payload.current_password);
+        if (!result.success) {
+          return sendJson(res, result.status || 400, { error: result.error });
+        }
+        res.setHeader('Set-Cookie', 'konoha_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly');
+        broadcastEvent('auth_state_changed', { action: 'password_reset', requires_login: true });
+        return sendJson(res, 200, { ok: true, message: result.message, requires_login: true });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }
@@ -2229,6 +2250,76 @@ async function handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, metho
         poller.stopPoller();
         broadcastEvent('telegram_updated', { action: 'disable' });
         return sendJson(res, 200, { ok: true, enabled: 0 });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // ── Webhook Outbound Integration Endpoints (Feedback 6) ───────────────────
+
+    if (method === 'GET' && pathname === '/api/v1/webhooks') {
+      try {
+        const wm = require('./webhook_manager');
+        const list = wm.listWebhooks();
+        return sendJson(res, 200, { ok: true, webhooks: list });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/webhooks') {
+      try {
+        const wm = require('./webhook_manager');
+        const body = await parseBody(req);
+        const created = wm.createWebhook(body);
+        broadcastEvent('webhooks_updated', { action: 'create', webhook: created });
+        return sendJson(res, 201, { ok: true, webhook: created });
+      } catch (err) {
+        return sendJson(res, 400, { error: err.message });
+      }
+    }
+
+    if (method === 'PUT' && pathname.startsWith('/api/v1/webhooks/') && !pathname.endsWith('/test')) {
+      const webhookId = pathname.split('/')[4];
+      try {
+        const wm = require('./webhook_manager');
+        const body = await parseBody(req);
+        const updated = wm.updateWebhook(webhookId, body);
+        broadcastEvent('webhooks_updated', { action: 'update', webhook: updated });
+        return sendJson(res, 200, { ok: true, webhook: updated });
+      } catch (err) {
+        return sendJson(res, 400, { error: err.message });
+      }
+    }
+
+    if (method === 'DELETE' && pathname.startsWith('/api/v1/webhooks/')) {
+      const webhookId = pathname.split('/')[4];
+      try {
+        const wm = require('./webhook_manager');
+        const success = wm.deleteWebhook(webhookId);
+        broadcastEvent('webhooks_updated', { action: 'delete', id: webhookId });
+        return sendJson(res, 200, { ok: success });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (method === 'POST' && pathname.startsWith('/api/v1/webhooks/') && pathname.endsWith('/test')) {
+      const webhookId = pathname.split('/')[4];
+      try {
+        const wm = require('./webhook_manager');
+        const target = wm.getWebhook(webhookId);
+        if (!target) {
+          return sendJson(res, 404, { error: 'Webhook not found' });
+        }
+        const testPayload = {
+          event: 'test_ping',
+          message: 'Konoha Village Webhook Integration Test Ping',
+          timestamp: new Date().toISOString(),
+          status: 'SUCCESS'
+        };
+        const testRes = await wm.sendWebhookPayload(target, testPayload);
+        return sendJson(res, 200, { ok: testRes.ok, ...testRes });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

@@ -206,9 +206,6 @@
         <h1 class="text-xl font-black tracking-tight" style="color: var(--theme-text);">
           KONOHA CONSOLE
         </h1>
-        <p class="text-xs mt-1 font-medium" style="color: var(--theme-text-secondary);">
-          Enter shinobi passphrase to access secure gateway
-        </p>
       </header>
 
       {#if errorMessage}
@@ -225,7 +222,7 @@
         <div>
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <label for="login-password" class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--theme-text-secondary);">
-              Access Passphrase
+              Default Passphrase (konohagakure)
             </label>
             {#if authState.isBootstrap}
               <span
