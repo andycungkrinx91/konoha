@@ -230,9 +230,16 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
 function classifyExecutionTrack(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return 'full_sdlc';
   const p = prompt.trim();
+  // 1. Explicit slash commands always fast-track to the requested agent
   if (/^\/(anbu|jonin|genin|chunin|kage|tokubetsu[-_]jonin|sannin)\b/i.test(p)) {
     return 'fast_track';
   }
+  // 2. Strong Full SDLC signals (greenfield, architecture, multi-subsystem, refactor) MUST take precedence
+  const isFullSdlcSignal = /\b(greenfield|from scratch|0 to 1|fullstack|multi[- ]subsystem|architect(ure)?|refactor|migration|scaffold|end[- ]to[- ]end|build a (web|site|app|platform|service|marketplace|system))\b/i.test(p);
+  if (isFullSdlcSignal) {
+    return 'full_sdlc';
+  }
+  // 3. Targeted fast-track requests: single-file edits, isolated bug fixes, typo fixes, quick questions
   const isFastTrackSignal = /\b(single[- ]file|isolated bug|typo fix|quick question|inspection|explain|quick fix|hotfix|syntax fix)\b/i.test(p);
   if (isFastTrackSignal) {
     return 'fast_track';

@@ -337,6 +337,13 @@ try {
   assert.strictEqual(classifyExecutionTrack('Build fullstack e-commerce marketplace from scratch'), 'full_sdlc');
   assert.strictEqual(classifyExecutionTrack('Architect and implement microservices pipeline'), 'full_sdlc');
 
+  // Regression: Mixed prompts containing both full_sdlc signals and fast_track words (e.g. explain, quick fix)
+  // MUST prioritize full_sdlc so greenfield tasks are never misclassified as fast_track
+  assert.strictEqual(classifyExecutionTrack('build a fullstack marketplace from scratch, and explain the architecture'), 'full_sdlc');
+  assert.strictEqual(classifyExecutionTrack('architect and refactor the auth subsystem with a quick fix for legacy tokens'), 'full_sdlc');
+  assert.strictEqual(classifyExecutionTrack('greenfield e-commerce app with single-file component scaffolds'), 'full_sdlc');
+  assert.strictEqual(classifyExecutionTrack('pure quick question: explain how sessionTurn works'), 'fast_track');
+
   // 9b. Slash commands route directly to target subagent
   assert.strictEqual(routeByKeywordsWithPrompt(null, '/anbu check logs and telemetry'), 'anbu');
   assert.strictEqual(routeByKeywordsWithPrompt(null, '/jonin build navigation bar'), 'jonin');
