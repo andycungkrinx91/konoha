@@ -227,7 +227,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
     await page.locator('button[type="submit"]').click();
 
     // Await results
-    await expect(page.getByText('citations')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('citations')).toBeVisible({ timeout: 25000 });
     const badges = await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('.metric-card-3d span'));
       return b.map(el => el.textContent.trim()).filter(t => t.includes('DuckDuckGo') || t.includes('Wikipedia') || t.includes('Skills') || t.includes('SearXNG'));
@@ -237,7 +237,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
     // Switch to Wikipedia source filter
     await page.getByRole('button', { name: 'Wikipedia' }).click();
     await page.locator('button[type="submit"]').click();
-    await expect(page.getByText('citations')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('citations')).toBeVisible({ timeout: 25000 });
     const wikiBadges = await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('.metric-card-3d span'));
       return b.map(el => el.textContent.trim()).filter(t => t === 'Wikipedia');

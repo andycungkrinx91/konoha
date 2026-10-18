@@ -318,6 +318,54 @@ try {
   assert.strictEqual(kwGate2PauseRes.status, 'pending_human_signoff');
   console.log('  ✓ Gate 2 with "done/deliver/sign-off/approve" keywords strictly paused awaiting sign-off.');
 
+  // 9. Fast-Track Direct Request (Point 1.3: Dual-Track Execution Engine)
+  console.log('  Testing Dual-Track Execution Engine (Fast-Track vs Full SDLC)...');
+  const { classifyExecutionTrack, routeByKeywordsWithPrompt } = require('../src/mcp/workflow');
+
+  // 9a. Slash commands and targeted fixes classified as fast_track
+  assert.strictEqual(classifyExecutionTrack('/anbu fix the auth endpoint'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/jonin build user card'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/genin inspect routes'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/chunin search docs for drizzle'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/kage audit security'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/tokubetsu-jonin write release notes'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('/sannin triage the issue'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('single-file typo fix in server.js'), 'fast_track');
+  assert.strictEqual(classifyExecutionTrack('quick question about sqlite'), 'fast_track');
+
+  // Greenfield and multi-subsystem tasks classified as full_sdlc
+  assert.strictEqual(classifyExecutionTrack('Build fullstack e-commerce marketplace from scratch'), 'full_sdlc');
+  assert.strictEqual(classifyExecutionTrack('Architect and implement microservices pipeline'), 'full_sdlc');
+
+  // 9b. Slash commands route directly to target subagent
+  assert.strictEqual(routeByKeywordsWithPrompt(null, '/anbu check logs and telemetry'), 'anbu');
+  assert.strictEqual(routeByKeywordsWithPrompt(null, '/jonin build navigation bar'), 'jonin');
+  assert.strictEqual(routeByKeywordsWithPrompt(null, '/tokubetsu-jonin generate docx report'), 'tokubetsu_jonin');
+
+  // 9c. Fast-track tasks bypass Gate 1 pause even when hitl_mode is enabled
+  sdlc.setProjectSdlcConfig(tmpDir, { hitl_mode: 'enabled' }, dbPath);
+  const taskDirFast = path.join(tmpDir, 'task_fast_track');
+  fs.mkdirSync(taskDirFast, { recursive: true });
+  fs.writeFileSync(path.join(taskDirFast, 'plan.md'), '# Plan\n- [ ] Fix typo in line 42', 'utf8');
+
+  const statusFast = {
+    task_id: 'task_fast_track',
+    phase: 'plan',
+    prompt: '/anbu fix typo in config.js',
+    execution_track: 'fast_track',
+    project_path: tmpDir,
+    current_dispatch: { id: 'disp-fast-1', phase: 'plan', agent: 'kage' },
+    completed_dispatches: ['disp-fast-1'],
+    dispatch_results: { 'disp-fast-1': '# Plan\n- [ ] Fix typo in line 42' }
+  };
+  saveWorkflowStatus(taskDirFast, statusFast);
+  sdlc.createTask({ id: 'task_fast_track', description: statusFast.prompt, status: 'in_progress', project_path: tmpDir });
+
+  const fastTrackRes = JSON.parse(runMcpWorkflow(taskDirFast));
+  assert.strictEqual(fastTrackRes.status, 'ready', 'Fast-track task must proceed directly to execution without Gate 1 pause');
+  assert.strictEqual(fastTrackRes.phase, 'execute', 'Fast-track phase must transition to execute');
+  console.log('  ✓ Fast-Track bypasses Gate 1 plan pause with zero pipeline overhead.');
+
 } finally {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
 }

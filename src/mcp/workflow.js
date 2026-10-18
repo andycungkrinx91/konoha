@@ -164,6 +164,16 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   }
   if (!p) return 'kage';
 
+  const trimmed = p.trim();
+  const slashMatch = trimmed.match(/^\/([a-zA-Z_-]+)(?:\s+([\s\S]*))?$/);
+  if (slashMatch) {
+    const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
+    const knownAgents = ['sannin', 'genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin'];
+    if (knownAgents.includes(rawCmd)) {
+      return rawCmd;
+    }
+  }
+
   const promptLower = p.toLowerCase();
   let bestScore = 0;
   let bestAgent = null;
@@ -215,6 +225,19 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
     bestAgent = 'tokubetsu_jonin';
   }
   return bestAgent;
+}
+
+function classifyExecutionTrack(prompt = '') {
+  if (!prompt || typeof prompt !== 'string') return 'full_sdlc';
+  const p = prompt.trim();
+  if (/^\/(anbu|jonin|genin|chunin|kage|tokubetsu[-_]jonin|sannin)\b/i.test(p)) {
+    return 'fast_track';
+  }
+  const isFastTrackSignal = /\b(single[- ]file|isolated bug|typo fix|quick question|inspection|explain|quick fix|hotfix|syntax fix)\b/i.test(p);
+  if (isFastTrackSignal) {
+    return 'fast_track';
+  }
+  return 'full_sdlc';
 }
 
 function detectParallelWorkstreams(prompt = '') {
@@ -313,6 +336,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
+  const executionTrack = classifyExecutionTrack(effPrompt);
 
   try {
     sdlcManager.createTask({
@@ -320,6 +344,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
       description: effPrompt,
       status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
       dor_result: dorResult,
+      evidence: { execution_track: executionTrack },
       project_path: resolvedProjPath,
       session_id: resolvedSessionId,
       client: actClient
@@ -327,6 +352,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     const status = loadWorkflowStatus(resolvedTaskDir);
     status.task_id = taskId;
     status.prompt = effPrompt;
+    status.execution_track = executionTrack;
     status.session_id = resolvedSessionId;
     status.project_path = resolvedProjPath;
     status.client = actClient;
@@ -404,8 +430,18 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     );
   }
 
+  let trackGuidance = '';
+  if (executionTrack === 'fast_track') {
+    trackGuidance = (
+      '\n\n### ⚡ Fast-Track Direct Execution (Zero Pipeline Overhead)\n' +
+      '- Direct, immediate execution by target agent without 8-phase DAG or Gate 1 plan pause.\n' +
+      '- Subagent executes directly and reports verification via `konoha.report_from_agent`.'
+    );
+  }
+
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
+    `**Execution Track**: \`${executionTrack}\`\n` +
     `**Reason**: ${description}\n\n` +
     `Task directory: \`${resolvedTaskDir}\`\n` +
     `SDLC Task ID: \`${taskId}\`\n\n` +
@@ -415,6 +451,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     `3. Call \`sannin\` with \`task_dir=${resolvedTaskDir}\` to advance the workflow.\n\n` +
     `## Original Prompt\n\n${effPrompt}` +
     advisoryText +
+    trackGuidance +
     buildGuidance +
     parallelGuidance
   );
@@ -423,6 +460,7 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     status: 'routed',
     task_id: taskId,
     selected_agent: selectedAgent,
+    execution_track: executionTrack,
     parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     phase: 'delegation',
@@ -761,7 +799,7 @@ function runMcpWorkflow(taskDir = null) {
     const rootTaskRecord = sdlcManager.getTask(rootTaskId);
     const isApprovedInDb = rootTaskRecord && (rootTaskRecord.status === 'in_progress' || rootTaskRecord.status === 'completed');
 
-    if (isApprovedInDb || sdlcConfig.hitl_mode === 'disabled') {
+    if (isApprovedInDb || sdlcConfig.hitl_mode === 'disabled' || status.execution_track === 'fast_track') {
       status.plan_approved = true;
       status.phase = 'execute';
       phase = 'execute';
@@ -881,7 +919,7 @@ function runMcpWorkflow(taskDir = null) {
         status.pending_executors = status.tasks.map(t => t.id);
         status.completed_executors = [];
 
-        if (sdlcConfig.hitl_mode === 'enabled' && !status.plan_approved) {
+        if (sdlcConfig.hitl_mode === 'enabled' && !status.plan_approved && status.execution_track !== 'fast_track') {
           status.phase = 'plan_approval';
           status.assigned_agent = 'sannin';
           try {
@@ -1461,5 +1499,6 @@ module.exports = {
   workflowParseTasks,
   workflowReviewApproved,
   cleanupTransientScratchFiles,
+  classifyExecutionTrack,
   runMcpWorkflow
 };

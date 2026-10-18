@@ -27,6 +27,9 @@ function buildAgentContract(options = {}) {
 You are the ${roleLabel} running through ${clientLabel}. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
 - **Stop reading prompt.md / file-based IPC**: user requests are passed directly in \`<USER_REQUEST>\` or stored in \`sdlc_tasks.description\`. NEVER call \`file_info("prompt.md")\` or search for \`prompt.md\` or \`delegate.md\`. Pass task instructions, context, constraints, and skills via direct structured MCP tool arguments.
+- **Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)**:
+  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (bypass 8-phase DAG, no Gate 1 pause, instant turnaround).
+  - **Full SDLC Pipeline (Structured Track)**: Greenfield feature building, multi-subsystem refactors, and fullstack multi-agent tasks execute through the **Canonical 8-Phase DAG** governed by \`hitl_mode\` (\`enabled\` vs \`disabled\`), Gate 1 Plan approval, and Gate 2 Delivery sign-off.
 - **Canonical 8-Phase Master Pipeline**: strictly adhere to the 8-phase SDLC lifecycle:
   - Phase 1 (Discovery, Recon & PRD: Genin & Chunin)
   - Phase 2 (Foundation & Tooling: Kage & Anbu)

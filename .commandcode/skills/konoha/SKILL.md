@@ -96,14 +96,58 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
 
 ---
 
-## 🔄 6-Step Sequential Orchestration Pipeline
+## 🔄 Canonical 8-Phase Master Fullstack Pipeline & Dual-Track Execution Engine
 
-1. **Step 1: Deep Research (Chunin)** — Research web documentation, APIs, and external evidence.
-2. **Step 2: Code Exploration (Genin)** — Read-only exploration, symbol mapping, and dependency tracing via `Semble MCP`.
-3. **Step 3: Architecture & Planning (Kage)** — Architectural review, task decomposition, and risk analysis.
-4. **Step 4: Execution (Jonin / Anbu)** — Frontend UI construction (`jonin`) or Backend/DevOps engineering and dev/local penetration testing (`anbu`).
-5. **Step 5: Documentation & Refinement (Tokubetsu-Jonin)** — Technical documentation, API specs, and diagrams.
-6. **Step 6: Final Report (Sannin)** — Synthesis and structured final delivery.
+### 1. Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)
+Konoha strictly preserves **Fast-Track Direct Execution** so everyday development is never slowed down by unnecessary workflow overhead:
+
+| Execution Track | Trigger Conditions | Workflow Applied | Approval & Gating |
+|---|---|---|---|
+| **Direct Request (Fast-Track)** | - Slash Commands (`/anbu <prompt>`, `/jonin <prompt>`, `/genin <prompt>`, etc.)<br>- Quick questions, explanations, documentation queries<br>- Single-file targeted edits, isolated bug fixes, typo fixes<br>- Ad-hoc shell or inspection requests | **Zero Pipeline Overhead**.<br>Direct, immediate execution by target subagent or orchestrator. Bypass 8-phase DAG entirely. | No HITL Gate 1 pause.<br>No heavy TODO approval required.<br>Instant turnaround. |
+| **Full SDLC Pipeline (Structured Track)** | - Greenfield feature building (0 to 1)<br>- Multi-subsystem refactors & architectural modifications<br>- Fullstack multi-agent tasks (Frontend + Backend + Docs)<br>- Explicit user commands requiring rigorous phase planning | **Canonical 8-Phase DAG**.<br>Phase 1 Recon ➔ Plan ➔ Phased implementation across specialists ➔ Phase 8 Kage review. | Governed by `hitl_mode` (`enabled` vs `disabled`).<br>Gate 1 Post-Plan approval & Gate 2 Post-Review delivery sign-off. |
+
+### 2. Canonical 8 Phases & Subagent Mapping
+1. **Phase 1: Discovery, Recon & PRD** (`genin`, `chunin`, `tokubetsu_jonin`, `sannin`) — Code recon (`code_recon.json`), web intel (`research_evidence.md`), and TODO Action Plan for **HITL Gate 1 Approval** (Laptop + Telegram).
+2. **Phase 2: Project Foundation & Tooling** (`kage`, `anbu`, `sannin`) — Polyglot runtime init, linters, CI/CD skeleton, and `BLUEPRINT.md`.
+3. **Phase 3: Database, Schemas & Core Data** (`anbu`, `kage`) — Schemas, migrations, seeders, RLS policies, connection pooling, and ORM layer.
+4. **Phase 4: Backend APIs & Services** (`anbu`, `tokubetsu_jonin`) — High-throughput APIs, authentication/RBAC, queues, webhooks, and microservices.
+5. **Phase 5: Frontend, UI/UX & Interaction** (`jonin`, `genin`) — Multi-framework frontend (Next.js/SvelteKit/Nuxt/Angular), design tokens, Taste-Skill styling, Mobile Dock, and state management.
+6. **Phase 6: Automated Testing & QA** (`anbu`, `jonin`, `genin`, `kage`) — Unit, integration, E2E (Playwright), fuzz testing, and error resilience. Guarantees 0 duplicate test folders.
+7. **Phase 7: Security, Hardening & Audit** (`kage`, `anbu`, `chunin`) — Socket supply chain audit (`rtk socket ci`), penetration testing, CORS/CSP hardening, anti-slop enforcement (`rtk aislop scan`).
+8. **Phase 8: Review Gate, Docs & Handover** (`kage`, `tokubetsu_jonin`, `sannin`) — Presentation of Final Handover Report and awaiting explicit human sign-off (**HITL Gate 2 Sign-Off**). Strict No-Push/No-Release invariant.
+
+### 3. Configurable Two-Stage HITL Gates (`hitl_mode`)
+- **`hitl_mode: 'enabled'` (Default/Safe)**:
+  - **Gate 1 (Plan Approval)**: Execution blocks after Phase 1 until human operator approves the action plan via Web Console or Telegram interactive buttons.
+  - **Gate 2 (Delivery Sign-Off)**: Final handover blocks until human operator approves delivery sign-off in Kage's confidence score.
+- **`hitl_mode: 'disabled'` (Autonomous)**: Both Gate 1 and Gate 2 log advisory checkpoints and bypass pauses automatically for hands-free automation.
+
+### 4. Elimination of File-Based IPC
+- `prompt.md`, `delegate.md`, and `result.md` are **DEPRECATED / RETIRED**.
+- User requests are ingested directly from active chat context (`<USER_REQUEST>`) or stored in `sdlc_tasks.description`.
+- Sannin passes structured parameters via direct MCP tool arguments (`task`, `context`, `constraints`, `skills`, `taste_dials`, `project_path`).
+- Subagents report completion via `konoha.report_from_agent(summary, status, files_created, files_modified, learnings)`.
+- All execution evidence and phase transitions update `sdlc_tasks.evidence` in SQLite.
+
+### 5. Telegram 2-Way Interactive Approvals (Remote Mobile HITL)
+- Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot.
+- Bi-directional sync: Mobile approval unlocks laptop execution; laptop approval updates mobile buttons (first to approve wins).
+- Commands: `/approval list` and `/approval <id>`.
+- Strict mutual exclusion between 1-way and 2-way notifications to prevent duplicate messages.
+- Universal completion broadcasts when tasks finish.
+
+### 6. Dynamic Polyglot Stack Detection (`src/mcp/stack_detector.js`)
+- Inspects workspace manifests and dynamically selects native ecosystem commands:
+  - **Node / TS**: `package.json` ➔ `pnpm`, `bun`, `npm` | `rtk pnpm test` | `rtk pnpm run lint`
+  - **Python**: `pyproject.toml`, `requirements.txt` ➔ `uv`, `poetry`, `pip` | `rtk uv run pytest` | `rtk ruff check`
+  - **Go**: `go.mod` ➔ `go build` | `rtk go test ./...` | `rtk golangci-lint run`
+  - **Rust**: `Cargo.toml` ➔ `cargo build` | `rtk cargo test` | `rtk cargo clippy -- -D warnings`
+  - **PHP**: `composer.json` ➔ `composer install` | `rtk vendor/bin/pest` | `rtk vendor/bin/phpstan`
+  - **Java / Kotlin**: `build.gradle`, `pom.xml` ➔ `gradle`, `mvn` | `rtk ./gradlew test` | `rtk ./gradlew check`
+
+### 7. RTK Boundary Anti-cat/Anti-grep Guardrails (`src/guardrails.js`)
+- Shell reading commands (`cat`, `head`, `tail`, `grep`, `rg`, `find`, `fd`) are strictly blocked across all clients (even with `rtk`).
+- Reading is exclusively via `konoha.read_file_range` or `konoha.read_file_head`; search is via `semble.search` or `konoha.token_efficient_grep`.
 
 ---
 
@@ -532,7 +576,7 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - All 17 visual workflow and terminal demonstration assets in `assets/` are maintained strictly as Animated WebP (`.webp`) and validated with `validateAnimatedWebP`. Active documentation and README embeds reference `.webp` files exclusively.
 97. **Lost in the Middle & Long-Context Attention Preservation Invariant (v2.1.18)**:
     - **Attention Decay Mitigation**: LLMs (such as Gemini 3.8 Flash, Claude, and GPT-4) suffer from the "Lost in the Middle" attention degradation in long transcripts. When multi-turn sessions expand or tool results exceed tens of thousands of tokens, attention weights concentrate only at the prompt boundaries (primacy/recency), while tokens in the middle 50%–80% experience severe attention attenuation.
-    - **Explicit Boundary Re-Anchoring**: `sanninWorkflowNext` in `src/mcp/workflow.js` mechanically appends `## USER CONSTRAINTS & ORIGINAL PROMPT` via `getPromptSection(resolvedTaskDir)` to every generated `delegate.md` dispatch across all phases (`plan`, `research`, `execute`, `document`, `review`, and `remediation`). This ensures subagents (Jonin, Anbu, Kage, Tokubetsu-Jonin) always see the original prompt and user-specified constraints at the immediate boundary of their execution.
+    - **Explicit Boundary Re-Anchoring**: `sanninWorkflowNext` and `runSannin` in `src/mcp/workflow.js` mechanically inject user constraints and original prompt parameters directly into structured tool arguments (`task`, `context`, `constraints`) across all subagent dispatches (`explore`, `plan`, `research`, `execute`, `document`, `review`, and `remediation`). This ensures subagents (Jonin, Anbu, Kage, Tokubetsu-Jonin) always see the original prompt and user-specified constraints at the immediate boundary of their execution without relying on deprecated file-based IPC.
     - **Turn-Level Workflow Reminder**: `src/workflow_reminder.js` re-injects the anti-context-loss guard on every turn, warning agents against relying on conversational memory or fuzzy recall from earlier turns for critical arguments (identity, flags, negative constraints).
     - **Exact String Assertion Gate**: Before running state-altering or git commit actions, agents must assert exact parameter equality against requested parameters (e.g., verifying `git log -n 1 --format="%an <%ae>"` exactly equals `andycungkrinx91 <andy.silva270114@gmail.com>`), rather than assuming environment defaults or glancing at passing config flags.
 98. **TUI & CLI Subsystem Parity, Broken Symlink Resilience, and Modular Subcommand Architecture (v2.1.18)**:
@@ -552,6 +596,14 @@ These standards apply to every build mode (`build_from_text`, clone-url flows, `
     - **Header Breadcrumb High-Contrast Tokens**: Active crumb (`--theme-crumb-active`), separator (`--theme-crumb-separator`), and parent section (`--theme-crumb-parent`) are derived per mode from active theme tokens, achieving `min 4.5:1` contrast across all 10 themes in both Light and Dark mode on all routes.
     - **Full-Screen Theme Switch Rasengan Transition**: `ThemeSwitcher.svelte` implements a full-viewport transition overlay (`fixed inset-0 w-screen h-screen z-[9999]`) dynamically rendered with the newly selected theme's 4-gradient tokens (`--rasengan-1..4`). Rapid consecutive switches cancel running timers and cleanly restart without stacking effects or WebGL leaks; unmounts completely from DOM upon completion.
     - **Single Shared 3D Rasengan Background Component**: `SharedRasenganBackground.svelte` is mounted once at root level in `+layout.svelte`, persisting across route navigation without re-creating WebGL contexts or restarting animations. Content areas use transparent backgrounds so the animated 3D scene is visible through glass cards and margins while maintaining `>= 4.5:1` text contrast. Respects `visibilitychange` (pauses RAF when hidden) and `prefers-reduced-motion` (static frame).
+101. **Dual-Track Execution Engine, Polyglot Stack Detection & 2-Way HITL Approvals (v2.2.0)**:
+    - **Dual-Track Execution Engine**: Preserves Fast-Track Direct Execution for slash commands (`/anbu <prompt>`, `/jonin <prompt>`, etc.), single-file edits, typo fixes, and ad-hoc inspections with zero pipeline overhead (bypassing 8-phase DAG and Gate 1 pause). Greenfield builds and multi-subsystem refactors execute through the Canonical 8-Phase DAG.
+    - **Complete Elimination of File-Based IPC**: Zero usage of `prompt.md`, `delegate.md`, or `result.md`. Task inputs are ingested from `<USER_REQUEST>` / `sdlc_tasks.description`, dispatches pass structured tool arguments, and results are reported directly via `konoha.report_from_agent`.
+    - **Configurable Two-Stage HITL Gates**: Enforces Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`) strictly through SQLite database status when `hitl_mode === 'enabled'`. Keywords in prompts never self-bypass gates. Autonomous mode (`hitl_mode === 'disabled'`) proceeds hands-free.
+    - **Telegram 2-Way Interactive Approvals**: Inline keyboard buttons `[✅ Approve]` and `[❌ Reject]` dispatched to Telegram mobile bot. Supports `/approval list` and `/approval <id>`. Enforces strict mutual exclusion between 1-way and 2-way modes to eliminate duplicate notifications. Broadcasts completion alerts across all clients.
+    - **Dynamic Polyglot Stack Detector (`src/mcp/stack_detector.js`)**: Inspects workspace manifests and dynamically selects native ecosystem commands across Node/TS, Python, Go, Rust, PHP, and Java.
+    - **RTK Boundary Anti-cat/Anti-grep Guardrail (`src/guardrails.js`)**: Rejects all shell file readers (`rtk cat`, `rtk head`, `rtk grep`, etc.) at the tool-call boundary with 100% redirection to `konoha.read_file_range` and `semble.search`.
+
 
 
 
