@@ -95,7 +95,7 @@
 
 <div class="space-y-6 w-full">
   {#snippet heroActions()}
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-xs font-semibold border {authState.isBootstrap ? 'bg-status-warning-soft text-status-warning border-status-warning-soft' : 'bg-status-success-soft text-status-success border-status-success-soft'}">
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] text-xs font-semibold border {authState.isBootstrap ? 'bg-status-warning-soft text-status-warning border-status-warning-soft' : 'bg-status-success-soft text-status-success border-status-success-soft'}">
       <span class="w-2 h-2 rounded-full {authState.isBootstrap ? 'bg-status-warning' : 'bg-status-success'}"></span>
       {authState.isBootstrap ? 'Bootstrap Credential Active' : 'Hardened Argon2 Password Active'}
     </span>
@@ -115,7 +115,7 @@
     style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
   >
     <div class="flex items-start gap-4">
-      <div class="w-12 h-12 rounded-[5px] flex items-center justify-center shrink-0 border-status-info-soft bg-status-info-soft text-status-info">
+      <div class="w-12 h-12 rounded-[3px] flex items-center justify-center shrink-0 border-status-info-soft bg-status-info-soft text-status-info">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
@@ -132,7 +132,7 @@
     </div>
 
     {#if statusMessage}
-      <div role={isError ? 'alert' : 'status'} class="p-3 rounded-[5px] text-xs font-semibold border animate-in fade-in {isError ? 'badge-status badge-status-danger' : 'badge-status badge-status-success'}">
+      <div role={isError ? 'alert' : 'status'} class="p-3 rounded-[3px] text-xs font-semibold border animate-in fade-in {isError ? 'badge-status badge-status-danger' : 'badge-status badge-status-success'}">
         {statusMessage}
       </div>
     {/if}
@@ -147,7 +147,7 @@
           type={showPasswords ? "text" : "password"}
           bind:value={currentPassword}
           placeholder="Enter current password"
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme"
           style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="current-password"
         />
@@ -163,7 +163,7 @@
           bind:value={newPassword}
           placeholder="Enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme"
           style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="new-password"
         />
@@ -179,7 +179,7 @@
           bind:value={confirmPassword}
           placeholder="Re-enter new password"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme"
           style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="new-password"
         />
@@ -200,7 +200,7 @@
         <button
           type="submit"
           disabled={isSubmitting}
-          class="px-6 py-2.5 rounded-[5px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98]"
+          class="px-6 py-2.5 rounded-[3px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98]"
           style="background: var(--theme-4gradient, linear-gradient(135deg, #0284c7, #06b6d4));"
         >
           {#if isSubmitting}
@@ -219,7 +219,7 @@
     style="border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 30%, var(--color-border));"
   >
     <div class="flex items-start gap-4">
-      <div class="w-12 h-12 rounded-[5px] flex items-center justify-center shrink-0 border-status-danger-soft bg-status-danger-soft text-status-danger">
+      <div class="w-12 h-12 rounded-[3px] flex items-center justify-center shrink-0 border-status-danger-soft bg-status-danger-soft text-status-danger">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
@@ -236,7 +236,7 @@
     </div>
 
     {#if resetStatusMessage}
-      <div role={isResetError ? 'alert' : 'status'} class="p-3 rounded-[5px] text-xs font-semibold border animate-in fade-in {isResetError ? 'badge-status badge-status-danger' : 'badge-status badge-status-success'}">
+      <div role={isResetError ? 'alert' : 'status'} class="p-3 rounded-[3px] text-xs font-semibold border animate-in fade-in {isResetError ? 'badge-status badge-status-danger' : 'badge-status badge-status-success'}">
         {resetStatusMessage}
       </div>
     {/if}
@@ -252,7 +252,7 @@
           bind:value={resetCurrentPassword}
           placeholder="Enter current password to verify authority"
           required
-          class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme"
+          class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme"
           style="background-color: var(--color-surface); color: var(--color-text);"
           autocomplete="current-password"
         />
@@ -262,7 +262,7 @@
         <button
           type="submit"
           disabled={isResetting}
-          class="px-6 py-2.5 rounded-[5px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] bg-status-danger hover:bg-status-danger"
+          class="px-6 py-2.5 rounded-[3px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] bg-status-danger hover:bg-status-danger"
         >
           {#if isResetting}
             Resetting Credential...

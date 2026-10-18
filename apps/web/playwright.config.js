@@ -37,13 +37,13 @@ export default defineConfig({
   webServer: {
     command: 'node ../../src/web_server.js',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     env: {
       PORT: '4173',
       HOST: '127.0.0.1',
       KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json',
       KONOHA_DISABLE_TELEGRAM_POLLER: '1',
-      KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || TEST_BOOTSTRAP_PASSWORD
+      KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || TEST_BOOTSTRAP_PASSWORD || 'konohagakure'
     },
     timeout: 30000,
   },

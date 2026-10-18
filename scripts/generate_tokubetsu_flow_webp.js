@@ -26,9 +26,9 @@ fs.mkdirSync(ASSETS_DIR, { recursive: true });
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.1.18';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.0';
   } catch (_) {
-    return '2.1.18';
+    return '2.2.0';
   }
 })();
 

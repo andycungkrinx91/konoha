@@ -18,7 +18,7 @@
 
   let { children } = $props();
 
-  let health = $state({ status: 'checking', port: 1404, version: '2.1.18' });
+  let health = $state({ status: 'checking', port: 1404, version: '2.2.0' });
 
   const navSections = [
     {
@@ -230,7 +230,7 @@
           </div>
           <div class="min-w-0">
             <h1 class="text-sm font-extrabold tracking-tight flex items-center gap-1.5" style="color: var(--color-text);">
-              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.1.18'}</span>
+              Konoha <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono border font-bold gradient-badge">v{health.version || '2.2.0'}</span>
             </h1>
             <p class="text-[10px] font-medium truncate" style="color: var(--color-text-muted);">Konoha MCP Orchestrator</p>
           </div>

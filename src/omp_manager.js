@@ -73,10 +73,14 @@ function writeJsonAtomic(filePath, data) {
   fs.renameSync(tempPath, filePath);
 }
 
+const OMP_MCP_SCHEMA = 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json';
+
 function buildOmpWorkflowAddendum() {
   return `
 ## Konoha Workflow Mandate (OMP) — MANDATORY
 
+- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`semble.search\`) as primary execution tools.
+- **Advisor Preservation**: OMP's built-in advisor review (\`reviewMode: agent-end\`) must always run after all Konoha multi-agent workflows, subagent delegations, and Kage review gates finish cleanly. Never abort the turn early or bypass advisor post-review.
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
   - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
@@ -103,7 +107,7 @@ function buildOmpWorkflowAddendum() {
 - **Workflow artifacts** (\`plan.md\`, \`findings.md\`, \`final_docs.md\`, \`kage_review.json\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 98\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
 - **Base personality: High Effort + Instruct Style**: Strictly zero conversational filler (no "hmmmm", "let me", "wait - but"), lead with direct action, ADHD-friendly structured formatting, zero hallucination, and strictly no lies.
-- **Review token hygiene & strict changed-files scoping (NEVER BURN TOKENS)**: Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, OMP), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context. When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution. NEVER dump raw full-repo scan output into conversation context; summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`. Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
+- **Review token hygiene & strict changed-files scoping (NEVER BURN TOKENS)**: Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, OMP), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context. When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution. NEVER dump raw full-repo scan output into conversation context; summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
 `;
 }
 
@@ -115,13 +119,12 @@ function buildOmpManagedContract() {
 }
 
 function buildOmpMcpServers(options = {}) {
-  const nodeCmd = options.nodeCmd || process.execPath || 'node';
   const launcherPath = options.launcherPath || (fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH);
-  const uvxCmd = options.uvxCmd || 'uvx';
 
   return {
     konoha: {
-      command: nodeCmd,
+      type: 'stdio',
+      command: 'node',
       args: [launcherPath],
       env: {
         ACTIVE_CLIENT: 'omp',
@@ -130,7 +133,8 @@ function buildOmpMcpServers(options = {}) {
       }
     },
     semble: {
-      command: uvxCmd,
+      type: 'stdio',
+      command: 'uvx',
       args: [
         '--from',
         SEMBLE_PACKAGE,
@@ -140,6 +144,7 @@ function buildOmpMcpServers(options = {}) {
       ]
     },
     aislop: {
+      type: 'stdio',
       command: 'npx',
       args: [
         '-y',
@@ -157,27 +162,39 @@ function registerOmpMcp(options = {}) {
 
   try {
     const existing = readJsonSafe(configPath) || {};
-    if (!existing.mcpServers || typeof existing.mcpServers !== 'object') {
-      existing.mcpServers = {};
-    }
+    const existingServers = (existing.mcpServers && typeof existing.mcpServers === 'object') ? existing.mcpServers : {};
 
     const servers = buildOmpMcpServers(options);
-    Object.assign(existing.mcpServers, servers);
+    const mergedServers = Object.assign({}, existingServers, servers);
 
-    writeJsonAtomic(configPath, existing);
+    // OMP schema strictly requires $schema and mcpServers only
+    const payload = {
+      $schema: OMP_MCP_SCHEMA,
+      mcpServers: mergedServers
+    };
+
+    writeJsonAtomic(configPath, payload);
     if (!silent) process.stderr.write(`✓ Registered Konoha MCP servers in OMP: ${configPath}\n`);
 
     // Also mirror to legacy ~/.omp/mcp.json if ~/.omp directory exists to prevent client fallback drift
     try {
       const legacyPath = path.join(OMP_DIR, 'mcp.json');
       if (fileExists(legacyPath)) {
-        const legacyExisting = readJsonSafe(legacyPath) || {};
-        legacyExisting.mcpServers = legacyExisting.mcpServers || {};
-        Object.assign(legacyExisting.mcpServers, servers);
-        writeJsonAtomic(legacyPath, legacyExisting);
+        writeJsonAtomic(legacyPath, payload);
       }
     } catch (_) {
       // Best-effort mirror to legacy path
+    }
+
+    // Mirror to project-local .omp/mcp.json if .omp exists in project
+    try {
+      const projOmpDir = path.join(process.cwd(), '.omp');
+      if (fileExists(projOmpDir)) {
+        const projMcp = path.join(projOmpDir, 'mcp.json');
+        writeJsonAtomic(projMcp, payload);
+      }
+    } catch (_) {
+      // Best-effort mirror to project path
     }
 
     return { ok: true, configPath };

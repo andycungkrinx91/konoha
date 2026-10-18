@@ -1,6 +1,6 @@
 # Cloudflare Tunnel & Zero Trust Ingress Guide
 
-**Konoha MCP Version:** v2.1.18  
+**Konoha MCP Version:** v2.2.0  
 **Module:** `src/tunnel/`  
 **Target Service:** `http://127.0.0.1:1404` (Konoha Web UI)  
 **CLI Interface:** `konoha tunnel <command>`  

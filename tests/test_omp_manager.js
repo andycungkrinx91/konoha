@@ -63,6 +63,9 @@ const servers = ompManager.buildOmpMcpServers({
 assert.ok(servers.konoha, 'Must configure konoha server');
 assert.ok(servers.semble, 'Must configure semble server');
 assert.ok(servers.aislop, 'Must configure aislop server');
+assert.strictEqual(servers.konoha.type, 'stdio', 'Konoha server must specify stdio transport');
+assert.strictEqual(servers.semble.type, 'stdio', 'Semble server must specify stdio transport');
+assert.strictEqual(servers.aislop.type, 'stdio', 'Aislop server must specify stdio transport');
 assert.strictEqual(servers.konoha.env.ACTIVE_CLIENT, 'omp', 'Konoha server must target omp client');
 assert.strictEqual(servers.konoha.env.KONOHA_CLIENT, 'omp', 'Konoha server must pass KONOHA_CLIENT=omp');
 assert.deepStrictEqual(servers.semble.args.slice(-2), ['--content', 'all'], 'Semble must use --content all');
@@ -83,6 +86,7 @@ try {
   assert.ok(fs.existsSync(testConfigPath), 'mcp.json must be created');
 
   const configContent = JSON.parse(fs.readFileSync(testConfigPath, 'utf8'));
+  assert.strictEqual(configContent.$schema, 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json', 'mcp.json must use valid OMP schema');
   assert.ok(configContent.mcpServers.konoha, 'konoha must be registered in mcp.json');
   assert.ok(configContent.mcpServers.semble, 'semble must be registered in mcp.json');
   assert.ok(configContent.mcpServers.aislop, 'aislop must be registered in mcp.json');

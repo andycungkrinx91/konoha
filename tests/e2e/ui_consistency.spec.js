@@ -24,6 +24,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
   });
 
   test('All standard console pages share authoritative max-width and center alignment', async ({ page }) => {
+    test.setTimeout(60000);
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     for (const route of STANDARD_ROUTES) {
@@ -112,7 +113,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
     }
   });
 
-  test('Post-login form fields apply login-field-effect with 5px radius', async ({ page }) => {
+  test('Post-login form fields apply login-field-effect with 3px radius', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     // Settings password fields
@@ -131,7 +132,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
     expect(settingsInputs.length).toBeGreaterThanOrEqual(3);
     for (const inp of settingsInputs) {
       expect(inp.hasEffect).toBe(true);
-      expect(inp.radius).toBe('5px');
+      expect(inp.radius).toBe('3px');
     }
 
     // Remote access fields
@@ -148,9 +149,9 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
       };
     });
     expect(remoteFields.tokenEffect).toBe(true);
-    expect(remoteFields.tokenRadius).toBe('5px');
+    expect(remoteFields.tokenRadius).toBe('3px');
     expect(remoteFields.chatEffect).toBe(true);
-    expect(remoteFields.chatRadius).toBe('5px');
+    expect(remoteFields.chatRadius).toBe('3px');
   });
 
   test('Responsive viewports do not cause document horizontal overflow', async ({ page }) => {

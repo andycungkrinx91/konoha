@@ -2,7 +2,13 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [2.1.18] - Unreleased
+## [2.2.0] - 2026-10-18
+
+### OMP Auto-Enablement, Bootstrap Recovery, Sleek Neon Focus & 2.2.0 Architecture
+
+- **OMP Auto-Enablement, Strict Schema Compliance & Stdio Transport (`src/omp_manager.js`, `src/agent_manager.js`)**: Enforced strict schema URL (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), bare executable command names (`node`, `uvx`, `npx`), `"type": "stdio"`, and auto-wired setup into `initAgents()`. Guaranteed host-native advisor continuity (`reviewMode: agent-end`) after Konoha workflows conclude.
+- **Atomic Authentication Reset & Test Isolation (`src/auth.js`, `bin/cli.js`, `bin/lib/ui_commands.js`, `apps/web/playwright.config.js`)**: Implemented `resetAuthToDefault()` to restore bootstrap credentials and purge active sessions. Added CLI commands `konoha web reset-password` and `konoha auth reset`. Isolated Playwright test authentication to `/tmp/konoha_test_web_auth.json` with `reuseExistingServer: false` to eliminate credential contamination.
+- **Sleek Travelling Neon Focus Border, 3px Line Parity & Dynamic Glass Toasts (`apps/web/src/app.css`, `Login.svelte`, `ToastHost.svelte`)**: Replaced thick box-shadow focus with a 1.5px animated travelling neon border sweep (`@keyframes neonBorderSweep`, `@keyframes neonGlowPulse`), standardized input border radius from 5px to 3px, updated login passphrase badge tag to dynamic lowercase (`default passphrase (konohagakure)`), and themed bottom-right toasts with `--theme-surface-glass`.
 
 ### Canonical 8-Phase Polyglot & Multi-Agent Architecture Refinement (PLAN_REFINE_WORKFLOW.md)
 

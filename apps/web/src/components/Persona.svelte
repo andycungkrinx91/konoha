@@ -248,7 +248,7 @@
     <button
       type="button"
       onclick={pruneAllMemories}
-      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
+      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
       title="Prune episodic memories"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -260,7 +260,7 @@
     <button
       type="button"
       onclick={() => { isCreateModalOpen = true; }}
-      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[5px] font-bold text-xs text-white shadow-md cursor-pointer"
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-[3px] font-bold text-xs text-white shadow-md cursor-pointer"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
@@ -275,7 +275,7 @@
       <button
         type="button"
         onclick={() => { activeTab = "memories"; }}
-        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'memories' ? 'btn-3d-primary' : ''}"
+        class="btn-3d px-4 py-2 rounded-[3px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'memories' ? 'btn-3d-primary' : ''}"
         style={activeTab !== "memories" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -287,7 +287,7 @@
       <button
         type="button"
         onclick={() => { activeTab = "soul"; loadSoul(); }}
-        class="btn-3d px-4 py-2 rounded-[5px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
+        class="btn-3d px-4 py-2 rounded-[3px] text-xs font-black transition-all cursor-pointer border flex items-center gap-2 {activeTab === 'soul' ? 'btn-3d-primary' : ''}"
         style={activeTab !== "soul" ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
       >
         <svg class="w-3.5 h-3.5 {activeTab === 'soul' ? 'text-[var(--theme-warning)]' : 'text-status-warning'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -320,7 +320,7 @@
           <button
             type="button"
             onclick={() => { selectedAgent = ag.id; loadMemories(); }}
-            class="btn-3d px-3.5 py-1.5 rounded-[5px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
+            class="btn-3d px-3.5 py-1.5 rounded-[3px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedAgent === ag.id ? 'btn-3d-primary' : ''}"
             style={selectedAgent !== ag.id ? "background-color: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);" : ""}
           >
             {ag.name}
@@ -335,7 +335,7 @@
           bind:value={searchQuery}
           onkeydown={(e) => { if (e.key === "Enter") loadMemories(); }}
           placeholder="Search memories..."
-          class="w-full pl-9 pr-4 py-2 rounded-[5px] text-xs font-semibold theme-text border transition-all login-field-effect input-theme"
+          class="w-full pl-9 pr-4 py-2 rounded-[3px] text-xs font-semibold theme-text border transition-all login-field-effect input-theme"
           style="background-color: var(--color-surface); color: var(--color-text);"
         />
         <svg class="w-4 h-4 absolute left-3 top-2.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -357,7 +357,7 @@
         <button
           type="button"
           onclick={() => { selectedType = t.id; loadMemories(); }}
-          class="px-3 py-1 rounded-[5px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-action-primary text-white border-action-primary shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
+          class="px-3 py-1 rounded-[3px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap border {selectedType === t.id ? 'bg-action-primary text-white border-action-primary shadow-sm' : 'theme-bg-subtle theme-text-secondary theme-border hover-bg-subtle'}"
         >
           {t.label}
         </button>
@@ -367,7 +367,7 @@
 
   <!-- Error State -->
   {#if error}
-    <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
+    <div class="p-4 rounded-[3px] border badge-status badge-status-danger text-xs font-semibold">
       Failed to load memories: {error}
     </div>
   {/if}
@@ -384,7 +384,7 @@
       </div>
     </div>
   {:else if memories.length === 0}
-    <div class="metric-card-3d p-12 text-center rounded-[5px] border border-dashed theme-border-strong-b" style="border-color: var(--color-border);">
+    <div class="metric-card-3d p-12 text-center rounded-[3px] border border-dashed theme-border-strong-b" style="border-color: var(--color-border);">
       <p class="text-sm font-bold theme-text">No persona memories found.</p>
       <p class="text-xs font-semibold theme-text-secondary mt-1">Use the "Add Memory" button to save rules or learnings.</p>
     </div>
@@ -399,17 +399,17 @@
           <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-[5px] text-[11px] font-bold border badge-status badge-status-info">
+                <span class="px-2.5 py-0.5 rounded-[3px] text-[11px] font-bold border badge-status badge-status-info">
                   @{m.agent_name}
                 </span>
-                <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase border theme-bg-subtle theme-text theme-border">
+                <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-extrabold uppercase border theme-bg-subtle theme-text theme-border">
                   {m.memory_type || "RULE"}
                 </span>
               </div>
               <button
                 type="button"
                 onclick={() => deleteMemory(m.id)}
-                class="btn-3d p-1.5 rounded-[5px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
+                class="btn-3d p-1.5 rounded-[3px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft border-transparent hover:border-status-danger-soft transition-all cursor-pointer"
                 title="Delete memory"
                 aria-label="Delete memory"
               >
@@ -455,12 +455,12 @@
         </div>
       </div>
     {:else if soulError && !soulData}
-      <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
+      <div class="p-4 rounded-[3px] border badge-status badge-status-danger text-xs font-semibold">
         Failed to load Ninja's Soul: {soulError}
       </div>
     {:else if soulData}
       {#if soulError}
-        <div class="p-3 rounded-[5px] border badge-status badge-status-warning text-xs font-semibold flex items-center justify-between">
+        <div class="p-3 rounded-[3px] border badge-status badge-status-warning text-xs font-semibold flex items-center justify-between">
           <span>Notice: Displaying offline Ninja's Soul doctrine ({soulError})</span>
           <button type="button" onclick={loadSoul} class="underline text-status-warning cursor-pointer font-bold">Retry</button>
         </div>
@@ -492,7 +492,7 @@
         class="metric-card-3d rounded-[5px] p-5 border flex items-start gap-3.5"
         style="border-color: color-mix(in srgb, var(--theme-grad-3) 28%, var(--color-border));"
       >
-        <div class="w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0 shadow-xs text-white" style="background: var(--theme-4gradient);">
+        <div class="w-9 h-9 rounded-[3px] flex items-center justify-center shrink-0 shadow-xs text-white" style="background: var(--theme-4gradient);">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -500,7 +500,7 @@
         <div class="space-y-1 text-xs flex-1">
           <div class="font-black text-status-warning tracking-wide uppercase flex flex-wrap items-center gap-2">
             <span>Universal i-have-adhd Doctrine Enforced Across All Souls</span>
-            <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase badge-status badge-status-warning">
+            <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-extrabold uppercase badge-status badge-status-warning">
               Active in All 7 Spirits
             </span>
           </div>
@@ -526,12 +526,12 @@
             >
               <div class="space-y-2">
                 <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-[5px] flex items-center justify-center text-xs font-black text-white shrink-0 shadow-xs" style="background: var(--theme-4gradient);">
+                  <span class="w-6 h-6 rounded-[3px] flex items-center justify-center text-xs font-black text-white shrink-0 shadow-xs" style="background: var(--theme-4gradient);">
                     {idx + 1}
                   </span>
                   <h4 class="text-xs font-black theme-text truncate">{tenet.name}</h4>
                   {#if idx === 1}
-                    <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-black uppercase badge-status badge-status-warning shrink-0">
+                    <span class="px-1.5 py-0.5 rounded-[3px] text-[9px] font-black uppercase badge-status badge-status-warning shrink-0">
                       i-have-adhd
                     </span>
                   {/if}
@@ -562,7 +562,7 @@
               <div class="space-y-3">
                 <div class="flex items-center justify-between gap-2 border-b theme-border-subtle pb-2">
                   <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-[5px] flex items-center justify-center shadow-xs text-white shrink-0" style="background: var(--theme-4gradient);">
+                    <div class="w-8 h-8 rounded-[3px] flex items-center justify-center shadow-xs text-white shrink-0" style="background: var(--theme-4gradient);">
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -571,7 +571,7 @@
                       {arch.name || key}
                     </h4>
                   </div>
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase border badge-status badge-status-info">
+                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-extrabold uppercase border badge-status badge-status-info">
                     {key}
                   </span>
                 </div>
@@ -580,7 +580,7 @@
                   {arch.role || ""}
                 </p>
 
-                <div class="p-3 rounded-[5px] theme-bg-muted border theme-border/80">
+                <div class="p-3 rounded-[3px] theme-bg-muted border theme-border/80">
                   <p class="text-[11px] font-medium italic theme-text leading-relaxed">
                     "{arch.voice || ""}"
                   </p>
@@ -596,7 +596,7 @@
                 {/if}
 
                 {#if arch.adhd_shaping}
-                  <div class="space-y-1 p-2.5 rounded-[5px] bg-status-warning-soft/60 border badge-statuswarning-soft/80">
+                  <div class="space-y-1 p-2.5 rounded-[3px] bg-status-warning-soft/60 border badge-statuswarning-soft/80">
                     <span class="text-[10px] font-extrabold uppercase tracking-wider text-status-warning flex items-center gap-1">
                       <svg class="w-3 h-3 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -610,7 +610,7 @@
                 {/if}
 
                 {#if arch.antislop_skills && arch.antislop_skills.length > 0}
-                  <div class="space-y-1.5 p-2.5 rounded-[5px] bg-status-info-soft/60 border badge-statusinfo-soft/80">
+                  <div class="space-y-1.5 p-2.5 rounded-[3px] bg-status-info-soft/60 border badge-statusinfo-soft/80">
                     <span class="text-[10px] font-extrabold uppercase tracking-wider text-action-primary flex items-center gap-1">
                       <svg class="w-3 h-3 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -619,7 +619,7 @@
                     </span>
                     <div class="flex flex-wrap gap-1.5 pt-0.5">
                       {#each arch.antislop_skills as skill}
-                        <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold border theme-bg-surface badge-status badge-status-info shadow-xs">
+                        <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-bold border theme-bg-surface badge-status badge-status-info shadow-xs">
                           {skill}
                         </span>
                       {/each}
@@ -655,12 +655,12 @@
     onkeydown={(e) => { if (e.key === 'Escape') isCreateModalOpen = false; }}
   >
     <div
-      class="modal-card modal-3d relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[5px] p-6 sm:p-8 border shadow-2xl space-y-6 glass-frost-strong animate-in zoom-in-95 duration-150"
+      class="modal-card modal-3d relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[3px] p-6 sm:p-8 border shadow-2xl space-y-6 glass-frost-strong animate-in zoom-in-95 duration-150"
       style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
+          <div class="w-8 h-8 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
@@ -670,7 +670,7 @@
         <button
           type="button"
           onclick={() => { isCreateModalOpen = false; }}
-          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
+          class="w-7 h-7 rounded-[3px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close"
         >
@@ -687,7 +687,7 @@
             <select
               id="agent-select"
               bind:value={newMemory.agentName}
-              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+              class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               {#each agents.filter(ag => ag.id) as ag}
                 <option value={ag.id}>{ag.name}{ag.title ? ` (${ag.title})` : ""}</option>
@@ -700,7 +700,7 @@
             <select
               id="memory-type-select"
               bind:value={newMemory.memoryType}
-              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+              class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -717,7 +717,7 @@
             type="text"
             bind:value={newMemory.title}
             placeholder="e.g. Always enforce Pure Light mode"
-            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+            class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           />
         </div>
 
@@ -728,7 +728,7 @@
             bind:value={newMemory.content}
             rows="4"
             placeholder="Specific instruction, rule, pattern, or constraint to permanently remember..."
-            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+            class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           ></textarea>
         </div>
 
@@ -739,7 +739,7 @@
             type="text"
             bind:value={newMemory.tags}
             placeholder="ui, theme, accessibility"
-            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+            class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           />
         </div>
       </div>

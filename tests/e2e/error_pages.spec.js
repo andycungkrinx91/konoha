@@ -70,7 +70,7 @@ test.describe('Animated Error Experience & Routing', () => {
 
   test('Unknown /api/* route returns structured JSON 404 (never HTML)', async ({ request }) => {
     const res = await request.get(`${BASE_URL}/api/v1/nonexistent-test-route`, {
-      headers: { 'User-Agent': 'Konoha-CLI/2.1.18' }
+      headers: { 'User-Agent': 'Konoha-CLI/2.2.0' }
     });
     expect(res.status()).toBe(404);
 

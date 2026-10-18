@@ -211,7 +211,7 @@
       {#if errorMessage}
         <div
           role="alert"
-          class="mb-4 p-3 rounded-[5px] border text-xs font-semibold text-center"
+          class="mb-4 p-3 rounded-[3px] border text-xs font-semibold text-center"
           style="border-color: color-mix(in srgb, var(--theme-danger) 45%, transparent); background-color: color-mix(in srgb, var(--theme-danger) 10%, var(--theme-surface)); color: var(--theme-danger);"
         >
           {errorMessage}
@@ -220,17 +220,23 @@
 
       <form onsubmit={handleSubmit} class="space-y-4" novalidate>
         <div>
-          <div class="flex items-center justify-between gap-2 mb-1.5">
-            <label for="login-password" class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--theme-text-secondary);">
-              Default Passphrase (konohagakure)
+          <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+            <label for="login-password" class="text-[11px] font-bold lowercase tracking-wider" style="color: var(--theme-text-secondary);">
+              passphrase
             </label>
             {#if authState.isBootstrap}
               <span
-                class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] border"
-                style="background-color: var(--theme-surface-hover); border-color: var(--theme-border); color: var(--theme-text);"
-                title="Provisioned bootstrap credential — set a permanent password after signing in"
+                class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-[3px] badge-3d-subtle lowercase select-none"
+                title="default passphrase: {DEFAULT_BOOTSTRAP_HINT}"
               >
-                Default: {DEFAULT_BOOTSTRAP_HINT}
+                default passphrase (konohagakure)
+              </span>
+            {:else}
+              <span
+                class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-[3px] badge-3d-subtle lowercase select-none"
+                title="custom hardened passphrase active"
+              >
+                passphrase protected
               </span>
             {/if}
           </div>
@@ -247,7 +253,7 @@
               required
               aria-invalid={errorMessage ? 'true' : undefined}
               aria-describedby={authState.isBootstrap ? 'login-bootstrap-hint' : undefined}
-              class="w-full pl-4 pr-11 py-3 rounded-[5px] text-sm font-mono border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)] focus:border-transparent placeholder:text-slate-500"
+              class="w-full pl-4 pr-11 py-3 rounded-[3px] text-sm font-mono border transition-all placeholder:text-slate-500 login-field-effect input-theme"
               style="
                 background-color: var(--color-surface, #ffffff);
                 color: var(--theme-text, #0f172a);
@@ -260,7 +266,7 @@
             <button
               type="button"
               onclick={() => showPassword = !showPassword}
-              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-[5px] cursor-pointer transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)]"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-[3px] cursor-pointer transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)]"
               style="color: var(--theme-text-secondary);"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
@@ -289,7 +295,7 @@
         <button
           type="submit"
           disabled={isSubmitting}
-          class="w-full py-3 rounded-[5px] text-xs font-black tracking-widest uppercase text-white shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)] focus:ring-offset-2"
+          class="w-full py-3 rounded-[3px] text-xs font-black tracking-widest uppercase text-white shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[var(--theme-focus)] focus:ring-offset-2"
           style="background: var(--theme-btn-3d-bg, var(--theme-4gradient)); color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);"
         >
           {#if isSubmitting}

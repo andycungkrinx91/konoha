@@ -144,7 +144,7 @@
   {#snippet heroActions()}
     <button
       onclick={() => { showDiagnostics = !showDiagnostics; if (showDiagnostics) loadLogs(); }}
-      class="btn-3d btn-3d-secondary px-3 py-1.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
+      class="btn-3d btn-3d-secondary px-3 py-1.5 rounded-[3px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
     >
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -154,7 +154,7 @@
 
     <button
       onclick={clearCache}
-      class="btn-3d px-3 py-1.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-status-warning border-status-warning-soft bg-status-warning-soft hover-bg-subtle"
+      class="btn-3d px-3 py-1.5 rounded-[3px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm text-status-warning border-status-warning-soft bg-status-warning-soft hover-bg-subtle"
     >
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -177,7 +177,7 @@
     style="border-color: color-mix(in srgb, var(--theme-grad-1) 28%, var(--color-border));"
   >
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0 border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+      <div class="w-9 h-9 rounded-[3px] flex items-center justify-center shrink-0 border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
         </svg>
@@ -200,11 +200,11 @@
 
     <div class="flex items-center gap-2">
       {#each (engineStatus?.fallbacks || ['DuckDuckGo', 'Startpage', 'Wikipedia']) as fb}
-        <span class="px-2 py-0.5 rounded-[5px] border text-[10px] font-semibold" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+        <span class="px-2 py-0.5 rounded-[3px] border text-[10px] font-semibold" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
           {fb}
         </span>
       {/each}
-      <span class="px-2 py-0.5 rounded-[5px] border text-[10px] font-semibold text-status-warning border-status-warning-soft bg-status-warning-soft">
+      <span class="px-2 py-0.5 rounded-[3px] border text-[10px] font-semibold text-status-warning border-status-warning-soft bg-status-warning-soft">
         Skills Hybrid
       </span>
     </div>
@@ -226,7 +226,7 @@
       {:else}
         <div class="max-h-60 overflow-y-auto space-y-1.5 font-mono text-[11px] pr-2">
           {#each searchLogs.slice(0, 30) as logLine}
-            <div class="p-2 rounded-[5px] border flex items-center justify-between gap-2" style="background: var(--color-surface); border-color: var(--color-border);">
+            <div class="p-2 rounded-[3px] border flex items-center justify-between gap-2" style="background: var(--color-surface); border-color: var(--color-border);">
               <span class="truncate" style="color: var(--color-text);">{logLine}</span>
             </div>
           {/each}
@@ -252,7 +252,7 @@
           type="text"
           bind:value={query}
           placeholder="Search web, wikipedia knowledge, and village skills..."
-          class="w-full pl-12 pr-4 py-3 rounded-[5px] border text-sm login-field-effect input-theme transition-all font-medium"
+          class="w-full pl-12 pr-4 py-3 rounded-[3px] border text-sm login-field-effect input-theme transition-all font-medium"
           style="background: var(--color-surface); color: var(--color-text);"
         />
         {#if query}
@@ -275,7 +275,7 @@
         <!-- Depth Selector -->
         <select
           bind:value={searchDepth}
-          class="px-3 py-3 rounded-[5px] border text-xs font-semibold login-field-effect focus:outline-none"
+          class="px-3 py-3 rounded-[3px] border text-xs font-semibold login-field-effect focus:outline-none"
           style="background: var(--color-surface); color: var(--color-text);"
         >
           <option value="standard">Standard (Fast)</option>
@@ -285,7 +285,7 @@
         <!-- Count Selector -->
         <select
           bind:value={numResults}
-          class="px-3 py-3 rounded-[5px] border text-xs font-semibold login-field-effect focus:outline-none"
+          class="px-3 py-3 rounded-[3px] border text-xs font-semibold login-field-effect focus:outline-none"
           style="background: var(--color-surface); color: var(--color-text);"
         >
           <option value={5}>5 results</option>
@@ -298,7 +298,7 @@
         <button
           type="submit"
           disabled={isLoading || !query.trim()}
-          class="btn-3d btn-3d-primary px-6 py-3 rounded-[5px] font-semibold text-xs flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
+          class="btn-3d btn-3d-primary px-6 py-3 rounded-[3px] font-semibold text-xs flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
         >
           {#if isLoading}
             <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -323,7 +323,7 @@
         <button
           type="button"
           onclick={() => { selectedSource = src.id; if (query.trim()) handleSearch(); }}
-          class={`px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+          class={`px-3 py-1.5 rounded-[3px] border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
             selectedSource === src.id
               ? 'border-action-primary bg-action-primary text-white shadow-sm'
               : 'btn-3d btn-3d-secondary'
@@ -342,7 +342,7 @@
         <button
           type="button"
           onclick={() => handleSearch(q)}
-          class="btn-3d btn-3d-secondary px-2.5 py-1 rounded-[5px] border text-xs font-medium cursor-pointer"
+          class="btn-3d btn-3d-secondary px-2.5 py-1 rounded-[3px] border text-xs font-medium cursor-pointer"
         >
           {q}
         </button>
@@ -352,7 +352,7 @@
 
   <!-- Error State -->
   {#if searchError}
-    <div class="p-4 rounded-[5px] border border-status-danger-soft bg-status-danger-soft text-status-danger text-xs font-semibold flex items-center gap-3">
+    <div class="p-4 rounded-[3px] border border-status-danger-soft bg-status-danger-soft text-status-danger text-xs font-semibold flex items-center gap-3">
       <svg class="w-5 h-5 shrink-0 text-status-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -366,7 +366,7 @@
       <div class="flex items-center justify-between px-2">
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--color-text);">Search Results</span>
-          <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold border" style="background: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+          <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-bold border" style="background: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
             {searchResults.length} citations
           </span>
           <span class="text-xs font-medium" style="color: var(--color-text-muted);">
@@ -385,10 +385,10 @@
               <div class="space-y-1.5 flex-1">
                 <!-- Badges -->
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-[5px] font-mono font-bold text-[11px] border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+                  <span class="px-2 py-0.5 rounded-[3px] font-mono font-bold text-[11px] border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
                     [#{item.citation_id}]
                   </span>
-                  <span class={`px-2 py-0.5 rounded-[5px] text-[10px] font-bold border tracking-wide uppercase ${sourceBadgeClass(item.source)}`}>
+                  <span class={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold border tracking-wide uppercase ${sourceBadgeClass(item.source)}`}>
                     {item.source || 'Web'}
                   </span>
                   <span class="text-[11px] font-mono truncate max-w-md" style="color: var(--color-text-muted);">
@@ -439,7 +439,7 @@
                   type="button"
                   title="Copy citation markdown"
                   onclick={() => copyCitation(item)}
-                  class="btn-3d btn-3d-secondary px-2.5 py-1.5 rounded-[5px] border text-[11px] font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
+                  class="btn-3d btn-3d-secondary px-2.5 py-1.5 rounded-[3px] border text-[11px] font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -451,7 +451,7 @@
                   type="button"
                   title="Copy link"
                   onclick={() => copyUrl(item.url)}
-                  class="btn-3d btn-3d-secondary p-1.5 rounded-[5px] border text-[11px] font-semibold shadow-sm cursor-pointer"
+                  class="btn-3d btn-3d-secondary p-1.5 rounded-[3px] border text-[11px] font-semibold shadow-sm cursor-pointer"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -469,7 +469,7 @@
       class="metric-card-3d rounded-[5px] p-12 border text-center space-y-4"
       style="border-color: color-mix(in srgb, var(--theme-grad-1) 20%, var(--color-border));"
     >
-      <div class="w-16 h-16 rounded-[5px] mx-auto flex items-center justify-center border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
+      <div class="w-16 h-16 rounded-[3px] mx-auto flex items-center justify-center border" style="background-color: var(--color-primary-glow); border-color: var(--color-primary); color: var(--color-primary);">
         <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>

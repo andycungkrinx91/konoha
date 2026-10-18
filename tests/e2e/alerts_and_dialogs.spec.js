@@ -11,8 +11,18 @@ test.describe('Alerting, Toast, Confirm & Form Dialog System', () => {
     const input = page.locator('input[type="password"], input[type="text"]').first();
 
     await submitBtn.click();
-    await expect(page.locator('aside[aria-label="Notifications"]')).toBeVisible();
-    await expect(page.locator('aside[aria-label="Notifications"]')).toContainText('Enter your passphrase to continue.');
+    const notificationsHost = page.locator('aside[aria-label="Notifications"]');
+    await expect(notificationsHost).toBeVisible();
+    await expect(notificationsHost).toContainText('Enter your passphrase to continue.');
+
+    // Assert toast card 3px border-radius and top 4-gradient accent bar
+    const toastCard = notificationsHost.locator('div[role="status"], div[role="alert"]').first();
+    const toastRadius = await toastCard.evaluate(el => window.getComputedStyle(el).borderRadius);
+    expect(toastRadius).toBe('3px');
+    const hasTopBar = await toastCard.evaluate(el => !!el.querySelector('div[style*="theme-4gradient-bar"]'));
+    expect(hasTopBar).toBe(true);
+    const toastBg = await toastCard.evaluate(el => window.getComputedStyle(el).backgroundColor);
+    expect(toastBg).toBeDefined();
 
     // 2. Wrong passphrase feedback (clear, generic, no secrets leaked)
     await input.fill('definitely-incorrect-ninja-passphrase');

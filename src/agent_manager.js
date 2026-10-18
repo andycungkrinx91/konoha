@@ -1160,6 +1160,19 @@ function regenerateAndDeploy(silentOrOptions = false) {
     }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 
+  // Deploy OMP setup
+  try {
+    const ompManager = require('./omp_manager');
+    if (ompManager.isOmpInstalled()) {
+      ompManager.ensureOmpSetup({
+        pythonCmd,
+        serverPath,
+        uvxCmd,
+        silent: true
+      });
+    }
+  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
   // Synchronize all skills across all clients
   try {
     const skillManager = require('./skill_manager');

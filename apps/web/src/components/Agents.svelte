@@ -267,7 +267,7 @@
     <button
       type="button"
       onclick={openCreateModal}
-      class="btn-3d btn-3d-primary px-4 py-3 rounded-[5px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-md"
+      class="btn-3d btn-3d-primary px-4 py-3 rounded-[3px] text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-md"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -277,11 +277,11 @@
   {/snippet}
 
   {#snippet heroStats()}
-    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+    <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold" style="color: var(--color-text-muted);">Official Roster</div>
       <div class="text-xl font-black text-[var(--theme-success)]">7 Protected</div>
     </div>
-    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+    <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
       <div class="text-xl font-black text-action-primary">{allSkills.length} Indexed</div>
     </div>
@@ -298,7 +298,7 @@
   />
 
   {#if error}
-    <div class="p-4 rounded-[5px] border badge-status badge-status-danger text-xs font-semibold">
+    <div class="p-4 rounded-[3px] border badge-status badge-status-danger text-xs font-semibold">
       {error}
     </div>
   {/if}
@@ -324,7 +324,7 @@
             <!-- Agent Header -->
             <div class="flex items-start justify-between gap-4 mb-4">
               <div class="flex items-center gap-3">
-                <div class="w-11 h-11 rounded-[5px] flex items-center justify-center shadow-md text-white shrink-0" style="background: var(--theme-4gradient); box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-grad-1) 35%, transparent);">
+                <div class="w-11 h-11 rounded-[3px] flex items-center justify-center shadow-md text-white shrink-0" style="background: var(--theme-4gradient); box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-grad-1) 35%, transparent);">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={rankIcons[agent.name] || "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"} />
                   </svg>
@@ -341,7 +341,7 @@
 
               <div class="flex flex-col items-end gap-1">
                 {#if isOfficialAgent(agent.name)}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-bold badge-status badge-status-warning flex items-center gap-1" title="Protected Village Ninja - Cannot be deleted">
+                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-bold badge-status badge-status-warning flex items-center gap-1" title="Protected Village Ninja - Cannot be deleted">
                     <svg class="w-3 h-3 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -352,7 +352,7 @@
                     <button
                       type="button"
                       onclick={() => openEditModal(agent)}
-                      class="p-1 rounded-[5px] theme-text-muted hover:text-status-info hover:bg-status-info-soft transition-colors cursor-pointer"
+                      class="p-1 rounded-[3px] theme-text-muted hover:text-status-info hover:bg-status-info-soft transition-colors cursor-pointer"
                       title="Edit custom ninja"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -362,7 +362,7 @@
                     <button
                       type="button"
                       onclick={() => deleteCustomAgent(agent.name)}
-                      class="p-1 rounded-[5px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"
+                      class="p-1 rounded-[3px] theme-text-muted hover:text-[var(--theme-danger)] hover:bg-status-danger-soft transition-colors cursor-pointer"
                       title="Delete custom agent"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -371,7 +371,7 @@
                     </button>
                   </div>
                 {/if}
-                <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold badge-3d-subtle">
+                <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold badge-3d-subtle">
                   {agent.skills ? agent.skills.length : 0} skills
                 </span>
               </div>
@@ -386,11 +386,11 @@
               <div class="flex items-center justify-between text-xs font-bold" style="color: var(--color-text);">
                 <span>Model Assignment</span>
                 {#if agent.model}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold badge-status badge-status-success">
+                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold badge-status badge-status-success">
                     assigned
                   </span>
                 {:else}
-                  <span class="px-2 py-0.5 rounded-[5px] text-[10px] font-mono font-bold border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
                     inherit
                   </span>
                 {/if}
@@ -407,7 +407,7 @@
                       setAgentModel(agent, val);
                     }
                   }}
-                  class="w-full p-2 rounded-[5px] border text-xs font-mono font-bold cursor-pointer login-field-effect"
+                  class="w-full p-2 rounded-[3px] border text-xs font-mono font-bold cursor-pointer login-field-effect"
                   style="background: var(--color-surface); color: var(--color-text);"
                 >
                   <option value="">⤺ Inherit (host client default)</option>
@@ -453,13 +453,13 @@
                       type="text"
                       bind:value={customModelInputs[agent.name]}
                       placeholder="e.g. claude-3-7-sonnet"
-                      class="flex-1 px-2.5 py-1.5 rounded-[5px] border text-xs font-mono login-field-effect"
+                      class="flex-1 px-2.5 py-1.5 rounded-[3px] border text-xs font-mono login-field-effect"
                       style="background: var(--color-surface); color: var(--color-text);"
                     />
                     <button
                       type="button"
                       onclick={() => applyCustomModel(agent)}
-                      class="btn-3d px-2.5 py-1.5 rounded-[5px] text-xs font-bold text-white bg-action-primary hover:brightness-110 cursor-pointer"
+                      class="btn-3d px-2.5 py-1.5 rounded-[3px] text-xs font-bold text-white bg-action-primary hover:brightness-110 cursor-pointer"
                     >
                       Set
                     </button>
@@ -478,13 +478,13 @@
               <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {#each getSkillsForAgent(agent) as skill}
                   {@const isChecked = agent.skills && agent.skills.includes(skill)}
-                  <label class="flex items-center justify-between p-2 rounded-[5px] border cursor-pointer text-xs transition-colors hover:bg-black/5" style="background: var(--color-surface); border-color: var(--color-border);">
+                  <label class="flex items-center justify-between p-2 rounded-[3px] border cursor-pointer text-xs transition-colors hover:bg-black/5" style="background: var(--color-surface); border-color: var(--color-border);">
                     <div class="flex items-center gap-2 min-w-0 pr-2">
                       <span class="font-mono text-xs font-bold truncate {isChecked ? '' : 'opacity-50'}" style="color: var(--color-text);" title={skill}>
                         {skill}
                       </span>
                       {#if isChecked}
-                        <span class="px-1.5 py-0.5 rounded-[5px] text-[9px] font-mono font-bold gradient-badge shrink-0">
+                        <span class="px-1.5 py-0.5 rounded-[3px] text-[9px] font-mono font-bold gradient-badge shrink-0">
                           active
                         </span>
                       {/if}
@@ -517,13 +517,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showCreateModal = false; }}
   >
     <div
-      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[3px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
       style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
+          <div class="w-8 h-8 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
@@ -536,7 +536,7 @@
         <button
           type="button"
           onclick={() => { showCreateModal = false; }}
-          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
+          class="w-7 h-7 rounded-[3px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close modal"
         >
@@ -554,7 +554,7 @@
             type="text"
             bind:value={createName}
             placeholder="e.g. shinobi-coder"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border login-field-effect focus:outline-hidden"
             style="background: var(--color-surface); color: var(--color-text);"
           />
           <p class="text-[11px] mt-1" style="color: var(--color-text-muted);">
@@ -569,7 +569,7 @@
             type="text"
             bind:value={createTitle}
             placeholder="e.g. Visual Ninja Specialist"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border login-field-effect focus:outline-hidden"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -581,7 +581,7 @@
             type="text"
             bind:value={createPurpose}
             placeholder="e.g. Specialized UI component generator"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border login-field-effect focus:outline-hidden"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -593,7 +593,7 @@
             rows="2"
             bind:value={createDescription}
             placeholder="Brief explanation of when to dispatch this subagent..."
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border focus:outline-hidden resize-y login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
@@ -605,7 +605,7 @@
             rows="3"
             bind:value={createInstructions}
             placeholder="Prompt and standard operating procedures for this agent..."
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border focus:outline-hidden resize-y login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
@@ -616,7 +616,7 @@
             <select
               id="create-ninja-model"
               bind:value={createModel}
-              class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+              class="w-full px-3 py-2 text-xs rounded-[3px] border focus:outline-hidden login-field-effect"
               style="background: var(--color-surface); color: var(--color-text);"
             >
               <option value="">⤺ Inherit (host client default)</option>
@@ -632,7 +632,7 @@
               type="text"
               bind:value={createModel}
               placeholder="Or custom model string..."
-              class="w-full px-3 py-1.5 text-xs font-mono rounded-[5px] border focus:outline-hidden login-field-effect"
+              class="w-full px-3 py-1.5 text-xs font-mono rounded-[3px] border focus:outline-hidden login-field-effect"
               style="background: var(--color-surface); color: var(--color-text);"
             />
           </div>
@@ -643,7 +643,7 @@
         <button
           type="button"
           onclick={() => { showCreateModal = false; }}
-          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[5px] cursor-pointer"
+          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[3px] cursor-pointer"
         >
           Cancel
         </button>
@@ -651,7 +651,7 @@
           type="button"
           disabled={createSubmitting}
           onclick={handleCreateAgent}
-          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer shadow-md"
         >
           {createSubmitting ? "Creating..." : "Create Ninja"}
         </button>
@@ -670,13 +670,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showEditModal = false; }}
   >
     <div
-      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      class="modal-card modal-3d w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[3px] border shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 glass-frost-strong"
       style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
+          <div class="w-8 h-8 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
@@ -689,7 +689,7 @@
         <button
           type="button"
           onclick={() => { showEditModal = false; }}
-          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
+          class="w-7 h-7 rounded-[3px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close edit modal"
         >
@@ -707,7 +707,7 @@
             type="text"
             bind:value={editTitle}
             placeholder="e.g. Visual Ninja Specialist"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border focus:outline-hidden login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -719,7 +719,7 @@
             type="text"
             bind:value={editPurpose}
             placeholder="e.g. Specialized UI component generator"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden login-field-effect"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border focus:outline-hidden login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -731,7 +731,7 @@
             rows="2"
             bind:value={editDescription}
             placeholder="Brief explanation of when to dispatch this subagent..."
-            class="w-full px-3 py-2 text-xs rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border focus:outline-hidden resize-y login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
@@ -743,7 +743,7 @@
             rows="3"
             bind:value={editInstructions}
             placeholder="Prompt and standard operating procedures for this agent..."
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border focus:outline-hidden resize-y login-field-effect"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border focus:outline-hidden resize-y login-field-effect"
             style="background: var(--color-surface); color: var(--color-text);"
           ></textarea>
         </div>
@@ -753,7 +753,7 @@
         <button
           type="button"
           onclick={() => { showEditModal = false; }}
-          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[5px] cursor-pointer"
+          class="btn-3d btn-3d-secondary px-4 py-2 text-xs font-bold rounded-[3px] cursor-pointer"
         >
           Cancel
         </button>
@@ -761,7 +761,7 @@
           type="button"
           disabled={editSubmitting}
           onclick={handleUpdateAgent}
-          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer shadow-md"
         >
           {editSubmitting ? "Updating..." : "Save Changes"}
         </button>

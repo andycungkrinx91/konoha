@@ -310,7 +310,7 @@
     <button
       type="button"
       onclick={() => isCreateModalOpen = true}
-      class="btn-3d btn-3d-primary px-5 py-2.5 rounded-[5px] font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md text-white"
+      class="btn-3d btn-3d-primary px-5 py-2.5 rounded-[3px] font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md text-white"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -321,7 +321,7 @@
     <button
       type="button"
       onclick={() => switchToRegistryMode(searchQuery || 'react')}
-      class="btn-3d {searchMode === 'registry' ? 'btn-3d-primary text-white' : 'btn-3d-secondary'} px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
+      class="btn-3d {searchMode === 'registry' ? 'btn-3d-primary text-white' : 'btn-3d-secondary'} px-4 py-2.5 rounded-[3px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
       title="Search skills on skills.sh registry (konoha skill search <query>)"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -333,7 +333,7 @@
     <button
       type="button"
       onclick={reindexAllSkills}
-      class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
+      class="btn-3d btn-3d-secondary px-4 py-2.5 rounded-[3px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm"
       title="Run konoha migrate to re-index all skills into SQLite FTS5"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,7 +346,7 @@
       type="button"
       onclick={reembedVectorSkills}
       disabled={isEmbedding}
-      class="btn-3d btn-3d-primary px-4 py-2.5 rounded-[5px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+      class="btn-3d btn-3d-primary px-4 py-2.5 rounded-[3px] border text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
       title="Generate IBM Granite ONNX 384-dim neural vector embeddings for all skills into vector database"
     >
       <svg class="w-4 h-4 {isEmbedding ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -375,7 +375,7 @@
         bind:value={searchQuery}
         oninput={handleSearchInput}
         placeholder={searchMode === "registry" ? "Search skills.sh global registry (e.g. react, docker, k8s, nextjs)..." : "Hybrid search by keyword or concept (e.g. helm deployment, cybersecurity audit, tailwind styling)..."}
-        class="w-full pl-10 pr-4 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-medium"
+        class="w-full pl-10 pr-4 py-2.5 rounded-[3px] border text-xs login-field-effect input-theme font-medium"
         style="background: var(--color-surface); color: var(--color-text);"
       />
       {#if searchQuery}
@@ -450,7 +450,7 @@
   <!-- Zero-Chunk Inactive Vector Hint -->
   {#if searchMode !== 'registry' && (vectorStats.embedded_chunks || vectorStats.total_chunks || 0) === 0}
     <div
-      class="p-3.5 rounded-[5px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+      class="p-3.5 rounded-[3px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
       style="
         background: color-mix(in srgb, var(--theme-warning, #f59e0b) 12%, transparent);
         border-color: color-mix(in srgb, var(--theme-warning, #f59e0b) 35%, transparent);
@@ -467,7 +467,7 @@
         type="button"
         onclick={reembedVectorSkills}
         disabled={isEmbedding}
-        class="px-3 py-1.5 rounded-[5px] text-xs font-bold text-white cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
+        class="px-3 py-1.5 rounded-[3px] text-xs font-bold text-white cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
         style="background: linear-gradient(135deg, var(--theme-grad-1, #38bdf8), var(--theme-grad-2, #818cf8));"
       >
         {isEmbedding ? 'Vectorizing...' : 'Re-embed Vectors'}
@@ -650,15 +650,15 @@
               <span class="text-xs font-black truncate" style="color: var(--color-text);">{s.name}</span>
               <div class="flex items-center gap-1 shrink-0">
                 {#if s.engine === 'both'}
-                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-success-soft bg-status-success-soft text-status-success" title="Matched both FTS5 keyword and semantic vector">
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[3px] font-bold border border-status-success-soft bg-status-success-soft text-status-success" title="Matched both FTS5 keyword and semantic vector">
                     FTS5 + Vector ({Math.round((s.score || 1) * 100)}%)
                   </span>
                 {:else if s.engine === 'vector'}
-                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-info-soft bg-status-info-soft text-status-info" title="Matched semantic neural vector (similarity: {s.similarity})">
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[3px] font-bold border border-status-info-soft bg-status-info-soft text-status-info" title="Matched semantic neural vector (similarity: {s.similarity})">
                     Vector ({Math.round((s.score || 1) * 100)}%)
                   </span>
                 {:else if s.engine === 'fts5'}
-                  <span class="text-[9px] px-1.5 py-0.5 rounded-[5px] font-bold border border-status-warning-soft bg-status-warning-soft text-status-warning" title="Matched SQLite FTS5 keyword index">
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-[3px] font-bold border border-status-warning-soft bg-status-warning-soft text-status-warning" title="Matched SQLite FTS5 keyword index">
                     FTS5
                   </span>
                 {/if}
@@ -669,7 +669,7 @@
             </div>
 
             {#if s.matched_chunk}
-              <div class="mt-2 p-1.5 rounded-[5px] text-[10px] font-mono border text-left truncate opacity-85" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+              <div class="mt-2 p-1.5 rounded-[3px] text-[10px] font-mono border text-left truncate opacity-85" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
                 <span class="font-bold text-[var(--theme-focus)]">Semantic:</span> {s.matched_chunk}
               </div>
             {/if}
@@ -740,7 +740,7 @@
               <div class="flex items-center gap-2 w-full sm:w-auto">
                 <select
                   bind:value={selectedAgentToEmbed}
-                  class="px-3 py-1.5 rounded-[5px] border text-xs font-semibold focus:outline-none login-field-effect"
+                  class="px-3 py-1.5 rounded-[3px] border text-xs font-semibold focus:outline-none login-field-effect"
                   style="background: var(--color-surface); color: var(--color-text);"
                 >
                   {#each agentsList as ag}
@@ -751,7 +751,7 @@
                 <button
                   type="button"
                   onclick={() => embedSkillInAgent(selectedSkill.name, selectedAgentToEmbed)}
-                  class="px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-status-success border-status-success-soft bg-status-success-soft/15"
+                  class="px-3 py-1.5 rounded-[3px] border text-xs font-bold transition-all hover:scale-105 cursor-pointer text-status-success border-status-success-soft bg-status-success-soft/15"
                 >
                   Embed
                 </button>
@@ -976,7 +976,7 @@
             type="text"
             bind:value={newSkill.name}
             placeholder="e.g. docker-compose-scaffolding, redis-caching-skill"
-            class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-mono"
+            class="w-full px-3.5 py-2.5 rounded-[3px] border text-xs login-field-effect input-theme font-mono"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -988,7 +988,7 @@
             type="text"
             bind:value={newSkill.description}
             placeholder="Standard Operating Procedures for scaffolding docker-compose clusters..."
-            class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme font-medium"
+            class="w-full px-3.5 py-2.5 rounded-[3px] border text-xs login-field-effect input-theme font-medium"
             style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
           />
         </div>
@@ -1001,7 +1001,7 @@
               type="text"
               bind:value={newSkill.tags}
               placeholder="docker, devops, compose, backend"
-              class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs login-field-effect input-theme"
+              class="w-full px-3.5 py-2.5 rounded-[3px] border text-xs login-field-effect input-theme"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             />
           </div>
@@ -1011,7 +1011,7 @@
             <select
               id="skill-embed"
               bind:value={newSkill.embed_agent}
-              class="w-full px-3.5 py-2.5 rounded-[5px] border text-xs font-semibold login-field-effect focus:outline-none"
+              class="w-full px-3.5 py-2.5 rounded-[3px] border text-xs font-semibold login-field-effect focus:outline-none"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             >
               <option value="">None (Global standalone skill)</option>
@@ -1028,7 +1028,7 @@
             id="skill-content"
             rows="8"
             bind:value={newSkill.content}
-            class="w-full p-3.5 rounded-[5px] border text-xs font-mono login-field-effect input-theme leading-relaxed"
+            class="w-full p-3.5 rounded-[3px] border text-xs font-mono login-field-effect input-theme leading-relaxed"
             style="background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text);"
           ></textarea>
         </div>
@@ -1111,7 +1111,7 @@
           bind:value={registryQuery}
           oninput={handleRegistrySearchInput}
           placeholder="Search skills.sh (e.g. docker, kubernetes, security, react)..."
-          class="w-full pl-10 pr-10 py-2.5 rounded-[5px] border text-xs input-theme font-medium login-field-effect"
+          class="w-full pl-10 pr-10 py-2.5 rounded-[3px] border text-xs input-theme font-medium login-field-effect"
           style="background: var(--color-surface-hover); color: var(--color-text);"
         />
         {#if registryQuery}

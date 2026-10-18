@@ -268,7 +268,7 @@
     <button
       type="button"
       onclick={pruneProjectContext}
-      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
+      class="btn-3d inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs badge-status badge-status-danger hover:bg-status-danger-soft transition-all cursor-pointer shadow-sm"
       title="Prune all episodic learnings for this project"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,7 +280,7 @@
     <button
       type="button"
       onclick={loadContext}
-      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs transition-all shadow-sm cursor-pointer"
+      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs transition-all shadow-sm cursor-pointer"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -383,7 +383,7 @@
           bind:value={contextSummary}
           rows="5"
           placeholder="e.g. Always use port 1404; Pure light mode is first-class default; zero dark mode enforcement; use Tailwind v4; no hamburger in header on mobile dock..."
-          class="w-full p-4 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect leading-relaxed"
+          class="w-full p-4 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect leading-relaxed"
         ></textarea>
       </div>
 
@@ -584,7 +584,7 @@
             <select
               id="learning-agent-select"
               bind:value={newLearning.agentName}
-              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+              class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               {#each agentOptions as ag}
                 <option value={ag.id}>{ag.name}</option>
@@ -597,7 +597,7 @@
             <select
               id="learning-type-select"
               bind:value={newLearning.memoryType}
-              class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+              class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
             >
               <option value="rule">Rule (Strict Mandate)</option>
               <option value="episodic">Episodic (Learning / Incident)</option>
@@ -614,7 +614,7 @@
             bind:value={newLearning.content}
             rows="4"
             placeholder="e.g. Always use port 1404; Pure light mode is first-class default; use Tailwind v4 grid tokens..."
-            class="w-full px-3 py-2 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+            class="w-full px-3 py-2 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
           ></textarea>
         </div>
       </div>

@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.1.18). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.0). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.1.18`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.0`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -48,6 +48,8 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `konoha tunnel status`| - | Displays Cloudflare Zero Trust public ingress tunnel connection status. | `PASS` (verified) |
 | `konoha telegram status`| - | Displays Telegram Bot integration and alert webhook status. | `PASS` (verified) |
 | `konoha ui status` | - | Reports Web UI daemon status, port 1404 listening state, and systemd service health. | `PASS` (verified) |
+| `konoha web reset-password` | - | Resets Web UI authentication to factory bootstrap (`konohagakure`) and terminates stale sessions. | `PASS` (verified) |
+| `konoha auth reset` | - | Alias for `konoha web reset-password` to immediately recover operator access. | `PASS` (verified) |
 | `konoha test` | - | Executes MCP server protocol self-test followed by complete JavaScript test runner. | `PASS` (verified) |
 
 ### 1.2 Edge Case & Symlink Handling Verification
@@ -104,14 +106,18 @@ flowchart TD
 
 | Tab / View | Route | Key Components & Invariants | Automated E2E Check |
 | :--- | :--- | :--- | :--- |
-| **Overview** | `/` | System health cards, active client chips, uptime badge, quick stats, database storage metrics. | Sidebar logo on far-left, clean console header with section navigation, theme switcher floating bottom-right. |
-| **Skills** | `/skills` | Searchable skill database table, FTS5 instant filter, skill detail modal with rendered Markdown preview, tags, and byte size. | Verifies search returns >= 1000 items, modal opens on click, zero console errors. |
-| **Agents** | `/agents` | Naruto Ninja 7-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | Renders 7 agents, verifies badge counts match database, modal edits save cleanly. |
-| **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration, cross-provider second opinion routing table, latency monitor. | Displays gateway port 19999, tests health ping, verifies fallback routing toggle. |
-| **Remote Access (Inbound Queue)** | `/remote` | Cloudflare tunnel controls, authorized Telegram chat, inbound prompt queue state, dispatch triggers. | Verifies queue state renders from `GET /api/v1/queue/prompts`, validates prompt payload formatting. |
-| **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | Verifies savings percentage >= 75%, cl100k_base token calculations match DB logs. |
-| **Mobile Dock** | Viewport `< 1024px` | Fixed bottom mobile navigation dock with quick one-tap links adapted dynamically to archetype. | Verified across 375px (iPhone SE) and 390px (iPhone 14) viewports. |
-| **Theme Picker** | (All pages) | Floating bottom-right FAB (`fixed bottom-6 right-6 z-[100]`) + quick Light/Dark toggle; focus-trapped `role="dialog"` grouped by Cyberpunk / Hacker / General UI with 10 palettes × explicit appearance mode, `aria-pressed` selection, Escape/backdrop close, Arrow/Home/End keyboard navigation. | Tests palette selection, mode toggling, and persistence across localStorage (`theme_and_navigation.spec.js` & `theme_picker_flow.spec.js` from `flows/theme_picker_flow.json`). |
+| **Login Card** | `/` (unauthenticated) | Dynamic lowercase badge tag (`default passphrase (konohagakure)`), 3px line size, animated travelling neon border focus sweep (`neonBorderSweep`), password visibility toggle. | `auth_login.spec.js`, `login_rasengan_themes.spec.js` |
+| **Overview & Gauges** | `/dashboard` | System health cards, proportional gauge arcs across 10 themes × 2 modes, high-contrast breadcrumbs (≥ 4.5:1), 5s live metrics polling. | `dashboard_gauges_and_shared_bg.spec.js`, `routes_load.spec.js` |
+| **Skills & Hybrid Search** | `/skills` | Searchable skill database table, FTS5 + ONNX 384d vector hybrid RRF retrieval (`k=60`), skill detail modal with rendered Markdown preview, tags, and byte size. | `hybrid_search.spec.js`, `routes_load.spec.js` |
+| **Agents** | `/agents` | Naruto Ninja 7-rank roster, active skills assignment chips, custom prompt instructions, direct tool call stats. | `ui_consistency.spec.js`, `routes_load.spec.js` |
+| **Bridges** | `/bridges` | Local LLM Proxy Gateway configuration (:19999), cross-provider second opinion routing table, latency monitor. | `routes_load.spec.js` |
+| **Remote Access & Tunnels** | `/remote` | Cloudflare tunnel controls, authorized Telegram chat, inbound prompt queue state, dispatch triggers. | `routes_load.spec.js` |
+| **Telemetry / Savings** | `/savings` | Cumulative and daily token savings, visual ASCII & SVG progress bars, Semble code search metrics. | `routes_load.spec.js` |
+| **AI Detectors** | `/detector` | Dual-target website and document AI fingerprint scanner (Human-Built Index 0-20, ZeroGPT defense). | `detector_flow.spec.js`, `routes_load.spec.js` |
+| **Alerts & Dialogs** | (All pages) | Native Svelte 5 runes toasts with `--theme-surface-glass` and 4-gradient accent bars, `<dialog>` confirm modals, form dialogs. | `alerts_and_dialogs.spec.js` |
+| **Error Pages & Redirects** | `/nonexistent`, `/error` | Themed animated SVG error pages (404 radar, 401/403 lock, 429 hourglass, 5xx core), `/skill` -> `/skills` 307 redirect, JSON API 404s. | `error_pages.spec.js` |
+| **Navigation & Links** | (Global) | Zero broken links or navigation orphans across all routes, mobile menu drawer toggle (`lg:hidden`), footer author attribution. | `link_crawler.spec.js`, `theme_and_navigation.spec.js` |
+| **Theme Switcher** | (Global) | Floating bottom-right FAB (`fixed bottom-6 right-6 z-[100]`) + quick Light/Dark toggle; focus-trapped `role="dialog"` grouped by Cyberpunk / Hacker / General UI with 10 palettes × explicit appearance mode, `aria-pressed` selection, Escape/backdrop close. | `theme_and_navigation.spec.js`, `theme_picker_flow.spec.js` |
 
 ### 2.3 Running Automated QA Tests
 
@@ -125,13 +131,23 @@ node bin/cli.js test
 node tests/test_docs_currency.js
 
 # 3. Run architecture diagram structural validation
-python3 .agents/skills/kage-skill/references/drawio-skill-assets/scripts/validate.py docs/diagrams/konoha-architecture.drawio --score
+node tests/test_diagram_sync.js
+node tests/test_documentation_diagrams.js
 
-# 4. Run Web UI Playwright E2E suite
+# 4. Run all 17 Animated WebP asset validations
+node tests/test_all_assets_webp.js
+
+# 5. Run Web UI Playwright E2E suite (12 spec suites, 46 tests, isolated auth under /tmp/)
 pnpm --dir apps/web run test:e2e
 
-# 5. Run Zero-AI-Slop Quality Gate Scan (enforces 100/100 clean score)
-npx aislop .
+# 6. Run agent-browser manual verification pass
+agent-browser open http://127.0.0.1:4173/
+agent-browser type "@e5" "konohagakure"
+agent-browser click "@e4"
+agent-browser close
+
+# 7. Run Zero-AI-Slop Quality Gate Scan (enforces 100/100 clean score)
+npx aislop scan --changes
 ```
 
 ### 2.4 Acceptance Criteria & Gate Enforcement
@@ -312,7 +328,10 @@ npx aislop .
 | **Argon2id Password Encryption** | Hash new passwords and verify password hashes against stored verifiers in `src/auth.js`. | Uses Argon2id (`$argon2id$v=19$m=65536,p=4,t=3$...`) for password storage; maintains backward-compatible timing-safe verification for legacy scrypt hashes; rejects invalid passwords. | `PASS` (automated in `tests/test_feedback_features.js`) |
 | **Password Reset to Default & Session Invalidation** | Request password reset to default from `/settings` with valid current password vs invalid credentials. | Rejects unauthorized or unauthenticated requests with 400/401; authorized reset resets password to default (`konohagakure`), terminates all active sessions (`destroyAllSessions()`), and forces redirect to login screen. | `PASS` (automated in `tests/test_feedback_features.js`) |
 | **SSE-Driven Post-Password-Change Refresh** | Complete password update on web console. | Server broadcasts `auth_state_changed` over SSE (`/api/v1/events`); `+layout.svelte` and `Dashboard.svelte` auto-refresh auth state and reload metrics in background without full browser reload. | `PASS` (verified in `tests/test_feedback_features.js` & E2E) |
-| **Clean Login Page Interface** | Inspect `Login.svelte` elements on desktop and mobile viewports. | Tagline `Enter shinobi passphrase to access secure gateway` is completely removed; input label displays `Default Passphrase (konohagakure)`. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
+| **Clean Login Page Interface** | Inspect `Login.svelte` elements on desktop and mobile viewports. | Tagline `Enter shinobi passphrase to access secure gateway` is completely removed; displays lowercase `passphrase` label with dynamic lowercase badge tag (`default passphrase (konohagakure)` vs `passphrase protected`), 3px line size, and sleek travelling neon border sweep. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
+| **Web Console CLI Credential Recovery** | Run `konoha web reset-password` and `konoha auth reset` from terminal. | Atomically restores `~/.konoha/web_auth.json` to default bootstrap password (`konohagakure`) and `is_bootstrap: true` without requiring an active web session; terminates all existing sessions. | `PASS` (verified manually & automated) |
+| **Sleek Travelling Neon Input Focus** | Focus inputs with `.login-field-effect` and `.input-theme` across themes and appearance modes. | Renders crisp 1.5px border with animated travelling neon border sweep (`@keyframes neonBorderSweep`) across active 4-color palette with subtle ambient glow (`@keyframes neonGlowPulse`); typing surface remains high-contrast `var(--color-surface)`. | `PASS` (automated in `tests/e2e/auth_login.spec.js`) |
+| **OMP MCP Auto-Enable & Schema Validator Compliance** | Start new OMP session and inspect `~/.omp/agent/mcp.json`. | Generates valid `$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"` with `"type": "stdio"` transport on all server entries; auto-wires into `initAgents()`; contract ensures Konoha tools are auto-used while preserving native advisor review (`reviewMode: agent-end`). | `PASS` (verified in `tests/test_omp_manager.js` & live CLI) |
 | **Dynamic OMP Telegram Session Detection** | Execute `/session list` in Telegram while working inside OMP agent. | Dynamically checks `~/.omp/agent/sessions/` for active workspace session; attributes workspace session to `omp` rather than phantom `antigravity`. | `PASS` (automated in `tests/test_feedback_features.js`) |
 | **Outbound Webhook Management (Web UI & CLI)** | Create, list, test, and delete webhooks via `/remote` and CLI `konoha webhook ...` with Bearer, API Key, and Custom Header auth. | Persists webhooks in SQLite `webhooks` table; encrypts tokens with crypto vault; dispatches HTTP POST payloads with accurate auth headers (`Authorization: Bearer ...`, `X-API-Key: ...`, custom headers); records delivery status code and timestamp. | `PASS` (automated in `tests/test_feedback_features.js`) |
 | **OMP MCP Isolation & Server Registration** | Verify OMP MCP configuration via `ensureOmpSetup` and inspect `~/.omp/agent/mcp.json`. | Configures Konoha MCP servers with `ACTIVE_CLIENT: "omp"` and `KONOHA_CLIENT: "omp"`; prevents cross-client configuration contamination. | `PASS` (automated in `tests/test_feedback_features.js`) |

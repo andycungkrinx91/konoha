@@ -26,6 +26,9 @@ konoha ui status
 # Restart the Web UI server
 konoha ui restart
 
+# Reset Web UI password to default bootstrap credential ('konohagakure')
+konoha web reset-password
+
 # Stop the background Web UI daemon
 konoha ui stop
 ```
@@ -82,6 +85,7 @@ konoha web
 - **Bootstrap Password Gating**: On first run `src/auth.js` provisions the bootstrap credential `konohagakure` (provisioning input only — never compared in the browser or echoed by the API) and persists only its encrypted verifier to `~/.konoha/web_auth.json` (mode `0600`). The hint is shown on the login screen only while `GET /api/v1/auth/status` reports `is_bootstrap: true`. Sessions created from the bootstrap credential are gated (`403 requires_password_change`) until the password change is persisted; `/api/v1/auth/change-password` requires the current password and clears the flag only after the new verifier is durably written (in place + `fsync`, mode `0600`). Failed changes never clear the flag.
 - **Credential Store Fail-Closed**: A present-but-unreadable or malformed `web_auth.json` never silently reinstalls the bootstrap credential; login returns `401`/`500`-class failures without leaking internals.
 - **Authorized Password Reset & Session Invalidation**: Changing passwords or resetting to default from `/settings` requires valid current password authentication. Upon password update or reset, all active sessions are immediately invalidated (`destroyAllSessions()`) and the user is securely returned to the login screen.
+- **Emergency CLI Password Reset**: If locked out, `konoha web reset-password` (or `konoha auth reset`) atomically restores `web_auth.json` to the default bootstrap credential (`konohagakure`) with `is_bootstrap: true` and purges existing sessions without requiring an active web session.
 - **SSE-Driven Data Refresh**: Upon successful authentication updates, the server broadcasts `auth_state_changed` over Server-Sent Events, enabling the web console to re-synchronize metrics in the background without manual browser refreshes.
 - **Rate-Limiting Protection**: Repeated invalid login attempts trigger IP-based throttling (HTTP 429 lockout after repeated failures) to protect against brute-force attacks.
 - **CSRF Token Invariant**: Every session generates a secure random token passed via the `X-Konoha-Web-Token` header for all state-changing mutations (`POST`, `PUT`, `PATCH`, `DELETE`). Requests missing or with an invalid token are rejected with HTTP 403 Forbidden.

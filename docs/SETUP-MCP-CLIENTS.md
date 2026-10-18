@@ -231,17 +231,21 @@ approval_mode = "auto"
 **Config format (JSON):**
 ```json
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "mcpServers": {
     "konoha": {
+      "type": "stdio",
       "command": "node",
       "args": ["/home/<user>/.konoha/file_tools_launcher.js"],
       "env": { "ACTIVE_CLIENT": "omp", "KONOHA_CLIENT": "omp", "KONOHA_SEMANTIC_SEARCH": "1" }
     },
     "semble": {
+      "type": "stdio",
       "command": "uvx",
       "args": ["--from", "semble[mcp]==0.6.2", "semble", "--content", "all"]
     },
     "aislop": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "-p", "aislop@0.18.1", "aislop-mcp"]
     }
@@ -250,8 +254,10 @@ approval_mode = "auto"
 ```
 
 **Notes:**
-- OMP agents mount Konoha tools dynamically and discover skills via `konoha.find_skills` / `konoha.get_skill`.
+- Configures valid OMP plugin schema (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`) and explicit stdio transport (`"type": "stdio"`) required by OMP's strict MCP validator.
+- OMP agents auto-enable and auto-use Konoha MCP tools (`konoha.find_skills`, `konoha.get_skill`, `semble.search`) at the start of every new session.
 - Bounded file tools are enforced through `file_tools_launcher.js` with active client identification as `omp`.
+- Native OMP advisor review (`reviewMode: agent-end`) runs cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
 - `konoha uninstall` cleanly strips only the Konoha block from `~/.omp/agent/AGENTS.md` and removes Konoha server entries from `mcp.json`.
 
 **Verify:** Check `~/.omp/agent/mcp.json` for `konoha` and `semble` entries, and check `~/.omp/agent/AGENTS.md` for the Konoha contract block.

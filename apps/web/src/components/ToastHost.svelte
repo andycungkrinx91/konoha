@@ -15,11 +15,14 @@
       animate:flip={{ duration: 250 }}
       in:fly={{ y: 20, duration: 280 }}
       out:fade={{ duration: 180 }}
-      class="pointer-events-auto relative overflow-hidden rounded-[5px] border shadow-2xl backdrop-blur-md transition-all duration-200"
+      class="pointer-events-auto relative overflow-hidden rounded-[3px] border shadow-2xl backdrop-blur-md transition-all duration-200"
       style="
-        background-color: var(--theme-surface-glass, rgba(15, 22, 36, 0.95));
-        border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 32%, var(--color-border)));
-        box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
+        background-color: var(--theme-surface-glass);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-color: var(--theme-modal-border);
+        box-shadow: var(--theme-modal-shadow);
+        color: var(--theme-text);
       "
       role={item.variant === "error" ? "alert" : "status"}
       aria-live={item.variant === "error" ? "assertive" : "polite"}
@@ -31,7 +34,7 @@
       <!-- Top 4-Gradient Accent Bar -->
       <div
         class="h-1 w-full"
-        style="background: linear-gradient(90deg, var(--theme-grad-1, #38bdf8), var(--theme-grad-2, #818cf8), var(--theme-grad-3, #c084fc), var(--theme-grad-4, #f472b6));"
+        style="background: var(--theme-4gradient-bar);"
       ></div>
 
       <div class="flex items-start gap-3.5 p-4">
@@ -39,7 +42,7 @@
         <div class="shrink-0 mt-0.5">
           {#if item.variant === "success"}
             <div
-              class="w-8 h-8 rounded-[5px] flex items-center justify-center border toast-icon-glow"
+              class="w-8 h-8 rounded-[3px] flex items-center justify-center border toast-icon-glow"
               style="
                 background-color: color-mix(in srgb, var(--theme-success, #22c55e) 15%, transparent);
                 border-color: color-mix(in srgb, var(--theme-success, #22c55e) 40%, transparent);
@@ -53,7 +56,7 @@
             </div>
           {:else if item.variant === "error"}
             <div
-              class="w-8 h-8 rounded-[5px] flex items-center justify-center border toast-icon-glow"
+              class="w-8 h-8 rounded-[3px] flex items-center justify-center border toast-icon-glow"
               style="
                 background-color: color-mix(in srgb, var(--theme-danger, #ef4444) 15%, transparent);
                 border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 40%, transparent);
@@ -67,7 +70,7 @@
             </div>
           {:else if item.variant === "warning"}
             <div
-              class="w-8 h-8 rounded-[5px] flex items-center justify-center border toast-icon-glow"
+              class="w-8 h-8 rounded-[3px] flex items-center justify-center border toast-icon-glow"
               style="
                 background-color: color-mix(in srgb, var(--theme-warning, #f59e0b) 15%, transparent);
                 border-color: color-mix(in srgb, var(--theme-warning, #f59e0b) 40%, transparent);
@@ -81,7 +84,7 @@
             </div>
           {:else if item.variant === "loading"}
             <div
-              class="w-8 h-8 rounded-[5px] flex items-center justify-center border toast-icon-glow"
+              class="w-8 h-8 rounded-[3px] flex items-center justify-center border toast-icon-glow"
               style="
                 background-color: color-mix(in srgb, var(--theme-focus, #38bdf8) 15%, transparent);
                 border-color: color-mix(in srgb, var(--theme-focus, #38bdf8) 40%, transparent);
@@ -96,7 +99,7 @@
             </div>
           {:else}
             <div
-              class="w-8 h-8 rounded-[5px] flex items-center justify-center border toast-icon-glow"
+              class="w-8 h-8 rounded-[3px] flex items-center justify-center border toast-icon-glow"
               style="
                 background-color: color-mix(in srgb, var(--theme-info, #06b6d4) 15%, transparent);
                 border-color: color-mix(in srgb, var(--theme-info, #06b6d4) 40%, transparent);
@@ -114,11 +117,11 @@
         <!-- Content Area -->
         <div class="flex-1 min-w-0 pr-1">
           {#if item.title}
-            <h4 class="text-sm font-bold theme-text leading-tight mb-1 tracking-tight truncate">
+            <h4 class="text-sm font-bold leading-tight mb-1 tracking-tight truncate" style="color: var(--theme-text);">
               {item.title}
             </h4>
           {/if}
-          <p class="text-xs sm:text-sm font-medium theme-text-secondary leading-snug break-words [overflow-wrap:anywhere]">
+          <p class="text-xs sm:text-sm font-medium leading-snug break-words [overflow-wrap:anywhere]" style="color: var(--theme-text-secondary);">
             {item.message}
           </p>
 
@@ -129,7 +132,7 @@
                 class="h-full rounded-full transition-all duration-300"
                 style="
                   width: {Math.min(100, Math.max(0, item.progress))}%;
-                  background: linear-gradient(90deg, var(--theme-grad-1), var(--theme-grad-2));
+                  background: var(--theme-4gradient-bar);
                 "
               ></div>
             </div>
@@ -144,10 +147,10 @@
                   item.action?.onClick(item);
                   if (item.dismissible) toast.dismiss(item.id);
                 }}
-                class="px-3 py-1.5 rounded-[5px] text-xs font-bold transition-all duration-150 cursor-pointer border"
+                class="px-3 py-1.5 rounded-[3px] text-xs font-bold transition-all duration-150 cursor-pointer border"
                 style="
                   background: {item.action.primary
-                    ? 'linear-gradient(135deg, var(--theme-grad-1), var(--theme-grad-2))'
+                    ? 'var(--theme-btn-3d-bg, var(--theme-4gradient))'
                     : 'transparent'};
                   color: {item.action.primary ? '#ffffff' : 'var(--theme-focus, var(--color-primary))'};
                   border-color: {item.action.primary ? 'transparent' : 'var(--theme-border)'};
@@ -164,7 +167,8 @@
           <button
             type="button"
             onclick={() => toast.dismiss(item.id)}
-            class="shrink-0 -mr-1.5 -mt-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-[5px] theme-text-muted hover:theme-text transition-colors cursor-pointer"
+            class="shrink-0 -mr-1.5 -mt-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-[3px] transition-colors cursor-pointer"
+            style="color: var(--theme-text-secondary);"
             aria-label="Dismiss notification"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -181,7 +185,7 @@
             class="h-full transition-all linear"
             style="
               width: {Math.max(0, (item.remaining / item.duration) * 100)}%;
-              background: linear-gradient(90deg, var(--theme-grad-1), var(--theme-grad-2));
+              background: var(--theme-4gradient-bar);
             "
           ></div>
         </div>

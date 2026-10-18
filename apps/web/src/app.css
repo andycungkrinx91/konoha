@@ -19,6 +19,7 @@
   --color-card-border: #bae6fd;
   --theme-bg: #f0f9ff;
   --theme-surface: #ffffff;
+  --theme-surface-glass: color-mix(in srgb, var(--theme-surface) 96%, transparent);
   --theme-surface-raised: #ffffff;
   --theme-surface-hover: #f1f5f9;
   --theme-surface-active: #f1f5f9;
@@ -312,30 +313,57 @@ a:focus-visible,
   }
 }
 
-/* Explicit focus treatment for themed inputs that opt in */
-.input-theme:focus {
-  outline: none;
-  border-color: var(--theme-focus, var(--color-primary));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-focus, var(--color-primary)) 25%, transparent);
-}
-
 /* Post-Login Shared Field Effect (harmonized with Login.svelte reference) */
 .login-field-effect,
 input.login-field-effect,
 textarea.login-field-effect,
 select.login-field-effect {
-  border-radius: 5px !important;
+  border-radius: 3px !important;
   background-color: var(--color-surface, #ffffff);
   color: var(--theme-text, #0f172a);
   border: 1px solid var(--theme-border-strong, rgba(0, 0, 0, 0.25)) !important;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.input-theme {
+  border-radius: 3px !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .login-field-effect:hover,
 input.login-field-effect:hover,
 textarea.login-field-effect:hover,
-select.login-field-effect:hover {
+select.login-field-effect:hover,
+.input-theme:hover {
   border-color: var(--theme-border-hover, color-mix(in srgb, var(--theme-border) 70%, var(--theme-text-muted)));
+}
+
+/* Sleek Travelling Neon Focus Effect */
+@keyframes neonBorderSweep {
+  0% {
+    background-position: 0% 0%, 0% 50%;
+  }
+  50% {
+    background-position: 0% 0%, 100% 50%;
+  }
+  100% {
+    background-position: 0% 0%, 0% 50%;
+  }
+}
+
+@keyframes neonGlowPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px var(--theme-grad-1),
+      0 0 6px 1px color-mix(in srgb, var(--theme-grad-1) 45%, transparent),
+      0 0 12px 1px color-mix(in srgb, var(--theme-grad-2) 25%, transparent) !important;
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px var(--theme-grad-3),
+      0 0 7px 1px color-mix(in srgb, var(--theme-grad-3) 50%, transparent),
+      0 0 14px 2px color-mix(in srgb, var(--theme-grad-4) 30%, transparent) !important;
+  }
 }
 
 .login-field-effect:focus,
@@ -345,10 +373,35 @@ input.login-field-effect:focus-visible,
 textarea.login-field-effect:focus,
 textarea.login-field-effect:focus-visible,
 select.login-field-effect:focus,
-select.login-field-effect:focus-visible {
-  outline: none;
-  border-color: transparent;
-  box-shadow: 0 0 0 2px var(--theme-focus, var(--color-primary));
+select.login-field-effect:focus-visible,
+.input-theme:focus,
+.input-theme:focus-visible {
+  outline: none !important;
+  border: 1.5px solid transparent !important;
+  background-image:
+    linear-gradient(var(--color-surface, #ffffff), var(--color-surface, #ffffff)),
+    linear-gradient(90deg, var(--theme-grad-1), var(--theme-grad-2), var(--theme-grad-3), var(--theme-grad-4), var(--theme-grad-1)) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  background-size: 100% 100%, 300% 300% !important;
+  animation: neonBorderSweep 4s linear infinite, neonGlowPulse 4s ease-in-out infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-field-effect:focus,
+  .login-field-effect:focus-visible,
+  input.login-field-effect:focus,
+  input.login-field-effect:focus-visible,
+  textarea.login-field-effect:focus,
+  textarea.login-field-effect:focus-visible,
+  select.login-field-effect:focus,
+  select.login-field-effect:focus-visible,
+  .input-theme:focus,
+  .input-theme:focus-visible {
+    animation: none !important;
+    background-size: 100% 100%, 100% 100% !important;
+    box-shadow: 0 0 0 1px var(--theme-grad-1), 0 0 6px 1px color-mix(in srgb, var(--theme-grad-1) 40%, transparent) !important;
+  }
 }
 
 .login-field-effect:disabled,

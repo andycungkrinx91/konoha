@@ -18,11 +18,29 @@ test.describe("Cyberpunk 3D Login, Rasengan Animation & Auth Gating E2E", () => 
 
     // Verify Cyberpunk Login UI elements
     await expect(page.getByRole("heading", { name: "KONOHA CONSOLE" })).toBeVisible();
-    await expect(page.getByText("Default Passphrase (konohagakure)")).toBeVisible();
-    await expect(page.getByText("Default: konohagakure")).toBeVisible();
+    const tag = page.getByText("default passphrase (konohagakure)");
+    await expect(tag).toBeVisible();
+    const tagTransform = await tag.evaluate(el => window.getComputedStyle(el).textTransform);
+    expect(tagTransform).toBe("lowercase");
 
     const passwordInput = page.locator("#login-password");
     await expect(passwordInput).toBeVisible();
+    const radius = await passwordInput.evaluate(el => window.getComputedStyle(el).borderRadius);
+    expect(radius).toBe("3px");
+
+    // Verify sleek neon focus animation on focus
+    await passwordInput.focus();
+    const focusStyle = await passwordInput.evaluate(el => {
+      const s = window.getComputedStyle(el);
+      return {
+        animationName: s.animationName,
+        boxShadow: s.boxShadow,
+        outlineStyle: s.outlineStyle
+      };
+    });
+    expect(focusStyle.outlineStyle).toBe("none");
+    expect(focusStyle.animationName).toContain("neonBorderSweep");
+    expect(focusStyle.boxShadow).toContain("0px 0px 0px 1px");
 
     // 2. Test show/hide password toggle
     await passwordInput.fill("test-pass-123");

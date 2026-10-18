@@ -327,7 +327,7 @@
     <button
       type="button"
       onclick={() => { showGuideModal = true; }}
-      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs border transition-all cursor-pointer"
+      class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs border transition-all cursor-pointer"
     >
       <svg class="w-4 h-4 text-[var(--theme-info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -338,7 +338,7 @@
     <button
       type="button"
       onclick={loadData}
-      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
+      class="btn-3d btn-3d-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-[3px] font-bold text-xs text-white transition-all cursor-pointer shadow-md"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -365,7 +365,7 @@
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: linear-gradient(135deg, #0284c7, #06b6d4);">
+          <div class="w-9 h-9 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: linear-gradient(135deg, #0284c7, #06b6d4);">
             TG
           </div>
           <div>
@@ -373,7 +373,7 @@
             <p class="text-xs font-medium" style="color: var(--color-text-muted);">Task summary alerts &amp; remote prompting</p>
           </div>
         </div>
-        <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
+        <span class={`px-2.5 py-1 text-xs font-bold rounded-[3px] border ${
           tgConfig.enabled
             ? "bg-status-success-soft text-status-success border-status-success-soft"
             : "theme-bg-subtle theme-text-secondary theme-border"
@@ -389,7 +389,7 @@
           <button
             type="button"
             onclick={() => { tgModeInput = "one_way"; }}
-            class="px-3.5 py-2.5 text-xs font-bold rounded-[5px] border text-left transition-all cursor-pointer"
+            class="px-3.5 py-2.5 text-xs font-bold rounded-[3px] border text-left transition-all cursor-pointer"
             style={tgModeInput === "one_way"
               ? "border-color: var(--color-primary); background: var(--color-primary-glow); color: var(--color-primary);"
               : "border-color: var(--color-border); background: var(--color-surface); color: var(--color-text-muted);"}
@@ -400,7 +400,7 @@
           <button
             type="button"
             onclick={() => { tgModeInput = "two_way"; }}
-            class="px-3.5 py-2.5 text-xs font-bold rounded-[5px] border text-left transition-all cursor-pointer"
+            class="px-3.5 py-2.5 text-xs font-bold rounded-[3px] border text-left transition-all cursor-pointer"
             style={tgModeInput === "two_way"
               ? "border-color: var(--color-primary); background: var(--color-primary-glow); color: var(--color-primary);"
               : "border-color: var(--color-border); background: var(--color-surface); color: var(--color-text-muted);"}
@@ -423,13 +423,13 @@
               type={showToken ? "text" : "password"}
               bind:value={tgTokenInput}
               placeholder="e.g. 123456789:AAExampleBotTokenPlaceholder"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
               style="background: var(--color-surface); color: var(--color-text);"
             />
             <button
               type="button"
               onclick={() => { showToken = !showToken; }}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-[5px] border cursor-pointer transition-colors"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-[3px] border cursor-pointer transition-colors"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
             >
               {showToken ? "Hide" : "Show"}
@@ -446,7 +446,7 @@
             type="text"
             bind:value={tgChatIdInput}
             placeholder="e.g. 123456789"
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border login-field-effect focus:outline-hidden transition-colors"
             style="background: var(--color-surface); color: var(--color-text);"
           />
           <p class="text-[11px] font-medium mt-1" style="color: var(--color-text-muted);">
@@ -461,7 +461,7 @@
           <button
             type="button"
             onclick={toggleTelegramEnabled}
-            class={`btn-3d px-3.5 py-2 text-xs font-bold rounded-[5px] border cursor-pointer ${
+            class={`btn-3d px-3.5 py-2 text-xs font-bold rounded-[3px] border cursor-pointer ${
               tgConfig.enabled
                 ? "border-status-warning-soft bg-status-warning-soft text-status-warning"
                 : "border-status-success-soft bg-status-success-soft text-status-success"
@@ -473,7 +473,7 @@
             type="button"
             onclick={sendTelegramTest}
             disabled={tgTesting || (!tgConfig.bot_token && !tgTokenInput)}
-            class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[5px] border transition-colors disabled:opacity-50 cursor-pointer"
+            class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[3px] border transition-colors disabled:opacity-50 cursor-pointer"
           >
             {tgTesting ? "Sending Ping..." : "Send Test Ping"}
           </button>
@@ -482,7 +482,7 @@
           type="button"
           onclick={saveTelegramSettings}
           disabled={tgSaving}
-          class="btn-3d btn-3d-primary px-4 py-2 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shadow-md"
+          class="btn-3d btn-3d-primary px-4 py-2 text-xs font-bold rounded-[3px] text-white disabled:opacity-50 cursor-pointer shadow-md"
         >
           {tgSaving ? "Saving..." : "Save Settings"}
         </button>
@@ -496,7 +496,7 @@
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: linear-gradient(135deg, #f97316, #ea580c);">
+          <div class="w-9 h-9 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: linear-gradient(135deg, #f97316, #ea580c);">
             CF
           </div>
           <div>
@@ -504,7 +504,7 @@
             <p class="text-xs font-medium" style="color: var(--color-text-muted);">Cloudflare Zero Trust edge protection</p>
           </div>
         </div>
-        <span class={`px-2.5 py-1 text-xs font-bold rounded-[5px] border ${
+        <span class={`px-2.5 py-1 text-xs font-bold rounded-[3px] border ${
           tunnelStatus.enabled
             ? "bg-status-success-soft text-status-success border-status-success-soft"
             : "theme-bg-subtle theme-text-secondary theme-border"
@@ -514,7 +514,7 @@
       </div>
 
       <!-- Tunnel Information Badge -->
-      <div class="p-3.5 rounded-[5px] border space-y-2" style="background: color-mix(in srgb, var(--theme-surface) 75%, transparent); border-color: var(--theme-border);">
+      <div class="p-3.5 rounded-[3px] border space-y-2" style="background: color-mix(in srgb, var(--theme-surface) 75%, transparent); border-color: var(--theme-border);">
         <div class="flex items-center justify-between text-xs">
           <span style="color: var(--color-text-muted);">Target Service:</span>
           <span class="font-mono font-bold" style="color: var(--color-text);">http://127.0.0.1:1404</span>
@@ -531,7 +531,7 @@
 
       <!-- Active Public URL Banner -->
       {#if tunnelStatus.enabled && tunnelStatus.public_url}
-        <div class="p-3.5 rounded-[5px] border space-y-2" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
+        <div class="p-3.5 rounded-[3px] border space-y-2" style="background: var(--color-primary-glow); border-color: var(--color-primary);">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold" style="color: var(--color-primary);">Live Ingress Status</span>
             <span class="text-[11px] font-mono" style="color: var(--color-text-muted);">PID: {tunnelStatus.active_pid}</span>
@@ -541,13 +541,13 @@
               type="text"
               readonly
               value={tunnelStatus.public_url}
-              class="w-full px-2.5 py-1.5 text-xs font-mono rounded-[5px] border"
+              class="w-full px-2.5 py-1.5 text-xs font-mono rounded-[3px] border"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             />
             <button
               type="button"
               onclick={copyPublicUrl}
-              class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[5px] border shrink-0 cursor-pointer"
+              class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] border shrink-0 cursor-pointer"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text);"
             >
               {copiedUrl ? "Copied!" : "Copy"}
@@ -557,7 +557,7 @@
                 href={tunnelStatus.public_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[5px] text-white shrink-0 inline-flex items-center gap-1"
+                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] text-white shrink-0 inline-flex items-center gap-1"
                 style="background-color: var(--color-primary);"
               >
                 Open
@@ -566,7 +566,7 @@
           </div>
         </div>
       {:else}
-        <div class="p-3.5 rounded-[5px] border border-dashed text-center" style="border-color: var(--color-border); background: var(--theme-surface);">
+        <div class="p-3.5 rounded-[3px] border border-dashed text-center" style="border-color: var(--color-border); background: var(--theme-surface);">
           <p class="text-xs font-medium" style="color: var(--color-text-muted);">
             No active ingress tunnel. Enter your Cloudflare Tunnel Token and click "Start Cloudflare Tunnel".
           </p>
@@ -585,13 +585,13 @@
               type={showTunnelToken ? "text" : "password"}
               bind:value={tunnelTokenInput}
               placeholder="Paste token from: cloudflared tunnel run --token <TOKEN>"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border pr-16 login-field-effect focus:outline-hidden transition-colors"
               style="background: var(--color-surface); color: var(--color-text);"
             />
             <button
               type="button"
               onclick={() => { showTunnelToken = !showTunnelToken; }}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-[5px] border cursor-pointer transition-colors"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-[3px] border cursor-pointer transition-colors"
               style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
             >
               {showTunnelToken ? "Hide" : "Show"}
@@ -611,7 +611,7 @@
             type="text"
             bind:value={tunnelCustomDomain}
             placeholder="e.g. remote.yourdomain.com"
-            class="w-full px-3 py-2 text-xs rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+            class="w-full px-3 py-2 text-xs rounded-[3px] border login-field-effect focus:outline-hidden transition-colors"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -623,7 +623,7 @@
           type="button"
           onclick={saveTunnelSettings}
           disabled={tunnelSaving}
-          class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[5px] border cursor-pointer transition-colors"
+          class="btn-3d btn-3d-secondary px-3.5 py-2 text-xs font-bold rounded-[3px] border cursor-pointer transition-colors"
         >
           {tunnelSaving ? "Saving..." : "Save Tunnel Settings"}
         </button>
@@ -632,7 +632,7 @@
           type="button"
           onclick={toggleTunnel}
           disabled={tunnelLoading || (!tunnelStatus.enabled && !isHostnameValid(tunnelCustomDomain))}
-          class={`btn-3d px-4 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer transition-colors ${
+          class={`btn-3d px-4 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer transition-colors ${
             tunnelStatus.enabled
               ? "badge-status badge-status-danger hover:brightness-110"
               : "btn-3d-primary"
@@ -646,7 +646,7 @@
 
   <!-- Card 3: Inbound Prompt Queue & Web Prompt Box -->
   <div
-    class="glass-card-3d rounded-[5px] p-6 space-y-5 border"
+    class="glass-card-3d rounded-[3px] p-6 space-y-5 border"
     style="background: var(--glass-card); border-color: var(--color-border); box-shadow: var(--shadow-3d);"
   >
     <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
@@ -654,7 +654,7 @@
         <h3 class="text-base font-bold" style="color: var(--color-text);">Inbound Prompt Queue</h3>
         <p class="text-xs font-medium" style="color: var(--color-text-muted);">Unified task inbox shared across Web UI, Telegram Bot, and Terminal Agents</p>
       </div>
-      <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-[5px] border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+      <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-[3px] border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
         {prompts.length} queued / recent tasks
       </span>
     </div>
@@ -665,7 +665,7 @@
         type="text"
         bind:value={newPromptText}
         placeholder="Type a prompt to queue for your workstation (e.g. run unit tests and fix lints)..."
-        class="flex-1 px-3.5 py-2.5 text-xs rounded-[5px] border login-field-effect focus:outline-hidden transition-colors"
+        class="flex-1 px-3.5 py-2.5 text-xs rounded-[3px] border login-field-effect focus:outline-hidden transition-colors"
         style="background: var(--color-surface); color: var(--color-text);"
         onkeydown={(e) => { if (e.key === "Enter") submitQueuePrompt(); }}
       />
@@ -673,7 +673,7 @@
         type="button"
         onclick={submitQueuePrompt}
         disabled={submittingPrompt || !newPromptText.trim()}
-        class="btn-3d btn-3d-primary px-5 py-2.5 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shrink-0 shadow-md"
+        class="btn-3d btn-3d-primary px-5 py-2.5 text-xs font-bold rounded-[3px] text-white disabled:opacity-50 cursor-pointer shrink-0 shadow-md"
       >
         {submittingPrompt ? "Dispatching..." : "Queue Prompt"}
       </button>
@@ -681,11 +681,11 @@
 
     <!-- Prompts Table -->
     {#if prompts.length === 0}
-      <div class="p-6 text-center text-xs font-medium border border-dashed rounded-[5px]" style="border-color: var(--color-border); color: var(--color-text-muted);">
+      <div class="p-6 text-center text-xs font-medium border border-dashed rounded-[3px]" style="border-color: var(--color-border); color: var(--color-text-muted);">
         Queue is currently empty. Prompts sent via Telegram (<span class="font-mono font-bold">/run</span>) or Web UI will appear here.
       </div>
     {:else}
-      <div class="overflow-x-auto rounded-[5px] border" style="border-color: var(--color-border);">
+      <div class="overflow-x-auto rounded-[3px] border" style="border-color: var(--color-border);">
         <table class="w-full text-left text-xs">
           <thead>
             <tr class="border-b font-bold" style="border-color: var(--color-border); background: rgba(0, 0, 0, 0.02); color: var(--color-text-muted);">
@@ -701,7 +701,7 @@
               <tr class="hover:bg-black/5 transition-colors">
                 <td class="py-2.5 px-3 font-mono text-[11px] font-bold" style="color: var(--color-text);">{p.id}</td>
                 <td class="py-2.5 px-3">
-                  <span class={`px-2 py-0.5 text-[10px] font-bold rounded-[5px] border ${
+                  <span class={`px-2 py-0.5 text-[10px] font-bold rounded-[3px] border ${
                     p.source === "telegram"
                       ? "bg-status-info-soft text-status-info border-status-info-soft"
                       : "bg-status-info-soft text-action-primary border-status-info-soft"
@@ -713,7 +713,7 @@
                   {p.prompt}
                 </td>
                 <td class="py-2.5 px-3">
-                  <span class={`px-2.5 py-0.5 text-[10px] font-bold rounded-[5px] border ${
+                  <span class={`px-2.5 py-0.5 text-[10px] font-bold rounded-[3px] border ${
                     p.status === "completed"
                       ? "bg-status-success-soft text-status-success border-status-success-soft"
                       : p.status === "processing"
@@ -736,12 +736,12 @@
 
   <!-- Card 4: Webhook Outbound Integration (Feedback 6) -->
   <div
-    class="glass-card-3d p-6 rounded-[5px] border space-y-6"
+    class="glass-card-3d p-6 rounded-[3px] border space-y-6"
     style="background: var(--color-surface); border-color: color-mix(in srgb, var(--theme-grad-1) 25%, var(--color-border));"
   >
     <div class="flex items-start justify-between gap-4 border-b pb-4" style="border-color: var(--color-border);">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-[5px] flex items-center justify-center font-bold text-white shadow-sm" style="background: var(--theme-4gradient);">
+        <div class="w-10 h-10 rounded-[3px] flex items-center justify-center font-bold text-white shadow-sm" style="background: var(--theme-4gradient);">
           <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
@@ -749,7 +749,7 @@
         <div>
           <h2 class="text-base font-bold flex items-center gap-2" style="color: var(--color-text);">
             Outbound Webhook Integration
-            <span class="px-2 py-0.5 text-[10px] font-bold rounded-[5px] border bg-status-success-soft text-status-success border-status-success-soft">
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-[3px] border bg-status-success-soft text-status-success border-status-success-soft">
               {webhooks.length} Active
             </span>
           </h2>
@@ -761,7 +761,7 @@
     </div>
 
     <!-- Webhook Creation Form -->
-    <div class="p-4 rounded-[5px] border space-y-4" style="background: color-mix(in srgb, var(--color-surface) 95%, var(--theme-grad-1)); border-color: var(--color-border);">
+    <div class="p-4 rounded-[3px] border space-y-4" style="background: color-mix(in srgb, var(--color-surface) 95%, var(--theme-grad-1)); border-color: var(--color-border);">
       <div class="text-xs font-bold uppercase tracking-wider" style="color: var(--color-primary);">Add Webhook Target</div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -771,7 +771,7 @@
             type="text"
             bind:value={whNameInput}
             placeholder="e.g. Discord Village Alerts or CI/CD Pipeline"
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border login-field-effect focus:outline-hidden"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -782,7 +782,7 @@
             type="url"
             bind:value={whUrlInput}
             placeholder="https://example.com/api/webhook or Discord/Slack URL"
-            class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+            class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border login-field-effect focus:outline-hidden"
             style="background: var(--color-surface); color: var(--color-text);"
           />
         </div>
@@ -794,7 +794,7 @@
           <select
             id="wh-auth-type"
             bind:value={whAuthType}
-            class="w-full px-3 py-2 text-xs font-bold rounded-[5px] border focus:outline-hidden cursor-pointer"
+            class="w-full px-3 py-2 text-xs font-bold rounded-[3px] border focus:outline-hidden cursor-pointer"
             style="background: var(--color-surface); color: var(--color-text);"
           >
             <option value="none">No Auth (Public / Webhook URL)</option>
@@ -815,7 +815,7 @@
               type="password"
               bind:value={whTokenInput}
               placeholder="Enter secret token or key"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border login-field-effect focus:outline-hidden"
               style="background: var(--color-surface); color: var(--color-text);"
             />
           </div>
@@ -829,7 +829,7 @@
               type="text"
               bind:value={whCustomHeader}
               placeholder="e.g. X-Webhook-Secret"
-              class="w-full px-3 py-2 text-xs font-mono rounded-[5px] border login-field-effect focus:outline-hidden"
+              class="w-full px-3 py-2 text-xs font-mono rounded-[3px] border login-field-effect focus:outline-hidden"
               style="background: var(--color-surface); color: var(--color-text);"
             />
           </div>
@@ -841,7 +841,7 @@
           type="button"
           onclick={saveWebhook}
           disabled={whSaving}
-          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white disabled:opacity-50 cursor-pointer shadow-md"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[3px] text-white disabled:opacity-50 cursor-pointer shadow-md"
         >
           {whSaving ? "Saving..." : "Add Webhook"}
         </button>
@@ -850,13 +850,13 @@
 
     <!-- Webhooks List -->
     {#if webhooks.length === 0}
-      <div class="p-6 text-center rounded-[5px] border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
+      <div class="p-6 text-center rounded-[3px] border" style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);">
         <p class="text-xs">No outbound webhooks configured yet. Add your first webhook endpoint above.</p>
       </div>
     {:else}
       <div class="space-y-3">
         {#each webhooks as wh}
-          <div class="p-3.5 rounded-[5px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style="background: var(--color-surface); border-color: var(--color-border);">
+          <div class="p-3.5 rounded-[3px] border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style="background: var(--color-surface); border-color: var(--color-border);">
             <div class="space-y-1 min-w-0">
               <div class="flex items-center gap-2">
                 <span class="font-bold text-xs" style="color: var(--color-text);">{wh.name}</span>
@@ -878,14 +878,14 @@
                 type="button"
                 onclick={() => testWebhook(wh.id)}
                 disabled={whTesting === wh.id}
-                class="btn-3d btn-3d-secondary px-3 py-1.5 text-xs font-bold rounded-[5px] border cursor-pointer"
+                class="btn-3d btn-3d-secondary px-3 py-1.5 text-xs font-bold rounded-[3px] border cursor-pointer"
               >
                 {whTesting === wh.id ? "Testing..." : "Test Ping"}
               </button>
               <button
                 type="button"
                 onclick={() => deleteWebhook(wh.id, wh.name)}
-                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[5px] border border-status-danger-soft bg-status-danger-soft text-status-danger cursor-pointer hover:bg-status-danger hover:text-white transition-colors"
+                class="btn-3d px-3 py-1.5 text-xs font-bold rounded-[3px] border border-status-danger-soft bg-status-danger-soft text-status-danger cursor-pointer hover:bg-status-danger hover:text-white transition-colors"
               >
                 Delete
               </button>
@@ -907,13 +907,13 @@
     onclick={(e) => { if (e.target === e.currentTarget) showGuideModal = false; }}
   >
     <div
-      class="modal-card modal-3d w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[5px] border shadow-2xl space-y-6 animate-in zoom-in-95 duration-150 glass-frost-strong"
+      class="modal-card modal-3d w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-[3px] border shadow-2xl space-y-6 animate-in zoom-in-95 duration-150 glass-frost-strong"
       style="border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 38%, var(--color-border))); color: var(--color-text); box-shadow: var(--theme-modal-shadow, var(--shadow-3d));"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-[5px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
+          <div class="w-8 h-8 rounded-[3px] flex items-center justify-center font-bold text-xs text-white shadow-sm" style="background: var(--theme-4gradient);">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -926,7 +926,7 @@
         <button
           type="button"
           onclick={() => { showGuideModal = false; }}
-          class="w-7 h-7 rounded-[5px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
+          class="w-7 h-7 rounded-[3px] flex items-center justify-center text-xs font-bold border transition-colors hover:scale-105 cursor-pointer"
           style="background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-muted);"
           aria-label="Close guide modal"
         >
@@ -938,7 +938,7 @@
 
       <div class="space-y-5 text-xs leading-relaxed" style="color: var(--color-text);">
         <!-- Cloudflare Tunnel Guide -->
-        <div class="p-4 rounded-[5px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
+        <div class="p-4 rounded-[3px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="font-bold flex items-center gap-2" style="color: var(--color-primary);">
             <span>1. Cloudflare Zero Trust Named Tunnel</span>
           </div>
@@ -954,7 +954,7 @@
         </div>
 
         <!-- Telegram Bot Guide -->
-        <div class="p-4 rounded-[5px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
+        <div class="p-4 rounded-[3px] border space-y-2.5" style="background: var(--color-surface); border-color: var(--color-border);">
           <div class="font-bold flex items-center gap-2" style="color: var(--color-primary);">
             <span>2. Telegram Bot Integration</span>
           </div>
@@ -973,7 +973,7 @@
         <button
           type="button"
           onclick={() => { showGuideModal = false; }}
-          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[5px] text-white cursor-pointer shadow-md"
+          class="btn-3d btn-3d-primary px-5 py-2 text-xs font-bold rounded-[3px] text-white cursor-pointer shadow-md"
         >
           Got it
         </button>

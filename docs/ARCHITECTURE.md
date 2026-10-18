@@ -302,9 +302,10 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - Exposes on-demand neural vector re-embedding endpoint (`POST /api/v1/skills/reembed` & `/api/v1/vectors/reembed`) and 3D button in `Skills.svelte` to dynamically recalculate IBM Granite 384-dim ONNX neural embeddings with live progress and Server-Sent Event updates.
    - Cleans sidebar section headers (`OPRATION & DIAGNOSTICS`) with explicit left-margin alignment (`ml-1`, `text-left`, `justify-start`) and replaces hardcoded dashboard header placeholders with dynamic active section and route name breadcrumbs.
    - Adds responsive mobile menu sidebar toggle on the far left of the mobile header (`lg:hidden`) with slide-out drawer navigation and backdrop dismissal, cleanly eliminating bottom dock clutter, and permanently embeds author attribution: `Created by Andy Setiyawan` with verified profile link in the sidebar footer.
-35. **OMP Client Architecture & Workflow Contract (v2.1.18)**:
-   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) and deploying the full Konoha runtime contract to `~/.omp/agent/AGENTS.md`.
+35. **OMP Client Architecture & Workflow Contract (v2.2.0)**:
+   - Deep integration for the OMP coding agent via `src/omp_manager.js`, configuring MCP servers in `~/.omp/agent/mcp.json` (`konoha`, `semble`, `aislop`) with strict schema validation (`$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`), `"type": "stdio"`, bare executable paths (`node`, `uvx`, `npx`), and auto-wired setup during agent initialization in `src/agent_manager.js`.
    - Supports bounded file tools through `file_tools_launcher.js`, active client auto-detection (`OMP_CLIENT`, `OMP_SESSION`, `ACTIVE_CLIENT=omp`), and token-efficient Semble codebase search.
+   - Enforces host-native advisor review continuity (`reviewMode: agent-end`) executed cleanly after all Konoha multi-agent workflows and Kage review gates conclude.
    - Preserves user custom configuration while strictly synchronizing global and project skills across mirror trees.
 36. **Proxy Gateway Process Lifecycle, Savings Telemetry Performance & Prompt Token Optimization (v2.1.18)**:
    - **Proxy Gateway Stop Resilience**: Implemented cross-platform port-targeted termination (`killProcessOnPort` in `src/platform_utils.js`) for the Bridge Proxy Gateway (port 19999). Resolves listening PIDs via `lsof`/`fuser` on Linux/macOS and escalates from `SIGTERM` to `SIGKILL` if still bound; Windows queries PIDs via `netstat` and executes `taskkill /F`. Synchronized the Web UI `/bridges` and CLI lifecycle endpoints with verified socket checks (`checkPortActive(19999)`).
@@ -315,6 +316,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **Explicit Route Layout Exceptions**: Preserved `/dashboard` and `/docs` as explicit exceptions via `isCustomLayoutRoute` in `+layout.svelte`, retaining their full content stage width and custom scrolling behavior.
    - **Unified PageHero Component**: Created reusable `apps/web/src/components/PageHero.svelte` implementing the measured `/remote` reference hero (`glass-card-3d rounded-[5px] p-8 border`, 3D gradient, `var(--color-border)`, `var(--shadow-3d)`, high-contrast typography, and responsive badge/actions/stats snippets) across all standard routes and `/docs`.
    - **Post-Login Form Field Styling**: Applied `.login-field-effect` across all post-login form inputs, selects, and textareas, matching `Login.svelte` reference (`rounded-[5px]`, `background-color: var(--color-surface)`, `border: 1px solid var(--theme-border-strong)`, and `focus:ring-2 focus:ring-[var(--theme-focus)] focus:border-transparent`).
+38. **Atomic Authentication Reset, Travelling Neon Focus & Dynamic Toast Theming (v2.2.0)**:
+   - **Atomic Bootstrap Reset & Recovery**: Implemented `resetAuthToDefault()` in `src/auth.js` to restore default credentials (`konohagakure`, `is_bootstrap: true`) and purge stale sessions without requiring authenticated state. Added CLI commands `konoha web reset-password` and `konoha auth reset`.
+   - **Credential Isolation**: Configured `apps/web/playwright.config.js` with `reuseExistingServer: false` and isolated test credentials (`KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json'`), eliminating test runner credential pollution on user environments.
+   - **Travelling Neon Focus Sweep**: Replaced heavy multi-layer box shadows with an animated 1.5px travelling neon border sweep (`@keyframes neonBorderSweep`) using double-background clipping (`padding-box, border-box`) and ambient breathing pulse (`@keyframes neonGlowPulse`), standardizing input corner radius to 3px.
+   - **Dynamic Glass Toasts**: Added `--theme-surface-glass` token to `themeState.svelte.js` and updated `ToastHost.svelte` with dynamic theme backgrounds and 4-gradient accent bars.
 
 ---
 

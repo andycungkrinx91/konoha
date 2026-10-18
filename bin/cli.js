@@ -220,6 +220,17 @@ async function main() {
       case 'ui':
         await cmdUi(args);
         break;
+      case 'auth': {
+        const sub = args[0];
+        if (sub === 'reset' || sub === 'reset-password') {
+          const auth = require('../src/auth');
+          auth.resetAuthToDefault();
+          process.stdout.write('  \x1b[38;2;0;255;255m⚡\x1b[0m Web console password has been reset to default: \x1b[1mkonohagakure\x1b[0m\n');
+        } else {
+          process.stdout.write('Usage: konoha auth reset\n');
+        }
+        break;
+      }
       case 'service':
         await cmdUiService(args);
         break;

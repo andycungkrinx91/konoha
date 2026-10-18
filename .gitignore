@@ -117,9 +117,6 @@ blob-report/
 playwright/.cache/
 # KONOHA-QA-END
 
-agent/
-docs/QA-TEST-CHECKLIST.md
-
 # Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
 PLAN.md

@@ -63,11 +63,11 @@
   {/snippet}
 
   {#snippet heroStats()}
-    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+    <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold theme-text-secondary">Saved All-Time</div>
       <div class="text-xl font-black text-[var(--theme-success)]">{savings ? savings.total_saved : "—"}</div>
     </div>
-    <div class="glass-card-3d px-4 py-3 rounded-[5px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
+    <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold theme-text-secondary">Engine Type</div>
       <div class="text-xl font-black text-[var(--theme-info)]">Neural + FTS</div>
     </div>
@@ -163,7 +163,7 @@
           type="text"
           bind:value={searchQuery}
           placeholder="Describe symbol, bug, or feature (e.g. CSRF token validation logic)..."
-          class="w-full pl-10 pr-4 py-3 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect"
+          class="w-full pl-10 pr-4 py-3 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect"
         />
         <svg class="w-4 h-4 absolute left-3.5 top-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -173,7 +173,7 @@
       <div class="flex items-center gap-3">
         <select
           bind:value={searchLimit}
-          class="px-3 py-3 rounded-[5px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
+          class="px-3 py-3 rounded-[3px] text-xs font-semibold theme-text border theme-border-strong-b theme-bg-surface login-field-effect input-theme"
         >
           <option value={3}>Top 3</option>
           <option value={5}>Top 5</option>

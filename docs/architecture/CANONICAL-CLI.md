@@ -1,7 +1,7 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.1.0 (Konoha v2.1.18)  
-**Date:** 2026-10-10  
+**Document Version:** 1.2.0 (Konoha v2.2.0)  
+**Date:** 2026-10-18  
 **Status:** Authoritative CLI Command Reference  
 
 ---
@@ -18,7 +18,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
 | `konoha test` | - | Run integration diagnostics against the MCP server |
 | `konoha status` | - | Display system health, client configurations, and database stats |
-| `konoha version` | `[-v] [--version]` | Display installed CLI version (2.1.18) and check npm registry for updates |
+| `konoha version` | `[-v] [--version]` | Display installed CLI version (2.2.0) and check npm registry for updates |
 | `konoha upgrade` | `[--yes] [--force]` | Upgrade local Konoha installation to latest release with progress bar |
 | `konoha savings` | - | Display token savings metrics and visual reduction percentages |
 | `konoha detect-ai` | `<target> [--json]` | Scan website URL or project files for AI fingerprints (Human-Built Index) |

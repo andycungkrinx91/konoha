@@ -490,6 +490,12 @@ export function createThemeState() {
       // PLAN.md Standardized Semantic Design Tokens
       document.documentElement.style.setProperty('--theme-bg', tokens.bg);
       document.documentElement.style.setProperty('--theme-surface', tokens.surface);
+      document.documentElement.style.setProperty(
+        '--theme-surface-glass',
+        isDark
+          ? `color-mix(in srgb, ${tokens.surface} 94%, transparent)`
+          : `color-mix(in srgb, ${tokens.surface} 96%, transparent)`
+      );
       document.documentElement.style.setProperty('--theme-surface-raised', tokens.cardBg);
       document.documentElement.style.setProperty('--theme-surface-hover', tokens.surfaceHover);
       document.documentElement.style.setProperty('--theme-surface-active', tokens.surfaceActive || tokens.surfaceHover);

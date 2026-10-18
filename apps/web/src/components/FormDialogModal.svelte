@@ -215,7 +215,7 @@
     aria-describedby="form-dialog-desc"
   >
     <div
-      class="relative overflow-hidden rounded-[5px] border shadow-2xl flex flex-col max-h-[88vh] transition-all duration-200"
+      class="relative overflow-hidden rounded-[3px] border shadow-2xl flex flex-col max-h-[88vh] transition-all duration-200"
       style="
         background-color: var(--theme-surface-glass, rgba(15, 22, 36, 0.96));
         border-color: var(--theme-modal-border, color-mix(in srgb, var(--theme-grad-1) 35%, var(--color-border)));
@@ -245,7 +245,7 @@
           type="button"
           onclick={handleCancel}
           disabled={isLoading}
-          class="shrink-0 -mr-2 -mt-1 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-[5px] theme-text-muted hover:theme-text transition-colors cursor-pointer disabled:opacity-50"
+          class="shrink-0 -mr-2 -mt-1 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-[3px] theme-text-muted hover:theme-text transition-colors cursor-pointer disabled:opacity-50"
           aria-label="Cancel and close dialog"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -258,7 +258,7 @@
       <form onsubmit={handleSubmit} class="flex-1 overflow-y-auto p-6 space-y-4.5 scrollbar-thin">
         {#if generalError}
           <div
-            class="p-3.5 rounded-[5px] text-xs font-semibold flex items-center gap-2.5 border"
+            class="p-3.5 rounded-[3px] text-xs font-semibold flex items-center gap-2.5 border"
             style="
               background-color: color-mix(in srgb, var(--theme-danger, #ef4444) 12%, transparent);
               border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 35%, transparent);
@@ -303,7 +303,7 @@
                 placeholder={field.placeholder || ""}
                 aria-invalid={fieldErrors[field.name] ? "true" : "false"}
                 aria-describedby={fieldErrors[field.name] ? `err-${field.name}` : undefined}
-                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[5px]"
+                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[3px]"
               ></textarea>
             {:else if field.type === "select"}
               <select
@@ -316,7 +316,7 @@
                 onblur={() => handleBlur(field)}
                 aria-invalid={fieldErrors[field.name] ? "true" : "false"}
                 aria-describedby={fieldErrors[field.name] ? `err-${field.name}` : undefined}
-                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[5px]"
+                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[3px]"
               >
                 {#if !field.required}
                   <option value="">-- None --</option>
@@ -357,7 +357,7 @@
                   autocomplete={field.autocomplete || "off"}
                   aria-invalid={fieldErrors[field.name] ? "true" : "false"}
                   aria-describedby={fieldErrors[field.name] ? `err-${field.name}` : undefined}
-                  class="w-full px-3.5 py-2.5 pr-11 text-xs sm:text-sm login-field-effect rounded-[5px]"
+                  class="w-full px-3.5 py-2.5 pr-11 text-xs sm:text-sm login-field-effect rounded-[3px]"
                 />
                 <button
                   type="button"
@@ -392,7 +392,7 @@
                 autocomplete={field.autocomplete || "off"}
                 aria-invalid={fieldErrors[field.name] ? "true" : "false"}
                 aria-describedby={fieldErrors[field.name] ? `err-${field.name}` : undefined}
-                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[5px]"
+                class="w-full px-3.5 py-2.5 text-xs sm:text-sm login-field-effect rounded-[3px]"
               />
             {/if}
 
@@ -417,7 +417,7 @@
             type="button"
             onclick={handleCancel}
             disabled={isLoading}
-            class="w-full sm:w-auto px-5 py-2.5 rounded-[5px] text-sm font-semibold theme-text-secondary hover:theme-text hover-bg-subtle border theme-border transition-all duration-150 cursor-pointer disabled:opacity-50"
+            class="w-full sm:w-auto px-5 py-2.5 rounded-[3px] text-sm font-semibold theme-text-secondary hover:theme-text hover-bg-subtle border theme-border transition-all duration-150 cursor-pointer disabled:opacity-50"
           >
             {options.cancelText || "Cancel"}
           </button>
@@ -425,7 +425,7 @@
           <button
             type="submit"
             disabled={isLoading}
-            class="w-full sm:w-auto px-6 py-2.5 rounded-[5px] text-sm font-bold text-white transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+            class="w-full sm:w-auto px-6 py-2.5 rounded-[3px] text-sm font-bold text-white transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
             style="
               background: linear-gradient(135deg, var(--theme-grad-1, #38bdf8), var(--theme-grad-2, #818cf8));
               border: 1px solid color-mix(in srgb, white 20%, transparent);

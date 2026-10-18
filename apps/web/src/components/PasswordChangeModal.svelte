@@ -92,7 +92,7 @@
         <button
           type="button"
           onclick={() => authState.closePasswordChangeModal()}
-          class="absolute top-4 right-4 p-1.5 rounded-[5px] border transition-colors hover:brightness-110 cursor-pointer z-10 theme-bg-surface theme-border theme-text-muted"
+          class="absolute top-4 right-4 p-1.5 rounded-[3px] border transition-colors hover:brightness-110 cursor-pointer z-10 theme-bg-surface theme-border theme-text-muted"
           aria-label="Close dialog"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -121,13 +121,13 @@
       </div>
 
       {#if errorMessage}
-        <div role="alert" class="p-3 mb-4 rounded-[5px] border text-xs font-semibold text-center animate-in fade-in badge-status badge-status-danger">
+        <div role="alert" class="p-3 mb-4 rounded-[3px] border text-xs font-semibold text-center animate-in fade-in badge-status badge-status-danger">
           {errorMessage}
         </div>
       {/if}
 
       {#if successMessage}
-        <div role="status" class="p-3 mb-4 rounded-[5px] border text-xs font-semibold text-center animate-in fade-in badge-status badge-status-success">
+        <div role="status" class="p-3 mb-4 rounded-[3px] border text-xs font-semibold text-center animate-in fade-in badge-status badge-status-success">
           {successMessage}
         </div>
       {/if}
@@ -143,7 +143,7 @@
             type={showPasswords ? 'text' : 'password'}
             bind:value={currentPassword}
             placeholder="Enter current password"
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="current-password"
             disabled={isSubmitting}
           />
@@ -160,7 +160,7 @@
             placeholder="Enter new strong password"
             required
             minlength={MIN_PASSWORD_LENGTH}
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="new-password"
             disabled={isSubmitting}
           />
@@ -177,7 +177,7 @@
             placeholder="Re-enter new password"
             required
             minlength={MIN_PASSWORD_LENGTH}
-            class="w-full px-3.5 py-2.5 rounded-[5px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
+            class="w-full px-3.5 py-2.5 rounded-[3px] text-xs font-mono border login-field-effect input-theme theme-bg-surface theme-border theme-text"
             autocomplete="new-password"
             disabled={isSubmitting}
           />
@@ -198,7 +198,7 @@
           <button
             type="submit"
             disabled={isSubmitting || Boolean(successMessage)}
-            class="w-full py-2.5 rounded-[5px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98]"
+            class="w-full py-2.5 rounded-[3px] text-xs font-bold text-white transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98]"
             style="background: var(--theme-4gradient, linear-gradient(135deg, #0284c7, #06b6d4));"
           >
             {#if isSubmitting}

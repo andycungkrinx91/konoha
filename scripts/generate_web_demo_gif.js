@@ -172,6 +172,7 @@ async function main() {
 
   // (url, filename, display_url, badge, duration_ms)
   const pages = [
+    ['http://127.0.0.1:1404/', '00_login.png', 'http://127.0.0.1:1404/ • Cyberpunk Login Gateway', 'PASSPHRASE AUTH • 10-THEMES', 2800],
     ['http://127.0.0.1:1404/dashboard', '01_dashboard.png', 'http://127.0.0.1:1404/dashboard • Mission Control', 'CPU · MEMORY · DISK · FEATURE METRICS', 3000],
     ['http://127.0.0.1:1404/agents', '02_agents.png', 'http://127.0.0.1:1404/agents • Ninja Subagents', '7 NINJAS • MODEL CONFIG', 2400],
     ['http://127.0.0.1:1404/bridges', '03_bridges.png', 'http://127.0.0.1:1404/bridges • LLM Bridge Gateway', 'GATEWAY :19999 • SIDECAR :1313', 2200],
@@ -195,7 +196,13 @@ async function main() {
 
     // Navigate to URL and take a screenshot
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-    if (url.endsWith('/dashboard')) {
+    if (url === 'http://127.0.0.1:1404/') {
+      const passInput = await page.$('#login-password');
+      if (passInput) {
+        await passInput.focus();
+        await page.waitForTimeout(600);
+      }
+    } else if (url.endsWith('/dashboard')) {
       // Wait for the first 5s metrics poll so the Grafana panels render data.
       await page.waitForTimeout(6500);
     } else if (url.endsWith('/detector')) {

@@ -69,12 +69,13 @@ ${C.bold}USAGE${C.reset}
   konoha web <subcommand> [options]
 
 ${C.bold}SUBCOMMANDS${C.reset}
-  ${C.cyan}start${C.reset}       Start the Web UI server as a background daemon (default port: 1404)
-  ${C.cyan}stop${C.reset}        Stop the running Web UI server daemon
-  ${C.cyan}restart${C.reset}     Restart the Web UI server
-  ${C.cyan}status${C.reset}      Display current Web UI server status, PID, port, and health
-  ${C.cyan}service${C.reset}     Manage the Web UI as an OS background daemon service (install, uninstall, status, restart)
-  ${C.cyan}open${C.reset}        Open http://127.0.0.1:1404 in your default browser
+  ${C.cyan}start${C.reset}          Start the Web UI server as a background daemon (default port: 1404)
+  ${C.cyan}stop${C.reset}           Stop the running Web UI server daemon
+  ${C.cyan}restart${C.reset}        Restart the Web UI server
+  ${C.cyan}status${C.reset}         Display current Web UI server status, PID, port, and health
+  ${C.cyan}service${C.reset}        Manage the Web UI as an OS background daemon service (install, uninstall, status, restart)
+  ${C.cyan}open${C.reset}           Open http://127.0.0.1:1404 in your default browser
+  ${C.cyan}reset-password${C.reset} Reset Web UI password to the default bootstrap credential (konohagakure)
 
 ${C.bold}OPTIONS${C.reset}
   ${C.cyan}--port <num>${C.reset}        Port to listen on (default: 1404)
@@ -990,6 +991,14 @@ async function cmdUi(args = []) {
     case 'service':
       await cmdUiService(subArgs);
       break;
+    case 'reset-password':
+    case 'reset': {
+      const auth = require('../../src/auth');
+      auth.resetAuthToDefault();
+      success(`Web console password has been reset to default: ${C.bold}konohagakure${C.reset}`);
+      info(`Visit the login page and use ${C.bold}konohagakure${C.reset} to log in.`);
+      break;
+    }
     default:
       if (subcommand.startsWith('-')) {
         await cmdUiStart(args);
@@ -1007,7 +1016,7 @@ async function cmdWeb(args = []) {
     return;
   }
   const first = args[0];
-  if (first && ['start', 'stop', 'restart', 'status', 'open', 'daemon', 'service'].includes(first)) {
+  if (first && ['start', 'stop', 'restart', 'status', 'open', 'daemon', 'service', 'reset-password', 'reset'].includes(first)) {
     return await cmdUi(args);
   }
   const parsed = parseHostPortOptions(args);
