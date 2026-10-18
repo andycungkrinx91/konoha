@@ -12,7 +12,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 
-const AUTH_CONFIG_FILE = process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
+function getAuthConfigPath() {
+  return process.env.KONOHA_AUTH_FILE || path.join(SKILLS_DB_DIR, 'web_auth.json');
+}
 // Session lifetime (24 hours by default); overridable for isolated test fixtures.
 const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = (() => {
@@ -48,13 +50,18 @@ try {
 
 /**
  * Hash a password using Argon2id (or salted scrypt fallback).
+ * Passes password via stdin to prevent exposure via /proc/<pid>/cmdline.
  */
 function hashPassword(password, salt = null) {
   if (argon2) {
     try {
       const { spawnSync } = require('child_process');
-      const script = "const a = require('argon2'); a.hash(process.argv[1], { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));";
-      const res = spawnSync(process.execPath, ['-e', script, password], { encoding: 'utf8', timeout: 5000 });
+      const script = "const fs = require('fs'); const a = require('argon2'); const pass = fs.readFileSync(0, 'utf8'); a.hash(pass, { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));";
+      const res = spawnSync(process.execPath, ['-e', script], {
+        input: password,
+        encoding: 'utf8',
+        timeout: 5000
+      });
       if (res.status === 0 && res.stdout && res.stdout.startsWith('$argon2id$')) {
         const rawHash = res.stdout.trim();
         const parts = rawHash.split('$');
@@ -81,6 +88,7 @@ function hashPassword(password, salt = null) {
 
 /**
  * Timing-safe password verification against stored Argon2id or scrypt hash.
+ * Passes password via stdin to prevent exposure via /proc/<pid>/cmdline.
  */
 function verifyPasswordHash(password, stored) {
   if (!stored || !stored.hash) return false;
@@ -88,8 +96,12 @@ function verifyPasswordHash(password, stored) {
     if (argon2) {
       try {
         const { spawnSync } = require('child_process');
-        const script = "const a = require('argon2'); a.verify(process.argv[1], process.argv[2]).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));";
-        const res = spawnSync(process.execPath, ['-e', script, stored.hash, password], { encoding: 'utf8', timeout: 5000 });
+        const script = "const fs = require('fs'); const a = require('argon2'); const pass = fs.readFileSync(0, 'utf8'); a.verify(process.argv[1], pass).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));";
+        const res = spawnSync(process.execPath, ['-e', script, stored.hash], {
+          input: password,
+          encoding: 'utf8',
+          timeout: 5000
+        });
         return res.status === 0;
       } catch (_) {
         return false;
@@ -128,9 +140,10 @@ function isValidConfig(parsed) {
  *   be advertised as usable trusted server state.
  */
 function getAuthConfig() {
+  const configFile = getAuthConfigPath();
   let exists = false;
   try {
-    exists = fs.existsSync(AUTH_CONFIG_FILE);
+    exists = fs.existsSync(configFile);
   } catch (err) {
     throw new Error(`Unable to inspect auth configuration: ${err.message}`);
   }
@@ -138,7 +151,7 @@ function getAuthConfig() {
   if (exists) {
     let parsed;
     try {
-      parsed = JSON.parse(fs.readFileSync(AUTH_CONFIG_FILE, 'utf8'));
+      parsed = JSON.parse(fs.readFileSync(configFile, 'utf8'));
     } catch (err) {
       throw new Error(`Unable to read auth configuration: ${err.message}`);
     }
@@ -183,7 +196,8 @@ function getAuthConfig() {
  * Save updated auth configuration.
  */
 function saveAuthConfig(config) {
-  const authDir = path.dirname(AUTH_CONFIG_FILE);
+  const configFile = getAuthConfigPath();
+  const authDir = path.dirname(configFile);
   if (!fs.existsSync(authDir)) {
     fs.mkdirSync(authDir, { recursive: true });
   }
@@ -191,7 +205,7 @@ function saveAuthConfig(config) {
   // Write in place (O_TRUNC) instead of temp-file + rename: a rename would need
   // write permission on the parent directory and can replace a symlink, while
   // truncating the file itself only needs write permission on the file.
-  const fd = fs.openSync(AUTH_CONFIG_FILE, 'w', 0o600);
+  const fd = fs.openSync(configFile, 'w', 0o600);
   try {
     fs.writeSync(fd, payload, null, 'utf8');
     fs.fsyncSync(fd);
@@ -199,7 +213,7 @@ function saveAuthConfig(config) {
     fs.closeSync(fd);
   }
   try {
-    fs.chmodSync(AUTH_CONFIG_FILE, 0o600);
+    fs.chmodSync(configFile, 0o600);
   } catch (_) {
     // Best effort: keep the credential file owner-only where supported.
   }

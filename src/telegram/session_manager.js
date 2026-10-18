@@ -349,7 +349,7 @@ function getActiveSessions() {
 
     if (sessions.length === 0) {
       const ompSess = findOmpSessionForWorkspace(cwd);
-      const detectedClient = ompSess ? 'omp' : 'omp';
+      const detectedClient = ompSess ? 'omp' : 'unattributed';
       const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
       sessions.push({
         index: 1,
@@ -364,7 +364,7 @@ function getActiveSessions() {
   } catch (_) {
     const cwd = path.normalize(process.cwd());
     const ompSess = findOmpSessionForWorkspace(cwd);
-    const detectedClient = ompSess ? 'omp' : 'omp';
+    const detectedClient = ompSess ? 'omp' : 'unattributed';
     const sessId = ompSess ? path.parse(ompSess.name).name : 'default';
     return [{
       index: 1,

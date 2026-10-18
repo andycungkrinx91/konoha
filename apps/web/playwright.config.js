@@ -42,6 +42,7 @@ export default defineConfig({
       PORT: '4173',
       HOST: '127.0.0.1',
       KONOHA_AUTH_FILE: '/tmp/konoha_test_web_auth.json',
+      KONOHA_DISABLE_TELEGRAM_POLLER: '1',
       KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || TEST_BOOTSTRAP_PASSWORD
     },
     timeout: 30000,

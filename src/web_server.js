@@ -2683,11 +2683,13 @@ function createWebServer(options = {}) {
     start: () => new Promise((resolve, reject) => {
       server.listen(port, host, () => {
         try {
-          const tgConfig = require('./telegram/config');
-          const poller = require('./telegram/poller');
-          const cfg = tgConfig.getTelegramConfig();
-          if (cfg.enabled && cfg.mode === 'two_way' && cfg.bot_token) {
-            poller.startPoller();
+          if (process.env.KONOHA_DISABLE_TELEGRAM_POLLER !== '1') {
+            const tgConfig = require('./telegram/config');
+            const poller = require('./telegram/poller');
+            const cfg = tgConfig.getTelegramConfig();
+            if (cfg.enabled && cfg.mode === 'two_way' && cfg.bot_token) {
+              poller.startPoller();
+            }
           }
         } catch (_) {
           /* intentional fallback: poller start error should not block web server startup */

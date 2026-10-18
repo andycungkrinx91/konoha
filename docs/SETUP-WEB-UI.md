@@ -61,11 +61,12 @@ konoha web
    │
    ├── Embedded API Server (src/web_server.js)
    │     ├── Bound to 127.0.0.1:1404 (Localhost only)
-   │     ├── Password-only authentication via salted scrypt hashing (src/auth.js)
+   │     ├── Password-only authentication via Argon2id encryption with timing-safe verification (src/auth.js)
    │     ├── Bootstrap credential ('konohagakure') with mandatory password change enforcement
    │     ├── Serves session token via HttpOnly cookie; exposes CSRF token via GET /api/v1/csrf
    │     ├── Requires X-Konoha-Web-Token on POST / PATCH / DELETE
-   │     ├── Realtime updates via Server-Sent Events (/api/v1/events)
+   │     ├── Realtime updates via Server-Sent Events (/api/v1/events) with automatic background data refresh
+   │     ├── Outbound Webhook Integration engine (Bearer, API Key, JWT, Custom Headers)
    │     └── Serves JSON API (/api/v1/*) over existing Konoha core functions
    │
    └── Frontend (apps/web/build/)
@@ -77,9 +78,11 @@ konoha web
 
 ### Security & Authentication Hardening
 - **Localhost Bound**: The server binds strictly to `127.0.0.1` by default.
-- **Salted Scrypt Password Authentication**: Passwords are verified server-side using cryptographic salted scrypt key derivation (`crypto.scryptSync`, `N=16384, r=8, p=1`, 64-byte key) with timing-safe comparison (`crypto.timingSafeEqual`). Plaintext passwords are never stored or logged.
-- **Bootstrap Password Gating**: On first run `src/auth.js` provisions the bootstrap credential `konohagakure` (provisioning input only — never compared in the browser or echoed by the API) and persists only its salted scrypt verifier to `~/.konoha/web_auth.json` (mode `0600`). The hint is shown on the login screen only while `GET /api/v1/auth/status` reports `is_bootstrap: true`. Sessions created from the bootstrap credential are gated (`403 requires_password_change`) until the password change is persisted; `/api/v1/auth/change-password` requires the current password and clears the flag only after the new verifier is durably written (in place + `fsync`, mode `0600`). Failed changes never clear the flag.
+- **Argon2id Password Encryption**: Passwords are encrypted server-side using Argon2id (`$argon2id$v=19$m=65536,p=4,t=3$...`) for maximum resistance to offline cracking, with timing-safe comparison and backward compatibility for existing salted scrypt hashes. Plaintext passwords are never stored or logged, and password arguments are passed via stdin rather than argv to prevent process inspection leaks.
+- **Bootstrap Password Gating**: On first run `src/auth.js` provisions the bootstrap credential `konohagakure` (provisioning input only — never compared in the browser or echoed by the API) and persists only its encrypted verifier to `~/.konoha/web_auth.json` (mode `0600`). The hint is shown on the login screen only while `GET /api/v1/auth/status` reports `is_bootstrap: true`. Sessions created from the bootstrap credential are gated (`403 requires_password_change`) until the password change is persisted; `/api/v1/auth/change-password` requires the current password and clears the flag only after the new verifier is durably written (in place + `fsync`, mode `0600`). Failed changes never clear the flag.
 - **Credential Store Fail-Closed**: A present-but-unreadable or malformed `web_auth.json` never silently reinstalls the bootstrap credential; login returns `401`/`500`-class failures without leaking internals.
+- **Authorized Password Reset & Session Invalidation**: Changing passwords or resetting to default from `/settings` requires valid current password authentication. Upon password update or reset, all active sessions are immediately invalidated (`destroyAllSessions()`) and the user is securely returned to the login screen.
+- **SSE-Driven Data Refresh**: Upon successful authentication updates, the server broadcasts `auth_state_changed` over Server-Sent Events, enabling the web console to re-synchronize metrics in the background without manual browser refreshes.
 - **Rate-Limiting Protection**: Repeated invalid login attempts trigger IP-based throttling (HTTP 429 lockout after repeated failures) to protect against brute-force attacks.
 - **CSRF Token Invariant**: Every session generates a secure random token passed via the `X-Konoha-Web-Token` header for all state-changing mutations (`POST`, `PUT`, `PATCH`, `DELETE`). Requests missing or with an invalid token are rejected with HTTP 403 Forbidden.
 - **Zero Raw Secrets Rendered**: API keys entered for local LLM bridges are write-only and never echoed back in plaintext.
