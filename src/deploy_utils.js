@@ -42,8 +42,8 @@ function resolveWebUiDir(opts = {}) {
   const candidates = [
     path.resolve(process.cwd(), "apps", "web"),
     path.resolve(process.cwd()),
-    path.join(HOME, ".konoha", "apps", "web"),
-    path.resolve(__dirname, "..", "apps", "web")
+    path.resolve(__dirname, "..", "apps", "web"),
+    path.join(HOME, ".konoha", "apps", "web")
   ];
 
   // Only probe npm global root if none of the standard local candidates exist

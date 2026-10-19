@@ -42,8 +42,10 @@ const loginRateLimit = new Map();
 const activeSessions = new Map();
 
 let argon2 = null;
+let argon2Path = null;
 try {
   argon2 = require('argon2');
+  argon2Path = require.resolve('argon2');
 } catch (_) {
   // Graceful fallback if native module fails to load
 }
@@ -53,14 +55,16 @@ try {
  * Passes password via stdin to prevent exposure via /proc/<pid>/cmdline.
  */
 function hashPassword(password, salt = null) {
-  if (argon2) {
+  if (argon2 && argon2Path) {
     try {
       const { spawnSync } = require('child_process');
-      const script = "const fs = require('fs'); const a = require('argon2'); const pass = fs.readFileSync(0, 'utf8'); a.hash(pass, { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));";
+      const script = `const fs = require('fs'); const a = require(${JSON.stringify(argon2Path)}); const pass = fs.readFileSync(0, 'utf8'); a.hash(pass, { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));`;
       const res = spawnSync(process.execPath, ['-e', script], {
         input: password,
         encoding: 'utf8',
-        timeout: 5000
+        timeout: 5000,
+        windowsHide: true,
+        env: { ...process.env, NODE_PATH: path.dirname(argon2Path) }
       });
       if (res.status === 0 && res.stdout && res.stdout.startsWith('$argon2id$')) {
         const rawHash = res.stdout.trim();
@@ -93,14 +97,16 @@ function hashPassword(password, salt = null) {
 function verifyPasswordHash(password, stored) {
   if (!stored || !stored.hash) return false;
   if (typeof stored.hash === 'string' && stored.hash.startsWith('$argon2')) {
-    if (argon2) {
+    if (argon2 && argon2Path) {
       try {
         const { spawnSync } = require('child_process');
-        const script = "const fs = require('fs'); const a = require('argon2'); const pass = fs.readFileSync(0, 'utf8'); a.verify(process.argv[1], pass).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));";
+        const script = `const fs = require('fs'); const a = require(${JSON.stringify(argon2Path)}); const pass = fs.readFileSync(0, 'utf8'); a.verify(process.argv[1], pass).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));`;
         const res = spawnSync(process.execPath, ['-e', script, stored.hash], {
           input: password,
           encoding: 'utf8',
-          timeout: 5000
+          timeout: 5000,
+          windowsHide: true,
+          env: { ...process.env, NODE_PATH: path.dirname(argon2Path) }
         });
         return res.status === 0;
       } catch (_) {
@@ -279,7 +285,21 @@ function authenticate(password, clientIp = '127.0.0.1') {
     };
   }
 
-  const isValid = verifyPasswordHash(password, config);
+  let isValid = verifyPasswordHash(password, config);
+  if (!isValid && config.is_bootstrap) {
+    const currentBootstrap = resolveBootstrapPassword();
+    if (typeof password === 'string' && password === currentBootstrap) {
+      isValid = true;
+      try {
+        const rehashed = hashPassword(currentBootstrap);
+        config.format = rehashed.format;
+        config.salt = rehashed.salt;
+        config.hash = rehashed.hash;
+        config.updated_at = new Date().toISOString();
+        saveAuthConfig(config);
+      } catch (_) { /* ignore auto-heal error */ }
+    }
+  }
 
   if (!isValid) {
     recordLoginFailure(clientIp);

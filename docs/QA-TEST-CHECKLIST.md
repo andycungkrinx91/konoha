@@ -356,13 +356,25 @@ npx aislop scan --changes
 
 | Verification Item | Verification Procedure | Expected Result | Status |
 | :--- | :--- | :--- | :--- |
-| **1. Web Auth Token Isolation** | `GET /api/v1/auth/status` and `GET /api/v1/auth/session` without auth. | HTTP 200 with `authenticated: false` and strictly NO `token` field present. | Planned (`tests/test_web_auth_token_isolation.js`) |
-| **2. Request Body Limit (1 MiB Cap)** | Send POST request with body $> 1$ MiB. | HTTP 413 `Payload Too Large` and immediate connection termination. | Planned (`tests/test_body_limit.js`) |
-| **3. Cloudflare Access JWT Verification** | Send remote request with forged JWT or email-only header. | Verification fails signature/JWKS assertion; email-header fallback rejected; requires PIN. | Planned (`tests/test_cf_jwt_verification.js`) |
-| **4. Telegram `/sh` Deprecation** | Send `/sh echo test` or `/exec uptime` via Telegram. | Decline reply returned; zero shell commands spawned on host. | Planned (`tests/test_telegram_no_sh.js`) |
-| **5. Autonomous Worker Safety Gate** | Invoke queue worker without `KONOHA_ALLOW_UNSAFE_AUTONOMY`. | CLI arguments omit `--dangerously-skip-permissions`; dangerous SSH command injections rejected. | Planned (`tests/test_queue_guardrails.js`) |
-| **6. Bridge VSIX Removal & Proxy Preservation** | Check extension auto-install and probe local proxy on port 19999. | External VSIX auto-install removed; local OpenAI-compatible proxy gateway active and operational. | Planned (`tests/test_bridge_removal_proxy_preserved.js`) |
-| **7. Large File Tool Auto-Chunk Pagination** | Request $> 1000$ line range via `konoha.read_file_range`. | Range auto-clamps to 200 lines without throwing refusal error; returns structured pagination metadata. | Planned (`tests/test_large_file_pagination.js`) |
+| **1. Web Auth Token Isolation** | `GET /api/v1/auth/status` and `GET /api/v1/auth/session` without auth. | HTTP 200 with `authenticated: false` and strictly NO `token` field present. | `PASS` (verified in `tests/test_web_auth_token_isolation.js`) |
+| **2. Request Body Limit (1 MiB Cap)** | Send POST request with body $> 1$ MiB. | HTTP 413 `Payload Too Large` and immediate connection termination. | `PASS` (verified in `tests/test_body_limit.js`) |
+| **3. Cloudflare Access JWT Verification** | Send remote request with forged JWT or email-only header. | Verification fails signature/JWKS assertion; email-header fallback rejected; requires PIN. | `PASS` (verified in `tests/test_cf_jwt_verification.js`) |
+| **4. Telegram `/sh` Deprecation** | Send `/sh echo test` or `/exec uptime` via Telegram. | Decline reply returned; zero shell commands spawned on host. | `PASS` (verified in `tests/test_telegram_no_sh.js`) |
+| **5. Autonomous Worker Safety Gate** | Invoke queue worker without `KONOHA_ALLOW_UNSAFE_AUTONOMY`. | CLI arguments omit `--dangerously-skip-permissions`; dangerous SSH command injections rejected. | `PASS` (verified in `tests/test_queue_guardrails.js`) |
+| **6. Bridge VSIX Removal & Proxy Preservation** | Check extension auto-install and probe local proxy on port 19999. | External VSIX auto-install removed; local OpenAI-compatible proxy gateway active and operational. | `PASS` (verified in `tests/test_bridge_removal_proxy_preserved.js`) |
+| **7. Large File Tool Auto-Chunk Pagination** | Request $> 1000$ line range via `konoha.read_file_range`. | Range auto-clamps to 200 lines without throwing refusal error; returns structured pagination metadata. | `PASS` (verified in `tests/test_large_file_pagination.js`) |
+
+---
+
+## Section 5: v2.2.1 Automation & User Experience Fixes (Feedback 1, 2, 3)
+
+| Feedback / QA Verification Item | Verification Procedure | Expected Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Auth Login Across Any CWD & Bootstrap Auto-Healing (Feedback 1)** | Execute `auth.hashPassword` and `auth.verifyPasswordHash` with `process.cwd()` set to `/tmp/`, Windows paths, or user home directory. Authenticate with stale bootstrap credentials. | Child process loads `argon2` via `require.resolve` and `NODE_PATH` without `MODULE_NOT_FOUND` errors; `is_bootstrap: true` allows `konohagakure` login and auto-heals corrupted stored hashes; zero operator lockouts. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `tests/test_auth.js`) |
+| **2. Automated Web UI Version Synchronization (Feedback 2)** | Upgrade or install Konoha; verify `resolveWebUiDir()` candidate precedence and inspect `~/.konoha/apps/web/build`. | Packaged distribution is prioritized over stale `~/.konoha` builds; `installCliRuntime()` refreshes `~/.konoha/apps/web/build` on version change; layout displays current version `2.2.1`; zero manual build required. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `ui build`) |
+| **3. Zero-Manual Migration & Embeddings (Feedback 3)** | Run `konoha upgrade` and inspect `ensureAutoSetup()`. | Dead bridge function calls purged; `cmdUpgrade` and `ensureAutoSetup()` automatically execute `migrate.js` with IBM Granite neural embeddings on version change without requiring manual CLI commands. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js`) |
+| **4. Playwright End-to-End Suite & Agent-Browser QA** | Execute Playwright E2E suite (`pnpm --dir apps/web run test:e2e`) across all 12 spec files. | All 46 tests pass across login animations, theme matrix contrast, dashboard gauges, detector flows, hybrid search, link crawler, and UI consistency. | `PASS` (46/46 passed) |
+
 
 
 

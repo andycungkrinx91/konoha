@@ -719,16 +719,14 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       );
     } else {
       tasteSkillBlock = (
-        '### 🎨 Taste-Skill Design Engine Directives (tasteskill.dev):\n' +
+        '### 🎨 Taste-Skill Design Directives (tasteskill.dev):\n' +
         `- Active Taste Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10\n` +
-        '- Anti-Slop Policy: Zero generic AI-purple gradients, zero 3-card boilerplate stacks. Implement bespoke editorial UI.\n' +
-        '- Typography: Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display (no default Inter). Extreme scale contrast.\n' +
-        '- Layout & Spacing: Cinematic py-24/py-32 section pacing, CSS Grid (grid-cols-12), max-w-[1400px].\n' +
-        '- Viewport & Mobile: min-h-[100dvh] safety (no h-screen), sticky bottom dock on mobile (`lg:hidden`).\n' +
-        '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), Zero emojis (use Lucide SVG).\n' +
-        '- Mandatory Konoha Design Invariants: (1) Header logo on far LEFT, (2) NO hamburger/toggle button in mobile header (`lg:hidden`), (3) Archetype-adaptive fixed bottom Mobile Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (`fixed bottom-6 left-6 z-50`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay).\n' +
-        "- Quality: pnpm exclusively, SPA/multi-page routes, 50-item dataset, zero errors/warnings, 'Build by Konoha' footer.\n" +
-        '- SDLC & Anti-Slop Delivery Gate: Jonin must run `rtk aislop scan --changes` (or pass specific changed file paths) before delivery to ensure `ai_slop_findings: 0` and `ai_slop_clean: true`. Never run unscoped root scans. Include real validation commands (e.g. `pnpm run build`, `pnpm run lint`) and anti-slop scan results in report_from_agent validation evidence.\n'
+        '- Anti-Slop: Zero generic AI-purple gradients, zero 3-card boilerplate stacks. Bespoke editorial UI.\n' +
+        '- Typography: Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display. Extreme scale contrast.\n' +
+        '- Layout & Spacing: py-24/py-32 section pacing, CSS Grid (12-col), max-w-[1400px], min-h-[100dvh].\n' +
+        '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), zero emojis (Lucide SVG).\n' +
+        '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
+        '- Quality & Delivery: pnpm exclusively, zero errors/warnings, run `rtk aislop scan --changes` (findings: 0, ai_slop_clean: true).\n'
       );
     }
   }
@@ -746,17 +744,11 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     } else {
       docDesignBlock = (
         '### 🖋️ Tokubetsu-Jonin Document Engineering Directives:\n' +
-        '- Official Native Document Tools: For generating publication-grade deliverables, invoke the 5 official native tools (available via konoha MCP and in `src/tools/document_engine.js`):\n' +
-        '  1. `document_create`: Generate publication-grade DOCX or PDF reports with structured styling, callout boxes, headers, and footers.\n' +
-        '  2. `spreadsheet_create`: Generate professional Excel XLSX workbooks with multi-sheet structures, formulas, and auto-fitted columns.\n' +
-        '  3. `presentation_create`: Generate modern 16:9 widescreen PowerPoint PPTX slide decks with cards, metrics, and visual hierarchy.\n' +
-        '  4. `diagram_create`: Generate scalable vector SVG architecture diagrams with cards, badges, and curved connectors.\n' +
-        '  5. `animation_export`: Convert SVG or frame sequences into canonical Animated WebP (or GIF) using Playwright Chromium + FFmpeg.\n' +
-        '- Skills Retrieval via FTS5 + ONNX Vector Index: All skill blueprints and specialized references (e.g. `tokubetsu-jonin-skill`, `zero-ai-human-writing`, `docx`, `pdf`, `pptx`, `xlsx`) are fully indexed in SQLite FTS5. Discover with `konoha.find_skill("<query>")` and load full text with `konoha.get_skill("<name>")`. Never read raw markdown skill files directly.\n' +
-        '- Typography & Hierarchy: Inter Display/Bold (32pt titles, -0.02em tracking), Inter SemiBold (H1-H3), Inter Regular (~10.5-11pt body, line-height 1.55), Inter Medium (8-9pt footers), JetBrains Mono for code.\n' +
-        '- Canvas & Color Invariants: Pure white / soft pearl (#FFFFFF / #F8FAFC), strictly zero dark fills or black backgrounds, generous top breathing room (45–60mm), 20 Enterprise 4-Base-Color Themes (T01–T20).\n' +
-        '- Chromatic Mesh Gradient: Multi-stop soft transitions (lavender #DBCCD0 -> periwinkle #C2C0D6 -> blue-slate #AAC2D8 -> turquoise #B0D5D8 -> mint #C5D7C2) with grounded neutral baseline divider (#6E766F).\n' +
-        '- Mandatory Quality Gate (< 3.0% AI Detection): Every deliverable (.docx, .pdf, .pptx, .xlsx, .md) must pass automated AI detection with score < 3.0% and ZeroGPT risk < 3.0% before acceptance. Vary sentence lengths (CV >= 0.85), purge all AI clichés/buzzwords, and scrub container metadata.\n'
+        '- Native Tools: document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in `src/tools/document_engine.js`.\n' +
+        '- Skills via FTS5/RAG: Query `konoha.find_skill("<keywords>")` and `konoha.get_skill("<name>")`. Never read raw markdown skill files directly.\n' +
+        '- Typography & Hierarchy: Inter Display/Bold (32pt titles, -0.02em tracking), Inter SemiBold (H1-H3), Inter Regular (~10.5-11pt body), JetBrains Mono for code.\n' +
+        '- Canvas & Color Invariants: Pure white / soft pearl (#FFFFFF / #F8FAFC), strictly zero dark fills or black backgrounds, 20 Enterprise 4-Base-Color Themes (T01–T20).\n' +
+        '- Quality Gate (< 3.0% AI Detection): Every deliverable must pass automated AI detection with score < 3.0% and ZeroGPT risk < 3.0% before acceptance. Vary sentence lengths (CV >= 0.85), purge robotic clichés, scrub metadata.\n'
       );
     }
   }

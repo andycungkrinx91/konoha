@@ -15,6 +15,7 @@ const path = require('path');
 const os = require('os');
 const { spawn, execSync } = require('child_process');
 const { SKILLS_DB_DIR } = require('./paths');
+const { getCliVersion } = require('./format');
 const deployUtils = require('../../src/deploy_utils');
 const { fileExists, ensureDir, checkPortActive } = require('../../src/platform_utils');
 
@@ -904,9 +905,8 @@ async function cmdUiBuild() {
         fs.cpSync(path.join(webDir, 'build'), installedBuild, { recursive: true, force: true });
         const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
         const destWebPkg = path.join(destWebDir, 'package.json');
-        if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.1.0', type: 'module', private: true }, null, 2) + '\n');
-        }
+        const currentVersion = getCliVersion();
+        fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
         fs.writeFileSync(path.join(installedBuild, 'package.json'), '{\n  "type": "module"\n}\n');
         info(`Installed runtime UI refreshed: ${installedBuild}`);
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }

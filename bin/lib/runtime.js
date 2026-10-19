@@ -32,7 +32,7 @@ const {
 } = require('./paths');
 const { fileExists, ensureDir, copyFile, checkPython } = require('./prompt');
 const { info, warn, success, getCliVersion } = require('./format');
-const { installUv, getUvCommand, getUvxCommand, autoInstallKonohaBridgeExtension } = require('./extension');
+const { installUv, getUvCommand, getUvxCommand } = require('./extension');
 const deployUtils = require('../../src/deploy_utils');
 const agentManager = require('../../src/agent_manager');
 const skillManager = require('../../src/skill_manager');
@@ -587,6 +587,7 @@ function installCliRuntime() {
       info(`Web UI application installed to ${webDestDir}`);
     }
 
+    const currentVersion = getCliVersion();
     let webBuildSrc = path.resolve(__dirname, '..', '..', 'apps', 'web', 'build');
     if (!fileExists(path.join(webBuildSrc, 'handler.js'))) {
       const candidates = [
@@ -601,25 +602,31 @@ function installCliRuntime() {
       }
     }
     const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
+    const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
+    const destWebPkg = path.join(destWebDir, 'package.json');
+    let destVersion = null;
+    try {
+      if (fileExists(destWebPkg)) {
+        destVersion = JSON.parse(fs.readFileSync(destWebPkg, 'utf8')).version;
+      }
+    } catch (_) { /* intentional best-effort fallback: unreadable package.json ignored */ }
+    const isUiOutdated = !destVersion || destVersion !== currentVersion;
+
     if (fileExists(path.join(webBuildSrc, 'handler.js'))) {
-      if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest)) {
+      if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest) || isUiOutdated) {
         fs.rmSync(webBuildDest, { recursive: true, force: true });
         ensureDir(webBuildDest);
         fs.cpSync(webBuildSrc, webBuildDest, { recursive: true });
-        const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
-        const destWebPkg = path.join(destWebDir, 'package.json');
-        if (!fileExists(destWebPkg)) {
-          fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.2.1', type: 'module', private: true }, null, 2) + '\n');
-        }
+        fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
         fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
-        info(`Pre-built Web UI installed to ${webBuildDest}`);
+        info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
       }
-    } else if (!fileExists(path.join(webBuildDest, 'handler.js'))) {
+    } else if (!fileExists(path.join(webBuildDest, 'handler.js')) || isUiOutdated) {
       const sourceDir = deployUtils.resolveWebUiDir({ preferSources: true });
       if (sourceDir && fileExists(path.join(sourceDir, 'src', 'routes'))) {
         try {
           const { execSync } = require('child_process');
-          info('Building Web UI during runtime initialization...');
+          info(`Building Web UI v${currentVersion} during runtime initialization...`);
           try {
             execSync('pnpm run build', { cwd: sourceDir, stdio: 'ignore', timeout: 180000 });
           } catch (_) {
@@ -630,13 +637,9 @@ function installCliRuntime() {
             fs.rmSync(webBuildDest, { recursive: true, force: true });
             ensureDir(webBuildDest);
             fs.cpSync(builtOutput, webBuildDest, { recursive: true });
-            const destWebDir = path.join(SKILLS_DB_DIR, 'apps', 'web');
-            const destWebPkg = path.join(destWebDir, 'package.json');
-            if (!fileExists(destWebPkg)) {
-              fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: '2.2.1', type: 'module', private: true }, null, 2) + '\n');
-            }
+            fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
             fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
-            info(`Pre-built Web UI installed to ${webBuildDest}`);
+            info(`Pre-built Web UI installed to ${webBuildDest} (v${currentVersion})`);
           }
         } catch (buildErr) {
           warn(`Could not build Web UI automatically: ${buildErr.message}`);
@@ -1020,7 +1023,6 @@ function ensureAutoSetup(force = false) {
   copySkillsDirFast(pkgSkillsDir, globalSkillsDir);
   skillManager.syncAllClientSkills({ projectRoot: currentCwd, silent: true });
 
-  autoInstallKonohaBridgeExtension(true);
   const python = checkPython() || 'python3';
   installUv(true);
   registerMcp(python, true);

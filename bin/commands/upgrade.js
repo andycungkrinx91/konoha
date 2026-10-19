@@ -351,7 +351,7 @@ async function cmdUpgrade(args = []) {
   pbar.update(2, `${C.cyan}[Stage 3/7]${C.reset} Verifying Node.js, uv, and runtime dependencies...`);
 
   try {
-    await cmdInit(['--force', '--yes', '--skip-embeddings'], {
+    await cmdInit(['--force', '--yes'], {
       skipUiAutoStart: true, // cmdUpgrade restarts/starts the daemon itself below
       onProgress: (stepNum, stepTitle, stepDetail) => {
         const stageNum = Math.min(6, 2 + stepNum);
@@ -382,6 +382,12 @@ async function cmdUpgrade(args = []) {
         pbar.logStep(`Shim warning: could not update ${failure.path}: ${failure.error}`);
       }
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+    // Refresh installed Web UI and runtime files before daemon restart
+    try {
+      const { installCliRuntime } = require('../lib/runtime');
+      installCliRuntime();
+    } catch (_) { /* intentional best-effort fallback */ }
 
     // Auto-start / restart the Web UI daemon so the upgraded runtime is live:
     // - daemon was running before the upgrade → restart it (old code in memory)
