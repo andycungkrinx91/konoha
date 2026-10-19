@@ -321,8 +321,8 @@ test.describe("Dashboard Gauges, Header Orb Removal, Breadcrumbs, Fullscreen Swi
     });
     expect(transitionState.isTransitioning).toBe(true);
 
-    // Wait for transition to complete (~1.1s)
-    await page.waitForTimeout(1100);
+    // Wait for transition to complete
+    await page.waitForFunction(() => window.backgroundScene?.instance?.isThemeTransitioning === false, { timeout: 4000 });
 
     // Verify settled
     const settledState = await page.evaluate(() => {
