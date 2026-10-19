@@ -16,8 +16,16 @@ function write(root, name, value) {
   fs.writeFileSync(path.join(root, name), value, 'utf8');
 }
 
+function seedPrompt(root, promptText) {
+  write(root, 'status.json', JSON.stringify({
+    schema_version: 2,
+    phase: 'route',
+    prompt: promptText
+  }, null, 2));
+}
+
 function advanceToPlan(root) {
-  write(root, 'prompt.md', 'Implement a small backend fix');
+  seedPrompt(root, 'Implement a small backend fix');
   const first = JSON.parse(server.runMcpWorkflow(root));
   assert.strictEqual(first.phase, 'explore');
   write(root, 'findings.md', 'The backend fix is isolated.');
@@ -35,7 +43,7 @@ async function run() {
 
   try {
     // 1. Stale result does not complete new dispatch
-    write(root, 'prompt.md', 'Implement a fix');
+    seedPrompt(root, 'Implement a fix');
     const first = JSON.parse(server.runMcpWorkflow(root));
     assert.strictEqual(first.phase, 'explore');
     const before = JSON.parse(fs.readFileSync(path.join(root, 'status.json'), 'utf8'));
@@ -232,7 +240,7 @@ async function run() {
     const observedPhases = [];
 
     // Phase 1: route -> explore
-    write(root7, 'prompt.md', 'Research and execute full feature lifecycle');
+    seedPrompt(root7, 'Research and execute full feature lifecycle');
     const s1 = JSON.parse(server.runMcpWorkflow(root7));
     assert.strictEqual(s1.phase, 'explore');
     observedPhases.push('route', s1.phase);
@@ -332,6 +340,55 @@ async function run() {
   } finally {
     server.WORKSPACE_ROOT = prevRoot;
     fs.rmSync(root7, { recursive: true, force: true });
+  }
+
+  // 8. Two-stage HITL gates test: Gate 1 (Plan Approval) & Gate 2 (Delivery Sign-Off)
+  const root8 = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_hitl_'));
+  server.WORKSPACE_ROOT = root8;
+  const origHitlMode = process.env.KONOHA_HITL_MODE;
+  process.env.KONOHA_HITL_MODE = 'enabled';
+  try {
+    const sdlcManager = require('../src/sdlc_manager');
+    const taskId = path.basename(root8);
+    seedPrompt(root8, 'Feature with HITL gates');
+    const r1 = JSON.parse(server.runMcpWorkflow(root8));
+    assert.strictEqual(r1.phase, 'explore');
+
+    write(root8, 'findings.md', 'Exploration findings.');
+    write(root8, 'result.md', 'Genin done.');
+    const r2 = JSON.parse(server.runMcpWorkflow(root8));
+    assert.strictEqual(r2.phase, 'plan');
+
+    write(root8, 'plan.md', '- [anbu]: Core backend task\n');
+    write(root8, 'result.md', 'Kage planning done.');
+    // Under hitl_mode = 'enabled', finishing plan triggers Gate 1
+    const rPlanApproval = JSON.parse(server.runMcpWorkflow(root8));
+    assert.strictEqual(rPlanApproval.status, 'pending_plan_approval');
+    assert.strictEqual(rPlanApproval.phase, 'plan_approval');
+    assert.strictEqual(rPlanApproval.hitl_gate, 'Gate 1 (Plan Approval)');
+
+    // In status.json, hitl_gate is 'plan_approval' and phase is 'plan'
+    const statusPostPlan = JSON.parse(fs.readFileSync(path.join(root8, 'status.json'), 'utf8'));
+    assert.strictEqual(statusPostPlan.hitl_gate, 'plan_approval');
+    assert.strictEqual(statusPostPlan.phase, 'plan');
+
+    // Calling runMcpWorkflow again while still unapproved stays paused
+    const rStillPaused = JSON.parse(server.runMcpWorkflow(root8));
+    assert.strictEqual(rStillPaused.status, 'pending_plan_approval');
+
+    // Operator approves the plan in DB
+    sdlcManager.updateTask(taskId, { status: 'in_progress' });
+
+    // Next sannin workflow call transitions Gate 1 -> execute
+    const rExecute = JSON.parse(server.runMcpWorkflow(root8));
+    assert.strictEqual(rExecute.phase, 'execute');
+    assert.strictEqual(rExecute.agent, 'anbu');
+
+    console.log('✓ Two-stage HITL Gate 1 (Plan Approval) pause and resume verified');
+  } finally {
+    process.env.KONOHA_HITL_MODE = origHitlMode;
+    server.WORKSPACE_ROOT = prevRoot;
+    fs.rmSync(root8, { recursive: true, force: true });
   }
 
   console.log('\nAll test_workflow_gates passed cleanly!');

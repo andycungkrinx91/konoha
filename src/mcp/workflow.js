@@ -793,10 +793,6 @@ function runMcpWorkflow(taskDir = null) {
   const { getWorkspaceRoot } = require('./runtime_state');
   const resolvedProjPath = status.project_path || getWorkspaceRoot() || process.cwd();
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
-  const promptPath = path.join(resolvedTaskDir, 'prompt.md');
-  if (!status.prompt && fs.existsSync(promptPath)) {
-    try { status.prompt = fs.readFileSync(promptPath, 'utf8').trim(); } catch (_) { /* ignore */ }
-  }
   const effPrompt = status.prompt || '';
 
   let phase = status.phase || 'route';
@@ -865,13 +861,9 @@ function runMcpWorkflow(taskDir = null) {
   }
 
   if (phase === 'route') {
-    const promptPath = path.join(resolvedTaskDir, 'prompt.md');
-    if (!status.prompt && fs.existsSync(promptPath)) {
-      try { status.prompt = fs.readFileSync(promptPath, 'utf8').trim(); } catch (_) { /* ignore */ }
-    }
     const prompt = status.prompt || effPrompt;
     if (!prompt) {
-      return JSON.stringify({ status: 'error', message: 'No prompt.md or task prompt found in workflow context: ' + resolvedTaskDir, phase: 'route' });
+      return JSON.stringify({ status: 'error', message: 'No task prompt found in workflow context.', phase: 'route' });
     }
     status.phase = 'explore';
     status.assigned_agent = 'genin';

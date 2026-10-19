@@ -16,7 +16,11 @@ function setupTask(taskRoot, name, promptText = null) {
   const d = path.join(taskRoot, name);
   fs.mkdirSync(d, { recursive: true });
   if (promptText !== null) {
-    fs.writeFileSync(path.join(d, 'prompt.md'), promptText, 'utf8');
+    fs.writeFileSync(path.join(d, 'status.json'), JSON.stringify({
+      schema_version: 2,
+      phase: 'route',
+      prompt: promptText
+    }, null, 2), 'utf8');
   }
   return d;
 }
@@ -44,11 +48,11 @@ async function run() {
   try {
     console.log('Running test_workflow_loop tests...');
 
-    // T01: Missing prompt.md returns error
+    // T01: Missing prompt returns error
     const taskEmpty = setupTask(taskRoot, 'empty');
     const resT01 = JSON.parse(server.runMcpWorkflow(taskEmpty));
     assert.strictEqual(resT01.status, 'error');
-    assert.ok((resT01.message || '').includes('No prompt.md'));
+    assert.ok((resT01.message || '').includes('No task prompt found'));
     assert.strictEqual(resT01.phase, 'route');
     console.log('✓ T01: Missing prompt passed');
 
@@ -191,6 +195,8 @@ async function run() {
     // T11: Synthesize writes final report
     const taskT11 = setupTask(taskRoot, 'synthesize_phase', 'Build feature X');
     fs.writeFileSync(path.join(taskT11, 'status.json'), JSON.stringify({
+      schema_version: 2,
+      prompt: 'Build feature X',
       phase: 'synthesize',
       assigned_agent: 'sannin',
       executed: {
