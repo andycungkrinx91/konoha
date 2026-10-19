@@ -1,7 +1,7 @@
 ﻿---
 name: geospatial-maps-expert
 description: "Expert guide for maps and geospatial data (Mapbox GL JS, Leaflet, Google Maps, PostGIS) / Panduan ahli peta dan data geospasial (Mapbox GL JS, Leaflet, Google Maps, PostGIS)."
-author: "Roedy Rustam"
+author: "Roedy Rustam"
 version: "3.0.0"
 ---
 

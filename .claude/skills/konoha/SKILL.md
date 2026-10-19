@@ -1,6 +1,14 @@
 ---
 name: konoha
 description: Guidelines and instructions for maintaining, extending, and debugging the Konoha MCP Tools Orchestrator, MCP middleware, and multi-archetype website builder across 8 coding clients (Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi/pi.dev, OMP).
+tags:
+  - konoha
+  - orchestrator
+  - mcp
+  - maintenance
+  - engineering
+  - website-builder
+  - fts5
 ---
 
 # 🍃 Konoha Maintenance & Engineering Skill
@@ -628,18 +636,17 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Argon2 Child-Process Resolution**: `src/auth.js` anchors `argon2` module resolution via exact filesystem path `require.resolve('argon2')` and passes `NODE_PATH` in spawned child processes, eliminating `MODULE_NOT_FOUND` operator lockouts regardless of current working directory.
     - **Bootstrap Password Auto-Healing**: When `is_bootstrap: true` is active, comparing against default bootstrap password (`konohagakure`) succeeds and rewrites/heals `web_auth.json` with native system hashes.
     - **Automated Web UI Build Refresh**: `resolveWebUiDir()` in `src/deploy_utils.js` prioritizes packaged builds over stale `~/.konoha` directories; `installCliRuntime()` automatically refreshes `apps/web/build` on version changes; `upgrade.js` removes `--skip-embeddings`, executing schema migration and IBM Granite neural embeddings automatically.
-107. **Deprecated npm Packages Elimination, Global CLI Self-Healing & Document Engine Modernization (v2.2.3)**:
-    - **Deprecated Package Elimination**: Replaced deprecated `exceljs` (and its transitive dependency chain `inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`) with clean, modern `xlsx-populate` in `package.json` and `src/tools/document_engine.js`. Enforced zero deprecation warnings and zero errors on clean npm/pnpm installations.
-    - **Global CLI Self-Healing Runtime**: Resolved `MODULE_NOT_FOUND` on missing `~/.konoha` by implementing multi-tier resilient shims (`reconcileGlobalCommand`), `bin/postinstall.js`, and self-healing runtime restoration in `bin/cli.js`.
-    - **Full Document Engine Parity**: Preserved 100% feature and visual parity for `spreadsheet_create` including EulerOS KPI cards, zebra striping, uppercase formulas, autoFilter, and column formatting.
-
-106. **Socket Security Remediation, Supply-Chain Dependency Hardening & QA Automation (v2.2.2)**:
-    - **Socket Alert Remediation & Supply-Chain Hardening**: Remediated all critical and high Socket alerts targeting unreleased version 2.2.2. Pinned and upgraded `image-size >= 2.0.4` (CVE-2025-71330 & CVE-2025-71329), `uuid >= 11.1.1` (14.0.3, CVE-2026-41907), `tar-stream >= 3.2.2`, and adopted official Socket-optimized `@socketregistry/safe-buffer@1.0.9`.
-    - **Synchronized Package Manifest & Lockfile Overrides**: Enforced synchronized overrides across root `package.json` (`overrides` for npm, `pnpm.overrides` for pnpm), updating both `package-lock.json` and `pnpm-lock.yaml` to clean, zero-vulnerability dependency trees with `npm audit` and `pnpm audit` reporting 0 vulnerabilities.
-    - **Maintainable QA Test Checklist**: Updated `docs/QA-TEST-CHECKLIST.md` with Section 6 covering reproducible Socket scans, supply-chain checks, and full E2E Playwright verification.
 106. **Zero Hardcoded Home Directories Architecture & @advisor Final Gate Review (v2.2.1)**:
     - **Zero Hardcoded Home Directories**: Centralized dynamic home directory resolution via `bin/lib/paths.js` and `os.homedir()`: dynamically resolves across Linux (`/home/<user>/.konoha`), macOS (`/Users/<user>/.konoha`), and Windows (`C:\Users\<user>\.konoha`). Zero hardcoded user paths across all production files. Added automated assertion test `tests/test_no_hardcoded_homedir.js`.
     - **@advisor Final Gate Review & Remediation Loop**: Integrated `@advisor` review gate into `src/mcp/workflow.js`. When `@advisor` review rejects deliverables (`review.advisor_approved === false` or `status.advisor_approved === false`), the workflow does not prematurely block or synthesize; instead, it automatically dispatches an advisor remediation fix task to Anbu (backend/tests) or Jonin (UI) and loops back for re-execution (bounded by a 7-cycle circuit breaker).
+107. **Socket Security Remediation, Supply-Chain Dependency Hardening & QA Automation (v2.2.2)**:
+    - **Socket Alert Remediation & Supply-Chain Hardening**: Remediated all critical and high Socket alerts targeting unreleased version 2.2.2. Pinned and upgraded `image-size >= 2.0.4` (CVE-2025-71330 & CVE-2025-71329), `uuid >= 11.1.1` (14.0.3, CVE-2026-41907), `tar-stream >= 3.2.2`, and adopted official Socket-optimized `@socketregistry/safe-buffer@1.0.9`.
+    - **Synchronized Package Manifest & Lockfile Overrides**: Enforced synchronized overrides across root `package.json` (`overrides` for npm, `pnpm.overrides` for pnpm), updating both `package-lock.json` and `pnpm-lock.yaml` to clean, zero-vulnerability dependency trees with `npm audit` and `pnpm audit` reporting 0 vulnerabilities.
+    - **Maintainable QA Test Checklist**: Updated `docs/QA-TEST-CHECKLIST.md` with Section 6 covering reproducible Socket scans, supply-chain checks, and full E2E Playwright verification.
+108. **Deprecated npm Packages Elimination, Global CLI Self-Healing & Document Engine Modernization (v2.2.3)**:
+    - **Deprecated Package Elimination**: Replaced deprecated `exceljs` (and its transitive dependency chain `inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`) with clean, modern `xlsx-populate` in `package.json` and `src/tools/document_engine.js`. Enforced zero deprecation warnings and zero errors on clean npm/pnpm installations.
+    - **Global CLI Self-Healing Runtime**: Resolved `MODULE_NOT_FOUND` on missing `~/.konoha` by implementing multi-tier resilient shims (`reconcileGlobalCommand`), `bin/postinstall.js`, and self-healing runtime restoration in `bin/cli.js`.
+    - **Full Document Engine Parity**: Preserved 100% feature and visual parity for `spreadsheet_create` including EulerOS KPI cards, zebra striping, uppercase formulas, autoFilter, and column formatting.
 
 
 

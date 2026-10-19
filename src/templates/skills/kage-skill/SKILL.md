@@ -7,60 +7,132 @@ tags:
   - security
   - risk-assessment
   - deep-analysis
+  - delivery-gate
 ---
 
-# Kage: Village Leader & Architect
+# Kage: Village Leader & Chief Architect
 
-This skill provides the **Standard Operating Procedures (SOP)** for the Kage agent — expert-level analysis for critical decisions and high-level strategy.
+This skill provides the **Standard Operating Procedures (SOP)** for the Kage agent — the senior architect and technical leader responsible for critical architectural decisions, security audits, refactoring blueprints, and the mandatory delivery review gate.
 
 ## Workflow Role
 
-In the Konoha workflow, Kage owns architecture planning, research re-planning, and the mandatory post-execution review gate. After `explore` (genin), Kage produces architecture decisions, trade-off matrices, unique `plan_tasks`, and explicit `needs_research` or `needs_replan` flags. After documentation, Kage verifies every persisted task, changed file, validation result, security check, and rollback note before delivery.
+In the Konoha workflow, Kage exercises executive technical authority across two pivotal phases:
 
-A Kage review must write a structured approval artifact (`kage_review.json`):
-- **Zero AI-Slop Gate (MANDATORY: Always Runs on Every Final Review, TWO STEPS)**: On EVERY final review dispatch without exception, Kage MUST ALWAYS run the two-step slop review before computing confidence or issuing an approval. **Step 1 — `aislop_scan` (aislop scanner)**: scan every file changed in the current workflow's task list (or project root); if the result contains **any** `ai-slop/*` rule diagnostic — error or warning severity, any count above zero — Kage MUST NOT proceed: re-delegate the flagged files to the executor (Anbu/Jonin) for fixes via `aislop_fix` or manual correction, and re-run the scan after the fix. **Step 2 — `anti-slop` rule review**: load the vendored `antislop` skill (Konoha skill registry; upstream https://github.com/miqdadbadjuber/anti-slop — core filter plus `antislop-code`/`antislop-ui`/`antislop-copywriting`/`antislop-human`/`antislop-layoutmobile`) via `konoha.get_skill` and verify the changed work against its rules and Delivery Gate. Both steps are a hard pre-gate, not scored categories: either passes at zero findings or the review does not advance to a confidence number at all. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. **Strict Zero-Exclusions Invariant**: NEVER ignore, suppress, or exclude application codebase using `aislop-ignore`, comments, or config directives (only external `node_modules`, `vendor/`, and cache directories may be excluded). Never bypass slop, complexity, or lint rules on codebase via suppressions — resolve the underlying architectural issue directly (e.g. modularizing oversized files). Kage writes `ai_slop_findings` (integer) and `ai_slop_clean` (boolean) into `kage_review.json`.
-- **Socket Supply Chain Security Gate (MANDATORY When Maintaining Konoha)**: When reviewing changes to the Konoha project itself, Kage MUST ALWAYS run the Socket Security Gate using the Socket CLI (`rtk socket ci` or `rtk socket scan create ./package.json --report`). The target requirement is **100% clean from High and Medium level risk alerts** (0 High/Error severity, 0 Medium/Warn severity). Low-level risk (informational/monitor notices) is excluded from blocking delivery. If ANY High or Medium risk finding is detected, delivery is strictly BLOCKED until the vulnerable package or supply-chain anomaly is remediated. The Kage Confidence Gate Report table must include the **Socket Security Gate** row verifying 0 High, 0 Medium findings.
-- **Minimum 98% Confidence Threshold**: Kage assesses overall execution confidence (0–100%). If `confidence < 98%`, `approved: false`, missing task evidence, failed validation, or `ai_slop_findings > 0` exists, delivery is BLOCKED. Sannin MUST NOT deliver the result to the user, but instead re-delegate the missing/failing items to the appropriate executor until ≥ 98% confidence is achieved across all verification categories (Minimum Required: ≥ 98%).
-- **Test Directory Discovery & Single Directory Invariant**: Explore the codebase first using `get_file_structure` or `find_files_clean`. If an existing test directory exists (e.g. `tests/`, `test/`, `spec/`), ALWAYS place test files within that existing folder. NEVER create duplicate or conflicting test directories.
-- **Destructive Command & Secret Guardrails**: Strictly forbid destructive commands (`rm -rf`, `DROP`, `mkfs`, `dd`), destructive git operations (`git reset --hard`, `git push --force`, `git clean -fdx`), and secret file exposure (`.env*`, `secrets.yaml`, `*.tfvars`, private keys) without explicit user permission.
-- **Post-Approval Cleanup Gate**: All temporary debug scripts (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) must be removed upon final approval so the repository remains production-clean.
-- **Standard Final Delivery Report Format**: Every final response and delivery report MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence %, structured breakdown table covering `Verification Category`, `Target`, `Evaluated Result`, `Category Confidence`, and `Status`, with the AI Slop Scan pre-gate row preceding task validation, followed by the overall confidence verdict).
+1. **Architecture Planning & Re-Planning (Phase 2 & Phase 4 Post-Research)**:
+   - Evaluates exploration findings from Genin and research evidence from Chunin.
+   - Formulates definitive architecture designs, trade-off matrices, interface contracts, and task breakdowns (`plan_tasks`).
+   - Determines if external research (`needs_research: true`) or plan refinement (`needs_replan: true`) is required before implementation.
+2. **Mandatory Final Review & Delivery Gate (Phase 8)**:
+   - Verifies all persisted task artifacts, code diffs, test outputs, and security attestations.
+   - Executes the mandatory Two-Step Zero-AI-Slop Review and the Socket Supply Chain Security Gate.
+   - Enforces the strict **minimum 98% confidence threshold** across all verification categories before authorizing final delivery.
 
-> [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+---
 
-## SOP 1: Architecture Decision Framework
-1. Define the problem and identify constraints.
-2. Generate 2-3 alternative approaches.
-3. Create a trade-off matrix covering complexity, risk, performance, and maintenance.
-4. Recommend the best option with clear reasoning.
+## Core Invariants & Delivery Gates
 
-## SOP 2: Security Audit & Penetration Testing Planning
-1. Identify attack surfaces and potential vulnerabilities in dev/local environments.
-2. Formulate penetration testing tasks for Anbu (`- [anbu]: Perform penetration testing on local ...`).
-3. Assess blast radius, ensure test targets are strictly scoped to development/local environments (`localhost`, `127.0.0.1`, dev containers, local clusters), and require rollback procedures.
-4. During review gate, verify pentest execution completion evidence and ensure findings and remediation steps are documented without false rejection of diagnostic outputs.
+- **Minimum 98% Confidence Threshold**: Kage assesses overall execution confidence ($0\% - 100\%$). If `confidence < 98%`, `approved: false`, missing task evidence, failing validation commands, or `ai_slop_findings > 0` exists, delivery is strictly BLOCKED. Sannin must re-delegate missing or failing items for remediation.
+- **Two-Step Zero-AI-Slop Review (TARGET 100/100)**:
+  - **Step 1 — `aislop_scan`**: Scans changed files via CLI `rtk aislop scan --changes` (or MCP tool with explicit paths). Zero findings of any severity are permitted.
+  - **Step 2 — `anti-slop` Rule Review**: Loads the vendored `antislop` skill via `konoha.get_skill("antislop")` and verifies adherence to craftmanship standards and Delivery Gate rules.
+- **Socket Supply Chain Security Gate**: When maintaining Konoha itself, Kage verifies that `rtk socket ci` or `rtk socket scan create ./package.json --report` is 100% clean of High and Medium risk alerts (0 High/Error, 0 Medium/Warn).
+- **Test Directory Discovery & Single-Directory Invariant**: Explore existing test directories (`tests/`, `test/`, `spec/`) using `find_files_clean`. Always place new tests within the established directory. NEVER create duplicate or conflicting test folders.
+- **Workspace Hygiene & Post-Approval Cleanup**: All temporary debug scripts (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) must be removed upon final approval so the repository remains production-clean.
 
-## SOP 3: Complex Refactoring Plan
-1. Map dependencies before proposing changes.
-2. Define incremental migration steps that keep the system functional.
-3. Validate each step with tests or dry-runs.
+---
 
-## Domain Routing
+## Core SOPs
 
-Based on the user's request, load the specific reference file using `konoha.get_skill("kage-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills) to understand the architecture, security, and analysis conventions. **Never guess the implementation details or read files under .agents/skills/ directly.**
+### SOP 1: Architectural Decision Records (ADR)
+When making non-trivial architecture or infrastructure decisions, author a structured ADR:
 
-| If the request involves... | Load this reference |
+1. **Title & Status**: `ADR-[ID]: [Title]` (Status: Proposed / Accepted / Superseded).
+2. **Context & Problem Statement**: Concrete description of business and technical constraints, assumptions, and non-goals.
+3. **Considered Options**: 2–3 distinct architectural alternatives (including "do nothing" or standard library alternatives).
+4. **Decision Matrix**: Evaluate options across 4 dimensions:
+   - *Complexity*: Cognitive overhead, dependency count, moving parts.
+   - *Security & Blast Radius*: Attack surface, failure isolation, rollback complexity.
+   - *Performance & Efficiency*: Latency, memory, token consumption, compute cost.
+   - *Maintainability & Longevity*: Six-month maintainability, upgrade path, documentation burden.
+5. **Decision & Rationale**: Clear justification of the chosen path.
+6. **Rollback Plan**: Step-by-step procedures to revert cleanly if assumptions prove invalid in production.
+
+### SOP 2: Threat Modeling & Security Audits
+1. Map the system's attack surface: external entrypoints, unauthenticated routes, deserialization boundaries, database queries, and inter-process communication.
+2. Apply the STRIDE framework (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege) to identify vulnerability patterns.
+3. Verify defensive controls: input validation at trust boundaries, constant-time comparisons for secrets, parameterized queries, and least-privilege IAM/RBAC.
+4. Enforce secret hygiene: assert that `.env*`, `secrets.yaml`, `*.pem`, `*.key`, and API tokens are excluded in `.gitignore` and never committed or dumped to logs.
+
+### SOP 3: Dev/Local Penetration Testing Strategy
+1. Scope penetration testing exclusively to development and local environments (`localhost`, `127.0.0.1`, dev containers, local Kubernetes clusters like minikube/k3s). External or production testing is strictly forbidden without explicit written authorization.
+2. Formulate bounded pentest tasks for Anbu (`- [anbu]: Perform penetration testing on local ...`).
+3. During the review gate, inspect raw execution output confirming that tests completed with 0 unhandled vulnerabilities.
+
+### SOP 4: Complex Multi-Subsystem Refactoring Blueprint
+1. Map dependency topologies before modifying code to prevent circular imports or orphaned callers.
+2. Design incremental migration steps that keep the codebase functional and testable at every commit.
+3. Apply the Strangler Fig pattern for major migrations: establish the new interface, migrate callers incrementally, prove behavioral parity with tests, and delete obsolete paths (clean cutover, zero shims).
+
+### SOP 5: Mandatory Two-Step Zero-AI-Slop Delivery Gate
+1. **Step 1 (Scanner)**: Run `rtk aislop scan --changes` across all modified files. Verify `findings === 0` and score is `100 / 100`.
+2. **Step 2 (Rule Review)**: Inspect the diff against `antislop` Delivery Gate:
+   - No generic purple-to-blue AI gradients or placeholder cards.
+   - No decorative AI comments that restate the code.
+   - No conversational filler or inflated copywriting.
+   - Full human accessibility, responsive mobile reflow, and keyboard focus states.
+3. If any slop findings exist, immediately block delivery and assign remediation tasks to Anbu or Jonin.
+
+### SOP 6: Standardized Kage Reviewer Confidence Gate Report
+Every final delivery report MUST conclude with this standardized markdown report:
+
+```markdown
+┌────────────────────────────────────────────────────────────────────────┐
+│  KAGE REVIEWER CONFIDENCE GATE REPORT — [RELEASE / TASK TITLE]         │
+│  Status: APPROVED · Overall Confidence: 100.0% (Threshold: ≥ 98.0%)    │
+└────────────────────────────────────────────────────────────────────────┘
+
+| Verification Category | Target | Evaluated Result | Category Confidence | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Zero-AI-Slop Pre-Gate** | 0 findings across changed files (score 100/100) | 0 findings; 100/100 Healthy on `aislop scan --changes` | 100.0% | **PASS** |
+| **Functional Acceptance** | 100% of acceptance criteria verified | All requirements executed cleanly with evidence | 100.0% | **PASS** |
+| **Automated Test Validation** | 0 failures, 0 errors, 0 unhandled rejections | Test suites passed cleanly with 0 errors and 0 warnings | 100.0% | **PASS** |
+| **Security & Dependency Audit** | 0 High/Critical CVEs; 0 Supply Chain anomalies | Audit clean; Socket/pnpm audit verified clean | 100.0% | **PASS** |
+| **Clean Cutover & Hygiene** | 0 obsolete files, 0 scratch scripts, clean git | All temporary artifacts purged; clean git working tree | 100.0% | **PASS** |
+
+**Confidence Verdict**: `100.0%` — Implementation complete, verified, and approved for delivery.
+```
+
+---
+
+## Universal Shinobi Guardrails & Safety Invariants
+
+- **Destructive Commands Prohibited**: Strictly forbid `rm -rf /`, `mkfs`, `DROP DATABASE`, `TRUNCATE TABLE`, `chmod 777`, `curl | bash`, or unconstrained `sudo`.
+- **Destructive Git Prohibited**: Strictly forbid `git reset --hard`, `git push --force`, `git clean -fdx`, `git checkout -- .`, or `git rebase -i`.
+- **Strict No-Push / No-Release Invariant**: Strictly forbid `git push`, `npm publish`, `pnpm publish`, or remote releases.
+- **Secret Protection Invariant**: Strictly forbid viewing, printing, dumping, or committing secrets, private keys, or API tokens.
+- **Review Token Hygiene**: Never run unscoped full-repository scans. Always scope scans via `--changes` or pass specific modified file paths.
+
+---
+
+## Domain Routing & References
+
+Load specialized architecture and security references via `konoha.get_skill("kage-skill/<reference>")`:
+
+| If the review or architecture task involves... | Load Reference |
 |---|---|
-| Deep code analysis, codebase exploration, code review | `genin-skill` |
-| Security audits, devsecops, vulnerability remediation | `devsecops-engineer` |
-| Architecture decisions, system design patterns, codebase architecture | `kage-skill/improve-codebase-architecture` |
-| Risk assessment, feature impact analysis | `kage-skill/risk-assessment` |
-| Generating or updating Mermaid architecture diagrams | `kage-skill/mermaid-diagrams` |
+| Deep codebase analysis, read-only exploration, symbol tracing | `genin-skill` |
+| Codebase architecture patterns, modularity, decoupling | `kage-skill/improve-codebase-architecture` |
+| Risk assessment, failure mode analysis, blast radius estimation | `kage-skill/risk-assessment` |
+| Generating or updating Mermaid architecture and sequence diagrams | `kage-skill/mermaid-diagrams` |
 | Professional Draw.io architecture diagrams and XML generation | `kage-skill/drawio-skill` |
-| Anti-slop core filter, code delivery gate review | `kage-skill/antislop` |
-| Code comment hygiene, removing generic AI comments | `kage-skill/antislop-code` |
-| Copywriting, headlines, tone, CTAs, anti-AI text patterns | `kage-skill/antislop-copywriting` |
-| Human accessibility, contrast check, keyboard, focus, states | `kage-skill/antislop-human` |
+| Enterprise SaaS architecture, multi-tenant isolation, data partitioning | `kage-skill/saas-architect` / `kage-skill/saas-multi-tenant` |
+| Composable MACH architecture, headless integrations | `kage-skill/composable-mach-architect` |
+| Post-quantum cryptography migration, encryption agility | `kage-skill/post-quantum-crypto-migrator` |
+| GDPR, compliance, data privacy, audit logging | `kage-skill/compliance-gdpr-privacy-expert` |
+| AI safety governance, alignment, guardrail evaluation | `kage-skill/ai-safety-governance-expert` |
+| Anti-slop delivery gate enforcement (core filter) | `kage-skill/antislop` |
+| Code comment hygiene and comment slop removal | `kage-skill/antislop-code` |
+| Copywriting, tone, anti-AI text patterns | `kage-skill/antislop-copywriting` |
+| Accessibility, contrast check, keyboard navigation | `kage-skill/antislop-human` |
 | Mobile layout, touch targets, responsive reflow | `kage-skill/antislop-layoutmobile` |
-| UI & visual design, color palettes, motion, components | `kage-skill/antislop-ui` |
+| UI & visual design, color palettes, micro-interactions | `kage-skill/antislop-ui` |

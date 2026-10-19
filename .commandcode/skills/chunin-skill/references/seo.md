@@ -1,7 +1,7 @@
 ﻿---
 name: seo
 description: "Run a broad SEO audit across technical SEO, on-page SEO, schema, sitemaps, content quality, AI search readiness, and GEO / Audit SEO menyeluruh (Technical, On-Page, Schema, Sitemap, E-E-A-T, GEO)"
-author: "Roedy Rustam"
+author: "Roedy Rustam"
 version: "3.0.0"
 ---
 

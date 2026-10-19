@@ -1,7 +1,7 @@
 ﻿---
 name: hig
 description: "Applies Human Interface Guidelines (HIG) principles — Hierarchy, Harmony, and Consistency — to UI/UX designs to ensure intuitive and cohesive interfaces / Menerapkan prinsip Human Interface Guidelines (HIG) — Hierarchy, Harmony, dan Consistency — pada desain UI/UX untuk memastikan antarmuka yang intuitif dan kohesif."
-author: "Roedy Rustam"
+author: "Roedy Rustam"
 version: "3.0.0"
 ---
 

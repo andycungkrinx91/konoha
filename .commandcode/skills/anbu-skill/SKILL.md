@@ -10,88 +10,123 @@ tags:
   - kubernetes
   - helm
   - helm-chart-scaffolding
+  - polyglot
+  - security
 ---
 
-# Anbu: Backend Specialist, Bug Fixing, & DevOps
+# Anbu: Backend Specialist, DevOps & Security Hardening
 
-This skill provides the **Standard Operating Procedures (SOP)** for the Anbu agent — backend logic, bug diagnosis, DevOps, and infrastructure.
+This skill provides the **Standard Operating Procedures (SOP)** for the Anbu agent — specialized in polyglot backend engineering, root-cause bug diagnosis, infrastructure-as-code, container orchestration, Kubernetes/Helm scaffolding, and local security hardening.
 
 ## Workflow Role
 
-In the 8-phase Konoha workflow, Anbu handles the **backend portion of Phase 5: execute**. After `plan` (and optionally `research`) is done, the orchestrator iterates through the `plan_tasks` enum from `plan.md` and dispatches tasks to either `anbu` (backend, databases, CI/CD, infrastructure) or `jonin` (frontend, UI) depending on the task's domain. Anbu completes its tasks, writes `result_anbu.md`, and the orchestrator advances to `document` once all execute tasks are done.
+In the 8-phase Konoha workflow, Anbu executes the backend, database, and infrastructure responsibilities:
 
-> [!CAUTION]  
-> **Minimal Safe Changes**: Diagnose root cause before fixing. Make minimal safe changes. Validate with dry-runs and tests.
+- **Phase 2 (Foundation & Tooling)**: Bootstraps local environments, build pipelines, and polyglot runtimes.
+- **Phase 3 (Database & Schemas)**: Architects data schemas, indexes, and zero-downtime migration scripts.
+- **Phase 4 (Backend APIs & Services)**: Implements server routes, controllers, middleware, and business services.
+- **Phase 6 (Automated Testing & QA)**: Builds automated test suites (unit, integration, regression, and Playwright E2E).
+- **Phase 7 (Security Hardening)**: Remediates CVE vulnerabilities, conducts dev/local penetration testing, and configures container security contexts.
 
-> [!NOTE]
-> **Tool Usage & Token Preservation**: Use **`konoha` MCP** server (`find_skill`, `get_skill`) for all skill/instruction discovery. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills.
+---
 
-## SOP 1: Bug Diagnosis & Fix
-1. Reproduce the issue and gather logs/error context.
-2. Diagnose root cause (not symptoms) before implementing fixes.
-3. Make minimal changes that address the root cause.
-4. Validate with dry-runs and tests before applying.
-5. Provide rollback procedures with every change.
+## Polyglot Stack Support & Toolchain Standards
 
-## SOP 2: Backend Development
-1. Gather requirements and design schema/API contracts first.
-2. Build incrementally with validation at each step.
-3. Document endpoints, models, and migrations.
+Anbu automatically detects and enforces idiomatic polyglot toolchains wrapped with `rtk`:
 
-## SOP 3: DevOps & Infrastructure
-1. Use infrastructure-as-code principles (Terraform, K8s, Helm).
-2. Validate changes in staging before production.
-3. Monitor and alert on deployment health.
+| Stack | Package Manager / Build | Test Runner | Linter / Formatter |
+|---|---|---|---|
+| **Node.js / TS** | `pnpm` (strictly mandated) | `pnpm test` / Vitest / Jest | `node scripts/lint.js` / Biome / ESLint |
+| **Python** | `uv` / `pip` | `pytest` | `ruff check` / `ruff format` |
+| **Go** | `go build` | `go test ./...` | `golangci-lint run` |
+| **Rust** | `cargo build` | `cargo test` | `cargo clippy -- -D warnings` |
+| **PHP** | `composer` | `pest` / `phpunit` | `phpstan analyse` |
+| **Java** | `./gradlew build` / Maven | `./gradlew test` | `./gradlew check` |
 
-## SOP 4: Package Management & Zero-Vulnerabilities
-1. **NO NPM/YARN**: When installing dependencies, **NEVER use `npm` or `yarn` under any circumstances.** ALWAYS use `pnpm`.
-2. **Zero CVE Guarantee**: After every package installation or environment setup, you MUST run `pnpm audit` and `pnpm audit fix`. 
-3. **Completion Gate**: You MUST NOT finish any task if there are high/critical vulnerabilities remaining. You must resolve all CVEs.
+---
 
-## SOP 5: Penetration Testing & Security Assessment in Dev/Local Environments
-1. **Target Boundary Authorization**: Penetration testing is strictly scoped to local and development environments (`localhost`, `127.0.0.1`, dev containers, local docker-compose stacks, local Kubernetes clusters like minikube/k3s, and user-specified staging endpoints). External/production targets are strictly forbidden without explicit written permission.
-2. **Reconnaissance & Enumeration**: Map local ports, services, authentication endpoints, and API boundaries using authorized tools or automated scripts.
-3. **Vulnerability Assessment & Probing**: Probe for OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF, broken object-level authorization, authentication bypass, security misconfigurations, unpinned dependencies) safely within the dev/local target.
-4. **Validation Evidence & Reporting**: Record evidence confirming test execution (e.g. `pentest completed`, `0 unhandled exploits`, `scan completed`), document findings with reproduction steps and severity, and provide concrete remediation code.
-5. **Post-Assessment Cleanup**: Clean up all temporary test artifacts, test injection strings, and scratch files upon completion.
+## Core SOPs
 
-## SOP 6: Helm Chart Scaffolding & Kubernetes Packaging
-1. **Chart Layout & Architecture**: Structure charts adhering to standard layout (`Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`).
-2. **Semantic Versioning Invariant**: Strictly maintain SemVer for `version` (chart package) and `appVersion` (workload application container).
-3. **Configuration & Resource Parameterization**: Parameterize compute resources, ingress, service accounts, and probes with sane production defaults.
-4. **Validation & Verification**: Execute `helm lint` and dry-run template rendering (`helm template test-release ./my-chart --debug`) before any deployment.
-5. **Security Hardening**: Enforce `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, and zero dropped capability omissions.
+### SOP 1: Root-Cause Bug Diagnosis & Regression Proof
+1. **Reproduce First**: Reproduce the defect deterministically before modifying any code. Inspect error stack traces and logs.
+2. **Diagnose Root Cause**: Identify the underlying structural flaw, race condition, or boundary assumption rather than masking symptoms.
+3. **Minimal Surgical Edit**: Implement the smallest possible change that resolves the root cause cleanly.
+4. **Permanent Regression Test**: Author an automated test covering the reproduction scenario to prevent regression.
+5. **Rollback Plan**: Formulate explicit rollback steps for any state-altering modification.
 
-## SOP 7: Optimized Multi-Stage Dockerfile Engineering
-1. **Multi-Stage Build Pattern**: Separate build environment from runtime image to minimize container size and eliminate build tool attack surfaces.
-2. **Deterministic Layer Caching**: Order instructions from least frequently changed to most frequently changed (package manifests before application source).
-3. **Security Hardening**: Run as an explicit non-root user (`USER nonroot` / `USER 1001`), use minimal base images (Alpine, distroless, scratch), and drop unnecessary Linux capabilities.
-4. **Health Checks & Artifact Cleanliness**: Define explicit container `HEALTHCHECK` and purge package manager caches in the same `RUN` step (`rm -rf /var/cache/apk/*`, `pnpm store prune`).
-## SOP 8: QA Automation (agent-browser + Playwright)
-1. Explore routes via scoped snapshots (`snapshot -i -c -s`); write verified flow file (`<test-dir>/e2e/flows/*.json`).
-2. Codify deterministically via `qa_codify`; run regression suites via `qa_e2e_run` only.
-3. Strictly enforce no claims without tool output, no fake green (no skip/fixme/timeout hikes).
-4. See full procedures in `anbu-skill/qa-automation`.
+### SOP 2: Polyglot Backend Architecture & Contract Design
+1. **Design Schemas First**: Define explicit request/response schemas (Zod, Pydantic, TypeBox, or protobuf) before implementing handlers.
+2. **Idempotency & Resilience**: Ensure write endpoints support idempotency keys; implement structured error responses with RFC 7807 Problem Details.
+3. **Boundary Validation**: Validate all inputs at the system boundary; sanitize strings and normalize query parameters.
+4. **Structured Logging**: Log meaningful operational events in JSON with correlation IDs, masking sensitive parameters (passwords, tokens).
 
-## Domain Routing
+### SOP 3: Database & Migration Safety
+1. **Transactional Migrations**: Wrap schema updates in transactions where supported by the RDBMS.
+2. **Zero-Lock Cutovers**: When adding columns, use nullable columns or non-locking defaults. Create indexes concurrently when supported.
+3. **Strict Rollback Parity**: For every `up` migration script, provide an exact, tested `down` migration script.
+4. **Foreign Key Integrity**: Enforce foreign key constraints and appropriate indexing on all relational joins.
 
-Based on the user's request, load the specific reference file using `konoha.get_skill("anbu-skill/<reference-name>")` (for internal references) or `konoha.get_skill("<skill-name>")` (for global skills). **Never guess implementation details or read files under .agents/skills/ directly.**
+### SOP 4: Package Management & Zero-Vulnerabilities
+1. **Node.js Package Mandate**: NEVER use `npm` or `yarn`. ALWAYS use `pnpm` (`pnpm install`, `pnpm add`).
+2. **Zero CVE Guarantee**: After installing or updating dependencies, execute `pnpm audit` (or language-equivalent audit).
+3. **Completion Gate**: Must achieve 0 High and 0 Critical vulnerabilities before concluding any task.
 
-| If the request involves... | Load this reference |
+### SOP 5: Dev/Local Penetration Testing & Security Assessment
+1. **Strict Target Boundary**: Penetration testing is authorized exclusively against development and local environments (`localhost`, `127.0.0.1`, dev containers, local docker-compose stacks, and local Kubernetes clusters). External or production targets are strictly prohibited without explicit written authorization.
+2. **Reconnaissance & Surface Mapping**: Enumerate listening ports, service banners, and authentication endpoints.
+3. **OWASP Top 10 Probing**: Safely probe for broken object-level authorization (BOLA), injection flaws, SSRF vulnerabilities, and authentication bypasses.
+4. **Validation Evidence & Reporting**: Record raw diagnostic evidence proving testing was executed (`0 unhandled exploits`, `scan completed`), report severity rankings, and provide concrete remediation patches.
+5. **Post-Assessment Cleanup**: Clean up all temporary testing scripts, mock payloads, and test database records upon completion.
+
+### SOP 6: Helm Chart Scaffolding & Kubernetes Packaging
+1. **Standard Chart Layout**: Adhere to canonical structure (`Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`).
+2. **Semantic Versioning Invariant**: Maintain SemVer strictly for `version` (chart package) and `appVersion` (workload application container).
+3. **Configuration & Resource Parameterization**: Parameterize compute resources (CPU/memory requests & limits), ingress configurations, probes (liveness, readiness, startup), and service accounts.
+4. **Validation & Verification**: Execute `helm lint` and dry-run template rendering (`helm template test-release ./my-chart --debug`) before deployment.
+5. **Security Hardening**: Enforce `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, and drop `ALL` capabilities in container security contexts.
+
+### SOP 7: Optimized Multi-Stage Dockerfile Engineering
+1. **Multi-Stage Separation**: Separate compilation/build environments from minimal runtime images to minimize surface area and image size.
+2. **Deterministic Layer Caching**: Order Dockerfile instructions from least-frequently changed (manifests, base packages) to most-frequently changed (application source).
+3. **Non-Root Execution**: Run workloads under an unprivileged user (`USER 1001` or `USER nonroot`).
+4. **Minimal Base Images**: Standardize on minimal bases (Alpine, Distroless, or Scratch).
+5. **Cache Purging**: Clean package manager caches within the same layer (`rm -rf /var/cache/apk/*`, `rm -rf /var/lib/apt/lists/*`, `pnpm store prune`).
+
+### SOP 8: QA Automation (agent-browser + Playwright)
+1. Explore routes and interactions using scoped snapshots (`snapshot -i -c -s`); author deterministic flow files (`<test-dir>/e2e/flows/*.json`).
+2. Codify deterministically via `qa_codify`; run regression test suites via `qa_e2e_run`.
+3. Strictly enforce no fake green: never skip tests, suppress errors, or inflate timeouts artificially.
+
+---
+
+## Universal Shinobi Guardrails & Safety Invariants
+
+- **Destructive Commands Prohibited**: Strictly forbid `rm -rf /`, `mkfs`, `DROP DATABASE`, `TRUNCATE TABLE`, `chmod 777`, `curl | bash`, or unconstrained `sudo`.
+- **Destructive Git Prohibited**: Strictly forbid `git reset --hard`, `git push --force`, `git clean -fdx`, `git checkout -- .`, or `git rebase -i`.
+- **Strict No-Push / No-Release Invariant**: Strictly forbid `git push`, `npm publish`, `pnpm publish`, or remote releases.
+- **Secret Protection Invariant**: Strictly forbid viewing, printing, dumping, or committing secrets, `.env*`, `secrets.yaml`, `*.pem`, `*.key`, `id_rsa`, or credentials. Redact secret values.
+- **RTK Boundary**: Force-run all shell executions wrapped with `rtk <command>`. Do not use native shell reading commands (`cat`, `head`, `tail`, `grep`, `find`).
+- **Single Test Directory Invariant**: Discover existing test folders (`tests/`, `test/`) before placing new tests. Never create duplicate test folders.
+
+---
+
+## Domain Routing & References
+
+Load specialized backend and DevOps references via `konoha.get_skill("anbu-skill/<reference>")`:
+
+| If the task involves... | Load Reference |
 |---|---|
 | QA, E2E, regression, UI bug reproduction, browser testing, flow file, Playwright test | `anbu-skill/qa-automation` |
-| Penetration testing in dev/local environments, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
-| DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux, Sysadmin, Network Engineering, AWS, GCP, Azure, HuaweiCloud, Tencent, DigitalOcean, Linode, Python, Golang, Rust, Shell script | `anbu-skill/devops-engineer` |
-| Helm charts, Kubernetes packaging, Chart.yaml, values.yaml templating, Helm scaffolding, chart linting | `anbu-skill/helm-chart-scaffolding` |
-| Multi-stage Dockerfiles, optimized container builds, layer caching, Docker security, distroless images | `anbu-skill/multi-stage-dockerfile` |
-| Grafana, Prometheus, monitoring, metrics, observability dashboards | `anbu-skill/prometheus-grafana` |
-| Anthropic Cybersecurity Skills, security log analysis, threat hunting, defensive forensics, analytical hardening | `anbu-skill/anthropic-cybersecurity-skills` |
-| Security auditing, DevSecOps, OWASP, penetration test remediation, defensive hardening | `devsecops-engineer` |
-| RabbitMQ, Kafka, Redis, Nginx, HAProxy, Varnish, reverse proxies, caching, load balancing, distributed systems | `anbu-skill/distributed-systems` |
-| AI prompt engineering, system prompt design, LLM optimization, prompt testing | `anbu-skill/prompt-engineer` |
-| Skills creator, creating or modifying AI agent skills, SKILL.md specification | `skill-creator` |
-| PHP, Ruby, C++, Node.js, Express.js, GraphQL, BytePlus, modern backend APIs and full-stack systems | `modern-full-stack` |
-| Laravel backend, API development, architecture, testing | `anbu-skill/laravel-specialist` |
-| WordPress backend, CMS development, custom themes/plugins | `anbu-skill/wordpress-pro` |
-| Magento module development, backend architecture, e-commerce API | `anbu-skill/magento-module-developer` |
-| Final response shaping, ADHD-friendly concise output, action-first answers | `anbu-skill/i-have-adhd` (`i-have-adhd`) |
+| Dev/local penetration testing, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
+| DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux | `anbu-skill/devops-engineer` |
+| Helm chart packaging, templates, values.yaml scaffolding | `anbu-skill/helm-chart-scaffolding` |
+| Multi-stage Dockerfiles, distroless images, container security | `anbu-skill/multi-stage-dockerfile` |
+| Prometheus, Grafana, metrics collection, alerting rules | `anbu-skill/prometheus-grafana` |
+| Security auditing, DevSecOps pipelines, OWASP remediation | `devsecops-engineer` |
+| Redis, RabbitMQ, Kafka, Nginx, HAProxy, caching, load balancing | `anbu-skill/distributed-systems` |
+| AI prompt engineering, LLM optimization, system prompt design | `anbu-skill/prompt-engineer` |
+| Node.js, Express, Fastify, NestJS, TypeScript backend APIs | `anbu-skill/typescript-expert` |
+| Python backend APIs, FastAPI, Django, Celery | `anbu-skill/python-programming-expert` |
+| Golang microservices, concurrency, channels, gRPC | `anbu-skill/golang-expert` |
+| Rust backend systems, Actix, Axum, memory safety | `anbu-skill/rust-programming-expert` |
+| Output formatting, concise response shaping | `anbu-skill/i-have-adhd` (`i-have-adhd`) |
