@@ -7,7 +7,8 @@
 </script>
 
 <aside
-  class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[120] flex flex-col gap-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-md w-full"
+  class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-md w-full"
+  style="z-index: 9999;"
   aria-label="Notifications"
 >
   {#each toasts as item (item.id)}
