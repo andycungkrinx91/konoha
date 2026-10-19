@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.1). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.2). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.1`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.2`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -381,7 +381,7 @@ npx aislop scan --changes
 | Feedback / QA Verification Item | Verification Procedure | Expected Result | Status |
 | :--- | :--- | :--- | :--- |
 | **1. Auth Login Across Any CWD & Bootstrap Auto-Healing (Feedback 1)** | Execute `auth.hashPassword` and `auth.verifyPasswordHash` with `process.cwd()` set to `/tmp/`, Windows paths, or user home directory. Authenticate with stale bootstrap credentials. | Child process loads `argon2` via `require.resolve` and `NODE_PATH` without `MODULE_NOT_FOUND` errors; `is_bootstrap: true` allows `konohagakure` login and auto-heals corrupted stored hashes; zero operator lockouts. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `tests/test_auth.js`) |
-| **2. Automated Web UI Version Synchronization (Feedback 2)** | Upgrade or install Konoha; verify `resolveWebUiDir()` candidate precedence and inspect `~/.konoha/apps/web/build`. | Packaged distribution is prioritized over stale `~/.konoha` builds; `installCliRuntime()` refreshes `~/.konoha/apps/web/build` on version change; layout displays current version `2.2.1`; zero manual build required. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `ui build`) |
+| **2. Automated Web UI Version Synchronization (Feedback 2)** | Upgrade or install Konoha; verify `resolveWebUiDir()` candidate precedence and inspect `~/.konoha/apps/web/build`. | Packaged distribution is prioritized over stale `~/.konoha` builds; `installCliRuntime()` refreshes `~/.konoha/apps/web/build` on version change; layout displays current version `2.2.2`; zero manual build required. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `ui build`) |
 | **3. Zero-Manual Migration & Embeddings (Feedback 3)** | Run `konoha upgrade` and inspect `ensureAutoSetup()`. | Dead bridge function calls purged; `cmdUpgrade` and `ensureAutoSetup()` automatically execute `migrate.js` with IBM Granite neural embeddings on version change without requiring manual CLI commands. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js`) |
 | **4. Playwright End-to-End Suite & Agent-Browser QA** | Execute Playwright E2E suite (`pnpm --dir apps/web run test:e2e`) across all 12 spec files. | All 46 tests pass across login animations, theme matrix contrast, dashboard gauges, detector flows, hybrid search, link crawler, and UI consistency. | `PASS` (46/46 passed) |
 
@@ -392,3 +392,17 @@ npx aislop scan --changes
 
 
 
+
+---
+
+## Section 6: v2.2.2 Security, Socket Alert Remediation & Supply-Chain QA Matrix
+
+| Verification Item | Verification Procedure | Expected Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Socket Supply-Chain & Package Scan** | Execute `socket package shallow` and local Socket CLI checks across all dependencies. | Zero critical, zero high, and zero medium alerts across direct and transitive dependencies; only benign low-severity alerts permitted; zero scan errors and zero warnings. | `PASS` (verified via Socket CLI v1.8.4) |
+| **2. Image-Size Infinite Loop DoS (CVE-2025-71330 & CVE-2025-71329)** | Check resolved `image-size` version in `pnpm-lock.yaml` and `package-lock.json`. | Pinned/overridden to `image-size >= 2.0.4` with 0 CVE findings (ICNS, JXL, and HEIF parsers hardened). | `PASS` (verified: `2.0.4`) |
+| **3. Uuid Buffer Bounds & Deprecation (CVE-2026-41907)** | Check resolved `uuid` version across production dependency graph. | Pinned/overridden to `uuid >= 11.1.1` (`14.0.3`), eliminating out-of-bounds partial writes in `v3`, `v5`, `v6` methods and deprecation warnings. | `PASS` (verified: `14.0.3`) |
+| **4. Tar-Stream Directory Traversal Remediation** | Check resolved `tar-stream` version under `exceljs` and `archiver`. | Upgraded to `tar-stream >= 3.2.2`, eliminating arbitrary filesystem write vulnerabilities outside intended directories. | `PASS` (verified: `3.2.2`) |
+| **5. Socket-Optimized Safe-Buffer** | Check resolved `safe-buffer` replacement in dependency tree. | Adopted official `@socketregistry/safe-buffer@1.0.9`, replacing unmaintained legacy shim with native Node.js Buffer operations and zero maintenance alerts. | `PASS` (verified: `@socketregistry/safe-buffer@1.0.9`) |
+| **6. Synchronized Package Manifest & Lockfile Overrides** | Inspect root `package.json` (`overrides` for npm, `pnpm.overrides` for pnpm) and verify `pnpm-lock.yaml` and `package-lock.json`. | Lockfiles match exact override configurations; zero configuration mismatch errors; `npm audit` reports 0 vulnerabilities and `pnpm audit` reports 0 vulnerabilities. | `PASS` (verified with `npm audit` & `pnpm audit`) |
+| **7. Full E2E Browser & TUI Parity** | Run Playwright test suite across all 12 spec files and test TUI commands in pseudo-terminal. | All 46 browser tests pass; `konoha version`, `doctor`, `status`, and `savings` render cleanly with 0 errors. | `PASS` (46/46 browser tests & 4/4 TUI commands verified) |

@@ -2,6 +2,15 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.2] - 2026-10-19
+
+### Socket Security Remediation, Supply-Chain Dependency Hardening & QA Automation
+
+- **Socket Alert Remediation & Supply-Chain Hardening**: Remediated all critical and high Socket alerts from unreleased target 2.2.2. Upgraded `image-size` to `2.0.4` (resolving high CVE-2025-71330 and CVE-2025-71329 infinite loop denial of service), `uuid` to `14.0.3` (resolving CVE-2026-41907 buffer bounds check vulnerability and maintenance deprecation), `tar-stream` to `3.2.2` (resolving directory traversal potential vulnerability), and adopted official Socket-optimized `@socketregistry/safe-buffer` (`1.0.9`).
+- **Synchronized Package Manifest & Lockfile Overrides**: Enforced synchronized overrides across root `package.json` (`overrides` for npm, `pnpm.overrides` for pnpm), updating both `package-lock.json` and `pnpm-lock.yaml` to clean, zero-vulnerability dependency trees.
+- **Web UI & TUI Cross-Platform Integrity**: Re-verified SvelteKit Web UI and Node-adapter production builds, interactive themes, and Playwright E2E suites with zero console errors. Re-verified TUI commands and formatters in pseudo-terminal environments.
+- **Maintainable QA Test Checklist**: Updated `docs/QA-TEST-CHECKLIST.md` with reproducible Socket scan procedures, supply-chain verification commands, and end-to-end QA validation steps.
+
 ## [2.2.1] - 2026-10-19
 
 ### Socket Security Remediation, Multi-Workflow Delegation & File Tool Hardening

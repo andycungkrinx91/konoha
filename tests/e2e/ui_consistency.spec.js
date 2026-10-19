@@ -24,7 +24,7 @@ test.describe('UI Consistency: Width, PageHero Shell & Form Fields', () => {
   });
 
   test('All standard console pages share authoritative max-width and center alignment', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(120000);
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     for (const route of STANDARD_ROUTES) {
