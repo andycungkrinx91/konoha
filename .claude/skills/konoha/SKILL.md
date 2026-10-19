@@ -159,8 +159,9 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
    - Use **RTK** for shell commands when installed.
 2. **Filesystem Mirrors**:
    - **Konoha does not maintain filesystem mirrors** (e.g. no `.cursor/skills/` mirrors); skill content is served on-demand via SQLite FTS5 index.
-3. **Bridge Extension Sync & CLI Distribution (Antigravity IDE ONLY)**:
-   - On fresh installation (`konoha init`) and upgrade (`konoha upgrade`), `https://github.com/andycungkrinx91/konoha-bridge` is cloned from live `master` or downloaded from `https://raw.githubusercontent.com/andycungkrinx91/konoha-bridge/master/konoha-bridge-1.7.0.vsix`, and installed ONLY into Antigravity IDE (`antigravity --install-extension`). The VSIX is NEVER installed into any other IDE (no `code --install-extension`, no `cursor --install-extension`). When Antigravity IDE is present, an atomic directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` is also performed with `extensions.json` registration. Fallback VSIX is bundled in `assets/konoha-bridge-1.7.0.vsix`.
+3. **OpenAI Proxy Gateway Persistence & VSIX Extension Removal**:
+   - The standalone local OpenAI proxy gateway on port 19999 (`src/bridge/*`) remains fully functional and intact for local LLM routing and second opinions.
+   - The legacy `konoha-bridge` VSIX extension has been removed in v2.2.1. IDE integrations operate purely via standard MCP configuration (`konoha`, `semble`, `aislop`).
 4. **Rule Synchronization**:
    - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
 5. **Database Migration**:
@@ -614,6 +615,19 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Outbound Webhook Engine (`src/webhook_manager.js`, `konoha webhook ...`)**: Supports full endpoint URLs with optional Bearer, API Key, JWT, or Custom Header authentication for external event notifications (task completion, health alerts).
     - **Dynamic OMP Agent Session Detection**: `src/telegram/session_manager.js` dynamically scans `~/.omp/agent/sessions/` for active OMP session files, eliminating phantom `antigravity` session misattribution when running inside OMP.
     - **Active Sidebar Badge Neon Glow**: Active menu badges on selected navigation links render a vibrant neon glow effect utilizing active 4-gradient tokens (`var(--theme-grad-1)`, `var(--theme-grad-2)`) for high-contrast legibility in dark and light modes.
+103. **Konoha Bridge VSIX Extension Removal & Standalone OpenAI Proxy Gateway Persistence (v2.2.1)**:
+    - **VSIX Extension Removal**: Removed `assets/konoha-bridge-1.7.0.vsix` and purged all VSIX installer routines (`autoInstallKonohaBridgeExtension`) from `bin/lib/extension.js`, `bin/commands/init.js`, `bin/commands/upgrade.js`, `bin/lib/runtime.js`, and `src/antigravity_manager.js`. All IDE integrations operate purely via standard MCP configuration (`konoha`, `semble`, `aislop`).
+    - **Embedded OpenAI Proxy Gateway Persistence**: The embedded OpenAI proxy gateway in `src/bridge/*` (port 19999) remains permanently operational and intact for local LLM multiplexing, sidecar routing, and cross-provider second opinions.
+104. **Sandwich Pattern (Dual-Boundary Anchoring) & Large-File Auto-Chunk Pagination (v2.2.1)**:
+    - **Dual-Boundary Anchoring**: `src/mcp/memory_reporting.js:runMcpAgent` enforces the Sandwich Pattern, anchoring user constraints at both the top (prefix directive) and bottom (trailing boundary suffix) of subagent delegation contexts to eliminate middle-attention attenuation in deep sessions.
+    - **Large-File Pagination**: `src/file_tools/read_file_range.js` implements deterministic 200-line auto-chunk pagination for oversized files with explicit `page` metadata (`total_pages`, `has_more`), bounding token usage.
+105. **Argon2 Absolute Path Anchoring, Automated UI Build Refresh & IBM Granite Neural Embeddings (v2.2.1)**:
+    - **Argon2 Child-Process Resolution**: `src/auth.js` anchors `argon2` module resolution via exact filesystem path `require.resolve('argon2')` and passes `NODE_PATH` in spawned child processes, eliminating `MODULE_NOT_FOUND` operator lockouts regardless of current working directory.
+    - **Bootstrap Password Auto-Healing**: When `is_bootstrap: true` is active, comparing against default bootstrap password (`konohagakure`) succeeds and rewrites/heals `web_auth.json` with native system hashes.
+    - **Automated Web UI Build Refresh**: `resolveWebUiDir()` in `src/deploy_utils.js` prioritizes packaged builds over stale `~/.konoha` directories; `installCliRuntime()` automatically refreshes `apps/web/build` on version changes; `upgrade.js` removes `--skip-embeddings`, executing schema migration and IBM Granite neural embeddings automatically.
+106. **Zero Hardcoded Home Directories Architecture & @advisor Final Gate Review (v2.2.1)**:
+    - **Zero Hardcoded Home Directories**: Centralized dynamic home directory resolution via `bin/lib/paths.js` and `os.homedir()`: dynamically resolves across Linux (`/home/<user>/.konoha`), macOS (`/Users/<user>/.konoha`), and Windows (`C:\Users\<user>\.konoha`). Zero hardcoded user paths across all production files. Added automated assertion test `tests/test_no_hardcoded_homedir.js`.
+    - **@advisor Final Gate Review & Remediation Loop**: Integrated `@advisor` review gate into `src/mcp/workflow.js`. When `@advisor` review rejects deliverables (`review.advisor_approved === false` or `status.advisor_approved === false`), the workflow does not prematurely block or synthesize; instead, it automatically dispatches an advisor remediation fix task to Anbu (backend/tests) or Jonin (UI) and loops back for re-execution (bounded by a 7-cycle circuit breaker).
 
 
 

@@ -129,7 +129,7 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Read prompt.md<br/>• Initialize status.json &amp; SQLite WAL<br/>• Assess task readiness"]
+    Init["Prompt Ingestion"] --> Phase0["Phase 0: ROUTE (✧ Sannin)<br/>• Structured MCP arguments<br/>• Initialize status.json &amp; SQLite WAL<br/>• Assess task readiness"]
     Phase0 --> Phase1["Phase 1: EXPLORE (⚑ Genin)<br/>• Read-only symbol discovery<br/>• Map blast radius &amp; dependencies<br/>• Output findings.md &amp; result.md"]
     Phase1 --> Phase2["Phase 2: PLAN (◎ Kage)<br/>• Evaluate architecture &amp; trade-offs<br/>• Formulate plan.md checklist<br/>• Register tasks in sdlc_tasks"]
 
@@ -140,13 +140,13 @@ flowchart TD
     CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB &amp; DevOps<br/>• Runs build &amp; validation commands"]
 
     Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md &amp; API specs<br/>• Synchronize CHANGELOG.md"]
-    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification"]
+    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage &amp; @advisor)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification<br/>• @advisor Final Review Evaluation"]
 
-    Phase5 --> CheckReview{"Kage Review<br/>Approved?"}
-    CheckReview -- "Approved (≥ 98% Confidence)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
+    Phase5 --> CheckReview{"Kage &amp; @advisor<br/>Review Approved?"}
+    CheckReview -- "Approved (≥ 98% Conf &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
-    CheckReview -- "Findings Detected" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings into fix tasks<br/>• Circuit Breaker check (slop_cycles <= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
+    CheckReview -- "Findings / Advisor Reject" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
     Remediation --> Phase3
 
     linkStyle default stroke:#334155,stroke-width:2px;

@@ -369,13 +369,13 @@ flowchart TD
 
     %% Execution & Documentation
     P5 --> P6["Phase 6: Document<br/><b>(⬡ Tokubetsu-Jonin)</b>"]
-    P6 --> P7["Phase 7: Review Gate<br/><b>(◎ Kage)</b>"]
+    P6 --> P7["Phase 7: Review Gate<br/><b>(◎ Kage &amp; @advisor)</b>"]
 
     %% Review Quality Gate & Autonomous Remediation Loop
-    P7 --> DecisionReview{"Zero-AI-Slop & Confidence Gate"}
-    DecisionReview -->|slop findings > 0| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu)</b>"]
+    P7 --> DecisionReview{"Zero-AI-Slop, Confidence &amp; @advisor Gate"}
+    DecisionReview -->|slop findings &gt; 0 or advisor reject| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu / ♦ Jonin)</b>"]
     Remediation -->|re-evaluate| P7
-    DecisionReview -->|"0 findings, 100% tests<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
+    DecisionReview -->|"0 findings, advisor approved<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
     Gate2 -->|Signed Off / Autonomous| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
     Gate2 -->|Changes Requested| P5
 
@@ -408,7 +408,7 @@ flowchart TD
 | **4. Research** | `chunin` | Conducts real-time web research and documentation verification when requested by Kage plan (`needs_research: true`). | Structured MCP args (`task`, `context`) | `research_evidence.md`, `report_from_agent` | Structured findings returned back to Kage for plan finalization. |
 | **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps/QA) | Implements designated task, runs QA automation loop for browser/E2E tasks (`qa_codify`, `qa_e2e_run`, scoped snapshots), runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | Structured MCP args (`task`, `context`, `constraints`) | Modified project files, `report_from_agent` with recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
 | **6. Document** | `tokubetsu-jonin` | Generates or updates technical documentation, API specifications, runbooks, and changelogs. Enforces zero dark theme and human-authentic writing. | Structured MCP args, `plan.md` | `final_docs.md`, `report_from_agent` | Technical documentation and changelog synchronized with changes (< 3.0% AI risk). |
-| **7. Review** | `kage` | Comprehensive pre-delivery quality and confidence gate. Evaluates Zero-AI-Slop compliance, SDLC subtask completion, security/rollback reviews, and calculated confidence. | All task evidence, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), all subtasks completed, ≥98% confidence. |
+| **7. Review** | `kage` &amp; `@advisor` | Comprehensive pre-delivery quality, confidence, and `@advisor` gate. Evaluates Zero-AI-Slop compliance, SDLC subtask completion, security/rollback reviews, `@advisor` approval, and calculated confidence. When `@advisor` rejects, loops back to execute remediation. | All task evidence, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), `@advisor` approved, all subtasks completed, ≥98% confidence. |
 | **8. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. If `hitl_mode: enabled`, pauses at **Gate 2 (Delivery Sign-Off)**. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
 
 ### 🏛️ Native SDLC Task Governance & Session Isolation Invariants

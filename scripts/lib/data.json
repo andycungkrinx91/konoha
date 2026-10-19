@@ -1883,6 +1883,35 @@
     3800
    ]
   ],
+  "omp_steps": [
+   [
+    [
+     "OMP Agent (Open Model Protocol) • Session: /tmp/test-omp",
+     "",
+     "Prompt: Audit architecture and delegate to kage via konoha MCP",
+     "",
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/find_skill(keyword=\"kage-skill\")",
+     "  ⎿  Loaded skill: kage-skill (SOP for architecture & security audits)",
+     ""
+    ],
+    1800
+   ],
+   [
+    [
+     "  [✧ sannin] active. Calling konoha.find_skill('kage-skill')",
+     "⚡ Tool Call: konoha/kage(task=\"Security & Architecture audit\")",
+     "  ⎿  [◎ kage] Confidence score: 100% (APPROVED)",
+     "",
+     "● konoha/read_file_head(path=\"package.json\", max_lines=20)",
+     "  ⎿  ✓ Verified single pure Node.js runtime (version 2.2.1)",
+     "",
+     "  [◎ kage & @advisor] active. Final Review Gate: PASSED (100% confidence)",
+     "  Kage Reviewer Confidence Gate Report: PASSED (100% confidence)"
+    ],
+    3800
+   ]
+  ],
   "i": 0,
   "output": "[Command timed out]\n",
   "code_str": "0"

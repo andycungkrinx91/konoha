@@ -78,7 +78,6 @@ const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8') +
 assert.match(cliSource, /refreshSemblePackage/);
 assert.match(cliSource, /refreshRtk/);
 assert.match(cliSource, /agent_contract\.js/);
-assert.match(cliSource, /autoInstallKonohaBridgeExtension\(true, true\)/);
-assert.match(cliSource, /andycungkrinx91\.konoha-bridge-master-universal/);
+assert.doesNotMatch(cliSource, /autoInstallKonohaBridgeExtension/);
 
 console.log('Cross-client Konoha/Semble/RTK contract passed for all official agents and supported clients.');

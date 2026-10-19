@@ -653,7 +653,12 @@ function workflowReviewApproved(taskDir, status) {
         aiSlopFindings === 0
       );
 
-      const mechanicalConfidence = (aiSlopPass && cleanValidation && securityVerified && rollbackVerified && categoriesPass && (review.findings || []).length === 0)
+      const advisorPass = review.advisor_approved !== false &&
+        (review.advisor ? review.advisor.approved !== false : true) &&
+        status.advisor_approved !== false &&
+        (status.advisor_review ? status.advisor_review.approved !== false : true);
+
+      const mechanicalConfidence = (aiSlopPass && advisorPass && cleanValidation && securityVerified && rollbackVerified && categoriesPass && (review.findings || []).length === 0)
         ? (typeof review.confidence === 'number' && review.confidence >= MINIMUM_CONFIDENCE ? Math.min(100, Math.max(MINIMUM_CONFIDENCE, review.confidence)) : 99)
         : Math.min(
             aiSlopPass ? 100 : 0,
@@ -691,6 +696,9 @@ function workflowReviewApproved(taskDir, status) {
         if (t.id && t.id.startsWith('slop-fix-') && aiSlopPass) {
           verifiedTasks.add(t.id);
         }
+        if (t.id && t.id.startsWith('advisor-fix-') && advisorPass) {
+          verifiedTasks.add(t.id);
+        }
       }
 
       const tasksMatch = Array.from(expectedTasks).every(id => verifiedTasks.has(id));
@@ -721,7 +729,7 @@ function workflowReviewApproved(taskDir, status) {
         }
       } catch (_) { /* intentional best-effort fallback */ }
 
-      if (review.approved === true && cleanValidation && tasksMatch && sdlcTasksComplete && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
+      if (review.approved === true && advisorPass && cleanValidation && tasksMatch && sdlcTasksComplete && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
         return true;
       }
       return false;
@@ -752,7 +760,12 @@ function workflowReviewApproved(taskDir, status) {
     aiSlopFindings === 0
   );
 
-  return review.approved === true && confidencePass && aiSlopPass && categoriesPass && (status.tasks || []).every(t => t.status === 'completed');
+  const advisorPass = review.advisor_approved !== false &&
+    (review.advisor ? review.advisor.approved !== false : true) &&
+    status.advisor_approved !== false &&
+    (status.advisor_review ? status.advisor_review.approved !== false : true);
+
+  return review.approved === true && advisorPass && confidencePass && aiSlopPass && categoriesPass && (status.tasks || []).every(t => t.status === 'completed');
 }
 
 function cleanupTransientScratchFiles(taskDir = null) {
@@ -1031,7 +1044,21 @@ function runMcpWorkflow(taskDir = null) {
         const reviewObj = status.review || {};
         let reason = '';
         const isSlopFail = !(reviewObj.ai_slop_clean === true && reviewObj.ai_slop_findings === 0);
-        if (isSlopFail) {
+        const isAdvisorFail = (
+          reviewObj.advisor_approved === false ||
+          (reviewObj.advisor && reviewObj.advisor.approved === false) ||
+          status.advisor_approved === false ||
+          (status.advisor_review && status.advisor_review.approved === false)
+        );
+
+        if (isAdvisorFail) {
+          const advisorFeedback = reviewObj.advisor_feedback ||
+            (reviewObj.advisor && (reviewObj.advisor.feedback || reviewObj.advisor.reason || reviewObj.advisor.findings)) ||
+            status.advisor_feedback ||
+            (status.advisor_review && (status.advisor_review.feedback || status.advisor_review.reason)) ||
+            'Advisor review requested changes prior to delivery.';
+          reason = typeof advisorFeedback === 'string' ? advisorFeedback : JSON.stringify(advisorFeedback);
+        } else if (isSlopFail) {
           reason = 'Zero-AI-Slop gate failed or was not executed (ai_slop_findings must be 0 and ai_slop_clean must be true).';
         } else {
           reason = 'Kage review did not approve all completed tasks.';
@@ -1042,6 +1069,82 @@ function runMcpWorkflow(taskDir = null) {
           reason,
           findings: reviewObj.findings || []
         };
+
+        // Advisor Remediation loop: when advisor does not approve, loop for fixing
+        if (isAdvisorFail && status.remediation_loop !== false) {
+          status.advisor_cycles = (status.advisor_cycles || 0) + 1;
+          if (status.advisor_cycles > 7) {
+            status.status = 'blocked';
+            saveWorkflowStatus(resolvedTaskDir, status);
+            return JSON.stringify({
+              status: 'blocked',
+              phase: 'review',
+              gate: 'advisor',
+              message: `Delegation depth circuit breaker tripped (> 7 advisor remediation cycles). Advisor feedback: ${reason}`,
+              advisor_cycles: status.advisor_cycles,
+              feedback: reason
+            });
+          }
+
+          const fixTaskId = `advisor-fix-${status.advisor_cycles}`;
+          const fixTaskText = `[Advisor Remediation Cycle ${status.advisor_cycles}] Address advisor review feedback: ${reason}`;
+
+          let remediationAgent = 'anbu';
+          const executedAgents = Object.values(status.executed || {}).map(e => e.agent).filter(Boolean);
+          const taskAgents = (status.tasks || []).map(t => t.agent).filter(Boolean);
+          const feedbackLower = String(reason).toLowerCase();
+          const isUiRelated = /ui|css|frontend|style|tailwind|component|html|layout|vue|svelte|react|next|angular|design/i.test(feedbackLower);
+
+          if (isUiRelated && (executedAgents.includes('jonin') || taskAgents.includes('jonin'))) {
+            remediationAgent = 'jonin';
+          } else if (executedAgents.length > 0) {
+            const lastExecuted = executedAgents[executedAgents.length - 1];
+            remediationAgent = lastExecuted || 'anbu';
+          } else if (taskAgents.length > 0) {
+            remediationAgent = taskAgents[0];
+          }
+
+          const remediationTask = {
+            id: fixTaskId,
+            agent: remediationAgent,
+            task: fixTaskText,
+            status: 'pending',
+            result: '',
+            validation: []
+          };
+          try {
+            const sdlcManager = require('../sdlc_manager');
+            sdlcManager.createTask({
+              id: fixTaskId,
+              description: fixTaskText,
+              status: 'in_progress',
+              project_path: resolvedTaskDir
+            });
+          } catch (_) { /* intentional best-effort fallback */ }
+
+          status.tasks = status.tasks || [];
+          status.tasks.push(remediationTask);
+          status.pending_executors = [fixTaskId];
+          status.phase = 'execute';
+          status.assigned_agent = remediationAgent;
+          saveWorkflowStatus(resolvedTaskDir, status);
+
+          const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', remediationAgent, fixTaskId, fixTaskText);
+          const agentUpper = remediationAgent.charAt(0).toUpperCase() + remediationAgent.slice(1);
+
+          return JSON.stringify({
+            status: 'remediation',
+            phase: 'execute',
+            gate: 'advisor',
+            agent: remediationAgent,
+            dispatch_id: dispatch.id,
+            task_id: fixTaskId,
+            task: fixTaskText,
+            task_dir: resolvedTaskDir,
+            advisor_cycles: status.advisor_cycles,
+            message: `Advisor review requested changes. Dispatched remediation task to ${agentUpper} (cycle ${status.advisor_cycles}).`
+          });
+        }
 
         // SDLC Remediation loop: active by default (remediation_loop === false
         // opts out), bounded by the delegation-depth circuit breaker. Only fires

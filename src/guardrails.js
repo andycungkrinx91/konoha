@@ -64,6 +64,20 @@ function checkCommandGuardrails(command) {
     'get_file_structure, find_files_clean, token_efficient_grep) or the semble MCP ' +
     '(search / find_related) instead.';
 
+  var REASON_INTERPRETER_BYPASS =
+    'INLINE INTERPRETER EVASION BLOCKED: inline scripting via python -c, node -e, php -r, ' +
+    'perl -e, ruby -e, bash -c, eval, or base64 decode is strictly forbidden. ' +
+    'All file mutations and codebase changes MUST use Konoha MCP bounded tools.';
+
+  var REASON_CONFIG_TAMPERING =
+    'PROTECTED CONFIGURATION TAMPERING BLOCKED: modifying or deleting guardrail, linter, ' +
+    'git hook, or IDE agent configurations (.git/hooks, .claude, .cursor, .commandcode, ' +
+    '.opencode, .codex, .omp, .rtk, RTK.md, eslint, phpstan, tsconfig) is strictly forbidden.';
+
+  var REASON_DESTRUCTIVE_INFRA =
+    'DESTRUCTIVE CLOUD INFRASTRUCTURE BLOCKED: terraform destroy, tofu destroy, pulumi destroy, ' +
+    'or unconstrained mass deletion in kubectl is strictly forbidden without explicit user permission.';
+
   // Layer 1: whole-command regex scans
   var wholeCommandPatterns = [
     { category: 'destructive', pattern: /\bmkfs(\.\w+)?\b/, reason: REASON_DESTRUCTIVE },
@@ -76,7 +90,11 @@ function checkCommandGuardrails(command) {
     { category: 'destructive-git', pattern: /\bgit\s+push\b[^|;&]*\s--force(?![-\w])/, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+clean\b[^|;&]*\s-[A-Za-z]*f/, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+checkout\s+(-[A-Za-z]+\s+)*--\s+\./, reason: REASON_DESTRUCTIVE_GIT },
-    { category: 'destructive-git', pattern: /\bgit\s+rebase\s+(-[A-Za-z]*\s+)*(-i\b|--interactive\b)/, reason: REASON_DESTRUCTIVE_GIT }
+    { category: 'destructive-git', pattern: /\bgit\s+rebase\s+(-[A-Za-z]*\s+)*(-i\b|--interactive\b)/, reason: REASON_DESTRUCTIVE_GIT },
+    { category: 'destructive-infra', pattern: /\b(terraform|tofu|pulumi)\s+destroy\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\bkubectl\s+delete\s+(ns|namespace|all|nodes?|cluster)\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'interpreter-bypass', pattern: /\b(base64\s+(-d|--decode)\s*\|\s*(ba|z|k)?sh)\b/i, reason: REASON_INTERPRETER_BYPASS },
+    { category: 'interpreter-bypass', pattern: /\beval\s+["']?[^"'\n]+["']?/, reason: REASON_INTERPRETER_BYPASS }
   ];
 
   for (var w = 0; w < wholeCommandPatterns.length; w++) {
@@ -95,8 +113,34 @@ function checkCommandGuardrails(command) {
     'bat', 'wc', 'strings', 'xxd', 'od', 'awk', 'sed', 'file', 'nl', 'zcat'
   ];
 
+  var INTERPRETER_FLAGS = {
+    'python': ['-c', '-'],
+    'python3': ['-c', '-'],
+    'node': ['-e', '--eval', '-p', '--print', '-'],
+    'bun': ['-e', '--eval'],
+    'deno': ['eval'],
+    'php': ['-r', '-a'],
+    'perl': ['-e', '-E'],
+    'ruby': ['-e'],
+    'bash': ['-c'],
+    'sh': ['-c'],
+    'zsh': ['-c']
+  };
+
+  var MUTATING_BINS = ['rm', 'mv', 'cp', 'chmod', 'chown', 'sed', 'tee', 'truncate'];
+
   function stripQuotes(token) {
     return token.replace(/^['"]/, '').replace(/['"]$/, '');
+  }
+
+  function isProtectedConfigToken(token) {
+    var raw = stripQuotes(token);
+    if (!raw) return false;
+    if (raw.indexOf('.git/hooks') !== -1) return true;
+    if (/\.(claude|cursor|commandcode|opencode|codex|omp)(\/|$)/i.test(raw)) return true;
+    if (/\.(rtk|RTK\.md)$/i.test(raw)) return true;
+    if (/(eslint\.config|\.eslintrc|phpstan\.neon|tsconfig\.json|\.tflint\.hcl)/i.test(raw)) return true;
+    return false;
   }
 
   function isSecretPathToken(token) {
@@ -154,6 +198,26 @@ function checkCommandGuardrails(command) {
       if (!stages[g].trim()) continue;
       var parsed = parseStage(stages[g]);
       if (!parsed.bin) continue;
+
+      // Interpreter inline execution evasion
+      if (INTERPRETER_FLAGS[parsed.bin]) {
+        var blockedFlags = INTERPRETER_FLAGS[parsed.bin];
+        for (var a = 1; a < parsed.tokens.length; a++) {
+          var argToken = stripQuotes(parsed.tokens[a]);
+          if (blockedFlags.indexOf(argToken) !== -1) {
+            return { category: 'interpreter-bypass', reason: REASON_INTERPRETER_BYPASS };
+          }
+        }
+      }
+
+      // Config self-tampering prevention
+      if (MUTATING_BINS.indexOf(parsed.bin) !== -1 || stages[g].indexOf('>') !== -1) {
+        for (var p = 0; p < parsed.tokens.length; p++) {
+          if (isProtectedConfigToken(parsed.tokens[p])) {
+            return { category: 'config-tampering', reason: REASON_CONFIG_TAMPERING };
+          }
+        }
+      }
 
       // Read-bypass: first stage of a pipe chain only, exempt when rtk-prefixed.
       // Secrets are checked first so the more specific violation wins when a

@@ -34,6 +34,7 @@ const TERMINAL_DEMOS = [
   'demo-cursor.gif',
   'demo-opencode.gif',
   'demo-pi.gif',
+  'demo-omp.gif',
   'demo-skill-embed.gif',
   'demo-skills.gif',
   'demo-web.gif',

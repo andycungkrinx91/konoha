@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.0). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.1). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.0`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.1`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -58,6 +58,16 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 - **Missing Packaged Directories**: `init` resolves canonical skill directories via multiple candidates (`package.json`, local repo `.agents/skills`, or installed `SKILL_DB_DIR`) without assuming a single fixed parent folder depth.
 - **Client Configuration Isolation**: If a client configuration file (e.g. `~/.config/opencode/opencode.json` or `~/.codex/config.toml`) is absent, `init` registers only installed and available clients without crashing.
 - **Zero-Allocation File Tools**: Bounded file tools (`read_file_head`, `read_file_range`, `token_efficient_grep`, `get_file_structure`, `find_files_clean`) safely return structured JSON objects even on broken symlinks, empty files, or binary content.
+
+### 1.3 Isolation, Dynamic Paths & Security Test Suites
+
+| Test Suite | Scope & Target | Execution Evidence | Status |
+| :--- | :--- | :--- | :--- |
+| `tests/test_fresh_install_and_upgrade_in_tmp.js` | Full lifecycle fresh installation, unauthenticated health check, bootstrap login (`konohagakure`), mandatory password change, session invalidation, and upgrade simulation in isolated `/tmp/` sandbox. | Clean execution, zero leaks into `~`, unauthenticated health check 200, bootstrap login 200, password update 200. | `PASS` (verified) |
+| `tests/test_no_hardcoded_homedir.js` | Enforces zero hardcoded user paths (`/home/`, `C:\Users\`, `/Users/`) across all JavaScript, JSON, shell, and Python files; verifies dynamic path resolution via `os.homedir()` on POSIX and Windows. | 0 hardcoded paths across entire codebase; POSIX and Windows formats verified. | `PASS` (verified) |
+| `tests/test_workflow_advisor_loop.js` | Evaluates `@advisor` final gate review and autonomous remediation loop; asserts block on rejection, dynamic dispatch to Anbu (backend) / Jonin (UI), approval on fix, and 7-cycle circuit breaker. | 5/5 subtests passed: blocks on rejection, dispatches to Anbu, dispatches to Jonin, approves on fix, trips circuit breaker after 7 cycles. | `PASS` (verified) |
+| `tests/test_web_auth_token_isolation.js` | Validates session token isolation: confirms `/api/v1/auth/status` and `/api/v1/auth/session` do not leak session tokens, and `/api/v1/health` returns minimal metadata. | Token undefined on status and session endpoints; health returns minimal unauthenticated JSON. | `PASS` (verified) |
+| `tests/test_tunnel_auth_enforcement.js` | Enforces constant-time PIN authentication on named tunnels, query parameter rejection (`?pin=` ignored), and trusted socket peer rate limiting. | 6/6 subtests passed. | `PASS` (verified) |
 
 ---
 

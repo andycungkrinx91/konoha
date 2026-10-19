@@ -416,6 +416,7 @@ function main() {
     ['claude -p "Delegate architecture audit to kage using konoha MCP"', 'claude_steps', 'CLAUDE CODE • MCP DELEGATION', 'Claude Code', '/tmp/test-claude', 'demo-claude.gif'],
     ['agent "Verify codebase and delegate to kage using konoha MCP"', 'cursor_steps', 'CURSOR • MCP DELEGATION', 'Cursor Agent', '/tmp/test-cursor', 'demo-cursor.gif'],
     ['pi "Audit architecture and delegate to kage via konoha MCP"', 'pi_steps', 'PI (PI.DEV) • MCP DELEGATION', 'Pi Coding Agent', '/tmp/test-pi', 'demo-pi.gif'],
+    ['omp "Audit architecture and delegate to kage via konoha MCP"', 'omp_steps', 'OMP • MCP DELEGATION', 'OMP Agent', '/tmp/test-omp', 'demo-omp.gif'],
   ];
 
   for (const [cmdStr, stepsKey, badge, titlePrefix, promptDir, outName] of clients) {

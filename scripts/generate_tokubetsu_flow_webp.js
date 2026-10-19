@@ -205,11 +205,11 @@ function generateOrchestrationHtml() {
   const H = 675;
 
   const header = renderHeader(W, 'KONOHA MCP ORCHESTRATION & EXECUTION FLOW', `Two-Stage HITL Gates (Gate 1 & Gate 2) & Single-Thread Persona Adoption · v${PKG_VERSION}`, '83–98% TOKEN SAVINGS', C.azure);
-  const footer = renderFooter(W, H, '45 canonical MCP tools · 7 coding clients · Gate 1 (pending_plan_approval) · Gate 2 (pending_human_signoff)');
+  const footer = renderFooter(W, H, '45 canonical MCP tools · 8 coding clients · Gate 1 (pending_plan_approval) · Gate 2 (pending_human_signoff)');
 
   const cards = [
     renderCard(40, 95, 180, 56, C.azure, 'USER PROMPT', 'user · resume prompt'),
-    renderCard(260, 88, 240, 70, C.violet, 'PRIMARY ORCHESTRATOR', 'main agent · 7 coding clients'),
+    renderCard(260, 88, 240, 70, C.violet, 'PRIMARY ORCHESTRATOR', 'main agent · 8 coding clients'),
     renderCard(40, 195, 270, 56, C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
     renderCard(340, 195, 280, 56, C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · aislop_scan'),
     renderCard(650, 190, 270, 66, C.amber, 'GATE 1: PLAN APPROVAL', 'pending_plan_approval · IDE / Telegram'),

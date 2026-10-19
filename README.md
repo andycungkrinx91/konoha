@@ -159,7 +159,7 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
 | | **PBKDF2 Key Derivation** | `src/crypto_vault.js` | 100,000 SHA-256 iterations with host-fingerprint salt | ✅ `ACTIVE` |
 | | **Zero Plaintext Secrets Invariant**| Whole repo | Automatic masking (`12345***:***abcd`) across APIs, logs, and TUI | ✅ `ACTIVE` |
 | | **Offensive Red-Teaming Skills** | `anbu-skill` | 817 Anthropic cybersecurity skills & MITRE ATT&CK techniques | ✅ `ACTIVE` |
-| **Cross-Client Ecosystem** | **8 Supported Coding Clients** | `src/client_detection.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP | ✅ `ACTIVE` |
+| **Cross-Client Ecosystem** | **8 Supported Coding Clients** | `src/mcp_clients_manager.js`, `src/agent_manager.js` | Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP | ✅ `ACTIVE` |
 | | **Hermetic Session Isolation** | `src/db.js` | Composite PK `(client, workspace_root, session_id)` with `project_hash` preventing cross-session leakage | ✅ `ACTIVE` |
 
 ---

@@ -111,6 +111,8 @@ coverage/
 # Playwright Test
 test-results/
 playwright-report/
+apps/web/tests/e2e/screenshots/
+apps/web/tests/
 
 # KONOHA-QA-START
 blob-report/
@@ -124,6 +126,8 @@ PLAN.md
 PLAN_REFINE_WORKFLOW.md
 /SLUG_KONOHA_SECURITY_221_TITLE_PLAN.md
 SLUG_KONOHA_SECURITY_221_TITLE_PLAN.md
+/konoha_polyglot_guardrails_PLAN.md
+konoha_polyglot_guardrails_PLAN.md
 /.omp/plans/
 .omp/plans/
 .omp/plans

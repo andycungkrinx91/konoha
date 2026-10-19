@@ -90,7 +90,7 @@ function orchestrationScene() {
 
   const N = {
     prompt: { x: 60, y: 100, w: 190, h: 52, accent: THEME.blue, title: 'USER PROMPT', detail: 'user · resume' },
-    orch: { x: 330, y: 92, w: 250, h: 68, accent: THEME.violet, title: 'PRIMARY ORCHESTRATOR', detail: 'main agent · 7 coding clients' },
+    orch: { x: 330, y: 92, w: 250, h: 68, accent: THEME.violet, title: 'PRIMARY ORCHESTRATOR', detail: 'main agent · 8 coding clients' },
     ctx: { x: 60, y: 205, w: 350, h: 58, accent: THEME.emerald, title: '1. PROJECT MEMORY & CONTEXT', detail: 'stack detect · auto-inject invariants' },
     disc: { x: 500, y: 205, w: 350, h: 58, accent: THEME.cyan, title: '2. DISCOVER SKILL & HYGIENE', detail: 'find_skill · semble.search · aislop_scan' },
     dele: { x: 330, y: 312, w: 350, h: 58, accent: THEME.violet, title: '3. STRUCTURED MCP DELEGATION', detail: 'jonin / anbu / kage' },
