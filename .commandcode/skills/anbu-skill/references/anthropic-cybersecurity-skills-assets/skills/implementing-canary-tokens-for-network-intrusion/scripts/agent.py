@@ -542,7 +542,7 @@ def create_deployment_plan(environment, zones=None):
              "description": "DNS canary in nginx upstream config"},
         ],
         "internal": [
-            {"type": "aws_keys", "location": "/home/deploy/.aws/credentials",
+            {"type": "aws_keys", "location": "/home/user/.aws/credentials",
              "memo": f"Internal deploy creds -- {environment}",
              "description": "Fake AWS credentials on deployment server"},
             {"type": "dns", "location": "/etc/app/database.yml",

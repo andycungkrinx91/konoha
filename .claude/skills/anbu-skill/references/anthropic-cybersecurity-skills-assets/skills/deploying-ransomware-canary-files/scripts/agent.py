@@ -522,7 +522,7 @@ def main():
         if not args.dirs:
             print("Usage: python agent.py --action deploy --dirs /path/to/dir1 /path/to/dir2")
             print("\nExample:")
-            print("  python agent.py --action deploy --dirs /srv/shares/finance /home/admin/Documents")
+            print("  python agent.py --action deploy --dirs /srv/shares/finance /home/user/Documents")
             return
         manifest = deploy_canary_files(args.dirs)
         print(json.dumps(manifest, indent=2))

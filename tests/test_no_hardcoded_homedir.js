@@ -11,7 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 function walkFiles(dir, exts = ['.js', '.json', '.sh', '.py']) {
   const result = [];
-  const skipDirs = new Set(['node_modules', '.git', '.svelte-kit', 'build', 'dist', 'coverage', '.cache', 'anthropic-cybersecurity-skills-assets']);
+  const skipDirs = new Set(['node_modules', '.git', '.svelte-kit', 'build', 'dist', 'coverage', '.cache']);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (skipDirs.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
