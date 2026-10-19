@@ -507,8 +507,12 @@ async function cmdUiStatus(args = []) {
     let healthData = null;
     try {
       const http = require('http');
+      const tokenFile = path.join(SKILLS_DB_DIR, 'web_token');
+      let token = null;
+      try { if (fileExists(tokenFile)) token = fs.readFileSync(tokenFile, 'utf8').trim(); } catch (_) { /* best-effort */ }
+      const headers = token ? { 'X-Konoha-Web-Token': token } : {};
       healthData = await new Promise((resolve) => {
-        const req = http.get(`http://127.0.0.1:${port}/api/v1/health`, { timeout: 1000 }, (res) => {
+        const req = http.get(`http://127.0.0.1:${port}/api/v1/health`, { headers, timeout: 1000 }, (res) => {
           let raw = '';
           res.on('data', chunk => raw += chunk);
           res.on('end', () => {
