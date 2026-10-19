@@ -140,13 +140,18 @@ async function main() {
     }
 
     assert.strictEqual(change.status, 200, 'change-password: ' + JSON.stringify(change.data));
-    const allowed = await call(port, 'GET', '/api/v1/bridges', { cookie: 'konoha_session=' + session });
+    const login2 = await call(port, 'POST', '/api/v1/auth/login', { body: { password: 'isolated-new-pass-2026!' } });
+    assert.strictEqual(login2.status, 200);
+    const newSession = cookieOf(login2.headers, 'konoha_session');
+    assert.ok(newSession);
+
+    const allowed = await call(port, 'GET', '/api/v1/bridges', { cookie: 'konoha_session=' + newSession });
     assert.strictEqual(allowed.status, 200);
     await new Promise(r => setTimeout(r, parseInt(ttl, 10) + 400));
-    const expired = await call(port, 'GET', '/api/v1/bridges', { cookie: 'konoha_session=' + session, token: srv.token });
+    const expired = await call(port, 'GET', '/api/v1/bridges', { cookie: 'konoha_session=' + newSession, token: srv.token });
     assert.strictEqual(expired.status, 401);
     assert.strictEqual(expired.data.requires_login, true);
-    const after = await call(port, 'GET', '/api/v1/auth/status', { cookie: 'konoha_session=' + session });
+    const after = await call(port, 'GET', '/api/v1/auth/status', { cookie: 'konoha_session=' + newSession });
     assert.strictEqual(after.data.authenticated, false);
     console.log('EXPIRY_OK');
   } finally {
@@ -314,7 +319,7 @@ async function run() {
     assert.strictEqual(changeRes.data.ok, true);
     console.log('✓ Mandatory password change completed successfully');
 
-    // 7. Auth status now shows authenticated: true, is_bootstrap: false, requires_password_change: false
+    // 7. Old session is invalidated; status shows authenticated: false, is_bootstrap: false
     const status2 = await request({
       hostname: '127.0.0.1',
       port,
@@ -325,12 +330,12 @@ async function run() {
       }
     });
     assert.strictEqual(status2.status, 200);
-    assert.strictEqual(status2.data.authenticated, true);
+    assert.strictEqual(status2.data.authenticated, false);
     assert.strictEqual(status2.data.is_bootstrap, false);
     assert.strictEqual(status2.data.requires_password_change, false);
-    console.log('✓ Auth status updated: is_bootstrap is now false');
+    console.log('✓ Old session invalidated: re-authentication required');
 
-    // 8. Protected endpoint now accessible after password change
+    // 8. Protected endpoint rejects old invalidated session
     const afterChangeAccess = await request({
       hostname: '127.0.0.1',
       port,
@@ -341,8 +346,8 @@ async function run() {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
       }
     });
-    assert.strictEqual(afterChangeAccess.status, 200);
-    console.log('✓ Protected route fully accessible after password change');
+    assert.strictEqual(afterChangeAccess.status, 401);
+    console.log('✓ Protected route rejects old invalidated session');
 
     // 9. Old bootstrap password rejected on subsequent login attempt
     const oldLogin = await request({
@@ -369,6 +374,20 @@ async function run() {
     const newSessionCookie = extractCookie(newLogin.headers, 'konoha_session');
     assert.ok(newSessionCookie);
     console.log('✓ Login with new password succeeds with normal dashboard access');
+
+    // 10b. Protected route fully accessible with new session
+    const newSessionAccess = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/bridges',
+      method: 'GET',
+      headers: {
+        'Cookie': `konoha_session=${newSessionCookie}`,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+      }
+    });
+    assert.strictEqual(newSessionAccess.status, 200);
+    console.log('✓ Protected route fully accessible after logging in with new password');
 
     // 11. Reusing the current password is rejected without clearing any state
     const reuseCurrent = await request({

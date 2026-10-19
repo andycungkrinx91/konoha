@@ -33,6 +33,17 @@ const {
   renderDocxNativeCover,
   renderHtmlGradientBar
 } = require('./document_cover');
+const chromiumUtils = require('./chromium_utils');
+const { escapeHtml } = chromiumUtils;
+
+function sanitizeFormula(formula) {
+  if (typeof formula !== 'string') return '';
+  const clean = formula.startsWith('=') ? formula.slice(1).trim() : formula.trim();
+  if (/(WEBSERVICE\(|ENCODEURL\(|HYPERLINK\(|CALL\(|REGISTER\.|DDEREFERENCE\(|SQL\.REQUEST\()/i.test(clean)) {
+    throw new Error(`Formula rejected: function not allowed: ${clean}`);
+  }
+  return clean;
+}
 
 const EXCEL_PALETTE_HEX = [
   '#3B82F6', '#14B8A6', '#8B5CF6', '#F97316', '#EAB308',
@@ -50,10 +61,6 @@ function getExcelJS() {
 
 function getPptxGenJS() {
   return require('pptxgenjs');
-}
-
-function getPlaywright() {
-  return require('playwright');
 }
 
 /**
@@ -362,17 +369,13 @@ async function documentCreate(options = {}) {
   }
 
   // PDF format via Playwright + HTML/CSS
-  const playwright = getPlaywright();
-  const browser = await playwright.chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-  });
+  const browser = await chromiumUtils.launchChromium();
 
   const page = await browser.newPage({
     viewport: { width: 794, height: 1123 },
     deviceScaleFactor: 1
   });
+  await chromiumUtils.setupOfflineInterception(page);
 
   // Build clean publication pages
   let pagesHtml = '';
@@ -401,35 +404,35 @@ async function documentCreate(options = {}) {
     pagesHtml += `
     <div class="content-page page">
       <div class="page-running-head">
-        <span>${title}</span>
+        <span>${escapeHtml(title)}</span>
         <span>SECTION 0${sIdx + 1}</span>
       </div>
       ${renderHtmlGradientBar(theme.colors, 3)}
 
-      <h2 class="section-h2">${sec.title}</h2>
+      <h2 class="section-h2">${escapeHtml(sec.title)}</h2>
     `;
 
     if (sec.paragraphs) {
       for (const p of sec.paragraphs) {
-        pagesHtml += `<p class="body-p">${p}</p>`;
+        pagesHtml += `<p class="body-p">${escapeHtml(p)}</p>`;
       }
     }
 
     if (sec.callout) {
       pagesHtml += `
       <div class="callout-card" style="border-left-color: ${theme.colors[0]};">
-        <div class="callout-title" style="color: ${theme.colors[0]};">${sec.callout.title || 'ARCHITECTURAL DIRECTIVE'}</div>
-        <div class="callout-text">${sec.callout.text}</div>
+        <div class="callout-title" style="color: ${theme.colors[0]};">${escapeHtml(sec.callout.title || 'ARCHITECTURAL DIRECTIVE')}</div>
+        <div class="callout-text">${escapeHtml(sec.callout.text)}</div>
       </div>`;
     }
 
     if (sec.table && sec.table.headers && sec.table.rows) {
       pagesHtml += `<table class="exec-table"><thead><tr>`;
-      for (const h of sec.table.headers) pagesHtml += `<th>${h}</th>`;
+      for (const h of sec.table.headers) pagesHtml += `<th>${escapeHtml(h)}</th>`;
       pagesHtml += `</tr></thead><tbody>`;
       for (const row of sec.table.rows) {
         pagesHtml += `<tr>`;
-        for (const cell of row) pagesHtml += `<td>${cell}</td>`;
+        for (const cell of row) pagesHtml += `<td>${escapeHtml(cell)}</td>`;
         pagesHtml += `</tr>`;
       }
       pagesHtml += `</tbody></table>`;
@@ -438,7 +441,7 @@ async function documentCreate(options = {}) {
     if (sec.code && sec.code.snippet) {
       pagesHtml += `
       <div class="code-wrapper">
-        <div class="code-lang">${(sec.code.language || 'YAML').toUpperCase()} CONFIGURATION</div>
+        <div class="code-lang">${escapeHtml((sec.code.language || 'YAML').toUpperCase())} CONFIGURATION</div>
         <pre><code>${sec.code.snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
       </div>`;
     }
@@ -447,7 +450,7 @@ async function documentCreate(options = {}) {
       <div style="flex-grow: 1;"></div>
       ${renderHtmlGradientBar(theme.colors, 3)}
       <div class="page-running-foot">
-        <span>${classification}</span>
+        <span>${escapeHtml(classification)}</span>
         <span>Page ${pageNum} of ${sections.length + 1}</span>
       </div>
     </div>`;
@@ -458,7 +461,6 @@ async function documentCreate(options = {}) {
 <head>
 <meta charset="utf-8">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background: #FFFFFF;
@@ -812,7 +814,7 @@ async function spreadsheetCreate(options = {}) {
 
         const valCell = sheet.getRow(currentRow + 1).getCell(startCol);
         if (typeof kpi.formula === 'string') {
-          const cleanFormula = kpi.formula.startsWith('=') ? kpi.formula.slice(1) : kpi.formula;
+          const cleanFormula = sanitizeFormula(kpi.formula);
           valCell.value = { formula: cleanFormula, result: kpi.result };
         } else {
           valCell.value = kpi.value;
@@ -888,7 +890,7 @@ async function spreadsheetCreate(options = {}) {
         const cell = row.getCell(cIdx + 1);
 
         if (cellVal && typeof cellVal === 'object' && cellVal.formula) {
-          const cleanFormula = cellVal.formula.startsWith('=') ? cellVal.formula.slice(1) : cellVal.formula;
+          const cleanFormula = sanitizeFormula(cellVal.formula);
           cell.value = { formula: cleanFormula, result: cellVal.result };
         } else {
           cell.value = cellVal;
@@ -976,7 +978,7 @@ async function spreadsheetCreate(options = {}) {
         const item = sheetDef.summary[cIdx];
         const cell = sumRow.getCell(cIdx + 1);
         if (item && typeof item === 'object' && item.formula) {
-          const cleanFormula = item.formula.startsWith('=') ? item.formula.slice(1) : item.formula;
+          const cleanFormula = sanitizeFormula(item.formula);
           cell.value = { formula: cleanFormula, result: item.result };
         } else {
           cell.value = item;
@@ -1498,17 +1500,13 @@ async function animationExport(options = {}) {
   const animWidth = widthMatch ? parseInt(widthMatch[1], 10) : (options.width || 1600);
   const animHeight = widthMatch ? parseInt(widthMatch[2], 10) : (options.height || 900);
 
-  const playwright = getPlaywright();
-  const browser = await playwright.chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-  });
+  const browser = await chromiumUtils.launchChromium();
 
   const page = await browser.newPage({
     viewport: { width: animWidth, height: animHeight },
     deviceScaleFactor: 1
   });
+  await chromiumUtils.setupOfflineInterception(page);
 
   await page.setContent(`<!DOCTYPE html><html><body style="margin:0;padding:0;width:${animWidth}px;height:${animHeight}px;overflow:hidden;background:#FAFBFD;">${content}</body></html>`);
 

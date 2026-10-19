@@ -38,11 +38,25 @@ try {
   assert.strictEqual(saved.custom_domain, 'konoha.example.com', 'Custom domain must match');
   assert.strictEqual(saved.auth_pin, '849201', 'Auth PIN must match');
 
-  // 3. Security verification test: Cloudflare Zero Trust (Mode A - No PIN required)
+  // 3. Security verification test: Cloudflare Zero Trust (Mode A - Cryptographically Verified)
+  const crypto = require('crypto');
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+  const hB64 = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: 'k1' })).toString('base64url');
+  const pB64 = Buffer.from(JSON.stringify({ email: 'andy@example.com', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+  const sig = crypto.sign('RSA-SHA256', Buffer.from(`${hB64}.${pB64}`), privateKey).toString('base64url');
+  const validCfJwt = `${hB64}.${pB64}.${sig}`;
+
+  process.env.KONOHA_TUNNEL_AUTH_DOMAIN = 'myteam.cloudflareaccess.com';
+  tunnelSecurity.setCachedJwks('myteam.cloudflareaccess.com', [{ kid: 'k1', publicKey }]);
+
   const reqWithCfZeroTrust = {
     headers: {
-      'cf-access-authenticated-user-email': 'andy@example.com',
-      'cf-access-jwt-assertion': 'jwt.token.here'
+      host: 'konoha.example.com',
+      'cf-access-jwt-assertion': validCfJwt
     }
   };
   const cfAuthResult = tunnelSecurity.verifyRemoteAccess(reqWithCfZeroTrust);

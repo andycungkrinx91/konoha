@@ -175,29 +175,17 @@ async function run() {
     assert.strictEqual(capturedReplies.length, 1, 'Run with bot tag reply sent');
     assert.ok(capturedReplies[0].text.includes('build portfolio'), 'Prompt extracted properly');
 
-    // Test /sh empty command
+    // Test /sh removal notice (security hardening)
     capturedReplies = [];
     await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/sh' });
-    assert.strictEqual(capturedReplies.length, 1, 'Empty /sh error reply sent');
-    assert.ok(capturedReplies[0].text.includes('Empty Command'), 'Must report Empty Command');
+    assert.strictEqual(capturedReplies.length, 1, '/sh removal notice sent');
+    assert.ok(capturedReplies[0].text.includes('/sh removed in 2.2.1'), 'Must report /sh removed');
 
-    // Test /sh dangerous command blocking
-    capturedReplies = [];
-    await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/sh rm -rf /' });
-    assert.strictEqual(capturedReplies.length, 1, 'Dangerous command blocked');
-    assert.ok(capturedReplies[0].text.includes('Security Guardrail'), 'Must trigger security guardrail');
-
-    // Test /sh successful command execution
     capturedReplies = [];
     await tgPoller.handleMessage({ chat: { id: 123456789 }, text: '/sh echo "telegram_sh_ok"' });
-    assert.ok(capturedReplies.length >= 1, 'Initial execution acknowledgment sent');
-    assert.ok(capturedReplies[0].text.includes('Executing in'), 'Must announce execution');
-
-    // Wait for async shell command completion
-    await new Promise(r => setTimeout(r, 600));
-    assert.strictEqual(capturedReplies.length, 2, 'Execution result reply sent');
-    assert.ok(capturedReplies[1].text.includes('[SUCCESS]'), 'Must report SUCCESS');
-    assert.ok(capturedReplies[1].text.includes('telegram_sh_ok'), 'Must include sanitized stdout');
+    assert.strictEqual(capturedReplies.length, 1, '/sh removal notice sent on command');
+    assert.ok(capturedReplies[0].text.includes('/sh removed in 2.2.1'), 'Must report /sh removed');
+    assert.ok(!capturedReplies[0].text.includes('telegram_sh_ok'), 'Command must never be executed');
 
     // Test notifyKageReviewPassed in One-Way mode
     tgConfig.saveTelegramConfig({ mode: 'one_way' });

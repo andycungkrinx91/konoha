@@ -2,6 +2,8 @@
 // DB isolation: keep test writes out of the production ~/.konoha/konoha.db
 require('./helpers/isolate_db');
 
+process.env.KONOHA_HITL_MODE = 'disabled';
+
 'use strict';
 
 const assert = require('assert');

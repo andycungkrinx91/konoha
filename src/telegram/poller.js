@@ -10,10 +10,10 @@ if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-const fs = require('fs');
 const configModule = require('./config');
 const inboxModule = require('../queue/inbox');
 const notifierModule = require('./notifier');
+const { escapeHtml } = notifierModule;
 const sessionManager = require('./session_manager');
 
 let isRunning = false;
@@ -23,62 +23,6 @@ let _pollLoopPromise = null;
 
 function isPollerRunning() {
   return isRunning;
-}
-
-/**
- * Safely escape HTML characters for Telegram HTML parse_mode.
- */
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-/**
- * Sanitize noisy shell preamble and non-critical job control warnings from interactive shell execution.
- */
-function sanitizeShellOutput(text) {
-  if (!text || typeof text !== 'string') return '';
-  const lines = text.split('\n');
-  const filtered = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      filtered.push(line);
-      continue;
-    }
-    // Filter out interactive shell job control warnings when run without TTY
-    if (/^bash:\s*cannot set terminal process group/i.test(trimmed)) continue;
-    if (/^bash:\s*no job control in this shell/i.test(trimmed)) continue;
-    if (/^zsh:\s*can't set tty pgrp/i.test(trimmed)) continue;
-    if (/^zsh:\s*no job control/i.test(trimmed)) continue;
-    // Filter out nvm / node startup announcement
-    if (/^Now using node v\d+/i.test(trimmed)) continue;
-    filtered.push(line);
-  }
-  return filtered.join('\n').trim();
-}
-
-/**
- * Identify dangerous or destructive commands to prevent system harm via Telegram /sh.
- */
-function isDangerousCommand(cmd) {
-  if (!cmd || typeof cmd !== 'string') return false;
-  const lower = cmd.toLowerCase().trim();
-  if (/rm\s+(-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r)\s+(\/|\/\*|~|\.|\.\.)(\s|$)/i.test(lower)) return true;
-  if (/rm\s+-[a-z]*r\s+(\/|\/\*|~|\.|\.\.)(\s|$)/i.test(lower)) return true;
-  if (/mkfs(\.[a-z0-9]+)?\s+/i.test(lower)) return true;
-  if (/dd\s+.*of=\/dev\/(sd[a-z]|nvme|hd[a-z]|null|zero)/i.test(lower)) return true;
-  if (/>\s*\/dev\/(sd[a-z]|nvme|hd[a-z])/i.test(lower)) return true;
-  if (/\b(drop\s+database|truncate\s+table|drop\s+table)\b/i.test(lower)) return true;
-  if (/:(\s*)\(\s*\)\s*\{/i.test(lower)) return true;
-  if (/chmod\s+(-[a-z]*r\s+)?777\s+(\/|~)/i.test(lower)) return true;
-  if (/curl\s+.*\|\s*(bash|sh|sudo)/i.test(lower)) return true;
-  if (/wget\s+.*\|\s*(bash|sh|sudo)/i.test(lower)) return true;
-  const patterns = ['rm -rf /', 'rm -rf ~', 'rm -rf *', 'rm -rf .', 'mkfs', 'dd if=', 'drop database', 'truncate table'];
-  return patterns.some(p => lower.includes(p));
 }
 
 /**
@@ -111,7 +55,6 @@ async function handleMessage(msg) {
       '• <b>/approve &lt;task_id&gt;</b> - Approve Gate 1 plan or Gate 2 delivery',
       '• <b>/reject &lt;task_id&gt;</b>  - Reject Gate 1 plan or Gate 2 delivery',
       '• <b>/run &lt;task&gt;</b>      - Queue coding task for autonomous execution',
-      '• <b>/sh &lt;cmd&gt;</b>        - Execute shell command in target workspace',
       '• <b>/status</b>          - View recent tasks and execution state',
       '• <b>/savings</b>         - View token reduction telemetry',
       '• <b>/doctor</b>          - Run environment & health diagnostics',
@@ -155,10 +98,10 @@ async function handleMessage(msg) {
         const confirmMsg = [
           '<b>🗑️ [SESSION REMOVED]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          `<b>💻 Client:</b> ${clientName}`,
-          `<b>📂 Workspace:</b> <code>${sess.workspace_root}</code>`,
-          `<b>🔖 Session ID:</b> <code>${sess.session_id}</code>`,
-          `<b>📊 Remaining Active Sessions:</b> ${delRes.totalSessions}`,
+          `<b>💻 Client:</b> ${escapeHtml(clientName)}`,
+          `<b>📂 Workspace:</b> <code>${escapeHtml(sess.workspace_root)}</code>`,
+          `<b>🔖 Session ID:</b> <code>${escapeHtml(sess.session_id)}</code>`,
+          `<b>📊 Remaining Active Sessions:</b> ${escapeHtml(delRes.totalSessions)}`,
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         ].join('\n');
         await notifierModule.sendTelegramMessage(confirmMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
@@ -166,7 +109,7 @@ async function handleMessage(msg) {
         const errReply = [
           '<b>⚠️ [SESSION DELETE ERROR]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          `<b>Message:</b> ${delRes.error}`,
+          `<b>Message:</b> ${escapeHtml(delRes.error)}`,
           '<b>Usage:</b> <code>/session delete &lt;number&gt;</code>',
           '<b>Example:</b> <code>/session delete 2</code>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
@@ -196,7 +139,7 @@ async function handleMessage(msg) {
         const helpMsg = [
           '<b>⚠️ [MISSING WORKSPACE PATH]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          `<b>Message:</b> Client "${sub}" specified, but workspace directory path is missing.`,
+          `<b>Message:</b> Client "${escapeHtml(sub)}" specified, but workspace directory path is missing.`,
           '<b>Usage:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>',
           '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode, omp</code>',
           '<b>Example:</b> <code>/session create agy /home/user/myproject</code>',
@@ -215,11 +158,11 @@ async function handleMessage(msg) {
         const confirmMsg = [
           '<b>🎛️ [SESSION CREATED & TARGETED]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          `<b>💻 Target Client:</b> ${clientName}`,
-          `<b>📂 Workspace Root:</b> <code>${sess.workspace_root}</code>`,
-          `<b>🔖 Session ID:</b> <code>${sess.session_id}</code>`,
-          `<b>🔢 Session Index:</b> <code>#${createRes.index}</code> (of ${createRes.totalSessions})`,
-          '<b>⚡ Status:</b> Active for all subsequent /run and /sh commands',
+          `<b>💻 Target Client:</b> ${escapeHtml(clientName)}`,
+          `<b>📂 Workspace Root:</b> <code>${escapeHtml(sess.workspace_root)}</code>`,
+          `<b>🔖 Session ID:</b> <code>${escapeHtml(sess.session_id)}</code>`,
+          `<b>🔢 Session Index:</b> <code>#${escapeHtml(createRes.index)}</code> (of ${escapeHtml(createRes.totalSessions)})`,
+          '<b>⚡ Status:</b> Active for all subsequent /run commands',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         ].join('\n');
         await notifierModule.sendTelegramMessage(confirmMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
@@ -227,7 +170,7 @@ async function handleMessage(msg) {
         const errReply = [
           '<b>⚠️ [SESSION CREATION ERROR]</b>',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          `<b>Message:</b> ${createRes.error}`,
+          `<b>Message:</b> ${escapeHtml(createRes.error)}`,
           '<b>Usage:</b> <code>/session create &lt;client&gt; &lt;path&gt;</code>',
           '<b>Clients:</b> <code>agy, antigravity, claude, codex, pi, opencode, commandcode, omp</code>',
           '<b>Example:</b> <code>/session create agy /home/user/myproject</code>',
@@ -245,10 +188,10 @@ async function handleMessage(msg) {
       const confirmMsg = [
         '<b>🎛️ [TARGET SESSION UPDATED]</b>',
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        `<b>💻 Target Client:</b> ${clientName}`,
-        `<b>📂 Workspace Root:</b> <code>${sess.workspace_root}</code>`,
-        `<b>🔖 Session ID:</b> <code>${sess.session_id}</code>`,
-        '<b>⚡ Status:</b> Active for all subsequent /run and /sh commands',
+        `<b>💻 Target Client:</b> ${escapeHtml(clientName)}`,
+        `<b>📂 Workspace Root:</b> <code>${escapeHtml(sess.workspace_root)}</code>`,
+        `<b>🔖 Session ID:</b> <code>${escapeHtml(sess.session_id)}</code>`,
+        '<b>⚡ Status:</b> Active for all subsequent /run commands',
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
       ].join('\n');
       await notifierModule.sendTelegramMessage(confirmMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
@@ -256,7 +199,7 @@ async function handleMessage(msg) {
       const errReply = [
         '<b>⚠️ [INVALID SESSION NUMBER]</b>',
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        `<b>Message:</b> ${setRes.error}`,
+        `<b>Message:</b> ${escapeHtml(setRes.error)}`,
         '<b>Usage:</b> <code>/session &lt;number&gt;</code>',
         '<b>Example:</b> <code>/session 1</code> or <code>/session 2</code>',
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
@@ -267,61 +210,15 @@ async function handleMessage(msg) {
   }
 
   if (/^\/(sh|exec)(\s+.*|@\S+.*)?$/i.test(rawText)) {
-    const cmd = rawText.replace(/^\/(sh|exec)(@[^\s]+)?\s*/i, '').trim();
-    if (!cmd) {
-      const errMsg = [
-        '<b>⚠️ [ERROR] Empty Command</b>',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        '<b>Message:</b> Empty command received.',
-        '<b>Usage:</b> <code>/sh &lt;command&gt;</code>',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-      ].join('\n');
-      await notifierModule.sendTelegramMessage(errMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
-      return;
-    }
-    if (isDangerousCommand(cmd)) {
-      const blockedMsg = [
-        '<b>🛡️ [BLOCKED] Security Guardrail</b>',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        '<b>Status:</b> BLOCKED',
-        '<b>Reason:</b> Dangerous command blocked by security guardrails.',
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-      ].join('\n');
-      await notifierModule.sendTelegramMessage(blockedMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
-      return;
-    }
-
-    const { execFile } = require('child_process');
-    const targetSession = sessionManager.getTargetSession(chatId);
-    const execCwd = (targetSession.workspace_root && fs.existsSync(targetSession.workspace_root))
-      ? targetSession.workspace_root
-      : process.cwd();
-    const clientName = sessionManager.CLIENT_DISPLAY_NAMES[targetSession.client.toLowerCase()] || targetSession.client;
-
-    const userShell = (process.env.SHELL && fs.existsSync(process.env.SHELL))
-      ? process.env.SHELL
-      : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh');
-
-    await notifierModule.sendTelegramMessage(`⚙️ Executing in <code>${execCwd}</code> (${clientName}):\n<code>${escapeHtml(cmd)}</code>`, { force: true, chat_id: chatId, parse_mode: 'HTML' });
-    execFile(userShell, ['-i', '-c', cmd], { cwd: execCwd, timeout: 600000, maxBuffer: 1024 * 1024, env: { ...process.env, SHELL: userShell } }, async (err, stdout, stderr) => {
-      const cleanStdout = sanitizeShellOutput(stdout);
-      const cleanStderr = sanitizeShellOutput(stderr);
-      const combined = [cleanStdout, cleanStderr].filter(Boolean).join('\n').trim();
-      const output = combined || (err ? err.message : '');
-      const statusIcon = err ? '❌ [FAILED]' : '✅ [SUCCESS]';
-      const cleanOut = output ? (output.length > 3500 ? output.slice(0, 3500) + '\n...[truncated]' : output) : '(Command completed with 0 output)';
-      const formattedOut = cleanOut === '(Command completed with 0 output)'
-        ? '<i>(Command completed with 0 output)</i>'
-        : `<pre>${escapeHtml(cleanOut)}</pre>`;
-      const reply = [
-        `<b>🏯 ${statusIcon}</b>`,
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-        `<b>📂 Workspace:</b> <code>${execCwd}</code>`,
-        formattedOut,
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-      ].join('\n');
-      await notifierModule.sendTelegramMessage(reply, { force: true, chat_id: chatId, parse_mode: 'HTML' });
-    });
+    const declineMsg = [
+      '<b>🛡️ [/sh REMOVED]</b>',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '<b>/sh removed in 2.2.1 (security hardening)</b>',
+      'Shell execution via Telegram has been permanently deprecated.',
+      'Use <code>/run &lt;task&gt;</code> to queue autonomous tasks through the governed agent pipeline.',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    ].join('\n');
+    await notifierModule.sendTelegramMessage(declineMsg, { force: true, chat_id: chatId, parse_mode: 'HTML' });
     return;
   }
 
@@ -347,12 +244,12 @@ async function handleMessage(msg) {
       if (displayStatus === 'processing') {
         displayStatus = 'running';
       }
-      lines.push(`<b>${idx + 1}. Task ID:</b> <code>${p.id}</code>`);
-      lines.push(`   <b>Status:</b> ${displayStatus}`);
-      lines.push(`   <b>Source:</b> ${p.source}`);
-      lines.push(`   <b>Prompt:</b> ${p.prompt.length > 60 ? p.prompt.slice(0, 60) + '...' : p.prompt}`);
+      lines.push(`<b>${idx + 1}. Task ID:</b> <code>${escapeHtml(p.id)}</code>`);
+      lines.push(`   <b>Status:</b> ${escapeHtml(displayStatus)}`);
+      lines.push(`   <b>Source:</b> ${escapeHtml(p.source)}`);
+      lines.push(`   <b>Prompt:</b> ${escapeHtml(p.prompt.length > 60 ? p.prompt.slice(0, 60) + '...' : p.prompt)}`);
       if (p.result_summary) {
-        lines.push(`   <b>Result:</b> ${p.result_summary.length > 80 ? p.result_summary.slice(0, 80) + '...' : p.result_summary}`);
+        lines.push(`   <b>Result:</b> ${escapeHtml(p.result_summary.length > 80 ? p.result_summary.slice(0, 80) + '...' : p.result_summary)}`);
       }
       lines.push('────────────────────────────');
     });
@@ -379,7 +276,7 @@ async function handleMessage(msg) {
       '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '<b>Status:</b> HEALTHY · 100% OPERATIONAL',
-      '<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.0)',
+      '<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.1)',
       '<b>Skills FTS5:</b> 1,027 records indexed',
       '<b>Token Savings:</b> 83% - 98% active',
       '<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)',

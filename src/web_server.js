@@ -25,6 +25,8 @@ const { SKILLS_DB_DIR } = require('../bin/lib/paths');
 const webAuth = require('./auth');
 const tunnelSecurity = require('./tunnel/security');
 
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MiB body size cap
+
 // Web UI build resolution works across runtimes (repo, installed ~/.konoha
 // copy, npm global package) via deployUtils.resolveWebUiDir()
 let cachedWebUiDir = null;
@@ -76,15 +78,33 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-function parseBody(req) {
+function parseBody(req, res = null) {
+  const targetRes = res || req._res || null;
   return new Promise((resolve, reject) => {
     let raw = '';
-    req.on('data', chunk => { raw += chunk; });
+    let bytesCount = 0;
+    let destroyed = false;
+    req.on('data', chunk => {
+      if (destroyed) return;
+      bytesCount += chunk.length;
+      if (bytesCount > MAX_BODY_BYTES) {
+        destroyed = true;
+        if (targetRes && !targetRes.headersSent) {
+          sendJson(targetRes, 413, { error: 'Request body exceeds 1 MiB limit' });
+        }
+        req.destroy();
+        return;
+      }
+      raw += chunk;
+    });
     req.on('end', () => {
+      if (destroyed || bytesCount > MAX_BODY_BYTES) return;
       if (!raw) return resolve({});
       try { resolve(JSON.parse(raw)); } catch (_) { resolve({}); }
     });
-    req.on('error', reject);
+    req.on('error', err => {
+      if (!destroyed) reject(err);
+    });
   });
 }
 
@@ -277,8 +297,7 @@ async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
       const status = webAuth.getAuthStatus(sessionId);
       return sendJson(res, 200, {
         ok: true,
-        ...status,
-        token: sessionToken
+        ...status
       });
     }
 
@@ -410,6 +429,22 @@ async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
     }
 
     if (method === 'GET' && pathname === '/api/v1/health') {
+      const sessionId = getClientSessionId(req);
+      const isAuthSession = sessionId ? Boolean(webAuth.getSession(sessionId)) : false;
+      const headerToken = req.headers['x-konoha-web-token'] || (typeof req.headers['authorization'] === 'string' ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null);
+      const isAuthToken = Boolean(headerToken && headerToken === sessionToken);
+      const isAuthenticated = isAuthSession || isAuthToken;
+
+      const baseHealth = {
+        status: 'healthy',
+        version: pkg.version,
+        uptime: process.uptime()
+      };
+
+      if (!isAuthenticated) {
+        return sendJson(res, 200, baseHealth);
+      }
+
       let skillsCount = 0;
       let agentsCount = 0;
       try {
@@ -419,14 +454,12 @@ async function handleCoreApiRoutes(req, res, ctx, parsedUrl, pathname, method) {
         conn.close();
       } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       return sendJson(res, 200, {
-        status: 'healthy',
-        version: pkg.version,
+        ...baseHealth,
         port,
         host,
         db_path: db.DB_PATH,
         skills_count: skillsCount,
         agents_count: agentsCount,
-        uptime: process.uptime(),
         node: process.version,
         platform: process.platform
       });
@@ -2460,10 +2493,21 @@ async function handleServicesApiRoutes(req, res, ctx, parsedUrl, pathname, metho
 }
 
 async function handleWebServerRequest(req, res, ctx) {
+  req._res = res;
   const { port, host, sessionToken, getSvelteKitHandler } = ctx;
   const parsedUrl = new URL(req.url, 'http://' + host + ':' + port);
   const pathname = parsedUrl.pathname;
   const method = req.method.toUpperCase();
+
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const rawCl = req.headers['content-length'];
+    if (rawCl !== undefined) {
+      const parsedCl = parseInt(rawCl, 10);
+      if (!isNaN(parsedCl) && parsedCl > MAX_BODY_BYTES) {
+        return sendJson(res, 413, { error: 'Request body exceeds 1 MiB limit' });
+      }
+    }
+  }
 
     // Loopback Host validation & active tunnel hostname verification
     const rawHost = req.headers['host'];

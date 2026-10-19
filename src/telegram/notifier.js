@@ -455,6 +455,7 @@ async function sendTestPing(overrideChatId = null, overrideToken = null) {
 }
 
 module.exports = {
+  escapeHtml,
   formatTaskReport,
   sendTelegramMessage,
   sendTaskCompletedNotification,

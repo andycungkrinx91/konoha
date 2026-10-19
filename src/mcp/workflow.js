@@ -20,15 +20,14 @@ const WORKFLOW_PHASES = Object.freeze([
   'route',
   'explore',
   'plan',
-  'plan_approval',
   'research',
   'execute',
   'document',
   'review',
   'synthesize',
-  'delivery_signoff',
   'done'
 ]);
+const HITL_GATES = Object.freeze(['plan_approval', 'delivery_signoff']);
 
 function getResolvedTaskDir(taskDir = null, projectPath = null, sessionId = null) {
   const tmpRoot = getKonohaTmpRoot(projectPath, sessionId);
@@ -794,6 +793,10 @@ function runMcpWorkflow(taskDir = null) {
   const { getWorkspaceRoot } = require('./runtime_state');
   const resolvedProjPath = status.project_path || getWorkspaceRoot() || process.cwd();
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
+  const promptPath = path.join(resolvedTaskDir, 'prompt.md');
+  if (!status.prompt && fs.existsSync(promptPath)) {
+    try { status.prompt = fs.readFileSync(promptPath, 'utf8').trim(); } catch (_) { /* ignore */ }
+  }
   const effPrompt = status.prompt || '';
 
   let phase = status.phase || 'route';
@@ -801,13 +804,14 @@ function runMcpWorkflow(taskDir = null) {
     return JSON.stringify({ status: 'completed', phase: 'done' });
   }
 
-  if (phase === 'plan_approval') {
+  if (phase === 'plan_approval' || (phase === 'plan' && status.hitl_gate === 'plan_approval' && !status.plan_approved)) {
     const rootTaskId = status.task_id || path.basename(resolvedTaskDir);
     const rootTaskRecord = sdlcManager.getTask(rootTaskId);
     const isApprovedInDb = rootTaskRecord && (rootTaskRecord.status === 'in_progress' || rootTaskRecord.status === 'completed');
 
     if (isApprovedInDb || sdlcConfig.hitl_mode === 'disabled' || status.execution_track === 'fast_track') {
       status.plan_approved = true;
+      status.hitl_gate = null;
       status.phase = 'execute';
       phase = 'execute';
       try {
@@ -829,13 +833,14 @@ function runMcpWorkflow(taskDir = null) {
     }
   }
 
-  if (phase === 'delivery_signoff') {
+  if (phase === 'delivery_signoff' || (phase === 'review' && status.hitl_gate === 'delivery_signoff' && !status.human_signed_off)) {
     const rootId = process.env.KONOHA_TASK_ID || status.task_id || path.basename(resolvedTaskDir);
     const rootTaskRecord = sdlcManager.getTask(rootId);
     const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
 
     if (isSignedOffInDb || sdlcConfig.hitl_mode === 'disabled') {
       status.human_signed_off = true;
+      status.hitl_gate = null;
       status.phase = 'done';
       try {
         sdlcManager.updateTask(rootId, { status: 'completed' });
@@ -860,9 +865,13 @@ function runMcpWorkflow(taskDir = null) {
   }
 
   if (phase === 'route') {
+    const promptPath = path.join(resolvedTaskDir, 'prompt.md');
+    if (!status.prompt && fs.existsSync(promptPath)) {
+      try { status.prompt = fs.readFileSync(promptPath, 'utf8').trim(); } catch (_) { /* ignore */ }
+    }
     const prompt = status.prompt || effPrompt;
     if (!prompt) {
-      return JSON.stringify({ status: 'error', message: 'No task prompt found in workflow context.', phase: 'route' });
+      return JSON.stringify({ status: 'error', message: 'No prompt.md or task prompt found in workflow context: ' + resolvedTaskDir, phase: 'route' });
     }
     status.phase = 'explore';
     status.assigned_agent = 'genin';
@@ -927,7 +936,7 @@ function runMcpWorkflow(taskDir = null) {
         status.completed_executors = [];
 
         if (sdlcConfig.hitl_mode === 'enabled' && !status.plan_approved && status.execution_track !== 'fast_track') {
-          status.phase = 'plan_approval';
+          status.hitl_gate = 'plan_approval';
           status.assigned_agent = 'sannin';
           try {
             sdlcManager.updateTask(rootTaskId, {
@@ -1402,7 +1411,7 @@ function runMcpWorkflow(taskDir = null) {
     const isSignedOffInDb = rootTaskRecord && rootTaskRecord.status === 'completed';
 
     if (sdlcConfig.hitl_mode === 'enabled' && !status.human_signed_off && !isSignedOffInDb) {
-      status.phase = 'delivery_signoff';
+      status.hitl_gate = 'delivery_signoff';
       status.assigned_agent = 'sannin';
       try {
         sdlcManager.updateTask(rootId, {
@@ -1492,6 +1501,7 @@ function runMcpWorkflow(taskDir = null) {
 
 module.exports = {
   WORKFLOW_PHASES,
+  HITL_GATES,
   getResolvedTaskDir,
   readFileSafe,
   runAislopGate,

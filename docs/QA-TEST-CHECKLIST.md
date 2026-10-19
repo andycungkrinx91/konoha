@@ -350,6 +350,21 @@ npx aislop scan --changes
 | **4. Tokubetsu-Jonin Native Document Engineering & Subagent Contracts** | Inspect `src/templates/agents.yaml`, `src/mcp/memory_reporting.js`, and `src/mcp/workflow.js`. | Enforces 5 native tools (`document_create`, `spreadsheet_create`, `presentation_create`, `diagram_create`, `animation_export`) in `src/tools/document_engine.js`; domain skills loaded via SQLite FTS5 + ONNX vector RAG; file-based IPC (`delegate.md`, `prompt.md`) eliminated in favor of structured tool arguments (`task`, `context`, `constraints`, `skills`). | `PASS` (verified in `tests/test_docs_currency.js` & agent sync) |
 | **5. Client, Session & Project Isolation** | Inspect `active_sessions` schema in `src/db.js` and upsert logic in `src/telegram/session_manager.js`, `src/file_tools_mcp.js`, and `src/mcp/client_detection.js`. | `PRIMARY KEY (client, workspace_root, session_id)` with `project_hash TEXT` column prevents cross-session leakage, race condition collisions, and workspace session overwrites. | `PASS` (verified in `tests/test_telegram_session_manager.js`) |
 
+---
+
+## Section 4: v2.2.1 Security & Architecture Verification Matrix
+
+| Verification Item | Verification Procedure | Expected Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Web Auth Token Isolation** | `GET /api/v1/auth/status` and `GET /api/v1/auth/session` without auth. | HTTP 200 with `authenticated: false` and strictly NO `token` field present. | Planned (`tests/test_web_auth_token_isolation.js`) |
+| **2. Request Body Limit (1 MiB Cap)** | Send POST request with body $> 1$ MiB. | HTTP 413 `Payload Too Large` and immediate connection termination. | Planned (`tests/test_body_limit.js`) |
+| **3. Cloudflare Access JWT Verification** | Send remote request with forged JWT or email-only header. | Verification fails signature/JWKS assertion; email-header fallback rejected; requires PIN. | Planned (`tests/test_cf_jwt_verification.js`) |
+| **4. Telegram `/sh` Deprecation** | Send `/sh echo test` or `/exec uptime` via Telegram. | Decline reply returned; zero shell commands spawned on host. | Planned (`tests/test_telegram_no_sh.js`) |
+| **5. Autonomous Worker Safety Gate** | Invoke queue worker without `KONOHA_ALLOW_UNSAFE_AUTONOMY`. | CLI arguments omit `--dangerously-skip-permissions`; dangerous SSH command injections rejected. | Planned (`tests/test_queue_guardrails.js`) |
+| **6. Bridge VSIX Removal & Proxy Preservation** | Check extension auto-install and probe local proxy on port 19999. | External VSIX auto-install removed; local OpenAI-compatible proxy gateway active and operational. | Planned (`tests/test_bridge_removal_proxy_preserved.js`) |
+| **7. Large File Tool Auto-Chunk Pagination** | Request $> 1000$ line range via `konoha.read_file_range`. | Range auto-clamps to 200 lines without throwing refusal error; returns structured pagination metadata. | Planned (`tests/test_large_file_pagination.js`) |
+
+
 
 
 

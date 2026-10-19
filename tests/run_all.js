@@ -61,12 +61,21 @@ function createSuiteSnapshot(name) {
     }
   })();
 
+  const realPlaywrightPath = (() => {
+    try {
+      return path.join(os.userInfo().homedir, '.cache', 'ms-playwright');
+    } catch (_) {
+      return path.join(os.homedir(), '.cache', 'ms-playwright');
+    }
+  })();
+
   const env = {
     ...process.env,
     HOME: suiteHome,
     KONOHA_DB_PATH: path.join(suiteHome, '.konoha', 'konoha.db'),
     KONOHA_UI_AUTOSTART: '0',
     PYTHONUSERBASE: process.env.PYTHONUSERBASE || realUserBase,
+    PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || realPlaywrightPath,
     KONOHA_TEST_SANDBOX: '1',
     NODE_PATH: suiteNodePath
   };

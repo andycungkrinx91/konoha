@@ -51,13 +51,27 @@ let workerTimer = null;
 let isExecuting = false;
 let workerRunning = false;
 
+const UNSAFE_AUTONOMY = /^(1|true|yes)$/i.test(String(process.env.KONOHA_ALLOW_UNSAFE_AUTONOMY || ''));
+
 const DANGEROUS_PATTERNS = [
   'rm -rf /',
   'rm -rf ~',
+  'rm -rf *',
+  'rm -rf .',
   'mkfs',
+  'mkfs.',
   'dd if=',
   'drop database',
-  'truncate table'
+  'truncate table',
+  'drop table',
+  'chmod 777 /',
+  'chmod -r 777 /',
+  '> /dev/sd',
+  'curl | bash',
+  'curl | sh',
+  'wget | bash',
+  'wget | sh',
+  ':(){'
 ];
 
 /**
@@ -107,20 +121,35 @@ function extractCommand(prompt) {
   if (p.startsWith('sh: ')) return p.slice(4).trim();
   if (p.startsWith('exec: ')) return p.slice(6).trim();
 
-  const match = p.match(/(?:use|run)\s+command\s+[`"']?([^`"'\n]+)[`"']?/i);
-  if (match && match[1]) {
-    const cmd = match[1].trim();
+  const match = p.match(/(?:use|run)\s+command\s+[`"']([^`"'\n]+)[`"']/i) ||
+                p.match(/(?:use|run)\s+command\s+(.+?)(?=\s+(?:on|with|via|ssh|using)\s+)/i) ||
+                p.match(/(?:use|run)\s+command\s+[`"']?([^`"'\n]+)[`"']?/i);
+  if (match) {
+    const cmd = (match[1] || match[2] || '').trim();
     const sshKeyMatch = p.match(/ssh\s+key\s+(?:from\s+)?([~/\w.-]+)/i);
-    const hostMatch = p.match(/(?:check|on|host)\s+([\w.-]+\.[a-z]{2,})/i);
+    const hostMatch = p.match(/(?:check|on|host)\s+([A-Za-z0-9._-]+\.[A-Za-z]{2,})/i);
     const pathMatch = p.match(/(?:use\s+path|path|directory)\s+([~/\w.-]+)/i);
-    if (sshKeyMatch && hostMatch) {
+    const hasRemoteIntent = Boolean(sshKeyMatch || /(?:check|on|host)\s+/i.test(p));
+
+    if (hasRemoteIntent) {
+      if (!sshKeyMatch || !hostMatch) return null;
       const key = sshKeyMatch[1];
       const host = hostMatch[1];
       const user = p.includes('mage2user') ? 'mage2user' : 'root';
       const targetPath = pathMatch ? pathMatch[1] : '';
+
+      if (!/^[~/][\w.\-/]*$/.test(key)) return null;
+      if (!/^[A-Za-z0-9._-]+\.[A-Za-z]{2,}$/.test(host)) return null;
+      if (targetPath && !/^[~/][\w.\-/]*$/.test(targetPath)) return null;
+
       const cleanRemoteCmd = cmd.replace(/please/gi, '').trim();
+      if (/(\$\(|`|;|&&|\|\||\||\n|<|>)/.test(cleanRemoteCmd) || (targetPath && /(\$\(|`|;|&&|\|\||\||\n|<|>)/.test(targetPath))) {
+        return null;
+      }
+
       const remoteCmd = targetPath ? `cd ${targetPath} && ${cleanRemoteCmd}` : cleanRemoteCmd;
-      return `ssh -i ${key} -o StrictHostKeyChecking=no ${user}@${host} "${remoteCmd}"`;
+      const escapedRemoteCmd = remoteCmd.replace(/'/g, "'\\''");
+      return `ssh -i ${key} -o StrictHostKeyChecking=no ${user}@${host} '${escapedRemoteCmd}'`;
     }
     return cmd.replace(/please/gi, '').trim();
   }
@@ -292,10 +321,7 @@ async function processTask(task) {
   const cleanPrompt = task.prompt.trim();
   const execCwd = (task.workspace_root && fs.existsSync(task.workspace_root)) ? task.workspace_root : process.cwd();
 
-  // Guard against destructive commands
-  const lowerPrompt = cleanPrompt.toLowerCase();
-  if (DANGEROUS_PATTERNS.some(pat => lowerPrompt.includes(pat))) {
-    const errorMsg = 'Blocked: Destructive command rejected by Konoha safety guardrails.';
+  const rejectSafetyViolation = async (errorMsg) => {
     await finalizeTaskResult(task, {
       isSuccess: false,
       summary: errorMsg,
@@ -304,12 +330,22 @@ async function processTask(task) {
       agent: 'Kage',
       tokenReduction: 100
     });
+  };
+
+  // Guard against destructive commands
+  const lowerPrompt = cleanPrompt.toLowerCase();
+  if (DANGEROUS_PATTERNS.some(pat => lowerPrompt.includes(pat))) {
+    await rejectSafetyViolation('Blocked: Destructive command rejected by Konoha safety guardrails.');
     return;
   }
 
   // 1. Operational Command (0 LLM Tokens)
   if (isOperationalCommand(cleanPrompt)) {
     const cmd = extractCommand(cleanPrompt);
+    if (!cmd) {
+      await rejectSafetyViolation('Blocked: Remote command rejected by Konoha safety guardrails.');
+      return;
+    }
     const userShell = (process.env.SHELL && fs.existsSync(process.env.SHELL))
       ? process.env.SHELL
       : (fs.existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh');
@@ -341,7 +377,11 @@ async function processTask(task) {
   // Uses agy CLI with low reasoning effort and 45-minute timeout for complex tasks
   return new Promise((resolve) => {
     const agyBin = resolveAgyBin();
-    const agyArgs = ['-p', cleanPrompt, '--effort', 'low', '--dangerously-skip-permissions', '--print-timeout', '45m'];
+    const agyArgs = ['-p', cleanPrompt, '--effort', 'low'];
+    if (UNSAFE_AUTONOMY) {
+      agyArgs.push('--dangerously-skip-permissions');
+    }
+    agyArgs.push('--print-timeout', '45m');
     const execEnv = {
       ...process.env,
       KONOHA_TASK_ID: task.id,
@@ -427,5 +467,6 @@ module.exports = {
   formatDuration,
   extractTaskSummary,
   extractKageScore,
-  detectExecutingAgent
+  detectExecutingAgent,
+  DANGEROUS_PATTERNS
 };

@@ -10,6 +10,102 @@ const crypto = require('crypto');
 const configModule = require('./config');
 
 const failedPinAttempts = new Map(); // ip -> { count, lastAttempt }
+const jwksCache = new Map(); // authDomain -> { certs, expiresAt }
+const JWKS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function setCachedJwks(authDomain, keys) {
+  jwksCache.set(authDomain, { certs: keys, expiresAt: Date.now() + JWKS_CACHE_TTL_MS });
+}
+
+function clearJwksCache() {
+  jwksCache.clear();
+}
+
+function getCachedJwks(authDomain) {
+  const cached = jwksCache.get(authDomain);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.certs;
+  }
+  return null;
+}
+
+function verifyCfAccessJwt(cfJwt, authDomain, expectedAud) {
+  if (!cfJwt || typeof cfJwt !== 'string') return { valid: false, error: 'Missing token' };
+  const parts = cfJwt.split('.');
+  if (parts.length !== 3) return { valid: false, error: 'Malformed JWT structure' };
+
+  let header, payload;
+  try {
+    header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+    payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch (_) {
+    return { valid: false, error: 'Failed to decode JWT segments' };
+  }
+
+  if (header.alg !== 'RS256') {
+    return { valid: false, error: `Unsupported JWT algorithm: ${header.alg}` };
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < nowSec) {
+    return { valid: false, error: 'Access denied: Cloudflare Zero Trust token expired' };
+  }
+
+  if (expectedAud) {
+    const aud = payload.aud;
+    const match = Array.isArray(aud) ? aud.includes(expectedAud) : aud === expectedAud;
+    if (!match) {
+      return { valid: false, error: 'Access denied: Cloudflare Access AUD mismatch' };
+    }
+  }
+
+  const certs = getCachedJwks(authDomain);
+  if (!certs || certs.length === 0) {
+    return { valid: false, error: 'Cloudflare Access verification: JWKS not cached or domain unverified' };
+  }
+
+  const kid = header.kid;
+  const keyObj = certs.find(k => k.kid === kid) || certs[0];
+  if (!keyObj) {
+    return { valid: false, error: `Key matching kid '${kid}' not found in JWKS` };
+  }
+
+  let publicKey = null;
+  if (keyObj.publicKey) {
+    publicKey = keyObj.publicKey;
+  } else if (keyObj.cert) {
+    publicKey = keyObj.cert;
+  } else if (keyObj.x5c && keyObj.x5c[0]) {
+    publicKey = `-----BEGIN CERTIFICATE-----\n${keyObj.x5c[0]}\n-----END CERTIFICATE-----`;
+  } else if (keyObj.n && keyObj.e) {
+    publicKey = crypto.createPublicKey({
+      key: {
+        kty: 'RSA',
+        n: keyObj.n,
+        e: keyObj.e
+      },
+      format: 'jwk'
+    });
+  }
+
+  if (!publicKey) {
+    return { valid: false, error: 'Could not derive public key from JWKS key object' };
+  }
+
+  const signedContent = `${parts[0]}.${parts[1]}`;
+  const signature = Buffer.from(parts[2], 'base64url');
+
+  try {
+    const isVerified = crypto.verify('RSA-SHA256', Buffer.from(signedContent), publicKey, signature);
+    if (!isVerified) {
+      return { valid: false, error: 'Access denied: Invalid Cloudflare Access JWT signature' };
+    }
+  } catch (err) {
+    return { valid: false, error: `Signature verification error: ${err.message}` };
+  }
+
+  return { valid: true, payload };
+}
 
 /**
  * Determine if an incoming HTTP request originated remotely (via Cloudflare Tunnel, ngrok, or WAN).
@@ -58,39 +154,36 @@ function verifyRemoteAccess(req) {
   const host = String(req.headers['host'] || '').toLowerCase();
   const isTryCloudflare = host.includes('.trycloudflare.com');
 
-  const cfUserEmail = req.headers['cf-access-authenticated-user-email'];
   const cfJwt = req.headers['cf-access-jwt-assertion'];
 
   // Cloudflare Zero Trust Access is ONLY accepted on named/custom tunnels (never on trycloudflare.com Quick Tunnels)
   if (!isTryCloudflare && cfJwt) {
-    const jwtParts = String(cfJwt).split('.');
-    if (jwtParts.length === 3) {
-      try {
-        const payloadJson = Buffer.from(jwtParts[1], 'base64url').toString('utf8');
-        const payload = JSON.parse(payloadJson);
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (payload.exp && payload.exp < nowSec) {
-          return {
-            authenticated: false,
-            error: 'Access denied: Cloudflare Zero Trust token expired',
-            requiresPin: true
-          };
-        }
-        return {
-          authenticated: true,
-          authType: 'cloudflare_zero_trust',
-          userEmail: payload.email || cfUserEmail || payload.sub || 'authenticated-cf-user'
-        };
-      } catch (_) {
-        // Fallback for mock/test tokens with 3 segments
-        if (cfUserEmail) {
-          return {
-            authenticated: true,
-            authType: 'cloudflare_zero_trust',
-            userEmail: cfUserEmail
-          };
-        }
-      }
+    const config = configModule.getTunnelConfig();
+    const authDomain = config.auth_domain || process.env.KONOHA_TUNNEL_AUTH_DOMAIN;
+    const aud = config.aud || process.env.KONOHA_TUNNEL_AUD;
+
+    if (!authDomain) {
+      return {
+        authenticated: false,
+        error: 'Cloudflare Access verification requires auth_domain configured',
+        requiresPin: true
+      };
+    }
+
+    const verification = verifyCfAccessJwt(cfJwt, authDomain, aud);
+    if (verification.valid) {
+      const payload = verification.payload;
+      return {
+        authenticated: true,
+        authType: 'cloudflare_zero_trust',
+        userEmail: payload.email || payload.sub || 'authenticated-cf-user'
+      };
+    } else {
+      return {
+        authenticated: false,
+        error: verification.error || 'Access denied: Cloudflare Zero Trust verification failed',
+        requiresPin: true
+      };
     }
   }
 
@@ -264,5 +357,8 @@ module.exports = {
   resetPinFailure,
   renderPinEntryPage,
   getFailedAttemptsSize,
-  hasPinFailure
+  hasPinFailure,
+  setCachedJwks,
+  clearJwksCache,
+  verifyCfAccessJwt
 };

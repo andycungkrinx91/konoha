@@ -13,6 +13,8 @@
 
 'use strict';
 
+const chromiumUtils = require('./chromium_utils');
+
 const GRADIENT_THEMES = {
   theme_01: {
     name: 'Electric Azure & Amber',
@@ -97,10 +99,6 @@ function selectGradientTheme(themeKey) {
   const keys = Object.keys(GRADIENT_THEMES);
   const randomKey = keys[Math.floor(Math.random() * keys.length)];
   return { key: randomKey, ...GRADIENT_THEMES[randomKey] };
-}
-
-function getPlaywright() {
-  return require('playwright');
 }
 
 /**
@@ -603,12 +601,7 @@ function renderCoverArtworkHtml(theme, options = {}, isWidescreen = false) {
  * Renders high-DPI text-free background artwork PNG via Playwright Chromium
  */
 async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false, options = {}) {
-  const playwright = getPlaywright();
-  const browser = await playwright.chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  const browser = await chromiumUtils.launchChromium();
 
   const width = isWidescreen ? 1920 : 794;
   const height = isWidescreen ? 1080 : 1123;
@@ -617,6 +610,7 @@ async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false, opti
     viewport: { width, height },
     deviceScaleFactor: 1
   });
+  await chromiumUtils.setupOfflineInterception(page);
 
   const html = renderCoverBackgroundArtworkHtml(theme, isWidescreen, options);
   await page.setContent(html, { waitUntil: 'load' });
@@ -631,12 +625,7 @@ async function renderCoverBackgroundArtworkPng(theme, isWidescreen = false, opti
  * Renders high-DPI cover image PNG with typography via Playwright Chromium (for PPTX cover slide)
  */
 async function renderCoverArtworkPng(theme, options = {}, isWidescreen = false) {
-  const playwright = getPlaywright();
-  const browser = await playwright.chromium.launch({
-    executablePath: '/usr/bin/google-chrome',
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  const browser = await chromiumUtils.launchChromium();
 
   const width = isWidescreen ? 1920 : 794;
   const height = isWidescreen ? 1080 : 1123;
@@ -645,6 +634,7 @@ async function renderCoverArtworkPng(theme, options = {}, isWidescreen = false) 
     viewport: { width, height },
     deviceScaleFactor: 1
   });
+  await chromiumUtils.setupOfflineInterception(page);
 
   const html = renderCoverArtworkHtml(theme, options, isWidescreen);
   await page.setContent(html, { waitUntil: 'load' });

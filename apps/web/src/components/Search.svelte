@@ -128,8 +128,8 @@
     const s = String(source || '').toLowerCase();
     if (s.includes('duckduckgo')) return 'text-status-success border-status-success-soft bg-status-success-soft';
     if (s.includes('wikipedia')) return 'text-status-info border-status-info-soft bg-status-info-soft';
-    if (s.includes('searxng')) return 'text-cyan-600 dark:text-cyan-400 border-cyan-500/30 bg-cyan-500/10';
-    if (s.includes('startpage')) return 'text-purple-600 dark:text-purple-400 border-purple-500/30 bg-purple-500/10';
+    if (s.includes('searxng')) return 'text-status-info border-status-info-soft bg-status-info-soft';
+    if (s.includes('startpage')) return 'text-status-warning border-status-warning-soft bg-status-warning-soft';
     if (s.includes('skill')) return 'text-status-warning border-status-warning-soft bg-status-warning-soft';
     return 'theme-text-secondary theme-border theme-bg-subtle';
   }

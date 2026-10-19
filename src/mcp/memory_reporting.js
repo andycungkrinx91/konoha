@@ -843,9 +843,21 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- FIRST ACTION on any new task: call konoha.find_skill with keywords from the user prompt BEFORE any code changes.\n\n'
   );
 
+  const dualBoundaryAnchor = (
+    '## 🛡️ Critical Invariants & Non-Negotiables (Dual-Boundary Anchor)\n\n' +
+    '- STRICT FACTUAL TRUTH: Never fabricate test results, simulated tool outputs, or audit reports. Every claim must cite verifiable execution output.\n' +
+    '- STRICT NO-PUSH / NO-PUBLISH: Never run git push, npm publish, or create remote tags. All changes remain local.\n' +
+    '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
+    '- PRESERVE PROXY GATEWAY: Under no circumstances modify, touch, or disable the local OpenAI-compatible proxy gateway (`src/bridge/*`, port 19999).\n' +
+    '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools (`read_file_range`, `read_file_head`). Never use shell cat/head/grep.\n' +
+    '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and `ai_slop_clean: true` with 0 findings.\n' +
+    '- KAGE 98% CONFIDENCE GATE: Delivery is blocked if confidence < 98%.\n\n'
+  );
+
   const taskTail = (
     `${basePersonalityBlock}` +
     `## TASK INSTRUCTIONS\n\n${instructions}\n\n` +
+    `${dualBoundaryAnchor}` +
     `You must now act as ${dbAgentName} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n` +
     '## Execution Protocol\n\n' +
     '1. Execute the task directly as described in TASK INSTRUCTIONS above.\n' +

@@ -81,12 +81,11 @@ try {
   assert.strictEqual(fs.existsSync(dummyBridgeExt), false, 'konoha-bridge extension should be purged from ~/.cursor/extensions');
   console.log('  ✓ cursor_manager removeCursorConfig purges konoha-bridge extension from Cursor.');
 
-  // 4. Test bin/cli.js invariants: installExtensionViaCli refusal for non-antigravity
-  const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli.js'), 'utf8') +
-    fs.readFileSync(path.join(__dirname, '..', 'bin', 'lib', 'extension.js'), 'utf8');
-  assert.match(cliSource, /if\s*\(cliName\s*!==\s*'antigravity'\)/, 'installExtensionViaCli must guard against non-antigravity CLI');
-  assert.match(cliSource, /Refusing to install konoha-bridge \(Antigravity IDE only\)/, 'Refusal warning must be present');
-  console.log('  ✓ bin/cli.js installExtensionViaCli antigravity-only guard verified.');
+  // 4. Test bin/cli.js invariants: konoha-bridge VSIX auto-installer is removed in 2.2.1
+  const extensionLib = require('../bin/lib/extension');
+  assert.strictEqual(extensionLib.installExtensionViaCli, undefined, 'installExtensionViaCli must be removed in 2.2.1');
+  assert.strictEqual(extensionLib.autoInstallKonohaBridgeExtension, undefined, 'autoInstallKonohaBridgeExtension must be removed in 2.2.1');
+  console.log('  ✓ bin/lib/extension.js VSIX installer removal verified.');
 
   // 5. Test agent_contract.js invariants
   const contractSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'agent_contract.js'), 'utf8');

@@ -780,7 +780,7 @@ flowchart TD
         WhitelistCheck -- "Yes" --> CommandRouter{"Message Type"}
 
         CommandRouter -- "/session [number|create]" --> SessionSwitch["Multi-Client Switcher<br/>(session_manager.js)"]
-        CommandRouter -- "/sh &lt;cmd&gt;" --> ShellExec["Interactive Shell (bash -i -c)<br/>• Security Guardrail: isDangerousCommand<br/>• Full ~/.bashrc Alias Support"]
+        CommandRouter -- "/sh &lt;cmd&gt;" --> ShellExec["Security Hardening Notice<br/>• /sh removed in v2.2.1<br/>• Replaced by /run pipeline"]
         CommandRouter -- "/kage, /anbu, /jonin..." --> SubagentDispatch["Direct Subagent Dispatch<br/>Enqueue prompt_queue"]
         CommandRouter -- "/run &lt;prompt&gt; | text" --> QueueEnqueue["Enqueue into prompt_queue<br/>(source: 'telegram')"]
         CommandRouter -- "/status" --> ReplyStatus["Reply with Active Daemon &amp; Task State"]

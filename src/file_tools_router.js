@@ -248,7 +248,10 @@ function formatToolResult(data) {
     if (data.total_lines !== undefined && !data.complete && data.next_range) {
       const start = data.start_line || (data.returned_range ? data.returned_range[0] : 1);
       const end = data.end_line || (data.returned_range ? data.returned_range[1] : data.line_count);
-      const footer = `\n\n[Showing lines ${start}-${end} of ${data.total_lines}. Next range: [${data.next_range.join(', ')}]. Remaining: ${data.remaining_lines} lines.]`;
+      const clampedHint = (data.pagination && data.pagination.is_clamped)
+        ? ' (auto-clamped to chunk window; use next range to continue)'
+        : '';
+      const footer = `\n\n[Showing lines ${start}-${end} of ${data.total_lines}${clampedHint}. Next range: [${data.next_range.join(', ')}]. Remaining: ${data.remaining_lines} lines.]`;
       return { text: data.text + footer, isError: false };
     }
     return { text: data.text, isError: false };
@@ -271,6 +274,7 @@ function readFileRange(args = {}) {
     path: resolved,
     start_line: Number(start_line),
     end_line: Number(end_line),
+    auto_paginate: args.auto_paginate !== undefined ? Boolean(args.auto_paginate) : true,
     workspace: getWorkspaceRoot()
   });
 }

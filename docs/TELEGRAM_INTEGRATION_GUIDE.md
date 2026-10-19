@@ -13,7 +13,7 @@ Konoha's Telegram integration provides remote visibility and control over your l
 
 ### Key Capabilities
 - **One-Way Notification Mode**: Automatically delivers real-time task completion reports, execution duration, token savings telemetry (83%-98%), and Kage Reviewer confidence scores. When you work locally on your laptop, terminal, or IDE, any task that passes Kage Final Gate Review (`APPROVED` with 100/100 zero-slop score and ≥98% confidence) automatically dispatches an outbound Telegram notification to your phone.
-- **Two-Way Remote Prompting Mode**: Fully prompt and control your workstation from Telegram chat. Accepts commands (`/run <task>`, `/sh <cmd>`, `/session`, `/kage`, `/status`, `/savings`, `/cancel`) via Native Long Polling and forwards prompts to your active terminal agent.
+- **Two-Way Remote Prompting Mode**: Fully prompt and control your workstation from Telegram chat. Accepts commands (`/run <task>`, `/session`, `/kage`, `/status`, `/savings`, `/cancel`) via Native Long Polling and forwards prompts to your active terminal agent.
 - **Zero-Port Security**: Uses outbound HTTPS Long Polling (`getUpdates`) directly to `api.telegram.org`. No public ports or incoming webhooks are opened on your workstation.
 - **Chat ID Whitelist Invariant**: Drops all unauthorized messages immediately. Only your verified numeric Telegram ID can trigger tasks.
 - **Zero Emojis Standard**: All notifications use clean bracketed tags (`[KONOHA TASK REPORT]`, `[SUCCESS]`, `[QUEUED]`, `[KAGE REVIEW GATE PASSED]`).
@@ -92,7 +92,6 @@ Status: Forwarded to local terminal agent.
 | `/session` | View numbered list of active client workspaces & sessions | `/session` |
 | `/session <number>` | Switch target client session & workspace | `/session 2` |
 | `/session create <client> <path>` | Register and target a client session & directory | `/session create agy /home/user/projectA` |
-| `/sh <cmd>` | Execute a shell command via interactive shell (`bash -i -c`) with `~/.bashrc` aliases | `/sh kctenhw get namespace` |
 | `/kage <prompt>` | Direct dispatch to Village Leader (Architecture & security audit) | `/kage audit auth flow` |
 | `/anbu <prompt>` | Direct dispatch to Black Ops (Backend, DevOps, bug fixing) | `/anbu fix connection leak` |
 | `/jonin <prompt>` | Direct dispatch to Elite Builder (UI/UX, frontend components) | `/jonin build hero carousel` |

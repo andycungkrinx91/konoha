@@ -1,0 +1,94 @@
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.1)
+
+## 1. Overview & Threat Model
+
+Konoha MCP operates as an orchestrator and tool provider across AI coding clients (OMP, Antigravity, Cursor, Claude Code, Codex, OpenCode, CommandCode, Pi). In version 2.2.1, substantive security hardening was executed in response to supply-chain and ingress audit findings.
+
+---
+
+## 2. Web Authentication & HTTP Ingress Hardening
+
+### 2.1 Privileged Token Isolation
+- **No Token on Public Status Endpoints**: `/api/v1/auth/status` and `/api/v1/auth/session` return session metadata (`authenticated`, `is_bootstrap`, `requires_password_change`) without leaking `sessionToken`.
+- **Authorized Token Channels Only**: The session token is strictly obtainable via:
+  1. Successful `POST /api/v1/auth/login`
+  2. Successful `POST /api/v1/auth/pin`
+  3. Loopback authenticated `GET /api/v1/csrf` or `GET /api/v1/token`
+- **Health Metadata Gating**: `GET /api/v1/health` returns only minimal status (`status: "healthy"`, `version`, `uptime`) to unauthenticated callers. Internal system details (ports, host, database paths, agent counts, Node runtime) are restricted to authenticated sessions.
+
+### 2.2 Request Body Size Limits
+- **1 MiB Payload Cap**: `MAX_BODY_BYTES = 1048576` is enforced on all `POST`, `PUT`, `PATCH`, and `DELETE` requests.
+- **Early Rejection**: Requests specifying `Content-Length > 1 MiB` are immediately rejected with `413 Payload Too Large`.
+- **Stream Protection**: Chunked request streams exceeding 1 MiB are aborted and the socket is destroyed (`req.destroy()`).
+
+---
+
+## 3. Remote Ingress & Cloudflare Zero Trust Verification
+
+### 3.1 Cryptographic JWT RS256 Verification
+- Incoming requests over named Cloudflare tunnels presenting `Cf-Access-Jwt-Assertion` are cryptographically verified using `RS256` against Cloudflare Access JWKS (`https://${authDomain}/cdn-cgi/access/certs`, cached 10 minutes).
+- **Mandatory Configuration**: Requires `auth_domain` (e.g. `<team>.cloudflareaccess.com`) and optional `aud` (Application Audience Tag). If `auth_domain` is missing, requests are rejected with `requiresPin: true`.
+- **Zero Trust Expiration & Claims**: Validates token expiration (`exp`) and audience tag (`aud`).
+- **Complete Removal of Email Fallback**: The insecure fallback trusting `Cf-Access-Authenticated-User-Email` without cryptographic proof was permanently eliminated.
+- **Quick Tunnel Rejection**: Cloudflare Zero Trust headers on ephemeral `.trycloudflare.com` URLs are rejected by invariant.
+
+### 3.2 Standalone Access PIN Fallback
+- Remote connections without Cloudflare Access must present a timing-safe verified PIN via `Authorization: Bearer <pin>`, `X-Konoha-Pin: <pin>`, or cookie `konoha_pin`. Query string parameters (`?pin=`) are strictly rejected.
+
+---
+
+## 4. Telegram Bot Surface Hardening
+
+### 4.1 Deprecation of Shell Handlers (`/sh` and `/exec`)
+- Arbitrary host shell execution via Telegram (`/sh` and `/exec`) was permanently removed in v2.2.1.
+- Incoming commands receive a decline notification directing operators to use governed autonomous task execution (`/run <task>`).
+
+### 4.2 Universal HTML Escaping
+- All dynamic inputs, usernames, workspace paths, session IDs, task prompts, and task summaries are escaped via `escapeHtml(...)` to eliminate HTML injection in Telegram parse mode.
+
+---
+
+## 5. Queue Worker & Autonomous Task Execution
+
+### 5.1 Config-Gated Autonomy
+- The `--dangerously-skip-permissions` flag passed to headless CLI workers is strictly disabled by default.
+- It is enabled only when explicitly configured via environment variable:
+  ```bash
+  export KONOHA_ALLOW_UNSAFE_AUTONOMY=1
+  ```
+
+### 5.2 SSH Command Hygiene
+- Prompts extracting remote SSH executions validate `key` path (`/^[~/][\w.\-/]*$/`), `host` FQDN pattern, and path.
+- Injections containing shell command chaining, backticks, subshells (`$()`), pipes (`|`), redirects (`<`, `>`), or newlines are immediately rejected.
+- Remote commands are enclosed in single quotes with escaped inner single quotes (`'...'`).
+
+### 5.3 Extended Dangerous Pattern Interception
+- Safety guardrails intercept and reject destructive patterns including `drop table`, `chmod 777 /`, `chmod -r 777 /`, `mkfs.`, `> /dev/sd`, `curl | bash`, `curl | sh`, `wget | bash`, `wget | sh`, and forkbombs (`:(){`).
+
+---
+
+## 6. Document & Diagram Engine Hardening
+
+### 6.1 Shared Chromium Launcher (`src/tools/chromium_utils.js`)
+- Chromium launches headless with sandbox enabled by default. Safe `--no-sandbox` fallback is attempted only when container host permissions specifically demand it, emitting an explicit warning log.
+- Hardcoded `/usr/bin/google-chrome` paths were eliminated in favor of Playwright bundled Chromium resolution or optional `process.env.KONOHA_CHROME_PATH`.
+
+### 6.2 Offline Network Interception
+- Render pages intercept network calls: external HTTP/HTTPS and `file:` schemes are blocked. Local system font stacks replace external Google Fonts `@import` calls.
+
+### 6.3 Formula Injection Guard
+- Spreadsheet generation validates formula strings, rejecting Excel DDE and dangerous functions: `WEBSERVICE`, `ENCODEURL`, `HYPERLINK`, `CALL`, `REGISTER.ID`, `DDEREFERENCE`, `SQL.REQUEST`.
+
+---
+
+## 7. Bridge Architecture: Extension Removal vs. Proxy Gateway
+
+- **Removed**: The external `konoha-bridge` VSIX extension feature from `https://github.com/andycungkrinx91/konoha-bridge` and its auto-install routines.
+- **Preserved**: The **OpenAI-Compatible Local LLM Proxy Gateway** (`src/bridge/*`) running locally on port **19999** for token-efficient model routing remains active and protected.
+
+---
+
+## 8. Multi-Workflow Delegation & File Tools
+
+- **Anti-Lost-in-the-Middle**: Dual-Boundary Anchoring (Sandwich Pattern) repeats invariants at prompt headers and tails.
+- **Large File Pagination**: `read_file_range` auto-clamps spans $> 250$ lines to 200-line windows with actionable pagination metadata, eliminating exception refusals. Line-by-line stream reading bounds heap usage to $O(1)$.

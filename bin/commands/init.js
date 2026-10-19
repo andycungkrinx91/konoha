@@ -75,7 +75,6 @@ const {
 } = require('../lib/runtime');
 
 const {
-  autoInstallKonohaBridgeExtension,
   installUv,
   getUvxCommand,
   installAgentBrowser,
@@ -241,7 +240,6 @@ async function cmdInit(args, options = {}) {
       });
       installFileTools(true);
       installCliRuntime();
-      autoInstallKonohaBridgeExtension(true);
       try {
         const bridge1313Active = await checkPortActive(1313);
         const bridge19999Active = await checkPortActive(19999);
@@ -490,9 +488,6 @@ async function cmdInit(args, options = {}) {
   }
 
   spinner3.success('All files installed to ~/.konoha/');
-
-  // Install or refresh Konoha Bridge extension for Antigravity IDE
-  autoInstallKonohaBridgeExtension(true, true);
 
   // 5. Run migration and always initialize the complete SQLite schema.
   if (options.onProgress) options.onProgress(3, 'Skills Index', 'Seeding subagent skills into SQLite FTS5 database');

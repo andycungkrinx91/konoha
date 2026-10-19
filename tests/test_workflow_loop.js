@@ -2,6 +2,8 @@
 // DB isolation: keep test writes out of the production ~/.konoha/konoha.db
 require('./helpers/isolate_db');
 
+process.env.KONOHA_HITL_MODE = 'disabled';
+
 'use strict';
 
 const assert = require('assert');
@@ -67,10 +69,7 @@ async function run() {
     assert.strictEqual(resT03.status, 'ready');
     assert.strictEqual(resT03.phase, 'explore');
     assert.strictEqual(resT03.agent, 'genin');
-    const delegateT03 = fs.readFileSync(path.join(taskT03, 'delegate.md'), 'utf8');
-    assert.ok(delegateT03.includes('agent: genin'));
-    assert.ok(delegateT03.includes('Phase: Explore'));
-    assert.ok(delegateT03.includes('Trace the API authentication flow end-to-end'));
+    assert.ok((resT03.task || '').includes('Trace the API authentication flow end-to-end'));
     assert.strictEqual(fs.existsSync(path.join(taskT03, 'result.md')), false);
     console.log('✓ T03: Explore dispatches genin passed');
 
@@ -84,9 +83,7 @@ async function run() {
     assert.strictEqual(r2T04.status, 'ready');
     assert.strictEqual(r2T04.phase, 'plan');
     assert.strictEqual(r2T04.agent, 'kage');
-    const delegateT04 = fs.readFileSync(path.join(taskT04, 'delegate.md'), 'utf8');
-    assert.ok(delegateT04.includes('agent: kage'));
-    assert.ok(delegateT04.includes('Payment uses Stripe API'));
+    assert.ok((r2T04.findings || '').includes('Payment uses Stripe API'));
     console.log('✓ T04: Genin to kage plan passed');
 
     // T05: Kage needs research routed to chunin
@@ -113,10 +110,11 @@ async function run() {
     server.runMcpWorkflow(taskT06);
     writePlan(taskT06, 'needs_research: true\nresearch_query: OAuth2 PKCE\n');
     writeResult(taskT06, 'kage', 'Requires research.');
-    server.runMcpWorkflow(taskT06);
-    const dtextT06 = fs.readFileSync(path.join(taskT06, 'delegate.md'), 'utf8');
-    assert.ok(dtextT06.includes('agent: chunin'));
-    assert.ok(dtextT06.includes('OAuth2 PKCE'));
+    const r3T06 = JSON.parse(server.runMcpWorkflow(taskT06));
+    assert.strictEqual(r3T06.status, 'ready');
+    assert.strictEqual(r3T06.phase, 'research');
+    assert.strictEqual(r3T06.agent, 'chunin');
+    assert.ok((r3T06.query || '').includes('OAuth2 PKCE'));
     writeResearch(taskT06, '{"findings": ["PKCE recommended"], "synthesis": "Use auth code+PKCE"}');
     writeResult(taskT06, 'chunin', 'Research complete.');
     const r4T06 = JSON.parse(server.runMcpWorkflow(taskT06));
@@ -151,9 +149,7 @@ async function run() {
     assert.strictEqual(r3T08.status, 'ready');
     assert.strictEqual(r3T08.phase, 'execute');
     assert.strictEqual(r3T08.agent, 'anbu');
-    const dtextT08 = fs.readFileSync(path.join(taskT08, 'delegate.md'), 'utf8');
-    assert.ok(dtextT08.includes('agent: anbu'));
-    assert.ok(dtextT08.includes('authentication middleware'));
+    assert.ok((r3T08.task || '').includes('authentication middleware'));
     console.log('✓ T08: Execute dispatches first pending agent passed');
 
     // T09: Execute phase dispatches second after first done

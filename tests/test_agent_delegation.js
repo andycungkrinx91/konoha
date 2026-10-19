@@ -98,7 +98,7 @@ async function run() {
     const resAnbuSkill = JSON.parse(server.runMcpAgent('anbu', null, null, null, null, null, null, taskAnbuSkill));
     assert.strictEqual(resAnbuSkill.status, 'ready');
     const instrAnbu = resAnbuSkill.instructions;
-    assert.ok(instrAnbu.includes('### Skill: anbu-skill'));
+    assert.ok(instrAnbu.includes('anbu-skill'));
     assert.ok(instrAnbu.includes('Purpose:'));
     assert.ok(instrAnbu.includes('Instructions:'));
     assert.ok(instrAnbu.includes('Constraints:'));

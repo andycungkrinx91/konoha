@@ -86,14 +86,8 @@ try {
 
 const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8') +
   fs.readFileSync(path.join(root, 'bin', 'lib', 'extension.js'), 'utf8');
-assert.match(cliSource, /KONOHA_BRIDGE_REF = 'master'/);
-assert.match(cliSource, /andycungkrinx91\.konoha-bridge-master-universal/);
-assert.match(cliSource, /antigravity-ide-not-detected/);
-assert.match(cliSource, /pkg\.publisher === 'andycungkrinx91'/);
-assert.match(cliSource, /bridgePort === 1313/);
-assert.match(cliSource, /rev-parse.*HEAD/);
-assert.doesNotMatch(cliSource, /KONOHA_BRIDGE_VERSION/);
-assert.doesNotMatch(cliSource, /v1\.2\.0/);
+assert.doesNotMatch(cliSource, /autoInstallKonohaBridgeExtension/);
+assert.doesNotMatch(cliSource, /andycungkrinx91\.konoha-bridge/);
 
 const mcpSource = fs.readFileSync(path.join(root, 'src', 'file_tools_mcp.js'), 'utf8');
 assert.match(mcpSource, /provider !== 'antigravity-extension'/);

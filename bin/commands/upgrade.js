@@ -13,7 +13,7 @@ const { SKILLS_DB_DIR } = require("../lib/paths");
 const { C, log, warn, error, header, getCliVersion } = require("../lib/format");
 const { fileExists, confirmPrompt, KonohaProgressBar } = require("../lib/prompt");
 const { reconcileGlobalCommand, purgePackageCaches } = require("../lib/runtime");
-const { autoInstallKonohaBridgeExtension, installAgentBrowser } = require("../lib/extension");
+const { installAgentBrowser } = require("../lib/extension");
 const { cmdUiRestart, ensureUiDaemonAutoStart } = require("../lib/ui_commands");
 const { cmdInit } = require("./init");
 const { checkPortActive } = require("./bridge");
@@ -362,13 +362,12 @@ async function cmdUpgrade(args = []) {
       }
     });
 
-    // Stage 7/7: Extension Bridge & Browser CLI
-    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying Konoha Bridge extension and browser CLI...`);
-    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying IDE bridge extension and tools...`);
-    autoInstallKonohaBridgeExtension(false, true);
+    // Stage 7/7: Browser CLI Tools
+    pbar.update(6, `${C.cyan}[Stage 7/7]${C.reset} Verifying browser automation CLI tools...`);
+    pbar.startPulse(`${C.cyan}[Stage 7/7]${C.reset} Verifying browser tools...`);
     try { installAgentBrowser(true); } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
     pbar.stopPulse();
-    pbar.logStep(`Konoha Bridge extension & browser tools verified`);
+    pbar.logStep(`Browser automation tools verified`);
 
     // Cross-Platform Global Command Reconciliation: the `konoha` command must
     // always resolve to the self-contained install at ~/.konoha/bin/cli.js on

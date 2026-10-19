@@ -239,7 +239,7 @@ function removeAntigravityAgents(options = {}) {
   }
 }
 
-function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
+function syncAntigravityExtensionRegistry(extensionDir) {
   if (!extensionDir || !fs.existsSync(extensionDir)) return { ok: false, reason: 'extension-dir-missing' };
   try {
     const extJsonPath = path.join(extensionDir, 'extensions.json');
@@ -249,56 +249,14 @@ function syncAntigravityExtensionRegistry(extensionDir, targetDirName, pkg) {
         entries = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
       } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
       if (Array.isArray(entries)) {
-        entries = entries.filter(e => {
+        const filtered = entries.filter(e => {
           const id = e?.identifier?.id?.toLowerCase();
           const rel = e?.relativeLocation || '';
-          if (id === 'andycungkrinx91.konoha-bridge' || rel.startsWith('andycungkrinx91.konoha-bridge-')) {
-            return rel === targetDirName;
-          }
-          return true;
+          return !(id === 'andycungkrinx91.konoha-bridge' || rel.startsWith('andycungkrinx91.konoha-bridge'));
         });
-
-        const targetPath = path.join(extensionDir, targetDirName);
-        const existing = entries.find(e => e?.relativeLocation === targetDirName || e?.identifier?.id?.toLowerCase() === 'andycungkrinx91.konoha-bridge');
-        if (existing) {
-          existing.identifier = { id: 'andycungkrinx91.konoha-bridge' };
-          existing.version = pkg?.version || '1.5.0';
-          existing.location = {
-            $mid: 1,
-            fsPath: targetPath,
-            path: targetPath,
-            scheme: 'file'
-          };
-          existing.relativeLocation = targetDirName;
-        } else {
-          entries.push({
-            identifier: { id: 'andycungkrinx91.konoha-bridge' },
-            version: pkg?.version || '1.5.0',
-            location: {
-              $mid: 1,
-              fsPath: targetPath,
-              path: targetPath,
-              scheme: 'file'
-            },
-            relativeLocation: targetDirName,
-            metadata: {
-              isApplicationScoped: false,
-              isMachineScoped: false,
-              isBuiltin: false,
-              installedTimestamp: Date.now(),
-              pinned: false,
-              source: 'custom',
-              publisherDisplayName: 'andycungkrinx91',
-              targetPlatform: 'universal',
-              updated: true,
-              private: false,
-              isPreReleaseVersion: false,
-              hasPreReleaseVersion: false,
-              preRelease: false
-            }
-          });
+        if (filtered.length !== entries.length) {
+          fs.writeFileSync(extJsonPath, JSON.stringify(filtered, null, 2) + '\n');
         }
-        fs.writeFileSync(extJsonPath, JSON.stringify(entries, null, 2) + '\n');
       }
     }
 

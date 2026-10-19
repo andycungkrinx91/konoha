@@ -444,7 +444,7 @@ When installing Konoha, all required Node.js libraries, SQLite FTS5 database sch
 - 🗄️ **SQLite FTS5 Skills Database**: Automatically compiled and initialized at `~/.konoha/konoha.db` (legacy `skills.db` is auto-migrated on first open).
 - 🔮 **Semble Codebase Search MCP**: Auto-configured via `uvx` for zero-setup deep code discovery.
 - ⚙️ **File Tools & Prompt Hooks**: Deployed automatically to `~/.konoha/` and registered with client IDE config schemas.
-- 🌉 **Konoha Bridge v1.7.0**: Bundled VSIX or auto-downloaded fallback directly from GitHub repo into `~/.konoha/konoha-bridge-1.7.0.vsix`.
+- 🌉 **Local LLM Proxy Gateway**: Embedded local OpenAI-compatible bridge router on port 19999 for token-efficient model multiplexing.
 
 > [!IMPORTANT]
 > **Zero-Prompt Auto-Setup**:
@@ -742,7 +742,6 @@ Full reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md)
 ├── file_tools_router.js   ← In-process tool dispatch router
 ├── platform_utils.js      ← cross-OS path helpers
 ├── .node_exec_path        ← recorded Node path (auto)
-├── konoha-bridge.json     ← live master extension commit/path manifest (Antigravity IDE only)
 ├── server.js              ← Pure Node.js MCP server implementation
 ├── migrate.js             ← Pure Node.js migration script
 ├── vector_search.js       ← Semantic vector search & embedding engine

@@ -19,6 +19,8 @@ function getTunnelConfig() {
       mode: 'ephemeral',
       token: '',
       custom_domain: '',
+      auth_domain: process.env.KONOHA_TUNNEL_AUTH_DOMAIN || '',
+      aud: process.env.KONOHA_TUNNEL_AUD || '',
       auth_pin: '',
       public_url: '',
       active_pid: 0,
@@ -28,6 +30,8 @@ function getTunnelConfig() {
   }
   return {
     ...row,
+    auth_domain: row.auth_domain || process.env.KONOHA_TUNNEL_AUTH_DOMAIN || '',
+    aud: row.aud || process.env.KONOHA_TUNNEL_AUD || '',
     token: vault.decryptSecret(row.token),
     auth_pin: vault.decryptSecret(row.auth_pin)
   };

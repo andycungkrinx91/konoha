@@ -2,6 +2,21 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.1] - 2026-10-19
+
+### Socket Security Remediation, Multi-Workflow Delegation & File Tool Hardening
+
+- **Web Auth Token Leak Remediation (`src/web_server.js`)**: Eliminated privileged session token leak from public unauthenticated `/api/v1/auth/status` and `/api/v1/auth/session` endpoints. Token acquisition restricted exclusively to successful `POST /api/v1/auth/login`, `POST /api/v1/auth/pin`, and loopback `GET /api/v1/csrf`. Isolated health check runtime metadata on `GET /api/v1/health` behind authentication.
+- **Request Body Size Limits (`src/web_server.js`)**: Enforced 1 MiB (`MAX_BODY_BYTES = 1048576`) payload cap on POST, PUT, PATCH, and DELETE requests, rejecting oversized bodies with HTTP 413 and destroying rogue sockets.
+- **Cryptographic Cloudflare Access JWT Verification (`src/tunnel/security.js`)**: Replaced unverified JWT parsing with RS256 signature verification against Cloudflare Access JWKS (`/cdn-cgi/access/certs`, 10-minute cache) with audience (`aud`) and expiration (`exp`) validation. Permanently deleted unverified `Cf-Access-Authenticated-User-Email` fallback.
+- **Telegram Shell Execution Removal & HTML Escaping (`src/telegram/poller.js`, `src/telegram/notifier.js`)**: Completely removed `/sh` and `/exec` command handlers and associated shell execution helpers. Unified and applied `escapeHtml` to all dynamic user interpolations in Telegram notifications.
+- **Config-Gated Autonomous Worker & SSH Command Hygiene (`src/queue/worker.js`)**: Gated `--dangerously-skip-permissions` behind `process.env.KONOHA_ALLOW_UNSAFE_AUTONOMY === '1'` (default OFF). Sanitized SSH remote command generation with regex guards, quote escaping, and dangerous command sequence rejection (`$(`, backticks, pipes, semicolons).
+- **Document & Diagram Engine Hardening (`src/tools/document_engine.js`, `src/tools/chromium_utils.js`)**: Created shared Chromium launcher resolving bundled browsers with safe sandbox fallback; intercepted network requests to block external network and `file:` access; removed Google Fonts `@import` in favor of local system font stacks; sanitized spreadsheet formulas against CSV/formula injection.
+- **Removal of `konoha-bridge` VSIX Extension Feature (`bin/lib/extension.js`, `src/antigravity_manager.js`, `assets/`)**: Completely removed external `konoha-bridge` VSIX extension auto-installation, git cloning, and Antigravity registry hooks sourced from `github.com/andycungkrinx91/konoha-bridge`. Strictly preserved the local headless OpenAI-compatible LLM Proxy Gateway on port 19999 (`src/bridge/*`).
+- **Supply-Chain Pinning (`bin/lib/extension.js`, `src/semble_manager.js`)**: Pinned `uv` download URLs and installers to exact stable release versions, eliminating pipe-to-shell patterns. Pinned `semble` and `agent-browser` installer strings to exact verified versions.
+- **Multi-Workflow Architecture & Lost-in-the-Middle Delegation Resolution (`src/mcp/memory_reporting.js`)**: Formally phased all 4 Konoha workflows (Workflow 1: Canonical 8-Phase Master SDLC Pipeline, Workflow 2: Rapid Website & UI Scaffolding Pipeline, Workflow 3: Direct Request Fast-Track, Workflow 4: Security Remediation & Maintenance Hardening). Resolved LLM attention attenuation via Dual-Boundary Anchoring (Sandwich Pattern), structured direct MCP tool arguments, and deterministic `sdlc_tasks.evidence` inter-phase persistence.
+- **Large File Tool Support & Stream Pagination (`src/file_tools/read_file_range.js`, `src/file_tools_router.js`)**: Eliminated hard `MAX_SPAN = 250` exception refusals by introducing graceful auto-chunking (200-line windows) with actionable pagination metadata (`returned_range`, `total_lines`, `has_more`, `next_range`, `pagination`). Implemented Node.js `readline` stream processing for files $> 1000$ lines or $> 1$ MB to bound memory consumption to $O(1)$.
+
 ## [2.2.0] - 2026-10-18
 
 ### OMP Auto-Enablement, Bootstrap Recovery, Sleek Neon Focus & 2.2.0 Architecture

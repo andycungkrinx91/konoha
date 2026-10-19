@@ -411,8 +411,9 @@ function recordSlopResult(id, slopResult, slopCycles = null, dbPath = null) {
 // Project SDLC Settings
 
 function getProjectSdlcConfig(projectPath, dbPath = null) {
+  const envHitl = process.env.KONOHA_HITL_MODE;
   if (!projectPath) {
-    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: 'enabled' };
+    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: envHitl || 'enabled' };
   }
   const conn = getDbConn(dbPath);
   try {
@@ -425,10 +426,10 @@ function getProjectSdlcConfig(projectPath, dbPath = null) {
     return {
       dor_mode: row && row.dor_mode ? row.dor_mode : 'advisory',
       review_mode: row && row.review_mode ? row.review_mode : 'self',
-      hitl_mode: row && row.hitl_mode ? row.hitl_mode : 'enabled'
+      hitl_mode: envHitl || (row && row.hitl_mode ? row.hitl_mode : 'enabled')
     };
   } catch (_) {
-    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: 'enabled' };
+    return { dor_mode: 'advisory', review_mode: 'self', hitl_mode: envHitl || 'enabled' };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
