@@ -44,14 +44,43 @@ function checkCommandGuardrails(command) {
 
   var REASON_DESTRUCTIVE =
     'DESTRUCTIVE COMMAND BLOCKED: this command matches a konoha destructive-command guardrail ' +
-    '(rm -rf on root/home, mkfs, dd to a device, DROP DATABASE / TRUNCATE TABLE, chmod 777, ' +
+    '(rm -rf on root/home, mkfs, dd to a device, forkbomb, chmod 777, ' +
     'recursive chown, or curl/wget piped into a shell). Ask the user for explicit permission ' +
     'before running it.';
+
+  var REASON_DESTRUCTIVE_SYS =
+    'SYSTEM / SRE SHUTDOWN BLOCKED: system shutdown, reboot, poweroff, halt, or disk wipe ' +
+    'is strictly forbidden without explicit user permission.';
 
   var REASON_DESTRUCTIVE_GIT =
     'DESTRUCTIVE GIT COMMAND BLOCKED: this command matches a konoha git-safety guardrail ' +
     '(git reset --hard, git push --force, git clean -f, git checkout -- ., git rebase -i). ' +
     'Ask the user for explicit permission before running it.';
+
+  var REASON_DESTRUCTIVE_INFRA =
+    'DESTRUCTIVE CLOUD/INFRA/DEVOPS BLOCKED: terraform destroy, tofu destroy, pulumi destroy, ' +
+    'aws cloudformation delete-stack, aws s3 rb/rm --force/recursive, az group delete, ' +
+    'kubectl delete ns/all/cluster, helm uninstall/delete, or docker system/volume prune ' +
+    'is strictly forbidden without explicit user permission.';
+
+  var REASON_DESTRUCTIVE_DB =
+    'DESTRUCTIVE DATABASE OPERATION BLOCKED: DROP DATABASE/SCHEMA/TABLE/KEYSPACE, TRUNCATE, ' +
+    'Redis FLUSHALL/FLUSHDB/SHUTDOWN, MongoDB dropDatabase, Cassandra DROP KEYSPACE, ' +
+    'or Elasticsearch/OpenSearch bulk index deletion is strictly forbidden without explicit user permission.';
+
+  var REASON_DESTRUCTIVE_NET =
+    'NETWORK ENGINEERING GUARDRAIL BLOCKED: flushing firewall rules (iptables -F, ufw disable, nft flush), ' +
+    'deleting network interfaces, or dropping default routes is strictly forbidden without explicit user permission.';
+
+  var REASON_INTERPRETER_BYPASS =
+    'INLINE INTERPRETER EVASION BLOCKED: inline scripting via python -c, node -e, php -r, ' +
+    'perl -e, ruby -e, bash -c, lua -e, R -e, julia -e, pwsh -c, eval, or base64 decode is strictly forbidden. ' +
+    'All file mutations and codebase changes MUST use Konoha MCP bounded tools.';
+
+  var REASON_CONFIG_TAMPERING =
+    'PROTECTED CONFIGURATION TAMPERING BLOCKED: modifying or deleting guardrail, linter, ' +
+    'git hook, or IDE agent configurations (.git/hooks, .claude, .cursor, .commandcode, ' +
+    '.opencode, .codex, .omp, .rtk, RTK.md, eslint, phpstan, tsconfig) is strictly forbidden.';
 
   var REASON_SECRETS =
     'SECRET FILE ACCESS BLOCKED: reading or committing secret files (.env*, secrets.yaml, ' +
@@ -64,37 +93,60 @@ function checkCommandGuardrails(command) {
     'get_file_structure, find_files_clean, token_efficient_grep) or the semble MCP ' +
     '(search / find_related) instead.';
 
-  var REASON_INTERPRETER_BYPASS =
-    'INLINE INTERPRETER EVASION BLOCKED: inline scripting via python -c, node -e, php -r, ' +
-    'perl -e, ruby -e, bash -c, eval, or base64 decode is strictly forbidden. ' +
-    'All file mutations and codebase changes MUST use Konoha MCP bounded tools.';
-
-  var REASON_CONFIG_TAMPERING =
-    'PROTECTED CONFIGURATION TAMPERING BLOCKED: modifying or deleting guardrail, linter, ' +
-    'git hook, or IDE agent configurations (.git/hooks, .claude, .cursor, .commandcode, ' +
-    '.opencode, .codex, .omp, .rtk, RTK.md, eslint, phpstan, tsconfig) is strictly forbidden.';
-
-  var REASON_DESTRUCTIVE_INFRA =
-    'DESTRUCTIVE CLOUD INFRASTRUCTURE BLOCKED: terraform destroy, tofu destroy, pulumi destroy, ' +
-    'or unconstrained mass deletion in kubectl is strictly forbidden without explicit user permission.';
-
   // Layer 1: whole-command regex scans
   var wholeCommandPatterns = [
+    // Destructive filesystem / general
     { category: 'destructive', pattern: /\bmkfs(\.\w+)?\b/, reason: REASON_DESTRUCTIVE },
     { category: 'destructive', pattern: /\bdd\b[^|;&]*\bof=\s*\/dev\//, reason: REASON_DESTRUCTIVE },
-    { category: 'destructive', pattern: /\b(DROP\s+DATABASE|TRUNCATE\s+TABLE)\b/i, reason: REASON_DESTRUCTIVE },
     { category: 'destructive', pattern: /\bchmod\s+(-[A-Za-z]+\s+)*777\b/, reason: REASON_DESTRUCTIVE },
     { category: 'destructive', pattern: /\bchown\b[^|;&]*(-R\b|--recursive\b)/, reason: REASON_DESTRUCTIVE },
     { category: 'destructive', pattern: /\b(curl|wget)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|k)?sh\b/, reason: REASON_DESTRUCTIVE },
+    { category: 'destructive', pattern: /\b(wipefs|shred\s+(-[A-Za-z]*u\s+)?\/dev\/)/, reason: REASON_DESTRUCTIVE },
+    { category: 'destructive', pattern: /:\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&;?\s*\}\s*;\s*:/, reason: REASON_DESTRUCTIVE },
+
+    // Destructive Database Stacks (SQL, NoSQL, Cache, Search, Graph)
+    { category: 'destructive-db', pattern: /\b(DROP\s+(DATABASE|SCHEMA|TABLE|KEYSPACE|USER|ROLE)|TRUNCATE\s+(TABLE\s+)?\w+)\b/i, reason: REASON_DESTRUCTIVE_DB },
+    { category: 'destructive-db', pattern: /\b(FLUSHALL|FLUSHDB)\b/i, reason: REASON_DESTRUCTIVE_DB },
+    { category: 'destructive-db', pattern: /\bredis-cli\s+.*(shutdown|config\s+set)\b/i, reason: REASON_DESTRUCTIVE_DB },
+    { category: 'destructive-db', pattern: /\b(dropDatabase\(|db\.runCommand\(\s*\{.*dropDatabase)/i, reason: REASON_DESTRUCTIVE_DB },
+    { category: 'destructive-db', pattern: /curl\s+.*-X\s*DELETE\s+.*(\/_all|\/\*)/i, reason: REASON_DESTRUCTIVE_DB },
+    { category: 'destructive-db', pattern: /\b(MATCH\s+.*DETACH\s+DELETE)\b/i, reason: REASON_DESTRUCTIVE_DB },
+
+    // Destructive System / SRE
+    { category: 'destructive-sys', pattern: /\b(shutdown|reboot|poweroff|halt)\b/i, reason: REASON_DESTRUCTIVE_SYS },
+    { category: 'destructive-sys', pattern: /\binit\s+[06]\b/, reason: REASON_DESTRUCTIVE_SYS },
+
+    // Destructive Git
     { category: 'destructive-git', pattern: /\bgit\s+reset\b[^|;&]*--hard\b/, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+push\b[^|;&]*\s--force(?![-\w])/, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+clean\b[^|;&]*\s-[A-Za-z]*f/, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+checkout\s+(-[A-Za-z]+\s+)*--\s+\./, reason: REASON_DESTRUCTIVE_GIT },
     { category: 'destructive-git', pattern: /\bgit\s+rebase\s+(-[A-Za-z]*\s+)*(-i\b|--interactive\b)/, reason: REASON_DESTRUCTIVE_GIT },
+
+    // Destructive Cloud Infrastructure, DevOps & SRE
     { category: 'destructive-infra', pattern: /\b(terraform|tofu|pulumi)\s+destroy\b/i, reason: REASON_DESTRUCTIVE_INFRA },
     { category: 'destructive-infra', pattern: /\bkubectl\s+delete\s+(ns|namespace|all|nodes?|cluster)\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\bhelm\s+(uninstall|delete)\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\bdocker\s+(system|volume)\s+prune\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\bdocker\s+(rm|stop)\s+(-[a-zA-Z]*f\s+)?(\$\(docker|`docker)\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\baws\s+cloudformation\s+delete-stack\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\baws\s+s3\s+(rb|rm)\s+.*(--force|--recursive)\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\baz\s+group\s+delete\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+    { category: 'destructive-infra', pattern: /\bgcloud\s+deployment-manager\s+deployments\s+delete\b/i, reason: REASON_DESTRUCTIVE_INFRA },
+
+    // Destructive Network Engineering
+    { category: 'destructive-network', pattern: /\b(iptables|ip6tables)\s+(-[a-zA-Z]*F\b|--flush\b)/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\bnft\s+flush\s+ruleset\b/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\bufw\s+disable\b/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\bfirewall-cmd\s+--panic-on\b/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\bip\s+link\s+(delete|set\s+\S+\s+down)\b/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\bip\s+route\s+del\s+default\b/i, reason: REASON_DESTRUCTIVE_NET },
+    { category: 'destructive-network', pattern: /\broute\s+del\s+default\b/i, reason: REASON_DESTRUCTIVE_NET },
+
+    // Interpreter bypass / dynamic code execution
     { category: 'interpreter-bypass', pattern: /\b(base64\s+(-d|--decode)\s*\|\s*(ba|z|k)?sh)\b/i, reason: REASON_INTERPRETER_BYPASS },
-    { category: 'interpreter-bypass', pattern: /\beval\s+["']?[^"'\n]+["']?/, reason: REASON_INTERPRETER_BYPASS }
+    { category: 'interpreter-bypass', pattern: /\beval\s+["']?[^"'\n]+["']?/, reason: REASON_INTERPRETER_BYPASS },
+    { category: 'interpreter-bypass', pattern: /\bcurl\s+[^|;&]*\|\s*(sudo\s+)?(python|python3|node|bun|deno|php|perl|ruby)\b/i, reason: REASON_INTERPRETER_BYPASS }
   ];
 
   for (var w = 0; w < wholeCommandPatterns.length; w++) {
@@ -114,17 +166,52 @@ function checkCommandGuardrails(command) {
   ];
 
   var INTERPRETER_FLAGS = {
+    // Python
     'python': ['-c', '-'],
     'python3': ['-c', '-'],
+    'ipython': ['-c'],
+    'pypy': ['-c'],
+    'pypy3': ['-c'],
+    // JS / TS / Web runtimes
     'node': ['-e', '--eval', '-p', '--print', '-'],
+    'nodejs': ['-e', '--eval', '-p', '--print', '-'],
     'bun': ['-e', '--eval'],
     'deno': ['eval'],
-    'php': ['-r', '-a'],
+    'ts-node': ['-e', '--eval'],
+    'tsx': ['-e', '--eval'],
+    // PHP
+    'php': ['-r', '-a', '--run'],
+    // Perl
     'perl': ['-e', '-E'],
+    // Ruby
     'ruby': ['-e'],
+    'irb': ['-e'],
+    // Shells
     'bash': ['-c'],
     'sh': ['-c'],
-    'zsh': ['-c']
+    'zsh': ['-c'],
+    'ksh': ['-c'],
+    'csh': ['-c'],
+    'tcsh': ['-c'],
+    'dash': ['-c'],
+    // Lua
+    'lua': ['-e'],
+    'luajit': ['-e'],
+    // R
+    'R': ['-e'],
+    'Rscript': ['-e'],
+    // Julia
+    'julia': ['-e', '-E'],
+    // Kotlin, Scala, Elixir
+    'kotlinc': ['-e'],
+    'scala': ['-e'],
+    'elixir': ['-e'],
+    // PowerShell
+    'pwsh': ['-c', '-command', '-encodedcommand'],
+    'powershell': ['-c', '-command', '-encodedcommand'],
+    // Tcl
+    'tclsh': ['-e'],
+    'wish': ['-e']
   };
 
   var MUTATING_BINS = ['rm', 'mv', 'cp', 'chmod', 'chown', 'sed', 'tee', 'truncate'];
@@ -139,7 +226,8 @@ function checkCommandGuardrails(command) {
     if (raw.indexOf('.git/hooks') !== -1) return true;
     if (/\.(claude|cursor|commandcode|opencode|codex|omp)(\/|$)/i.test(raw)) return true;
     if (/\.(rtk|RTK\.md)$/i.test(raw)) return true;
-    if (/(eslint\.config|\.eslintrc|phpstan\.neon|tsconfig\.json|\.tflint\.hcl)/i.test(raw)) return true;
+    if (/(eslint\.config|\.eslintrc|phpstan\.neon|tsconfig\.json|\.tflint\.hcl|ruff\.toml|\.editorconfig)/i.test(raw)) return true;
+    if (raw.indexOf('/etc/resolv.conf') !== -1 || raw.indexOf('/etc/hosts') !== -1) return true;
     return false;
   }
 
