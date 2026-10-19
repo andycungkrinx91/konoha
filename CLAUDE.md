@@ -1,5 +1,5 @@
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.2-cross-client-1)
+## Konoha runtime contract (2.2.3-cross-client-1)
 
 You are the main agent running through Claude Code. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.2). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.3). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.2`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.3`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -381,7 +381,7 @@ npx aislop scan --changes
 | Feedback / QA Verification Item | Verification Procedure | Expected Result | Status |
 | :--- | :--- | :--- | :--- |
 | **1. Auth Login Across Any CWD & Bootstrap Auto-Healing (Feedback 1)** | Execute `auth.hashPassword` and `auth.verifyPasswordHash` with `process.cwd()` set to `/tmp/`, Windows paths, or user home directory. Authenticate with stale bootstrap credentials. | Child process loads `argon2` via `require.resolve` and `NODE_PATH` without `MODULE_NOT_FOUND` errors; `is_bootstrap: true` allows `konohagakure` login and auto-heals corrupted stored hashes; zero operator lockouts. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `tests/test_auth.js`) |
-| **2. Automated Web UI Version Synchronization (Feedback 2)** | Upgrade or install Konoha; verify `resolveWebUiDir()` candidate precedence and inspect `~/.konoha/apps/web/build`. | Packaged distribution is prioritized over stale `~/.konoha` builds; `installCliRuntime()` refreshes `~/.konoha/apps/web/build` on version change; layout displays current version `2.2.2`; zero manual build required. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `ui build`) |
+| **2. Automated Web UI Version Synchronization (Feedback 2)** | Upgrade or install Konoha; verify `resolveWebUiDir()` candidate precedence and inspect `~/.konoha/apps/web/build`. | Packaged distribution is prioritized over stale `~/.konoha` builds; `installCliRuntime()` refreshes `~/.konoha/apps/web/build` on version change; layout displays current version `2.2.3`; zero manual build required. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js` & `ui build`) |
 | **3. Zero-Manual Migration & Embeddings (Feedback 3)** | Run `konoha upgrade` and inspect `ensureAutoSetup()`. | Dead bridge function calls purged; `cmdUpgrade` and `ensureAutoSetup()` automatically execute `migrate.js` with IBM Granite neural embeddings on version change without requiring manual CLI commands. | `PASS` (verified in `tests/test_auto_upgrade_and_embeddings.js`) |
 | **4. Playwright End-to-End Suite & Agent-Browser QA** | Execute Playwright E2E suite (`pnpm --dir apps/web run test:e2e`) across all 12 spec files. | All 46 tests pass across login animations, theme matrix contrast, dashboard gauges, detector flows, hybrid search, link crawler, and UI consistency. | `PASS` (46/46 passed) |
 
@@ -395,7 +395,7 @@ npx aislop scan --changes
 
 ---
 
-## Section 6: v2.2.2 Security, Socket Alert Remediation & Supply-Chain QA Matrix
+## Section 6: v2.2.3 Security, Socket Alert Remediation & Supply-Chain QA Matrix
 
 | Verification Item | Verification Procedure | Expected Result | Status |
 | :--- | :--- | :--- | :--- |
@@ -406,3 +406,18 @@ npx aislop scan --changes
 | **5. Socket-Optimized Safe-Buffer** | Check resolved `safe-buffer` replacement in dependency tree. | Adopted official `@socketregistry/safe-buffer@1.0.9`, replacing unmaintained legacy shim with native Node.js Buffer operations and zero maintenance alerts. | `PASS` (verified: `@socketregistry/safe-buffer@1.0.9`) |
 | **6. Synchronized Package Manifest & Lockfile Overrides** | Inspect root `package.json` (`overrides` for npm, `pnpm.overrides` for pnpm) and verify `pnpm-lock.yaml` and `package-lock.json`. | Lockfiles match exact override configurations; zero configuration mismatch errors; `npm audit` reports 0 vulnerabilities and `pnpm audit` reports 0 vulnerabilities. | `PASS` (verified with `npm audit` & `pnpm audit`) |
 | **7. Full E2E Browser & TUI Parity** | Run Playwright test suite across all 12 spec files and test TUI commands in pseudo-terminal. | All 46 browser tests pass; `konoha version`, `doctor`, `status`, and `savings` render cleanly with 0 errors. | `PASS` (46/46 browser tests & 4/4 TUI commands verified) |
+
+---
+
+## Section 7: v2.2.3 Maintenance QA: Deprecated Package Elimination, Global Installation Self-Healing & Document Engine Parity
+
+| Verification Item | Verification Procedure | Expected Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Deprecated NPM Package Elimination** | Run `npm install` and `pnpm install` in isolated `/tmp/konoha-2.2.3-<run-id>`. | 0 deprecated-package warnings, 0 errors, and 0 warnings across all direct and transitive dependencies. Specifically verifies complete removal of `inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, and `uuid` deprecations. | `PASS` (verified: 0 warnings, exit code 0) |
+| **2. Clean Packed Tarball Installation** | Pack package via `npm pack` and install tarball into a fresh temporary consumer directory (`npm init -y && npm install <tarball>`). | Installs cleanly with 0 deprecation warnings, 0 errors, and exit code 0. | `PASS` (verified in clean temporary consumer) |
+| **3. Global CLI Self-Healing Runtime** | Delete `~/.konoha` (`rm -rf ~/.konoha`) and invoke `konoha version` or consumer `./node_modules/.bin/konoha version`. | CLI detects missing runtime, executes `installCliRuntime()` and `reconcileGlobalCommand()`, restores `~/.konoha/bin/cli.js`, and prints version `2.2.3` with exit code 0 (zero `MODULE_NOT_FOUND` exceptions). | `PASS` (verified in clean environment) |
+| **4. Multi-Tier Resilient Global Shims** | Inspect generated global command shims in `~/.local/bin/konoha`, Windows `.cmd`, and PowerShell `.ps1`. | Shims check if `sourceCli` exists; if removed, fallback to `packageCli` (`node_modules/konoha-mcp/bin/cli.js`); if neither exists, execute self-healing Node bootstrap. | `PASS` (verified in `bin/lib/runtime.js`) |
+| **5. Postinstall Hook Auto-Setup** | Install package via npm/pnpm. | `bin/postinstall.js` triggers `installCliRuntime()` and `reconcileGlobalCommand()` automatically, ensuring shims and runtime are immediately present upon package installation. | `PASS` (verified in `bin/postinstall.js`) |
+| **6. Document Engine & Spreadsheet Parity** | Run `node tests/test_document_tools.js` and `node tests/e2e_document_suite.js`. | 9/9 document tools tests pass; full 8-page DevOps deliverable suite generated with exact styling, autoFilter, KPI cards, zebra striping, and formula sanitization via `xlsx-populate`. | `PASS` (9/9 passed, 8/8 deliverables generated) |
+| **7. Local Socket CLI Verification** | Execute socket CLI tests covering success, invalid input, connection failure, timeout, and clean shutdown against local service. | All 5 socket test cases execute with expected exit codes, clear error messages, and 0 hangs or socket leaks. | `PASS` (verified locally) |
+| **8. Playwright & agent-browser Web UI QA** | Start local Web UI and execute Playwright end-to-end suite (`pnpm --dir apps/web run test:e2e`). | All test suites pass cleanly with 0 console errors, 0 network failures, and responsive layout across all viewports. | `PASS` (verified in apps/web) |

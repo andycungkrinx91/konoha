@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -55,7 +55,8 @@
     "test:docs": "node tests/test_docs_currency.js && node tests/test_documentation_diagrams.js",
     "build:web": "pnpm --dir apps/web run build",
     "sync:skills": "node scripts/sync_skills.js",
-    "web": "node bin/cli.js web"
+    "web": "node bin/cli.js web",
+    "postinstall": "node bin/postinstall.js || true"
   },
   "os": [
     "linux",
@@ -66,9 +67,9 @@
     "@bufbuild/protobuf": "2.16.0",
     "argon2": "^0.45.1",
     "docx": "^9.11.0",
-    "exceljs": "^4.4.0",
     "playwright": "^1.64.1",
-    "pptxgenjs": "^4.0.1"
+    "pptxgenjs": "^4.0.1",
+    "xlsx-populate": "^1.21.0"
   },
   "pnpm": {
     "overrides": {

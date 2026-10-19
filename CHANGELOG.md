@@ -2,6 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.3] - 2026-10-20
+
+### Deprecated Package Elimination, Global Installation Self-Healing & Complete Quality Hardening
+
+- **Deprecated npm Packages Elimination & Clean Installation**: Completely eliminated all 6 deprecated npm packages (`inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`) from the package graph by replacing `exceljs` with clean, modern `xlsx-populate` in `src/tools/document_engine.js`. Guaranteed zero deprecation warnings and zero errors across clean `npm install`, `pnpm install`, and consumer packed tarball installations.
+- **CLI Self-Healing Runtime & Resilient Shim Fallbacks**: Resolved `MODULE_NOT_FOUND` when `~/.konoha` is deleted by implementing resilient multi-tier fallback in `reconcileGlobalCommand()` shims (`~/.local/bin/konoha`, Windows `.cmd`/`.ps1`), adding `bin/postinstall.js`, and ensuring automatic self-healing runtime setup in `bin/cli.js` on every command invocation.
+- **Full Parity for Document Engine & Spreadsheets**: Preserved 100% feature and visual parity for `spreadsheet_create` including EulerOS Audit KPI cards, zebra-striped data rows, uppercase formula sanitization, column formatters, dynamic auto-fit column widths, frozen panes, and Excel autoFilter.
+- **Workflow, Socket CLI, TUI & Web UI Verification**: Validated all workflow paths, socket CLI commands against local service, pseudo-terminal TUI execution, and Playwright Web UI test suites.
+- **Documentation & Skills Synchronization**: Synchronized `QA-TEST-CHECKLIST.md`, architecture guides, security compliance report (`docs/SecurityCompliance/security_compliance_report_google_policy_2.2.3_2026-10-19.md`), Draw.io diagrams, WebP animations, and canonical maintenance skills in `.agents/skills/` followed by `sync_skills.js`.
+
 ## [2.2.2] - 2026-10-19
 
 ### Socket Security Remediation, Supply-Chain Dependency Hardening & QA Automation

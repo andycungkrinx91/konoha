@@ -55,8 +55,16 @@ function getDocx() {
   return require('docx');
 }
 
-function getExcelJS() {
-  return require('exceljs');
+function getXlsxPopulate() {
+  return require('xlsx-populate');
+}
+
+function cleanHexColor(c) {
+  if (!c) return '000000';
+  let s = String(c).trim();
+  if (s.startsWith('#')) s = s.slice(1);
+  if (s.length === 8 && s.toLowerCase().startsWith('ff')) s = s.slice(2);
+  return s.toUpperCase();
 }
 
 function getPptxGenJS() {
@@ -709,14 +717,14 @@ async function documentCreate(options = {}) {
 async function spreadsheetCreate(options = {}) {
   const outputPath = resolveDynamicOutputPath(options.output_path, 'spreadsheet.xlsx');
 
-  const ExcelJS = getExcelJS();
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = options.author || 'Enterprise Architecture Team';
-  workbook.lastModifiedBy = options.author || 'Enterprise Architecture Team';
-  workbook.created = new Date();
-  workbook.modified = new Date();
-
-  const _theme = selectGradientTheme(options.theme);
+  const XlsxPopulate = getXlsxPopulate();
+  const workbook = await XlsxPopulate.fromBlankAsync();
+  if (options.author) {
+    try {
+      workbook.property('Author', options.author);
+      workbook.property('LastModifiedBy', options.author);
+    } catch (_) { /* intentional best-effort fallback */ }
+  }
 
   const sheets = options.sheets || [
     {
@@ -731,11 +739,13 @@ async function spreadsheetCreate(options = {}) {
     }
   ];
 
-  for (const sheetDef of sheets) {
+  for (let sIdx = 0; sIdx < sheets.length; sIdx++) {
+    const sheetDef = sheets[sIdx];
     const headers = sheetDef.headers || [];
     const rows = sheetDef.rows || [];
 
-    // Calculate frozen row split based on layout elements
+    const sheet = sIdx === 0 ? workbook.sheet(0).name(sheetDef.name || 'Sheet1') : workbook.addSheet(sheetDef.name || `Sheet${sIdx + 1}`);
+
     let ySplit = 1;
     if (sheetDef.kpi_cards && sheetDef.kpi_cards.length > 0) {
       ySplit = sheetDef.title ? 6 : 4;
@@ -743,216 +753,276 @@ async function spreadsheetCreate(options = {}) {
       ySplit = sheetDef.subtitle ? 4 : 3;
     }
 
-    const sheet = workbook.addWorksheet(sheetDef.name, {
-      views: [{ showGridLines: true, state: 'frozen', ySplit }]
-    });
+    try {
+      sheet.freezePanes(0, ySplit);
+    } catch (_) { /* intentional best-effort fallback */ }
 
     let currentRow = 1;
 
-    // Optional Title Banner (EulerOS Audit style)
     if (sheetDef.title) {
       const endColLetter = String.fromCharCode(64 + Math.max(headers.length, 5));
-      sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
-      const titleCell = sheet.getCell(`A${currentRow}`);
-      titleCell.value = sheetDef.title;
-      titleCell.font = { name: 'Segoe UI', size: 12.5, bold: true, color: { argb: 'FF1E293B' } };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
-      titleCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
-      sheet.getRow(currentRow).height = 24;
+      sheet.range(`A${currentRow}:${endColLetter}${currentRow}`).merged(true);
+      const titleCell = sheet.cell(`A${currentRow}`);
+      titleCell.value(sheetDef.title);
+      titleCell.style({
+        fontFamily: 'Segoe UI',
+        fontSize: 12.5,
+        bold: true,
+        fontColor: '1E293B',
+        fill: 'F5F3FF',
+        horizontalAlignment: 'left',
+        verticalAlignment: 'center'
+      });
+      sheet.row(currentRow).height(24);
       currentRow++;
 
       if (sheetDef.subtitle) {
-        sheet.mergeCells(`A${currentRow}:${endColLetter}${currentRow}`);
-        const subCell = sheet.getCell(`A${currentRow}`);
-        subCell.value = sheetDef.subtitle;
-        subCell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF64748B' } };
-        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF5FF' } };
-        subCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
-        sheet.getRow(currentRow).height = 20;
+        sheet.range(`A${currentRow}:${endColLetter}${currentRow}`).merged(true);
+        const subCell = sheet.cell(`A${currentRow}`);
+        subCell.value(sheetDef.subtitle);
+        subCell.style({
+          fontFamily: 'Segoe UI',
+          fontSize: 9,
+          fontColor: '64748B',
+          fill: 'FAF5FF',
+          horizontalAlignment: 'left',
+          verticalAlignment: 'center'
+        });
+        sheet.row(currentRow).height(20);
         currentRow++;
       }
-      sheet.getRow(currentRow).height = 10;
-      currentRow++; // Blank spacer row
+      sheet.row(currentRow).height(10);
+      currentRow++;
     }
 
-    // Optional 2-Row Top KPI Summary Cards (EulerOS Audit style with random user 10-color choice)
     if (sheetDef.kpi_cards && Array.isArray(sheetDef.kpi_cards) && sheetDef.kpi_cards.length > 0) {
       const kpiAccentColors = [...EXCEL_PALETTE_ARGB].sort(() => Math.random() - 0.5);
       const mergeTwoCols = sheetDef.kpi_cards.length <= 4 && headers.length >= 6;
 
-      sheet.getRow(currentRow).height = 18;
-      sheet.getRow(currentRow + 1).height = 28;
+      sheet.row(currentRow).height(18);
+      sheet.row(currentRow + 1).height(28);
 
       sheetDef.kpi_cards.forEach((kpi, kIdx) => {
         const startCol = mergeTwoCols ? (1 + kIdx * 2) : (1 + kIdx);
         const endCol = mergeTwoCols ? (startCol + 1) : startCol;
-        const accentColor = kpiAccentColors[kIdx % kpiAccentColors.length];
+        const rawAccent = kpiAccentColors[kIdx % kpiAccentColors.length];
+        const accentColor = cleanHexColor(rawAccent);
 
         if (mergeTwoCols) {
-          sheet.mergeCells(currentRow, startCol, currentRow, endCol);
-          sheet.mergeCells(currentRow + 1, startCol, currentRow + 1, endCol);
+          sheet.range(currentRow, startCol, currentRow, endCol).merged(true);
+          sheet.range(currentRow + 1, startCol, currentRow + 1, endCol).merged(true);
         }
 
-        const labelCell = sheet.getRow(currentRow).getCell(startCol);
-        labelCell.value = (kpi.label || '').toUpperCase();
-        labelCell.font = { name: 'Segoe UI', size: 8, bold: true, color: { argb: 'FF64748B' } };
-        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        labelCell.border = {
-          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-        };
+        const labelCell = sheet.row(currentRow).cell(startCol);
+        labelCell.value((kpi.label || '').toUpperCase());
+        labelCell.style({
+          fontFamily: 'Segoe UI',
+          fontSize: 8,
+          bold: true,
+          fontColor: '64748B',
+          fill: 'F1F5F9',
+          horizontalAlignment: 'center',
+          verticalAlignment: 'center',
+          topBorder: 'thin',
+          topBorderColor: 'CBD5E1',
+          leftBorder: 'thin',
+          leftBorderColor: 'CBD5E1',
+          rightBorder: 'thin',
+          rightBorderColor: 'CBD5E1'
+        });
 
         if (mergeTwoCols) {
-          const rCell = sheet.getRow(currentRow).getCell(endCol);
-          rCell.border = {
-            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-          };
+          const rCell = sheet.row(currentRow).cell(endCol);
+          rCell.style({
+            topBorder: 'thin',
+            topBorderColor: 'CBD5E1',
+            rightBorder: 'thin',
+            rightBorderColor: 'CBD5E1'
+          });
         }
 
-        const valCell = sheet.getRow(currentRow + 1).getCell(startCol);
+        const valCell = sheet.row(currentRow + 1).cell(startCol);
         if (typeof kpi.formula === 'string') {
           const cleanFormula = sanitizeFormula(kpi.formula);
-          valCell.value = { formula: cleanFormula, result: kpi.result };
+          valCell.formula(cleanFormula.replace(/^=/, ''));
         } else {
-          valCell.value = kpi.value;
+          valCell.value(kpi.value);
         }
 
-        valCell.font = { name: 'Segoe UI', size: 15, bold: true, color: { argb: accentColor } };
-        valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        valCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        valCell.border = {
-          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          bottom: { style: 'medium', color: { argb: accentColor } }
-        };
+        valCell.style({
+          fontFamily: 'Segoe UI',
+          fontSize: 15,
+          bold: true,
+          fontColor: accentColor,
+          fill: 'F1F5F9',
+          horizontalAlignment: 'center',
+          verticalAlignment: 'center',
+          leftBorder: 'thin',
+          leftBorderColor: 'CBD5E1',
+          rightBorder: 'thin',
+          rightBorderColor: 'CBD5E1',
+          bottomBorder: 'medium',
+          bottomBorderColor: accentColor
+        });
 
         if (mergeTwoCols) {
-          const rValCell = sheet.getRow(currentRow + 1).getCell(endCol);
-          rValCell.border = {
-            right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-            bottom: { style: 'medium', color: { argb: accentColor } }
-          };
+          const rValCell = sheet.row(currentRow + 1).cell(endCol);
+          rValCell.style({
+            rightBorder: 'thin',
+            rightBorderColor: 'CBD5E1',
+            bottomBorder: 'medium',
+            bottomBorderColor: accentColor
+          });
         }
 
-        if (kpi.format === 'currency') valCell.numFmt = '"$"#,##0';
-        else if (kpi.format === 'percent') valCell.numFmt = '0.0%';
-        else if (kpi.format === 'integer') valCell.numFmt = '#,##0';
+        if (kpi.format === 'currency') valCell.style('numberFormat', '"$"#,##0');
+        else if (kpi.format === 'percent') valCell.style('numberFormat', '0.0%');
+        else if (kpi.format === 'integer') valCell.style('numberFormat', '#,##0');
       });
 
       currentRow += 2;
-      sheet.getRow(currentRow).height = 12;
-      currentRow++; // Spacer row
-    }
-
-    // Optional Section Title (EulerOS Audit row 9)
-    if (sheetDef.section_title) {
-      const secCell = sheet.getRow(currentRow).getCell(1);
-      secCell.value = sheetDef.section_title;
-      secCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF1E293B' } };
-      sheet.getRow(currentRow).height = 24;
+      sheet.row(currentRow).height(12);
       currentRow++;
     }
 
-    // Table Header Row (EulerOS Audit row 10: #EEF2F6 fill, 9pt bold, medium #94A3B8 bottom border)
+    if (sheetDef.section_title) {
+      const secCell = sheet.row(currentRow).cell(1);
+      secCell.value(sheetDef.section_title);
+      secCell.style({
+        fontFamily: 'Segoe UI',
+        fontSize: 11,
+        bold: true,
+        fontColor: '1E293B'
+      });
+      sheet.row(currentRow).height(24);
+      currentRow++;
+    }
+
     const headerRowIdx = currentRow;
-    const headerRow = sheet.getRow(headerRowIdx);
-    headerRow.values = headers;
-    headerRow.height = 26;
+    const headerRow = sheet.row(headerRowIdx);
+    headerRow.height(26);
 
     for (let cIdx = 1; cIdx <= headers.length; cIdx++) {
-      const hCell = headerRow.getCell(cIdx);
-      hCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-      hCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F6' } };
-      hCell.border = {
-        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-        right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-        bottom: { style: 'medium', color: { argb: 'FF94A3B8' } }
-      };
-      hCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+      const hCell = headerRow.cell(cIdx);
+      hCell.value(headers[cIdx - 1]);
+      hCell.style({
+        fontFamily: 'Segoe UI',
+        fontSize: 9,
+        bold: true,
+        fontColor: '1E293B',
+        fill: 'EEF2F6',
+        topBorder: 'thin',
+        topBorderColor: 'CBD5E1',
+        leftBorder: 'thin',
+        leftBorderColor: 'CBD5E1',
+        rightBorder: 'thin',
+        rightBorderColor: 'CBD5E1',
+        bottomBorder: 'medium',
+        bottomBorderColor: '94A3B8',
+        horizontalAlignment: 'left',
+        verticalAlignment: 'center',
+        wrapText: true
+      });
     }
 
     currentRow++;
 
-    // Data Rows with Zebra Striping, Thin Borders, and Status Pill Badge Tints
     for (let rIdx = 0; rIdx < rows.length; rIdx++) {
       const rowData = rows[rIdx];
-      const row = sheet.getRow(currentRow);
-      row.height = 20;
+      const row = sheet.row(currentRow);
+      row.height(20);
 
-      const zebraBg = rIdx % 2 === 1 ? 'FFF8FAFC' : 'FFFFFFFF';
+      const zebraBg = rIdx % 2 === 1 ? 'F8FAFC' : 'FFFFFF';
 
       for (let cIdx = 0; cIdx < rowData.length; cIdx++) {
         const cellVal = rowData[cIdx];
-        const cell = row.getCell(cIdx + 1);
+        const cell = row.cell(cIdx + 1);
 
         if (cellVal && typeof cellVal === 'object' && cellVal.formula) {
           const cleanFormula = sanitizeFormula(cellVal.formula);
-          cell.value = { formula: cleanFormula, result: cellVal.result };
+          cell.formula(cleanFormula.replace(/^=/, ''));
         } else {
-          cell.value = cellVal;
+          cell.value(cellVal);
         }
 
-        cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF0F172A' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-        };
-        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.style({
+          fontFamily: 'Segoe UI',
+          fontSize: 9,
+          fontColor: '0F172A',
+          fill: zebraBg,
+          topBorder: 'thin',
+          topBorderColor: 'CBD5E1',
+          bottomBorder: 'thin',
+          bottomBorderColor: 'CBD5E1',
+          leftBorder: 'thin',
+          leftBorderColor: 'CBD5E1',
+          rightBorder: 'thin',
+          rightBorderColor: 'CBD5E1',
+          horizontalAlignment: 'left',
+          verticalAlignment: 'center'
+        });
 
-        // Column formatters
         if (sheetDef.columns && sheetDef.columns[cIdx] && sheetDef.columns[cIdx].format) {
           const fmt = sheetDef.columns[cIdx].format;
           if (fmt === 'currency') {
-            cell.numFmt = '"$"#,##0';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '"$"#,##0');
+            cell.style('horizontalAlignment', 'right');
           } else if (fmt === 'percent') {
-            cell.numFmt = '0.0%';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '0.0%');
+            cell.style('horizontalAlignment', 'right');
           } else if (fmt === 'integer') {
-            cell.numFmt = '#,##0';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '#,##0');
+            cell.style('horizontalAlignment', 'right');
           } else if (fmt === 'duration_hrs') {
-            cell.numFmt = '0.0 "hrs"';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '0.0 "hrs"');
+            cell.style('horizontalAlignment', 'right');
           } else if (fmt === 'duration_mins') {
-            cell.numFmt = '0 "mins"';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '0 "mins"');
+            cell.style('horizontalAlignment', 'right');
           }
         } else if (typeof cellVal === 'number') {
           if (cellVal > 0 && cellVal < 1) {
-            cell.numFmt = '0.0%';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '0.0%');
+            cell.style('horizontalAlignment', 'right');
           } else if (Number.isInteger(cellVal)) {
-            cell.numFmt = '#,##0';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            cell.style('numberFormat', '#,##0');
+            cell.style('horizontalAlignment', 'right');
           }
         }
 
-        // Status Badge Tinting (EulerOS Lifecycle pill style)
-        const strVal = String(cellVal || '');
+        const strVal = String((cellVal && typeof cellVal === 'object' && cellVal.result !== undefined) ? cellVal.result : (cellVal || ''));
         if (/(?:DEPRECATED|CRITICAL|FAILED|HIGH|ERROR|EOS|EOL)/i.test(strVal)) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF991B1B' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.style({
+            fill: 'FEE2E2',
+            fontColor: '991B1B',
+            bold: true,
+            fontSize: 8.5,
+            horizontalAlignment: 'center'
+          });
         } else if (/(?:ACTIVE|HEALTHY|OPERATIONAL|SUCCESS|PASSED|STABLE)/i.test(strVal)) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
-          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF166534' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.style({
+            fill: 'DCFCE7',
+            fontColor: '166534',
+            bold: true,
+            fontSize: 8.5,
+            horizontalAlignment: 'center'
+          });
         } else if (/(?:TIER|CORE|PRIMARY)/i.test(strVal)) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
-          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF3730A3' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.style({
+            fill: 'E0E7FF',
+            fontColor: '3730A3',
+            bold: true,
+            fontSize: 8.5,
+            horizontalAlignment: 'center'
+          });
         } else if (/(?:WARNING|PENDING|MIGRATING|SPOT)/i.test(strVal)) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
-          cell.font = { name: 'Segoe UI', size: 8.5, bold: true, color: { argb: 'FF92400E' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.style({
+            fill: 'FEF3C7',
+            fontColor: '92400E',
+            bold: true,
+            fontSize: 8.5,
+            horizontalAlignment: 'center'
+          });
         }
       }
 
@@ -961,61 +1031,75 @@ async function spreadsheetCreate(options = {}) {
 
     const endDataRow = currentRow - 1;
 
-    // Excel AutoFilter
     if (sheetDef.auto_filter !== false && headers.length > 0 && rows.length > 0) {
-      sheet.autoFilter = {
-        from: { row: headerRowIdx, column: 1 },
-        to: { row: endDataRow, column: headers.length }
-      };
+      try {
+        sheet.autoFilter(sheet.range(headerRowIdx, 1, endDataRow, headers.length));
+      } catch (_) { /* intentional best-effort fallback */ }
     }
 
-    // Summary Row
     if (sheetDef.summary) {
-      const sumRow = sheet.getRow(currentRow);
-      sumRow.height = 22;
+      const sumRow = sheet.row(currentRow);
+      sumRow.height(22);
 
       for (let cIdx = 0; cIdx < sheetDef.summary.length; cIdx++) {
         const item = sheetDef.summary[cIdx];
-        const cell = sumRow.getCell(cIdx + 1);
+        const cell = sumRow.cell(cIdx + 1);
         if (item && typeof item === 'object' && item.formula) {
           const cleanFormula = sanitizeFormula(item.formula);
-          cell.value = { formula: cleanFormula, result: item.result };
+          cell.formula(cleanFormula.replace(/^=/, ''));
         } else {
-          cell.value = item;
+          cell.value(item);
         }
 
-        cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          bottom: { style: 'double', color: { argb: 'FF64748B' } },
-          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-        };
+        cell.style({
+          fontFamily: 'Segoe UI',
+          fontSize: 9.5,
+          bold: true,
+          fontColor: '0F172A',
+          fill: 'F1F5F9',
+          topBorder: 'thin',
+          topBorderColor: 'CBD5E1',
+          bottomBorder: 'double',
+          bottomBorderColor: '64748B',
+          leftBorder: 'thin',
+          leftBorderColor: 'CBD5E1',
+          rightBorder: 'thin',
+          rightBorderColor: 'CBD5E1',
+          horizontalAlignment: 'left',
+          verticalAlignment: 'center'
+        });
 
         if (sheetDef.columns && sheetDef.columns[cIdx] && sheetDef.columns[cIdx].format) {
           const fmt = sheetDef.columns[cIdx].format;
-          if (fmt === 'currency') cell.numFmt = '"$"#,##0';
-          else if (fmt === 'percent') cell.numFmt = '0.0%';
-          else if (fmt === 'integer') cell.numFmt = '#,##0';
+          if (fmt === 'currency') {
+            cell.style('numberFormat', '"$"#,##0');
+            cell.style('horizontalAlignment', 'right');
+          } else if (fmt === 'percent') {
+            cell.style('numberFormat', '0.0%');
+            cell.style('horizontalAlignment', 'right');
+          } else if (fmt === 'integer') {
+            cell.style('numberFormat', '#,##0');
+            cell.style('horizontalAlignment', 'right');
+          }
         }
       }
 
       currentRow++;
     }
 
-    // Auto-fit column widths
-    sheet.columns.forEach((col, idx) => {
+    headers.forEach((h, idx) => {
       let maxLen = 14;
-      if (headers[idx]) maxLen = Math.max(maxLen, String(headers[idx]).length + 4);
+      if (h) maxLen = Math.max(maxLen, String(h).length + 4);
       if (sheetDef.columns && sheetDef.columns[idx] && sheetDef.columns[idx].width) {
         maxLen = sheetDef.columns[idx].width;
       }
-      col.width = maxLen;
+      try {
+        sheet.column(idx + 1).width(maxLen);
+      } catch (_) { /* intentional best-effort fallback */ }
     });
   }
 
-  await workbook.xlsx.writeFile(outputPath);
+  await workbook.toFileAsync(outputPath);
   return {
     success: true,
     file_path: outputPath,

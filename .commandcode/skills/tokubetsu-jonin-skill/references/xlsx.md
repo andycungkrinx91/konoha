@@ -52,7 +52,7 @@ When creating spreadsheets:
 - **Status Pill Badge Tints**: Cells containing status terms automatically receive subtle pill tints: `#FEE2E2` for Critical/Deprecated/EOL, `#DCFCE7` for Healthy/Active/Operational, `#E0E7FF` for Tier/Core, `#FEF3C7` for Warning/Pending.
 - **Dynamic Relational Lookups**: Use cross-sheet `XLOOKUP` formulas rather than hardcoded lookup values to connect operational detail sheets with master indexes.
 - **Strict Zero Watermark Invariant**: Under NO circumstances should generated, styled, or edited Excel workbooks contain watermarks, diagonal background stamps, sheet header watermark graphics, or evaluation marks.
-- **Metadata Scrubbing**: Set workbook author and properties to the human analyst / organization; remove `openpyxl`, `exceljs`, or `pandas` application tags.
+- **Metadata Scrubbing**: Set workbook author and properties to the human analyst / organization; remove `openpyxl`, `exceljs`, `xlsx-populate`, or `pandas` application tags.
 - **Mandatory Kage Review Gate**: Every generated Excel workbook must undergo Kage review before completion.
 
 ---

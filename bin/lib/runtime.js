@@ -679,8 +679,12 @@ function reconcileGlobalCommand() {
   const report = { updated: [], created: [], ok: [], failed: [], sourceCli: null };
   const isWin = process.platform === 'win32';
   const sourceCli = path.join(SKILLS_DB_DIR, 'bin', 'cli.js');
+  const packageCli = path.resolve(__dirname, '..', 'cli.js');
   report.sourceCli = sourceCli;
-  if (!fileExists(sourceCli)) return report;
+  if (!fileExists(sourceCli)) {
+    try { installCliRuntime(); } catch (_) { /* intentional best-effort fallback */ }
+  }
+  if (!fileExists(sourceCli) && !fileExists(packageCli)) return report;
 
   const nodeCmd = process.execPath;
   const homeDir = HOME;
@@ -736,9 +740,9 @@ function reconcileGlobalCommand() {
     for (const name of shimNames) {
       const shimPath = path.join(dir, name);
       const contents = {
-        'konoha': `#!/bin/sh\nexec "${nodeCmd}" "${sourceCli}" "$@"\n`,
-        'konoha.cmd': `@echo off\r\n"${nodeCmd}" "${sourceCli}" %*\r\n`,
-        'konoha.ps1': `& "${nodeCmd}" "${sourceCli}" @args\n`
+        'konoha': `#!/bin/sh\nif [ -f "${sourceCli}" ]; then\n  exec "${nodeCmd}" "${sourceCli}" "$@"\nelif [ -f "${packageCli}" ]; then\n  exec "${nodeCmd}" "${packageCli}" "$@"\nelse\n  exec "${nodeCmd}" "${sourceCli}" "$@"\nfi\n`,
+        'konoha.cmd': `@echo off\r\nif exist "${sourceCli}" (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n) else if exist "${packageCli}" (\r\n  "${nodeCmd}" "${packageCli}" %*\r\n) else (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n)\r\n`,
+        'konoha.ps1': `if (Test-Path "${sourceCli}") {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n} elseif (Test-Path "${packageCli}") {\r\n  & "${nodeCmd}" "${packageCli}" @args\r\n} else {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n}\r\n`
       };
       const mode = isWin ? undefined : 0o755;
 

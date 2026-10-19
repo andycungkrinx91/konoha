@@ -22,7 +22,7 @@ console.log('✓ Root package.json devDependencies is empty ({})');
 
 // 2. Root package.json dependencies invariant (only Bridge Gateway @bufbuild/protobuf and artifact generators allowed)
 const rootDeps = rootPkg.dependencies || {};
-const allowedRootDeps = ['@bufbuild/protobuf', 'docx', 'exceljs', 'playwright', 'pptxgenjs', 'argon2'];
+const allowedRootDeps = ['@bufbuild/protobuf', 'docx', 'xlsx-populate', 'playwright', 'pptxgenjs', 'argon2'];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {
   assert.ok(
