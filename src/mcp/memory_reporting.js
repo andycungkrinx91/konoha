@@ -719,12 +719,12 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       );
     } else {
       tasteSkillBlock = (
-        '### 🎨 Taste-Skill Design Directives (tasteskill.dev):\n' +
+        '### 🎨 Taste-Skill Design Engine Directives (tasteskill.dev):\n' +
         `- Active Taste Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10\n` +
         '- Anti-Slop: Zero generic AI-purple gradients, zero 3-card boilerplate stacks. Bespoke editorial UI.\n' +
         '- Typography: Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display. Extreme scale contrast.\n' +
-        '- Layout & Spacing: py-24/py-32 section pacing, CSS Grid (12-col), max-w-[1400px], min-h-[100dvh].\n' +
-        '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), zero emojis (Lucide SVG).\n' +
+        '- Layout & Spacing: py-24/py-32 section pacing, CSS Grid (grid-cols-12), max-w-[1400px], min-h-[100dvh].\n' +
+        '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), Zero emojis (Lucide SVG).\n' +
         '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
         '- Quality & Delivery: pnpm exclusively, zero errors/warnings, run `rtk aislop scan --changes` (findings: 0, ai_slop_clean: true).\n'
       );

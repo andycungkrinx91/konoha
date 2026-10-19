@@ -22,7 +22,10 @@ Konoha operates as a high-efficiency MCP orchestrator designed to reduce context
 - **OMP** (`~/.omp/agent/mcp.json`, `~/.omp/agent/AGENTS.md`)
 
 Each client environment is configured with three core MCP servers:
-1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration.
+1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration across specialists:
+   - Deep Research (Chunin): Web research, documentation lookup, and evidence synthesis.
+   - Code Exploration (Genin): Read-only codebase exploration, symbol search, and architecture review.
+   - Architecture & Planning (Kage): Architecture decisions, security audits, and quality gates.
 2. **`semble`**: AI-powered semantic code search and dependency mapping.
 3. **`aislop`**: Zero-AI-slop code hygiene validation, rule reasoning, automated repairs, and Kage delivery gating (`ai_slop_findings: 0`, `ai_slop_clean: true`).
 
@@ -161,7 +164,7 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
    - **Konoha does not maintain filesystem mirrors** (e.g. no `.cursor/skills/` mirrors); skill content is served on-demand via SQLite FTS5 index.
 3. **OpenAI Proxy Gateway Persistence & VSIX Extension Removal**:
    - The standalone local OpenAI proxy gateway on port 19999 (`src/bridge/*`) remains fully functional and intact for local LLM routing and second opinions.
-   - The legacy `konoha-bridge` VSIX extension has been removed in v2.2.1. IDE integrations operate purely via standard MCP configuration (`konoha`, `semble`, `aislop`).
+   - The legacy `konoha-bridge` VSIX extension and directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` have been removed in v2.2.1. IDE integrations operate purely via standard MCP configuration (`konoha`, `semble`, `aislop`).
 4. **Rule Synchronization**:
    - Whenever a new rule or invariant is introduced, ensure it is added to `src/agent_manager.js`, `src/cursor_manager.js`, `src/opencode_manager.js`, `src/codex_manager.js`, `.agents/skills/konoha/SKILL.md`, and `src/templates/skills/konoha/SKILL.md`.
 5. **Database Migration**:

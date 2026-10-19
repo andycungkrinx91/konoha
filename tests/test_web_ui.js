@@ -34,7 +34,13 @@ async function run() {
 
   try {
     // 1. Health endpoint
-    const health = await request({ hostname: '127.0.0.1', port, path: '/api/v1/health', method: 'GET' });
+    const health = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/health',
+      method: 'GET',
+      headers: { 'X-Konoha-Web-Token': token }
+    });
     assert.strictEqual(health.status, 200);
     assert.strictEqual(health.data.status, 'healthy');
     assert.strictEqual(health.data.port, port);

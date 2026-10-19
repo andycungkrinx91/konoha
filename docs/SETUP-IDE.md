@@ -47,7 +47,7 @@ This manual script or the auto-setup routine will:
 3. **Back up** existing `~/.gemini/config/mcp_config.json` → `mcp_config.json.back` (first install only)
 4. **Merge or repair** `~/.gemini/config/mcp_config.json` with the Konoha servers (`konoha` + `semble` + `aislop`) while preserving unrelated entries
 5. Update `~/.gemini/GEMINI.md` with new subagent instructions
-6. If Antigravity IDE is detected, refresh the live `master` branch of `konoha-bridge` at `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` for `127.0.0.1:1313`; otherwise skip it without creating extension directories (the extension is exclusively installed into Antigravity IDE, never Cursor or other editors). Konoha’s embedded gateway remains on `127.0.0.1:19999`.
+6. If Antigravity IDE is detected, standard MCP server integration is configured (`konoha` + `semble` + `aislop`). Konoha’s embedded proxy gateway remains on `127.0.0.1:19999` for local LLM multiplexing and second opinions.
 
 > [!NOTE]
 > Your original config is safely preserved in `mcp_config.json.back`. To restore it, run:

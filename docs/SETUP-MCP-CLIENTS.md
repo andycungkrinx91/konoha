@@ -3,7 +3,7 @@ Konoha registers **konoha**, **semble**, and **aislop** for every supported clie
 
 | Client | Auto-setup with `konoha init` | Runtime config |
 |--------|------------------------------|----------------|
-| **Antigravity CLI/IDE** | MCP setup when detected; external `konoha-bridge` extension auto-cloned, packaged into VSIX, and installed exclusively into Antigravity IDE (`~/.antigravity-ide/extensions/`) on init and upgrade (never into Cursor or other editors) | `~/.gemini/config/mcp_config.json`; extension API `127.0.0.1:1313` when enabled |
+| **Antigravity CLI/IDE** | MCP setup when detected; operates via standard MCP configuration (`konoha`, `semble`, `aislop`) with local OpenAI proxy gateway on port 19999 | `~/.gemini/config/mcp_config.json`; embedded gateway on `127.0.0.1:19999` |
 | **Cursor** | When detected | `~/.cursor/mcp.json` and project `.cursor/mcp.json` |
 | **Claude Code** | When detected | `~/.claude.json` → `mcpServers` |
 | **OpenCode** | When detected | `~/.config/opencode/opencode.json` → `mcp` (legacy `~/.opencode/config.json` is detected) |
