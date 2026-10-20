@@ -80,10 +80,28 @@ async function run() {
     assert.strictEqual(resAdd.status, 0, `Error: ${resAdd.stderr}`);
     assert.ok(stripAnsi(resAdd.stdout).includes('Saved architectural invariants'));
 
+    // Assert workspace rules & ignore-injection in consumer project
+    const gitignorePath = path.join(projectDir, '.gitignore');
+    const dockerignorePath = path.join(projectDir, '.dockerignore');
+    assert.ok(fs.existsSync(gitignorePath), '.gitignore must exist in consumer project');
+    assert.ok(fs.existsSync(dockerignorePath), '.dockerignore must exist in consumer project');
+    const gitignoreText = fs.readFileSync(gitignorePath, 'utf8');
+    const dockerignoreText = fs.readFileSync(dockerignorePath, 'utf8');
+    assert.ok(gitignoreText.includes('## Start Konoha config+skill'), '.gitignore must contain Start Konoha marker');
+    assert.ok(gitignoreText.includes('.agents'), '.gitignore must contain .agents');
+    assert.ok(gitignoreText.includes('.cursorrules*'), '.gitignore must contain .cursorrules*');
+    assert.ok(gitignoreText.includes('## End Konoha config+skill'), '.gitignore must contain End Konoha marker');
+    assert.ok(dockerignoreText.includes('## Start Konoha config+skill'), '.dockerignore must contain Start Konoha marker');
+    assert.ok(dockerignoreText.includes('## End Konoha config+skill'), '.dockerignore must contain End Konoha marker');
+
+    // Assert core konoha root is excluded from consumer ignore block
+    const konohaGitignoreText = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
+    assert.ok(!konohaGitignoreText.includes('## Start Konoha config+skill'), 'Konoha repo root must NOT contain consumer ignore block');
+
     const resList = runCli(['project', 'list']);
     assert.strictEqual(resList.status, 0, `Error: ${resList.stderr}`);
     assert.ok(stripAnsi(resList.stdout).includes('my-ecommerce-project'));
-    console.log('✓ Project add and list command passed');
+    console.log('✓ Project add, list, and ignore-injection commands passed');
 
     // 3. project memory, memory delete, and project prune
     const personaMemory = require('../src/persona_memory');
