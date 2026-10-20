@@ -2,7 +2,7 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
-## [2.2.4] - Unreleased
+## [2.2.4] - 2026-10-20
 
 ### Supply-Chain Security Hardening, Zero-Native Argon2id WebAssembly, and Queue Worker Guardrails
 

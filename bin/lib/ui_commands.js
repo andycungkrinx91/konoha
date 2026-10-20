@@ -96,9 +96,9 @@ ${C.bold}EXAMPLES${C.reset}
 }
 
 function parseHostPortOptions(args) {
-  let port = 1404;
-  let host = '127.0.0.1';
-  let openBrowser = true;
+  let port = Number(process.env.PORT) || 1404;
+  let host = process.env.HOST || '127.0.0.1';
+  let openBrowser = process.env.KONOHA_DOCKER === '1' ? false : true;
   let foreground = false;
   let silent = false;
   let token = null;
@@ -172,9 +172,9 @@ async function cmdUiDaemon(args = []) {
 }
 
 async function cmdWebForeground(options = {}) {
-  const port = options.port || 1404;
-  const host = options.host || '127.0.0.1';
-  const openBrowser = options.openBrowser !== false;
+  const port = options.port || Number(process.env.PORT) || 1404;
+  const host = options.host || process.env.HOST || '127.0.0.1';
+  const openBrowser = process.env.KONOHA_DOCKER === '1' ? false : (options.openBrowser !== false);
   const token = options.token || null;
 
   const buildHandler = path.join(deployUtils.resolveWebUiDir() || path.resolve(__dirname, '..', '..', 'apps', 'web'), 'build', 'handler.js');

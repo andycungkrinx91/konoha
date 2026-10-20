@@ -1042,6 +1042,7 @@ function fuzzyResolveSkill(requested, conn, maxDistance = 3) {
 module.exports = {
   findSkill,
   listSkills,
+  findInMirror,
   getSkill,
   useSkills,
   optimizeReport,

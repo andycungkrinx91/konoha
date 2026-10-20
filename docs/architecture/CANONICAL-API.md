@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
-**Document Version:** 2.2.3  
-**Date:** 2026-10-18  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.3 Complete)  
+**Document Version:** 2.2.4  
+**Date:** 2026-10-20  
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.4 Complete)  
 
 ---
 

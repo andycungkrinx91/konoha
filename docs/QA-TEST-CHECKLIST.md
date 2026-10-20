@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.3). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.4). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -15,7 +15,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.3`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.4`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -450,9 +450,22 @@ npx aislop scan --changes
 
 | Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
 | :--- | :--- | :--- | :--- |
-| **1. Universal Project Add Injection (`konoha project add . "<title>"`)** | `konoha project add . "<title>"` executed in isolated sandbox | Injects all skills (15/15), rules (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/konoha.mdc`, `.omp/agent/AGENTS.md`, `.codex/rules/rtk.md`), and MCP configurations (`.cursor/mcp.json`, `.gemini/antigravity-cli/settings.json`, `.gemini/settings.json`, `.claude/settings.json`, `.claude.json`, `.commandcode/mcp.json`, `.omp/agent/mcp.json`) with mandatory Konoha runtime contract v2.2.3. Verified in `/tmp/` isolation sandbox. | `PASS` (verified in isolation) |
+| **1. Universal Project Add Injection (`konoha project add . "<title>"`)** | `konoha project add . "<title>"` executed in isolated sandbox | Injects all skills (15/15), rules (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/konoha.mdc`, `.omp/agent/AGENTS.md`, `.codex/rules/rtk.md`), and MCP configurations (`.cursor/mcp.json`, `.gemini/antigravity-cli/settings.json`, `.gemini/settings.json`, `.claude/settings.json`, `.claude.json`, `.commandcode/mcp.json`, `.omp/agent/mcp.json`) with mandatory Konoha runtime contract v2.2.4. Verified in `/tmp/` isolation sandbox. | `PASS` (verified in isolation) |
 | **2. Client Skills Parity Across 6 Injected Mirrors** | Automated filesystem inspection across `.agents/skills`, `.cursor/skills`, `.gemini/skills`, `.claude/skills`, `.commandcode/skills`, `.omp/skills` | All 6 project client skill mirrors receive complete 15 canonical skills with 100% directory parity. | `PASS` (15/15 skills across 6 mirrors) |
 | **3. Universal Migrate Multi-Workspace Synchronization** | `konoha migrate --skip-embeddings` executed across registered projects | Automatically synchronizes active project workspace and all tracked projects in SQLite `persona_memory` (`projects` table); replaces outdated Konoha managed blocks (`<!-- KONOHA-START --> ... <!-- KONOHA-END -->`) while preserving user-defined configurations; exits code 0. Verified in `/tmp/` isolation sandbox. | `PASS` (verified across multiple workspaces) |
 | **4. Universal Embed Synchronization (`konoha embed`)** | `konoha embed` executed across registered projects | Re-indexes vector embeddings and triggers universal project workspace synchronization across active and registered projects. Verified in `/tmp/` isolation sandbox. | `PASS` (verified in isolation) |
 | **5. Backend Static Analysis Linter (Zero Errors & Zero Warnings)** | `node scripts/lint.js` | 344 JavaScript files checked across `bin/`, `src/`, `tests/`, and `scripts/`: 0 errors and 0 warnings. | `PASS` (344 files verified) |
 | **6. AI-Slop Quality Gate (Zero Slop & 100/100 Score)** | `npx aislop .` | Scanned 352 files across all 5 deterministic engines (Code Quality, AI Slop, Formatting, Linting, Security): 100 / 100 Healthy, 0 errors, 0 warnings. | `PASS` (100/100 Healthy) |
+
+---
+
+## Section 10: v2.2.4 Supply-Chain Security Hardening & Zero-Native QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Zero-Native Argon2id WebAssembly Hashing** | `node tests/run_all.js test_feedback_features.js` | Replaced native C++ `argon2` module with pure WebAssembly `hash-wasm` (`^4.12.0`). Zero C++ compilation (`node-gyp-build`), zero native binaries. Argon2id generation and timing-safe verification verified in sandboxed runner. | `PASS` (verified in isolation) |
+| **2. Transitive `cross-spawn` & `cross-env` Elimination** | `pnpm list --prod` & Socket shallow dependency analysis | Removing `argon2` eliminated `cross-env` and `cross-spawn` from production dependencies, reducing production package count from 47 to 36. | `PASS` (verified) |
+| **3. Dynamic Eval Elimination via `immediate` Override** | `node tests/test_document_tools.js` | Overrode `setimmediate` with `immediate` (`^3.3.0`) in `package.json` and `pnpm.overrides`, eliminating `new Function()` dynamic eval while preserving 100% compatibility across `docx`, `pptxgenjs`, and `xlsx-populate` document generators (9/9 tests passed). | `PASS` (9/9 passed) |
+| **4. Trivial Package Supply-Chain Override** | `pnpm list minimalistic-assert` | Overrode `minimalistic-assert` with `@socketregistry/assert` (`^1.0.23`). | `PASS` (verified) |
+| **5. Autonomous Queue Worker Command Guardrails** | `node tests/test_queue_guardrails.js` | Integrated `checkCommandGuardrails` from `src/guardrails.js`, stripped `UNSAFE_AUTONOMY` permission bypass flags, and enforced `-o StrictHostKeyChecking=accept-new` for remote host commands. | `PASS` (verified) |
+| **6. Skill Mirror Path Traversal Hardening** | `node tests/test_anthropic_cybersecurity_skills.js` | Added path containment verification in `findInMirror` and `getSkill`, rejecting traversal attempts (`../../etc/passwd`, `/etc/shadow`, Windows drive letters). | `PASS` (verified) |

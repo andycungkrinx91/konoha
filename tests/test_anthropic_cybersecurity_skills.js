@@ -70,6 +70,13 @@ async function runTests() {
   assert.ok(!shortSkillRes.includes('"error"'), 'Short unprefixed lookup must succeed');
   assert.ok(shortSkillRes.includes('Abusing DPAPI for Credential Access'), 'Short lookup must return exact skill content');
 
+  // 7b. Security: test findInMirror and getSkill path traversal rejection
+  assert.strictEqual(skillsModule.findInMirror('../../etc/passwd'), null, 'Must reject path traversal with ..');
+  assert.strictEqual(skillsModule.findInMirror('/etc/shadow'), null, 'Must reject absolute path');
+  assert.strictEqual(skillsModule.findInMirror('C:\\Windows\\cmd.exe'), null, 'Must reject Windows absolute drive path');
+  const traversalSkillRes = skillsModule.getSkill('../../etc/passwd');
+  assert.ok(traversalSkillRes.includes('"error"') || traversalSkillRes.includes('not found'), 'Must not resolve traversed file');
+
   // 8. Clean up
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
