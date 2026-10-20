@@ -98,6 +98,22 @@ async function run() {
     const konohaGitignoreText = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
     assert.ok(!konohaGitignoreText.includes('## Start Konoha config+skill'), 'Konoha repo root must NOT contain consumer ignore block');
 
+    // Assert external konoha fixture repo (simulating global runner outside REPO_ROOT) is excluded
+    const agentManager = require('../src/agent_manager');
+    const konohaFixtureDir = path.join(tmpDir, 'konoha-fixture-repo');
+    fs.mkdirSync(path.join(konohaFixtureDir, 'bin'), { recursive: true });
+    fs.mkdirSync(path.join(konohaFixtureDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(konohaFixtureDir, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.3' }), 'utf8');
+    fs.writeFileSync(path.join(konohaFixtureDir, 'bin', 'cli.js'), '#!/usr/bin/env node\n', 'utf8');
+    fs.writeFileSync(path.join(konohaFixtureDir, 'scripts', 'lint.js'), 'console.log("ok");\n', 'utf8');
+    const fixtureDeploy = agentManager.deployProjectWorkspace(konohaFixtureDir, { silent: true });
+    assert.ok(fixtureDeploy.ok !== false, 'deployProjectWorkspace should succeed for konoha fixture');
+    const fixtureGitignore = path.join(konohaFixtureDir, '.gitignore');
+    if (fs.existsSync(fixtureGitignore)) {
+      const text = fs.readFileSync(fixtureGitignore, 'utf8');
+      assert.ok(!text.includes('## Start Konoha config+skill'), 'External konoha repo fixture must NOT contain consumer ignore block');
+    }
+
     const resList = runCli(['project', 'list']);
     assert.strictEqual(resList.status, 0, `Error: ${resList.stderr}`);
     assert.ok(stripAnsi(resList.stdout).includes('my-ecommerce-project'));

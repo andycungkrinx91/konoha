@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.1)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.3)
 
 ## 1. Overview & Threat Model
 

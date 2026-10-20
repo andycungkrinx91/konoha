@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Antigravity IDE installed and running
-- Node.js 18+ (via nvm, Homebrew, or system package; 100% pure Node.js runtime, zero Python dependency)
+- Node.js 22.16.0+ (via nvm, Homebrew, or system package; uses built-in `node:sqlite` with FTS5, zero external native compilation)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ### Cross-Platform Notes
@@ -95,28 +95,27 @@ If Antigravity IDE User Rules must be set manually, copy the contents of `~/.gem
 
 ### Orchestration Model — Structured MCP Subagent Invocation
 
-Konoha implements a pure MCP-based subagent delegation model. The main agent no longer needs to use `invoke_subagent` or rely on pre-tool hooks to translate custom ninja TypeNames. Instead, all delegation goes through the `mcp_sannin` (Village Elder) MCP tool, which intelligently routes tasks to specialized backend MCP agents.
+Konoha implements a pure MCP-based subagent delegation model. The main agent no longer needs to use `invoke_subagent` or rely on pre-tool hooks to translate custom ninja TypeNames. Instead, all delegation goes through the `sannin` (Village Elder) MCP tool, which intelligently routes tasks to specialized backend MCP agents via direct structured tool arguments (`task`, `context`, `constraints`, `skills`).
 
 Concretely, the orchestrator:
 
-1. Acts as a coordinator, analyzing the user's prompt in `prompt.md`.
-2. Discover skills via `konoha.find_skill` and loads them via `konoha.get_skill` if necessary.
-3. **Delegates** all tasks by calling the `mcp_sannin` MCP tool, passing the prompt and the workspace directory.
-4. `mcp_sannin` routes the structured task to the appropriate MCP agent (`mcp_kage`, `mcp_jonin`, `mcp_anbu`, `mcp_chunin`, `mcp_tokubetsu_jonin`, or `mcp_genin`).
+1. Acts as a coordinator, receiving the user's prompt directly in conversation context.
+2. Discovers skills via `konoha.find_skill` and loads them via `konoha.get_skill` if necessary.
+3. **Delegates** all tasks by calling the `sannin` MCP tool, passing structured arguments (`task`, `context`, `constraints`, `skills`).
+4. `sannin` routes the structured task to the appropriate MCP agent (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, or `genin`).
 5. The chosen MCP agent returns a structured result and can checkpoint learnings with `report_from_agent`.
-6. Hosts that cannot send structured arguments may use the isolated `delegate.md`/`result.md` fallback under `~/.konoha/tmp/`.
 
 #### Task lifecycle & Conversation Resumption
 
-| Step | Actor | Action | Artifact |
+| Step | Actor | Action | Protocol |
 |------|-------|--------|----------|
-| 1 | `prompt_hook.js` | Capture user message or resume action | `prompt.md` |
-| 2 | Orchestrator | Read & analyze request (using konoha MCP `read_file_head`/`read_file_range`) | reads `prompt.md` |
-| 3 | Orchestrator | Discover project knowledge (README, docs/, .cursorrules, project skills) & global skills (`find_skill`) | — |
-| 4 | Orchestrator | Delegate task | calls `mcp_<agentname>` |
-| 5 | Subagent (MCP) | Write instructions & route | writes `delegate.md` |
+| 1 | Client / Host | Capture user message directly | Structured prompt context |
+| 2 | Orchestrator | Analyze request directly | Zero file reads needed |
+| 3 | Orchestrator | Discover project knowledge (README, docs/, .cursorrules, project skills) & global skills (`find_skill`) | MCP read tools / Semble |
+| 4 | Orchestrator | Delegate task | calls ninja MCP tool (`sannin`, `kage`, `anbu`, etc.) |
+| 5 | Subagent (MCP) | Receive structured arguments | `task`, `context`, `constraints`, `skills` |
 | 6 | Subagent (MCP) | Execute task internally | uses MCP file/bash tools |
-| 7 | Subagent (MCP) | Return results | writes `result.md` |
+| 7 | Subagent (MCP) | Return structured results | Direct JSON response |
 | 8 | Orchestrator | Synthesize & respond | final answer |
 
 > [!IMPORTANT]

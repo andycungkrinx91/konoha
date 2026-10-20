@@ -998,8 +998,8 @@ To ensure safety, consistency, and predictable execution, the Antigravity system
 > * **Protected Configuration & Secrets**: All `.env`, `.tfvars`, and `secrets.yaml` files are strictly **read-only** by default. Subagents must explicitly request user permission before accessing or modifying these files.
 > * **No Git Execution**: Subagents are strictly prohibited from executing any `git` commands (including `status`, `diff`, `log`). Use `semble` for code search; `konoha` for targeted reads/grep.
 > * **Locked Subagent Delegation**: Subagent delegation is locked to the 7 official Konoha agents (`genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`, `sannin`). You cannot route tasks to shadow agents or unstructured personas. Never use Antigravity `@self` / `@research`. Creating custom subagents dynamically is prohibited.
-> * **Orchestrator Pipeline (Antigravity)**: User prompt → structured MCP delegation → Konoha subagent → structured result/report. Legacy `prompt.md` → `delegate.md` → `result.md` artifacts are fallback-only and remain isolated outside the project.
-> * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in `delegate.md`. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
+> * **Orchestrator Pipeline (Antigravity)**: User prompt → structured MCP delegation → Konoha subagent → structured result/report. Direct structured MCP tool arguments (`task`, `context`, `constraints`, `skills`) are mandated cross-client.
+> * **Circuit Breaker**: Handoff loops are tracked via `depth` metadata in structured delegation context. If depth exceeds **7**, execution freezes and prompts the user for manual validation.
 > * **Rate Limit Fallback**: In the event of API rate limits, the orchestrator falls back to direct tool calls (executing edits, reads, and commands directly) instead of spawning additional subagents.
 
 ### Hard Guardrail Enforcement (v2.0.0)

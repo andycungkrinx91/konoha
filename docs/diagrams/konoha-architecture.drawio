@@ -128,7 +128,7 @@
                 <mxCell id="p2-user" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="End User" vertex="1">
                     <mxGeometry height="70" width="190" x="41" y="170" as="geometry"/>
                 </mxCell>
-                <mxCell id="p2-client" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;;overflow=visible;" value="Supported Client&#xa;prompt.md / session state" vertex="1">
+                <mxCell id="p2-client" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;;overflow=visible;" value="Supported Client&#xa;User Prompt / Session State" vertex="1">
                     <mxGeometry height="75" width="260" x="303" y="170" as="geometry"/>
                 </mxCell>
                 <mxCell id="p2-orch" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontStyle=1;;overflow=visible;" value="Primary Orchestrator&#xa;classify and coordinate" vertex="1">

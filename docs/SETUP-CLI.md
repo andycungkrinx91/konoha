@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Antigravity CLI (`agy`) installed
-- Node.js 18+ (via nvm, Homebrew, or system package; 100% pure Node.js runtime, zero Python dependency)
+- Node.js 22.16.0+ (via nvm, Homebrew, or system package; uses built-in `node:sqlite` with FTS5, zero external native compilation)
 - Agent skills in `~/.agents/skills/` (with SKILL.md files)
 
 ### Cross-Platform Notes
