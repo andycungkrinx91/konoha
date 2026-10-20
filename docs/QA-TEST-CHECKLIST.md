@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.4). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.5). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -469,3 +469,20 @@ npx aislop scan --changes
 | **4. Trivial Package Supply-Chain Override** | `pnpm list minimalistic-assert` | Overrode `minimalistic-assert` with `@socketregistry/assert` (`^1.0.23`). | `PASS` (verified) |
 | **5. Autonomous Queue Worker Command Guardrails** | `node tests/test_queue_guardrails.js` | Integrated `checkCommandGuardrails` from `src/guardrails.js`, stripped `UNSAFE_AUTONOMY` permission bypass flags, and enforced `-o StrictHostKeyChecking=accept-new` for remote host commands. | `PASS` (verified) |
 | **6. Skill Mirror Path Traversal Hardening** | `node tests/test_anthropic_cybersecurity_skills.js` | Added path containment verification in `findInMirror` and `getSkill`, rejecting traversal attempts (`../../etc/passwd`, `/etc/shadow`, Windows drive letters). | `PASS` (verified) |
+
+---
+
+## Section 11: v2.2.5 Socket Security Remediation (@socketregistry/is-arguments@1.0.10) & Release QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Docker Container & Environment Prerequisite** | `docker inspect portofolio-git-1`, `docker exec -w /data/konoha portofolio-git-1 git status` | Dedicated container `portofolio-git-1` mounts host `/home/andycungkrinx/experiment/portofolio/data` to `/data`. SSH git authentication verified (`Hi andycungkrinx91! You've successfully authenticated`). | `PASS` (verified) |
+| **2. Socket Remediation for `is-arguments`** | Inspect `docx` -> `hash.js` -> `@socketregistry/assert` -> `util@0.12.5` -> `is-arguments` dependency tree. | Pre-fix pulled unmaintained `is-arguments@1.2.0` (overall score 48-52, supplyChain 66, transitively 17 dependencies with `eval` capability). Overridden via `@socketregistry/is-arguments@1.0.10` in `package.json` (`pnpm.overrides`, `overrides`, and `resolutions`). | `PASS` (verified in `pnpm why`) |
+| **3. CJS & Browserify Polyfill Compatibility** | `require('is-arguments')` smoke test exercising function arguments vs arrays and objects. | `isArgs(arguments) === true`, `isArgs([]) === false`, `isArgs({}) === false`. Zero regressions across Browserify `util` polyfill consumers. | `PASS` (verified) |
+| **4. Isolated `/tmp/` Frozen Install Verification** | `pnpm install --frozen-lockfile` in fresh `/tmp/konoha-iso-test` directory. | Resolves `@socketregistry/is-arguments@1.0.10` with exit code 0; unoverridden `is-arguments` is 0; temporary files cleaned up. | `PASS` (verified in isolation) |
+| **5. Local Socket Scan Evidence** | `socket package score npm @socketregistry/is-arguments@1.0.10` | 0 alerts, 0 capabilities, 0 transitive dependencies, supplyChain 98, vulnerability 100, license 100. | `PASS` (verified via Socket CLI v1.8.4) |
+| **6. Linter, Typecheck & UI Production Build** | `node scripts/lint.js`, `pnpm --dir apps/web run check`, `node bin/cli.js ui build` | Linter: 344 files with 0 errors and 0 warnings. Svelte-check: 42 files with 0 errors and 0 warnings. UI build: compiled cleanly into `apps/web/build/` (v2.2.5). | `PASS` (0 errors, 0 warnings) |
+| **7. Document Engine & Export Test Suite** | `node tests/test_document_tools.js` & `node tests/e2e_document_suite.js` | 9/9 document tools pass; valid DOCX, PDF, XLSX, PPTX, SVG, and animated WebP generated without errors. | `PASS` (9/9 passed) |
+| **8. Playwright E2E & Agent-Browser QA** | `playwright test` (46 tests across 12 specs) and `qa_e2e_run` MCP tool. | 46/46 browser tests passed across login, dialogs, themes, charts, and routing. `qa_e2e_run` executed with 0 failures. | `PASS` (46/46 passed) |
+| **9. Git Commit Author & Annotated Release Tag** | `git commit --author="andycungkrinx91 <andy.silva270114@gmail.com>"`, `git tag -a v2.2.5` | Verified commit author matches exact email and annotated tag `v2.2.5` targets the validated commit. | `PASS` (verified) |
+

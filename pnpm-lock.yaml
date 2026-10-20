@@ -24,6 +24,7 @@ overrides:
   has-tostringtag: npm:@socketregistry/has-tostringtag@1.0.7
   hasown: npm:@socketregistry/hasown@1.0.7
   internal-slot: npm:@socketregistry/internal-slot@1.0.7
+  is-arguments: npm:@socketregistry/is-arguments@1.0.10
   is-array-buffer: npm:@socketregistry/is-array-buffer@1.0.9
   is-bigint: npm:@socketregistry/is-bigint@1.0.11
   is-boolean-object: npm:@socketregistry/is-boolean-object@1.0.11
@@ -261,28 +262,8 @@ packages:
     resolution: {integrity: sha512-Zp6oT24hKnFTl1Kyw7z2A4vjYGwsrAKrNyjjltYAJMDEvy5W8ZX+LmUKmuXIkxsqoV9OrwjaHeeyIfCC6iF2Zw==}
     engines: {node: '>=18'}
 
-  '@socketregistry/es-define-property@1.0.7':
-    resolution: {integrity: sha512-pCJr9kYvUKzIZQUbkSzHW/PlZ5cvm4DXmxFMBmGydScVKxri4/BBdh9ASW+38/82pdaE5lTK92AN+MYydJIQCw==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/function-bind@1.0.7':
-    resolution: {integrity: sha512-i3Z9BcuHGaMGv8nbcAsVW1tWXxAyjiiBrN3XHUHXsrLvI5auMctY7xHeoBOEIS97xihAdACM/Q3S0h+dhMu7YA==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/gopd@1.0.7':
-    resolution: {integrity: sha512-VK4NTuaf1FvxuhhyUacIXfD7cbb3daV+Uyj38hxXn75xEw7QhkOwKEUm+o3eXTqaPROOwighvVR3ezZA+pnonw==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/has-symbols@1.0.7':
-    resolution: {integrity: sha512-wd2pR4Ju3nkHQCoy1jJ64zK0cMqA5wWYdngm1x+hH8dBmdd/ZeXPQhsp7fWamMhQWthFnSkY+VbK2ToDsaYqGQ==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/has-tostringtag@1.0.7':
-    resolution: {integrity: sha512-SZ8tiXs1sceh3znS8PZEeqngFq8uAjezwn0us6RRF3xpuWO36MShB1PCGKtNCHnmqLiC6qNe0xo5xYdle9EXjw==}
-    engines: {node: '>=18'}
-
-  '@socketregistry/hasown@1.0.7':
-    resolution: {integrity: sha512-MZ5dyXOtiEc7q3801T+2EmKkxrd55BOSQnG8z/8/IkIJzDxqBxGGBKVyixqFm3W657TyUEBfIT9iWgSB6ipFsA==}
+  '@socketregistry/is-arguments@1.0.10':
+    resolution: {integrity: sha512-vpwwSbV0LL25GaNBCAprUzUW6dg7mNU2d8CsozEpoabcRo2jAsHLGKXQuJxf+4zldt0UZSag7GzfaLQmxTctcw==}
     engines: {node: '>=18'}
 
   '@socketregistry/is-generator-function@1.0.9':
@@ -461,14 +442,6 @@ packages:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
 
-  call-bind-apply-helpers@1.0.2:
-    resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
-    engines: {node: '>= 0.4'}
-
-  call-bound@1.0.4:
-    resolution: {integrity: sha512-+ys997U96po4Kx/ABpBCqhA9EuxJaQWDQg7295H4hBphv3IZg0boBKuwYpt4YXp6MZ5AmZQnU/tyMTlRpaSejg==}
-    engines: {node: '>= 0.4'}
-
   cfb@1.2.2:
     resolution: {integrity: sha512-KfdUZsSOw19/ObEWasvBP/Ac4reZvAGauZhs6S/gqNhXhI7cKwvlH7ulj+dOEYnca4bm4SGo8C1bTAQvnTjgQA==}
     engines: {node: '>=0.8'}
@@ -509,21 +482,9 @@ packages:
     resolution: {integrity: sha512-pRxdJP7cJpqhSxzfhlB01RToOFMAY7+QJ59zT2LowpXjS2q5fAnrvAuQIyGgkuBxTcXii0LFqM96GFjhQcTicQ==}
     engines: {node: '>=10'}
 
-  dunder-proto@1.0.1:
-    resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
-    engines: {node: '>= 0.4'}
-
   enhanced-resolve@5.26.0:
     resolution: {integrity: sha512-9vhedylFonb2YGogzUKX6+Ja72gOJbN1QHAqdrvqLwhdl/QWbKopzoUC9EbQNVsAns/bx/4uyqalrQAoy1IByw==}
     engines: {node: '>=10.13.0'}
-
-  es-errors@1.3.0:
-    resolution: {integrity: sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==}
-    engines: {node: '>= 0.4'}
-
-  es-object-atoms@1.1.2:
-    resolution: {integrity: sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw==}
-    engines: {node: '>= 0.4'}
 
   esm-env@1.2.2:
     resolution: {integrity: sha512-Epxrv+Nr/CaL4ZcFGPJIYLWFom+YeV1DqMLHJoEd9SYRxNbaFruBwfEX/kkHUJf55j2+TUbmDcmuilbP1TmXHA==}
@@ -550,14 +511,6 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
-  get-intrinsic@1.3.0:
-    resolution: {integrity: sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==}
-    engines: {node: '>= 0.4'}
-
-  get-proto@1.0.1:
-    resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
-    engines: {node: '>= 0.4'}
-
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
@@ -583,10 +536,6 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
-
-  is-arguments@1.2.0:
-    resolution: {integrity: sha512-7bVbi0huj/wrIAOzb8U1aszg9kdi3KN/CyU19CTI7tAoZYEZoL9yCDXpbXN+uPsuWnP02cyug1gleqq+TU+YCA==}
-    engines: {node: '>= 0.4'}
 
   is-reference@3.0.3:
     resolution: {integrity: sha512-ixkJoqQvAP88E6wLydLGGqCJsrFUnqoH6HnaczB8XmDH1oaWU+xxdptvikTgaEhtZ53Ky6YXiBuUI2WXLMCwjw==}
@@ -752,10 +701,6 @@ packages:
 
   magic-string@1.4.3:
     resolution: {integrity: sha512-z12OxmaPGE0F4xlpGdjuAUckipLpQlTAuAmyGhNoD7ODpYUzvDfvtxUbjM/jwznyP178oju/KDdyi220wNJ0RQ==}
-
-  math-intrinsics@1.1.0:
-    resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
-    engines: {node: '>= 0.4'}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -1036,17 +981,7 @@ snapshots:
       object.assign: '@socketregistry/object.assign@1.0.7'
       util: 0.12.5
 
-  '@socketregistry/es-define-property@1.0.7': {}
-
-  '@socketregistry/function-bind@1.0.7': {}
-
-  '@socketregistry/gopd@1.0.7': {}
-
-  '@socketregistry/has-symbols@1.0.7': {}
-
-  '@socketregistry/has-tostringtag@1.0.7': {}
-
-  '@socketregistry/hasown@1.0.7': {}
+  '@socketregistry/is-arguments@1.0.10': {}
 
   '@socketregistry/is-generator-function@1.0.9': {}
 
@@ -1184,16 +1119,6 @@ snapshots:
 
   axobject-query@4.1.0: {}
 
-  call-bind-apply-helpers@1.0.2:
-    dependencies:
-      es-errors: 1.3.0
-      function-bind: '@socketregistry/function-bind@1.0.7'
-
-  call-bound@1.0.4:
-    dependencies:
-      call-bind-apply-helpers: 1.0.2
-      get-intrinsic: 1.3.0
-
   cfb@1.2.2:
     dependencies:
       adler-32: 1.3.1
@@ -1226,22 +1151,10 @@ snapshots:
       xml: 1.0.1
       xml-js: 1.6.11
 
-  dunder-proto@1.0.1:
-    dependencies:
-      call-bind-apply-helpers: 1.0.2
-      es-errors: 1.3.0
-      gopd: '@socketregistry/gopd@1.0.7'
-
   enhanced-resolve@5.26.0:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
-
-  es-errors@1.3.0: {}
-
-  es-object-atoms@1.1.2:
-    dependencies:
-      es-errors: 1.3.0
 
   esm-env@1.2.2: {}
 
@@ -1255,24 +1168,6 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
-
-  get-intrinsic@1.3.0:
-    dependencies:
-      call-bind-apply-helpers: 1.0.2
-      es-define-property: '@socketregistry/es-define-property@1.0.7'
-      es-errors: 1.3.0
-      es-object-atoms: 1.1.2
-      function-bind: '@socketregistry/function-bind@1.0.7'
-      get-proto: 1.0.1
-      gopd: '@socketregistry/gopd@1.0.7'
-      has-symbols: '@socketregistry/has-symbols@1.0.7'
-      hasown: '@socketregistry/hasown@1.0.7'
-      math-intrinsics: 1.1.0
-
-  get-proto@1.0.1:
-    dependencies:
-      dunder-proto: 1.0.1
-      es-object-atoms: 1.1.2
 
   graceful-fs@4.2.11: {}
 
@@ -1292,11 +1187,6 @@ snapshots:
   immediate@3.3.0: {}
 
   inherits@2.0.4: {}
-
-  is-arguments@1.2.0:
-    dependencies:
-      call-bound: 1.0.4
-      has-tostringtag: '@socketregistry/has-tostringtag@1.0.7'
 
   is-reference@3.0.3:
     dependencies:
@@ -1424,8 +1314,6 @@ snapshots:
   magic-string@1.4.3:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
-
-  math-intrinsics@1.1.0: {}
 
   mri@1.2.0: {}
 
@@ -1572,7 +1460,7 @@ snapshots:
   util@0.12.5:
     dependencies:
       inherits: 2.0.4
-      is-arguments: 1.2.0
+      is-arguments: '@socketregistry/is-arguments@1.0.10'
       is-generator-function: '@socketregistry/is-generator-function@1.0.9'
       is-typed-array: '@socketregistry/is-typed-array@1.0.11'
       which-typed-array: '@socketregistry/which-typed-array@1.0.8'

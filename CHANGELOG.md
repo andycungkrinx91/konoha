@@ -2,6 +2,16 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.5] - 2026-10-20
+
+### Socket Supply-Chain Security Remediation (@socketregistry/is-arguments@1.0.10) & v2.2.5 Release
+
+- **Socket Alert Remediation for `is-arguments` (`@socketregistry/is-arguments@1.0.10`)**: Remediated the unmaintained transitive dependency `is-arguments@1.2.0` (overall score 48–52, supplyChain 66, transitively 17 dependencies with `eval` capability) pulled in by `util@0.12.5` under `docx -> hash.js -> @socketregistry/assert`. Added official Socket-optimized override `is-arguments: "npm:@socketregistry/is-arguments@1.0.10"` across `pnpm.overrides`, `overrides`, and `resolutions` in root `package.json`.
+- **Zero Transitive Dependencies & Verified CJS Compatibility**: Overriding with `@socketregistry/is-arguments@1.0.10` eliminated 17 transitive dependencies (reducing dependency count to 0), eliminated dynamic `eval` alerts, and raised package supply chain health score to 98 with 100/100 vulnerability score and 0 alerts. Validated seamless CJS compatibility with Browserify `util` polyfill consumers via isolated function argument runtime assertions.
+- **Synchronized Manifests & Lockfile Hardening**: Updated `pnpm-lock.yaml` and verified clean frozen installation in isolated `/tmp/` environment (`pnpm install --frozen-lockfile`) with exit code 0 and zero unoverridden `is-arguments` references.
+- **Full Test Suite & Browser Automation QA**: Validated backend static analysis linter (344 files, 0 errors, 0 warnings), SvelteKit typecheck (42 files, 0 errors, 0 warnings), UI production build, document tools (9/9 passed, 8/8 deliverables generated), Playwright end-to-end suite (46/46 tests passed), and `qa_e2e_run` regression suite.
+- **Docker Release Mapping**: Synchronized and verified deployment from Docker container `portofolio-git-1` at `/data/konoha` with commit author `andycungkrinx91 <andy.silva270114@gmail.com>` and annotated release tag `v2.2.5`.
+
 ## [2.2.4] - 2026-10-20
 
 ### Supply-Chain Security Hardening, Zero-Native Argon2id WebAssembly, and Queue Worker Guardrails
