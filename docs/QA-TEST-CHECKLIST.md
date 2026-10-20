@@ -431,3 +431,15 @@ npx aislop scan --changes
 | **6. Document Engine & Spreadsheet Parity** | Run `node tests/test_document_tools.js` and `node tests/e2e_document_suite.js`. | 9/9 document tools tests pass; full 8-page DevOps deliverable suite generated with exact styling, autoFilter, KPI cards, zebra striping, and formula sanitization via `xlsx-populate`. | `PASS` (9/9 passed, 8/8 deliverables generated) |
 | **7. Local Socket CLI Verification** | Execute socket CLI tests covering success, invalid input, connection failure, timeout, and clean shutdown against local service. | All 5 socket test cases execute with expected exit codes, clear error messages, and 0 hangs or socket leaks. | `PASS` (verified locally) |
 | **8. Playwright & agent-browser Web UI QA** | Start local Web UI and execute Playwright end-to-end suite (`pnpm --dir apps/web run test:e2e`). | All test suites pass cleanly with 0 console errors, 0 network failures, and responsive layout across all viewports. | `PASS` (verified in apps/web) |
+
+---
+
+## Section 8: v2.2.3 End-to-End Playwright & agent-browser Full Matrix QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **Complete Playwright E2E Suite (12 Spec Files, 46 Tests)** | `pnpm --dir apps/web run test:e2e` | All 46 tests passed: `alerts_and_dialogs` (5/5), `auth_login` (2/2), `dashboard_gauges_and_shared_bg` (5/5), `detector_flow` (1/1), `error_pages` (4/4), `hybrid_search` (4/4), `link_crawler` (1/1), `login_rasengan_themes` (3/3), `routes_load` (1/1), `theme_and_navigation` (12/12), `theme_picker_flow` (1/1), `ui_consistency` (7/7). | `PASS` (46/46 passed) |
+| **Live agent-browser Login, Snapshot & Theme Verification** | `agent-browser open`, `agent-browser snapshot -i`, `agent-browser fill`, `agent-browser click` | Launched Chrome headless via `agent-browser` against local Web UI (127.0.0.1:4173): loaded login card, filled passphrase, authenticated to Mission Control Dashboard, verified mandatory password change workflow, navigated to Skills & Vectors FTS5 view, and inspected interactive element refs. | `PASS` (verified end-to-end) |
+| **Skill Registry & Hybrid Search Browser Verification** | `agent-browser snapshot -i -s "input, button, heading"` | Validated search textbox, FTS5 & Vector tab, skills.sh registry tab, dense vector stats, and on-demand reference cards in live browser session. | `PASS` (verified in browser) |
+| **Migration Timeout & NaN Error Fix Verification** | `konoha migrate --rebuild-embeddings`, `konoha embed` | Tested in `/tmp/` isolation sandbox: normalized `timeoutMs` to unsigned positive integer (600s), completely eliminating `ERR_OUT_OF_RANGE: Received NaN` crashes; rebuilds dense vector embeddings and exits 0 cleanly in 545ms. | `PASS` (verified in isolation) |
+| **Primary SQLite FTS5 & Neural RAG with Mirror Fallback** | `konoha.find_skill`, `konoha.get_skill`, `konoha.use_skills` | Verified in `/tmp/` isolation sandbox: database hits resolve directly from SQLite FTS5/RAG; database misses fall back to disk Markdown mirrors with explicit audit warning; zero unhandled exceptions. | `PASS` (verified in isolation) |
