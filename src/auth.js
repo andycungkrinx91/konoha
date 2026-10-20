@@ -234,6 +234,9 @@ function saveAuthConfig(config) {
  * Rate limit check for login attempts from a given IP.
  */
 function checkLoginRateLimit(ip) {
+  if (process.env.KONOHA_DISABLE_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test') {
+    return { allowed: true };
+  }
   const now = Date.now();
   const record = loginRateLimit.get(ip);
   if (!record) return { allowed: true };
@@ -247,6 +250,7 @@ function checkLoginRateLimit(ip) {
 }
 
 function recordLoginFailure(ip) {
+  if (process.env.KONOHA_DISABLE_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test') return;
   const now = Date.now();
   const record = loginRateLimit.get(ip) || { failedCount: 0, lockedUntil: 0 };
   record.failedCount += 1;
