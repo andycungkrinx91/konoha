@@ -1368,7 +1368,21 @@ function deployProjectWorkspace(projectRoot, options = {}) {
   } catch (_) { /* intentional best-effort fallback */ }
 
   // 10. Inject into .gitignore and .dockerignore for consumer projects (exclude konoha project itself)
-  if (targetPath !== konohaRepoRoot) {
+  const isTargetKonohaRepo = (() => {
+    if (targetPath === konohaRepoRoot) return true;
+    try {
+      const pkgPath = path.join(targetPath, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg && pkg.name === 'konoha-mcp' && fs.existsSync(path.join(targetPath, 'bin', 'cli.js')) && fs.existsSync(path.join(targetPath, 'scripts', 'lint.js'))) {
+          return true;
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+    return false;
+  })();
+
+  if (!isTargetKonohaRepo) {
     const ignoreBlock = [
       '## Start Konoha config+skill',
       '.agents',

@@ -21,7 +21,6 @@ const CURSOR_DIR = path.join(ROOT, '.cursor', 'skills');
 const GEMINI_DIR = path.join(ROOT, '.gemini', 'skills');
 const COMMANDCODE_DIR = path.join(ROOT, '.commandcode', 'skills');
 const CLAUDE_DIR = path.join(ROOT, '.claude', 'skills');
-const CODEX_DIR = path.join(ROOT, '.codex', 'skills');
 const OPENCODE_DIR = path.join(ROOT, '.opencode', 'skills');
 const OMP_DIR = path.join(ROOT, '.omp', 'skills');
 
@@ -33,7 +32,6 @@ const CLIENT_MIRRORS = [
   { name: '.gemini/skills', parent: path.join(ROOT, '.gemini'), dir: GEMINI_DIR },
   { name: '.commandcode/skills', parent: path.join(ROOT, '.commandcode'), dir: COMMANDCODE_DIR },
   { name: '.claude/skills', parent: path.join(ROOT, '.claude'), dir: CLAUDE_DIR },
-  { name: '.codex/skills', parent: path.join(ROOT, '.codex'), dir: CODEX_DIR },
   { name: '.opencode/skills', parent: path.join(ROOT, '.opencode'), dir: OPENCODE_DIR },
   { name: '.omp/skills', parent: path.join(ROOT, '.omp'), dir: OMP_DIR },
 ];
