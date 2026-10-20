@@ -4,6 +4,7 @@
  * bin/commands/project.js — Project Workspaces, Architecture Invariants & Memory.
  */
 
+const path = require("path");
 const { DB_PATH } = require("../lib/paths");
 const {
   C,
@@ -206,9 +207,12 @@ async function cmdProject(args) {
       targetPath = subArgs[0];
       summary = subArgs.slice(1).join(' ');
     }
+    const resolvedPath = path.resolve(targetPath);
     try {
-      const pHash = personaMemory.saveOrUpdateProject(targetPath, summary, null, DB_PATH);
-      success(`Saved architectural invariants for project (${pHash}).`);
+      const pHash = personaMemory.saveOrUpdateProject(resolvedPath, summary, null, DB_PATH);
+      const agentManager = require('../../src/agent_manager');
+      agentManager.deployProjectWorkspace(resolvedPath, { summary, silent: false, force: true });
+      success(`Saved architectural invariants & injected Konoha skills, rules, and configs with mandatory runtime contract into (${pHash} · ${resolvedPath}).`);
     } catch (e) {
       error(`Failed to save project invariants: ${e.message}`);
     }

@@ -11,7 +11,7 @@ const { parseYaml, stringifyYaml } = require('../bin/lib/yaml_utils');
 const {
   SERVER_PATH, GEMINI_MD_PATH, AGENTS_MD_PATH,
   USER_AGENTS_YAML_PATH, DEFAULT_AGENTS_YAML_PATH, 
-  FINGERPRINT_PATH, 
+  FINGERPRINT_PATH, DB_PATH, FILE_TOOLS_LAUNCHER_JS,
   HOME
 } = require('../bin/lib/paths');
 
@@ -1204,6 +1204,179 @@ function regenerateAndDeploy(silentOrOptions = false) {
   }
 }
 
+/**
+ * Injects all skills, rules, and MCP client configurations with the mandatory
+ * Konoha runtime contract into an active or new project workspace root.
+ */
+function deployProjectWorkspace(projectRoot, options = {}) {
+  const silent = options.silent !== false;
+  const force = options.force || false;
+  const targetPath = path.resolve(projectRoot || process.cwd());
+  if (!fs.existsSync(targetPath)) {
+    try {
+      fs.mkdirSync(targetPath, { recursive: true });
+    } catch (_) {
+      return { ok: false, error: 'Target path could not be created' };
+    }
+  }
+
+  const agents = loadAgents(force);
+  if (!agents || agents.length === 0) return { ok: false, error: 'No agents loaded' };
+
+  const deployedFiles = [];
+
+  // 1. Root AGENTS.md (full roster + mandatory Konoha runtime contract)
+  try {
+    const agentsPath = path.join(targetPath, 'AGENTS.md');
+    const agentsContent = generateAgentsMd(agents);
+    const finalAgents = injectManagedConfig(agentsPath, agentsContent, 'KONOHA');
+    fs.writeFileSync(agentsPath, finalAgents, 'utf8');
+    deployedFiles.push(agentsPath);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 2. Root GEMINI.md (Antigravity IDE & CLI instructions + mandatory contract)
+  try {
+    const geminiPath = path.join(targetPath, 'GEMINI.md');
+    const geminiContent = generateGeminiMd(agents);
+    const finalGemini = injectManagedConfig(geminiPath, geminiContent, 'KONOHA');
+    fs.writeFileSync(geminiPath, finalGemini, 'utf8');
+    deployedFiles.push(geminiPath);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 3. Root CLAUDE.md (Claude Code instructions + mandatory contract)
+  try {
+    const claudePath = path.join(targetPath, 'CLAUDE.md');
+    const claudeContent = generateClaudeCodeMd(agents);
+    const finalClaude = injectManagedConfig(claudePath, claudeContent, 'KONOHA');
+    fs.writeFileSync(claudePath, finalClaude, 'utf8');
+    deployedFiles.push(claudePath);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 4. Root .cursorrules and .cursor/rules/konoha.mdc (Cursor rules)
+  try {
+    const cursorRulesPath = path.join(targetPath, '.cursorrules');
+    const cursorRuleContent = cursorManager.generateCursorRule(agents);
+    fs.writeFileSync(cursorRulesPath, cursorRuleContent, 'utf8');
+    deployedFiles.push(cursorRulesPath);
+
+    const mdcDir = path.join(targetPath, '.cursor', 'rules');
+    fs.mkdirSync(mdcDir, { recursive: true });
+    const mdcPath = path.join(mdcDir, 'konoha.mdc');
+    fs.writeFileSync(mdcPath, cursorRuleContent, 'utf8');
+    deployedFiles.push(mdcPath);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 5. OMP Agent Instructions (.omp/agent/AGENTS.md and .omp/AGENTS.md)
+  try {
+    const ompDir = path.join(targetPath, '.omp', 'agent');
+    fs.mkdirSync(ompDir, { recursive: true });
+    const ompAgentsPath = path.join(ompDir, 'AGENTS.md');
+    const ompAgentsContent = generateAgentsMd(agents);
+    const finalOmp = injectManagedConfig(ompAgentsPath, ompAgentsContent, 'KONOHA');
+    fs.writeFileSync(ompAgentsPath, finalOmp, 'utf8');
+    deployedFiles.push(ompAgentsPath);
+
+    const ompRootPath = path.join(targetPath, '.omp', 'AGENTS.md');
+    fs.writeFileSync(ompRootPath, finalOmp, 'utf8');
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 6. Codex Rules (.codex/AGENTS.md and .codex/rules/rtk.md)
+  try {
+    const codexDir = path.join(targetPath, '.codex');
+    const codexRulesDir = path.join(codexDir, 'rules');
+    fs.mkdirSync(codexRulesDir, { recursive: true });
+    const codexAgentsPath = path.join(codexDir, 'AGENTS.md');
+    const codexAgentsContent = generateAgentsMd(agents);
+    const finalCodex = injectManagedConfig(codexAgentsPath, codexAgentsContent, 'KONOHA');
+    fs.writeFileSync(codexAgentsPath, finalCodex, 'utf8');
+    deployedFiles.push(codexAgentsPath);
+
+    const codexRtkPath = path.join(codexRulesDir, 'rtk.md');
+    const rtkContent = `# RTK Command Execution Policy\n\nALWAYS prefix all shell and terminal command executions with \`rtk\` to filter verbose terminal output and optimize token consumption.\n`;
+    fs.writeFileSync(codexRtkPath, rtkContent, 'utf8');
+    deployedFiles.push(codexRtkPath);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 7. MCP Configurations across all clients in the project workspace
+  try {
+    // A. Cursor (.cursor/mcp.json)
+    cursorManager.registerCursorProjectMcp(targetPath, 'python3', SERVER_PATH, 'uvx', true);
+    deployedFiles.push(path.join(targetPath, '.cursor', 'mcp.json'));
+
+    // B. Antigravity (.gemini/antigravity-cli/settings.json and .gemini/settings.json)
+    const geminiCliDir = path.join(targetPath, '.gemini', 'antigravity-cli');
+    fs.mkdirSync(geminiCliDir, { recursive: true });
+    const mcpServers = cursorManager.buildMcpServers('python3', SERVER_PATH, 'uvx');
+    const geminiSettings = { mcpServers };
+    fs.writeFileSync(path.join(geminiCliDir, 'settings.json'), JSON.stringify(geminiSettings, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(path.join(targetPath, '.gemini', 'settings.json'), JSON.stringify(geminiSettings, null, 2) + '\n', 'utf8');
+    deployedFiles.push(path.join(geminiCliDir, 'settings.json'));
+
+    // C. Claude Code (.claude/settings.json and .claude.json)
+    const claudeDir = path.join(targetPath, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(path.join(claudeDir, 'settings.json'), JSON.stringify({ mcpServers }, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(path.join(targetPath, '.claude.json'), JSON.stringify({ mcpServers }, null, 2) + '\n', 'utf8');
+    deployedFiles.push(path.join(claudeDir, 'settings.json'));
+
+    // D. Command Code (.commandcode/mcp.json)
+    const ccDir = path.join(targetPath, '.commandcode');
+    fs.mkdirSync(ccDir, { recursive: true });
+    fs.writeFileSync(path.join(ccDir, 'mcp.json'), JSON.stringify({ mcpServers }, null, 2) + '\n', 'utf8');
+    deployedFiles.push(path.join(ccDir, 'mcp.json'));
+
+    // E. OMP (.omp/agent/mcp.json and .omp/mcp.json)
+    const ompAgentDir = path.join(targetPath, '.omp', 'agent');
+    fs.mkdirSync(ompAgentDir, { recursive: true });
+    const launcherScript = fs.existsSync(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;
+    const ompConfig = {
+      $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',
+      mcpServers: {
+        konoha: {
+          command: process.execPath || 'node',
+          args: [launcherScript],
+          type: 'stdio'
+        },
+        semble: {
+          command: 'uvx',
+          args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
+          type: 'stdio'
+        },
+        aislop: {
+          command: 'npx',
+          args: ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'],
+          type: 'stdio'
+        }
+      }
+    };
+    fs.writeFileSync(path.join(ompAgentDir, 'mcp.json'), JSON.stringify(ompConfig, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(path.join(targetPath, '.omp', 'mcp.json'), JSON.stringify(ompConfig, null, 2) + '\n', 'utf8');
+    deployedFiles.push(path.join(ompAgentDir, 'mcp.json'));
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 8. Synchronize all skills into project mirror trees
+  try {
+    const skillManager = require('./skill_manager');
+    skillManager.syncAllClientSkills({
+      projectRoot: targetPath,
+      silent: true
+    });
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  // 9. Register or update project context in SQLite memory store
+  try {
+    const personaMemory = require('./persona_memory');
+    const summary = options.summary || options.title || '';
+    personaMemory.saveOrUpdateProject(targetPath, summary, null, DB_PATH);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  if (!silent) {
+    process.stderr.write(`✓ Injected Konoha skills, rules, and configs with mandatory runtime contract into ${targetPath}\n`);
+  }
+
+  return { ok: true, projectPath: targetPath, deployedFiles };
+}
+
 // Create a new subagent
 function createSubagent(name, options = {}) {
   const agentNameRegex = /^[a-zA-Z0-9_-]+$/;
@@ -1447,6 +1620,7 @@ module.exports = {
   loadAgents,
   saveAgents,
   regenerateAndDeploy,
+  deployProjectWorkspace,
   createSubagent,
   updateAgent,
   embedSkill,

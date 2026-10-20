@@ -477,9 +477,7 @@ function syncAllClientSkills(options = {}) {
     targetDirs.push(path.join(projectRoot, '.commandcode', 'skills'));
     targetDirs.push(path.join(projectRoot, '.claude', 'skills'));
     targetDirs.push(path.join(projectRoot, '.agents', 'skills'));
-    if (fs.existsSync(path.join(projectRoot, '.omp'))) {
-      targetDirs.push(path.join(projectRoot, '.omp', 'skills'));
-    }
+    targetDirs.push(path.join(projectRoot, '.omp', 'skills'));
     if (fs.existsSync(path.join(projectRoot, '.config', 'opencode'))) {
       targetDirs.push(path.join(projectRoot, '.config', 'opencode', 'skills'));
     }

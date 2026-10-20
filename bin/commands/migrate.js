@@ -155,12 +155,34 @@ async function cmdMigrate(args = []) {
     }
   }
 
-  // After migration, automatically optimize rules
+  // After migration, automatically synchronize all skills, rules, and configs across project base and all clients
   try {
-    agentManager.regenerateAndDeploy();
-    success('GEMINI.md and AGENTS.md regenerated with optimized token footprint.');
+    // 1. Regenerate global configs across all clients
+    agentManager.regenerateAndDeploy({ force: true, silent: true });
+
+    // 2. Synchronize active project workspace
+    const cwd = process.cwd();
+    agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
+
+    // 3. Synchronize all tracked project workspaces in Konoha database
+    let syncedWorkspaces = 1;
+    try {
+      const personaMemory = require('../../src/persona_memory');
+      const { DB_PATH } = require('../lib/paths');
+      const tracked = personaMemory.listProjects(50, DB_PATH) || [];
+      for (const p of tracked) {
+        if (p.project_path && p.project_path !== cwd && fileExists(p.project_path)) {
+          try {
+            agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
+            syncedWorkspaces++;
+          } catch (_) { /* intentional best-effort fallback */ }
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback */ }
+
+    success(`GEMINI.md, AGENTS.md, rules, and skills synchronized across ${syncedWorkspaces} project workspace(s) and all client environments.`);
   } catch (e) {
-    warn(`Auto-optimize skipped: ${e.message}`);
+    warn(`Auto-synchronization skipped: ${e.message}`);
   }
 }
 

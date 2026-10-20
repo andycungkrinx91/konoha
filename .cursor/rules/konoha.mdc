@@ -63,12 +63,12 @@ Taste-Skill is additive: validated `taste_dials` tune only visual design and nev
 
 | Embedded Skills | Subagent MCP Tool |
 |---|---|
-| `sannin-skill`, `antislop`, `i-have-adhd` | `sannin` |
-| `genin-skill`, `antislop`, `antislop-human`, `antislop-code`, `i-have-adhd`, `tokubetsu-jonin-skill` | `genin` |
-| `kage-skill`, `antislop`, `antislop-human`, `antislop-code`, `i-have-adhd` | `kage` |
+| `sannin-skill`, `antislop` | `sannin` |
+| `genin-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `genin` |
+| `kage-skill`, `antislop`, `antislop-human`, `antislop-code` | `kage` |
 | `chunin-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `chunin` |
-| `jonin-skill`, `antislop-ui`, `antislop-human`, `antislop-layoutmobile`, `antislop-code`, `antislop` | `jonin` |
-| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `anbu` |
+| `jonin-skill`, `i-have-adhd`, `antislop`, `antislop-ui`, `antislop-human`, `antislop-layoutmobile`, `antislop-code` | `jonin` |
+| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding` | `anbu` |
 | `tokubetsu-jonin-skill`, `i-have-adhd`, `antislop`, `antislop-copywriting`, `antislop-human`, `antislop-code` | `tokubetsu-jonin` |
 | Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 
@@ -146,7 +146,7 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
   - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
   - When maintaining Konoha, use `rtk npm run sync:skills` (`node scripts/sync_skills.js`) to propagate skill edits to all mirror trees automatically, and use `rtk node tests/run_all.js <pattern>` for incremental testing to prevent token burn across 77 suites.
 - **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd`, `DROP DATABASE`, `TRUNCATE TABLE`, `chmod 777`, `chown -R`, `curl | bash`, `wget | sh`, unconstrained `sudo`) without explicit permission.
+  - NEVER run harmful commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd`, `DROP DATABASE`, `TRUNCATE TABLE`, `FLUSHALL`, `dropDatabase`, `terraform/tofu/pulumi destroy`, `kubectl delete ns/all`, `helm uninstall`, `docker prune`, firewall flushes, `chmod 777`, `chown -R`, `curl | bash`, `wget | sh`, unconstrained `sudo`) without explicit permission.
   - NEVER run destructive git commands (`git reset --hard`, `git push --force`, `git clean -fdx`, `git checkout -- .`, `git rebase -i`) without explicit permission.
   - NEVER view, print, dump, or commit secrets, `.env*`, `secrets.yaml`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa`, `credentials`, or API tokens without explicit permission. Redact all secret values.
 - **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by `anbu` are authorized and supported in development and local environments (`localhost`, `127.0.0.1`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
@@ -163,10 +163,31 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 Full team config: `~/.agents/AGENTS.md
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.0.2-cross-client-1)
+## Konoha runtime contract (2.2.3-cross-client-1)
 
 You are the main agent running through Cursor IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
+- **Stop reading prompt.md / file-based IPC**: user requests are passed directly in `<USER_REQUEST>` or stored in `sdlc_tasks.description`. NEVER call `file_info("prompt.md")` or search for `prompt.md` or `delegate.md`. Pass task instructions, context, constraints, and skills via direct structured MCP tool arguments.
+- **Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)**:
+  - **Direct Request (Fast-Track)**: Slash commands (`/anbu <prompt>`, `/jonin <prompt>`, `/genin <prompt>`, `/chunin <prompt>`, `/kage <prompt>`, `/tokubetsu-jonin <prompt>`, `/sannin <prompt>`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (bypass 8-phase DAG, no Gate 1 pause, instant turnaround).
+  - **Full SDLC Pipeline (Structured Track)**: Greenfield feature building, multi-subsystem refactors, and fullstack multi-agent tasks execute through the **Canonical 8-Phase DAG** governed by `hitl_mode` (`enabled` vs `disabled`), Gate 1 Plan approval, and Gate 2 Delivery sign-off.
+- **Canonical 8-Phase Master Pipeline**: strictly adhere to the 8-phase SDLC lifecycle:
+  - Phase 1 (Discovery, Recon & PRD: Genin & Chunin)
+  - Phase 2 (Foundation & Tooling: Kage & Anbu)
+  - Phase 3 (Database & Schemas: Anbu)
+  - Phase 4 (Backend APIs & Services: Anbu)
+  - Phase 5 (Frontend/UI & Interaction: Jonin)
+  - Phase 6 (Automated Testing & QA: Anbu & Jonin)
+  - Phase 7 (Security, Hardening & Audit: Kage)
+  - Phase 8 (Review Gate, Docs & Handover: Kage & Tokubetsu-Jonin)
+- **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: `/sannin <prompt>`, `/genin <prompt>`, `/chunin <prompt>`, `/kage <prompt>`, `/tokubetsu-jonin <prompt>`, `/anbu <prompt>`, `/jonin <prompt>`.
+- **Configurable Two-Stage HITL Gates**:
+  - **Gate 1 (Plan Approval)**: when `hitl_mode = 'enabled'` (default/safe), execution blocks after Phase 1 until the user approves the TODO action plan (via laptop IDE or Telegram bot).
+  - **Gate 2 (Delivery Sign-Off)**: when `hitl_mode = 'enabled'`, delivery requires human approval in Kage's confidence score and delivery verdict.
+  - When `hitl_mode = 'disabled'` (autonomous mode), gates log advisory checkpoints and proceed hands-free.
+- **RTK Boundary & Anti-cat/Anti-grep Invariant**: file reading is exclusively via `konoha.read_file_range` or `konoha.read_file_head`; search is via `semble.search` or `konoha.token_efficient_grep`. Shell reading commands (`cat`, `head`, `tail`, `grep`, `rg`, `find`, `fd`) are strictly blocked (even with `rtk`).
+- **Dynamic Polyglot Stack Support**: automatic stack detection across Python (`uv`/`pytest`/`ruff`), Go (`go test`/`golangci-lint`), Rust (`cargo test`/`clippy`), PHP (`pest`/`phpstan`), Java (`gradlew test`/`check`), and Node/TS (`pnpm test`/`pnpm run lint`).
+- **Scoped Soul Architecture & Anti-Slop/ADHD**: each ninja agent operates strictly within their scoped soul archetype voice and tailored anti-slop sub-skills to eliminate identity bleed and token bloat.
 - **Konoha is mandatory**: use the `konoha` MCP for skill discovery, skill loading, and bounded file operations. All clients call skills through `konoha.find_skills` (or `find_skill`) to discover global and project skills before work, and load matching content with `konoha.get_skill`. When a project contains local skills, the client auto-migrates them into the skills database. Never load raw SKILL.md files directly.
 - **Semble is mandatory**: use the `semble` MCP tools `search` and `find_related` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
 - **RTK is mandatory for commands**: ALWAYS force-run all shell/command executions with `rtk <command>` first; prefix shell/command execution with `rtk` to filter noisy terminal output and minimize token consumption. When RTK is not installed, fails, or is unsupported for a specific command, immediately fall back to direct shell/bash (`sh` / `bash`) execution without silently claiming RTK was used.
@@ -178,9 +199,12 @@ You are the main agent running through Cursor IDE/CLI. This contract is mandator
   - **Lead With Direct Action / Direct Evidence**: Always start with the required log line `[{Icon} {Name}] active. Calling ...` or the direct, factual, actionable response.
   - **High-Effort Reasoning with Pure Instruct Execution**: When reasoning effort is set to High / Max, execute all deep deliberation, hypothesis testing, and multi-step verification silently inside internal thinking. Output ONLY crisp, authoritative, highly structured, instruction-following results.
   - **ADHD-Friendly Formatting**: Number multi-step procedures, prioritize the immediate next action first, use clean bold headings, bullet points, and code blocks. Eliminate fluff, narrative preambles, and conversational pleasantries.
-- **Destructive command, Git & secret guardrails**:
+- **Destructive command, Git, cloud infra & polyglot guardrails**:
   - NEVER run harmful commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd`, `DROP DATABASE`, `TRUNCATE TABLE`, `chmod 777`, `chown -R`, `curl | bash`, `wget | sh`, unconstrained `sudo`) without explicit user permission.
   - NEVER run destructive git commands (`git reset --hard`, `git push --force`, `git clean -fdx`, `git checkout -- .`, `git rebase -i`) without explicit user permission.
+  - NEVER run destructive cloud infrastructure commands (`terraform destroy`, `tofu destroy`, `pulumi destroy`, `kubectl delete ns|all`) without explicit user permission.
+  - NEVER use inline interpreter evasion (`python -c`, `node -e`, `php -r`, `perl -e`, `ruby -e`, `bash -c`, `eval`, `base64 | sh`) to bypass bounded MCP tools or manipulate files.
+  - NEVER tamper with, modify, or delete protected guardrail, linter, git hook, or IDE agent configurations (`.git/hooks`, `.claude`, `.cursor`, `.commandcode`, `.opencode`, `.codex`, `.omp`, `.rtk`, `RTK.md`, `eslint`, `phpstan`, `tsconfig`).
   - NEVER view, print, dump, or commit secrets, `.env*`, `secrets.yaml`, `*.tfvars`, `*.pem`, `*.key`, `id_rsa`, `credentials`, or API tokens without explicit permission. Redact all secret values.
 - **Strict factual truth & zero hallucination (NEVER LIE / DONT LIE)**:
   - NEVER fabricate, simulate, or lie about running tests, executing tools, auditing docs, or completing tasks.
@@ -190,12 +214,13 @@ You are the main agent running through Cursor IDE/CLI. This contract is mandator
 - **Post-approval cleanup gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) upon approval before concluding work.
 - **Delegation remains mandatory**: the main agent coordinates through Konoha subagent tools; each official subagent follows this same Konoha, Semble, and RTK contract directly.
 - **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
-- **Anti-context-loss & middle-attenuation invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in `delegate.md`, (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
+- **Anti-context-loss & middle-attenuation invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
 - **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
 - **Skill discovery vs file search**: Skills are discovered exclusively via `konoha.find_skill` or `konoha.list_skills`. NEVER call `get_file_structure` or `find_files_clean` on root directories (`.`) to search for skills. File tools are strictly for exploring project files.
 - **FIRST ACTION on any new task**: Call `konoha.find_skill` with keywords from the user prompt BEFORE any code changes.
 - **IDE Directory Protection**: Access to IDE binary installation directories (containing `Antigravity IDE.exe`, `dxcompiler.dll`, `resources.pak`, etc.) is strictly forbidden across all file operations.
 - **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call `konoha.build_from_text` FIRST before creating files or scaffolding. Strictly implement the Konoha default design template: (1) Header logo on far LEFT, (2) NO hamburger menu in mobile header (`lg:hidden`), (3) Archetype-adaptive fixed bottom Mobile Navigation Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (`fixed bottom-6 left-6 z-50`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay), (6) Standard framework scaffolding via pnpm with token-safe non-interactive flags and rtk wrapping, and (7) Zero errors and zero warnings.
 - **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
-- **Konoha-Bridge extension scoping invariant**: The `konoha-bridge` extension (`andycungkrinx91.konoha-bridge` / `konoha-bridge-1.6.0.vsix`) is exclusively for Antigravity IDE (`~/.antigravity-ide/extensions/`). It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
+- **Konoha-Bridge extension scoping invariant**: The `konoha-bridge` extension (`andycungkrinx91.konoha-bridge` / `konoha-bridge-1.6.0.vsix`) is exclusively for Antigravity IDE (`~/.antigravity-ide/extensions/`) and was removed in v2.2.1. It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
+- **@advisor Final Gate Review & Remediation Loop**: Before delivery synthesis, the final review gate verifies both Kage confidence (≥98%) and @advisor approval. When @advisor requests changes, the workflow automatically dispatches a remediation fix task to Anbu (backend) or Jonin (UI) and loops back for re-execution (bounded by a 7-cycle circuit breaker).
 <!-- KONOHA-CONTRACT-END -->

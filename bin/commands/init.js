@@ -316,6 +316,9 @@ async function cmdInit(args, options = {}) {
           silent: true
         });
       }
+      try {
+        agentManager.deployProjectWorkspace(currentCwd, { silent: true, force: true });
+      } catch (_) { /* intentional best-effort fallback */ }
       success('Integrations refreshed.');
       // Auto-start the Web UI daemon on the refresh path too: on a real fresh
       // install, ensureAutoSetup has already deployed the runtime before
@@ -700,6 +703,11 @@ async function cmdInit(args, options = {}) {
     if (ompSetup.ok) spinnerOmp.success('OMP MCP and contract configured.');
     else spinnerOmp.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
   }
+
+  // 10c. Inject skills, rules, and configs with mandatory runtime contract into current project
+  try {
+    agentManager.deployProjectWorkspace(currentCwd, { silent: true, force: true });
+  } catch (_) { /* intentional best-effort fallback */ }
 
   // 11. Summary
   header('✅ Installation Complete!');

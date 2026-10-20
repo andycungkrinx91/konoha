@@ -870,6 +870,7 @@ module.exports = {
   isRtkInstalled,
   generateCursorSubagent,
   generateCursorRule,
+  buildMcpServers,
   registerCursorMcp,
   registerCursorProjectMcp,
   registerCursorCliPermissions,
