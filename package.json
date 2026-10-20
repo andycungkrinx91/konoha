@@ -1,6 +1,6 @@
 {
   "name": "konoha-mcp",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Token-efficient MCP skill server with SQLite FTS5 and specialist agent routing",
   "homepage": "https://github.com/andycungkrinx91/konoha#readme",
   "bugs": "https://github.com/andycungkrinx91/konoha/issues",
@@ -65,8 +65,8 @@
   ],
   "dependencies": {
     "@bufbuild/protobuf": "2.16.0",
-    "argon2": "^0.45.1",
     "docx": "^9.11.0",
+    "hash-wasm": "^4.12.0",
     "playwright": "^1.64.1",
     "pptxgenjs": "^4.0.1",
     "xlsx-populate": "^1.21.0"
@@ -75,6 +75,8 @@
     "overrides": {
       "@tailwindcss/oxide-wasm32-wasi": "npm:picocolors@^1.1.1",
       "adm-zip": ">=0.6.0",
+      "minimalistic-assert": "npm:@socketregistry/assert@^1.0.23",
+      "setimmediate": "npm:immediate@^3.3.0",
       "array-buffer-byte-length": "npm:@socketregistry/array-buffer-byte-length@1.0.7",
       "arraybuffer.prototype.slice": "npm:@socketregistry/arraybuffer.prototype.slice@1.0.7",
       "available-typed-arrays": "npm:@socketregistry/available-typed-arrays@1.0.7",
@@ -146,6 +148,8 @@
   "overrides": {
     "@tailwindcss/oxide-wasm32-wasi": "npm:picocolors@^1.1.1",
     "adm-zip": ">=0.6.0",
+    "minimalistic-assert": "npm:@socketregistry/assert@^1.0.23",
+    "setimmediate": "npm:immediate@^3.3.0",
     "array-buffer-byte-length": "npm:@socketregistry/array-buffer-byte-length@1.0.7",
     "arraybuffer.prototype.slice": "npm:@socketregistry/arraybuffer.prototype.slice@1.0.7",
     "available-typed-arrays": "npm:@socketregistry/available-typed-arrays@1.0.7",

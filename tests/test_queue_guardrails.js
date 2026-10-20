@@ -4,8 +4,6 @@ require('./helpers/isolate_db');
 'use strict';
 
 const assert = require('assert');
-const path = require('path');
-const os = require('os');
 const worker = require('../src/queue/worker');
 
 function run() {
@@ -35,7 +33,7 @@ function run() {
   // 3. Verify extractCommand builds clean single-quoted SSH command for safe input
   const safeCmd = 'use command bin/magento cache:flush on host remote.example.com ssh key ~/.ssh/id_rsa';
   const safeRes = worker.extractCommand(safeCmd);
-  assert.ok(safeRes.startsWith('ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@remote.example.com '), 'SSH preamble match');
+  assert.ok(safeRes.startsWith('ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=accept-new root@remote.example.com '), 'SSH preamble match with accept-new');
   assert.ok(safeRes.includes("'bin/magento cache:flush'"), 'Remote command must be single-quoted');
 
   // 4. Verify extractCommand rejects invalid host names

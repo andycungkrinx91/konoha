@@ -103,7 +103,7 @@ async function run() {
     const konohaFixtureDir = path.join(tmpDir, 'konoha-fixture-repo');
     fs.mkdirSync(path.join(konohaFixtureDir, 'bin'), { recursive: true });
     fs.mkdirSync(path.join(konohaFixtureDir, 'scripts'), { recursive: true });
-    fs.writeFileSync(path.join(konohaFixtureDir, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.3' }), 'utf8');
+    fs.writeFileSync(path.join(konohaFixtureDir, 'package.json'), JSON.stringify({ name: 'konoha-mcp', version: '2.2.4' }), 'utf8');
     fs.writeFileSync(path.join(konohaFixtureDir, 'bin', 'cli.js'), '#!/usr/bin/env node\n', 'utf8');
     fs.writeFileSync(path.join(konohaFixtureDir, 'scripts', 'lint.js'), 'console.log("ok");\n', 'utf8');
     const fixtureDeploy = agentManager.deployProjectWorkspace(konohaFixtureDir, { silent: true });

@@ -159,7 +159,7 @@ function sendWebhookPayload(webhook, payload) {
 
       const headers = {
         'Content-Type': 'application/json',
-        'User-Agent': 'Konoha-Webhook-Engine/2.2.3'
+        'User-Agent': 'Konoha-Webhook-Engine/2.2.4'
       };
 
       if (webhook.auth_token) {

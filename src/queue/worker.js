@@ -12,6 +12,7 @@ const os = require('os');
 const { execFile, spawnSync } = require('child_process');
 const inboxModule = require('./inbox');
 const notifierModule = require('../telegram/notifier');
+const { checkCommandGuardrails } = require('../guardrails');
 
 /**
  * Dynamically locate the agy CLI binary across systems.
@@ -51,8 +52,7 @@ let workerTimer = null;
 let isExecuting = false;
 let workerRunning = false;
 
-const UNSAFE_AUTONOMY = /^(1|true|yes)$/i.test(String(process.env.KONOHA_ALLOW_UNSAFE_AUTONOMY || ''));
-
+// Legacy compatibility export pattern list; runtime enforcement is powered by checkCommandGuardrails
 const DANGEROUS_PATTERNS = [
   'rm -rf /',
   'rm -rf ~',
@@ -149,7 +149,7 @@ function extractCommand(prompt) {
 
       const remoteCmd = targetPath ? `cd ${targetPath} && ${cleanRemoteCmd}` : cleanRemoteCmd;
       const escapedRemoteCmd = remoteCmd.replace(/'/g, "'\\''");
-      return `ssh -i ${key} -o StrictHostKeyChecking=no ${user}@${host} '${escapedRemoteCmd}'`;
+      return `ssh -i ${key} -o StrictHostKeyChecking=accept-new ${user}@${host} '${escapedRemoteCmd}'`;
     }
     return cmd.replace(/please/gi, '').trim();
   }
@@ -332,10 +332,10 @@ async function processTask(task) {
     });
   };
 
-  // Guard against destructive commands
-  const lowerPrompt = cleanPrompt.toLowerCase();
-  if (DANGEROUS_PATTERNS.some(pat => lowerPrompt.includes(pat))) {
-    await rejectSafetyViolation('Blocked: Destructive command rejected by Konoha safety guardrails.');
+  // Guard against destructive commands via centralized guardrails
+  const guardrailViolation = checkCommandGuardrails(cleanPrompt);
+  if (guardrailViolation) {
+    await rejectSafetyViolation(`Blocked: Command rejected by Konoha safety guardrails: ${guardrailViolation.reason}`);
     return;
   }
 
@@ -344,6 +344,11 @@ async function processTask(task) {
     const cmd = extractCommand(cleanPrompt);
     if (!cmd) {
       await rejectSafetyViolation('Blocked: Remote command rejected by Konoha safety guardrails.');
+      return;
+    }
+    const cmdViolation = checkCommandGuardrails(cmd);
+    if (cmdViolation) {
+      await rejectSafetyViolation(`Blocked: Extracted command rejected by Konoha safety guardrails: ${cmdViolation.reason}`);
       return;
     }
     const userShell = (process.env.SHELL && fs.existsSync(process.env.SHELL))
@@ -377,11 +382,7 @@ async function processTask(task) {
   // Uses agy CLI with low reasoning effort and 45-minute timeout for complex tasks
   return new Promise((resolve) => {
     const agyBin = resolveAgyBin();
-    const agyArgs = ['-p', cleanPrompt, '--effort', 'low'];
-    if (UNSAFE_AUTONOMY) {
-      agyArgs.push('--dangerously-skip-permissions');
-    }
-    agyArgs.push('--print-timeout', '45m');
+    const agyArgs = ['-p', cleanPrompt, '--effort', 'low', '--print-timeout', '45m'];
     const execEnv = {
       ...process.env,
       KONOHA_TASK_ID: task.id,

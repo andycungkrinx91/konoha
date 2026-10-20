@@ -276,7 +276,7 @@ async function handleMessage(msg) {
       '<b>🩺 [VILLAGE DIAGNOSTICS & HEALTH]</b>',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '<b>Status:</b> HEALTHY · 100% OPERATIONAL',
-      '<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.3)',
+      '<b>MCP Server:</b> Pure Node.js Single Runtime (v2.2.4)',
       '<b>Skills FTS5:</b> 1,027 records indexed',
       '<b>Token Savings:</b> 83% - 98% active',
       '<b>Clients Configured:</b> 8 coding agents (Antigravity, Cursor, Claude, OpenCode, CommandCode, Codex, Pi, OMP)',

@@ -257,7 +257,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.3-cross-client-1)
+## Konoha runtime contract (2.2.4-cross-client-1)
 
 You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
 

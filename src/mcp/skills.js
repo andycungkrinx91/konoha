@@ -277,9 +277,15 @@ function getMirrorRoots() {
 
 function findInMirror(name) {
   const norm = normalizeLegacySkillName(name);
+  if (!norm || typeof norm !== 'string') return null;
+  // Guard against path traversal attempts in skill/reference resolution
+  if (norm.includes('..') || path.isAbsolute(norm) || /^[a-zA-Z]:/.test(norm)) {
+    return null;
+  }
   const mirrorRoots = getMirrorRoots();
   for (const root of mirrorRoots) {
     if (!fs.existsSync(root)) continue;
+    const resolvedRoot = path.resolve(root);
     if (norm.includes('/')) {
       const parts = norm.split('/');
       const parentSkill = parts[0];
@@ -293,6 +299,8 @@ function findInMirror(name) {
         path.join(root, norm, 'SKILL.md')
       ];
       for (const cp of candidatePaths) {
+        const resolvedPath = path.resolve(cp);
+        if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
         if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
           return { filePath: cp, type: 'reference' };
         }
@@ -304,6 +312,8 @@ function findInMirror(name) {
         path.join(root, norm)
       ];
       for (const cp of candidatePaths) {
+        const resolvedPath = path.resolve(cp);
+        if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
         if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
           return { filePath: cp, type: 'skill' };
         }
@@ -313,6 +323,8 @@ function findInMirror(name) {
         for (const sub of subs) {
           if (!sub.isDirectory()) continue;
           const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
+          const resolvedPath = path.resolve(refPath);
+          if (!resolvedPath.startsWith(resolvedRoot + path.sep)) continue;
           if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
             return { filePath: refPath, type: 'reference' };
           }

@@ -2,6 +2,17 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.4] - Unreleased
+
+### Supply-Chain Security Hardening, Zero-Native Argon2id WebAssembly, and Queue Worker Guardrails
+
+- **Eliminated Native Code & Shell Access in Auth Dependencies**: Replaced native C++ `argon2` module with pure WebAssembly `hash-wasm` (`^4.12.0`), eliminating C++ compilation requirements (`node-gyp-build`), native binaries, and transitive `cross-env` / `cross-spawn` dependencies (`hasNativeCode` and `shellAccess` Socket alerts). Implemented seamless fallback and timing-safe verification for existing hashes.
+- **Eliminated `usesEval` in Timers via `immediate` Override**: Replaced `setimmediate` with `immediate` (`^3.3.0`) in `pnpm.overrides`, eliminating `new Function()` dynamic eval evaluation (`usesEval` Socket alert) while preserving full compatibility with `jszip`, `docx`, and `xlsx-populate`.
+- **Eliminated `trivialPackage` in Assert via `@socketregistry/assert` Override**: Overrode `minimalistic-assert` with `@socketregistry/assert` (`^1.0.23`), eliminating the middle-severity trivial package alert from `hash.js` transitive dependencies.
+- **Hardened Autonomous Queue Worker (`src/queue/worker.js`)**: Replaced loose regex patterns with canonical `checkCommandGuardrails` from `src/guardrails.js`, rejecting destructive commands and unauthorized shell invocations at the boundary. Replaced `-o StrictHostKeyChecking=no` with `accept-new`, and removed unverified permission bypass flags (`UNSAFE_AUTONOMY`).
+- **Explicit Scoping of Inherent By-Design Alerts**: Dependency-level and code-level medium/high alerts (`hasNativeCode`, `shellAccess` from `cross-spawn`, `usesEval` from `setimmediate`, `trivialPackage` from `minimalistic-assert`, and queue worker host-key/guardrail flags) were remediated. Package-level behavioral alerts (`installScripts` for `bin/postinstall.js` runtime bootstrap, `networkAccess` for web search and tunnels, and `unpopularPackage`) remain preserved as expected core MCP capabilities.
+- **All Document Generators & Password Verification Verified**: 100% verified `docx`, `pptxgenjs`, and `xlsx-populate` document generation, alongside Argon2id password generation and timing-safe verification.
+
 ## [2.2.3] - 2026-10-20
 
 ### Deprecated Package Elimination, Global Installation Self-Healing & Complete Quality Hardening

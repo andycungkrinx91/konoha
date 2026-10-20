@@ -41,13 +41,24 @@ const loginRateLimit = new Map();
 // Active sessions: sessionId -> { sessionId, isBootstrap, createdAt, expiresAt, lastActive }
 const activeSessions = new Map();
 
-let argon2 = null;
-let argon2Path = null;
+let hashWasm = null;
+let hashWasmPath = null;
 try {
-  argon2 = require('argon2');
-  argon2Path = require.resolve('argon2');
+  hashWasm = require('hash-wasm');
+  hashWasmPath = require.resolve('hash-wasm');
 } catch (_) {
-  // Graceful fallback if native module fails to load
+  // Graceful fallback if hash-wasm is unavailable
+}
+
+function parseArgon2idResult(rawHash) {
+  const trimmed = rawHash.trim();
+  const parts = trimmed.split('$');
+  const extractedSalt = parts[4] || '';
+  return {
+    format: 'argon2id',
+    salt: extractedSalt,
+    hash: trimmed
+  };
 }
 
 /**
@@ -55,33 +66,27 @@ try {
  * Passes password via stdin to prevent exposure via /proc/<pid>/cmdline.
  */
 function hashPassword(password, salt = null) {
-  if (argon2 && argon2Path) {
+  const saltBuf = salt ? Buffer.from(salt, 'hex') : crypto.randomBytes(16);
+
+  if (hashWasm && hashWasmPath) {
     try {
       const { spawnSync } = require('child_process');
-      const script = `const fs = require('fs'); const a = require(${JSON.stringify(argon2Path)}); const pass = fs.readFileSync(0, 'utf8'); a.hash(pass, { type: a.argon2id }).then(h => process.stdout.write(h)).catch(() => process.exit(1));`;
+      const script = `const fs = require('fs'); const { argon2id } = require(${JSON.stringify(hashWasmPath)}); const pass = fs.readFileSync(0, 'utf8'); const salt = Buffer.from(${JSON.stringify(saltBuf.toString('hex'))}, 'hex'); argon2id({ password: pass, salt, parallelism: 4, iterations: 3, memorySize: 65536, hashLength: 32, outputType: 'encoded' }).then(h => process.stdout.write(h)).catch(() => process.exit(1));`;
       const res = spawnSync(process.execPath, ['-e', script], {
         input: password,
         encoding: 'utf8',
         timeout: 5000,
         windowsHide: true,
-        env: { ...process.env, NODE_PATH: path.dirname(argon2Path) }
+        env: { ...process.env, NODE_PATH: path.dirname(hashWasmPath) }
       });
       if (res.status === 0 && res.stdout && res.stdout.startsWith('$argon2id$')) {
-        const rawHash = res.stdout.trim();
-        const parts = rawHash.split('$');
-        const extractedSalt = parts[4] || '';
-        return {
-          format: 'argon2id',
-          salt: extractedSalt,
-          hash: rawHash
-        };
+        return parseArgon2idResult(res.stdout);
       }
     } catch (_) {
-      // Fallback to scrypt on worker spawn failure
+      // Fallback on worker spawn failure
     }
   }
 
-  const saltBuf = salt ? Buffer.from(salt, 'hex') : crypto.randomBytes(16);
   const derived = crypto.scryptSync(password, saltBuf, SCRYPT_KEY_LEN, SCRYPT_PARAMS);
   return {
     format: `scrypt:N=${SCRYPT_PARAMS.N},r=${SCRYPT_PARAMS.r},p=${SCRYPT_PARAMS.p}`,
@@ -97,16 +102,16 @@ function hashPassword(password, salt = null) {
 function verifyPasswordHash(password, stored) {
   if (!stored || !stored.hash) return false;
   if (typeof stored.hash === 'string' && stored.hash.startsWith('$argon2')) {
-    if (argon2 && argon2Path) {
+    if (hashWasm && hashWasmPath) {
       try {
         const { spawnSync } = require('child_process');
-        const script = `const fs = require('fs'); const a = require(${JSON.stringify(argon2Path)}); const pass = fs.readFileSync(0, 'utf8'); a.verify(process.argv[1], pass).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));`;
+        const script = `const fs = require('fs'); const { argon2Verify } = require(${JSON.stringify(hashWasmPath)}); const pass = fs.readFileSync(0, 'utf8'); argon2Verify({ password: pass, hash: process.argv[1] }).then(v => process.exit(v ? 0 : 2)).catch(() => process.exit(1));`;
         const res = spawnSync(process.execPath, ['-e', script, stored.hash], {
           input: password,
           encoding: 'utf8',
           timeout: 5000,
           windowsHide: true,
-          env: { ...process.env, NODE_PATH: path.dirname(argon2Path) }
+          env: { ...process.env, NODE_PATH: path.dirname(hashWasmPath) }
         });
         return res.status === 0;
       } catch (_) {
