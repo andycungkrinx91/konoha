@@ -82,10 +82,10 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 - **On-Demand Skills**: Full reference manuals are served on-demand via `mcp__konoha__get_skill` instead of being dumped into prompts.
 
 ### Delegation Protocol:
-1. **Read User Prompt**: Read the user request to understand scope and domain.
+1. **Read User Prompt**: Read the user request from conversation context / `<USER_REQUEST>`.
 2. **Find Skill**: Call `mcp__konoha__find_skill` or `mcp__konoha__optimize_report` to discover skill references. **Do NOT call `semble` for skills.**
-3. **Delegate**: Resolve a task directory via `mcp__konoha__get_resolved_task_dir` (returns `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/` — **never** inside the project workspace), create a fresh subdirectory there, write `delegate.md` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. `mcp__konoha__anbu`) passing that absolute `task_dir`.
-4. **Report**: Once the tool completes and writes `result.md`, read it and report back to the user.
+3. **Delegate**: Delegate by invoking the corresponding subagent MCP tool directly with structured parameters (`task`, `context`, `constraints`, `skills`). Never search for or write `delegate.md` or `prompt.md`.
+4. **Report**: Synthesize findings and report back directly to the user upon subagent completion.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
 
@@ -119,7 +119,7 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
   - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
   - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
   - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in `delegate.md`, (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
+- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
 - **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) upon approval.
 
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.

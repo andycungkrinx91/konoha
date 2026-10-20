@@ -5,7 +5,6 @@
  */
 
 
-const path = require("path");
 const { spawnSync } = require("child_process");
 
 const { SKILLS_DB_DIR, MIGRATE_PATH, MIGRATION_TIMEOUT_MS } = require("../lib/paths");
@@ -163,12 +162,9 @@ async function cmdMigrate(args = []) {
 
     // 2. Synchronize active project workspace
     const cwd = process.cwd();
-    const konohaRepoRoot = path.resolve(__dirname, '../..');
     let syncedWorkspaces = 0;
-    if (cwd !== konohaRepoRoot) {
-      const res = agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
-      if (res && res.ok && !res.skipped) syncedWorkspaces++;
-    }
+    const res = agentManager.deployProjectWorkspace(cwd, { silent: true, force: true });
+    if (res && res.ok && !res.skipped) syncedWorkspaces++;
 
     // 3. Synchronize all tracked project workspaces in Konoha database
     try {
@@ -176,10 +172,10 @@ async function cmdMigrate(args = []) {
       const { DB_PATH } = require('../lib/paths');
       const tracked = personaMemory.listProjects(50, DB_PATH) || [];
       for (const p of tracked) {
-        if (p.project_path && p.project_path !== cwd && p.project_path !== konohaRepoRoot && fileExists(p.project_path)) {
+        if (p.project_path && p.project_path !== cwd && fileExists(p.project_path)) {
           try {
-            const res = agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
-            if (res && res.ok && !res.skipped) syncedWorkspaces++;
+            const resTracked = agentManager.deployProjectWorkspace(p.project_path, { silent: true, force: true });
+            if (resTracked && resTracked.ok && !resTracked.skipped) syncedWorkspaces++;
           } catch (_) { /* intentional best-effort fallback */ }
         }
       }

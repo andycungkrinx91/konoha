@@ -133,7 +133,7 @@ When the user prompt requests building or scaffolding a website or user interfac
    - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's `package.json` MUST always define working scripts for `"lint"` (`pnpm run lint` / `pnpm lint`), `"build"` (`pnpm run build` / `pnpm build`), and `"start"` (`pnpm run start` / `pnpm start`) (plus `"check"` for SvelteKit). All three commands must execute cleanly without missing script errors.
    - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run check` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
-### Existing project rules — delegate.md rules (CRITICAL)
+### Existing project rules (CRITICAL)
 
 When the user prompt involves modifying or working within an existing project:
 
@@ -159,10 +159,8 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 ### Delegation Protocol
 
 To delegate a task:
-1. **Direct Structured MCP Delegation (Recommended & Token-Safe)**: Call the subagent MCP tool directly (for example, `jonin`, `anbu`, `kage`, or `genin`) with `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path`. This executes inline without scratch-file read/write loops.
-2. **File-Based Delegation (Legacy Fallback)**: If the host cannot send structured arguments, resolve a task directory via `konoha.get_resolved_task_dir` (under `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`, never inside the project workspace) and create a fresh subdirectory.
-3. Write `delegate.md` only for that legacy fallback, including task details, context, skill reference names, and constraints.
-4. Call the corresponding MCP tool with the legacy `task_dir` argument. Read `result.md` only when the task-directory fallback was used.
+1. **Direct Structured MCP Delegation (Mandatory & Token-Safe)**: Call the subagent MCP tool directly (for example, `jonin`, `anbu`, `kage`, or `genin`) with `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path`. This executes inline with zero file-based IPC (never search for or write `prompt.md`, `delegate.md`, or `result.md`).
+2. **Result Delivery**: Subagents return structured results directly to the orchestrator upon completion.
 
 This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.
 
@@ -178,8 +176,7 @@ The orchestrator follows this workflow:
 2. **Find Skill First**: Call `konoha.find_skill` or `optimize_report` using keywords from the user prompt to discover specific skill reference names. Do not call `semble` for skills.
 3. **Find Code Context**: If project source code search is needed, call `semble.search` or `semble.find_related` with the absolute project repository path.
 4. **Delegate with structured MCP arguments**: Pass `task`, `context`, `constraints`, `skills`, `taste_dials`, and `project_path` to the matching subagent MCP tool. The build tools return specifications only; Jonin creates or updates files and runs framework-native `pnpm` validation commands.
-5. **Legacy fallback only**: If the host cannot send structured arguments, resolve an isolated `task_dir` and use `delegate.md`/`result.md` there.
-6. **Synthesize**: Present the structured result and any project-scoped learnings.
+5. **Synthesize**: Present the structured result and any project-scoped learnings.
 
 ### Routing by Domain (for skill selection AND delegation)
 
@@ -239,7 +236,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
   - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
   - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
   - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in `delegate.md`, (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
+- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
 - **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) upon approval.
 
 - **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under `~/.konoha/tmp/<client>/<session>/scratch/tasks/` which must be executed silently and automatically.
@@ -251,7 +248,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
 - **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
 - **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute subagent delegation via the `konoha` MCP. ALWAYS use the `semble` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.

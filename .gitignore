@@ -119,15 +119,6 @@ blob-report/
 playwright/.cache/
 # KONOHA-QA-END
 
-# Consumer Project Workspace Injected Configs (prevent repo pollution)
-/AGENTS.md
-/.cursorrules
-/.claude.json
-/.gemini/antigravity-cli/
-/.gemini/settings.json
-/.commandcode/mcp.json
-/.codex/
-
 # Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
 PLAN.md

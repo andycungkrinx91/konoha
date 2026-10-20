@@ -43,7 +43,7 @@ const SAFETY_GUARDRAILS_BLOCK = `
   - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
   - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
   - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in \`delegate.md\`, (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
+- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
 - **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
 `;
 
@@ -483,10 +483,8 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 ### Delegation Protocol
 
 To delegate a task:
-1. **Direct Structured MCP Delegation (Recommended & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`kage\`, or \`genin\`) with \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`. This executes inline without scratch-file read/write loops.
-2. **File-Based Delegation (Legacy Fallback)**: If the host cannot send structured arguments, resolve a task directory via \`konoha.get_resolved_task_dir\` (under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\`, never inside the project workspace) and create a fresh subdirectory.
-3. Write \`delegate.md\` only for that legacy fallback, including task details, context, skill reference names, and constraints.
-4. Call the corresponding MCP tool with the legacy \`task_dir\` argument. Read \`result.md\` only when the task-directory fallback was used.
+1. **Direct Structured MCP Delegation (Mandatory & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`kage\`, or \`genin\`) with \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`. This executes inline with zero file-based IPC (never search for or write \`prompt.md\`, \`delegate.md\`, or \`result.md\`).
+2. **Result Delivery**: Subagents return structured results directly to the orchestrator upon completion.
 
 This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.`;
 }
@@ -526,7 +524,7 @@ When the user prompt requests building or scaffolding a website or user interfac
    - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project\x27s \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\` / \`pnpm lint\`), \`"build"\` (\`pnpm run build\` / \`pnpm build\`), and \`"start"\` (\`pnpm run start\` / \`pnpm start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
    - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
-### Existing project rules — delegate.md rules (CRITICAL)
+### Existing project rules (CRITICAL)
 
 When the user prompt involves modifying or working within an existing project:
 
@@ -618,8 +616,7 @@ The orchestrator follows this workflow:
 2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt to discover specific skill reference names. Do not call \`semble\` for skills.
 3. **Find Code Context**: If project source code search is needed, call \`semble.search\` or \`semble.find_related\` with the absolute project repository path.
 4. **Delegate with structured MCP arguments**: Pass \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\` to the matching subagent MCP tool. The build tools return specifications only; Jonin creates or updates files and runs framework-native \`pnpm\` validation commands.
-5. **Legacy fallback only**: If the host cannot send structured arguments, resolve an isolated \`task_dir\` and use \`delegate.md\`/\`result.md\` there.
-6. **Synthesize**: Present the structured result and any project-scoped learnings.
+5. **Synthesize**: Present the structured result and any project-scoped learnings.
 
 ### Routing by Domain (for skill selection AND delegation)
 
@@ -652,7 +649,7 @@ ${SAFETY_GUARDRAILS_BLOCK}
 - **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
 - **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
 - **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute subagent delegation via the \`konoha\` MCP. ALWAYS use the \`semble\` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
@@ -706,10 +703,10 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 - **On-Demand Skills**: Full reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
 
 ### Delegation Protocol:
-1. **Read User Prompt**: Read the user request to understand scope and domain.
+1. **Read User Prompt**: Read the user request from conversation context / \`<USER_REQUEST>\`.
 2. **Find Skill**: Call \`konoha.find_skill\` or \`optimize_report\` to discover skill references. **Do NOT call \`semble\` for skills.**
-3. **Delegate**: Resolve a task directory via \`konoha.get_resolved_task_dir\` (returns \`~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/\` — **never** inside the project workspace), create a fresh subdirectory there, write \`delegate.md\` with task details, constraints, and context, then invoke the corresponding subagent MCP tool (e.g. \`anbu\`) passing that absolute \`task_dir\`.
-4. **Report**: Once the tool completes and writes \`result.md\`, read it and report back to the user.
+3. **Delegate**: Delegate by invoking the corresponding subagent MCP tool directly with structured parameters (\`task\`, \`context\`, \`constraints\`, \`skills\`). Never search for or write \`delegate.md\` or \`prompt.md\`.
+4. **Report**: Synthesize findings and report back directly to the user upon subagent completion.
 5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
 6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
 
@@ -863,9 +860,8 @@ ${buildDefineSubagentGuide(agents)}
   1. **Read User Prompt**: Re-evaluate the current prompt and project context on every new or resumed session.
   2. **Find Skill**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the prompt.
   3. **Find Code Context**: Use \`semble.search\`/\`find_related\` with the absolute repository path when source discovery is needed.
-  4. **Delegate**: Call the matching subagent MCP tool with structured arguments.
+  4. **Delegate**: Call the matching subagent MCP tool with direct structured arguments (task, context, constraints, skills).
   5. **Report**: Synthesize the structured result and project-scoped learnings.
-- **Legacy fallback**: Use an isolated \`task_dir\` with \`delegate.md\`/\`result.md\` only when structured arguments are unavailable.
 - **Constraints**: ONLY references skill definitions from the defined ninja agents: ${agentNames}.
 - **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.
 
@@ -880,11 +876,11 @@ ${agentSections}
 
 ### Mandatory Protocol (every agent must follow)
 1. **Log on start**: Output \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\` at the start of every response.
-2. **Structured Task Context**: For direct MCP delegation, consume the structured task, context, constraints, skills, Taste-Skill dials, and project path supplied by the invocation. If the host uses the legacy fallback, read its isolated \`delegate.md\` and write \`result.md\` only in that task directory.
+2. **Structured Task Context**: For direct MCP delegation, consume the structured task, context, constraints, skills, Taste-Skill dials, and project path supplied by the invocation. Never search for or read prompt.md or delegate.md.
 3. **Konoha first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
 4. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
-5. **Structured Result**: Return a concise result with changed files, validation evidence, and project-scoped learnings; use \`result.md.tmp\` → \`result.md\` only for the legacy fallback.
-6. **Planning-to-File**: For complex plans or assessments, use \`plan.md\` only inside the isolated legacy task directory when that fallback is active.
+5. **Structured Result**: Return a concise result with changed files, validation evidence, and project-scoped learnings directly to the orchestrator.
+6. **Planning-to-File**: For complex plans or assessments, write details to a local workspace plan file (e.g. \`scratch/plan.md\`) when needed.
 
 ### Conditional Tools (use only when needed)
 - **Semble for code search**: If the task requires searching project source code (not skills), call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.** Prefer \`semble\` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
@@ -901,7 +897,7 @@ ${SAFETY_GUARDRAILS_BLOCK}
 - **Optimize Thought Tokens**: In the thought/thinking process, keep explanations concise and directly focused on implementation steps. Avoid writing extensive explanations, essays, or redundant logs in the thought block to minimize output/thought token costs.
 - **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (except for reading delegate.md and writing result.md in the parent orchestrator task directory as specified in the invocation prompt).
+- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
 - **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
 - **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
@@ -1213,9 +1209,6 @@ function deployProjectWorkspace(projectRoot, options = {}) {
   const force = options.force || false;
   const targetPath = path.resolve(projectRoot || process.cwd());
   const konohaRepoRoot = path.resolve(__dirname, '..');
-  if (targetPath === konohaRepoRoot) {
-    return { ok: true, skipped: true, reason: 'self-injection skipped for konoha engine repository' };
-  }
   if (!fs.existsSync(targetPath)) {
     try {
       fs.mkdirSync(targetPath, { recursive: true });
@@ -1373,6 +1366,39 @@ function deployProjectWorkspace(projectRoot, options = {}) {
     const summary = options.summary || options.title || '';
     personaMemory.saveOrUpdateProject(targetPath, summary, null, DB_PATH);
   } catch (_) { /* intentional best-effort fallback */ }
+
+  // 10. Inject into .gitignore and .dockerignore for consumer projects (exclude konoha project itself)
+  if (targetPath !== konohaRepoRoot) {
+    const ignoreBlock = [
+      '## Start Konoha config+skill',
+      '.agents',
+      '.claude*',
+      '.commandcode*',
+      '.cursor*',
+      '.cursorrules*',
+      '.gemini*',
+      '.omp*',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'GEMINI.md',
+      '## End Konoha config+skill'
+    ].join('\n');
+
+    for (const ignoreFile of ['.gitignore', '.dockerignore']) {
+      try {
+        const ignorePath = path.join(targetPath, ignoreFile);
+        let existing = '';
+        if (fs.existsSync(ignorePath)) {
+          existing = fs.readFileSync(ignorePath, 'utf8');
+        }
+        if (!existing.includes('## Start Konoha config+skill')) {
+          const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n\n' : (existing.length > 0 ? '\n' : '');
+          fs.writeFileSync(ignorePath, existing + separator + ignoreBlock + '\n', 'utf8');
+          deployedFiles.push(ignorePath);
+        }
+      } catch (_) { /* intentional best-effort fallback */ }
+    }
+  }
 
   if (!silent) {
     process.stderr.write(`✓ Injected Konoha skills, rules, and configs with mandatory runtime contract into ${targetPath}\n`);

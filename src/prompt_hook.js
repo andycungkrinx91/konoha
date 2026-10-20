@@ -138,7 +138,7 @@ const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A user prompt or conversation resume action has been received. Please read prompt.md using konoha MCP (read_file_head/read_file_range) and execute the Konoha orchestration workflow immediately (sannin/genin/kage/chunin/jonin/anbu/tokubetsu-jonin). Adopt High Effort + Instruct Style base personality: strictly NO conversational filler ('hmmmm', 'let me', 'wait - but'), lead with direct action, strictly no lies, zero hallucination. Note: prompt.md may contain an Original Task section plus Follow-up sections — the Original Task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
+        "A user prompt or conversation resume action has been received. User instructions and constraints are passed directly in conversation context / <USER_REQUEST>. Execute the Konoha orchestration workflow immediately via direct structured MCP tool arguments (sannin/genin/kage/chunin/jonin/anbu/tokubetsu-jonin). Do NOT call file_info('prompt.md') or read prompt.md/delegate.md. Adopt High Effort + Instruct Style base personality: strictly NO conversational filler ('hmmmm', 'let me', 'wait - but'), lead with direct action, strictly no lies, zero hallucination. The original task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
     }
   ]
 };
