@@ -1212,6 +1212,10 @@ function deployProjectWorkspace(projectRoot, options = {}) {
   const silent = options.silent !== false;
   const force = options.force || false;
   const targetPath = path.resolve(projectRoot || process.cwd());
+  const konohaRepoRoot = path.resolve(__dirname, '..');
+  if (targetPath === konohaRepoRoot) {
+    return { ok: true, skipped: true, reason: 'self-injection skipped for konoha engine repository' };
+  }
   if (!fs.existsSync(targetPath)) {
     try {
       fs.mkdirSync(targetPath, { recursive: true });
