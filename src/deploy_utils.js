@@ -583,6 +583,12 @@ function installFileTools(silent = true, pythonCmd = null) {
     copyRecursiveIfDifferent(srcMcpDir, destMcpDir);
   }
 
+  const srcToolsDir = path.join(SRC_DIR, "tools");
+  const destToolsDir = path.join(SKILLS_DB_DIR, "tools");
+  if (fileExists(srcToolsDir)) {
+    copyRecursiveIfDifferent(srcToolsDir, destToolsDir);
+  }
+
   const srcBridgeDir = path.join(SRC_DIR, "bridge");
   const destBridgeDir = path.join(SKILLS_DB_DIR, "bridge");
   if (fileExists(srcBridgeDir)) {

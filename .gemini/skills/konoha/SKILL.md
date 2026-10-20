@@ -647,6 +647,13 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
     - **Deprecated Package Elimination**: Replaced deprecated `exceljs` (and its transitive dependency chain `inflight`, `rimraf`, `lodash.isequal`, `glob`, `fstream`, `uuid`) with clean, modern `xlsx-populate` in `package.json` and `src/tools/document_engine.js`. Enforced zero deprecation warnings and zero errors on clean npm/pnpm installations.
     - **Global CLI Self-Healing Runtime**: Resolved `MODULE_NOT_FOUND` on missing `~/.konoha` by implementing multi-tier resilient shims (`reconcileGlobalCommand`), `bin/postinstall.js`, and self-healing runtime restoration in `bin/cli.js`.
     - **Full Document Engine Parity**: Preserved 100% feature and visual parity for `spreadsheet_create` including EulerOS KPI cards, zebra striping, uppercase formulas, autoFilter, and column formatting.
+109. **Migration Timeout Normalization, FTS5/RAG Skill Authority & Mirror Fallback Invariant (v2.2.3)**:
+    - **Safe Timeout Normalization & Zero-NaN Invariant**: Exported `MIGRATION_TIMEOUT_MS = 180000` from `bin/lib/paths.js`. Implemented defensive timeout normalization (`Number.isFinite(raw) && raw > 0 ? raw : 180000`) across `migrate.js`, `init.js`, `doctor.js`, and `runtime.js`, allocating 600s (`Math.max(baseTimeout, 600000)`) when `--rebuild-embeddings` is active. This permanently eliminates Node.js `ERR_OUT_OF_RANGE: Received NaN` crashes during `konoha migrate --rebuild-embeddings` and `konoha embed`.
+    - **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, all skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first. Local Markdown files (`SKILL.md` and `references/*.md`) serve strictly as secondary fallback mirrors when the database is unavailable or a record is missing.
+    - **Workflow Skill Directives**: Sannin router dispatches across all active phases (`explore`, `plan`, `research`, `execute`, `document`) enforce the skill retrieval invariant:
+      ```json
+      "skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."
+      ```
 
 
 

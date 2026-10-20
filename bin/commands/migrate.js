@@ -54,7 +54,9 @@ async function cmdMigrate(args = []) {
   const hasForce = args.includes('--force');
   const hasRebuildEmbeddings = args.includes('--rebuild-embeddings');
   const hasSkipEmbeddings = args.includes('--skip-embeddings');
-  const timeoutMs = hasRebuildEmbeddings ? Math.max(MIGRATION_TIMEOUT_MS, 300000) : MIGRATION_TIMEOUT_MS;
+  const rawTimeout = Number(MIGRATION_TIMEOUT_MS);
+  const baseTimeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : 180000;
+  const timeoutMs = hasRebuildEmbeddings ? Math.max(baseTimeout, 600000) : baseTimeout;
 
   if (hasForce) {
     info('Pruning unused/unembedded skills to prevent duplicate content...');
@@ -134,7 +136,12 @@ async function cmdMigrate(args = []) {
           log(run.stdout);
           anySuccess = true;
         } else {
-          error(`Migration failed: ${run.stderr}`);
+          const errMsg = (run.stderr || '').trim() || run.error?.message || `process exited with code ${run.status}`;
+          if (run.error && run.error.code === 'ETIMEDOUT') {
+            error(`Migration timed out after ${Math.round(timeoutMs / 1000)}s: ${errMsg}`);
+          } else {
+            error(`Migration failed: ${errMsg}`);
+          }
         }
       } catch (e) {
         error(`Migration failed: ${e.message}`);

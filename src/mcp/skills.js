@@ -259,6 +259,113 @@ function getServedSkillsSet(sessionId) {
   return SERVED_SKILLS_BY_SESSION.get(key);
 }
 
+function getMirrorRoots() {
+  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
+  return [
+    path.join(ws, '.agents', 'skills'),
+    path.join(ws, 'src', 'templates', 'skills'),
+    path.join(HOME, '.agents', 'skills'),
+    path.join(ws, '.cursor', 'skills'),
+    path.join(ws, '.gemini', 'skills'),
+    path.join(ws, '.commandcode', 'skills'),
+    path.join(ws, '.claude', 'skills'),
+    path.join(ws, '.opencode', 'skills'),
+    path.join(ws, '.codex', 'skills'),
+    path.join(ws, '.omp', 'skills'),
+  ];
+}
+
+function findInMirror(name) {
+  const norm = normalizeLegacySkillName(name);
+  const mirrorRoots = getMirrorRoots();
+  for (const root of mirrorRoots) {
+    if (!fs.existsSync(root)) continue;
+    if (norm.includes('/')) {
+      const parts = norm.split('/');
+      const parentSkill = parts[0];
+      const subName = parts.slice(1).join('/');
+      const candidatePaths = [
+        path.join(root, parentSkill, 'references', `${subName}.md`),
+        path.join(root, parentSkill, 'references', subName),
+        path.join(root, parentSkill, `${subName}.md`),
+        path.join(root, parentSkill, subName, 'SKILL.md'),
+        path.join(root, `${norm}.md`),
+        path.join(root, norm, 'SKILL.md')
+      ];
+      for (const cp of candidatePaths) {
+        if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+          return { filePath: cp, type: 'reference' };
+        }
+      }
+    } else {
+      const candidatePaths = [
+        path.join(root, norm, 'SKILL.md'),
+        path.join(root, `${norm}.md`),
+        path.join(root, norm)
+      ];
+      for (const cp of candidatePaths) {
+        if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+          return { filePath: cp, type: 'skill' };
+        }
+      }
+      try {
+        const subs = fs.readdirSync(root, { withFileTypes: true });
+        for (const sub of subs) {
+          if (!sub.isDirectory()) continue;
+          const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
+          if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
+            return { filePath: refPath, type: 'reference' };
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+  }
+  return null;
+}
+
+function searchMirrorSkills(keyword, limit = 5) {
+  const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return [];
+  const mirrorRoots = getMirrorRoots();
+  const hits = [];
+  const seen = new Set();
+
+  for (const root of mirrorRoots) {
+    if (!fs.existsSync(root)) continue;
+    try {
+      const entries = fs.readdirSync(root, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const skillName = entry.name;
+        const skillMd = path.join(root, skillName, 'SKILL.md');
+        if (fs.existsSync(skillMd)) {
+          const matchName = skillName.toLowerCase();
+          const matches = terms.some(t => matchName.includes(t));
+          if (matches && !seen.has(skillName)) {
+            seen.add(skillName);
+            try {
+              const content = fs.readFileSync(skillMd, 'utf8');
+              hits.push({
+                name: skillName,
+                skill_name: skillName,
+                type: 'skill',
+                tags: '',
+                content,
+                byte_size: Buffer.byteLength(content, 'utf8'),
+                line_count: (content.match(/\n/g) || []).length + 1,
+                file_path: skillMd,
+                rank: -0.5
+              });
+            } catch (_) { /* intentional best-effort fallback: unreadable mirror file must not crash search */ }
+            if (hits.length >= limit) return hits;
+          }
+        }
+      }
+    } catch (_) { /* intentional best-effort fallback: unreadable mirror dir must not crash search */ }
+  }
+  return hits;
+}
+
 function querySkillsByKeyword(conn, keyword, limit = 50) {
   let rows = [];
   if (!db.hasFts5Support || db.hasFts5Support(conn)) {
@@ -328,6 +435,18 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
         visibleRows.push(row);
       }
       if (visibleRows.length >= limit) break;
+    }
+
+    if (visibleRows.length === 0) {
+      // Primary search in SQLite FTS5 & Vector RAG returned 0 results.
+      // Fallback only: attempt to find matching skills from disk mirror files.
+      const mirrorRows = searchMirrorSkills(normKeyword, limit);
+      if (mirrorRows && mirrorRows.length > 0) {
+        process.stderr.write(`  ⚠️ [find_skill] '${normKeyword}' not found in SQLite FTS5/RAG. Retrieved ${mirrorRows.length} matches from mirror fallback.\n`);
+        for (const mRow of mirrorRows) {
+          visibleRows.push(mRow);
+        }
+      }
     }
 
     if (visibleRows.length === 0) {
@@ -458,6 +577,30 @@ function getSkill(name, agentName = null, options = {}) {
     }
 
     if (!row || !isPathVisible(row.file_path)) {
+      // Primary lookup in SQLite database returned no record.
+      // Fallback only: check mirror skills on disk.
+      const mirrorHit = findInMirror(normName);
+      if (mirrorHit) {
+        try {
+          const mirrorContent = fs.readFileSync(mirrorHit.filePath, 'utf8');
+          row = {
+            name: normName,
+            skill_name: normName.split('/')[0],
+            type: mirrorHit.type,
+            tags: '',
+            content: mirrorContent,
+            byte_size: Buffer.byteLength(mirrorContent, 'utf8'),
+            line_count: (mirrorContent.match(/\n/g) || []).length + 1,
+            file_path: mirrorHit.filePath
+          };
+          process.stderr.write(`  ⚠️ [get_skill] '${normName}' not found in SQLite database. Retrieved from mirror fallback: ${mirrorHit.filePath}\n`);
+        } catch (readErr) {
+          process.stderr.write(`  [Warning] Failed to read mirror skill '${normName}': ${readErr.message}\n`);
+        }
+      }
+    }
+
+    if (!row || !isPathVisible(row.file_path)) {
       process.stderr.write(`  → Skill '${normName}' NOT found or access restricted\n`);
       const res = JSON.stringify({
         error: `Skill '${normName}' not found. Use list_skills or find_skill to discover available skills.`
@@ -578,67 +721,6 @@ function useSkills(skillsInput, agentName = null, options = {}) {
     for (const name of skillNames) {
       getServedSkillsSet(taskId).add(normalizeLegacySkillName(name));
     }
-  }
-
-  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT || process.cwd();
-  const mirrorRoots = [
-    path.join(ws, '.agents', 'skills'),
-    path.join(ws, 'src', 'templates', 'skills'),
-    path.join(HOME, '.agents', 'skills'),
-    path.join(ws, '.cursor', 'skills'),
-    path.join(ws, '.gemini', 'skills'),
-    path.join(ws, '.commandcode', 'skills'),
-    path.join(ws, '.claude', 'skills'),
-    path.join(ws, '.opencode', 'skills'),
-    path.join(ws, '.codex', 'skills'),
-    path.join(ws, '.omp', 'skills'),
-  ];
-
-  function findInMirror(name) {
-    const norm = normalizeLegacySkillName(name);
-    for (const root of mirrorRoots) {
-      if (!fs.existsSync(root)) continue;
-      if (norm.includes('/')) {
-        const parts = norm.split('/');
-        const parentSkill = parts[0];
-        const subName = parts.slice(1).join('/');
-        const candidatePaths = [
-          path.join(root, parentSkill, 'references', `${subName}.md`),
-          path.join(root, parentSkill, 'references', subName),
-          path.join(root, parentSkill, `${subName}.md`),
-          path.join(root, parentSkill, subName, 'SKILL.md'),
-          path.join(root, `${norm}.md`),
-          path.join(root, norm, 'SKILL.md')
-        ];
-        for (const cp of candidatePaths) {
-          if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
-            return { filePath: cp, type: 'reference' };
-          }
-        }
-      } else {
-        const candidatePaths = [
-          path.join(root, norm, 'SKILL.md'),
-          path.join(root, `${norm}.md`),
-          path.join(root, norm)
-        ];
-        for (const cp of candidatePaths) {
-          if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
-            return { filePath: cp, type: 'skill' };
-          }
-        }
-        try {
-          const subs = fs.readdirSync(root, { withFileTypes: true });
-          for (const sub of subs) {
-            if (!sub.isDirectory()) continue;
-            const refPath = path.join(root, sub.name, 'references', `${norm}.md`);
-            if (fs.existsSync(refPath) && fs.statSync(refPath).isFile()) {
-              return { filePath: refPath, type: 'reference' };
-            }
-          }
-        } catch (_) { /* ignore */ }
-      }
-    }
-    return null;
   }
 
   const loadedSkills = [];

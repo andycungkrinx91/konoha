@@ -1078,13 +1078,16 @@ function ensureAutoSetup(force = false) {
     }
     process.env.KONOHA_SEMANTIC_SEARCH = process.env.KONOHA_SEMANTIC_SEARCH || '1';
     const extraArgs = (process.env.KONOHA_SEMANTIC_SEARCH === '0' || process.env.KONOHA_SEMANTIC_SEARCH === 'false') ? ['--skip-embeddings'] : [];
+    const safeTimeoutMs = Number.isFinite(Number(MIGRATION_TIMEOUT_MS)) && Number(MIGRATION_TIMEOUT_MS) > 0
+      ? Number(MIGRATION_TIMEOUT_MS)
+      : 180000;
     if (fileExists(pkgSkillsDir)) {
       const skills = detectCustomSkills(pkgSkillsDir);
       if (skills.length > 0) {
         try {
           const bootstrapArgs = [MIGRATE_PATH, '--skills-dir', pkgSkillsDir, '--skills', ...skills, '--require-skill', 'genin-skill'];
           let run = spawnSync(process.execPath, [...bootstrapArgs, ...extraArgs], {
-            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+            encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: safeTimeoutMs
           });
           if (run.status !== 0) {
             run = spawnSync(process.execPath, [...bootstrapArgs, '--skills-only', '--skip-embeddings'], {
@@ -1094,7 +1097,7 @@ function ensureAutoSetup(force = false) {
         } catch (_) {
           try {
             spawnSync(process.execPath, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
-              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+              encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: safeTimeoutMs
             });
           } catch (_) { /* intentional best-effort fallback */ }
         }
@@ -1102,7 +1105,7 @@ function ensureAutoSetup(force = false) {
     } else {
       try {
         spawnSync(process.execPath, [MIGRATE_PATH, '--require-skill', 'genin-skill', ...extraArgs], {
-          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: MIGRATION_TIMEOUT_MS
+          encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: safeTimeoutMs
         });
       } catch (_) { /* intentional best-effort fallback */ }
     }

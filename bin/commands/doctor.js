@@ -302,11 +302,14 @@ async function cmdDoctor(args = []) {
     record('Database File (konoha.db)', 'HEALTHY', 'Database file is present');
   } else {
     // Try to run migration
+    const safeTimeout = Number.isFinite(Number(MIGRATION_TIMEOUT_MS)) && Number(MIGRATION_TIMEOUT_MS) > 0
+      ? Number(MIGRATION_TIMEOUT_MS)
+      : 180000;
     const runMigrate = (args = [], silent = false) => {
       return spawnSync(process.execPath, [MIGRATE_PATH, ...args], {
         encoding: 'utf-8',
         cwd: SKILLS_DB_DIR,
-        timeout: MIGRATION_TIMEOUT_MS,
+        timeout: safeTimeout,
         stdio: silent ? 'pipe' : 'inherit'
       });
     };

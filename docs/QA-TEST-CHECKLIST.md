@@ -69,6 +69,16 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | `tests/test_web_auth_token_isolation.js` | Validates session token isolation: confirms `/api/v1/auth/status` and `/api/v1/auth/session` do not leak session tokens, and `/api/v1/health` returns minimal metadata. | Token undefined on status and session endpoints; health returns minimal unauthenticated JSON. | `PASS` (verified) |
 | `tests/test_tunnel_auth_enforcement.js` | Enforces constant-time PIN authentication on named tunnels, query parameter rejection (`?pin=` ignored), and trusted socket peer rate limiting. | 6/6 subtests passed. | `PASS` (verified) |
 
+### 1.4 Migration Robustness, Safe Timeouts & Skill RAG Retrieval Invariant (v2.2.3)
+
+- **Safe Timeout Normalization & Zero-NaN Invariant**: `bin/lib/paths.js` exports `MIGRATION_TIMEOUT_MS = 180000` (180s default). `bin/commands/migrate.js`, `bin/commands/init.js`, `bin/commands/doctor.js`, and `bin/lib/runtime.js` implement defensive timeout normalization using `Number.isFinite()`, guaranteeing that `timeoutMs` passed to `spawnSync` is always an unsigned positive integer. This permanently eliminates the Node.js `ERR_OUT_OF_RANGE: Received NaN` crash when executing `konoha migrate --rebuild-embeddings` or `konoha embed`.
+- **Primary SQLite FTS5 & Neural RAG Retrieval**: In `src/mcp/skills.js`, all skill discovery and loading (`find_skill`, `get_skill`, `use_skills`) query the SQLite database (`konoha.db`) and dense vector embeddings first. Local Markdown files (`SKILL.md` and `references/*.md`) serve strictly as secondary fallback mirrors when the database is unavailable or a record is missing.
+- **Workflow Skill Directives**: Sannin router dispatches across all active phases (`explore`, `plan`, `research`, `execute`, `document`) enforce the skill retrieval invariant:
+  ```json
+  "skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."
+  ```
+- **Isolated Testing Protocol**: Verification executed in ephemeral directories under `/tmp/konoha-skill-iso-*` using custom `KONOHA_DB_PATH` and isolated skill trees, confirming 100% test isolation without touching the user's local `~/.konoha` environment.
+
 ---
 
 ## Section 2: Web UI & Browser Automation QA

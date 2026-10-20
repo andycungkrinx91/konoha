@@ -1235,11 +1235,13 @@ function runMcpWorkflow(taskDir = null) {
     saveWorkflowStatus(resolvedTaskDir, status);
   }
 
+  const SKILL_RETRIEVAL_DIRECTIVE = 'Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill("<keywords>") and konoha.use_skills(["<skill>"]) or konoha.get_skill("<name>"). Never read raw markdown files directly.';
+
   if (phase === 'explore') {
     const dispatch = workflowDispatch(resolvedTaskDir, status, 'explore', 'genin');
     status.assigned_agent = 'genin';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'explore', agent: 'genin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, task: effPrompt });
+    return JSON.stringify({ status: 'ready', phase: 'explore', agent: 'genin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, task: effPrompt, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
   }
 
   if (phase === 'plan') {
@@ -1250,7 +1252,7 @@ function runMcpWorkflow(taskDir = null) {
       : findingsRaw;
     status.assigned_agent = 'kage';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary });
+    return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
   }
 
   if (phase === 'research') {
@@ -1260,7 +1262,7 @@ function runMcpWorkflow(taskDir = null) {
     const query = qLine ? qLine.slice('research_query:'.length).trim() : '';
     status.assigned_agent = 'chunin';
     saveWorkflowStatus(resolvedTaskDir, status);
-    return JSON.stringify({ status: 'ready', phase: 'research', agent: 'chunin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, query: query || 'plan requirements' });
+    return JSON.stringify({ status: 'ready', phase: 'research', agent: 'chunin', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, query: query || 'plan requirements', skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
   }
 
   if (phase === 'execute') {
@@ -1283,7 +1285,7 @@ function runMcpWorkflow(taskDir = null) {
       const dispatch = workflowDispatch(resolvedTaskDir, status, 'execute', nextTask.agent, nextTask.id, nextTask.task);
       status.assigned_agent = nextTask.agent;
       saveWorkflowStatus(resolvedTaskDir, status);
-      return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, task: nextTask.task, dispatch_id: dispatch.id, task_dir: resolvedTaskDir });
+      return JSON.stringify({ status: 'ready', phase: 'execute', agent: nextTask.agent, task_id: nextTask.id, task: nextTask.task, dispatch_id: dispatch.id, task_dir: resolvedTaskDir, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });
     }
   }
 

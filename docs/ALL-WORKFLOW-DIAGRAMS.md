@@ -505,24 +505,25 @@ config:
     wrappingWidth: 380
 ---
 flowchart TB
-    SourceTree["Canonical Source of Truth<br/>`.agents/skills/` (16 Skills + Embedded References)"] --> SyncScript["Additive Mirror Synchronization<br/>`node scripts/sync_skills.js`"]
+    SourceTree["Canonical Source of Truth<br/>`.agents/skills/` (15 Canonical Skills + Embedded References)"] --> SyncScript["Additive Mirror Synchronization<br/>`node scripts/sync_skills.js`"]
 
-    subgraph MirrorTrees ["Cross-Client 5-Tree Repository Mirrors"]
+    subgraph MirrorTrees ["Cross-Client 6-Tree Repository Mirrors"]
         M1["src/templates/skills/"]
         M2[".cursor/skills/"]
         M3[".gemini/skills/"]
         M4[".commandcode/skills/"]
         M5[".claude/skills/"]
+        M6[".omp/skills/"]
     end
 
     SyncScript --> MirrorTrees
 
-    SourceTree --> FTS5Migrate["SQLite FTS5 Ingestion<br/>`src/migrate.js` (Non-destructive UPSERT)"]
-    FTS5Migrate --> SQLiteDB[("Unified Database: `~/.konoha/konoha.db`<br/>• skills (exact name, type, metadata)<br/>• skills_fts (BM25 token index)<br/>• skill_chunks (384d semantic vectors)")]
+    SourceTree --> FTS5Migrate["SQLite FTS5 & Dense Vector Ingestion<br/>`src/migrate.js` (FTS5 BM25 + Granite RAG)"]
+    FTS5Migrate --> SQLiteDB[("Unified Database: `~/.konoha/konoha.db`<br/>• skills (primary store: content, byte_size)<br/>• skills_fts (BM25 token index)<br/>• skill_chunks (384d semantic vectors)")]
 
-    subgraph ClientQueries ["On-Demand Retrieval Pipeline"]
-        Find["Step 1: Discover<br/>konoha.find_skill('keyword')<br/>(Fast SQLite snippet &amp; score preview)"]
-        Load["Step 2: Ingest<br/>konoha.get_skill('canonical-name')<br/>(Full documentation manual on demand)"]
+    subgraph ClientQueries ["On-Demand Retrieval Pipeline (DB Primary, Mirror Fallback)"]
+        Find["Step 1: Discover<br/>konoha.find_skill('keyword')<br/>(Primary SQLite FTS5 &amp; Vector RAG preview)"]
+        Load["Step 2: Ingest<br/>konoha.use_skills / konoha.get_skill<br/>(Primary SQLite DB, disk mirror fallback)"]
     end
 
     SQLiteDB <--> Find
@@ -547,7 +548,7 @@ flowchart TB
     classDef queryNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
 
     class SourceTree,SyncScript sourceNode;
-    class M1,M2,M3,M4,M5 mirrorNode;
+    class M1,M2,M3,M4,M5,M6 mirrorNode;
     class FTS5Migrate,SQLiteDB dbNode;
     class Find,Load,AC1,AC2,AC3 queryNode;
 ```

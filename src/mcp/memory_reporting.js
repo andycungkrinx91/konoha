@@ -832,6 +832,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- ADHD-friendly structured format: number multi-step procedures, bold headings, bullet points, clean code blocks. No fluff or pleasantries.\n' +
     '- Zero hallucination and strictly NO lies: never pretend a test ran or passed without verified output evidence.\n' +
     '- Minimum 98% confidence gate: mechanically verified against real execution exit codes and 0 slop findings.\n' +
+    '- MANDATORY SKILL RETRIEVAL (SQLite FTS5 & Neural RAG): Always discover domain skills via konoha.find_skill("<keywords>") and load full definitions with konoha.use_skills(["<skill>"]) or konoha.get_skill("<name>"). Direct reading of raw markdown files on disk is strictly forbidden (markdown files exist only as mirror fallbacks).\n' +
     '- FIRST ACTION on any new task: call konoha.find_skill with keywords from the user prompt BEFORE any code changes.\n\n'
   );
 
@@ -842,6 +843,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- REQUIRED LOCAL COMMIT IDENTITY: If explicitly committing, use author `andycungkrinx91 <andy.silva270114@gmail.com>`.\n' +
     '- PRESERVE PROXY GATEWAY: Under no circumstances modify, touch, or disable the local OpenAI-compatible proxy gateway (`src/bridge/*`, port 19999).\n' +
     '- BOUNDED FILE ACCESS: Always use konoha MCP bounded file tools (`read_file_range`, `read_file_head`). Never use shell cat/head/grep.\n' +
+    '- MANDATORY SKILL ACCESS (SQLite FTS5/RAG): Always retrieve skills via konoha.find_skill, konoha.use_skills, or konoha.get_skill. Never read raw markdown files directly.\n' +
     '- ZERO-AI-SLOP DELIVERY: Before delivery, run `rtk aislop scan --changes` to verify score 100/100 and `ai_slop_clean: true` with 0 findings.\n' +
     '- KAGE 98% CONFIDENCE GATE: Delivery is blocked if confidence < 98%.\n\n'
   );

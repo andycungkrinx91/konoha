@@ -47,6 +47,9 @@ const SERVER_PATH = path.join(KONOHA, 'server.js');
 /** Migration entry point */
 const MIGRATE_PATH = path.join(SKILLS_DB_DIR, 'migrate.js');
 
+/** Migration timeout: 180s (3 minutes) default for FTS5 + neural vector embedding generation */
+const MIGRATION_TIMEOUT_MS = 180000;
+
 /** SQLite database */
 const DB_PATH = process.env.KONOHA_DB_PATH
   ? path.normalize(process.env.KONOHA_DB_PATH)
@@ -235,6 +238,7 @@ module.exports = {
   SKILLS_DB_DIR,
   SERVER_PATH,
   MIGRATE_PATH,
+  MIGRATION_TIMEOUT_MS,
   DB_PATH,
   FINGERPRINT_PATH,
   BRIDGES_JSON_PATH,

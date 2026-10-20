@@ -508,13 +508,16 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--rebuild-embeddings')) {
     migrationArgs.push('--rebuild-embeddings');
   }
+  const safeTimeoutMs = Number.isFinite(Number(MIGRATION_TIMEOUT_MS)) && Number(MIGRATION_TIMEOUT_MS) > 0
+    ? Number(MIGRATION_TIMEOUT_MS)
+    : 180000;
   const runMigrate = (extraArgs, timeoutMs) => spawnSync(process.execPath, [MIGRATE_PATH, ...migrationArgs, ...extraArgs], {
-    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: timeoutMs
+    encoding: 'utf-8', cwd: SKILLS_DB_DIR, timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : safeTimeoutMs
   });
-  let run = runMigrate([], MIGRATION_TIMEOUT_MS);
+  let run = runMigrate([], safeTimeoutMs);
   if (run.status !== 0) {
     // Retry without neural embedding generation
-    run = runMigrate(['--skip-embeddings'], MIGRATION_TIMEOUT_MS);
+    run = runMigrate(['--skip-embeddings'], safeTimeoutMs);
   }
   if (run.status !== 0) {
     // Final fallback: seed skills only, defer references to a later `konoha migrate`
