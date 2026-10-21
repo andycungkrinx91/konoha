@@ -136,6 +136,20 @@ ${C.bold}EXAMPLES${C.reset}
 }
 
 
+function recordAutoSetupState() {
+  try {
+    const agentsYamlPath = path.join(HOME, '.agents', 'agents.yaml');
+    let agentsMtime = 0;
+    try { agentsMtime = fs.statSync(agentsYamlPath).mtimeMs; } catch { /* best-effort */ }
+    const AUTO_SETUP_STATE_PATH = path.join(SKILLS_DB_DIR, '.auto_setup_state.json');
+    fs.writeFileSync(AUTO_SETUP_STATE_PATH, JSON.stringify({
+      version: getCliVersion(),
+      agentsMtime,
+      timestamp: Date.now()
+    }), 'utf8');
+  } catch { /* best-effort */ }
+}
+
 async function cmdInit(args, options = {}) {
   if (args.includes('help') || args.includes('--help') || args.includes('-h')) {
     cmdInitHelp();
@@ -332,6 +346,7 @@ async function cmdInit(args, options = {}) {
           }
         } catch { /* intentional best-effort fallback: failure here must never crash the installer */ }
       }
+      recordAutoSetupState();
       return;
     }
     warn('Reinstalling (--force)...');
@@ -775,6 +790,7 @@ async function cmdInit(args, options = {}) {
       }
     } catch { /* intentional best-effort fallback: failure here must never crash the installer */ }
   }
+  recordAutoSetupState();
 
   info(`${C.bold}Next steps:${C.reset}`);
   log(`  1. Re-index & embed: ${C.cyan}konoha embed${C.reset} ${C.dim}(or: konoha migrate --clean --rebuild-embeddings)${C.reset}`);

@@ -941,6 +941,11 @@ function installFileTools(silent = true) {
 }
 
 function ensureAutoSetup(force = false) {
+  // If Konoha has not been initialized yet, do not run implicit setup unless forced.
+  // Setup requires explicit 'npx konoha init --yes' or 'konoha init --yes'.
+  if (!force && (!fileExists(DB_PATH) || !fileExists(SERVER_PATH))) {
+    return;
+  }
   const AUTO_SETUP_STATE_PATH = path.join(SKILLS_DB_DIR, '.auto_setup_state.json');
   let prevVersion = null;
   try {

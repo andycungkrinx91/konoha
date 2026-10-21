@@ -15,8 +15,16 @@ function getGoldenSeed() {
   const existingSeed = '/tmp/konoha_golden_seed';
   if (fs.existsSync(path.join(existingSeed, '.konoha', 'konoha.db')) &&
       fs.existsSync(path.join(existingSeed, '.konoha', 'server.js'))) {
-    goldenSeedInfo = { dir: existingSeed, isTemp: false };
-    return goldenSeedInfo;
+    try {
+      const stateFile = path.join(existingSeed, '.konoha', '.auto_setup_state.json');
+      if (fs.existsSync(stateFile)) {
+        const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        if (state && state.version === require('../package.json').version) {
+          goldenSeedInfo = { dir: existingSeed, isTemp: false };
+          return goldenSeedInfo;
+        }
+      }
+    } catch (_) {}
   }
   const seedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_golden_seed_'));
   const env = {
@@ -26,7 +34,7 @@ function getGoldenSeed() {
     KONOHA_UI_AUTOSTART: '0',
     KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
   };
-  spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'status'], {
+  spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
     env,
     encoding: 'utf-8',
     // First-run initialization on a clean HOME can take several minutes

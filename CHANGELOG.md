@@ -2,6 +2,19 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.6] - 2026-10-21
+
+### Security Remediation, Explicit Initialization Governance & Supply-Chain Hardening
+
+- **Moved Setup Out of Package Installation**: Removed automatic lifecycle execution from package installation (`postinstall` hook removed from `package.json` scripts). Package installs with `npm install` and `pnpm install` no longer write to `~/.konoha/` or execute background commands at install time. Users explicitly run `npx konoha init --yes` or `konoha init --yes` to configure the MCP server and clients.
+- **Explicit Init Guidance (`bin/postinstall.js`, `bin/cli.js`)**: Updated `bin/postinstall.js` to provide clear post-installation guidance without side effects. In `bin/cli.js`, uninitialized environments cleanly prompt for explicit initialization instead of triggering implicit background setups.
+- **Hardened Socket & Loopback Port Probing (`src/platform_utils.js`)**: Added strict port number bounds validation (1–65535) and loopback host restriction (`127.0.0.1`, `localhost`, `::1`) in `checkPortActive`, preventing arbitrary socket connections or SSRF.
+- **Skill Installation Input Validation & Command Injection Defense (`src/skill_manager.js`)**: Added strict input validation rejecting shell metacharacters (`;&|`$<>"'\` and whitespace/control characters) in skill repository URLs prior to child process execution.
+- **Least-Privilege Antigravity & OpenCode Permission Governance (`src/antigravity_manager.js`, `src/opencode_manager.js`)**: Removed forced `allowNonWorkspaceAccess: true` and global `autoApproval: true` in Antigravity settings to preserve workspace isolation and least privilege. In OpenCode configuration, existing user-defined permissions are strictly preserved rather than overwritten.
+- **Preserved Default Bootstrap Password**: Preserved default bootstrap seed password `konohagakure` across authentication and recovery mechanisms.
+- **Packaging and Repository Hygiene**: Ignored `.omp/plans/`, cleaned untracked test scratch directories, and verified clean tarball packaging excluding all temporary artifacts.
+- **Docker Release Mapping**: Verified deployment from Docker container `portofolio-git-1` at `/data/konoha` with commit author `andycungkrinx91 <andy.silva270114@gmail.com>` and annotated release tag `v2.2.6`.
+
 ## [2.2.5] - 2026-10-20
 
 ### Socket Supply-Chain Security Remediation (@socketregistry/is-arguments@1.0.10) & v2.2.5 Release

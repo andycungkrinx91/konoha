@@ -20,7 +20,14 @@ function validateSkillName(skillName) {
 
 function validateInputs(repoUrl, skillName) {
   validateSkillName(skillName);
-  if (!repoUrl.startsWith('https://') && !repoUrl.startsWith('git@') && !repoUrl.startsWith('http://') && !repoUrl.startsWith('file://')) {
+  if (!repoUrl || typeof repoUrl !== 'string') {
+    throw new Error('Repository URL must be a non-empty string.');
+  }
+  const cleanUrl = repoUrl.trim();
+  if (/[\s;&|`$<>"'\\]/.test(cleanUrl) || /[\x00-\x1f]/.test(cleanUrl)) {
+    throw new Error('Invalid repository URL: contains forbidden shell characters or whitespace.');
+  }
+  if (!cleanUrl.startsWith('https://') && !cleanUrl.startsWith('git@') && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('file://')) {
     throw new Error('Invalid repository URL. Must be a valid HTTPS, SSH, or local file:// Git URL.');
   }
 }

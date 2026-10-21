@@ -235,6 +235,9 @@ async function ensureUiDaemonAutoStart(options = {}) {
       return { started: false, reason: 'already-active' };
     }
   } catch { /* intentional best-effort fallback: port probe failure must never crash the installer */ }
+  if (!options.force && (!fileExists(path.join(SKILLS_DB_DIR, 'server.js')) || !fileExists(path.join(SKILLS_DB_DIR, 'konoha.db')))) {
+    return { started: false, reason: 'not-initialized' };
+  }
   const startArgs = ['--no-open', `--port=${port}`, `--host=${host}`];
   if (silent) startArgs.push('--silent');
   await cmdUiStart(startArgs);
@@ -859,6 +862,8 @@ async function cmdUiBuild() {
   try {
     const isWin = process.platform === 'win32';
     const { env: buildEnv } = deployUtils.resolveCompatibleNodeEnv(process.env);
+    delete buildEnv.NO_COLOR;
+    delete process.env.NO_COLOR;
     const hasPnpm = (() => {
       try {
         const cmd = isWin ? 'where pnpm' : 'which pnpm';

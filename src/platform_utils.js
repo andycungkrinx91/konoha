@@ -308,6 +308,11 @@ function isRtkInstalled() {
 }
 
 function checkPortActive(port, host = '127.0.0.1') {
+  const targetPort = parseInt(port, 10);
+  if (isNaN(targetPort) || targetPort < 1 || targetPort > 65535) {
+    return Promise.resolve(false);
+  }
+  const targetHost = (host === 'localhost' || host === '127.0.0.1' || host === '::1') ? host : '127.0.0.1';
   const net = require('net');
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -324,7 +329,7 @@ function checkPortActive(port, host = '127.0.0.1') {
       socket.destroy();
       resolve(false);
     });
-    socket.connect(port, host);
+    socket.connect(targetPort, targetHost);
   });
 }
 

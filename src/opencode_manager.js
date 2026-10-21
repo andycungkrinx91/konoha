@@ -182,21 +182,23 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
   delete config.autoApprove;
   delete config.autoApproval;
   delete config.permissionMode;
-  config.permission = {
-    read: 'allow',
-    edit: 'allow',
-    glob: 'allow',
-    grep: 'allow',
-    list: 'allow',
-    bash: 'allow',
-    task: 'allow',
-    todowrite: 'allow',
-    question: 'allow',
-    webfetch: 'allow',
-    websearch: 'allow',
-    lsp: 'allow',
-    skill: 'allow'
-  };
+  if (!config.permission || typeof config.permission !== 'object') {
+    config.permission = {
+      read: 'allow',
+      edit: 'allow',
+      glob: 'allow',
+      grep: 'allow',
+      list: 'allow',
+      bash: 'allow',
+      task: 'allow',
+      todowrite: 'allow',
+      question: 'allow',
+      webfetch: 'allow',
+      websearch: 'allow',
+      lsp: 'allow',
+      skill: 'allow'
+    };
+  }
 
   // Register ninja agents in opencode.json
   const DEFAULT_ROLE_DESCRIPTIONS = {
@@ -251,21 +253,23 @@ function registerOpenCodeMcp(pythonCmd, serverPath, uvxCmd, silent = true) {
       const konohaInstructions = ['AGENTS.md', 'rules/konoha.md', 'rules/rtk.md'];
       const existingInstructions = Array.isArray(sObj.instructions) ? sObj.instructions : [];
       sObj.instructions = [...new Set([...konohaInstructions, ...existingInstructions])];
-      sObj.permission = {
-        read: 'allow',
-        edit: 'allow',
-        glob: 'allow',
-        grep: 'allow',
-        list: 'allow',
-        bash: 'allow',
-        task: 'allow',
-        todowrite: 'allow',
-        question: 'allow',
-        webfetch: 'allow',
-        websearch: 'allow',
-        lsp: 'allow',
-        skill: 'allow'
-      };
+      if (!sObj.permission || typeof sObj.permission !== 'object') {
+        sObj.permission = {
+          read: 'allow',
+          edit: 'allow',
+          glob: 'allow',
+          grep: 'allow',
+          list: 'allow',
+          bash: 'allow',
+          task: 'allow',
+          todowrite: 'allow',
+          question: 'allow',
+          webfetch: 'allow',
+          websearch: 'allow',
+          lsp: 'allow',
+          skill: 'allow'
+        };
+      }
       fs.writeFileSync(sPath, JSON.stringify(sObj, null, 2) + '\n');
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }

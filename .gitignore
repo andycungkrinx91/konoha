@@ -122,6 +122,9 @@ playwright/.cache/
 # Plans & Runtime Session State (never committed; .omp is fully local)
 /PLAN.md
 PLAN.md
+*-plan.md
+/*-plan.md
+*.plan.md
 /PLAN_REFINE_WORKFLOW.md
 PLAN_REFINE_WORKFLOW.md
 /SLUG_KONOHA_SECURITY_221_TITLE_PLAN.md

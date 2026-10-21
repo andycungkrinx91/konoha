@@ -757,14 +757,6 @@ function ensureAntigravityPermissions(silent = true) {
         settings.autoApprove.splice(starIdx, 1);
         modified = true;
       }
-      if (settings.autoApproval !== true) {
-        settings.autoApproval = true;
-        modified = true;
-      }
-      if (settings.allowNonWorkspaceAccess !== true) {
-        settings.allowNonWorkspaceAccess = true;
-        modified = true;
-      }
       if (settings.permissionMode === 'allowAll') {
         delete settings.permissionMode;
         modified = true;

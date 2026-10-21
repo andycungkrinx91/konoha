@@ -1,1 +1,8 @@
 **/anthropic-cybersecurity-skills-assets/**
+.omp/
+.omp/**
+*.plan.md
+*-plan.md
+tests/
+scratch/
+.tmp_*

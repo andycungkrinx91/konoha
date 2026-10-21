@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.5). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.6). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -485,4 +485,21 @@ npx aislop scan --changes
 | **7. Document Engine & Export Test Suite** | `node tests/test_document_tools.js` & `node tests/e2e_document_suite.js` | 9/9 document tools pass; valid DOCX, PDF, XLSX, PPTX, SVG, and animated WebP generated without errors. | `PASS` (9/9 passed) |
 | **8. Playwright E2E & Agent-Browser QA** | `playwright test` (46 tests across 12 specs) and `qa_e2e_run` MCP tool. | 46/46 browser tests passed across login, dialogs, themes, charts, and routing. `qa_e2e_run` executed with 0 failures. | `PASS` (46/46 passed) |
 | **9. Git Commit Author & Annotated Release Tag** | `git commit --author="andycungkrinx91 <andy.silva270114@gmail.com>"`, `git tag -a v2.2.5` | Verified commit author matches exact email and annotated tag `v2.2.5` targets the validated commit. | `PASS` (verified) |
+
+---
+
+## Section 12: v2.2.6 Security Remediation, Explicit Initialization & Supply-Chain Hardening QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Package Installation Lifecycle Isolation** | `npm install /tmp/konoha-mcp-2.2.6.tgz` in clean consumer directory with isolated `HOME=/tmp/test-consumer-home`. | Zero side effects: `postinstall` script completely removed from `package.json`; `~/.konoha` is NOT created during install (`exists === false`). | `PASS` (verified in isolation) |
+| **2. Explicit CLI Initialization (`init --yes`)** | `./node_modules/.bin/konoha init --yes` in clean consumer environment. | All 8 client integrations configured, SQLite FTS5 database initialized (210 entries, 15 unique skills), `AUTO_SETUP_STATE_PATH` written, Bridge gateway started, Web UI pre-built assets deployed (v2.2.6). | `PASS` (verified in isolation) |
+| **3. Uninitialized Status & Guidance Verification** | `konoha status` on uninitialized environment without running setup. | Correctly reports missing components and advises user to run explicit initialization (`npx konoha init --yes` / `konoha init --yes`) without triggering implicit background setup. | `PASS` (verified in isolation) |
+| **4. Hardened Port Probe & Loopback SSRF Defense** | `checkPortActive(port, host)` in `src/platform_utils.js`. | Bounds port between 1–65535 and restricts host to loopback (`127.0.0.1`, `localhost`, `::1`), rejecting arbitrary external network probes. | `PASS` (verified in unit tests) |
+| **5. Command Injection Defense in Skill URL** | `validateInputs(repoUrl, skillName)` in `src/skill_manager.js`. | Rejects shell metacharacters (`;&|`$<>"'\` and whitespace/control characters) before passing arguments to child processes. | `PASS` (verified) |
+| **6. Least-Privilege Antigravity & OpenCode Permissions** | `configureAntigravityAutoApprovals` & `ensureOpenCodeSetup`. | Removed forced `allowNonWorkspaceAccess: true` and forced `autoApproval: true` in Antigravity; preserves existing user-defined permissions in OpenCode config without unilateral overwrites. | `PASS` (verified) |
+| **7. Default Bootstrap Password Preservation** | `node tests/test_auth.js` | Bootstrap credential `konohagakure` preserved and verified via Argon2id / salted scrypt with mandatory first-login password rotation. | `PASS` (verified in `tests/test_auth.js`) |
+| **8. Package Tarball Packlist Hygiene** | `npm pack --dry-run --json` | 1757 production files; zero `.omp` plans, zero `tests/` directories, zero `.tmp_*` artifacts included in tarball. | `PASS` (verified clean tarball) |
+| **9. Backend Static Analysis Linter** | `node scripts/lint.js` | 344 files verified with 0 errors and 0 warnings. | `PASS` (344 files verified) |
+| **10. Docker Release Mapping & Author Verification** | `portofolio-git-1:/data/data/konoha` | Commit author configured to `andycungkrinx91 <andy.silva270114@gmail.com>` with annotated tag `v2.2.6`. | `PASS` (configured for release) |
 

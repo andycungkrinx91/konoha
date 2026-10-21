@@ -2,14 +2,11 @@
 'use strict';
 
 /**
- * bin/postinstall.js — Runs after npm/pnpm global or local installation.
- * Automatically initializes ~/.konoha runtime and reconciles global shims.
+ * bin/postinstall.js — Post-install guidance.
+ * Setup is not executed during package installation.
+ * Users must explicitly run 'npx konoha init --yes' or 'konoha init --yes'.
  */
 
-try {
-  const { installCliRuntime, reconcileGlobalCommand } = require('./lib/runtime');
-  installCliRuntime();
-  reconcileGlobalCommand();
-} catch (_) {
-  // Best-effort postinstall; never fail package installation
+if (require.main === module) {
+  process.stdout.write('Konoha MCP package installed.\nTo initialize runtime and configure integrations, run: npx konoha init --yes\n');
 }

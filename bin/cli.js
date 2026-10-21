@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+// Suppress Node.js conflict warning when both NO_COLOR and FORCE_COLOR are present
+if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
+  delete process.env.NO_COLOR;
+}
+
 /**
  * bin/cli.js — Konoha command-line interface.
  *
