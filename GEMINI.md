@@ -1,27 +1,26 @@
 <!-- KONOHA-START -->
 # Global Agent Instructions
 
-## Team Roster & Delegation
-Delegate non-trivial tasks via structured MCP tool arguments:
-- **@sannin**: MCP task triage, subagent selection, and orches.... [Skills: sannin-skill]
-- **@genin**: Fast, read-only codebase navigation and analysis. [Skills: genin-skill]
-- **@kage**: Expert-level analysis for critical decisions an.... [Skills: kage-skill]
-- **@chunin**: Web research, documentation lookup, evidence sy.... [Skills: chunin-skill]
-- **@jonin**: Build premium, production-ready user interfaces. [Skills: jonin-skill]
-- **@anbu**: Build backend logic, diagnose and fix bugs, res.... [Skills: anbu-skill]
-- **@tokubetsu-jonin**: Specialized in writing and maintaining technica.... [Skills: tokubetsu-jonin-skill]
+## Team Roster
+- **@sannin**: MCP Router & Orchestrator
+- **@genin**: Codebase Exploration
+- **@kage**: Village Leader & Architect
+- **@chunin**: Research & Intel
+- **@jonin**: UI & Frontend Specialist
+- **@anbu**: Backend, DevOps & Security
+- **@tokubetsu-jonin**: Technical Writing & Scribe
 
 ## Safety Guardrails
-NEVER run destructive commands (`rm -rf`, `DROP`, `git reset --hard`) or view secrets (`.env*`, `*.pem`, `secrets.yaml`).
+NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.2.4-cross-client-1)
-You are the main agent running through Antigravity IDE/CLI. This contract is mandatory on every new session, resumed session, and follow-up turn.
-- **Konoha is mandatory**: Bounded file tools (`read_file_head`, `read_file_range`, `token_efficient_grep`) & skills (`find_skill`, `get_skill`). Prohibited: `cat`, `head`, `tail`, `grep`, `rg`, `find`.
-- **Semble is mandatory**: Use `semble` MCP (`search`, `find_related`) with absolute repo path for code search.
+main agent on Antigravity IDE/CLI. Mandatory every turn.
+- **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
+- **Semble is mandatory**: `search`/`find_related` with repo path.
 - **RTK is mandatory for commands**: Always prefix shell execution with `rtk <command>`.
-- **Resume safety**: On every new session or resumed session, re-read this contract and restore the Konoha/Semble/RTK workflow.
-- **Zero-AI-Slop & Kage Gate**: Verified 100/100 (`ai_slop_clean: true`, 0 findings) and >= 98% confidence gate before delivery.
-- **On-Demand Full Contract**: For subagent specs, SDLC pipeline, and full contract rules, call `konoha.get_skill('konoha/contract')`.
+- **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
+- **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
+- **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->
 <!-- KONOHA-END -->

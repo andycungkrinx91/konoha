@@ -184,20 +184,20 @@ function generateGenericSubagentMd(agent, client = 'generic') {
 }
 
 function buildLightweightContract(options = {}) {
-  const client = options.client || 'konoha';
-  const role = options.role || 'main agent';
+  const client = (typeof options === 'object' && options !== null && options.client) ? options.client : (typeof options === 'string' ? options : 'generic');
+  const role = (options && options.role) ? options.role : 'main agent';
   const clientLabel = CLIENT_LABELS[client] || client;
-  const roleLabel = role === 'subagent' ? 'official Konoha subagent' : role;
+  const roleLabel = role === 'subagent' ? 'subagent' : role;
 
   return `${CONTRACT_START}
 ## Konoha runtime contract (${CONTRACT_VERSION})
-You are the ${roleLabel} running through ${clientLabel}. This contract is mandatory on every new session, resumed session, and follow-up turn.
-- **Konoha is mandatory**: Bounded file tools (\`read_file_head\`, \`read_file_range\`, \`token_efficient_grep\`) & skills (\`find_skill\`, \`get_skill\`). Prohibited: \`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`.
-- **Semble is mandatory**: Use \`semble\` MCP (\`search\`, \`find_related\`) with absolute repo path for code search.
+${roleLabel} on ${clientLabel}. Mandatory every turn.
+- **Konoha is mandatory**: Bounded file tools & skills (\`find_skill\`, \`get_skill\`). No raw cat/grep.
+- **Semble is mandatory**: \`search\`/\`find_related\` with repo path.
 - **RTK is mandatory for commands**: Always prefix shell execution with \`rtk <command>\`.
-- **Resume safety**: On every new session or resumed session, re-read this contract and restore the Konoha/Semble/RTK workflow.
-- **Zero-AI-Slop & Kage Gate**: Verified 100/100 (\`ai_slop_clean: true\`, 0 findings) and >= 98% confidence gate before delivery.
-- **On-Demand Full Contract**: For subagent specs, SDLC pipeline, and full contract rules, call \`konoha.get_skill('konoha/contract')\`.
+- **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
+- **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
+- **On-Demand Full Contract**: Call \`konoha.get_skill('konoha/contract')\`.
 ${CONTRACT_END}`;
 }
 

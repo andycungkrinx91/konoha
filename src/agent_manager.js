@@ -456,22 +456,19 @@ This guarantees consistent cross-client execution without relying on custom suba
 
 function buildLightweightMarkdownContent(agents, clientTitle, clientKey) {
   const roster = (agents || []).map(a => {
-    const skillList = (a.skills && a.skills.length > 0) ? ` [Skills: ${a.skills[0]}]` : '';
-    let purpose = (a.purpose || a.title || 'Specialized agent').split('.')[0].trim();
-    if (purpose.length > 50) purpose = purpose.slice(0, 47) + '...';
-    return `- **@${a.name}**: ${purpose}.${skillList}`;
+    const title = a.name === 'anbu' ? 'Backend, DevOps & Security' : (a.title || 'Specialist');
+    return `- **@${a.name}**: ${title}`;
   }).join('\n');
 
   const contractText = buildLightweightContract({ client: clientKey });
 
   const body = `# ${clientTitle}
 
-## Team Roster & Delegation
-Delegate non-trivial tasks via structured MCP tool arguments:
+## Team Roster
 ${roster}
 
 ## Safety Guardrails
-NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset --hard\`) or view secrets (\`.env*\`, \`*.pem\`, \`secrets.yaml\`).\n\n`;
+NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset\`) or view secrets (\`.env*\`).\n\n`;
 
   return buildManagedContract(body, contractText);
 }

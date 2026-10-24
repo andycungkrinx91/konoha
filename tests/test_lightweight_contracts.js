@@ -37,15 +37,15 @@ for (const relPath of filesToCheck) {
   const content = fs.readFileSync(fullPath, 'utf8');
   const byteSize = Buffer.byteLength(content, 'utf8');
   assert.ok(
-    byteSize < 2048,
-    `${relPath} must be lightweight (< 2KB), found ${byteSize} bytes`
+    byteSize < 1228,
+    `${relPath} must be lightweight (< 1.2 KB / 1228 bytes), found ${byteSize} bytes`
   );
   const validation = contract.validateContractText(content);
   assert.ok(
     validation.ok,
     `${relPath} failed contract validation: ${validation.missing.join(', ')}`
   );
-  console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 2KB) and contract validated`);
+  console.log(`  ✓ ${relPath}: ${byteSize} bytes (< 1.2KB) and contract validated`);
 }
 
 // 2. Verify on-demand full contract retrieval via get_skill
