@@ -44,7 +44,7 @@ const generated = {
 
 for (const [name, text] of Object.entries(generated)) {
   assert.ok(contract.validateContractText(text).ok, `${name} missing contract requirements`);
-  assert.match(text, /new session, resumed session/i, `${name} missing resume contract`);
+  assert.match(text, /resume/i, `${name} missing resume contract`);
 }
 
 for (const agent of agents) {

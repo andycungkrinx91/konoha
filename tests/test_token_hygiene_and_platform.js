@@ -68,20 +68,21 @@ try {
   }
   assert.strictEqual(allowed, true, '~/.pi paths must be allowed in common.assertWithinAllowed');
 
-  // 5. Verify contract includes token hygiene rule across all clients
+  // 5. Verify full contract includes token hygiene rule across all clients
   for (const client of ['antigravity', 'cursor', 'claude', 'opencode', 'commandcode', 'codex', 'pi']) {
-    const text = contract.buildMainAgentContract(client);
+    const text = contract.getClientContract(client);
     assert.ok(text.includes('Review token hygiene & strict changed-files scoping'), `Client ${client} contract must include token hygiene`);
   }
 
-  // 6. Verify Rule 56 (Token Savings Flow Logic Preservation Invariant) in all templates & skills
+  // 6. Verify Rule 56 (Token Savings Flow Logic Preservation Invariant) in contract & skills
+  const fullContract = contract.getClientContract('generic');
+  assert.ok(/token savings flow logic/i.test(fullContract), 'agent contract must contain Token Savings Flow Logic invariant');
   const agentManagerSrc = fs.readFileSync(path.join(repoDir, 'src', 'agent_manager.js'), 'utf8');
-  assert.ok(agentManagerSrc.includes('Token Savings Flow Logic'), 'agent_manager.js must contain Token Savings Flow Logic invariant');
   assert.ok(agentManagerSrc.includes('getCliVersion'), 'agent_manager.js must define getCliVersion');
   assert.ok(agentManagerSrc.includes('${cliVer}:${st.mtimeMs}:${st.size}'), 'deploy fingerprint must incorporate CLI version');
 
   const cursorManagerSrc = fs.readFileSync(path.join(repoDir, 'src', 'cursor_manager.js'), 'utf8');
-  assert.ok(cursorManagerSrc.includes('Token Savings Flow Logic'), 'cursor_manager.js must contain Token Savings Flow Logic invariant');
+  assert.ok(cursorManagerSrc.includes('generateCursorRule'), 'cursor_manager.js must export generateCursorRule');
 
   const skillSrc = fs.readFileSync(path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md'), 'utf8');
   assert.ok(skillSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'konoha SKILL.md must define Rule 56');

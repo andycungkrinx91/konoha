@@ -76,8 +76,11 @@ async function testFreshInstall(sandboxDir) {
     assert.ok(mainContract.includes('Konoha is mandatory'), `${client} contract must include Konoha is mandatory`);
     assert.ok(mainContract.includes('Semble is mandatory'), `${client} contract must include Semble is mandatory`);
     assert.ok(mainContract.includes('RTK is mandatory'), `${client} contract must include RTK is mandatory`);
-    assert.ok(mainContract.includes('Website & UI scaffolding invariant'), `${client} contract must include Website scaffolding invariant`);
-    assert.ok(mainContract.includes('Review token hygiene & strict changed-files scoping'), `${client} contract must include token hygiene invariant`);
+    assert.ok(mainContract.includes('Zero-AI-Slop & Kage Gate'), `${client} contract must include Zero-AI-Slop & Kage Gate`);
+    assert.ok(mainContract.includes('On-Demand Full Contract'), `${client} contract must include On-Demand Full Contract`);
+    const fullContract = agentContract.getClientContract(client);
+    assert.ok(fullContract.includes('Website & UI scaffolding invariant'), `${client} full contract must include Website scaffolding invariant`);
+    assert.ok(fullContract.includes('Review token hygiene & strict changed-files scoping'), `${client} full contract must include token hygiene invariant`);
   }
   // Verify kage agent definition includes antislop
   const agentMgr = require('../src/agent_manager');
@@ -297,7 +300,7 @@ async function testWorkflowTokenBurnPrevention() {
     assert.strictEqual(t1.instructions, t2.instructions, `${agent} prompts must be deterministic across turns`);
     assert.ok(t1.instructions.includes('[Konoha Token Preservation: Active'), `${agent} must include Token Preservation header`);
   }
-  console.log('  ✓ All 6 subagents enforce Turn 1 & Turn 2 payload ceilings (< 8KB) with deterministic prefix caching');
+  console.log('  ✓ All 7 official agents (sannin router + 6 specialist agents) enforce payload ceilings (< 8KB) with deterministic prefix caching');
 
   // 5. Changed-files AI slop scoping
   const dummyStatus = { changed_files: ['src/mcp/build_spec.js'] };

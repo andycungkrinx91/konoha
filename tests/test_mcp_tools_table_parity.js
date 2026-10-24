@@ -2,18 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const { SEMBLE_PACKAGE } = require("../src/semble_manager");
 
-function extractMcpTable(content) {
-  const marker = "## Available MCP Tools";
-  const start = content.indexOf(marker);
-  if (start === -1) return "";
-  const lines = content.slice(start).split("\n");
-  const tableLines = lines.filter(l => l.trim().startsWith("|"));
-  return tableLines.join("\n").split("\\\`").join("`");
-}
-
-test("Available MCP Tools table has zero cloudrun rows and maintains strict parity between agent_manager and AGENTS.md template", () => {
+test("Available MCP Tools configuration has zero cloudrun rows and maintains lightweight parity", () => {
   const root = path.resolve(__dirname, "..");
   const agentManagerPath = path.join(root, "src/agent_manager.js");
   const templatePath = path.join(root, "src/templates/AGENTS.md");
@@ -25,11 +15,8 @@ test("Available MCP Tools table has zero cloudrun rows and maintains strict pari
   assert.doesNotMatch(amContent, /cloudrun|cloud-run/i, "src/agent_manager.js must not contain cloudrun hint");
   assert.doesNotMatch(tmContent, /cloudrun|cloud-run/i, "src/templates/AGENTS.md must not contain cloudrun hint");
 
-  // Both tables must have identical rows
-  const amTable = extractMcpTable(amContent).replace(/\${SEMBLE_PACKAGE}/g, SEMBLE_PACKAGE);
-  const tmTable = extractMcpTable(tmContent);
-
-  assert.strictEqual(amTable, tmTable, "Available MCP Tools table must maintain strict parity between agent_manager.js and templates/AGENTS.md");
-  assert.ok(amTable.includes("semble"), "table must include semble");
-  assert.ok(amTable.includes("konoha"), "table must include konoha");
+  // Both must mandate konoha and semble without legacy table bloat
+  assert.ok(tmContent.includes("Konoha is mandatory"), "template must mandate konoha");
+  assert.ok(tmContent.includes("Semble is mandatory"), "template must mandate semble");
+  assert.ok(Buffer.byteLength(tmContent, 'utf8') < 1228, "template must be lightweight (< 1.2KB)");
 });

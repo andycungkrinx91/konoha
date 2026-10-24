@@ -86,11 +86,11 @@ ${CONTRACT_END}`;
 }
 
 function buildMainAgentContract(client) {
-  return buildAgentContract({ client, role: 'main agent' });
+  return buildLightweightContract({ client, role: 'main agent' });
 }
 
 function buildSubagentContract(client) {
-  return buildAgentContract({ client, role: 'subagent' });
+  return buildLightweightContract({ client, role: 'subagent' });
 }
 
 function buildManagedContract(existing, contract) {
