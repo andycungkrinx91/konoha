@@ -167,6 +167,14 @@
           uiState.addNotification(`Bridge ${payload.name || ''} updated`, 'info');
         } catch (_) {}
       });
+      eventSource.addEventListener('skills_updated', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('konoha:skills-updated', { detail: payload }));
+          }
+        } catch (_) {}
+      });
       eventSource.addEventListener('auth_state_changed', async () => {
         try {
           await authState.checkAuth();

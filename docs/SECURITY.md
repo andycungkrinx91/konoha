@@ -92,3 +92,11 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 - **Anti-Lost-in-the-Middle**: Dual-Boundary Anchoring (Sandwich Pattern) repeats invariants at prompt headers and tails.
 - **Large File Pagination**: `read_file_range` auto-clamps spans $> 250$ lines to 200-line windows with actionable pagination metadata, eliminating exception refusals. Line-by-line stream reading bounds heap usage to $O(1)$.
+
+---
+
+## 9. Runtime Security & Node.js CVE Mitigation
+
+- **October 2026 Node.js Security Advisory Compliance**: Shipped environments target Node.js LTS `v22.23.4+` (mitigating high-severity Brotli remote code execution and TLS/DNS security advisories).
+- **Zero Known Vulnerabilities**: Verified through continuous automated auditing (`pnpm audit` reporting zero vulnerabilities across root and `apps/web` manifests).
+- **Package Manager Mandate**: Scaffolding and installs strictly utilize `pnpm` with token-safe non-interactive flags; standalone unconstrained `npx` or `npm` fallbacks are permanently decommissioned.

@@ -503,3 +503,17 @@ npx aislop scan --changes
 | **9. Backend Static Analysis Linter** | `node scripts/lint.js` | 344 files verified with 0 errors and 0 warnings. | `PASS` (344 files verified) |
 | **10. Docker Release Mapping & Author Verification** | `portofolio-git-1:/data/data/konoha` | Commit author configured to `andycungkrinx91 <andy.silva270114@gmail.com>` with annotated tag `v2.2.6`. | `PASS` (configured for release) |
 
+---
+
+## Section 13: v2.2.6 Maintenance, CVE Mitigation & Search/Install Hardening QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. TUI & RAG `clang` Canonical Search Ranking** | `node tests/test_vector_search.js` | Evaluates query `'clang'` against FTS5 BM25 and vector search: exact match canonical skill `clang` (`type === 'skill'`) is ranked #1 (score 1.0); sub-references (`clang/clang-tidy`, `clang/flags`) are properly demoted; low-similarity false vector matches (`standard-incident-report`, `infra-swift-express`) are completely suppressed. | `PASS` (verified in `tests/test_vector_search.js`) |
+| **2. Non-Blocking Asynchronous Skill Installation** | `node -e "require('./src/skill_manager').addSkillDirect(...)"` | `addSkillDirect` executes via non-blocking asynchronous child processes (`spawn` with Promise); Node.js event loop remains fully unblocked; web requests to `/api/v1/system/metrics` and other pages continue concurrently without hanging. | `PASS` (verified async event loop) |
+| **3. Web UI Idempotent Installed State & Event Synchronization** | Automated browser and component state audit in `apps/web/src/components/Skills.svelte` | `isSkillInstalled(skillName)` checks comprehensive installed names registry; instant transition from installing spinner to "Already Installed in Village"; listens to `skills_updated` SSE event via `konoha:skills-updated` window event. | `PASS` (verified state machine) |
+| **4. High-Efficiency Skill Query Caching** | `node -e "const sm = require('./src/mcp/skills'); ..."` | `findSkill` bounded cache achieves 0ms cache hit latency on repeat queries; auto-invalidated via `clearSkillQueryCache()` upon skill addition, migration, or workspace changes. | `PASS` (0ms cache hit verified) |
+| **5. October 2026 Node.js CVE Mitigation & Dependency Upgrades** | `pnpm audit`, `docx@^9.14.0`, `vite@^8.3.5`, `@sveltejs/kit@^3.1.0`, `svelte-check@^4.7.7` | Zero vulnerabilities reported by `pnpm audit`; all web dependencies compile cleanly; addresses October 2026 Node.js security release (Node 22.23.4 LTS fixing Brotli RCE and TLS/DNS CVEs). | `PASS` (0 vulnerabilities) |
+| **6. RTK Canonical Repository & Anti-Cat Guardrails** | Automated docs audit across `docs/SETUP-CURSOR.md` | Canonical repository URL `https://github.com/rtk-ai/rtk` verified; forbidden reader commands (`rtk grep`, `rtk find`) replaced with valid build/test command examples. | `PASS` (verified) |
+| **7. Cross-Client Workflow Invariant Integrity** | `node bin/cli.js agent list`, `node scripts/lint.js` | Scaffolding commands for Next.js, Nuxt, Angular, and SvelteKit verified across `.cursorrules`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`; desktop/mobile layout tags verified. | `PASS` (0 errors, 0 warnings) |
+

@@ -165,18 +165,9 @@ function executeAislopScan(projectPath, options = {}) {
   const targetFiles = Array.isArray(options.targetFiles)
     ? options.targetFiles
     : (Array.isArray(options.changedFiles) ? options.changedFiles : []);
-  if (targetFiles.length > 0) {
-    const filteredFiles = targetFiles.filter(f => {
-      const norm = f.replace(/\\/g, '/');
-      return !norm.includes('node_modules/') &&
-             !norm.includes('vendor/') &&
-             !norm.includes('.venv/') &&
-             !norm.includes('venv/') &&
-             !norm.includes('site-packages/') &&
-             !norm.includes('Pods/') &&
-             !norm.includes('target/');
-    });
-    scanArgs.push(...filteredFiles);
+  if (targetFiles.length === 1) {
+    const singlePath = targetFiles[0];
+    scanArgs.push(singlePath);
   } else {
     scanArgs.push('--changes');
   }

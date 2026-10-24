@@ -216,7 +216,38 @@
     }, 250);
   }
 
-  onMount(loadSkills);
+  let installedSkillNames = $state(new Set());
+
+  async function loadAllInstalledSkillNames() {
+    try {
+      const all = await api.get("/api/v1/skills?limit=1000");
+      if (Array.isArray(all)) {
+        const names = new Set();
+        for (const s of all) {
+          if (s.name) names.add(s.name.toLowerCase());
+          if (s.skill_name) names.add(s.skill_name.toLowerCase());
+        }
+        installedSkillNames = names;
+      }
+    } catch (_) { /* best effort */ }
+  }
+
+  onMount(() => {
+    loadSkills();
+    loadAllInstalledSkillNames();
+    const handleUpdated = () => {
+      loadSkills();
+      loadAllInstalledSkillNames();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('konoha:skills-updated', handleUpdated);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('konoha:skills-updated', handleUpdated);
+      }
+    };
+  });
 
   useScrollLock(() => isCreateModalOpen || isRegistryModalOpen);
 
@@ -230,8 +261,13 @@
   let registryDebounceTimer;
 
   function isSkillInstalled(skillName) {
-    if (!skills || !skillName) return false;
-    return skills.some(s => s.name === skillName || s.skill_name === skillName);
+    if (!skillName) return false;
+    const lower = skillName.toLowerCase();
+    if (installedSkillNames && installedSkillNames.has(lower)) return true;
+    if (skills && Array.isArray(skills)) {
+      return skills.some(s => (s.name && s.name.toLowerCase() === lower) || (s.skill_name && s.skill_name.toLowerCase() === lower));
+    }
+    return false;
   }
 
   async function searchRegistrySkills(customQuery) {
@@ -284,6 +320,11 @@
         ? `Skill "${skillName}" verified at: ${verifiedPath}`
         : `Skill "${skillName}" installed and verified.`);
       isRegistryModalOpen = false;
+      const lower = skillName.toLowerCase();
+      installedSkillNames.add(lower);
+      installedSkillNames = new Set(installedSkillNames);
+      installingSkill = "";
+      await loadAllInstalledSkillNames();
       await loadSkills();
       if (searchMode !== "registry") {
         await openSkill(skillName);

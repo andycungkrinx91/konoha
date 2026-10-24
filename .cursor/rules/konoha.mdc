@@ -68,7 +68,7 @@ Taste-Skill is additive: validated `taste_dials` tune only visual design and nev
 | `kage-skill`, `antislop`, `antislop-human`, `antislop-code` | `kage` |
 | `chunin-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `chunin` |
 | `jonin-skill`, `i-have-adhd`, `antislop`, `antislop-ui`, `antislop-human`, `antislop-layoutmobile`, `antislop-code` | `jonin` |
-| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding` | `anbu` |
+| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`, `static-analysis`, `clang`, `c-cpp-compilers`, `cpp-clang-format`, `post-patch-validation`, `patch-diff-exploit`, `php-cve-patch-collection-maintenance` | `anbu` |
 | `tokubetsu-jonin-skill`, `i-have-adhd`, `antislop`, `antislop-copywriting`, `antislop-human`, `antislop-code` | `tokubetsu-jonin` |
 | Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
 

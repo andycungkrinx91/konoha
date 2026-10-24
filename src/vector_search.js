@@ -655,7 +655,14 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
   }
 
   const fused = reciprocalRankFusion([vecSkillNames, ftsSkillNames], 60);
-  const candidateSkills = fused.slice(0, candidateK).map(x => x[0]);
+  let candidateSkills = fused.slice(0, candidateK).map(x => x[0]);
+  const cleanQ = query.trim().toLowerCase();
+  const exactIdx = candidateSkills.findIndex(s => s.toLowerCase() === cleanQ);
+  if (exactIdx > 0) {
+    const exactName = candidateSkills[exactIdx];
+    candidateSkills.splice(exactIdx, 1);
+    candidateSkills.unshift(exactName);
+  }
   if (!candidateSkills.length) return [];
 
   const placeholders = candidateSkills.map(() => '?').join(',');
@@ -676,6 +683,16 @@ function findSkillSemantic(conn, query, topK = 5, candidateK = 25) {
       results.push(Object.assign({}, r, { score: 1.0 - (i * 0.05) }));
     }
   }
+
+  results.sort((a, b) => {
+    const aExact = a.name.toLowerCase() === cleanQ || (a.skill_name && a.skill_name.toLowerCase() === cleanQ);
+    const bExact = b.name.toLowerCase() === cleanQ || (b.skill_name && b.skill_name.toLowerCase() === cleanQ);
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    if (a.type === 'skill' && b.type === 'reference') return -1;
+    if (a.type === 'reference' && b.type === 'skill') return 1;
+    return (b.score || 0) - (a.score || 0);
+  });
 
   return results;
 }
@@ -807,9 +824,23 @@ async function findSkillHybrid(conn, query, options = {}) {
     const vecInfo = vecSkillMap.get(sName);
     const ftsInfo = ftsSkillMap.get(sName);
 
+    // Suppress low-similarity vector noise (<0.40) when keyword tokens don't match in FTS
+    if (inVec && !inFts && (vecInfo.similarity || 0) < 0.40) {
+      continue;
+    }
+
     const rrfVec = inVec ? (1.0 / (kConstant + vecInfo.rank)) : 0;
     const rrfFts = inFts ? (1.0 / (kConstant + ftsInfo.rank)) : 0;
-    const combinedScore = rrfVec + rrfFts;
+    let combinedScore = rrfVec + rrfFts;
+
+    // Strong boost for exact name match and prefix matches
+    const lowerSName = sName.toLowerCase();
+    const cleanLower = cleanQuery.toLowerCase();
+    if (lowerSName === cleanLower) {
+      combinedScore += 10.0;
+    } else if (lowerSName.startsWith(cleanLower + '/') || lowerSName.includes(cleanLower)) {
+      combinedScore += 1.0;
+    }
 
     let engine = 'fts5';
     if (inVec && inFts) {
@@ -862,6 +893,16 @@ async function findSkillHybrid(conn, query, options = {}) {
       });
     }
   }
+
+  results.sort((a, b) => {
+    const aExact = a.name.toLowerCase() === cleanQuery.toLowerCase() || (a.skill_name && a.skill_name.toLowerCase() === cleanQuery.toLowerCase());
+    const bExact = b.name.toLowerCase() === cleanQuery.toLowerCase() || (b.skill_name && b.skill_name.toLowerCase() === cleanQuery.toLowerCase());
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    if (a.type === 'skill' && b.type === 'reference') return -1;
+    if (a.type === 'reference' && b.type === 'skill') return 1;
+    return (b.score || 0) - (a.score || 0);
+  });
 
   return results;
 }

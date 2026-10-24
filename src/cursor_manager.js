@@ -175,7 +175,7 @@ Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/
 ### Step 0: Classify Request — ALWAYS FIRST (Branch A vs Branch B)
 **BEFORE entering the standard workflow**, classify the user's request:
 - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B**
-- **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`build_from_source\
+- **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`
 - **Everything else** → **BRANCH A** (standard workflow below)
 
 ### BRANCH B: Website Scaffolding (SKIP standard pipeline)
@@ -197,10 +197,10 @@ Taste-Skill is additive: validated \`taste_dials\` tune only visual design and n
 5. **Synthesize**: Present results to the user.
 6. **Resuming & Multi-Turn Conversations (CRITICAL)**: Upon resuming a conversation or handling any follow-up turn in Cursor, you MUST ALWAYS re-evaluate the user prompt and execute the subagent delegation workflow via direct structured MCP tool arguments again for all non-trivial tasks. NEVER skip subagent delegation when resuming a conversation.
 7. **Package Manager Mandate & Standard Scaffolding**: ALWAYS use \`pnpm\` for all project scaffolding, dependencies, and dev server execution. When scaffolding a new website or project from scratch, strictly use the official framework CLI initialization standard:
-   - **Next.js**: \`pnpm create next-app@latest\
-   - **Nuxt**: \`pnpm dlx nuxi@latest init <project-name>\
-   - **Angular**: \`pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm\
-   - **SvelteKit**: \`pnpm dlx sv create <project-name>\
+   - **Next.js**: \`pnpm create next-app@latest <project-name>\`
+   - **Nuxt**: \`pnpm dlx nuxi@latest init <project-name>\`
+   - **Angular**: \`pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm\`
+   - **SvelteKit**: \`pnpm dlx sv create <project-name>\`
    NEVER use \`npm\` or standalone \`npx\` without pnpm.
 8. **Project Knowledge Mandate**: ALWAYS inspect project-local knowledge files (project \`README.md\`, \`docs/\`, \`CONTRIBUTING.md\`, \`.cursorrules\`, \`.clauderules\`, and project-local skills in \`.agents/skills\`, \`.cursor/skills\`, \`skills/\`) using \`konoha\` MCP before designing architecture or executing code.
 9. **Operational Scenarios**: Follow Scenario 1 (\`build_from_source\` — 100% exact mockup match from source images, no forced text-invariants), Scenario 2 (\`build_from_text\` — new site with \`pnpm\`, official framework CLI commands, default Konoha design invariants + Taste-Skill prettification), and Scenario 3 (\`existing_project\` — preserve existing logic and architecture, apply Taste-Skill only to requested components).
@@ -208,11 +208,11 @@ Taste-Skill is additive: validated \`taste_dials\` tune only visual design and n
     - **Header Logo on Far LEFT**: Logo must always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
     - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (\`lg:hidden\`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
     - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (\`lg:hidden\`) with quick one-tap links adapted dynamically to the website archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
-   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop () with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
+   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (\`lg:flex\`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (\`lg:hidden\`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
     - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (\`fixed bottom-6 left-6 z-50\`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
     - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
     - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
-    - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project\x27s \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\` / \`pnpm lint\`), \`"build"\` (\`pnpm run build\` / \`pnpm build\`), and \`"start"\` (\`pnpm run start\` / \`pnpm start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
+    - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\` / \`pnpm lint\`), \`"build"\` (\`pnpm run build\` / \`pnpm build\`), and \`"start"\` (\`pnpm run start\` / \`pnpm start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
     - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 
 | Embedded Skills | Subagent MCP Tool |

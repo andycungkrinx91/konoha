@@ -415,6 +415,13 @@ function querySkillsByKeyword(conn, keyword, limit = 50) {
   return rows || [];
 }
 
+const _SKILL_QUERY_CACHE = new Map();
+const MAX_QUERY_CACHE = 150;
+
+function clearSkillQueryCache() {
+  _SKILL_QUERY_CACHE.clear();
+}
+
 function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId = null) {
   process.stderr.write(`[mcp konoha] tool_call: find_skill(keyword='${keyword}', limit=${limit}, compact=${compact})\n`);
   try {
@@ -422,6 +429,11 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
   } catch (_) { /* ignore */ }
 
   const normKeyword = normalizeLegacySkillName(keyword);
+  const cacheKey = `${normKeyword}:${limit}:${compact}:${agentName || ''}:${taskId || ''}`;
+  if (_SKILL_QUERY_CACHE.has(cacheKey)) {
+    return _SKILL_QUERY_CACHE.get(cacheKey);
+  }
+
   const conn = getDb();
   try {
     let rows = [];
@@ -439,6 +451,19 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
 
     if (!rows || rows.length === 0) {
       rows = querySkillsByKeyword(conn, normKeyword, 50);
+    }
+
+    // Sort to prioritize exact match on skill name / id and top-level skills
+    if (rows && rows.length > 1) {
+      rows.sort((a, b) => {
+        const aExact = a.name.toLowerCase() === normKeyword.toLowerCase() || (a.skill_name && a.skill_name.toLowerCase() === normKeyword.toLowerCase());
+        const bExact = b.name.toLowerCase() === normKeyword.toLowerCase() || (b.skill_name && b.skill_name.toLowerCase() === normKeyword.toLowerCase());
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        if (a.type === 'skill' && b.type === 'reference') return -1;
+        if (a.type === 'reference' && b.type === 'skill') return 1;
+        return 0;
+      });
     }
 
     const visibleRows = [];
@@ -504,6 +529,13 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
     const unsnippetedBaseline = visibleRows.reduce((acc, r) => acc + (Number(r.byte_size) || 0), 0);
     const res = JSON.stringify({ found: results.length, query: normKeyword, results });
     logToolCall('find_skill', normKeyword, res, agentName, Math.max(Buffer.byteLength(res, 'utf8'), unsnippetedBaseline));
+
+    if (_SKILL_QUERY_CACHE.size >= MAX_QUERY_CACHE) {
+      const firstKey = _SKILL_QUERY_CACHE.keys().next().value;
+      _SKILL_QUERY_CACHE.delete(firstKey);
+    }
+    _SKILL_QUERY_CACHE.set(cacheKey, res);
+
     return res;
   } finally {
     conn.close();
@@ -1041,6 +1073,7 @@ function fuzzyResolveSkill(requested, conn, maxDistance = 3) {
 
 module.exports = {
   findSkill,
+  clearSkillQueryCache,
   listSkills,
   findInMirror,
   getSkill,

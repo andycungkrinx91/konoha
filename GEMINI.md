@@ -197,6 +197,13 @@ Use the table below to select the right **skill reference** AND **subagent** to 
 | Mobile layout skill for antislop. Use for layouts that reflow on small screens: grids, overflow, tap | `antislop-layoutmobile` | `antislop-layoutmobile` |
 | Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `anbu-skill` |
 | Specialized skill | `helm-chart-scaffolding` | `helm-chart-scaffolding` |
+| Static analysis skill for C/C++ codebases. Use when hardening code quality, triaging noisy builds, r | `static-analysis` | `static-analysis` |
+| Clang/LLVM compiler skill for C/C++ projects. Use when working with clang or clang++ for diagnostics | `clang` | `clang` |
+| C and C++ compiler toolchain skill covering GCC, Clang/LLVM, build modes, warnings, sanitizers, stat | `c-cpp-compilers` | `c-cpp-compilers` |
+| Применяет настройки форматирования кода C/C++ через .clang-format. | `cpp-clang-format` | `cpp-clang-format` |
+| > | `post-patch-validation` | `post-patch-validation` |
+|  | `patch-diff-exploit` | `patch-diff-exploit` |
+| Operational SOP and engineering maintenance standards for the PHP CVE Patch Collection repository, c | `php-cve-patch-collection-maintenance` | `php-cve-patch-collection-maintenance` |
 | Standard Operating Procedures for technical writing, zero-AI document generation (DOCX, PDF, XLSX, P | `tokubetsu-jonin-skill` | `tokubetsu-jonin-skill` |
 | Copy and text skill for antislop. Use when writing or editing prose: headlines, tone, CTAs, and anti | `antislop-copywriting` | `antislop-copywriting` |
 | Simple/trivial tasks | Select the closest matching skill | Consult the team roster |

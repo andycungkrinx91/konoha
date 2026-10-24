@@ -106,7 +106,7 @@ This guarantees consistent cross-client execution without relying on custom suba
 | `kage-skill`, `antislop`, `antislop-human`, `antislop-code` | `kage` |
 | `chunin-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `chunin` |
 | `jonin-skill`, `i-have-adhd`, `antislop`, `antislop-ui`, `antislop-human`, `antislop-layoutmobile`, `antislop-code` | `jonin` |
-| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding` | `anbu` |
+| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`, `static-analysis`, `clang`, `c-cpp-compilers`, `cpp-clang-format`, `post-patch-validation`, `patch-diff-exploit`, `php-cve-patch-collection-maintenance` | `anbu` |
 | `tokubetsu-jonin-skill`, `i-have-adhd`, `antislop`, `antislop-copywriting`, `antislop-human`, `antislop-code` | `tokubetsu-jonin` |
 | Simple/trivial task | Main agent executes directly using native tools. |
 
@@ -147,7 +147,7 @@ This guarantees consistent cross-client execution without relying on custom suba
 
 ### @anbu — ♠ Backend Specialist, Bug Fixing, DevOps, & Local Pentesting
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems, conduct authorized penetration testing and security assessments in dev/local environments
-- **Skills**: `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`
+- **Skills**: `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`, `static-analysis`, `clang`, `c-cpp-compilers`, `cpp-clang-format`, `post-patch-validation`, `patch-diff-exploit`, `php-cve-patch-collection-maintenance`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD, cybersecurity defense, penetration testing in dev/local environments, distributed messaging/caching, prompt engineering
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests.
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.

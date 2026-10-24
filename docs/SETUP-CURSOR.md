@@ -4,13 +4,13 @@ Konoha **v2.2.4** supports **Cursor IDE** and **Cursor CLI** alongside Antigravi
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 
-If you have [`rtk`](https://github.com/raxodog/rtk) installed on your system (`cargo install rtk`), Konoha will automatically deploy an RTK rule to `~/.cursor/rules/rtk.mdc` on `konoha init`. This rule instructs the agent to prefix all shell commands with `rtk` to minimize token consumption:
+If you have [`rtk`](https://github.com/rtk-ai/rtk) installed on your system (`cargo install rtk`), Konoha will automatically deploy an RTK rule to `~/.cursor/rules/rtk.mdc` on `konoha init`. This rule instructs the agent to prefix all shell commands with `rtk` to minimize token consumption:
 
 ```bash
 rtk git status
-rtk ls src/
-rtk grep "pattern" src/
-rtk find "*.ts" .
+rtk pnpm test
+rtk pnpm build
+rtk node scripts/lint.js
 ```
 
 Meta commands like `rtk gain` show token savings, and `rtk discover` finds missed RTK opportunities. RTK can cut up to 90% of bash output on common operations. If `rtk` is not installed, Konoha skips this step gracefully.

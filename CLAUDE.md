@@ -144,6 +144,13 @@ Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP d
 | Mobile layout skill for antislop. Use for layouts that reflow on small screens: grids, overflow, tap | `antislop-layoutmobile` | `mcp__konoha__jonin` (MCP Tool) |
 | Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `mcp__konoha__anbu` (MCP Tool) |
 | Specialized skill | `helm-chart-scaffolding` | `mcp__konoha__anbu` (MCP Tool) |
+| Static analysis skill for C/C++ codebases. Use when hardening code quality, triaging noisy builds, r | `static-analysis` | `mcp__konoha__anbu` (MCP Tool) |
+| Clang/LLVM compiler skill for C/C++ projects. Use when working with clang or clang++ for diagnostics | `clang` | `mcp__konoha__anbu` (MCP Tool) |
+| C and C++ compiler toolchain skill covering GCC, Clang/LLVM, build modes, warnings, sanitizers, stat | `c-cpp-compilers` | `mcp__konoha__anbu` (MCP Tool) |
+| Применяет настройки форматирования кода C/C++ через .clang-format. | `cpp-clang-format` | `mcp__konoha__anbu` (MCP Tool) |
+| > | `post-patch-validation` | `mcp__konoha__anbu` (MCP Tool) |
+|  | `patch-diff-exploit` | `mcp__konoha__anbu` (MCP Tool) |
+| Operational SOP and engineering maintenance standards for the PHP CVE Patch Collection repository, c | `php-cve-patch-collection-maintenance` | `mcp__konoha__anbu` (MCP Tool) |
 | Standard Operating Procedures for technical writing, zero-AI document generation (DOCX, PDF, XLSX, P | `tokubetsu-jonin-skill` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
 | Copy and text skill for antislop. Use when writing or editing prose: headlines, tone, CTAs, and anti | `antislop-copywriting` | `tokubetsu-mcp__konoha__jonin` (MCP Tool) |
 | Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |

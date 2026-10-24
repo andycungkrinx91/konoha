@@ -142,7 +142,7 @@ async function cmdSkill(args) {
         if (subArgs.length >= 2) {
           const url = subArgs[0];
           const name = subArgs[1];
-          skillManager.addSkillDirect(url, name);
+          await skillManager.addSkillDirect(url, name);
         } else {
           const nameOrUrl = subArgs[0];
           await skillManager.addSkill(nameOrUrl);

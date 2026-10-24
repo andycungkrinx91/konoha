@@ -10,3 +10,17 @@ playwright-report/
 blob-report/
 playwright/.cache/
 # KONOHA-QA-END
+
+## Start Konoha config+skill
+.agents
+.claude*
+.commandcode*
+.cursor*
+.cursorrules*
+.codex*
+.gemini*
+.omp*
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+## End Konoha config+skill

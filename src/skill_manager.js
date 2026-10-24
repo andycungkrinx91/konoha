@@ -3,8 +3,20 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const https = require('https');
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const deployUtils = require('./deploy_utils');
+
+function runAsyncSpawn(cmd, args, opts) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, opts);
+    let stdout = '';
+    let stderr = '';
+    if (child.stdout) child.stdout.on('data', d => { stdout += d.toString(); });
+    if (child.stderr) child.stderr.on('data', d => { stderr += d.toString(); });
+    child.on('error', reject);
+    child.on('close', code => resolve({ status: code, stdout, stderr }));
+  });
+}
 
 function validateSkillName(skillName) {
   if (!skillName || typeof skillName !== 'string') {
@@ -268,11 +280,8 @@ function runInteractiveSearch(query) {
             pnpmError = err.message;
           }
           if (!run || run.status !== 0) {
-            process.stderr.write(`⚠️ pnpm dlx failed (${pnpmError || 'unknown error'}). Attempting fallback via npx...\n`);
-            const npxCmd = isWin ? 'npx.cmd' : 'npx';
-            run = spawnSync(npxCmd, ['-y', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin, env: childEnv });
+            throw new Error(`pnpm dlx skills add failed: ${pnpmError || 'Process exited with error'}`);
           }
-          if (!run || run.status !== 0) throw new Error(`Process exited with status ${run ? run.status : 1}`);
           const verifiedPath = verifySkillInstalled(skillName);
           if (!verifiedPath) throw new Error(skillNotFoundMessage(skillName));
           process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
@@ -292,7 +301,7 @@ function runInteractiveSearch(query) {
 }
 
 // Add skill directly from a repository URL
-function addSkillDirect(repoUrl, skillName, options = {}) {
+async function addSkillDirect(repoUrl, skillName, options = {}) {
   let normalizedRepo = (repoUrl || '').trim();
   if (normalizedRepo && !normalizedRepo.startsWith('https://') && !normalizedRepo.startsWith('git@') && !normalizedRepo.startsWith('http://') && !normalizedRepo.startsWith('file://')) {
     if (normalizedRepo.includes('/') && !normalizedRepo.includes(' ')) {
@@ -309,45 +318,27 @@ function addSkillDirect(repoUrl, skillName, options = {}) {
   let pnpmError = null;
   const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm';
   try {
-    run = spawnSync(pnpmCmd, ['dlx', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
+    run = await runAsyncSpawn(pnpmCmd, ['dlx', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
       cwd: execCwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
       shell: isWin,
       env: childEnv
     });
     if (run.status !== 0) {
-      pnpmError = (run.stderr && run.stderr.toString().trim()) || (run.stdout && run.stdout.toString().trim()) || `Process exited with status ${run.status}`;
+      pnpmError = (run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim()) || `Process exited with status ${run.status}`;
     }
   } catch (err) {
     pnpmError = err.message;
   }
 
   if (!run || run.status !== 0) {
-    process.stderr.write(`⚠️ pnpm dlx failed (${pnpmError || 'unknown error'}). Attempting fallback via npx...\n`);
-    try {
-      const npxCmd = isWin ? 'npx.cmd' : 'npx';
-      const npxRun = spawnSync(npxCmd, ['-y', 'skills', 'add', normalizedRepo, '--skill', skillName, '-y', '--agent', '*'], {
-        cwd: execCwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: isWin,
-        env: childEnv
-      });
-      if (npxRun && npxRun.status === 0) {
-        run = npxRun;
-      } else {
-        const npxError = (npxRun && ((npxRun.stderr && npxRun.stderr.toString().trim()) || (npxRun.stdout && npxRun.stdout.toString().trim())));
-        throw new Error(npxError || pnpmError || `Process exited with status ${run ? run.status : (npxRun ? npxRun.status : 1)}`);
-      }
-    } catch (fallbackErr) {
-      throw new Error(fallbackErr.message || pnpmError || 'Process exited with error');
-    }
+    throw new Error(`pnpm dlx skills add failed: ${pnpmError || 'Process exited with error'}`);
   }
   // Zero exit code is NOT proof of installation. Verify a discoverable
   // SKILL.md exists before reporting success so callers (CLI, MCP, web API)
   // can never be told an install landed when it did not.
   const verifiedPath = verifySkillInstalled(skillName, execCwd);
   if (!verifiedPath) {
-    throw new Error(skillNotFoundMessage(skillName, run.stdout && run.stdout.toString(), execCwd));
+    throw new Error(skillNotFoundMessage(skillName, run.stdout, execCwd));
   }
   process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
 
@@ -371,16 +362,21 @@ function addSkillDirect(repoUrl, skillName, options = {}) {
 
   process.stderr.write('\n🔄 Re-indexing SQLite database and embedding vectors...\n');
   const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-  const migrate = spawnSync(resolvedNode, [cliPath, 'migrate', '--skills-dir', path.dirname(verifiedPath)], {
+  const migrate = await runAsyncSpawn(resolvedNode, [cliPath, 'migrate', '--skills-dir', path.dirname(verifiedPath)], {
     cwd: execCwd,
-    stdio: ['pipe', 'pipe', 'pipe'],
     shell: isWin,
     env: childEnv
   });
   if (migrate.status !== 0) {
-    const migrateErr = (migrate.stderr && migrate.stderr.toString().trim()) || (migrate.stdout && migrate.stdout.toString().trim()) || `Skill migration exited with status ${migrate.status}`;
+    const migrateErr = (migrate.stderr && migrate.stderr.trim()) || (migrate.stdout && migrate.stdout.trim()) || `Skill migration exited with status ${migrate.status}`;
     process.stderr.write(`⚠️ Skill migration warning: ${migrateErr}\n`);
   }
+  try {
+    const mcpSkills = require('./mcp/skills');
+    if (mcpSkills && typeof mcpSkills.clearSkillQueryCache === 'function') {
+      mcpSkills.clearSkillQueryCache();
+    }
+  } catch (_) { /* best effort cache clearing */ }
   process.stderr.write(`✓ Skill "${skillName}" indexed in FTS5 database and vector search.\n`);
   return verifiedPath;
 }

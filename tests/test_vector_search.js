@@ -114,6 +114,26 @@ async function testMultilingualIndonesianQueriesTop5() {
   }
 }
 
+async function testClangCanonicalSearchRanking() {
+  const realDb = path.join(os.homedir(), '.konoha', 'konoha.db');
+  if (!fs.existsSync(realDb)) return;
+
+  const conn = db.getConnection(realDb);
+  try {
+    const semantic = await vector_search.findSkillSemantic(conn, 'clang', 3, 20);
+    assert.ok(semantic.length > 0, 'findSkillSemantic should return results for clang');
+    assert.strictEqual(semantic[0].name, 'clang', `Canonical skill "clang" must be rank #1 in findSkillSemantic, got "${semantic[0].name}"`);
+    assert.strictEqual(semantic[0].type, 'skill', 'Rank #1 result must be of type skill');
+
+    const hybrid = await vector_search.findSkillHybrid(conn, 'clang', { topK: 3 });
+    assert.ok(hybrid.length > 0, 'findSkillHybrid should return results for clang');
+    assert.strictEqual(hybrid[0].name, 'clang', `Canonical skill "clang" must be rank #1 in findSkillHybrid, got "${hybrid[0].name}"`);
+    assert.strictEqual(hybrid[0].type, 'skill', 'Rank #1 result in hybrid must be of type skill');
+  } finally {
+    conn.close();
+  }
+}
+
 async function run() {
   console.log('Running test_vector_search.js...');
   console.log('1. testRrfDeterministicOrdering');
@@ -126,6 +146,8 @@ async function run() {
   await testSkillChunksSchemaAndColumns();
   console.log('5. testMultilingualIndonesianQueriesTop5');
   await testMultilingualIndonesianQueriesTop5();
+  console.log('6. testClangCanonicalSearchRanking');
+  await testClangCanonicalSearchRanking();
   console.log('test_vector_search.js passed cleanly.');
 }
 
