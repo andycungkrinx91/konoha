@@ -28,7 +28,9 @@ const filesToCheck = [
   path.join('.cursor', 'rules', 'konoha.mdc'),
   path.join('.omp', 'agent', 'AGENTS.md'),
   path.join('.omp', 'AGENTS.md'),
-  path.join('.codex', 'AGENTS.md')
+  path.join('.codex', 'AGENTS.md'),
+  path.join('src', 'templates', 'AGENTS.md'),
+  path.join('src', 'templates', 'GEMINI.md')
 ];
 
 for (const relPath of filesToCheck) {

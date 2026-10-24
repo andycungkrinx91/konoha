@@ -119,6 +119,9 @@ async function cmdProject(args) {
       log(`  ${C.bold}Framework:${C.reset}        ${C.yellow}${p.framework || 'Unknown'}${C.reset}`);
       log(`  ${C.bold}Styling Engine:${C.reset}   ${p.styling || 'Standard CSS'}`);
       log(`  ${C.bold}Package Manager:${C.reset}  ${C.green}${p.package_manager || 'pnpm'}${C.reset}`);
+      const sdlcManager = require('../../src/sdlc_manager');
+      const sdlcCfg = sdlcManager.getProjectSdlcConfig(targetPath, DB_PATH);
+      log(`  ${C.bold}SDLC Governance:${C.reset}  DoR: ${sdlcCfg.dor_mode} | Review: ${sdlcCfg.review_mode} | HITL Mode: ${C.cyan}${sdlcCfg.hitl_mode}${C.reset}`);
       if (p.context_summary) {
         log(`  ${C.bold}Invariants & Rules:${C.reset}\n     ${p.context_summary}`);
       }
