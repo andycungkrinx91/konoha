@@ -75,7 +75,10 @@ async function run() {
   // 8. RTK contract in rules and prompts
   const geminiRule = fs.readFileSync(path.join(ROOT, 'GEMINI.md'), 'utf-8');
   assert.ok(geminiRule.includes('RTK is mandatory for commands'));
-  assert.ok(geminiRule.includes('prefix shell/command execution with `rtk`'));
+  assert.ok(geminiRule.includes('rtk <command>'));
+  const { getClientContract } = require('../src/agent_contract');
+  const fullContract = getClientContract('antigravity');
+  assert.ok(fullContract.includes('prefix shell/command execution with `rtk`'));
   console.log('✓ RTK contract in rules and prompts passed');
 
   console.log('\nAll test_rtk_cross_client tests passed!');

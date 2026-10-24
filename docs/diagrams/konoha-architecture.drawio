@@ -34,7 +34,7 @@
                 <mxCell id="p1-agents" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;;overflow=visible;" value="Ninja Agents&#xa;genin | kage | chunin | jonin | anbu | tokubetsu-jonin" vertex="1">
                     <mxGeometry height="100" width="430" x="710" y="61" as="geometry"/>
                 </mxCell>
-                <mxCell id="p1-task" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;;overflow=visible;" value="Task Artifacts&#xa;delegate.md -&gt; result.md" vertex="1">
+                <mxCell id="p1-task" parent="p1-l2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;;overflow=visible;" value="Task Artifacts&#xa;Structured Tool Calls" vertex="1">
                     <mxGeometry height="75" width="280" x="1210" y="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="p1-l3" parent="1" style="swimlane;html=1;rounded=1;startSize=30;fillColor=#ecfdf5;strokeColor=#34d399;fontColor=#065f46;fontStyle=1;" value="MCP middleware" vertex="1">
@@ -152,7 +152,7 @@
                 <mxCell id="p2-agent" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#7c3aed;;overflow=visible;" value="Selected Ninja Agent&#xa;genin / kage / chunin / jonin / anbu / tokubetsu-jonin" vertex="1">
                     <mxGeometry height="85" width="360" x="990" y="385" as="geometry"/>
                 </mxCell>
-                <mxCell id="p2-artifact" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="Task Directory&#xa;delegate.md + result.md" vertex="1">
+                <mxCell id="p2-artifact" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#d97706;;overflow=visible;" value="Task Directory&#xa;Structured Results" vertex="1">
                     <mxGeometry height="75" width="220" x="1447" y="385" as="geometry"/>
                 </mxCell>
                 <mxCell id="p2-response" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;;overflow=visible;" value="Synthesized Response" vertex="1">
@@ -808,7 +808,7 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="p10-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="10 Persistent Project Context &amp; 2-Prompt Auto-Compaction Contract" vertex="1">
+                <mxCell id="p10-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#0f172a;fontSize=24;fontStyle=1;align=left;" value="10 Persistent Project Context &amp; Unified Token-Bounded Prompts" vertex="1">
                     <mxGeometry height="40" width="1100" x="40" y="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="p10-workspace" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dbeafe;strokeColor=#2563eb;fontStyle=1;align=center;" value="Project Workspace Directory&#xa;(Deterministic 12-char project_hash)" vertex="1">
@@ -820,7 +820,7 @@
                 <mxCell id="p10-db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffedd5;strokeColor=#ea580c;fontStyle=1;align=center;" value="SQLite Database (~/.konoha/konoha.db)&#xa;• projects table (path, hash, name, framework)&#xa;• persona_memories table (per-session episodic memory rule)&#xa;• Maintenance: data backup, rebuild-fts, prune" vertex="1">
                     <mxGeometry height="120" width="280" x="420" y="470" as="geometry"/>
                 </mxCell>
-                <mxCell id="p10-compactor" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" value="2-Prompt Auto-Compaction Engine&#xa;• Turn 1: Full context with Taste directives (~1,800 tokens)&#xa;• Turn 2+: Compact badge mode (&lt; 450 tokens)&#xa;• On-demand skills served via konoha.get_skill&#xa;• Permanent memory continuity without hallucination" vertex="1">
+                <mxCell id="p10-compactor" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d1fae5;strokeColor=#059669;fontStyle=0;align=left;spacingLeft=15;" value="Unified Token-Bounded Prompt Engine&#xa;• Single bounded architecture across all turns (&lt; 8 KB)&#xa;• 100% prefix determinism for provider KV caching&#xa;• On-demand skills served via konoha.get_skill&#xa;• Permanent memory continuity without hallucination" vertex="1">
                     <mxGeometry height="170" width="420" x="820" y="220" as="geometry"/>
                 </mxCell>
                 <mxCell id="p10-edge1" edge="1" parent="1" source="p10-workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=2;" target="p10-profiler">

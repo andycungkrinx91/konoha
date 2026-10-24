@@ -490,9 +490,9 @@ function generateClaudeCodeSubagent(agent) {
   }
 
   instructions = `${instructions}\n\n${buildSubagentContract('claude')}`;
-  const body = adaptInstructionsForClaudeCode(instructions);
   const sembleLine = buildSembleSearchPolicyCompact();
   const fileToolsLine = buildFileToolsPolicyCompact();
+  const body = adaptInstructionsForClaudeCode(`${instructions}\n\n${sembleLine}\n${fileToolsLine}\n`);
 
   const frontmatter = [
     '---',
@@ -511,7 +511,7 @@ function generateClaudeCodeSubagent(agent) {
     ''
   ];
 
-  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
+  return frontmatter.join('\n') + body;
 }
 
 function deployCommandCodeRules(silent = true) {

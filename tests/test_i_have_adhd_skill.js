@@ -119,22 +119,23 @@ async function run() {
   );
   console.log('✓ agents.yaml maps i-have-adhd to exactly genin, jonin, anbu, tokubetsu-jonin, chunin');
 
-  // 5. AGENTS.md and GEMINI.md templates reference the skill for the 5 agents, never kage
-  for (const tpl of ['AGENTS.md', 'GEMINI.md']) {
-    const content = fs.readFileSync(path.join(ROOT, 'src', 'templates', tpl), 'utf-8');
-    assert.ok(content.includes('i-have-adhd'), `${tpl} must reference i-have-adhd`);
-
-    const lines = content.split('\n');
-    const kageTableRows = lines.filter(l => /\|\s*`?kage`?\s*\|/.test(l) && l.includes('|'));
-    for (const row of kageTableRows) {
-      assert.ok(!row.includes('i-have-adhd'), `${tpl}: kage routing row must not include i-have-adhd`);
-    }
-    const sanninRows = lines.filter(l => /sannin/i.test(l));
-    for (const row of sanninRows) {
-      assert.ok(!row.includes('i-have-adhd'), `${tpl}: sannin must not be attributed i-have-adhd`);
+  // 5. AGENTS.md and GEMINI.md templates are lightweight (< 1.2 KB), and loadAgents maps i-have-adhd for the 5 agents, never kage
+  const { loadAgents } = require('../src/agent_manager');
+  const loadedAgents = loadAgents();
+  for (const agent of loadedAgents) {
+    if (expectedAgents.includes(agent.name)) {
+      assert.ok(agent.skills.includes('i-have-adhd'), `${agent.name} must have i-have-adhd in skills`);
+    } else {
+      assert.ok(!agent.skills.includes('i-have-adhd'), `${agent.name} must not have i-have-adhd in skills`);
     }
   }
-  console.log('✓ AGENTS.md and GEMINI.md reference i-have-adhd without kage/sannin attribution');
+
+  for (const tpl of ['AGENTS.md', 'GEMINI.md']) {
+    const content = fs.readFileSync(path.join(ROOT, 'src', 'templates', tpl), 'utf-8');
+    assert.ok(Buffer.byteLength(content, 'utf8') < 1228, `${tpl} must be lightweight (< 1.2 KB)`);
+    assert.ok(content.includes('Konoha runtime contract'), `${tpl} must include runtime contract`);
+  }
+  console.log('✓ AGENTS.md and GEMINI.md are lightweight (< 1.2 KB) and agent skills map i-have-adhd without kage/sannin attribution');
 
   // 6. The 5 agent skills route to i-have-adhd; sannin-skill and kage-skill do not
   for (const agent of expectedAgents) {

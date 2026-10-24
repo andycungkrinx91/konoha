@@ -249,58 +249,71 @@ console.log('\n[Exports]');
 console.log('\n[MCP Tool Name Mapping]');
 {
   const am = require('../src/agent_manager');
+  const mcp = require('../src/mcp_clients_manager');
 
-  test('generateClaudeCodeMd converts bare kage to mcp__konoha__kage', () => {
+  test('generateClaudeCodeMd produces lightweight contract (< 1.2 KB)', () => {
     const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+      name: 'kage',
       purpose: 'Architecture decisions',
       instructions: 'Call `kage` to delegate',
       type: 'self'
     }]);
-    assert.ok(result.includes('mcp__konoha__kage'), 'should have mcp__konoha__kage');
-    assert.ok(!/(?<!mcp__konoha__)kage\b/.test(result), 'should not have bare kage');
+    assert.ok(Buffer.byteLength(result, 'utf8') < 1228, 'should be < 1.2 KB');
+    assert.ok(result.includes('Konoha runtime contract'), 'should have runtime contract header');
+    assert.ok(result.includes('@kage'), 'should list agent in roster');
   });
 
-  test('generateClaudeCodeMd converts bare optimize_report to mcp__konoha__optimize_report', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts bare kage to mcp__konoha__kage', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
+      purpose: 'Architecture decisions',
+      instructions: 'Call `kage` to delegate',
+      type: 'self'
+    });
+    assert.ok(result.includes('mcp__konoha__kage'), 'should have mcp__konoha__kage');
+    assert.ok(!/(?<!mcp__konoha__)kage\b/.test(result.replace(/name:\s*kage/, '')), 'should not have bare kage');
+  });
+
+  test('generateClaudeCodeSubagent converts bare optimize_report to mcp__konoha__optimize_report', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Optimization',
       instructions: 'Use optimize_report to check skills',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__optimize_report'), 'should have mcp__konoha__optimize_report');
     assert.ok(!/(?<!mcp__konoha__)optimize_report\b/.test(result), 'should not have bare optimize_report');
   });
 
-  test('generateClaudeCodeMd converts bare find_skill to mcp__konoha__find_skill', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts bare find_skill to mcp__konoha__find_skill', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Architecture',
       instructions: 'Call find_skill("architecture") to find skills',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
     assert.ok(!/(?<!mcp__konoha__)find_skill\b/.test(result), 'should not have bare find_skill');
   });
 
-  test('generateClaudeCodeMd does not double-prefix already correct names', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent does not double-prefix already correct names', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Architecture',
       instructions: 'Call mcp__konoha__find_skill to find skills',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
     assert.ok(!result.includes('mcp__konoha__mcp__konoha__find_skill'), 'should NOT double-prefix');
   });
 
-  test('generateClaudeCodeMd converts all subagent tool names', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts all subagent tool names', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'architect',
       purpose: 'Architecture',
       instructions: 'Call kage, jonin, anbu, chunin, genin, tokubetsu_jonin',
       type: 'self'
-    }]);
+    });
     const agents = ['kage', 'jonin', 'anbu', 'chunin', 'genin', 'tokubetsu_jonin'];
     for (const agent of agents) {
       const prefixed = `mcp__konoha__${agent}`;
@@ -309,24 +322,24 @@ console.log('\n[MCP Tool Name Mapping]');
     }
   });
 
-  test('generateClaudeCodeMd converts bare read_file_head to mcp__konoha__read_file_head', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts bare read_file_head to mcp__konoha__read_file_head', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Architecture',
       instructions: 'Use read_file_head to read files',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__read_file_head'), 'should have mcp__konoha__read_file_head');
     assert.ok(!/(?<!mcp__konoha__)read_file_head\b/.test(result), 'should not have bare read_file_head');
   });
 
-  test('generateClaudeCodeMd converts bare get_skill and list_skills', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts bare get_skill and list_skills', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Architecture',
       instructions: 'Use get_skill and list_skills',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__get_skill'), 'should have mcp__konoha__get_skill');
     assert.ok(result.includes('mcp__konoha__list_skills'), 'should have mcp__konoha__list_skills');
     assert.ok(!/(?<!mcp__konoha__)get_skill\b/.test(result), 'should not have bare get_skill');
@@ -335,46 +348,46 @@ console.log('\n[MCP Tool Name Mapping]');
 
   // ----- Semble MCP tool mapping -----
 
-  test('generateClaudeCodeMd converts semble.search to mcp__semble__search', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts semble.search to mcp__semble__search', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Code search',
       instructions: 'Call semble.search to find code',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
   });
 
-  test('generateClaudeCodeMd converts semble.find_related to mcp__semble__find_related', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts semble.find_related to mcp__semble__find_related', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Code search',
       instructions: 'Call semble.find_related to explore callers',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
   });
 
-  test('generateClaudeCodeMd does not double-prefix already correct semble names', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent does not double-prefix already correct semble names', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Code search',
       instructions: 'Call mcp__semble__search and mcp__semble__find_related',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
     assert.ok(result.includes('mcp__semble__find_related'), 'should have mcp__semble__find_related');
     assert.ok(!result.includes('mcp__mcp__semble__'), 'should NOT double-prefix');
     assert.ok(!result.includes('mcp__semble__mcp__semble__'), 'should NOT double-prefix');
   });
 
-  test('generateClaudeCodeMd converts both semble and konoha tools in same instructions', () => {
-    const result = am.generateClaudeCodeMd([{
-      name: 'Kage',
+  test('generateClaudeCodeSubagent converts both semble and konoha tools in same instructions', () => {
+    const result = mcp.generateClaudeCodeSubagent({
+      name: 'kage',
       purpose: 'Architecture',
       instructions: 'Use find_skill for skills, semble.search for code',
       type: 'self'
-    }]);
+    });
     assert.ok(result.includes('mcp__konoha__find_skill'), 'should have mcp__konoha__find_skill');
     assert.ok(result.includes('mcp__semble__search'), 'should have mcp__semble__search');
   });

@@ -219,13 +219,13 @@ In Issue 9, prompt generation was unified into a single deterministic token-boun
 
 | Ninja Agent | Role / Domain | Turn 1 Size | Turn 2 Size | Turn 3 Size | SHA-256 Prefix Hash ($T_1 == T_2 == T_3$) | Ceiling Compliance (< 8 KB) | Prefix Determinism Status |
 |---|---|---|---|---|---|---|---|
-| **@sannin** | MCP Router & Orchestrator | 5,887 bytes | 5,887 bytes | 5,887 bytes | `e5aadfdf2195...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@genin** | Codebase Exploration | 6,176 bytes | 6,176 bytes | 6,176 bytes | `312ea6121fec...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@kage** | Architect & Review Gate | 6,291 bytes | 6,291 bytes | 6,291 bytes | `79fbd40bcdd4...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@chunin** | Intel & Web Research | 6,015 bytes | 6,015 bytes | 6,015 bytes | `540817dd8bef...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@jonin** | UI & Frontend Specialist | 6,763 bytes | 6,763 bytes | 6,763 bytes | `c3ae268c13dd...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@anbu** | Backend, DevOps & Pentest | 6,535 bytes | 6,535 bytes | 6,535 bytes | `20a4ea18348f...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
-| **@tokubetsu-jonin** | Technical Writing & Scribe | 6,595 bytes | 6,595 bytes | 6,595 bytes | `d21fc0721065...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@sannin** | MCP Router & Orchestrator | 5,884 bytes | 5,884 bytes | 5,884 bytes | `8c755f5a646a...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@genin** | Codebase Exploration | 6,173 bytes | 6,173 bytes | 6,173 bytes | `b81399f57ddc...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@kage** | Architect & Review Gate | 6,288 bytes | 6,288 bytes | 6,288 bytes | `c6c2aa98f69d...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@chunin** | Intel & Web Research | 6,012 bytes | 6,012 bytes | 6,012 bytes | `f4130c305dbf...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@jonin** | UI & Frontend Specialist | 7,185 bytes | 7,185 bytes | 7,185 bytes | `d4f482a44938...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@anbu** | Backend, DevOps & Pentest | 6,532 bytes | 6,532 bytes | 6,532 bytes | `5a9bc815c9e4...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
+| **@tokubetsu-jonin** | Technical Writing & Scribe | 6,592 bytes | 6,592 bytes | 6,592 bytes | `e08e369c0c14...` (Identical) | **PASS (< 8,000 B)** | **100% Identical Prefix** |
 
 *> Note on Provider Caching: `scripts/verify_provider_cache.js` empirically validates byte-for-byte SHA-256 prefix hash determinism across consecutive turns, establishing the strict prerequisite for provider KV/prefix caching. Actual live provider cache hit rates depend on upstream provider TTLs, min-token thresholds, and telemetry reported in HTTP completion headers.*
 

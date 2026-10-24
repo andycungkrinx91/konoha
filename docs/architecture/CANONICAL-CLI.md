@@ -12,35 +12,36 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 
 | Command | Arguments / Flags | Description |
 |---|---|---|
-| `konoha init` | `[--yes] [--force] [--python <path>] [--silent]` | Initialize MCP servers, database tables, and configure detected coding clients |
-| `konoha reinstall` | `[options]` | Shorthand for `konoha init --force` (clean reinstallation of MCP servers and configurations) |
-| `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
-| `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
-| `konoha test` | - | Run integration diagnostics against the MCP server |
-| `konoha status` | - | Display system health, client configurations, and database stats |
-| `konoha version` | `[-v] [--version]` | Display installed CLI version (2.2.3) and check npm registry for updates |
-| `konoha upgrade` | `[--yes] [--force]` | Upgrade local Konoha installation to latest release with progress bar |
-| `konoha savings` | - | Display token savings metrics and visual reduction percentages |
+| `konoha agent` | `<subcommand> [args]` | Configure Ninja subagents (list, create, toggle skills, models config, delete, status) |
+| `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
+| `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
+| `konoha config` | `<subcommand> [options]` | Manage global Konoha system configuration |
+| `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
 | `konoha detect-ai` | `<target> [--json]` | Scan website URL or project files for AI fingerprints (Human-Built Index) |
 | `konoha detect-docs` | `<target> [--json]` | Scan prose documents or text for AI generation markers (ZeroGPT defense) |
-| `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants |
-| `konoha task` | `<subcommand> [options]` | Native SDLC governance tasks, readiness gates, and audits |
-| `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
-| `konoha soul` | `[--json]` | Display Ninja's Soul doctrine, tenets, and archetype spirits |
 | `konoha doctor` | - | Run self-healing diagnostics on environment and configurations |
-| `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
-| `konoha search` | `<query> [--num=<n>] [--depth=<d>] [--json]` | Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia) |
-| `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
-| `konoha web` | `[options]` | Foreground shorthand alias for `konoha ui start --foreground` |
-| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage background system daemon service (systemd / launchd) for Web UI |
-| `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
-| `konoha tunnel` | `<subcommand> [options]` | Manage Cloudflare and ngrok public ingress tunnels |
-| `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
-| `konoha queue` | `<subcommand> [args]` | Background task prompt queue and execution worker |
-| `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
-| `konoha skill` | `<subcommand> [args]` | Manage skills (list installed, search public registry, add/remove, embed/unembed) |
-| `konoha agent` | `<subcommand> [args]` | Configure Ninja subagents (list, create, toggle skills, models config, delete, status) |
+| `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
 | `konoha help` | `[-h] [--help]` | Show interactive educational help menu |
+| `konoha init` | `[--yes] [--force] [--python <path>] [--silent]` | Initialize MCP servers, database tables, and configure detected coding clients |
+| `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
+| `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants (including `hitl_mode`) |
+| `konoha queue` | `<subcommand> [args]` | Background task prompt queue and execution worker |
+| `konoha reinstall` | `[options]` | Shorthand for `konoha init --force` (clean reinstallation of MCP servers and configurations) |
+| `konoha savings` | - | Display token savings metrics and visual reduction percentages |
+| `konoha search` | `<query> [--num=<n>] [--depth=<d>] [--json]` | Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia) |
+| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage background system daemon service (systemd / launchd) for Web UI |
+| `konoha skill` | `<subcommand> [args]` | Manage skills (list installed, search public registry, add/remove, embed/unembed) |
+| `konoha soul` | `[--json]` | Display Ninja's Soul doctrine, tenets, and archetype spirits |
+| `konoha status` | - | Display system health, client configurations, and database stats |
+| `konoha task` | `<subcommand> [options]` | Native SDLC governance tasks, readiness gates, and audits |
+| `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
+| `konoha test` | - | Run integration diagnostics against the MCP server |
+| `konoha tunnel` | `<subcommand> [options]` | Manage Cloudflare and ngrok public ingress tunnels |
+| `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
+| `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
+| `konoha upgrade` | `[--yes] [--force]` | Upgrade local Konoha installation to latest release with progress bar |
+| `konoha version` | `[-v] [--version]` | Display installed CLI version and check npm registry for updates |
+| `konoha web` | `[options]` | Foreground shorthand alias for `konoha ui start --foreground` |
 
 ---
 

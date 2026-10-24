@@ -654,6 +654,11 @@ Konoha strictly preserves **Fast-Track Direct Execution** so everyday developmen
       ```json
       "skill_directive": "Retrieve skills via SQLite FTS5/RAG: Call konoha.find_skill(\"<keywords>\") and konoha.use_skills([\"<skill>\"]) or konoha.get_skill(\"<name>\"). Never read raw markdown files directly."
       ```
+110. **Unified Deterministic Prompt Architecture (< 8 KB), Lightweight Contracts (< 1.2 KB) & Alphabetized CLI Governance (v2.2.4)**:
+    - **Single Token-Bounded Prompt Architecture**: Replaced legacy Turn 2 auto-compaction branching (`isAutoCompact`) with a single deterministic, token-bounded prompt architecture across all turns (Turn 1, Turn 2, Turn 3, ...). Subagent prompts are strictly < 8,000 bytes (< 8 KB, ~1,800 tokens) with 100% prefix determinism ($T_1 == T_2 == T_3$) for maximum provider KV prompt cache hits.
+    - **Lightweight On-Demand Contract Architecture**: Replaced monolithic 45 KB on-disk markdown instruction files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursorrules`, etc.) and bundled templates with lightweight pointer contracts (< 1.2 KB, 1,097–1,211 bytes, > 97% file I/O token savings). Full multi-agent contracts and framework specifications are served dynamically on-demand via `konoha.get_skill('konoha/contract')` and `getClientContract(client)`.
+    - **Alphabetized CLI & SDLC HITL Visibility**: All 30 CLI commands in `bin/commands/help.js` and `bin/cli.js` are alphabetized strictly A–Z with `agent` 1st. SDLC governance and `hitl_mode` (`enabled` vs `disabled`) are exposed via `konoha project context` and configurable via `konoha project set hitl-mode <mode>`.
+    - **7-Ninja Team Parity**: Shipped default templates (`src/templates/agents.yaml`, `src/templates/AGENTS.md`, `src/templates/GEMINI.md`) and contract generators uniformly enforce the complete 7-ninja team roster (`@sannin`, `@genin`, `@kage`, `@chunin`, `@jonin`, `@anbu`, `@tokubetsu-jonin`) with canonical distributed skills and zero unbundled host references.
 
 
 

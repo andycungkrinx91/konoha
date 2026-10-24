@@ -907,7 +907,7 @@ function formatMemoriesForPrompt(memories, maxItems = 2) {
 function formatProjectContextForPrompt(projectProfile, memories = null, maxMemories = 2, compact = false) {
   if (!projectProfile && (!memories || !memories.length)) return "";
 
-  const header = compact ? "### 🧠 Project Context Memory (Auto-Compacted):" : "### 🏢 Persistent Project Context & Invariants:";
+  const header = compact ? "### 🏢 Persistent Project Context (Compact):" : "### 🏢 Persistent Project Context & Invariants:";
   const lines = [header];
 
   if (projectProfile) {

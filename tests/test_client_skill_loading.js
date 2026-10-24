@@ -20,21 +20,31 @@ const cursor = require('../src/cursor_manager');
 const clients = require('../src/mcp_clients_manager');
 const opencodeSource = fs.readFileSync(path.join(root, 'src', 'opencode_manager.js'), 'utf8');
 
-const generated = [
+const subagentGenerated = [
   antigravity.buildAgentJson(sampleAgent).config.customAgent.systemPromptSections[0].content,
   antigravity.buildDefineSubagentArgs(sampleAgent).system_prompt,
   cursor.generateCursorSubagent(sampleAgent),
   clients.generateClaudeCodeSubagent(sampleAgent),
+];
+
+for (const content of subagentGenerated) {
+  assert.match(content, /genin-skill/, 'subagent instructions must use canonical genin-skill');
+  assert.doesNotMatch(content, /mcp__konoha__genin-skill/, 'skill identifiers must not be rewritten as MCP tool names');
+  assert.match(content, /find_skill/, 'subagent instructions must load skills through find_skill');
+  assert.doesNotMatch(content, /deep-code-explorer/, 'subagent instructions must not use legacy skill names');
+}
+
+const lightweightContracts = [
   agentManager.generateGeminiMd([sampleAgent]),
   agentManager.generateAgentsMd([sampleAgent]),
   agentManager.generateClaudeCodeMd([sampleAgent]),
 ];
 
-for (const content of generated) {
-  assert.match(content, /genin-skill/, 'generated client instructions must use canonical genin-skill');
-  assert.doesNotMatch(content, /mcp__konoha__genin-skill/, 'skill identifiers must not be rewritten as MCP tool names');
-  assert.match(content, /find_skill/, 'generated client instructions must load skills through find_skill');
-  assert.doesNotMatch(content, /deep-code-explorer/, 'generated client instructions must not use legacy skill names');
+for (const content of lightweightContracts) {
+  assert.ok(Buffer.byteLength(content, 'utf8') < 1228, 'lightweight contract must be < 1.2 KB');
+  assert.match(content, /@genin/, 'lightweight contract must include agent in roster');
+  assert.match(content, /find_skill/, 'lightweight contract must mention find_skill');
+  assert.match(content, /get_skill/, 'lightweight contract must mention get_skill');
 }
 for (const content of [
   agentManager.generateGeminiMd([sampleAgent]),
