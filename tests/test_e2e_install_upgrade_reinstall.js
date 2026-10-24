@@ -284,7 +284,7 @@ async function testWorkflowTokenBurnPrevention() {
   assert.ok(JSON.stringify(sanninRes).length < 3000, `runSannin payload must be < 3KB, got ${JSON.stringify(sanninRes).length}`);
   console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
 
-  // 4. Subagents Turn 1 vs Turn 2 Auto-Compaction
+  // 4. Subagents Unified Token-Bounded Prompts
   const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin'];
   for (const agent of agents) {
     server.SESSION_TURNS.clear();
@@ -293,10 +293,11 @@ async function testWorkflowTokenBurnPrevention() {
     assert.strictEqual(t1.status, 'ready');
     assert.strictEqual(t2.status, 'ready');
     assert.ok(t1.instructions.length < 8000, `${agent} Turn 1 prompt must be bounded (< 8KB), got ${t1.instructions.length}`);
-    assert.ok(t2.instructions.length <= t1.instructions.length, `${agent} Turn 2 must be auto-compacted`);
-    assert.ok(t2.instructions.includes('[Konoha Auto-Compact: Active'), `${agent} Turn 2 must include Auto-Compact badge`);
+    assert.ok(t2.instructions.length < 8000, `${agent} Turn 2 prompt must be bounded (< 8KB), got ${t2.instructions.length}`);
+    assert.strictEqual(t1.instructions, t2.instructions, `${agent} prompts must be deterministic across turns`);
+    assert.ok(t1.instructions.includes('[Konoha Token Preservation: Active'), `${agent} must include Token Preservation header`);
   }
-  console.log('  ✓ All 6 subagents enforce Turn 1 payload ceilings (< 8KB) and activate Auto-Compaction on Turn 2');
+  console.log('  ✓ All 6 subagents enforce Turn 1 & Turn 2 payload ceilings (< 8KB) with deterministic prefix caching');
 
   // 5. Changed-files AI slop scoping
   const dummyStatus = { changed_files: ['src/mcp/build_spec.js'] };

@@ -183,11 +183,61 @@ function generateGenericSubagentMd(agent, client = 'generic') {
   return frontmatter.join('\n') + instructions + '\n\n' + searchLine + '\n' + fileToolsLine + '\n';
 }
 
+function buildLightweightContract(options = {}) {
+  const client = options.client || 'konoha';
+  const role = options.role || 'main agent';
+  const clientLabel = CLIENT_LABELS[client] || client;
+  const roleLabel = role === 'subagent' ? 'official Konoha subagent' : role;
+
+  return `${CONTRACT_START}
+## Konoha runtime contract (${CONTRACT_VERSION})
+You are the ${roleLabel} running through ${clientLabel}. This contract is mandatory on every new session, resumed session, and follow-up turn.
+- **Konoha is mandatory**: Bounded file tools (\`read_file_head\`, \`read_file_range\`, \`token_efficient_grep\`) & skills (\`find_skill\`, \`get_skill\`). Prohibited: \`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`.
+- **Semble is mandatory**: Use \`semble\` MCP (\`search\`, \`find_related\`) with absolute repo path for code search.
+- **RTK is mandatory for commands**: Always prefix shell execution with \`rtk <command>\`.
+- **Resume safety**: On every new session or resumed session, re-read this contract and restore the Konoha/Semble/RTK workflow.
+- **Zero-AI-Slop & Kage Gate**: Verified 100/100 (\`ai_slop_clean: true\`, 0 findings) and >= 98% confidence gate before delivery.
+- **On-Demand Full Contract**: For subagent specs, SDLC pipeline, and full contract rules, call \`konoha.get_skill('konoha/contract')\`.
+${CONTRACT_END}`;
+}
+
+function getClientContract(client = 'generic', options = {}) {
+  const role = (options && options.role) ? options.role : 'main agent';
+  const mainContract = buildAgentContract({ client, role });
+  let agentsList = [];
+  try {
+    const db = require('./db');
+    const conn = db.getConnection();
+    agentsList = conn.prepare('SELECT name, title, purpose, skills, delegate_when, constraints_text FROM agents').all();
+    conn.close();
+  } catch (_) { /* fallback to standard team */ }
+
+  const roster = (agentsList && agentsList.length > 0)
+    ? agentsList.map(a => `- **@${a.name}** (${a.title}): ${a.purpose}`).join('\n')
+    : [
+        '- **@sannin**: Task triage, router, and subagent selection',
+        '- **@genin**: Fast, read-only codebase navigation and analysis',
+        '- **@kage**: Village Leader for architecture, deep analysis, risk, and delivery review',
+        '- **@chunin**: Web research, documentation lookup, and evidence synthesis',
+        '- **@jonin**: Premium UI/frontend specialist across Next.js, SvelteKit, Nuxt, Angular',
+        '- **@anbu**: Backend engineering, bug fixing, DevOps, infrastructure, and dev pentesting',
+        '- **@tokubetsu-jonin**: Technical writing, documentation, runbooks, and specs'
+      ].join('\n');
+
+  return `# Konoha Multi-Agent System & Full Runtime Specification\n\n` +
+    `Client: ${CLIENT_LABELS[client] || client}\n` +
+    `Version: ${CONTRACT_VERSION}\n\n` +
+    `## Ninja Team Roster\n\n${roster}\n\n` +
+    `${mainContract}\n`;
+}
+
 module.exports = {
   CONTRACT_VERSION,
   CONTRACT_START,
   CONTRACT_END,
   buildAgentContract,
+  buildLightweightContract,
+  getClientContract,
   buildMainAgentContract,
   buildSubagentContract,
   buildManagedContract,

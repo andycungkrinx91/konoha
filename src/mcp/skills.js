@@ -219,14 +219,15 @@ function smartTruncate(content, maxSize, name = null) {
     const lineSize = line.length + 1;
     if (currentSize + lineSize > maxSize) break;
     currentSize += lineSize;
-    if (line.startsWith('#') || line.trim() === '') {
+    if (line.startsWith('#') || line.trim() === '' || line.startsWith('- ') || line.startsWith('* ')) {
       lastGoodBoundary = i;
     }
   }
 
   let truncatedStr = '';
-  if (lastGoodBoundary > 0 && currentSize > maxSize * 0.6) {
-    truncatedStr = lines.slice(0, lastGoodBoundary).join('\n');
+  const candidateBoundary = (lastGoodBoundary > 0) ? lines.slice(0, lastGoodBoundary).join('\n') : '';
+  if (candidateBoundary.length >= maxSize * 0.6) {
+    truncatedStr = candidateBoundary;
   } else {
     truncatedStr = content.substring(0, maxSize);
   }
@@ -605,11 +606,34 @@ function getSkill(name, agentName = null, options = {}) {
 
   const conn = getDb();
   try {
-    let row = conn.prepare(`
-      SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
-      FROM skills
-      WHERE name = ?
-    `).get(normName);
+    let row = null;
+    if (normName === 'konoha/contract' || normName === 'contract') {
+      try {
+        const { getClientContract } = require('../agent_contract');
+        const { getActiveClient } = require('./runtime_state');
+        const { detectActiveClient } = require('./client_detection');
+        const cl = getActiveClient() || detectActiveClient() || 'generic';
+        const contractContent = getClientContract(cl);
+        row = {
+          name: 'konoha/contract',
+          skill_name: 'konoha',
+          type: 'reference',
+          tags: 'contract,runtime,orchestration',
+          content: contractContent,
+          byte_size: Buffer.byteLength(contractContent, 'utf8'),
+          line_count: (contractContent.match(/\n/g) || []).length + 1,
+          file_path: path.resolve(__dirname, '../agent_contract.js')
+        };
+      } catch (_) { /* fallback to db query */ }
+    }
+
+    if (!row) {
+      row = conn.prepare(`
+        SELECT name, skill_name, type, tags, content, byte_size, line_count, file_path
+        FROM skills
+        WHERE name = ?
+      `).get(normName);
+    }
 
     if (!row) {
       row = conn.prepare(`
@@ -691,7 +715,7 @@ function getSkill(name, agentName = null, options = {}) {
         content = truncRes.text;
         truncated = truncRes.truncated;
       }
-    } else if (content.length > MAX_CONTENT_SIZE) {
+    } else if (content.length > MAX_CONTENT_SIZE && normName !== 'konoha/contract' && normName !== 'contract') {
       const truncRes = smartTruncate(content, MAX_CONTENT_SIZE, row.name);
       content = truncRes.text;
       truncated = truncRes.truncated;
@@ -883,7 +907,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
         finalContent = truncRes.text;
         truncated = truncRes.truncated;
       }
-    } else if (finalContent.length > MAX_CONTENT_SIZE) {
+    } else if (finalContent.length > MAX_CONTENT_SIZE && normName !== 'konoha/contract' && normName !== 'contract') {
       const truncRes = smartTruncate(finalContent, MAX_CONTENT_SIZE, normName);
       finalContent = truncRes.text;
       truncated = truncRes.truncated;

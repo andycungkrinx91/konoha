@@ -474,10 +474,10 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   }
   const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
   const cd = require('./client_detection');
-  const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath);
+  const activeClient = getActiveClient() || cd.detectActiveClient() || 'universal';
+  const resolvedSessionId = sessionId || cd.getActiveSessionId(resolvedProjPath, activeClient);
   const sessionKey = getSessionKey(resolvedProjPath, resolvedSessionId);
-  const turn = getAndIncrementSessionTurn(sessionKey);
-  const isAutoCompact = (turn >= 2);
+  getAndIncrementSessionTurn(sessionKey);
 
   const sdlcManager = require('../sdlc_manager');
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
@@ -586,13 +586,8 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       if (row) {
         title = row.title || title;
         purpose = row.purpose || purpose;
-        if (isAutoCompact || ['anbu', 'jonin', 'tokubetsu-jonin', 'tokubetsu_jonin'].includes(dbAgentName)) {
-          agentConstraints = cleanRedundantPersonaText(row.constraints_text || agentConstraints);
-          personaInstructions = cleanRedundantPersonaText(row.instructions || personaInstructions);
-        } else {
-          agentConstraints = row.constraints_text || agentConstraints;
-          personaInstructions = row.instructions || personaInstructions;
-        }
+        agentConstraints = cleanRedundantPersonaText(row.constraints_text || agentConstraints);
+        personaInstructions = cleanRedundantPersonaText(row.instructions || personaInstructions);
         if (row.model) {
           assignedModel = row.model;
         }
@@ -709,20 +704,20 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       query: instructions,
       projectPath: resolvedProjPath,
       sessionId: resolvedSessionId,
-      limit: isAutoCompact ? 2 : 3
+      limit: 2
     });
     projectContextBlock = personaMemory.formatProjectContextForPrompt(
       projProfile,
       projMems,
-      isAutoCompact ? 1 : 2,
-      isAutoCompact
+      1,
+      true
     );
   } catch (e) {
     process.stderr.write(`[mcp ${agentName}] Error querying project context: ${e.message}\n`);
   }
 
   let searchFindings = '';
-  if (dbAgentName.includes('chunin') && !isAutoCompact) {
+  if (dbAgentName.includes('chunin')) {
     searchFindings = '### Deep Research Findings (Compact)\n\n';
   }
 
@@ -732,121 +727,63 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     const varDial = dials.design_variance !== undefined ? dials.design_variance : 8;
     const motDial = dials.motion_intensity !== undefined ? dials.motion_intensity : 7;
     const densDial = dials.visual_density !== undefined ? dials.visual_density : 6;
-    if (isAutoCompact) {
-      tasteSkillBlock = (
-        '### 🎨 Taste-Skill Rules (Compacted):\n' +
-        `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n` +
-        '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
-        '- SDLC & Anti-Slop: Run rtk aislop scan --changes (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n'
-      );
-    } else {
-      tasteSkillBlock = (
-        '### 🎨 Taste-Skill Design Engine Directives (tasteskill.dev):\n' +
-        `- Active Taste Dials: DESIGN_VARIANCE=${varDial}/10 | MOTION_INTENSITY=${motDial}/10 | VISUAL_DENSITY=${densDial}/10\n` +
-        '- Anti-Slop: Zero generic AI-purple gradients, zero 3-card boilerplate stacks. Bespoke editorial UI.\n' +
-        '- Typography: Geist, Cabinet Grotesk, Outfit, Satoshi, Clash Display. Extreme scale contrast.\n' +
-        '- Layout & Spacing: py-24/py-32 section pacing, CSS Grid (grid-cols-12), max-w-[1400px], min-h-[100dvh].\n' +
-        '- Theme & Aesthetics: 10 Light-Mode gradient themes (data-theme), 3D perspective tilt (1200px), Zero emojis (Lucide SVG).\n' +
-        '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
-        '- Quality & Delivery: pnpm exclusively, zero errors/warnings, run `rtk aislop scan --changes` (findings: 0, ai_slop_clean: true).\n'
-      );
-    }
+    tasteSkillBlock = (
+      '### 🎨 Taste-Skill Rules (Compacted):\n' +
+      `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n` +
+      '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
+      '- SDLC & Anti-Slop: Run rtk aislop scan --changes (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n'
+    );
   }
 
   let docDesignBlock = '';
   if (dbAgentName.includes('tokubetsu')) {
-    if (isAutoCompact) {
-      docDesignBlock = (
-        '### 🖋️ Tokubetsu-Jonin Document Engineering & Design Directives (Compacted):\n' +
-        '- Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/tools/document_engine.js.\n' +
-        '- Skills via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"); never read raw markdown files directly.\n' +
-        '- Fonts & Themes: Inter (Display/SemiBold/Regular), JetBrains Mono for code. 20 Enterprise 4-Base-Color Themes (T01-T20). Pure light mode (#FFFFFF/#F8FAFC), zero dark fills.\n' +
-        '- Quality Gate: Strict AI score < 3.0% (ZeroGPT risk < 3.0%), sentence CV >= 0.85, active voice, zero robotic clichés, metadata scrubbed.\n'
-      );
-    } else {
-      docDesignBlock = (
-        '### 🖋️ Tokubetsu-Jonin Document Engineering Directives:\n' +
-        '- Native Tools: document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in `src/tools/document_engine.js`.\n' +
-        '- Skills via FTS5/RAG: Query `konoha.find_skill("<keywords>")` and `konoha.get_skill("<name>")`. Never read raw markdown skill files directly.\n' +
-        '- Typography & Hierarchy: Inter Display/Bold (32pt titles, -0.02em tracking), Inter SemiBold (H1-H3), Inter Regular (~10.5-11pt body), JetBrains Mono for code.\n' +
-        '- Canvas & Color Invariants: Pure white / soft pearl (#FFFFFF / #F8FAFC), strictly zero dark fills or black backgrounds, 20 Enterprise 4-Base-Color Themes (T01–T20).\n' +
-        '- Quality Gate (< 3.0% AI Detection): Every deliverable must pass automated AI detection with score < 3.0% and ZeroGPT risk < 3.0% before acceptance. Vary sentence lengths (CV >= 0.85), purge robotic clichés, scrub metadata.\n'
-      );
-    }
-  }
-
-  let systemPrompt = '';
-  if (isAutoCompact) {
-    const compactHeader = (
-      '[Konoha Auto-Compact: Active - Token Preservation Enabled]\n\n' +
-      'IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, ' +
-      'authoritative task. Never reinterpret, narrow, or replace them with a newly ' +
-      'discovered error. If you find an additional bug while fixing, fix the ORIGINAL ' +
-      'task first, then report the new finding — do not abandon or delete prior work.\n\n'
-    );
-    const MAX_PERSONA_BYTES = 1400;
-    const prefix = `${compactHeader}You are @${dbAgentName} (${title}).\nPurpose: ${purpose}\n`;
-    const truncatedConstraints = truncateAtBoundary(agentConstraints, 600);
-    const constraintsBlock = `Constraints: ${truncatedConstraints}\n\n`;
-
-    const instructionsPrefix = 'Instructions: ';
-    const TRUNCATE_SUFFIX_LEN = 16; // ' ...[truncated]'.length appended by truncateAtBoundary
-    const baseOverhead = prefix.length + constraintsBlock.length + instructionsPrefix.length + 1;
-    const remainingBudget = MAX_PERSONA_BYTES - baseOverhead - TRUNCATE_SUFFIX_LEN;
-
-    let instructionsLine = '';
-    if (remainingBudget > 0) {
-      const truncatedInstructions = truncateAtBoundary(personaInstructions, remainingBudget);
-      instructionsLine = `${instructionsPrefix}${truncatedInstructions}\n`;
-    } else {
-      // If the prefix plus Constraints alone exceed the cap, keep Constraints and drop Instructions
-      instructionsLine = '';
-    }
-    systemPrompt = `${prefix}${instructionsLine}${constraintsBlock}`;
-    if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
-    if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
-    if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
-    systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
-    if (skillsContent.length > 0) {
-      systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
-    } else if (skillsList.length > 0) {
-      systemPrompt += `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
-    }
-    systemPrompt += (
-      'Conflict Diff Format:\n' +
-      'FILE: path/to/file\n<<<<<<< original\n[orig]\n=======\n[replacement]\n>>>>>>>\n'
-    );
-  } else {
-    systemPrompt = (
-      `You are @${dbAgentName} (${title}).\n` +
-      `Purpose: ${purpose}\n\n` +
-      `Instructions:\n${personaInstructions}\n\n` +
-      `Constraints:\n${agentConstraints}\n\n`
-    );
-    if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
-    if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
-    if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
-    systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName);
-    if (searchFindings) systemPrompt += searchFindings + '\n';
-    if (skillsContent.length > 0) {
-      systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
-    }
-    if (skillsList.length > 1) {
-      systemPrompt += `Available On-Demand Skills (call konoha.use_skills or konoha.get_skill to load): ${skillsList.join(', ')}\n\n`;
-    }
-    systemPrompt += (
-      'To write a new file or edit an existing file, include this exact block in your response:\n' +
-      'FILE: path/to/file\n' +
-      '<<<<<<< original\n' +
-      '[exact original code snippet to replace, leave empty for new files]\n' +
-      '=======\n' +
-      '[exact replacement code block]\n' +
-      '>>>>>>>\n'
+    docDesignBlock = (
+      '### 🖋️ Tokubetsu-Jonin Document Engineering & Design Directives (Compacted):\n' +
+      '- Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/tools/document_engine.js.\n' +
+      '- Skills via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"); never read raw markdown files directly.\n' +
+      '- Fonts & Themes: Inter (Display/SemiBold/Regular), JetBrains Mono for code. 20 Enterprise 4-Base-Color Themes (T01-T20). Pure light mode (#FFFFFF/#F8FAFC), zero dark fills.\n' +
+      '- Quality Gate: Strict AI score < 3.0% (ZeroGPT risk < 3.0%), sentence CV >= 0.85, active voice, zero robotic clichés, metadata scrubbed.\n'
     );
   }
 
-  // P4: payload ceiling — persona/context capped above (never MCP block,
-  // skills, or TASK INSTRUCTIONS). Total stays bounded by construction.
+  const staticHeader = (
+    '[Konoha Token Preservation: Active - High-Efficiency Context]\n\n' +
+    'IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, ' +
+    'authoritative task. Never reinterpret, narrow, or replace them with a newly ' +
+    'discovered error. If you find an additional bug while fixing, fix the ORIGINAL ' +
+    'task first, then report the new finding — do not abandon or delete prior work.\n\n'
+  );
+  const MAX_PERSONA_BYTES = 1400;
+  const prefix = `${staticHeader}You are @${dbAgentName} (${title}).\nPurpose: ${purpose}\n`;
+  const truncatedConstraints = truncateAtBoundary(agentConstraints, 600);
+  const constraintsBlock = `Constraints: ${truncatedConstraints}\n\n`;
+
+  const instructionsPrefix = 'Instructions: ';
+  const TRUNCATE_SUFFIX_LEN = 16;
+  const baseOverhead = prefix.length + constraintsBlock.length + instructionsPrefix.length + 1;
+  const remainingBudget = MAX_PERSONA_BYTES - baseOverhead - TRUNCATE_SUFFIX_LEN;
+
+  let instructionsLine = '';
+  if (remainingBudget > 0) {
+    const truncatedInstructions = truncateAtBoundary(personaInstructions, remainingBudget);
+    instructionsLine = `${instructionsPrefix}${truncatedInstructions}\n`;
+  }
+  let systemPrompt = `${prefix}${instructionsLine}${constraintsBlock}`;
+  if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
+  if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
+  if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
+  systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
+  if (searchFindings) systemPrompt += searchFindings + '\n';
+  if (skillsContent.length > 0) {
+    systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
+  } else if (skillsList.length > 0) {
+    systemPrompt += `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
+  }
+  systemPrompt += (
+    'Conflict Diff Format:\n' +
+    'FILE: path/to/file\n<<<<<<< original\n[orig]\n=======\n[replacement]\n>>>>>>>\n'
+  );
+
   const basePersonalityBlock = (
     '## Base Personality: High Effort + Instruct Style\n\n' +
     '- Strictly NO conversational filler or hesitation markers (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine", "let me", "hmm", "hmmm").\n' +
@@ -870,18 +807,18 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     '- KAGE 98% CONFIDENCE GATE: Delivery is blocked if confidence < 98%.\n\n'
   );
 
-  const taskTail = (
-    `${basePersonalityBlock}` +
-    `## TASK INSTRUCTIONS\n\n${instructions}\n\n` +
-    `${dualBoundaryAnchor}` +
-    `You must now act as ${dbAgentName} and execute the task above. Use the available tools to explore the codebase or make file edits.\n\n` +
+  const executionProtocol = (
+    `You must now act as ${dbAgentName} and execute the task below. Use the available tools to explore the codebase or make file edits.\n\n` +
     '## Execution Protocol\n\n' +
-    '1. Execute the task directly as described in TASK INSTRUCTIONS above.\n' +
+    '1. Execute the task directly as described in TASK INSTRUCTIONS below.\n' +
     '2. Validate your work: execute framework validation checks and verify 0 errors and 0 warnings.\n' +
     '3. Zero-AI-Slop Pre-Gate: Ensure no AI slop patterns exist (run `rtk aislop scan --changes` to verify `ai_slop_clean: true` and `ai_slop_findings: 0`).\n' +
-    '4. When complete, report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response.'
+    '4. When complete, report your results, validation evidence, and key learnings via the `report_from_agent` tool or structured response.\n\n'
   );
-  const instruction = `${systemPrompt}\n\n` + taskTail;
+
+  const taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
+
+  const instruction = `${systemPrompt}\n\n${basePersonalityBlock}${dualBoundaryAnchor}${executionProtocol}${taskBlock}`.trim();
 
   const effTaskDir = taskDir || getResolvedTaskDir(taskDir, resolvedProjPath, resolvedSessionId);
   const res = JSON.stringify({

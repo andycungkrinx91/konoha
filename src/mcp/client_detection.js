@@ -422,11 +422,16 @@ function getActiveSessionId(workspaceRoot = null, client = null) {
     conn = getDb();
     const ws = workspaceRoot || getWorkspaceRoot() || 'unknown';
     const cl = curClient || 'unknown';
+    let pHash = '';
+    try {
+      const personaMemory = require('../persona_memory');
+      pHash = ws !== 'unknown' ? personaMemory.computeProjectHash(ws) : '';
+    } catch (_) { /* ignore */ }
     const row = conn.prepare(`
       SELECT session_id FROM active_sessions
-      WHERE client = ? AND workspace_root = ?
+      WHERE client = ? AND (workspace_root = ? OR (project_hash != '' AND project_hash = ?))
       ORDER BY last_active_at DESC LIMIT 1
-    `).get(cl, ws);
+    `).get(cl, ws, pHash || '');
     if (row && row.session_id) return row.session_id;
   } catch (_) { /* ignore */ } finally {
     if (conn) {
@@ -472,12 +477,26 @@ const SESSION_TURN_LAST_ACCESS = new Map();
 const SESSION_IDLE_RESET_SECONDS = 30 * 60;
 
 function getSessionKey(projectPath = null, sessionId = null) {
-  const pPath = projectPath || getWorkspaceRoot() || process.cwd();
-  const pHash = personaMemory.computeProjectHash(pPath);
+  const rawPath = projectPath || getWorkspaceRoot() || process.cwd();
+  let pPath = rawPath;
+  try {
+    pPath = path.resolve(rawPath);
+    if (fs.existsSync(pPath)) {
+      pPath = fs.realpathSync(pPath);
+    }
+  } catch (_) { /* ignore */ }
+  let pHash = '';
+  try {
+    const personaMemory = require('../persona_memory');
+    pHash = personaMemory.computeProjectHash(pPath);
+  } catch (_) { /* ignore */ }
+  if (!pHash) {
+    const crypto = require('crypto');
+    pHash = crypto.createHash('sha256').update(String(pPath), 'utf8').digest('hex').substring(0, 12);
+  }
   const client = getActiveClient() || detectActiveClient() || 'universal';
-  const sess = sessionId || getActiveSessionId(pPath, client) || '';
-  if (sess) return `${client}:${sess}:${pHash}`;
-  return `${client}:${pHash}`;
+  const sess = sessionId || getActiveSessionId(pPath, client) || 'default';
+  return `${client}:${pHash}:${sess}`;
 }
 
 function getAndIncrementSessionTurn(sessionKey) {

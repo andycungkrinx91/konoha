@@ -166,7 +166,7 @@ async function run() {
         `Constraints: must be present in compact mode for agent @${ag}`
       );
 
-      const personaMatch = instr.match(/(\[Konoha Auto-Compact:[\s\S]*?Constraints:[\s\S]*?\n\n)/);
+      const personaMatch = instr.match(/(\[Konoha Token Preservation:[\s\S]*?Constraints:[\s\S]*?\n\n)/);
       if (personaMatch) {
         const personaBlock = personaMatch[1];
         const constraintsMatch = personaBlock.match(/Constraints: ([\s\S]*?)\n\n$/);

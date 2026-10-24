@@ -55,7 +55,7 @@ async function run() {
   }));
 
   try {
-    // 1. Turn 1 vs Turn 2 auto-compaction
+    // 1. Turn 1 vs Turn 2 unified token-bounded prompt and prefix determinism
     server.SESSION_TURNS.clear();
     process.env.ANTIGRAVITY_CONVERSATION_ID = 'conv-test-123';
     server.ACTIVE_CLIENT = 'agy';
@@ -69,19 +69,21 @@ async function run() {
     const len1 = instr1.length;
 
     const res2Json = server.runMcpAgent('jonin', {
-      task: 'Add responsive navbar with theme toggle',
+      task: 'Scaffold hero section',
       project_path: projectDir
     });
     const res2 = JSON.parse(res2Json);
     const instr2 = res2.instructions || '';
     const len2 = instr2.length;
 
-    assert.ok(len2 < len1, `Turn 2 length (${len2}) should be smaller than Turn 1 (${len1})`);
-    assert.ok(instr2.includes('Auto-Compact'));
-    assert.ok(instr2.includes('ecommerce-app'));
-    assert.ok(instr2.includes('Next.js'));
-    assert.ok(instr2.includes('pnpm'));
-    console.log('✓ Turn 1 vs Turn 2 auto-compaction passed');
+    assert.ok(len1 < 8000, `Turn 1 length (${len1}) must be < 8KB`);
+    assert.ok(len2 < 8000, `Turn 2 length (${len2}) must be < 8KB`);
+    assert.strictEqual(instr1, instr2, 'Same task across Turn 1 and Turn 2 must be 100% deterministic');
+    assert.ok(instr1.includes('[Konoha Token Preservation: Active'));
+    assert.ok(instr1.includes('ecommerce-app'));
+    assert.ok(instr1.includes('Next.js'));
+    assert.ok(instr1.includes('pnpm'));
+    console.log('✓ Turn 1 vs Turn 2 unified token-bounded prompt passed');
 
     // 2. Multi-client support
     const clients = ['claudecode', 'commandcode', 'opencode', 'agy', 'cursor'];
@@ -90,9 +92,11 @@ async function run() {
       process.env.SESSION_ID = `session-${client}-999`;
 
       const r1 = JSON.parse(server.runMcpAgent('jonin', { task: 'Task 1', project_path: projectDir }));
-      const r2 = JSON.parse(server.runMcpAgent('jonin', { task: 'Task 2', project_path: projectDir }));
+      const r2 = JSON.parse(server.runMcpAgent('jonin', { task: 'Task 1', project_path: projectDir }));
 
-      assert.ok(r2.instructions.includes('Auto-Compact'), `${client} Turn 2 must include Auto-Compact`);
+      assert.ok(r1.instructions.length < 8000, `${client} prompt must be bounded (< 8KB)`);
+      assert.strictEqual(r1.instructions, r2.instructions, `${client} prompt must be deterministic`);
+      assert.ok(r2.instructions.includes('Token Preservation'), `${client} Turn 2 must include Token Preservation badge`);
       assert.ok(r2.instructions.includes('ecommerce-app'), `${client} Turn 2 must retain project context`);
     }
     console.log('✓ Multi-client support passed');
@@ -149,17 +153,53 @@ async function run() {
     server.SESSION_TURN_LAST_ACCESS.clear();
     server.ACTIVE_CLIENT = 'agy';
 
-    JSON.parse(server.runMcpAgent('jonin', { task: 'old session task', project_path: projectDir }));
-    const r2Idle = JSON.parse(server.runMcpAgent('jonin', { task: 'old session task 2', project_path: projectDir }));
-    assert.ok(r2Idle.instructions.includes('Auto-Compact'));
+    const cd = require('../src/mcp/client_detection');
+    const sessKey = cd.getSessionKey(projectDir);
+    const t1 = cd.getAndIncrementSessionTurn(sessKey);
+    const t2 = cd.getAndIncrementSessionTurn(sessKey);
+    assert.strictEqual(t1, 1);
+    assert.strictEqual(t2, 2);
 
     // Simulate 31 minutes of inactivity
-    const key = server.SESSION_TURN_LAST_ACCESS.keys().next().value;
-    server.SESSION_TURN_LAST_ACCESS.set(key, server.SESSION_TURN_LAST_ACCESS.get(key) - (server.SESSION_IDLE_RESET_SECONDS + 60));
+    server.SESSION_TURN_LAST_ACCESS.set(sessKey, server.SESSION_TURN_LAST_ACCESS.get(sessKey) - (server.SESSION_IDLE_RESET_SECONDS + 60));
 
-    const r3Idle = JSON.parse(server.runMcpAgent('jonin', { task: 'new session task', project_path: projectDir }));
-    assert.ok(!r3Idle.instructions.includes('Auto-Compact'), 'Turn after idle must not be compacted');
+    const t3 = cd.getAndIncrementSessionTurn(sessKey);
+    assert.strictEqual(t3, 1, 'Turn counter must reset to 1 after 30 min idle');
     console.log('✓ Session turn resets after idle passed');
+
+    // 5. Cross-session and Cross-project turn isolation
+    const projectDirA = path.join(tmpDir, 'project-a');
+    const projectDirB = path.join(tmpDir, 'project-b');
+    fs.mkdirSync(projectDirA, { recursive: true });
+    fs.mkdirSync(projectDirB, { recursive: true });
+
+    server.SESSION_TURNS.clear();
+    // Same client, different projects
+    const keyProjA = cd.getSessionKey(projectDirA, 'sess-common');
+    const keyProjB = cd.getSessionKey(projectDirB, 'sess-common');
+    assert.notStrictEqual(keyProjA, keyProjB, 'Same client in different projects must have different keys');
+
+    const turnA = cd.getAndIncrementSessionTurn(keyProjA);
+    const turnA_next = cd.getAndIncrementSessionTurn(keyProjA);
+    const turnB = cd.getAndIncrementSessionTurn(keyProjB);
+    assert.strictEqual(turnA, 1);
+    assert.strictEqual(turnA_next, 2);
+    assert.strictEqual(turnB, 1, 'Project B must not inherit Project A turn count');
+
+    // Different client, different projects
+    server.ACTIVE_CLIENT = 'cursor';
+    const keyCursorB = cd.getSessionKey(projectDirB, 'sess-1');
+    server.ACTIVE_CLIENT = 'agy';
+    const keyAgyA = cd.getSessionKey(projectDirA, 'sess-1');
+    assert.notStrictEqual(keyCursorB, keyAgyA);
+
+    // Different client, same project
+    server.ACTIVE_CLIENT = 'cursor';
+    const keyCursorSame = cd.getSessionKey(projectDirA, 'sess-1');
+    server.ACTIVE_CLIENT = 'claudecode';
+    const keyClaudeSame = cd.getSessionKey(projectDirA, 'sess-1');
+    assert.notStrictEqual(keyCursorSame, keyClaudeSame);
+    console.log('✓ Cross-session and cross-project turn isolation passed');
 
     console.log('\nAll test_auto_compaction tests passed!');
   } finally {

@@ -16,37 +16,9 @@ const {
 } = require('../bin/lib/paths');
 
 const {
-  buildMainAgentContract,
+  buildLightweightContract,
   buildManagedContract
 } = require('./agent_contract');
-
-const SAFETY_GUARDRAILS_BLOCK = `
-- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 98% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. **Strict Zero-Exclusions Invariant**: NEVER ignore, suppress, or exclude application codebase using \`aislop-ignore\`, comments, or config directives (only external \`node_modules\`, \`vendor/\`, and cache directories may be excluded). Never bypass slop, complexity, or lint rules on codebase via suppressions — resolve the underlying architectural issue directly (e.g. modularizing oversized files). Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **98% confidence** is required across all verification categories (Minimum Required: ≥ 98%). If confidence < 98%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
-- **Base Personality: High Effort + Instruct Style (Zero Monologue Leaks & Factual Rigor)**:
-  - **Zero Conversational Filler**: NEVER begin responses or tool turns with conversational filler, hesitation markers, or internal monologue leaks (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine").
-  - **Lead With Direct Action / Direct Evidence**: Always start with the required log line \`[{Icon} {Name}] active. Calling ...\` or the direct, factual, actionable response.
-  - **High-Effort Reasoning with Pure Instruct Execution**: When reasoning effort is set to High / Max, execute all deep deliberation, hypothesis testing, and multi-step verification silently inside internal thinking. Output ONLY crisp, authoritative, highly structured, instruction-following results.
-  - **ADHD-Friendly Formatting**: Number multi-step procedures, prioritize the immediate next action first, use clean bold headings, bullet points, and code blocks. Eliminate fluff, narrative preambles, and conversational pleasantries.
-- **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
-  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans. The external MCP tool \`aislop_scan\` only accepts directory \`path\` and lacks \`--changes\` support; calling it on root scans all 3,500+ files and dumps ~14,000 findings into context (~50k tokens). Delivery Zero-AI-Slop gating on changed files MUST ALWAYS be executed via CLI: \`rtk aislop scan --changes\` (or pass specific changed file paths).
-  - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
-  - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
-  - When maintaining Konoha, use \`rtk npm run sync:skills\` (\`node scripts/sync_skills.js\`) to propagate skill edits to all mirror trees automatically, and use \`rtk node tests/run_all.js <pattern>\` for incremental testing to prevent token burn across 77 suites.
-- **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`FLUSHALL\`, \`dropDatabase\`, \`terraform/tofu/pulumi destroy\`, \`kubectl delete ns/all\`, \`helm uninstall\`, \`docker prune\`, firewall flushes, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
-  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
-  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
-- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
-- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
-  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
-  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
-  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
-  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
-- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
-`;
-
 
 let isRegenerating = false;
 let __cachedPython = null; // Cache Python detection across loadAgents calls
@@ -459,13 +431,6 @@ function saveAgents(agents) {
   __cachedAgentsTs = null;
 }
 
-function buildAgentReferenceList(agents) {
-  return agents.map((a, i) => {
-    const iconStr = a.icon ? `${a.icon} ` : '';
-    return `${i + 1}. **${iconStr}${a.name}** — ${a.description}`;
-  }).join('\n');
-}
-
 function buildDefineSubagentGuide(agents) {
   return `### Konoha MCP Tool-Based Delegation (CRITICAL)
 
@@ -489,452 +454,42 @@ To delegate a task:
 This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.`;
 }
 
-function buildImageDesignDelegateGuide() {
-  return `### Image / mockup builds — structured specification rules (CRITICAL)
+function buildLightweightMarkdownContent(agents, clientTitle, clientKey) {
+  const roster = (agents || []).map(a => {
+    const skillList = (a.skills && a.skills.length > 0) ? ` [Skills: ${a.skills[0]}]` : '';
+    let purpose = (a.purpose || a.title || 'Specialized agent').split('.')[0].trim();
+    if (purpose.length > 50) purpose = purpose.slice(0, 47) + '...';
+    return `- **@${a.name}**: ${purpose}.${skillList}`;
+  }).join('\n');
 
-When the user prompt mentions \`source-image-design\`, design images, or mockups:
+  const contractText = buildLightweightContract({ client: clientKey });
 
-1. Call \`konoha.build_from_source\`(name, source_dir, framework, taste_dials?) before delegation.
-2. Validate that the returned specification has \`status: success\`, a canonical framework, source metadata, required skills, validation commands, and any \`absolute_image_paths\`.
-3. **100% Exact Mockup Fidelity**: Strictly replicate the visual layout, colors, typography, spacing, navigation, and assets present in the source mockups. Do NOT force default text invariants (such as custom carousels or theme pickers) unless explicitly visible in the source images or requested in the prompt.
-4. Pass the returned directives to \`jonin\` as constraints. Apply Taste-Skill only for non-structural, reduced-motion-safe enhancements (clean GPU transitions, semantic tokens).
-5. Use \`konoha\` bounded file tools to inspect every returned image path. Do not use native file tools or install dependencies from inside the MCP specification call.
+  const body = `# ${clientTitle}
 
-### Text-based builds — structured specification rules (CRITICAL)
+## Team Roster & Delegation
+Delegate non-trivial tasks via structured MCP tool arguments:
+${roster}
 
-When the user prompt requests building or scaffolding a website or user interface from text description:
+## Safety Guardrails
+NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset --hard\`) or view secrets (\`.env*\`, \`*.pem\`, \`secrets.yaml\`).\n\n`;
 
-1. Call \`konoha.build_from_text\`(name, description, framework, taste_dials?) first.
-2. Validate the returned canonical framework, Taste-Skill dials, required skills, and \`validation_commands\`.
-3. Pass the directives to \`jonin\` as constraints. The MCP tool returns a specification only; Jonin creates the project and runs the framework-native pnpm validation commands.
-4. **Standard Framework Scaffolding Commands**: When scaffolding a new website or project from scratch, strictly use the official framework CLI initialization standard:
-   - **Next.js**: \`pnpm create next-app@latest <project-name>\`
-   - **Nuxt**: \`pnpm dlx nuxi@latest init <project-name>\`
-   - **Angular**: \`pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm\`
-   - **SvelteKit**: \`pnpm dlx sv create <project-name>\`
-5. Use the framework-native routing and quality contract for Next.js, Nuxt, SvelteKit, or Angular. Do not assume one framework's file structure applies to another.
-6. **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
-   - **Header Logo on the Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
-   - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (\`lg:hidden\`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
-   - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (\`lg:hidden\`) with quick one-tap links adapted dynamically to the website's archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
-   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (\`lg:flex\`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (\`lg:hidden\`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
-   - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (\`fixed bottom-6 left-6 z-50\`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
-   - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
-   - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
-   - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project\x27s \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\` / \`pnpm lint\`), \`"build"\` (\`pnpm run build\` / \`pnpm build\`), and \`"start"\` (\`pnpm run start\` / \`pnpm start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
-   - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
-
-### Existing project rules (CRITICAL)
-
-When the user prompt involves modifying or working within an existing project:
-
-1. **NEVER touch existing logic**: Do not modify existing components, routes, styles, or code the user did not explicitly ask to change. Preserve all existing architecture.
-2. **Do only what is asked**: Execute only the user's specific request. Apply Taste-Skill to prettify requested UI components without changing existing architecture.
-3. **No silent design changes**: NEVER hallucinate, fabricate, or silently update/change design elements, colors, layouts, styles, or functionality without the user's explicit knowledge and approval.
-4. **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
-5. **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.`;
-}
-
-function getSkillDescriptions(skillsList) {
-  const { DB_PATH, getDb } = require('./db');
-  const dbPath = DB_PATH;
-  if (!fs.existsSync(dbPath) || !skillsList || skillsList.length === 0) return {};
-  try {
-    const conn = getDb(dbPath);
-    const res = {};
-    for (const s of skillsList) {
-      const row = conn.prepare("SELECT content, tags FROM skills WHERE name = ?").get(s);
-      if (row) {
-        let desc = "";
-        const content = row.content || "";
-        if (content.startsWith("---")) {
-          const parts = content.split("---");
-          if (parts.length >= 3) {
-            for (const line of parts[1].split("\n")) {
-              if (line.trim().startsWith("description:")) {
-                desc = line.split("description:")[1].trim();
-                if ((desc.startsWith('"') && desc.endsWith('"')) || (desc.startsWith("'") && desc.endsWith("'"))) {
-                  desc = desc.slice(1, -1);
-                }
-                break;
-              }
-            }
-          }
-        }
-        if (!desc && row.tags) {
-          desc = row.tags.replace(/,/g, " ");
-        }
-        res[s] = desc;
-      }
-    }
-    return res;
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
-  return {};
+  return buildManagedContract(body, contractText);
 }
 
 function generateGeminiMd(agents) {
-
-  // Build official agent name list
-
-  const baseSkills = [...new Set(agents.flatMap(a => {
-    return (a.skills || []).map(s => s.split('/')[0]);
-  }))];
-  const skillDescs = getSkillDescriptions(baseSkills);
-  const dynamicTableRows = baseSkills.map(skill => {
-    const desc = skillDescs[skill] || 'Specialized skill';
-    const cleanDesc = desc.replace(/[\r\n|]/g, ' ').trim().slice(0, 100);
-    return `| ${cleanDesc} | \`${skill}\` | \`${skill}\` |`;
-  }).join('\n');
-
-  const content = `# Global Agent Instructions
-
-> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
-> You are equipped with two MCP servers: **\`konoha\`** and **\`semble\`**. You MUST use them for ALL file operations and code search. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
->
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
-> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into konoha.db
-> - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
-
-### Team roster (reference — full instructions in ~/.agents/agents.yaml)
-
-${buildAgentReferenceList(agents)}
-
-${buildImageDesignDelegateGuide()}
-
-${buildDefineSubagentGuide(agents)}
-
-## Orchestration Model
-
-> [!IMPORTANT]
-> **Orchestrator Role**: The main agent runs as the primary Antigravity thread and acts as the **orchestrator only**. It coordinates and delegates tasks to konoha subagents — it does NOT execute non-trivial implementation tasks itself.
->
-> Delegation is performed directly by calling the corresponding subagent MCP tool (e.g. \`kage\`, \`jonin\`, \`anbu\`, \`chunin\`, \`tokubetsu_jonin\`, \`genin\`) served by the \`konoha\` MCP server. Do NOT attempt to use \`invoke_subagent\` or custom IDE subagent configurations.
-
-The orchestrator follows this workflow:
-1. **Read User Prompt**: Re-evaluate the current prompt and project context on every new or resumed session.
-2. **Find Skill First**: Call \`konoha.find_skill\` or \`optimize_report\` using keywords from the user prompt to discover specific skill reference names. Do not call \`semble\` for skills.
-3. **Find Code Context**: If project source code search is needed, call \`semble.search\` or \`semble.find_related\` with the absolute project repository path.
-4. **Delegate with structured MCP arguments**: Pass \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\` to the matching subagent MCP tool. The build tools return specifications only; Jonin creates or updates files and runs framework-native \`pnpm\` validation commands.
-5. **Synthesize**: Present the structured result and any project-scoped learnings.
-
-### Routing by Domain (for skill selection AND delegation)
-
-Use the table below to select the right **skill reference** AND **subagent** to delegate to:
-
-| Domain / Description | Embedded Skills | Skill to Load |
-|---|---|---|
-${dynamicTableRows}
-| Simple/trivial tasks | Select the closest matching skill | Consult the team roster |
-
-For complex multi-domain tasks, load multiple skill references and delegate each domain to the appropriate subagent.
-
-## Tools & Guardrails
-
-- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) for file operations. **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
-- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.**
-- **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills.
-- **Agent-Browser CLI**: Use \`agent-browser\` for web page interaction, screenshots, and design match comparison.
-- **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\`
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
-
-${SAFETY_GUARDRAILS_BLOCK}
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
-- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
-- **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
-- **No Git Commands**: NEVER execute any \`git\` command. Use \`rg\` or semble instead.
-- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
-- **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
-- **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
-- **File Writing & Artifact Safety**: NEVER pass raw non-bounded tool calls when creating or modifying project code files outside the artifact directory. For project files, use bounded tools or bash/heredoc.
-- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
-- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **Quota Handling**: Removed. Quota management is handled at the platform level, not by subagents.
-- **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute subagent delegation via the \`konoha\` MCP. ALWAYS use the \`semble\` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
-- **Forced MCP Usage & Delegation**: ABSOLUTE RULE — all work MUST go through \`konoha\` MCP (skills + bounded file ops) and \`semble\` MCP (codebase search). NEVER call generic \`view_file\`/\`Read\`/\`Grep\`/\`Glob\`/\`run_command\` (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) directly. NEVER use \`semble\` for skills; NEVER use \`konoha\` for codebase search. The main orchestrator MUST delegate all non-trivial tasks to konoha subagents (\`genin\`, \`chunin\`, \`jonin\`, \`anbu\`, \`kage\`, \`tokubetsu-jonin\`) via the Agent tool. The orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates. Trivial tasks (single bounded read/edit on a known file) may be executed directly.
-
-Full team configuration, model registry, and operational conventions: \`~/.agents/AGENTS.md\`
-`;
-
-  return buildManagedContract(content, buildMainAgentContract('antigravity'));
+  return buildLightweightMarkdownContent(agents, 'Global Agent Instructions', 'antigravity');
 }
 
 function generateClaudeCodeMd(agents) {
-  const baseSkills = [...new Set(agents.flatMap(a => {
-    return (a.skills || []).map(s => s.split('/')[0]);
-  }))];
-  const skillDescs = getSkillDescriptions(baseSkills);
-  const dynamicTableRows = baseSkills.map(skill => {
-    const desc = skillDescs[skill] || 'Specialized skill';
-    const cleanDesc = desc.replace(/[\r\n|]/g, ' ').trim().slice(0, 100);
-    const agent = agents.find(a => (a.skills || []).some(s => s.startsWith(skill)));
-    const agentTool = agent ? `\`${agent.name}\` (MCP Tool)` : 'Main agent';
-    return `| ${cleanDesc} | \`${skill}\` | ${agentTool} |`;
-  }).join('\n');
-
-  const content = `# Claude Code — Global Agent Instructions
-
-> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
-> You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in tools (\`Read\`, \`Grep\`, \`Glob\`, \`Bash\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN**.
->
-> - **File reads/grep/structure** → \`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\
-> - **Code search/discovery** → \`semble.search\`, \`semble.find_related\
-> - **Skill lookup** → \`konoha.find_skill\`, \`konoha.find_skills\`, \`konoha.get_skill\`, \`konoha.list_skills\` (all clients call \`find_skills\` and project skills auto-migrate into konoha.db)
-> - **NEVER** call \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`Bash\` with \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
-
-You are the **Claude Code agent** (the orchestrator / **Konoha agent**) equipped with Konoha MCP servers (\`konoha\`, \`semble\`).
-
-## Orchestrator & Delegation Model (CRITICAL)
-
-You delegate specialized work by calling the corresponding subagent MCP tools served by the \`konoha\` MCP server: \`mcp__konoha__kage\`, \`mcp__konoha__jonin\`, \`mcp__konoha__anbu\`, \`mcp__konoha__chunin\`, \`mcp__konoha__tokubetsu_jonin\`, \`mcp__konoha__genin\`.
-
-**CRITICAL RULES:**
-- **NEVER use built-in Claude Code agents** or custom agent \`@\` mentions — only delegate via the MCP tools listed above.
-- **NEVER call built-in tools directly** (\`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, \`WebSearch\`) — all file operations and search MUST go through \`konoha\` MCP and \`semble\` MCP tools exclusively.
-- The main agent is an **orchestrator only** — it coordinates, delegates, and reports back. It does NOT execute implementation tasks itself.
-
-
-### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP delegations (\`turn >= 2\`, reset after 30 min idle) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
-- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and prioritized in prompts. Advisory learnings are preserved with base importance.
-- **Prompt Compaction**: Verbose instruction boilerplates and redundant diff explanations are compacted. The primary skill SOP preview (250 chars) is always included even on compact turns. Agent instructions are truncated to 1200 chars and constraints to 600 chars (never stripped entirely).
-- **On-Demand Skills**: Full reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
-
-### Delegation Protocol:
-1. **Read User Prompt**: Read the user request from conversation context / \`<USER_REQUEST>\`.
-2. **Find Skill**: Call \`konoha.find_skill\` or \`optimize_report\` to discover skill references. **Do NOT call \`semble\` for skills.**
-3. **Delegate**: Delegate by invoking the corresponding subagent MCP tool directly with structured parameters (\`task\`, \`context\`, \`constraints\`, \`skills\`). Never search for or write \`delegate.md\` or \`prompt.md\`.
-4. **Report**: Synthesize findings and report back directly to the user upon subagent completion.
-5. **Direct Execution (trivial only)**: Only execute simple/trivial tasks directly (single bounded read/edit on a known file using konoha MCP tools).
-6. **Planning-to-File**: Write plans and analysis to markdown files, keeping the conversation log light.
-
-## Tools & Guardrails
-
-- **MCP-Only Tooling (ABSOLUTE RULE)**: ALL file reads, searches, and operations MUST use \`konoha\` MCP or \`semble\` MCP tools. NEVER call built-in \`Read\`, \`Write\`, \`Edit\`, \`Bash\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or \`WebSearch\` tools directly. NEVER use shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`).
-- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.). When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines). Avoid loading massive files into your context window.
-- **Konoha MCP**: Use \`find_skill(keyword)\` for skill search, \`get_skill(name)\` for full content, \`list_skills()\` to browse, and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). **NEVER load SKILL.md files directly, and do NOT use find_skill for codebase/file search.**
-- **Semble MCP**: If project source code search is needed, call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools for finding or locating skills. NEVER use \`semble\` search for skills.**
-- **Tool Boundaries**: Call **\`semble\` MCP** for codebase search. Call **\`konoha\` MCP** for skills and bounded file reads/grep. Never mix them.
-- **Logging**: Every response MUST start with a log line: \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\
-${SAFETY_GUARDRAILS_BLOCK}
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly.
-- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask permission before reading/writing these files.
-- **No Git Commands**: NEVER execute any \`git\` command. Use semble instead.
-- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
-- **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
-- **Optimize Thought Tokens**: Keep thoughts concise in thinking processes. Avoid verbose reasoning.
-
-| Domain / Description | Skill to Load | MCP Tool to Call |
-|---|---|---|
-${dynamicTableRows}
-| Simple/trivial tasks | - | Main agent runs directly (MCP tools only) |
-`;
-
-  return buildManagedContract(content, buildMainAgentContract('claude'))
-    .replace(/view_file/g, 'Read')
-    .replace(/write_to_file/g, 'Write')
-    .replace(/replace_file_content/g, 'Edit')
-    .replace(/run_command/g, 'Bash')
-    // MCP tool mapping for Claude Code double underscore format.
-    // Use a single guard to avoid double-prefixing when text already contains `mcp__konoha__`.
-    .replace(/(?:skills-db|konoha)\.find_skill/g, 'mcp__konoha__find_skill')
-    .replace(/(?:skills-db|konoha)\.get_skill/g, 'mcp__konoha__get_skill')
-    .replace(/(?:skills-db|konoha)\.list_skills/g, 'mcp__konoha__list_skills')
-    .replace(/(?:skills-db|konoha)\.optimize_report/g, 'mcp__konoha__optimize_report')
-    .replace(/(?:skills-db|konoha)\.build_from_source/g, 'mcp__konoha__build_from_source')
-    .replace(/(?:skills-db|konoha)\.build_from_text/g, 'mcp__konoha__build_from_text')
-    .replace(/(?:skills-db|konoha)\.get_resolved_task_dir/g, 'mcp__konoha__get_resolved_task_dir')
-    .replace(/(?:skills-db|konoha)\.migrate_skills/g, 'mcp__konoha__migrate_skills')
-    .replace(/(?:skills-db|konoha)\.web_search/g, 'mcp__konoha__web_search')
-    .replace(/(?:skills-db|konoha)\.sannin/g, 'mcp__konoha__sannin')
-    .replace(/(?:skills-db|konoha)\.kage/g, 'mcp__konoha__kage')
-    .replace(/(?:skills-db|konoha)\.jonin/g, 'mcp__konoha__jonin')
-    .replace(/(?:skills-db|konoha)\.anbu/g, 'mcp__konoha__anbu')
-    .replace(/(?:skills-db|konoha)\.chunin/g, 'mcp__konoha__chunin')
-    .replace(/(?:skills-db|konoha)\.tokubetsu_jonin/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?:skills-db|konoha)\.genin/g, 'mcp__konoha__genin')
-    .replace(/semble\.search/g, 'mcp__semble__search')
-    .replace(/semble\.find_related/g, 'mcp__semble__find_related')
-    // Bare tool names → mcp__konoha__ prefix. Word-boundary + negative lookbehind so we don't
-    // double-prefix text that already contains `mcp__konoha__`.
-    .replace(/(?<!mcp__konoha__)\boptimize_report\b/g, 'mcp__konoha__optimize_report')
-    .replace(/(?<!mcp__konoha__)\bkage\b(?!-)/g, 'mcp__konoha__kage')
-    .replace(/(?<!mcp__konoha__)\bjonin\b(?!-)/g, 'mcp__konoha__jonin')
-    .replace(/(?<!mcp__konoha__)\banbu\b(?!-)/g, 'mcp__konoha__anbu')
-    .replace(/(?<!mcp__konoha__)\bchunin\b(?!-)/g, 'mcp__konoha__chunin')
-    .replace(/(?<!mcp__konoha__)\bgenin\b(?!-)/g, 'mcp__konoha__genin')
-    .replace(/(?<!mcp__konoha__)\btokubetsu_jonin\b(?!-)/g, 'mcp__konoha__tokubetsu_jonin')
-    .replace(/(?<!mcp__konoha__)\bsannin\b(?!-)/g, 'mcp__konoha__sannin')
-    .replace(/(?<!mcp__konoha__)\bfind_skill\b/g, 'mcp__konoha__find_skill')
-    .replace(/(?<!mcp__konoha__)\bget_skill\b/g, 'mcp__konoha__get_skill')
-    .replace(/(?<!mcp__konoha__)\blist_skills\b/g, 'mcp__konoha__list_skills')
-    .replace(/(?<!mcp__konoha__)\bread_file_head\b/g, 'mcp__konoha__read_file_head')
-    .replace(/(?<!mcp__konoha__)\bread_file_range\b/g, 'mcp__konoha__read_file_range')
-    .replace(/(?<!mcp__konoha__)\bfile_info\b/g, 'mcp__konoha__file_info')
-    .replace(/(?<!mcp__konoha__)\btoken_efficient_grep\b/g, 'mcp__konoha__token_efficient_grep')
-    .replace(/(?<!mcp__konoha__)\bget_file_structure\b/g, 'mcp__konoha__get_file_structure')
-    .replace(/(?<!mcp__konoha__)\bfind_files_clean\b/g, 'mcp__konoha__find_files_clean')
+  return buildLightweightMarkdownContent(agents, 'Claude Code — Global Agent Instructions', 'claude');
 }
 
 
 function generateAgentsMd(agents) {
-  // Build official agent name list
-  const agentNames = agents.map(a => `\`${a.name}\``).join(', ');
-
-  // Format skills list compactly: highlight primary skills, summarize sub-references
-  function formatCompactSkillsList(skills) {
-    if (!skills || skills.length === 0) return 'None';
-    const primary = skills.filter(s => typeof s === 'string' && !s.includes('/'));
-    const subCount = skills.length - primary.length;
-    const primaryFormatted = primary.map(s => `\`${s}\``).join(', ');
-    if (subCount > 0) {
-      return `${primaryFormatted} *(+${subCount} specialized references on-demand via konoha.get_skill / use_skills)*`;
-    }
-    return primaryFormatted;
-  }
-
-  function formatRoleConstraints(text) {
-    if (!text) return '';
-    return text
-      .replace(/Base personality: High Effort \+ Instruct Style —[^.]+\./gi, '')
-      .replace(/and adhere strictly to base personality:[^.]+\./gi, '')
-      .replace(/Call konoha\.find_skill for skills\.[\s\S]*?(?=Call the semble|\. [A-Z]|$)/gi, '')
-      .replace(/Call the semble MCP tools \(search\/find_related\) directly for codebase search\. Do NOT mix them\.?/gi, '')
-      .replace(/Do NOT call `?semble`? tools[^.]+\./gi, '')
-      .replace(/NEVER use `?semble`? search for skills\.?/gi, '')
-      .replace(/NEVER use grep, glob, find[^.]+\./gi, '')
-      .replace(/Always use `?konoha`? MCP tools[^.]+\./gi, '')
-      .replace(/\s*\.\s*\./g, '.')
-      .replace(/^\s*\.\s*/, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  // Build delegation table
-  const delegationRows = agents.map(a => `| ${formatCompactSkillsList(a.skills)} | \`${a.name}\` |`).join('\n');
-
-  // Build agent role sections
-  const agentSections = agents.map(a => {
-    const iconStr = a.icon ? `${a.icon} ` : '';
-    const skillsFormatted = formatCompactSkillsList(a.skills);
-    const cleanConstraints = formatRoleConstraints(a.constraints);
-    return `### @${a.name} — ${iconStr}${a.title}
-- **Purpose**: ${a.purpose}
-- **Skills**: ${skillsFormatted}
-- **Delegate when**: ${a.delegateWhen}
-- **Constraints**: ${cleanConstraints}
-- **Workflow**: ${a.workflow}`;
-  }).join('\n\n');
-
-  const content = `# AGENTS.md — Multi-Agent Team Configuration
-
-> **Compatibility**: Antigravity IDE, CLI, and all Gemini agent surfaces. Place at \`~/.agents/AGENTS.md\`.
-
-> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
-> You are equipped with MCP servers: **\`konoha\`**, **\`semble\`**, and **\`aislop\`**. You MUST use them for ALL file operations, code search, and code hygiene/slop scans. Using native/built-in tools (\`view_file\`, \`grep_search\`, \`list_dir\`, \`run_command\` with \`cat\`/\`head\`/\`grep\`/\`rg\`/\`find\`) is **STRICTLY FORBIDDEN** and will be blocked.
->
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
-> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Zero-AI-Slop & Anti-Slop Gate** → \`aislop\` MCP (\`aislop_scan\`, \`aislop_fix\`, \`aislop_why\`, \`aislop_baseline\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
-> - **NEVER** call \`view_file\`, \`grep_search\`, \`list_dir\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` directly — always use the MCP equivalents above.
-
-## Team Roles & Delegation
-
-### Team roster
-
-${buildAgentReferenceList(agents)}
-
-${buildImageDesignDelegateGuide()}
-
-${buildDefineSubagentGuide(agents)}
-
-### @orchestrator — Task Coordinator
-- **Purpose**: Coordinates non-trivial work through structured subagent MCP tools. Runs as the primary Antigravity thread.
-- **Orchestration Model**:
-  - The orchestrator acts as a coordinator. For any non-trivial task, the orchestrator delegates by calling the corresponding subagent MCP tool (e.g. \`kage\`, \`jonin\`, etc.).
-  - Pass \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\` directly to the matching subagent MCP tool. Build specification tools are side-effect-free; Jonin implements returned directives and runs framework-native \`pnpm\` validation commands.
-- **Workflow**:
-  1. **Read User Prompt**: Re-evaluate the current prompt and project context on every new or resumed session.
-  2. **Find Skill**: Call \`konoha.find_skill()\` or \`optimize_report()\` using keywords from the prompt.
-  3. **Find Code Context**: Use \`semble.search\`/\`find_related\` with the absolute repository path when source discovery is needed.
-  4. **Delegate**: Call the matching subagent MCP tool with direct structured arguments (task, context, constraints, skills).
-  5. **Report**: Synthesize the structured result and project-scoped learnings.
-- **Constraints**: ONLY references skill definitions from the defined ninja agents: ${agentNames}.
-- **Fallback**: Only use Direct Tool Calls as a fallback if MCP tools are unavailable.
-
-| Skill Name | Subagent MCP Tool |
-|---|---|
-${delegationRows}
-| Simple/trivial task | Main agent executes directly using native tools. |
-
-${agentSections}
-
-## Operational Conventions — All Agents
-
-### Mandatory Protocol (every agent must follow)
-1. **Log on start**: Output \`[{Icon} {Name}] active. Calling konoha.find_skill('...')\` at the start of every response.
-2. **Structured Task Context**: For direct MCP delegation, consume the structured task, context, constraints, skills, Taste-Skill dials, and project path supplied by the invocation. Never search for or read prompt.md or delegate.md.
-3. **Konoha first**: Call \`find_skill(keyword, agent='{your_name}')\` before starting any task. Never load SKILL.md files directly.
-4. **Agent parameter**: When invoking \`find_skill\`, \`get_skill\`, or \`list_skills\`, always pass \`agent='{your_name}'\`.
-5. **Structured Result**: Return a concise result with changed files, validation evidence, and project-scoped learnings directly to the orchestrator.
-6. **Planning-to-File**: For complex plans or assessments, write details to a local workspace plan file (e.g. \`scratch/plan.md\`) when needed.
-
-### Conditional Tools (use only when needed)
-- **Semble for code search**: If the task requires searching project source code (not skills), call the **\`semble\` MCP** (\`search\` or \`find_related\` tools) directly. **Do NOT call \`semble\` tools (search, find_related) for finding or locating skills, as \`semble\` is strictly a project code search engine and querying it for skills burns API tokens. Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills and reference documents. NEVER use \`semble\` search for skills.** Prefer \`semble\` over grep/glob for source code search, and do NOT use find_skill for codebase/file search.
-- **Konoha for file reads**: If project file reading, structure inspection, info checks, or line greps are needed, call the **\`konoha\` MCP** tools (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`) directly after locating targets with \`semble\`. Do NOT use raw \`cat\`, \`head\`, \`tail\`, \`grep\`, or built-in file tools unless \`konoha\` is unavailable.
-- **Token Hygiene & File Viewing**: To prevent high token consumption, NEVER view large files in their entirety. Use the **\`konoha\` MCP** (\`read_file_head\`, \`read_file_range\`, etc.) instead of the built-in \`view_file\` or \`Read\` tool. When reading files, ALWAYS specify a precise \`StartLine\` and \`EndLine\` range (no more than 50-100 lines) containing the target code discovered via \`semble\` search. Avoid loading massive files into your context window.
-
-### Safety Guardrails
-- **Tool Boundaries**: Call **\`semble\` MCP** directly for codebase search. Call **\`konoha\` MCP** for all skill/instruction lookup and bounded file reads/grep. **Never mix them; do not call semble for skills, do not call find_skill for codebase/file search, and do not use generic file tools for reading files.** Always use \`konoha\` MCP tools (\`find_skill\`, \`get_skill\`) for discovering and reading skills/reference documents. NEVER use \`semble\` search for skills. Direct file reads of instructions or raw grep/find commands are disallowed unless these tools are exhausted.
-${SAFETY_GUARDRAILS_BLOCK}
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
-- **Read-Only .tfvars, .env, & secrets.yaml**: Always ask user permission before reading/writing these files.
-- **No Git Commands**: Never execute any \`git\` command. Use \`rg\` (ripgrep) or semble MCP instead.
-- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
-- **Optimize Thought Tokens**: In the thought/thinking process, keep explanations concise and directly focused on implementation steps. Avoid writing extensive explanations, essays, or redundant logs in the thought block to minimize output/thought token costs.
-- **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
-- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
-- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **No Auto-Creation of Agents**: The AI is strictly prohibited from dynamically calling \`define_subagent\` during a task to create custom/shadow agents. Specialized ninja agents can only be defined at session startup based on the manual configuration loaded from \`~/.agents/agents.yaml\` (created and managed exclusively by the user via the \`konoha\` CLI command).
-- **Minimal changes**: Avoid large rewrites unless explicitly requested. Preserve existing architecture.
-- **Validate**: Run tests, linting, dry-runs before claiming completion.
-- **Cite evidence**: File paths with line numbers for code, URLs for research.
-- **Security**: Never expose secrets, use least privilege, redact credentials as \`[REDACTED]\`.
-
-## Model Registry
-
-| Model Name | Tier | Alias |
-|---|---|---|
-| Gemini 3.5 Flash (Low) | Fast | \`flash-low\`, \`low\` |
-| Gemini 3.5 Flash (Medium) | Fast | \`flash-medium\`, \`medium\` |
-| Gemini 3.5 Flash (High) | Fast | \`flash-high\`, \`high\` |
-| Gemini 3.6 Flash (Low) | Fast | \`flash-3.6-low\`, \`gemini-3.6-flash-low\` |
-| Gemini 3.6 Flash (Medium) | Fast | \`flash-3.6-medium\`, \`gemini-3.6-flash-medium\` |
-| Gemini 3.6 Flash (High) | Fast | \`flash-3.6-high\`, \`gemini-3.6-flash-high\` |
-| Gemini 3.7 Flash (Low) | Fast | \`flash-3.7-low\`, \`gemini-3.7-flash-low\` |
-| Gemini 3.7 Flash (Medium) | Fast | \`flash-3.7-medium\`, \`gemini-3.7-flash-medium\` |
-| Gemini 3.7 Flash (High) | Fast | \`flash-3.7-high\`, \`gemini-3.7-flash-high\` |
-| Gemini 3.1 Pro (Low) | Standard | \`pro-low\` |
-| Gemini 3.1 Pro (High) | Standard | \`pro-high\` |
-| Claude Sonnet 4.6 (Thinking) | Reasoning | \`sonnet\`, \`sonnet-thinking\` |
-| Claude Opus 4.6 (Thinking) | Advanced | \`opus\`, \`opus-thinking\` |
-
-## Available MCP Tools
-
-Load **semble** when project source code search is needed — do NOT load it for skill-only tasks.
-
-| MCP | Command | Load When |
-|---|---|---|
-| **semble** | \`uvx --from ${SEMBLE_PACKAGE} semble\` | Project source code search needed |
-| **konoha** | node ~/.konoha/file_tools_launcher.js | Skill discovery, file operations, and targeted file reads |
-`;
-
-  return buildManagedContract(content, buildMainAgentContract('antigravity'));
+  return buildLightweightMarkdownContent(agents, 'AGENTS.md — Multi-Agent Team Configuration', 'antigravity');
 }
+
+
 
 function getCliVersion() {
   const candidatePkgPaths = [
@@ -980,20 +535,28 @@ function injectManagedConfig(filePath, newManagedContent, marker = 'KONOHA') {
   const startIndex = existing.indexOf(startMarker);
   const endIndex = existing.indexOf(endMarker);
   if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-    const before = existing.slice(0, startIndex).trimEnd();
-    const after = existing.slice(endIndex + endMarker.length).trimStart();
+    const before = existing.slice(0, startIndex).trim();
+    const after = existing.slice(endIndex + endMarker.length).trim();
+    const isBeforeKonoha = before.startsWith('# Global Agent Instructions') ||
+      before.startsWith('# Antigravity') ||
+      before.startsWith('# AGENTS.md') ||
+      before.startsWith('# Claude Code') ||
+      before.startsWith('# Gemini');
     const parts = [];
-    if (before) parts.push(before);
+    if (before && !isBeforeKonoha) parts.push(before);
     parts.push(`${startMarker}\n${newManagedContent.trim()}\n${endMarker}`);
     if (after) parts.push(after);
     return parts.join('\n\n') + '\n';
   }
 
-  // Check if existing content starts with older unmanaged Konoha headers
-  const isLegacyGemini = trimmed.startsWith('# Global Agent Instructions');
-  const isLegacyAgents = trimmed.startsWith('# AGENTS.md — Multi-Agent Team Configuration');
+  // Check if existing content starts with Konoha headers
+  const isKonohaFile = trimmed.startsWith('# Global Agent Instructions') ||
+    trimmed.startsWith('# Antigravity') ||
+    trimmed.startsWith('# AGENTS.md') ||
+    trimmed.startsWith('# Claude Code') ||
+    trimmed.startsWith('# Gemini');
 
-  if (isLegacyGemini || isLegacyAgents) {
+  if (isKonohaFile) {
     return wrapped;
   }
 

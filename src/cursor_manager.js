@@ -3,9 +3,7 @@ const path = require('path');
 const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
 const { spawnSync } = require('child_process');
 const {
-  buildSembleSearchPolicy,
   buildSembleSearchPolicyCompact,
-  buildFileToolsPolicy,
   buildFileToolsPolicyCompact
 } = require('./search_policy');
 const deployUtils = require('./deploy_utils');
@@ -27,7 +25,7 @@ const CURSOR_RTK_RULE_SRC = path.join(__dirname, '..', '.cursor', 'rules', 'rtk.
 const { fileExists, ensureDir, isCommandAvailable, fileExistsCached, getRtkCommand, isRtkInstalled } = require('./platform_utils');
 const {
   buildSubagentContract,
-  buildMainAgentContract,
+  buildLightweightContract,
   buildManagedContract
 } = require('./agent_contract');
 
@@ -127,156 +125,40 @@ function generateCursorSubagent(agent) {
   frontmatter.push('---', '');
 
   return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
-}function generateCursorRule(agents, ruleContent = null) {
-  if (ruleContent) {
-    const managed = buildManagedContract(ruleContent, buildMainAgentContract('cursor'));
-    return `---\ndescription: Konoha multi-agent orchestration — delegate to ninja agents via Task tool, use konoha MCP for skills\nalwaysApply: true\n---\n\n` + managed;
-  }
-  const agentList = agents.map(a => `\`${a.name}\``).join(', ');
-  function formatCompactSkills(skills) {
-    if (!skills || skills.length === 0) return 'None';
-    const primary = skills.filter(s => typeof s === 'string' && !s.includes('/'));
-    const subCount = skills.length - primary.length;
-    const formatted = primary.map(s => `\`${s}\``).join(', ');
-    if (subCount > 0) {
-      return `${formatted} *(+${subCount} specialized references on-demand via konoha.get_skill / use_skills)*`;
-    }
-    return formatted;
-  }
-  const delegationRows = agents
-    .map(a => `| ${formatCompactSkills(a.skills)} | \`${a.name}\` |`)
-    .join('\n');
+}
 
-  const rule = `---
-description: Konoha multi-agent orchestration — delegate to ninja agents via MCP tools, use konoha MCP for skills
+function generateCursorRule(agents, ruleContent = null) {
+  if (ruleContent) {
+    const managed = buildManagedContract(ruleContent, buildLightweightContract({ client: 'cursor' }));
+    return `---\ndescription: Konoha multi-agent orchestration\nalwaysApply: true\n---\n\n` + managed;
+  }
+  const roster = (agents || []).map(a => {
+    const skillList = (a.skills && a.skills.length > 0) ? ` [Skills: ${a.skills[0]}]` : '';
+    let purpose = (a.purpose || a.title || 'Specialized agent').split('.')[0].trim();
+    if (purpose.length > 50) purpose = purpose.slice(0, 47) + '...';
+    return `- **@${a.name}**: ${purpose}.${skillList}`;
+  }).join('\n');
+
+  const contractText = buildLightweightContract({ client: 'cursor' });
+
+  const body = `---
+description: Konoha multi-agent orchestration
 alwaysApply: true
 ---
 
-# Konoha — Cursor Main Agent
+# Konoha — Cursor Agent Configuration
 
-> **⚠️ MANDATORY — READ BEFORE EVERY ACTION:**
-> You MUST use \`konoha\` MCP and \`semble\` MCP for ALL file operations and code search. Using built-in Cursor tools (\`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`) or shell commands (\`cat\`, \`head\`, \`grep\`, \`rg\`, \`find\`) is **STRICTLY FORBIDDEN**.
->
-> - **File reads/grep/structure** → \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
-> - **Code search/discovery** → \`semble\` MCP (\`search\`, \`find_related\`)
-> - **Skill lookup** → \`konoha\` MCP (\`find_skill\`, \`find_skills\`, \`get_skill\`, \`list_skills\`) — all clients call skills through \`konoha.find_skills\` and project skills auto-migrate into skills.db
-> - **NEVER** call Cursor \`Read\`, \`Grep\`, \`Glob\`, \`SemanticSearch\`, or shell \`cat\`/\`head\`/\`tail\`/\`grep\`/\`rg\`/\`find\` — always use the MCP equivalents above.
+## Team Roster & Delegation
+Delegate non-trivial tasks via structured MCP tool arguments:
+${roster}
 
-You are the **Konoha orchestrator**. Act as coordinator, delegating specialized work to specialized Konoha agents by calling the corresponding subagent MCP tool (e.g. \`konoha.kage\`, \`konoha.anbu\`). Direct Tool Calls in the orchestrator thread for executing file edits or running commands are strictly prohibited; the orchestrator must always delegate via the MCP tools.
+## Safety Guardrails
+NEVER run destructive commands (\`rm -rf\`, \`DROP\`, \`git reset --hard\`) or view secrets (\`.env*\`, \`secrets.yaml\`).\n\n`;
 
-## Ninja Agents (MCP tools)
-
-Official team tools: ${agentList}
-
-Skill packages live under \`.cursor/skills/\` (mirrored from \`~/.agents/skills/\`). Use \`konoha\` MCP for on-demand retrieval — never load \`SKILL.md\` files directly.
-
-## Mandatory workflow
-
-### Step 0: Classify Request — ALWAYS FIRST (Branch A vs Branch B)
-**BEFORE entering the standard workflow**, classify the user's request:
-- **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B**
-- **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`
-- **Everything else** → **BRANCH A** (standard workflow below)
-
-### BRANCH B: Website Scaffolding (SKIP standard pipeline)
-1. Call \`konoha.build_from_text(name, description, framework, taste_dials?)\` or \`konoha.build_from_source(name, source_dir, framework, taste_dials?)\` FIRST.
-2. Pass returned directives directly as structured tool constraints and call \`konoha.jonin\` directly — DO NOT call Chunin, Genin, or Kage.
-3. After Jonin completes, call \`konoha.tokubetsu_jonin\` for documentation.
-4. Output final report.
-
-Taste-Skill is additive: validated \`taste_dials\` tune only visual design and never remove or reorder the established Jonin workflow.
-
-### BRANCH A: Standard Workflow (for non-website tasks)
-1. **Skills first**: Call \`konoha\` MCP \`find_skill\` with keywords from the user prompt (pass \`agent\` when available) to find the related skill reference. Never load SKILL.md files directly.
-2. **Code context**: If source code search is needed, call \`semble\` MCP (\`search\` / \`find_related\`). Never use semble for skill lookup. **Do NOT use Cursor \`Grep\`, \`Glob\`, or \`SemanticSearch\` — semble is the default search tool.**
-3. **File reads**: After semble locates targets, use \`konoha\` MCP for reads/grep/structure — **never Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`.**
-4. **Match agent by skill**: Route to the correct agent dynamically based on the discovered skill or task domain:
-   - Check the team roster to see if the discovered skill is embedded in the \`skills\` array of any agent.
-   - If no matching skill is embedded, route to the closest matching specialized agent (e.g. framework/maintenance to @kage, backend to @anbu, UI to @jonin).
-   - Delegate by calling the corresponding subagent MCP tool (e.g. \`konoha.anbu\`) directly with structured parameters (task, context, constraints, skills). Never write or search for delegate.md.
-5. **Synthesize**: Present results to the user.
-6. **Resuming & Multi-Turn Conversations (CRITICAL)**: Upon resuming a conversation or handling any follow-up turn in Cursor, you MUST ALWAYS re-evaluate the user prompt and execute the subagent delegation workflow via direct structured MCP tool arguments again for all non-trivial tasks. NEVER skip subagent delegation when resuming a conversation.
-7. **Package Manager Mandate & Standard Scaffolding**: ALWAYS use \`pnpm\` for all project scaffolding, dependencies, and dev server execution. When scaffolding a new website or project from scratch, strictly use the official framework CLI initialization standard:
-   - **Next.js**: \`pnpm create next-app@latest <project-name>\`
-   - **Nuxt**: \`pnpm dlx nuxi@latest init <project-name>\`
-   - **Angular**: \`pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm\`
-   - **SvelteKit**: \`pnpm dlx sv create <project-name>\`
-   NEVER use \`npm\` or standalone \`npx\` without pnpm.
-8. **Project Knowledge Mandate**: ALWAYS inspect project-local knowledge files (project \`README.md\`, \`docs/\`, \`CONTRIBUTING.md\`, \`.cursorrules\`, \`.clauderules\`, and project-local skills in \`.agents/skills\`, \`.cursor/skills\`, \`skills/\`) using \`konoha\` MCP before designing architecture or executing code.
-9. **Operational Scenarios**: Follow Scenario 1 (\`build_from_source\` — 100% exact mockup match from source images, no forced text-invariants), Scenario 2 (\`build_from_text\` — new site with \`pnpm\`, official framework CLI commands, default Konoha design invariants + Taste-Skill prettification), and Scenario 3 (\`existing_project\` — preserve existing logic and architecture, apply Taste-Skill only to requested components).
-10. **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
-    - **Header Logo on Far LEFT**: Logo must always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
-    - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (\`lg:hidden\`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
-    - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (\`lg:hidden\`) with quick one-tap links adapted dynamically to the website archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
-   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (\`lg:flex\`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (\`lg:hidden\`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
-    - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (\`fixed bottom-6 left-6 z-50\`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
-    - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
-    - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
-    - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\` / \`pnpm lint\`), \`"build"\` (\`pnpm run build\` / \`pnpm build\`), and \`"start"\` (\`pnpm run start\` / \`pnpm start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
-    - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
-
-| Embedded Skills | Subagent MCP Tool |
-|---|---|
-${delegationRows}
-| Simple/trivial task | Route to the closest matching specialized agent (e.g. framework/maintenance to @kage). |
-
-${buildSembleSearchPolicy()}
-
-${buildFileToolsPolicy()}
-
-## Tool boundaries
-
-- **konoha**: \`find_skill\`, \`get_skill\`, \`list_skills\` (skills/references), and bounded file operations (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`)
-- **semble**: \`search\`, \`find_related\` — **default** for all project code search and discovery
-- Never mix MCP servers for the wrong purpose
-- **Forbidden for code discovery**: \`Grep\`, \`Glob\`, \`SemanticSearch\`, shell \`grep\`/\`rg\`/\`find\` (use semble first; \`rg\` only if semble MCP fails)
-- **Forbidden for file reads**: Cursor \`Read\`, shell \`cat\`/\`head\`/\`tail\` (use konoha MCP)
-
-## Guardrails
-
-- Log at response start: \`[Konoha] orchestrator active. Calling konoha.find_skill(...)\
-- **Zero Warning/Error Policy**: You MUST ensure the codebase passes \`pnpm lint\` and \`pnpm build\` with ZERO warnings and ZERO errors. You MUST NOT use deprecated libraries. If you see warnings during installation or execution (e.g. deprecated packages), you MUST fix them before claiming the task is complete.
-- **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
-- **NEVER touch stable Bridge Gateway**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to the local LLM Proxy Gateway, bridge servers, or the Bridge Router, as this feature is stable, fully tested, and finalized.
-- **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
-- **Optimize Thought Tokens**: Keep thought processes concise, structured, and implementation-focused to minimize output and thought token usage.
-- **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. \`.cursor/plan.md\` or \`scratch/plan.md\`) instead of outputting massive text blocks in the final response.
-- **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (\`ANTIGRAVITY_CONVERSATION_ID\`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
-- **Codebase Hygiene & Cleanup**: When working on fixes or testing features manually, ensure that all temporary files, debugging scripts (e.g., \`patch_test.py\`, \`savings_out.txt\`, \`test_clients_e2e.py\`, \`fix_json.js\`, etc.), or manual mock files created during the testing process are ALWAYS DELETED before concluding the task. The project codebase must remain clean and strictly contain only production logic and official test suites.
-- **Strict Skill & Reference Protection Invariant (NEVER REMOVE SKILLS)**: Under NO circumstances should any skill directory, reference file, markdown documentation, or asset file inside src/templates/skills/, .agents/skills/, or ~/.agents/skills/ ever be deleted, pruned, stripped, or removed. All skills, references, and asset libraries MUST remain permanently preserved and intact across all clients.
-- **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in \`src/agent_manager.js\` and \`src/cursor_manager.js\`) and the \`konoha-maintenance\` skill (\`.agents/skills/konoha/SKILL.md\`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
-- **Test Directory Discovery & Single Invariant**: When adding or running tests, ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists). If a folder exists, place tests within it.
-- **Kage Reviewer 98% Minimum Confidence Gate & Zero-AI-Slop Pre-Gate**: Before final delivery, Kage MUST ALWAYS run the two-step Zero-AI-Slop review — Step 1 \`aislop_scan\` (aislop scanner: engine findings must be 0), Step 2 \`anti-slop\` rule review (load the vendored \`antislop\` skill via konoha.get_skill and enforce its Delivery Gate rules) across all changed files and verify \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`, and a perfect 100/100 aislop scan score. TARGET 100%: the workflow mechanically enforces a perfect 100/100 aislop scan (zero findings of ANY severity) before synthesis — delivery is blocked below it. If any AI slop findings exist, review is immediately BLOCKED before confidence scoring. **Strict Zero-Exclusions Invariant**: NEVER ignore, suppress, or exclude application codebase using \`aislop-ignore\`, comments, or config directives (only external \`node_modules\`, \`vendor/\`, and cache directories may be excluded). Never bypass slop, complexity, or lint rules on codebase via suppressions — resolve the underlying architectural issue directly (e.g. modularizing oversized files). Before final delivery, Kage must review all tasks, validation evidence, and security compliance. A minimum **98% confidence** is required across all verification categories (Minimum Required: ≥ 98%). If confidence < 98%, delivery is strictly BLOCKED and tasks must be re-delegated for remediation. Every final response to the user MUST include the standardized **Kage Reviewer Confidence Gate Report** (Box header with status & confidence score, structured confidence score breakdown table covering \`Verification Category\`, \`Target\`, \`Evaluated Result\`, \`Category Confidence\`, and \`Status\`, followed by the overall confidence verdict).
-- **Base Personality: High Effort + Instruct Style (Zero Monologue Leaks & Factual Rigor)**:
-  - **Zero Conversational Filler**: NEVER begin responses or tool turns with conversational filler, hesitation markers, or internal monologue leaks (STRICTLY FORBIDDEN: "Hmmmm", "Let me check", "Let me see", "Wait, let me", "Wait - but", "I will now proceed to", "Let me examine").
-  - **Lead With Direct Action / Direct Evidence**: Always start with the required log line \`[{Icon} {Name}] active. Calling ...\` or the direct, factual, actionable response.
-  - **High-Effort Reasoning with Pure Instruct Execution**: When reasoning effort is set to High / Max, execute all deep deliberation, hypothesis testing, and multi-step verification silently inside internal thinking. Output ONLY crisp, authoritative, highly structured, instruction-following results.
-  - **ADHD-Friendly Formatting**: Number multi-step procedures, prioritize the immediate next action first, use clean bold headings, bullet points, and code blocks. Eliminate fluff, narrative preambles, and conversational pleasantries.
-- **Review Token Hygiene & Strict Changed-Files Scoping (NEVER BURN TOKENS)**:
-  - Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex), agents MUST NEVER execute unscoped full-repository scans. The external MCP tool \`aislop_scan\` only accepts directory \`path\` and lacks \`--changes\` support; calling it on root scans all 3,500+ files and dumps ~14,000 findings into context (~50k tokens). Delivery Zero-AI-Slop gating on changed files MUST ALWAYS be executed via CLI: \`rtk aislop scan --changes\` (or pass specific changed file paths).
-  - NEVER dump raw full-repo scan output into conversation context. Summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`.
-  - Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
-  - When maintaining Konoha, use \`rtk npm run sync:skills\` (\`node scripts/sync_skills.js\`) to propagate skill edits to all mirror trees automatically, and use \`rtk node tests/run_all.js <pattern>\` for incremental testing to prevent token burn across 77 suites.
-- **Destructive Command, Git & Secret Guardrails**:
-  - NEVER run harmful commands (\`rm -rf /\`, \`rm -rf ~\`, \`mkfs\`, \`dd\`, \`DROP DATABASE\`, \`TRUNCATE TABLE\`, \`FLUSHALL\`, \`dropDatabase\`, \`terraform/tofu/pulumi destroy\`, \`kubectl delete ns/all\`, \`helm uninstall\`, \`docker prune\`, firewall flushes, \`chmod 777\`, \`chown -R\`, \`curl | bash\`, \`wget | sh\`, unconstrained \`sudo\`) without explicit permission.
-  - NEVER run destructive git commands (\`git reset --hard\`, \`git push --force\`, \`git clean -fdx\`, \`git checkout -- .\`, \`git rebase -i\`) without explicit permission.
-  - NEVER view, print, dump, or commit secrets, \`.env*\`, \`secrets.yaml\`, \`*.tfvars\`, \`*.pem\`, \`*.key\`, \`id_rsa\`, \`credentials\`, or API tokens without explicit permission. Redact all secret values.
-- **Dev/Local Penetration Testing & Security Assessments**: Penetration testing, vulnerability scanning, and security assessments by \`anbu\` are authorized and supported in development and local environments (\`localhost\`, \`127.0.0.1\`, dev containers, local clusters). Testing against external or production targets requires explicit written user permission. All test artifacts must be cleaned up after assessment.
-- **Strict Factual Truth & Zero Hallucination (NEVER LIE / DONT LIE)**:
-  - NEVER fabricate, simulate, or lie about running tests, executing subagents, auditing docs, or completing tasks.
-  - NEVER claim an agent, tool, or command succeeded or ran if it produced 0 output, 0 tokens, or was never actually executed.
-  - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
-  - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
-- **Anti-Context-Loss & Middle-Attenuation Invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
-- **Post-Approval Cleanup Gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval.
-- Read-only for \`.env\`, \`terraform.tfvars\`, \`secrets.yaml\` unless user approves
-- **Proactive Execution / Never Command User**: NEVER command the user or ask the user to run commands/verify files. Always execute the commands or file operations directly yourself using your own tools. If the command or operation needs permission, the system will prompt the user automatically. However, ALWAYS explicitly ask the user for permission before running any destructive commands (e.g., DROP, DELETE, rm -rf) — except for the automatic cleanup of transient agent scratch directories under \`~/.konoha/tmp/<client>/<session>/scratch/tasks/\` which must be executed silently and automatically.
-- On rate limits, retry with \`${CURSOR_FALLBACK_MODEL}\
-
-Full team config: \`~/.agents/AGENTS.md\
-`;
-  return buildManagedContract(rule, buildMainAgentContract('cursor'));
+  return buildManagedContract(body, contractText);
 }
+
+
 
 function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
