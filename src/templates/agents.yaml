@@ -1,7 +1,6 @@
 - name: sannin
   icon: ✧
   title: "MCP Router & Orchestrator"
-  model: 9router-cx/gpt-6-luna
   purpose: MCP task triage, subagent selection, and orchestration
   skills:
     - sannin-skill
@@ -16,7 +15,6 @@
 - name: genin
   icon: ⚑
   title: Codebase Exploration
-  model: 9router-oc/deepseek-v4.1-flash-free
   purpose: Fast, read-only codebase navigation and analysis
   skills:
     - genin-skill
@@ -34,7 +32,6 @@
 - name: kage
   icon: ◎
   title: "Village Leader & Architect"
-  model: 9router-sp/glm-5.3-flash
   purpose: Expert-level analysis for critical decisions and high-level strategy
   skills:
     - kage-skill
@@ -51,7 +48,6 @@
 - name: chunin
   icon: ▫
   title: "Research & Intel"
-  model: 9router-ag/gemini-3.8-flash-low
   purpose: Web research, documentation lookup, evidence synthesis with citations
   skills:
     - chunin-skill
@@ -69,7 +65,6 @@
 - name: jonin
   icon: ♦
   title: "UI & Frontend Specialist"
-  model: 9router-ag/gemini-3.8-flash-high
   purpose: Build premium, production-ready user interfaces
   skills:
     - jonin-skill
@@ -89,7 +84,6 @@
 - name: anbu
   icon: ♠
   title: "Backend Specialist, Bug Fixing, DevOps, & Local Pentesting"
-  model: 9router-ag/gemini-3.8-flash-high
   purpose: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems, conduct authorized penetration testing and security assessments in dev/local environments
   skills:
     - anbu-skill
@@ -115,7 +109,6 @@
 - name: tokubetsu-jonin
   icon: ⬡
   title: "Technical Writing & Scribe"
-  model: null
   purpose: Specialized in writing and maintaining technical documentation, specs, READMEs, and zero-AI human-authentic documents (docx, xlsx, pptx, pdf, excel, word, presentation)
   skills:
     - tokubetsu-jonin-skill
