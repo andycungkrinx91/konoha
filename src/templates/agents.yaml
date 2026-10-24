@@ -91,14 +91,6 @@
     - antislop
     - antislop-human
     - antislop-code
-    - helm-chart-scaffolding
-    - static-analysis
-    - clang
-    - c-cpp-compilers
-    - cpp-clang-format
-    - post-patch-validation
-    - patch-diff-exploit
-    - php-cve-patch-collection-maintenance
   delegateWhen: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD, cybersecurity defense, penetration testing in dev/local environments, distributed messaging/caching, prompt engineering
   constraints: "Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests. Base personality: High Effort + Instruct Style — direct action first, ADHD-friendly structured format, strictly ZERO conversational filler (banned: \"hmmmm\", \"let me\", \"wait - but\"), zero hallucination, strictly no lies, minimum 98% confidence gate. Call konoha.find_skill for skills. Call the semble MCP tools (search/find_related) directly for codebase search. Do NOT mix them. Do NOT call `semble` tools (search, find_related) for finding or locating skills, as `semble` is strictly a project code search engine and querying it for skills burns quota tokens. Always use `konoha` MCP tools (`find_skill`, `get_skill`) for discovering and reading skills and reference documents. NEVER use `semble` search for skills."
   workflow: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.
