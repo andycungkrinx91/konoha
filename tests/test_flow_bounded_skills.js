@@ -13,6 +13,7 @@ const path = require('path');
 const { computeFlowHash, runSannin } = require('../src/mcp/workflow');
 const { runMcpAgent } = require('../src/mcp/memory_reporting');
 const { useSkills } = require('../src/mcp/skills');
+const { executeToolSync } = require('../src/mcp/tool_dispatch');
 const personaMemory = require('../src/persona_memory');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -130,5 +131,30 @@ const agentResStrTask2 = runMcpAgent(
 const agentResTask2 = JSON.parse(agentResStrTask2);
 assert.strictEqual(agentResTask2.instructions.includes('c-cpp-compilers'), false, 'Task 2 prompt must not contain Task 1 skills');
 console.log('  ✓ Cross-task isolation verified: Task 2 is completely isolated from Task 1 in the same session.');
+
+// 7. Direct tool_dispatch invocation with flow_hash forwards cleanly without task_id
+const customFlow = 'flow_test_88';
+const dispatchUseRes = JSON.parse(executeToolSync('use_skills', {
+  skills: ['php-cve-patch-collection-maintenance'],
+  flow_hash: customFlow
+}, 'anbu'));
+assert.strictEqual(dispatchUseRes.flow_hash, customFlow, 'use_skills must forward flow_hash from args');
+
+const flowMemSkills = personaMemory.getFlowSkills(customFlow);
+assert.ok(flowMemSkills.includes('php-cve-patch-collection-maintenance'), 'Skill loaded via dispatchTool with flow_hash must be recorded in SQLite');
+
+const dispatchGetRes = JSON.parse(executeToolSync('get_skill', {
+  name: 'clang',
+  flow_hash: customFlow
+}, 'anbu'));
+assert.strictEqual(dispatchGetRes.flow_hash, customFlow, 'get_skill must forward flow_hash from args');
+assert.ok(personaMemory.getFlowSkills(customFlow).includes('clang'), 'Skill retrieved via get_skill with flow_hash must be recorded in SQLite');
+
+const dispatchFindRes = JSON.parse(executeToolSync('find_skill', {
+  keyword: 'compiler',
+  flow_hash: customFlow
+}, 'anbu'));
+assert.ok(dispatchFindRes.found > 0, 'find_skill must find skills when flow_hash passed');
+console.log('  ✓ Direct tool_dispatch with flow_hash cleanly binds to SQLite without task_id.');
 
 console.log('\nAll flow-bounded skill tests passed successfully!');

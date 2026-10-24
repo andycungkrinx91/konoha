@@ -78,8 +78,9 @@ function _executeToolInternal(toolName, args, agent) {
     }
     const limit = Math.min(parseInt(args.limit || 3, 10), 5);
     const compact = Boolean(args.compact);
-    const taskId = args.task_id || args.taskId || args.session_id || args.sessionId || null;
-    return findSkill(keyword, limit, agent, compact, taskId);
+    const taskId = args.task_id || args.taskId || null;
+    const flowHash = args.flow_hash || args.flowHash || null;
+    return findSkill(keyword, limit, agent, compact, taskId, flowHash);
   }
   if (toolName === 'list_skills') {
     return listSkills(agent, args.fields);
@@ -88,7 +89,9 @@ function _executeToolInternal(toolName, args, agent) {
     return getSkill(args.name || '', agent, {
       tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
       section: args.section || null,
-      taskId: args.task_id || args.taskId || args.session_id || args.sessionId || null
+      taskId: args.task_id || args.taskId || null,
+      sessionId: args.session_id || args.sessionId || null,
+      flowHash: args.flow_hash || args.flowHash || null
     });
   }
   if (toolName === 'use_skills' || toolName === 'use_skill') {
@@ -96,7 +99,9 @@ function _executeToolInternal(toolName, args, agent) {
     return useSkills(skillsArg, agent, {
       tokenBudget: args.token_budget || args.tokenBudget || args.budget || 0,
       section: args.section || null,
-      taskId: args.task_id || args.taskId || args.session_id || args.sessionId || null
+      taskId: args.task_id || args.taskId || null,
+      sessionId: args.session_id || args.sessionId || null,
+      flowHash: args.flow_hash || args.flowHash || null
     });
   }
   if (toolName === 'optimize_report') {
