@@ -443,6 +443,23 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
   });
 }
 
+function cleanRedundantPersonaText(text) {
+  if (!text) return '';
+  return text
+    .replace(/Base personality: High Effort \+ Instruct Style —[^.]+\./gi, '')
+    .replace(/and adhere strictly to base personality:[^.]+\./gi, '')
+    .replace(/Call konoha\.find_skill for skills\.[\s\S]*?(?=Call the semble|\. [A-Z]|$)/gi, '')
+    .replace(/Call the semble MCP tools \(search\/find_related\) directly for codebase search\. Do NOT mix them\.?/gi, '')
+    .replace(/Do NOT call `?semble`? tools[^.]+\./gi, '')
+    .replace(/NEVER use `?semble`? search for skills\.?/gi, '')
+    .replace(/NEVER use grep, glob, find[^.]+\./gi, '')
+    .replace(/Always use `?konoha`? MCP tools[^.]+\./gi, '')
+    .replace(/\s*\.\s*\./g, '.')
+    .replace(/^\s*\.\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function runMcpAgent(agentName, task = null, context = null, constraints = null, skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null) {
   if (typeof task === 'object' && task !== null) {
     const opts = task;
@@ -569,8 +586,13 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
       if (row) {
         title = row.title || title;
         purpose = row.purpose || purpose;
-        agentConstraints = row.constraints_text || agentConstraints;
-        personaInstructions = row.instructions || personaInstructions;
+        if (isAutoCompact || ['anbu', 'jonin', 'tokubetsu-jonin', 'tokubetsu_jonin'].includes(dbAgentName)) {
+          agentConstraints = cleanRedundantPersonaText(row.constraints_text || agentConstraints);
+          personaInstructions = cleanRedundantPersonaText(row.instructions || personaInstructions);
+        } else {
+          agentConstraints = row.constraints_text || agentConstraints;
+          personaInstructions = row.instructions || personaInstructions;
+        }
         if (row.model) {
           assignedModel = row.model;
         }
@@ -712,10 +734,10 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     const densDial = dials.visual_density !== undefined ? dials.visual_density : 6;
     if (isAutoCompact) {
       tasteSkillBlock = (
-        `### 🎨 Taste-Skill Rules (Compacted Turn ${turn}):\n` +
+        '### 🎨 Taste-Skill Rules (Compacted):\n' +
         `- Dials: ${varDial}/${motDial}/${densDial} | Typography: Geist/Satoshi | Spacing: py-24/py-32 | CSS Grid (12-col) | 100dvh | Zero emojis\n` +
-        `- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n` +
-        `- SDLC & Anti-Slop: Run rtk aislop scan --changes (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n`
+        '- Konoha Invariants: Far-left logo, no mobile header hamburger, fixed mobile dock, floating bottom-left 10-theme switcher, 4-slide hero carousel.\n' +
+        '- SDLC & Anti-Slop: Run rtk aislop scan --changes (ai_slop_clean: true, findings: 0), record clean build/lint validation evidence.\n'
       );
     } else {
       tasteSkillBlock = (
@@ -735,7 +757,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   if (dbAgentName.includes('tokubetsu')) {
     if (isAutoCompact) {
       docDesignBlock = (
-        `### 🖋️ Tokubetsu-Jonin Document Engineering & Design Directives (Compacted Turn ${turn}):\n` +
+        '### 🖋️ Tokubetsu-Jonin Document Engineering & Design Directives (Compacted):\n' +
         '- Native Tools: Use document_create (DOCX/PDF), spreadsheet_create (XLSX), presentation_create (PPTX), diagram_create (SVG), animation_export (WebP) in src/tools/document_engine.js.\n' +
         '- Skills via FTS5/RAG: Query konoha.find_skill("<keywords>") and konoha.get_skill("<name>"); never read raw markdown files directly.\n' +
         '- Fonts & Themes: Inter (Display/SemiBold/Regular), JetBrains Mono for code. 20 Enterprise 4-Base-Color Themes (T01-T20). Pure light mode (#FFFFFF/#F8FAFC), zero dark fills.\n' +
@@ -756,7 +778,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   let systemPrompt = '';
   if (isAutoCompact) {
     const compactHeader = (
-      `[Konoha Auto-Compact: Active (Turn ${turn}) - Token Preservation Enabled]\n\n` +
+      '[Konoha Auto-Compact: Active - Token Preservation Enabled]\n\n' +
       'IMPORTANT: The TASK INSTRUCTIONS at the bottom of this prompt are the complete, ' +
       'authoritative task. Never reinterpret, narrow, or replace them with a newly ' +
       'discovered error. If you find an additional bug while fixing, fix the ORIGINAL ' +

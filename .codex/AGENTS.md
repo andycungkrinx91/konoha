@@ -42,12 +42,16 @@ When the user prompt requests building or scaffolding a website or user interfac
 2. Validate the returned canonical framework, Taste-Skill dials, required skills, and `validation_commands`.
 3. Pass the directives to `jonin` as constraints. The MCP tool returns a specification only; Jonin creates the project and runs the framework-native pnpm validation commands.
 4. **Standard Framework Scaffolding Commands**: When scaffolding a new website or project from scratch, strictly use the official framework CLI initialization standard:
-   - **Next.js**: `pnpm create next-app@latest   - **Nuxt**: `pnpm dlx nuxi@latest init <project-name>   - **Angular**: `pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm   - **SvelteKit**: `pnpm dlx sv create <project-name>5. Use the framework-native routing and quality contract for Next.js, Nuxt, SvelteKit, or Angular. Do not assume one framework's file structure applies to another.
+   - **Next.js**: `pnpm create next-app@latest <project-name>`
+   - **Nuxt**: `pnpm dlx nuxi@latest init <project-name>`
+   - **Angular**: `pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm`
+   - **SvelteKit**: `pnpm dlx sv create <project-name>`
+5. Use the framework-native routing and quality contract for Next.js, Nuxt, SvelteKit, or Angular. Do not assume one framework's file structure applies to another.
 6. **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
    - **Header Logo on the Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
    - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (`lg:hidden`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
    - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (`lg:hidden`) with quick one-tap links adapted dynamically to the website's archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
-   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop () with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
+   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (`lg:flex`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (`lg:hidden`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
    - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (`fixed bottom-6 left-6 z-50`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
    - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
    - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
@@ -106,7 +110,7 @@ This guarantees consistent cross-client execution without relying on custom suba
 | `kage-skill`, `antislop`, `antislop-human`, `antislop-code` | `kage` |
 | `chunin-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `chunin` |
 | `jonin-skill`, `i-have-adhd`, `antislop`, `antislop-ui`, `antislop-human`, `antislop-layoutmobile`, `antislop-code` | `jonin` |
-| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`, `static-analysis`, `clang`, `c-cpp-compilers`, `cpp-clang-format`, `post-patch-validation`, `patch-diff-exploit`, `php-cve-patch-collection-maintenance` | `anbu` |
+| `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code` | `anbu` |
 | `tokubetsu-jonin-skill`, `i-have-adhd`, `antislop`, `antislop-copywriting`, `antislop-human`, `antislop-code` | `tokubetsu-jonin` |
 | Simple/trivial task | Main agent executes directly using native tools. |
 
@@ -147,7 +151,7 @@ This guarantees consistent cross-client execution without relying on custom suba
 
 ### @anbu — ♠ Backend Specialist, Bug Fixing, DevOps, & Local Pentesting
 - **Purpose**: Build backend logic, diagnose and fix bugs, resolve infrastructure issues, harden systems, conduct authorized penetration testing and security assessments in dev/local environments
-- **Skills**: `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`, `helm-chart-scaffolding`, `static-analysis`, `clang`, `c-cpp-compilers`, `cpp-clang-format`, `post-patch-validation`, `patch-diff-exploit`, `php-cve-patch-collection-maintenance`
+- **Skills**: `anbu-skill`, `i-have-adhd`, `antislop`, `antislop-human`, `antislop-code`
 - **Delegate when**: Backend development, database schema/migration, bug reports, build failures, infrastructure provisioning, security hardening, deployments, CI/CD, cybersecurity defense, penetration testing in dev/local environments, distributed messaging/caching, prompt engineering
 - **Constraints**: Minimal safe changes — diagnose/plan before building, validate with dry-runs and `agent-browser` QA tests.
 - **Workflow**: Gather requirements/diagnose → design backend implementation/minimal fix → build features/implement fix → test/verify → report.

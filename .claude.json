@@ -36,9 +36,9 @@
     },
     "konoha": {
       "type": "stdio",
-      "command": "/home/andycungkrinx/.nvm/versions/node/v26.5.1/bin/node",
+      "command": "/home/andycungkrinx/.nvm/versions/node/v22.23.3/bin/node",
       "args": [
-        "/home/andycungkrinx/.konoha/file_tools_launcher.js"
+        "/tmp/konoha_golden_seed_vByYMo/.konoha/file_tools_launcher.js"
       ],
       "env": {
         "ACTIVE_CLIENT": "cursor",

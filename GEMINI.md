@@ -121,12 +121,16 @@ When the user prompt requests building or scaffolding a website or user interfac
 2. Validate the returned canonical framework, Taste-Skill dials, required skills, and `validation_commands`.
 3. Pass the directives to `jonin` as constraints. The MCP tool returns a specification only; Jonin creates the project and runs the framework-native pnpm validation commands.
 4. **Standard Framework Scaffolding Commands**: When scaffolding a new website or project from scratch, strictly use the official framework CLI initialization standard:
-   - **Next.js**: `pnpm create next-app@latest   - **Nuxt**: `pnpm dlx nuxi@latest init <project-name>   - **Angular**: `pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm   - **SvelteKit**: `pnpm dlx sv create <project-name>5. Use the framework-native routing and quality contract for Next.js, Nuxt, SvelteKit, or Angular. Do not assume one framework's file structure applies to another.
+   - **Next.js**: `pnpm create next-app@latest <project-name>`
+   - **Nuxt**: `pnpm dlx nuxi@latest init <project-name>`
+   - **Angular**: `pnpm dlx @angular/cli@latest new <project-name> --package-manager=pnpm`
+   - **SvelteKit**: `pnpm dlx sv create <project-name>`
+5. Use the framework-native routing and quality contract for Next.js, Nuxt, SvelteKit, or Angular. Do not assume one framework's file structure applies to another.
 6. **Mandatory Default Konoha Design & Layout Invariants (Text-Based Builds ONLY)**:
    - **Header Logo on the Far LEFT**: Brand logo MUST always be placed on the far LEFT of the navigation header with nav links adjacent/centered and action buttons on the right. Never center or push logo right.
    - **Mobile View Invariant (NO Hamburger Menu Toggle in Header)**: In mobile view (`lg:hidden`), **NEVER show a top menu toggle / hamburger button in the header**. Mobile navigation is powered exclusively by the fixed bottom Mobile Dock!
    - **Archetype-Adaptive Mobile Dock**: Fixed bottom mobile navigation dock on mobile viewports (`lg:hidden`) with quick one-tap links adapted dynamically to the website's archetype (e.g. *E-commerce*: Home, Shop, Themes, Wishlist, Cart; *Portfolio*: Home, Projects, Case Studies, About, Contact; *Dashboard*: Overview, Analytics, Users, Settings; *SaaS*: Home, Features, Pricing, Contact).
-   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop () with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
+   - **Dashboard & Admin Left Sidebar Invariant**: For Admin, Dashboard, and Infra builds, implement a fixed Left Sidebar on desktop (`lg:flex`) with brand logo at top-left, menu items with badges, and user profile badge. In mobile view (`lg:hidden`), navigation is seamlessly handled by the Mobile Dock with zero broken header menu toggles.
    - **Floating Bottom-Left Theme Switcher Popup**: In both desktop and mobile viewports, the interactive 10-Theme Light-Mode Switcher button is positioned floating in the **bottom-left corner** (`fixed bottom-6 left-6 z-50`, like a customer chat/FAB button) that opens the 10-theme selection popup modal with dynamic CSS variables and localStorage persistence. Pure Light Mode is first-class (zero dark mode enforcement).
    - **Hero Banner Carousel**: Homepage hero MUST implement an interactive banner carousel with a minimum of 4 high-definition slides, 5000ms autoplay with hover pause, previous/next controls, and thumbnails/dots.
    - **Taste-Skill Prettification**: Combine with Taste-Skill for visual enrichments (editorial typography, negative space, subtle 3D hover tilt, glassmorphism, zero emoji policy in UI controls) without altering the default Konoha design.
@@ -196,14 +200,6 @@ Use the table below to select the right **skill reference** AND **subagent** to 
 | UI and visual skill for antislop. Use when building or editing any interface: color, layout, compone | `antislop-ui` | `antislop-ui` |
 | Mobile layout skill for antislop. Use for layouts that reflow on small screens: grids, overflow, tap | `antislop-layoutmobile` | `antislop-layoutmobile` |
 | Standard Operating Procedures for backend development, bug fixing, DevOps, infrastructure deployment | `anbu-skill` | `anbu-skill` |
-| Specialized skill | `helm-chart-scaffolding` | `helm-chart-scaffolding` |
-| Static analysis skill for C/C++ codebases. Use when hardening code quality, triaging noisy builds, r | `static-analysis` | `static-analysis` |
-| Clang/LLVM compiler skill for C/C++ projects. Use when working with clang or clang++ for diagnostics | `clang` | `clang` |
-| C and C++ compiler toolchain skill covering GCC, Clang/LLVM, build modes, warnings, sanitizers, stat | `c-cpp-compilers` | `c-cpp-compilers` |
-| Применяет настройки форматирования кода C/C++ через .clang-format. | `cpp-clang-format` | `cpp-clang-format` |
-| > | `post-patch-validation` | `post-patch-validation` |
-|  | `patch-diff-exploit` | `patch-diff-exploit` |
-| Operational SOP and engineering maintenance standards for the PHP CVE Patch Collection repository, c | `php-cve-patch-collection-maintenance` | `php-cve-patch-collection-maintenance` |
 | Standard Operating Procedures for technical writing, zero-AI document generation (DOCX, PDF, XLSX, P | `tokubetsu-jonin-skill` | `tokubetsu-jonin-skill` |
 | Copy and text skill for antislop. Use when writing or editing prose: headlines, tone, CTAs, and anti | `antislop-copywriting` | `antislop-copywriting` |
 | Simple/trivial tasks | Select the closest matching skill | Consult the team roster |
@@ -253,7 +249,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Antigravity Delegation Guard**: Never touch logic delegated in Antigravity.
 - **NEVER touch Token Savings Flow Logic**: Under no circumstances should you modify, refactor, or touch any logic, files, or configurations related to token savings telemetry, bounded file tool constraints (line limits, spans, clean limits), or baseline calculation flow logic in Konoha, as this flow logic is stable, verified, and strictly enforces our 83%–98% token reduction guarantee across all clients.
 - **Optimize Thought Tokens**: In thought/thinking processes, keep thoughts concise, structured, and directly focused on implementation details. Avoid conversational preamble, extensive code repetitions, or writing long essays in the thought block to save output/thought tokens.
-- **File Writing & Artifact Safety**: NEVER pass  to  when creating or modifying project code files outside the artifact directory (). For project files, use  or  with bash/heredoc.
+- **File Writing & Artifact Safety**: NEVER pass raw non-bounded tool calls when creating or modifying project code files outside the artifact directory. For project files, use bounded tools or bash/heredoc.
 - **Planning-to-File (Thought-to-Markdown)**: Write planning details, designs, and analysis to a local workspace plan file (e.g. `.cursor/plan.md` or `scratch/plan.md`) instead of outputting massive text blocks in the final response.
 - **Session Isolation Guard**: Never read files, transcripts, or directories outside the active session conversation ID (`ANTIGRAVITY_CONVERSATION_ID`) to prevent cross-session context pollution and hallucinations (subagents receive all task context and return results directly via structured MCP tool arguments).
 - **Knowledge & Rule Maintenance**: When maintaining Konoha, always ensure that any new knowledge, rules, or features are added to both the rule templates (in `src/agent_manager.js` and `src/cursor_manager.js`) and the `konoha-maintenance` skill (`.agents/skills/konoha/SKILL.md`) so that agent instructions stay in sync. Additionally, always ensure that all system documentation (including README.md, guides, and diagrams under docs/) is kept fully up-to-date with any changes or maintenance performed.
@@ -261,7 +257,7 @@ For complex multi-domain tasks, load multiple skill references and delegate each
 - **Conversation Resume / Multi-Turn**: Upon resuming a conversation or in multi-turn interactions, you MUST NOT forget your constraints. ALWAYS re-execute subagent delegation via the `konoha` MCP. ALWAYS use the `semble` MCP for codebase search, and ALWAYS adhere to RTK (Rust Token Killer) principles. Do not bypass these tools just because you are in a resumed session.
 - **Forced MCP Usage & Delegation**: ABSOLUTE RULE — all work MUST go through `konoha` MCP (skills + bounded file ops) and `semble` MCP (codebase search). NEVER call generic `view_file`/`Read`/`Grep`/`Glob`/`run_command` (`cat`, `head`, `grep`, `rg`, `find`) directly. NEVER use `semble` for skills; NEVER use `konoha` for codebase search. The main orchestrator MUST delegate all non-trivial tasks to konoha subagents (`genin`, `chunin`, `jonin`, `anbu`, `kage`, `tokubetsu-jonin`) via the Agent tool. The orchestrator MUST NOT execute implementation tasks itself — it only coordinates and delegates. Trivial tasks (single bounded read/edit on a known file) may be executed directly.
 
-Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md
+Full team configuration, model registry, and operational conventions: `~/.agents/AGENTS.md`
 
 <!-- KONOHA-CONTRACT-START -->
 ## Konoha runtime contract (2.2.4-cross-client-1)
