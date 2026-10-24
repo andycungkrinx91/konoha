@@ -140,6 +140,18 @@ function _executeToolInternal(toolName, args, agent) {
     const projectPath = args.project_path || getWorkspaceRoot();
     const taskDir = args.task_dir;
     const sessId = args.session_id || args.sessionId;
+    let flowHash = args.flow_hash || args.flowHash || null;
+    const taskId = args.task_id || args.taskId || (taskDir ? path.basename(taskDir) : null);
+    if (!flowHash && taskId) {
+      try {
+        const sdlcManager = require('../sdlc_manager');
+        const t = sdlcManager.getTask(taskId);
+        if (t && t.evidence) {
+          const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
+          if (ev && ev.flow_hash) flowHash = ev.flow_hash;
+        }
+      } catch (_) { /* ignore */ }
+    }
 
     return runMcpAgent(
       toolName,
@@ -150,7 +162,8 @@ function _executeToolInternal(toolName, args, agent) {
       tasteDials,
       projectPath,
       taskDir,
-      sessId
+      sessId,
+      flowHash
     );
   }
   if (toolName === 'report_from_agent' || (toolName && toolName.startsWith('report_from_'))) {

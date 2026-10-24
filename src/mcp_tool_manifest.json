@@ -350,6 +350,12 @@
           },
           "task_id": {
             "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "required": [
@@ -381,6 +387,12 @@
             "type": "boolean"
           },
           "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
             "type": "string"
           }
         },
@@ -430,6 +442,12 @@
           },
           "task_id": {
             "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "required": [
@@ -477,6 +495,10 @@
           "session_id": {
             "type": "string",
             "description": "Session identifier."
+          },
+          "flow_hash": {
+            "type": "string",
+            "description": "Flow hash identifier for turn-by-turn skill binding."
           }
         },
         "additionalProperties": false
@@ -656,6 +678,15 @@
           },
           "prompt": {
             "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -689,6 +720,21 @@
             "type": "string"
           },
           "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
             "type": "string"
           }
         },
@@ -724,6 +770,21 @@
           },
           "task_dir": {
             "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -757,6 +818,21 @@
             "type": "string"
           },
           "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
             "type": "string"
           }
         },
@@ -792,6 +868,21 @@
           },
           "task_dir": {
             "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -826,6 +917,21 @@
           },
           "task_dir": {
             "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -859,6 +965,21 @@
             "type": "string"
           },
           "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
             "type": "string"
           }
         },

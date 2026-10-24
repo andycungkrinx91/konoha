@@ -282,26 +282,8 @@ function loadAgents(reloadDefaults = false, silent = false) {
           }
         }
 
-        // Enforce mandatory anti-slop skills across all official agents
-        const MANDATORY_AGENT_ANTISLOP_SKILLS = {
-          'sannin': ['antislop'],
-          'genin': ['antislop', 'antislop-human', 'antislop-code'],
-          'kage': ['antislop', 'antislop-human', 'antislop-code'],
-          'chunin': ['antislop', 'antislop-human', 'antislop-code'],
-          'jonin': ['antislop', 'antislop-ui', 'antislop-human', 'antislop-layoutmobile', 'antislop-code'],
-          'anbu': ['antislop', 'antislop-human', 'antislop-code'],
-          'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
-        };
-
-        const mandatory = MANDATORY_AGENT_ANTISLOP_SKILLS[a.name];
-        if (mandatory && Array.isArray(a.skills)) {
-          for (const mSkill of mandatory) {
-            if (!a.skills.includes(mSkill)) {
-              a.skills.push(mSkill);
-              changed = true;
-            }
-          }
-        }
+        // Anti-slop and ADHD shaping are soul-bound via getSoul() and enforced at runtime/audit.
+        // Agents retain their domain skills without repeatedly re-injecting anti-slop skills.
 
         // Strip any legacy sub-references with slashes
         if (Array.isArray(a.skills)) {

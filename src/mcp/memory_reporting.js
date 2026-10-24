@@ -63,19 +63,31 @@ function applyFileEdits(content) {
   }
 }
 
+const AUTOLOAD_SKILL_STOPWORDS = new Set([
+  'with', 'from', 'this', 'that', 'have', 'make', 'into', 'then', 'more', 'some',
+  'when', 'will', 'also', 'about', 'your', 'using', 'need', 'want', 'only', 'after',
+  'before', 'first', 'last', 'each', 'every', 'both', 'between', 'under', 'over',
+  'task', 'build', 'create', 'setup', 'update', 'test', 'help', 'work', 'code'
+]);
+
 function autoloadSkillsFromPrompt(prompt, conn, maxMatches = 3) {
   if (!prompt || !prompt.trim()) return [];
-  const promptLower = prompt.toLowerCase();
-  const tokens = promptLower.replace(/\n/g, ' ').split(/\s+/).filter(t => t.length > 3);
+  const tokens = prompt.toLowerCase().replace(/[^a-z0-9_-]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !AUTOLOAD_SKILL_STOPWORDS.has(t));
   if (tokens.length === 0) return [];
 
   const rows = conn.prepare("SELECT skill_name, content FROM skills WHERE type = 'skill'").all();
   const scored = [];
   for (const row of rows) {
-    const haystack = (row.skill_name + ' ' + (row.content || '').substring(0, 200)).toLowerCase();
+    if (row.skill_name.startsWith('antislop') || row.skill_name === 'i-have-adhd') continue;
+    const nameLower = row.skill_name.toLowerCase();
+    const haystack = (nameLower + ' ' + (row.content || '').substring(0, 300)).toLowerCase();
     let score = 0;
     for (const t of tokens) {
-      if (haystack.includes(t)) score++;
+      if (nameLower === t || nameLower.includes(t)) {
+        score += 5;
+      } else if (haystack.includes(t)) {
+        score += 1;
+      }
     }
     if (score > 0) scored.push({ score, name: row.skill_name });
   }
@@ -460,7 +472,7 @@ function cleanRedundantPersonaText(text) {
     .trim();
 }
 
-function runMcpAgent(agentName, task = null, context = null, constraints = null, skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null) {
+function runMcpAgent(agentName, task = null, context = null, constraints = null, skills = null, tasteDials = null, projectPath = null, taskDir = null, sessionId = null, flowHash = null) {
   if (typeof task === 'object' && task !== null) {
     const opts = task;
     context = opts.context || null;
@@ -470,6 +482,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     projectPath = opts.projectPath || opts.project_path || projectPath;
     taskDir = opts.taskDir || opts.task_dir || taskDir;
     sessionId = opts.sessionId || opts.session_id || sessionId;
+    flowHash = opts.flowHash || opts.flow_hash || flowHash;
     task = opts.task || null;
   }
   const resolvedProjPath = projectPath || getWorkspaceRoot() || process.cwd();
@@ -648,26 +661,37 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     }
   }
 
-  // Force-load mandatory anti-slop skills for all official ninja agents
-  const MANDATORY_AGENT_ANTISLOP_SKILLS = {
-    'sannin': ['antislop'],
-    'genin': ['antislop', 'antislop-human', 'antislop-code'],
-    'kage': ['antislop', 'antislop-human', 'antislop-code'],
-    'chunin': ['antislop', 'antislop-human', 'antislop-code'],
-    'jonin': ['antislop', 'antislop-ui', 'antislop-human', 'antislop-layoutmobile', 'antislop-code'],
-    'anbu': ['antislop', 'antislop-human', 'antislop-code'],
-    'tokubetsu-jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code'],
-    'tokubetsu_jonin': ['antislop', 'antislop-copywriting', 'antislop-human', 'antislop-code']
-  };
-
-  const cleanAgentName = (dbAgentName || agentName || '').toLowerCase().trim().replace(/_/g, '-');
-  const forcedSkills = MANDATORY_AGENT_ANTISLOP_SKILLS[dbAgentName] || MANDATORY_AGENT_ANTISLOP_SKILLS[cleanAgentName];
-  if (forcedSkills) {
-    for (const fsItem of forcedSkills) {
-      if (!skillsList.includes(fsItem)) {
-        skillsList.push(fsItem);
-      }
+  // Soul-bound behavioral shaping (ADHD shaping and anti-slop tenets) from Shinobi Soul
+  let soulBehaviorBlock = '';
+  try {
+    const soulInfo = personaMemory.getSoul({ agentName: dbAgentName, projectPath: resolvedProjPath });
+    if (soulInfo && soulInfo.behavior_directive) {
+      soulBehaviorBlock = `${soulInfo.behavior_directive}\n`;
     }
+  } catch (_) { /* ignore */ }
+
+  let effFlowHash = flowHash;
+  if (!effFlowHash && taskDir) {
+    try {
+      const statusFile = path.join(taskDir, 'status.json');
+      if (fs.existsSync(statusFile)) {
+        const s = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+        if (s && s.flow_hash) effFlowHash = s.flow_hash;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  if (effFlowHash) {
+    try {
+      const flowSkills = personaMemory.getFlowSkills(effFlowHash);
+      if (Array.isArray(flowSkills)) {
+        for (const fsItem of flowSkills) {
+          if (!skillsList.includes(fsItem)) {
+            skillsList.push(fsItem);
+          }
+        }
+      }
+    } catch (_) { /* ignore */ }
   }
 
   const skillsContent = [];
@@ -774,14 +798,19 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
   }
   let systemPrompt = `${prefix}${instructionsLine}${constraintsBlock}`;
   if (projectContextBlock) systemPrompt += projectContextBlock + '\n';
+  if (soulBehaviorBlock) systemPrompt += soulBehaviorBlock + '\n';
   if (tasteSkillBlock) systemPrompt += tasteSkillBlock + '\n';
   if (docDesignBlock) systemPrompt += docDesignBlock + '\n';
   systemPrompt += buildSubagentMcpBlock(getActiveClient(), agentName) + '\n';
   if (searchFindings) systemPrompt += searchFindings + '\n';
+  let flowSkillsHeader = '';
+  if (effFlowHash && skillsList.length > 0) {
+    flowSkillsHeader = `Active Flow Skills (Bound to Flow ${effFlowHash}): ${skillsList.join(', ')}\n\n`;
+  }
   if (skillsContent.length > 0) {
-    systemPrompt += 'Available Skills:\n' + skillsContent.join('\n\n') + '\n\n';
+    systemPrompt += (flowSkillsHeader || 'Available Skills:\n') + skillsContent.join('\n\n') + '\n\n';
   } else if (skillsList.length > 0) {
-    systemPrompt += `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
+    systemPrompt += flowSkillsHeader || `Available Skills:\nOn-Demand Reference Skills: ${skillsList.join(', ')}\n\n`;
   }
   systemPrompt += (
     'Conflict Diff Format:\n' +
@@ -830,6 +859,7 @@ function runMcpAgent(agentName, task = null, context = null, constraints = null,
     phase: 'execution',
     agent: dbAgentName,
     model: assignedModel,
+    flow_hash: effFlowHash || undefined,
     project_path: resolvedProjPath,
     session_id: resolvedSessionId,
     task_dir: effTaskDir,

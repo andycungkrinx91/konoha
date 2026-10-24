@@ -1048,6 +1048,67 @@ function parseSoulMarkdown(rawMarkdown) {
   return result;
 }
 
+function recordFlowSkill(flowHash, skillName, taskId = null, sessionId = null, projectPath = null, dbPath = DB_PATH) {
+  if (!flowHash || !skillName) return null;
+  const cleanSkill = String(skillName).trim();
+  const cleanFlow = String(flowHash).trim();
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    const existing = conn.prepare(
+      "SELECT id FROM persona_memories WHERE memory_type = 'flow_skill' AND tags = ? AND title = ? LIMIT 1"
+    ).get(cleanFlow, cleanSkill);
+    const now = new Date().toISOString();
+    const content = JSON.stringify({ flow_hash: cleanFlow, skill_name: cleanSkill, task_id: taskId, loaded_at: now });
+    if (!existing) {
+      let pHash = null;
+      if (projectPath) {
+        pHash = computeProjectHash(projectPath);
+      }
+      const memId = crypto.randomUUID().substring(0, 8);
+      conn.prepare(
+        `INSERT INTO persona_memories (id, agent_name, project_hash, session_id, memory_type, title, content, tags, importance, created_at, updated_at)
+         VALUES (?, 'sannin', ?, ?, 'flow_skill', ?, ?, ?, 1, ?, ?)`
+      ).run(memId, pHash, sessionId || '', cleanSkill, content, cleanFlow, now, now);
+      return memId;
+    }
+    return existing.id;
+  } catch (_) {
+    return null;
+  } finally {
+    conn.close();
+  }
+}
+
+function getFlowSkills(flowHash, dbPath = DB_PATH) {
+  if (!flowHash) return [];
+  const cleanFlow = String(flowHash).trim();
+  const conn = getDb(dbPath);
+  try {
+    initMemoryTables(conn);
+    const rows = conn.prepare(
+      "SELECT title FROM persona_memories WHERE memory_type = 'flow_skill' AND tags = ? ORDER BY id ASC"
+    ).all(cleanFlow);
+    return rows.map(r => r.title);
+  } catch (_) {
+    return [];
+  } finally {
+    conn.close();
+  }
+}
+
+function formatSoulBehavior(arch, universalAdhd) {
+  if (!arch) return '';
+  const lines = [
+    `### 忍 Shinobi Soul & Archetype Voice: ${arch.name} (${arch.role})`,
+    `- Voice: "${arch.voice}"`,
+    `- Calling: ${arch.calling}`,
+    `- ADHD Shaping (Soul-Bound): ${arch.adhd_shaping || universalAdhd || 'Lead with next action, numbered tasks, zero filler.'}`,
+    `- Anti-Slop Discipline (Soul-Bound): Zero robotic filler, generic AI boilerplate, or decorative slop. Delivery strictly audited at 100/100 score.`
+  ];
+  return lines.join('\n');
+}
+
 function getSoul(options = {}) {
   const projectPath = options.projectPath || options.project_path || null;
   const agentName = (options.agentName || options.agent_name || '').toLowerCase().trim();
@@ -1077,6 +1138,7 @@ function getSoul(options = {}) {
       will_of_fire: parsed.will_of_fire,
       tenets: parsed.tenets,
       archetype: arch,
+      behavior_directive: formatSoulBehavior(arch, parsed.universal_adhd_standard),
       path: soulPath,
       source_path: soulPath
     };
@@ -1092,6 +1154,12 @@ module.exports = {
   get_db: getDb,
   getSoul,
   get_soul: getSoul,
+  recordFlowSkill,
+  record_flow_skill: recordFlowSkill,
+  getFlowSkills,
+  get_flow_skills: getFlowSkills,
+  formatSoulBehavior,
+  format_soul_behavior: formatSoulBehavior,
   computeProjectHash,
   compute_project_hash: computeProjectHash,
   detectProjectStack,

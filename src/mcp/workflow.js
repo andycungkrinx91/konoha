@@ -272,6 +272,14 @@ function detectParallelWorkstreams(prompt = '') {
   return streams;
 }
 
+function computeFlowHash(sessionId, taskId, promptText) {
+  const normSession = (sessionId || 'default-session').trim();
+  const normTask = (taskId || 'task-root').trim();
+  const normPrompt = (promptText || '').trim().substring(0, 100);
+  const raw = `${normSession}:${normTask}:${normPrompt}`;
+  return crypto.createHash('sha256').update(raw).digest('hex').substring(0, 12);
+}
+
 function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId = null) {
   const { getWorkspaceRoot, getActiveClient } = require('./runtime_state');
   const cd = require('./client_detection');
@@ -343,6 +351,42 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const sdlcConfig = sdlcManager.getProjectSdlcConfig(resolvedProjPath);
   const dorResult = sdlcManager.checkReadiness(effPrompt, resolvedProjPath);
   const executionTrack = classifyExecutionTrack(effPrompt);
+  const flowHash = computeFlowHash(resolvedSessionId, taskId, effPrompt);
+
+  const selectedAgentSuffix = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
+  const selectedAgent = selectedAgentSuffix.startsWith('mcp_')
+    ? selectedAgentSuffix.substring(4)
+    : selectedAgentSuffix;
+
+  // Domain skill routing: match prompt domain skills & agent domain skills from SQLite
+  const { autoloadSkillsFromPrompt } = require('./memory_reporting');
+  const personaMemory = require('../persona_memory');
+  let routedSkills = [];
+  let skillConn = null;
+  try {
+    skillConn = getDb();
+    const auto = autoloadSkillsFromPrompt(effPrompt, skillConn);
+    for (const s of auto) {
+      if (!routedSkills.includes(s)) routedSkills.push(s);
+    }
+    const agentRow = skillConn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
+    if (agentRow && agentRow.skills) {
+      try {
+        const dbSkills = JSON.parse(agentRow.skills);
+        if (Array.isArray(dbSkills)) {
+          for (const ds of dbSkills) {
+            if (!ds.startsWith('antislop') && ds !== 'i-have-adhd' && !routedSkills.includes(ds)) {
+              routedSkills.push(ds);
+            }
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+  } catch (_) { /* ignore */ } finally {
+    if (skillConn) {
+      try { skillConn.close(); } catch (_) { /* best effort */ }
+    }
+  }
 
   try {
     sdlcManager.createTask({
@@ -350,7 +394,12 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
       description: effPrompt,
       status: (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) ? 'blocked' : 'in_progress',
       dor_result: dorResult,
-      evidence: { execution_track: executionTrack },
+      evidence: {
+        execution_track: executionTrack,
+        flow_hash: flowHash,
+        routed_skills: routedSkills,
+        active_skills: routedSkills
+      },
       project_path: resolvedProjPath,
       session_id: resolvedSessionId,
       client: actClient
@@ -362,8 +411,17 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
     status.session_id = resolvedSessionId;
     status.project_path = resolvedProjPath;
     status.client = actClient;
+    status.flow_hash = flowHash;
+    status.routed_skills = routedSkills;
     saveWorkflowStatus(resolvedTaskDir, status);
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+
+  // Persist routed skills into SQLite persona_memories under flow_skill
+  for (const sk of routedSkills) {
+    try {
+      personaMemory.recordFlowSkill(flowHash, sk, taskId, resolvedSessionId, resolvedProjPath);
+    } catch (_) { /* ignore */ }
+  }
 
   if (sdlcConfig.dor_mode === 'enforced' && !dorResult.ready) {
     const res = JSON.stringify({
@@ -372,16 +430,12 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
       message: 'Definition-of-Readiness (DoR) check failed in enforced mode. Please address the missing items before dispatching.',
       missing: dorResult.missing,
       dor_result: dorResult,
+      flow_hash: flowHash,
       task_dir: resolvedTaskDir
     });
     logToolCall('sannin', `task_dir=${resolvedTaskDir}`, res, 'sannin');
     return res;
   }
-
-  const selectedAgentSuffix = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
-  const selectedAgent = selectedAgentSuffix.startsWith('mcp_')
-    ? selectedAgentSuffix.substring(4)
-    : selectedAgentSuffix;
 
   const agentDescriptions = {};
   let descConn = null;
@@ -448,11 +502,13 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const instruction = (
     `**Selected Agent**: \`${selectedAgent}\`\n` +
     `**Execution Track**: \`${executionTrack}\`\n` +
+    `**Flow Hash**: \`${flowHash}\`\n` +
+    `**Routed Skills**: ${routedSkills.length > 0 ? routedSkills.map(s => `\`${s}\``).join(', ') : 'None (soul-bound defaults)'}\n` +
     `**Reason**: ${description}\n\n` +
     `Task directory: \`${resolvedTaskDir}\`\n` +
     `SDLC Task ID: \`${taskId}\`\n\n` +
     '## Delegation Steps\n\n' +
-    `1. Call \`${selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${taskId}"\`, \`project_path="${resolvedProjPath}"\`).\n` +
+    `1. Call \`${selectedAgent}\` directly with structured tool arguments (\`task\`, \`context\`, \`constraints\`, \`task_id="${taskId}"\`, \`flow_hash="${flowHash}"\`, \`skills=${JSON.stringify(routedSkills)}\`, \`project_path="${resolvedProjPath}"\`).\n` +
     `2. Subagent executes task and reports verification via \`konoha.report_from_agent\` with \`task_id="${taskId}"\`.\n` +
     `3. Call \`sannin\` with \`task_dir=${resolvedTaskDir}\` to advance the workflow.\n\n` +
     `## Original Prompt\n\n${effPrompt}` +
@@ -465,7 +521,9 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
   const res = JSON.stringify({
     status: 'routed',
     task_id: taskId,
+    flow_hash: flowHash,
     selected_agent: selectedAgent,
+    skills: routedSkills,
     execution_track: executionTrack,
     parallel_eligible: parallelWorkstreams.length > 1,
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
@@ -1606,6 +1664,8 @@ module.exports = {
   saveWorkflowStatus,
   routeByKeywordsWithPrompt,
   runSannin,
+  computeFlowHash,
+  compute_flow_hash: computeFlowHash,
   workflowHash,
   workflowDispatch,
   workflowDispatchCompleted,

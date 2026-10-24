@@ -250,14 +250,28 @@ function extractSnippet(content, maxLen = 150) {
   return text.substring(0, maxLen).trim() + '...';
 }
 
-const SERVED_SKILLS_BY_SESSION = new Map();
+const SERVED_SKILLS_BY_FLOW = new Map();
 
-function getServedSkillsSet(sessionId) {
-  const key = sessionId || 'default_session';
-  if (!SERVED_SKILLS_BY_SESSION.has(key)) {
-    SERVED_SKILLS_BY_SESSION.set(key, new Set());
+function getServedSkillsSet(keyId) {
+  const key = keyId || 'default_session';
+  if (!SERVED_SKILLS_BY_FLOW.has(key)) {
+    SERVED_SKILLS_BY_FLOW.set(key, new Set());
   }
-  return SERVED_SKILLS_BY_SESSION.get(key);
+  return SERVED_SKILLS_BY_FLOW.get(key);
+}
+
+function resolveFlowHashFromTask(flowHash, taskId) {
+  if (flowHash) return flowHash;
+  if (!taskId) return null;
+  try {
+    const sdlcManager = require('../sdlc_manager');
+    const t = sdlcManager.getTask(taskId);
+    if (t && t.evidence) {
+      const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
+      if (ev && ev.flow_hash) return ev.flow_hash;
+    }
+  } catch (_) { /* ignore */ }
+  return null;
 }
 
 function getMirrorRoots() {
@@ -423,14 +437,23 @@ function clearSkillQueryCache() {
   _SKILL_QUERY_CACHE.clear();
 }
 
-function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId = null) {
+function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId = null, flowHash = null) {
+  if (typeof limit === 'object' && limit !== null) {
+    const opts = limit;
+    agentName = opts.agentName || opts.agent_name || agentName;
+    compact = opts.compact !== undefined ? opts.compact : compact;
+    taskId = opts.taskId || opts.task_id || taskId;
+    flowHash = opts.flowHash || opts.flow_hash || flowHash;
+    limit = opts.limit !== undefined ? opts.limit : 3;
+  }
   process.stderr.write(`[mcp konoha] tool_call: find_skill(keyword='${keyword}', limit=${limit}, compact=${compact})\n`);
   try {
     autoMigrateProjectSkills();
   } catch (_) { /* ignore */ }
 
   const normKeyword = normalizeLegacySkillName(keyword);
-  const cacheKey = `${normKeyword}:${limit}:${compact}:${agentName || ''}:${taskId || ''}`;
+  const trackingKey = flowHash || taskId || 'default_session';
+  const cacheKey = `${normKeyword}:${limit}:${compact}:${agentName || ''}:${trackingKey}`;
   if (_SKILL_QUERY_CACHE.has(cacheKey)) {
     return _SKILL_QUERY_CACHE.get(cacheKey);
   }
@@ -498,7 +521,7 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
       return res;
     }
 
-    const servedSet = getServedSkillsSet(taskId);
+    const servedSet = getServedSkillsSet(trackingKey);
     const results = [];
     process.stderr.write(`  → Found ${visibleRows.length} matching skill/reference entries:\n`);
     for (const row of visibleRows) {
@@ -596,13 +619,14 @@ function getSkill(name, agentName = null, options = {}) {
   } catch (_) { /* ignore */ }
 
   const normName = normalizeLegacySkillName(name);
-  const tokenBudget = (typeof options === 'object' && options !== null && options.tokenBudget) ? parseInt(options.tokenBudget, 10) : (typeof options === 'number' ? options : 0);
+  const tokenBudget = (typeof options === 'object' && options !== null && (options.tokenBudget || options.token_budget)) ? parseInt(options.tokenBudget || options.token_budget, 10) : (typeof options === 'number' ? options : 0);
   const requestedSection = (typeof options === 'object' && options !== null && options.section) ? String(options.section).trim() : null;
-  const taskId = (typeof options === 'object' && options !== null && options.taskId) ? options.taskId : null;
+  const taskId = (typeof options === 'object' && options !== null && (options.taskId || options.task_id)) ? (options.taskId || options.task_id) : null;
+  const sessionId = (typeof options === 'object' && options !== null && (options.sessionId || options.session_id)) ? (options.sessionId || options.session_id) : null;
+  const flowHash = (typeof options === 'object' && options !== null && (options.flowHash || options.flow_hash)) ? (options.flowHash || options.flow_hash) : null;
 
-  if (taskId) {
-    getServedSkillsSet(taskId).add(normName);
-  }
+  const trackingKey = flowHash || taskId || sessionId || 'default_session';
+  getServedSkillsSet(trackingKey).add(normName);
 
   const conn = getDb();
   try {
@@ -721,6 +745,14 @@ function getSkill(name, agentName = null, options = {}) {
       truncated = truncRes.truncated;
     }
 
+    const effFlowHash = resolveFlowHashFromTask(flowHash, taskId);
+    if (effFlowHash) {
+      try {
+        const personaMemory = require('../persona_memory');
+        personaMemory.recordFlowSkill(effFlowHash, normName, taskId, sessionId);
+      } catch (_) { /* ignore */ }
+    }
+
     const payload = {
       name: row.name,
       type: row.type,
@@ -730,6 +762,7 @@ function getSkill(name, agentName = null, options = {}) {
       truncated,
       hash: contentHash(shielded)
     };
+    if (effFlowHash) payload.flow_hash = effFlowHash;
     if (remainingSections.length > 0) {
       payload.remaining_sections = remainingSections;
     }
@@ -781,14 +814,15 @@ function useSkills(skillsInput, agentName = null, options = {}) {
     return errRes;
   }
 
-  const tokenBudget = (typeof options === 'object' && options !== null && options.tokenBudget) ? parseInt(options.tokenBudget, 10) : 0;
+  const tokenBudget = (typeof options === 'object' && options !== null && (options.tokenBudget || options.token_budget)) ? parseInt(options.tokenBudget || options.token_budget, 10) : 0;
   const requestedSection = (typeof options === 'object' && options !== null && options.section) ? String(options.section).trim() : null;
-  const taskId = (typeof options === 'object' && options !== null && options.taskId) ? options.taskId : null;
+  const taskId = (typeof options === 'object' && options !== null && (options.taskId || options.task_id)) ? (options.taskId || options.task_id) : null;
+  const sessionId = (typeof options === 'object' && options !== null && (options.sessionId || options.session_id)) ? (options.sessionId || options.session_id) : null;
+  const flowHash = (typeof options === 'object' && options !== null && (options.flowHash || options.flow_hash)) ? (options.flowHash || options.flow_hash) : null;
 
-  if (taskId) {
-    for (const name of skillNames) {
-      getServedSkillsSet(taskId).add(normalizeLegacySkillName(name));
-    }
+  const trackingKey = flowHash || taskId || sessionId || 'default_session';
+  for (const name of skillNames) {
+    getServedSkillsSet(trackingKey).add(normalizeLegacySkillName(name));
   }
 
   const loadedSkills = [];
@@ -933,6 +967,36 @@ function useSkills(skillsInput, agentName = null, options = {}) {
     try { conn.close(); } catch (_) { /* ignore */ }
   }
 
+  const effFlowHash = resolveFlowHashFromTask(flowHash, taskId);
+
+  if (effFlowHash) {
+    const personaMemory = require('../persona_memory');
+    for (const ls of loadedSkills) {
+      if (ls.status === 'loaded') {
+        try {
+          personaMemory.recordFlowSkill(effFlowHash, ls.name, taskId, sessionId);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    if (taskId) {
+      try {
+        const sdlcManager = require('../sdlc_manager');
+        const t = sdlcManager.getTask(taskId);
+        if (t && t.evidence) {
+          const ev = typeof t.evidence === 'string' ? JSON.parse(t.evidence) : t.evidence;
+          const active = Array.isArray(ev.active_skills) ? [...ev.active_skills] : [];
+          for (const ls of loadedSkills) {
+            if (ls.status === 'loaded' && !active.includes(ls.name)) {
+              active.push(ls.name);
+            }
+          }
+          ev.active_skills = active;
+          sdlcManager.updateTask(taskId, { evidence: ev });
+        }
+      } catch (_) { /* ignore */ }
+    }
+  }
+
   let resPayload;
   if (skillNames.length === 1 && loadedSkills.length === 1) {
     const single = loadedSkills[0];
@@ -947,6 +1011,9 @@ function useSkills(skillsInput, agentName = null, options = {}) {
       skills: loadedSkills,
       warnings: allWarnings
     };
+  }
+  if (effFlowHash) {
+    resPayload.flow_hash = effFlowHash;
   }
 
   const resStr = JSON.stringify(resPayload);
