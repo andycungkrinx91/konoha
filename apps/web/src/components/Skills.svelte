@@ -330,7 +330,12 @@
         await openSkill(skillName);
       }
     } catch (err) {
-      progressToast.error("Installation failed: " + err.message);
+      const isBlocked = err.data?.guardian_blocked || (err.message && err.message.includes('BLOCKED by Guardian'));
+      if (isBlocked) {
+        progressToast.error(err.message, { duration: 8000 });
+      } else {
+        progressToast.error("Installation failed: " + err.message);
+      }
     } finally {
       installingSkill = "";
     }

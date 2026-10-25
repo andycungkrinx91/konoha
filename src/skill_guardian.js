@@ -351,6 +351,15 @@ function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
     const sessionId = cd.getActiveSessionId(projectPath);
 
     const title = `Guardian audit: ${scanResult.skillName} (${scanResult.verdict.toUpperCase()})`;
+    const uniqueThreats = Array.from(new Set(scanResult.findings.map(f => f.ruleId)));
+    const topFindings = scanResult.findings.slice(0, 3).map(f => ({
+      ruleId: f.ruleId,
+      severity: f.severity,
+      file: f.file,
+      line: f.line,
+      message: f.message
+    }));
+
     const content = JSON.stringify({
       skillName: scanResult.skillName,
       sourceUrl,
@@ -358,9 +367,10 @@ function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
       score: scanResult.score,
       safe: scanResult.safe,
       findingsCount: scanResult.findings.length,
-      findings: scanResult.findings,
+      threats: uniqueThreats,
+      topFindings,
       auditedAt: new Date().toISOString()
-    }, null, 2);
+    });
 
     personaMemory.saveMemory({
       agentName: 'chunin',

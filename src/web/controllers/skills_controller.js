@@ -100,7 +100,12 @@ async function handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method) {
       broadcastEvent('skills_updated', { action: 'install', name: skillName || nameOrUrl });
       return sendJson(res, 200, { ok: true, skill_name: skillName || nameOrUrl, installed_path: installedPath || null });
     } catch (err) {
-      return sendJson(res, 500, { error: err.message });
+      const isGuardianBlock = err.message && err.message.includes('BLOCKED by Guardian');
+      return sendJson(res, isGuardianBlock ? 422 : 500, {
+        ok: false,
+        error: err.message,
+        guardian_blocked: isGuardianBlock
+      });
     }
   }
 
