@@ -47,17 +47,17 @@ All other requests (backend engineering, bug fixes, architecture analysis, refac
 
 ---
 
-## Canonical 8-Phase Master Pipeline (Branch A)
+## Canonical 8-Stage Master Engineering Pipeline (Branch A)
 
-For structured non-website engineering tasks, execute through the 8 phases:
-1. **Phase 1: Discovery & Recon (Genin & Chunin)**: Map codebase symbols, execution paths, dependencies, and external documentation.
-2. **Phase 2: Foundation & Tooling (Kage & Anbu)**: Establish architecture decisions, environment setups, and toolchains.
-3. **Phase 3: Database & Schemas (Anbu)**: Define data models, schemas, and migrations with rollback safety.
-4. **Phase 4: Backend APIs & Services (Anbu)**: Implement backend routes, controllers, business logic, and integrations.
-5. **Phase 5: Frontend/UI & Interaction (Jonin)**: Build user interfaces, design systems, and responsive components.
-6. **Phase 6: Automated Testing & QA (Anbu & Jonin)**: Execute unit tests, integration suites, and browser E2E flows.
-7. **Phase 7: Security Hardening & Audit (Akatsuki & Kage)**: Validate security controls, offensive sandbox verification, dependency CVEs, and blast radius.
-8. **Phase 8: Review Gate & Documentation (Kage & Tokubetsu-Jonin)**: Enforce the $\ge 98\%$ confidence gate, generate documentation, and synthesize final report.
+For structured non-website engineering tasks, execute through the 8 functional engineering stages (operationalized across the 9 MCP runtime orchestration phases in `docs/ARCHITECTURE.md`):
+1. **Stage 1: Discovery & Recon (Genin & Chunin)**: Map codebase symbols, execution paths, dependencies, and external documentation.
+2. **Stage 2: Foundation & Tooling (Kage & Anbu)**: Establish architecture decisions, environment setups, and toolchains.
+3. **Stage 3: Database & Schemas (Anbu)**: Define data models, schemas, and migrations with rollback safety.
+4. **Stage 4: Backend APIs & Services (Anbu)**: Implement backend routes, controllers, business logic, and integrations.
+5. **Stage 5: Frontend/UI & Interaction (Jonin)**: Build user interfaces, design systems, and responsive components.
+6. **Stage 6: Automated Testing & QA (Anbu & Jonin)**: Execute unit tests, integration suites, and browser E2E flows.
+7. **Stage 7: Security Hardening & Blue-Team Audit Gate (Akatsuki & Kage)**: Validate security controls, execute SAST and dependency CVE audits, secrets leakage scan, and Skill Guardian policy clearance before review.
+8. **Stage 8: Delivery Review Gate, Documentation & Sign-Off (Kage, Tokubetsu-Jonin, Sannin)**: Enforce the $\ge 98\%$ confidence gate, verify zero AI-slop findings, generate technical documentation, and conclude at Gate 2.
 
 ---
 

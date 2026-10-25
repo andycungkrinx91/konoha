@@ -109,7 +109,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: Core Multi-Agent MCP SDLC 8-Phase Lifecycle
+title: Core Multi-Agent MCP SDLC Orchestration Pipeline (9 Runtime Phases & Akatsuki Security Gate)
 config:
   theme: base
   themeVariables:

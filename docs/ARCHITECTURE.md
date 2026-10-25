@@ -407,7 +407,9 @@ flowchart TD
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
 
-### 📋 Workflow Phase Matrix
+### 📋 Workflow Phase Matrix (9 Runtime Orchestration Phases)
+
+The Konoha orchestration engine executes through 9 formal runtime phases that operationalize the 8 functional engineering stages defined in `sannin-skill`: Phase 1 `Route` & Phase 2 `Explore` handle Discovery; Phase 3 `Plan` & Phase 4 `Research` handle Foundation & Tooling; Phase 5 `Execute` covers Schemas, APIs, UI & QA; Phase 6 `Document` prepares technical deliverables; Phase 7 `Security Gate` executes mandatory Akatsuki Blue-Team verification; Phase 8 `Review Gate` executes Kage's confidence audit; and Phase 9 `Synthesize` produces the final signed-off release payload.
 
 | Phase | Assigned Agent | Core Mandate & Actions | Dispatch / Input Mode | Output / Reporting Mode | Phase Exit Gate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
