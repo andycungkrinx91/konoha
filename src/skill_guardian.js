@@ -351,26 +351,32 @@ function recordGuardianFindingToKnowledge(scanResult, sourceUrl) {
     const sessionId = cd.getActiveSessionId(projectPath);
 
     const title = `Guardian audit: ${scanResult.skillName} (${scanResult.verdict.toUpperCase()})`;
-    const uniqueThreats = Array.from(new Set(scanResult.findings.map(f => f.ruleId)));
-    const topFindings = scanResult.findings.slice(0, 3).map(f => ({
-      ruleId: f.ruleId,
-      severity: f.severity,
-      file: f.file,
-      line: f.line,
-      message: f.message
-    }));
+    const ruleCounts = {};
+    for (const f of scanResult.findings) {
+      ruleCounts[f.ruleId] = (ruleCounts[f.ruleId] || 0) + 1;
+    }
 
-    const content = JSON.stringify({
-      skillName: scanResult.skillName,
-      sourceUrl,
+    const payload = {
+      skillName: String(scanResult.skillName || '').slice(0, 40),
+      sourceUrl: String(sourceUrl || '').slice(0, 80),
       verdict: scanResult.verdict,
       score: scanResult.score,
       safe: scanResult.safe,
       findingsCount: scanResult.findings.length,
-      threats: uniqueThreats,
-      topFindings,
+      rules: ruleCounts,
+      topFindings: scanResult.findings.slice(0, 2).map(f => ({
+        ruleId: f.ruleId,
+        file: String(f.file || '').slice(0, 30),
+        line: f.line
+      })),
       auditedAt: new Date().toISOString()
-    });
+    };
+
+    let content = JSON.stringify(payload);
+    if (content.length > 800) {
+      delete payload.topFindings;
+      content = JSON.stringify(payload);
+    }
 
     personaMemory.saveMemory({
       agentName: 'chunin',
