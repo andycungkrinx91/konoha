@@ -14,17 +14,24 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-function getAkatsukiConfigPath() {
+function getAkatsukiConfigPath(customPath = null) {
+  if (customPath && typeof customPath === 'string') {
+    return path.resolve(customPath);
+  }
+  if (process.env.KONOHA_AKATSUKI_CONFIG) {
+    return path.resolve(process.env.KONOHA_AKATSUKI_CONFIG);
+  }
   return path.join(os.homedir(), '.konoha', 'akatsuki_config.json');
 }
 
 /**
  * Load persistent Akatsuki configuration.
  *
+ * @param {Object} [options={}]
  * @returns {{ redteam_enabled: boolean, updated_at?: string, updated_by?: string }}
  */
-function loadAkatsukiConfig() {
-  const configPath = getAkatsukiConfigPath();
+function loadAkatsukiConfig(options = {}) {
+  const configPath = getAkatsukiConfigPath(options.config_path || options.configPath);
   try {
     if (fs.existsSync(configPath)) {
       const raw = fs.readFileSync(configPath, 'utf8');
@@ -50,10 +57,11 @@ function loadAkatsukiConfig() {
  * Save persistent Akatsuki configuration.
  *
  * @param {Object} config
+ * @param {Object} [options={}]
  * @returns {boolean}
  */
-function saveAkatsukiConfig(config = {}) {
-  const configPath = getAkatsukiConfigPath();
+function saveAkatsukiConfig(config = {}, options = {}) {
+  const configPath = getAkatsukiConfigPath(options.config_path || options.configPath);
   try {
     const dir = path.dirname(configPath);
     if (!fs.existsSync(dir)) {
@@ -75,14 +83,15 @@ function saveAkatsukiConfig(config = {}) {
  * Set Red-Team feature state (enable or disable).
  *
  * @param {boolean} enabled
+ * @param {Object} [options={}]
  * @returns {{ redteam_enabled: boolean, updated_at: string }}
  */
-function setRedTeamEnabled(enabled) {
-  const current = loadAkatsukiConfig();
+function setRedTeamEnabled(enabled, options = {}) {
+  const current = loadAkatsukiConfig(options);
   current.redteam_enabled = Boolean(enabled);
   current.updated_at = new Date().toISOString();
   current.updated_by = 'cli';
-  saveAkatsukiConfig(current);
+  saveAkatsukiConfig(current, options);
   return current;
 }
 
@@ -92,7 +101,7 @@ function setRedTeamEnabled(enabled) {
  * Precedence:
  * 1. Explicit option override (for test harnesses / programmatic contexts)
  * 2. Environment variable KONOHA_AKATSUKI_REDTEAM (1/true or 0/false)
- * 3. Persistent config file (~/.konoha/akatsuki_config.json)
+ * 3. Persistent config file (~/.konoha/akatsuki_config.json or KONOHA_AKATSUKI_CONFIG)
  *
  * @param {Object} [options={}]
  * @returns {boolean}
@@ -107,7 +116,7 @@ function isRedTeamEnabled(options = {}) {
     return envVal === '1' || envVal === 'true' || envVal === 'enabled';
   }
 
-  const config = loadAkatsukiConfig();
+  const config = loadAkatsukiConfig(options);
   return config.redteam_enabled !== false;
 }
 

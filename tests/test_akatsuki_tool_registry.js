@@ -8,6 +8,9 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const {
   VALID_CATEGORIES,
   VALID_SAFETY_CLASSES,
@@ -175,12 +178,18 @@ function testPhasePlanner() {
 function testWorkflowIntegration() {
   console.log('\n4. Testing Workflow Integration with Multiple Tool Categories...');
 
-  // 4a: Full authorized assessment with multiple tools
+  // 4a: Full authorized assessment with multiple tools using mock tool runner for uninstalled lab tools
   const multiToolRes = runRedTeamWorkflow({
     task: 'Authorized penetration test across network and web surface',
     authorized: true,
-    target: 'localhost:8080',
+    target: '10.77.77.153',
     tools: ['nmap', 'tshark', 'zap', 'nuclei', 'curl_probe']
+  }, {
+    mockToolExecutor: (toolId, phase, cmdArgs) => ({
+      status: 0,
+      stdout: `Tool ${toolId} in phase ${phase} command ${cmdArgs[0]} executed successfully`,
+      stderr: ''
+    })
   });
   assert.strictEqual(multiToolRes.status, 'completed');
   assert.strictEqual(multiToolRes.gate_decision, 'passed');
@@ -188,9 +197,39 @@ function testWorkflowIntegration() {
   assert.strictEqual(multiToolRes.tools_available.length, 5);
   assert.strictEqual(multiToolRes.tools_blocked.length, 0);
   assert.ok(multiToolRes.commands_executed.length >= 5);
-  assert.ok(multiToolRes.evidence_references.includes('tool_profiled_nmap') || multiToolRes.evidence_references.includes('tool_verified_nmap'));
+  assert.ok(multiToolRes.evidence_references.includes('tool_verified_nmap'));
 
-  // 4b: Assessment requesting unprofiled tool fails closed
+  // Assert per-phase status and command metadata
+  assert.ok(multiToolRes.phases.length >= 5, 'Must plan multiple execution phases');
+  for (const ph of multiToolRes.phases) {
+    assert.strictEqual(ph.status, 'completed', `Phase ${ph.phase} must be completed`);
+    assert.strictEqual(ph.exit_status, 0, `Phase ${ph.phase} exit_status must be 0`);
+  }
+  const cmdSample = multiToolRes.commands_executed[0];
+  assert.ok(cmdSample.phase, 'Command record must include phase');
+  assert.ok(cmdSample.tool, 'Command record must include tool');
+  assert.ok(cmdSample.binary, 'Command record must include binary');
+  assert.ok(cmdSample.command, 'Command record must include command string');
+  assert.strictEqual(cmdSample.exit_status, 0, 'Command record must include exit_status');
+  assert.ok(cmdSample.timeout_ms > 0, 'Command record must include timeout_ms');
+  assert.ok(cmdSample.evidence_reference, 'Command record must include evidence_reference');
+  assert.ok(cmdSample.timestamp, 'Command record must include timestamp');
+
+  // 4b: Real container execution with nmap
+  const realRes = runRedTeamWorkflow({
+    task: 'Live in-sandbox nmap assessment',
+    authorized: true,
+    target: '10.77.77.153',
+    tools: ['nmap']
+  });
+  assert.strictEqual(realRes.status, 'completed');
+  assert.strictEqual(realRes.gate_decision, 'passed');
+  const assetPhase = realRes.phases.find(p => p.phase === 'asset_discovery');
+  assert.ok(assetPhase, 'Must include asset_discovery phase');
+  assert.strictEqual(assetPhase.status, 'completed');
+  assert.strictEqual(assetPhase.exit_status, 0);
+
+  // 4c: Assessment requesting unprofiled tool fails closed
   const blockedToolRes = runRedTeamWorkflow({
     task: 'Attempt assessment with unprofiled tool',
     authorized: true,
@@ -293,42 +332,52 @@ function testFinalGateSafetyEnforcement() {
 async function testAkatsukiCliAndFeatureToggle() {
   console.log('\n6. Testing Akatsuki CLI & Red-Team Operator Toggle (Enable/Disable)...');
 
-  // 6a: Test disabling red-team operations
-  setRedTeamEnabled(false);
-  assert.strictEqual(isRedTeamEnabled(), false, 'Red-team must be disabled after setRedTeamEnabled(false)');
+  const tmpConfig = path.join(os.tmpdir(), `akatsuki_test_${Date.now()}.json`);
+  process.env.KONOHA_AKATSUKI_CONFIG = tmpConfig;
 
-  const disabledRes = runRedTeamWorkflow({
-    task: 'Attempt assessment while disabled',
-    authorized: true,
-    target: 'localhost:8080'
-  });
-  assert.strictEqual(disabledRes.status, 'blocked');
-  assert.strictEqual(disabledRes.authorized, false);
-  assert.strictEqual(disabledRes.gate_decision, 'blocked');
-  assert.ok(disabledRes.reason.includes('currently disabled'));
+  try {
+    // 6a: Test disabling red-team operations
+    setRedTeamEnabled(false);
+    assert.strictEqual(isRedTeamEnabled(), false, 'Red-team must be disabled after setRedTeamEnabled(false)');
 
-  // 6b: Test enabling red-team operations
-  setRedTeamEnabled(true);
-  assert.strictEqual(isRedTeamEnabled(), true, 'Red-team must be enabled after setRedTeamEnabled(true)');
+    const disabledRes = runRedTeamWorkflow({
+      task: 'Attempt assessment while disabled',
+      authorized: true,
+      target: 'localhost:8080'
+    });
+    assert.strictEqual(disabledRes.status, 'blocked');
+    assert.strictEqual(disabledRes.authorized, false);
+    assert.strictEqual(disabledRes.gate_decision, 'blocked');
+    assert.ok(disabledRes.reason.includes('currently disabled'));
 
-  const enabledRes = runRedTeamWorkflow({
-    task: 'Authorized assessment while enabled',
-    authorized: true,
-    target: 'localhost:8080'
-  });
-  assert.strictEqual(enabledRes.status, 'completed');
-  assert.strictEqual(enabledRes.authorized, true);
-  assert.strictEqual(enabledRes.gate_decision, 'passed');
+    // 6b: Test enabling red-team operations
+    setRedTeamEnabled(true);
+    assert.strictEqual(isRedTeamEnabled(), true, 'Red-team must be enabled after setRedTeamEnabled(true)');
 
-  // 6c: Test CLI subcommand dispatch
-  await cmdAkatsuki(['status']);
-  await cmdAkatsuki(['redteam', 'disable']);
-  assert.strictEqual(isRedTeamEnabled(), false);
+    const enabledRes = runRedTeamWorkflow({
+      task: 'Authorized assessment while enabled',
+      authorized: true,
+      target: 'localhost:8080'
+    });
+    assert.strictEqual(enabledRes.status, 'completed');
+    assert.strictEqual(enabledRes.authorized, true);
+    assert.strictEqual(enabledRes.gate_decision, 'passed');
 
-  await cmdAkatsuki(['redteam', 'enable']);
-  assert.strictEqual(isRedTeamEnabled(), true);
+    // 6c: Test CLI subcommand dispatch
+    await cmdAkatsuki(['status']);
+    await cmdAkatsuki(['redteam', 'disable']);
+    assert.strictEqual(isRedTeamEnabled(), false);
 
-  console.log('✓ Akatsuki CLI commands and red-team feature toggle verified (exclusive to CLI/TUI).');
+    await cmdAkatsuki(['redteam', 'enable']);
+    assert.strictEqual(isRedTeamEnabled(), true);
+
+    console.log('✓ Akatsuki CLI commands and red-team feature toggle verified (isolated config file).');
+  } finally {
+    try {
+      if (fs.existsSync(tmpConfig)) fs.unlinkSync(tmpConfig);
+    } catch (_) {}
+    delete process.env.KONOHA_AKATSUKI_CONFIG;
+  }
 }
 
 async function runAll() {

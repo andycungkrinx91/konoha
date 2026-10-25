@@ -640,6 +640,52 @@ function planToolExecution(params = {}) {
   };
 }
 
+/**
+ * Build a bounded, safe command line array for a tool within an isolated lab container.
+ *
+ * @param {Object} tool
+ * @param {string} [target='localhost:8080']
+ * @returns {string[]}
+ */
+function buildPhaseCommand(tool, target = 'localhost:8080') {
+  if (!tool) return ['echo', 'probe'];
+  const bin = (tool.binary_candidates && tool.binary_candidates[0]) || tool.id;
+  const cleanTarget = String(target).trim();
+  const hostPort = cleanTarget.replace(/^https?:\/\//i, '').split('/')[0];
+  const urlTarget = cleanTarget.startsWith('http://') || cleanTarget.startsWith('https://')
+    ? cleanTarget
+    : `http://${cleanTarget}`;
+
+  switch (tool.id) {
+    case 'nmap':
+      return [bin, '-sT', '-p', '80,443,8080', '--open', '-T4', hostPort];
+    case 'tshark':
+      return [bin, '-c', '5', '-i', 'any'];
+    case 'zap':
+      return [bin, '-cmd', '-quickurl', urlTarget];
+    case 'nuclei':
+      return [bin, '-target', urlTarget, '-tags', 'tech', '-silent'];
+    case 'ffuf':
+      return [bin, '-u', `${urlTarget}/FUZZ`, '-w', '/dev/null', '-t', '2'];
+    case 'sqlmap':
+      return [bin, '-u', urlTarget, '--batch', '--level=1', '--risk=1'];
+    case 'testssl':
+      return [bin, '--fast', hostPort];
+    case 'trivy':
+      return [bin, 'fs', '--severity', 'HIGH,CRITICAL', '/tmp'];
+    case 'curl_probe':
+      return [bin, '-sI', '--connect-timeout', '5', urlTarget];
+    case 'metasploit':
+      return [bin, '-q', '-x', 'version; exit'];
+    default: {
+      if (tool.phase_command && Array.isArray(tool.phase_command)) {
+        return tool.phase_command.map(arg => arg.replace('{{TARGET}}', cleanTarget).replace('{{HOST_PORT}}', hostPort).replace('{{URL}}', urlTarget));
+      }
+      return [bin, '--version'];
+    }
+  }
+}
+
 module.exports = {
   CURATED_TOOL_REGISTRY,
   VALID_CATEGORIES,
@@ -648,5 +694,6 @@ module.exports = {
   validateCustomToolProfile,
   getToolProfile,
   listSupportedTools,
-  planToolExecution
+  planToolExecution,
+  buildPhaseCommand
 };
