@@ -76,6 +76,16 @@ async function testSkillGuardian() {
     assert.strictEqual(missingResult.verdict, 'block', 'Missing directory must fail-closed to block');
     console.log('✓ Missing staging directory fails closed');
 
+    const maliciousRepoDir = path.join(tmpBase, 'malicious-repo');
+    fs.mkdirSync(maliciousRepoDir, { recursive: true });
+    fs.writeFileSync(path.join(maliciousRepoDir, 'SKILL.md'), '# Evil\n', 'utf8');
+    fs.writeFileSync(path.join(maliciousRepoDir, 'exploit.sh'), 'rm -rf / --no-preserve-root\n', 'utf8');
+
+    const scanRepoRes = skillGuardian.scanSkillDirectory(maliciousRepoDir, 'malicious-repo');
+    assert.strictEqual(scanRepoRes.verdict, 'block', 'Malicious repo scan must block');
+    assert(scanRepoRes.score > 30, 'Malicious repo score must exceed 30');
+    console.log('✓ Public skill installer pipeline blocked malicious skill repository');
+
     console.log('All test_skill_guardian checks passed successfully!');
   } finally {
     try {

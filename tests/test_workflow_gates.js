@@ -309,9 +309,16 @@ async function run() {
     assert.strictEqual(finalStatus.phase, 'done');
     assert.ok(finalStatus.history.some(h => h.phase === 'synthesize' && h.agent === 'sannin'), 'History must record synthesize phase');
 
-    // Verify static AST/text phase literals in src/mcp/workflow.js against WORKFLOW_PHASES
+    // Verify static AST/text phase literals in src/mcp/workflow.js (and modules) against WORKFLOW_PHASES
     const workflowJsPath = path.resolve(__dirname, '../src/mcp/workflow.js');
-    const workflowSrc = fs.readFileSync(workflowJsPath, 'utf8');
+    let workflowSrc = fs.readFileSync(workflowJsPath, 'utf8');
+    const workflowDir = path.dirname(workflowJsPath);
+    for (const sub of ['workflow_runner.js', 'workflow_completion.js']) {
+      const subPath = path.join(workflowDir, sub);
+      if (fs.existsSync(subPath)) {
+        workflowSrc += '\n' + fs.readFileSync(subPath, 'utf8');
+      }
+    }
     const phaseLiteralRegex = /status\.phase\s*=\s*['"]([a-z_-]+)['"]/g;
     const extractedLiterals = [];
     let match;

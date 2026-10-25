@@ -246,7 +246,7 @@ function runInteractiveSearch(query) {
         output: process.stdout
       });
 
-      rl.question('\nEnter number to install (or press Enter to cancel): ', (answer) => {
+      rl.question('\nEnter number to install (or press Enter to cancel): ', async (answer) => {
         rl.close();
         const num = parseInt(answer.trim(), 10);
         if (isNaN(num) || num < 1 || num > limitedResults.length) {
@@ -265,32 +265,8 @@ function runInteractiveSearch(query) {
           return;
         }
 
-        process.stderr.write(`\n📦 Installing "${skillName}" from ${repoUrl}...\n`);
         try {
-          const isWin = process.platform === 'win32';
-          const { env: childEnv, nodePath: resolvedNode } = deployUtils.resolveCompatibleNodeEnv(process.env);
-          let run = null;
-          let pnpmError = null;
-          const runCmd = isWin ? 'pnpm.cmd' : 'pnpm';
-          try {
-            run = spawnSync(runCmd, ['dlx', 'skills', 'add', repoUrl, '--skill', skillName, '-y', '--agent', '*'], { stdio: 'inherit', shell: isWin, env: childEnv });
-            if (run.status !== 0) {
-              pnpmError = `Process exited with status ${run.status}`;
-            }
-          } catch (err) {
-            pnpmError = err.message;
-          }
-          if (!run || run.status !== 0) {
-            throw new Error(`pnpm dlx skills add failed: ${pnpmError || 'Process exited with error'}`);
-          }
-          const verifiedPath = verifySkillInstalled(skillName);
-          if (!verifiedPath) throw new Error(skillNotFoundMessage(skillName));
-          process.stderr.write(`\n✓ Skill "${skillName}" installed successfully at ${verifiedPath}!\n`);
-
-          process.stderr.write('\n🔄 Re-indexing SQLite database...\n');
-          const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
-          const migrate = spawnSync(resolvedNode, [cliPath, 'migrate'], { stdio: 'inherit', shell: isWin, env: childEnv });
-          if (migrate.status !== 0) throw new Error(`Skill migration exited with status ${migrate.status}`);
+          await addSkillDirect(repoUrl, skillName);
         } catch (err) {
           console.error(`❌ Installation failed: ${err.message}`);
         }
