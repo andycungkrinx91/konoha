@@ -17,17 +17,31 @@ const {
   getServedSkillsSet,
   resolveFlowHashFromTask,
   findInMirror,
-  logToolCall
+  logToolCall,
+  isOffensiveSkill
 } = require('./skills_common');
 const { autoMigrateProjectSkills, querySkillsByKeyword } = require('./skills_search');
 
 function getSkill(name, agentName = null, options = {}) {
+  if (typeof agentName === 'object' && agentName !== null) {
+    options = agentName;
+    agentName = options.agentName || options.agent_name || null;
+  }
   process.stderr.write(`[mcp konoha] tool_call: get_skill(name='${name}')\n`);
   try {
     autoMigrateProjectSkills();
   } catch (_) { /* ignore */ }
 
   const normName = normalizeLegacySkillName(name);
+
+  if (isOffensiveSkill(normName) && agentName && agentName !== 'akatsuki') {
+    process.stderr.write(`  [Authorization] Denied: Skill '${normName}' requires @akatsuki agent authorization.\n`);
+    const res = JSON.stringify({
+      error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.`
+    });
+    logToolCall('get_skill', normName, res, agentName);
+    return res;
+  }
   const tokenBudget = (typeof options === 'object' && options !== null && (options.tokenBudget || options.token_budget)) ? parseInt(options.tokenBudget || options.token_budget, 10) : (typeof options === 'number' ? options : 0);
   const requestedSection = (typeof options === 'object' && options !== null && options.section) ? String(options.section).trim() : null;
   const taskId = (typeof options === 'object' && options !== null && (options.taskId || options.task_id)) ? (options.taskId || options.task_id) : null;
@@ -233,6 +247,15 @@ function useSkills(skillsInput, agentName = null, options = {}) {
 
   for (const rawName of skillNames) {
     const normName = normalizeLegacySkillName(rawName);
+    if (isOffensiveSkill(normName) && agentName && agentName !== 'akatsuki') {
+      loadedSkills.push({
+        name: normName,
+        status: 'denied',
+        error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.`,
+        source: 'none'
+      });
+      continue;
+    }
     let row = null;
     let source = 'database';
     let warning = null;

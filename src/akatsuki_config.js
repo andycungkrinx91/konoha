@@ -1,15 +1,5 @@
 'use strict';
 
-/**
- * src/akatsuki_config.js
- *
- * Persistent configuration management for Akatsuki Security Agent.
- * Manages operator control over Red-Team offensive execution state (enabled/disabled).
- *
- * Storage: ~/.konoha/akatsuki_config.json
- * CLI/TUI Exclusive: Feature toggles are deliberately not exposed in the Web UI.
- */
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -24,11 +14,15 @@ function getAkatsukiConfigPath(customPath = null) {
   return path.join(os.homedir(), '.konoha', 'akatsuki_config.json');
 }
 
+function getDefaultMode() {
+  return process.platform === 'linux' ? 'lxc' : 'docker';
+}
+
 /**
  * Load persistent Akatsuki configuration.
  *
  * @param {Object} [options={}]
- * @returns {{ redteam_enabled: boolean, updated_at?: string, updated_by?: string }}
+ * @returns {{ redteam_enabled: boolean, mode: 'lxc'|'docker', updated_at?: string, updated_by?: string }}
  */
 function loadAkatsukiConfig(options = {}) {
   const configPath = getAkatsukiConfigPath(options.config_path || options.configPath);
@@ -37,8 +31,10 @@ function loadAkatsukiConfig(options = {}) {
       const raw = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null) {
+        const mode = (parsed.mode === 'lxc' || parsed.mode === 'docker') ? parsed.mode : getDefaultMode();
         return {
           redteam_enabled: parsed.redteam_enabled !== false,
+          mode,
           updated_at: parsed.updated_at,
           updated_by: parsed.updated_by
         };
@@ -49,7 +45,8 @@ function loadAkatsukiConfig(options = {}) {
   }
 
   return {
-    redteam_enabled: true
+    redteam_enabled: true,
+    mode: getDefaultMode()
   };
 }
 
@@ -67,8 +64,10 @@ function saveAkatsukiConfig(config = {}, options = {}) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
+    const mode = (config.mode === 'lxc' || config.mode === 'docker') ? config.mode : getDefaultMode();
     const data = {
       redteam_enabled: config.redteam_enabled !== false,
+      mode,
       updated_at: config.updated_at || new Date().toISOString(),
       updated_by: config.updated_by || 'cli'
     };
@@ -77,6 +76,41 @@ function saveAkatsukiConfig(config = {}, options = {}) {
   } catch (_) {
     return false;
   }
+}
+
+/**
+ * Set Akatsuki container execution mode ('lxc' | 'docker').
+ *
+ * @param {'lxc'|'docker'} mode
+ * @param {Object} [options={}]
+ * @returns {{ redteam_enabled: boolean, mode: 'lxc'|'docker', updated_at: string }}
+ */
+function setAkatsukiMode(mode, options = {}) {
+  const normMode = String(mode || '').trim().toLowerCase();
+  if (normMode !== 'lxc' && normMode !== 'docker') {
+    throw new Error(`Invalid Akatsuki mode "${mode}". Supported modes: lxc, docker`);
+  }
+  const current = loadAkatsukiConfig(options);
+  current.mode = normMode;
+  current.updated_at = new Date().toISOString();
+  current.updated_by = 'cli';
+  saveAkatsukiConfig(current, options);
+  return current;
+}
+
+/**
+ * Get current Akatsuki execution mode ('lxc' | 'docker').
+ *
+ * @param {Object} [options={}]
+ * @returns {'lxc'|'docker'}
+ */
+function getAkatsukiMode(options = {}) {
+  if (process.env.KONOHA_AKATSUKI_MODE) {
+    const envMode = process.env.KONOHA_AKATSUKI_MODE.trim().toLowerCase();
+    if (envMode === 'lxc' || envMode === 'docker') return envMode;
+  }
+  const config = loadAkatsukiConfig(options);
+  return config.mode || getDefaultMode();
 }
 
 /**
@@ -125,5 +159,7 @@ module.exports = {
   loadAkatsukiConfig,
   saveAkatsukiConfig,
   setRedTeamEnabled,
-  isRedTeamEnabled
+  isRedTeamEnabled,
+  setAkatsukiMode,
+  getAkatsukiMode
 };

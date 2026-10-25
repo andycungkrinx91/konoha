@@ -9,6 +9,7 @@
   let currentProject = $state(null);
   let projectMemories = $state([]);
   let allProjects = $state([]);
+  let activeWorkspaces = $state([]);
   let loading = $state(true);
   let saving = $state(false);
   let error = $state("");
@@ -56,6 +57,7 @@
       currentProject = curRes.profile || {};
       projectMemories = curRes.memories || [];
       contextSummary = currentProject.context_summary || "";
+      activeWorkspaces = curRes.active_workspaces || [];
       allProjects = allRes.projects || [];
       if (currentProject.project_path) {
         selectedWorkspacePath = currentProject.project_path;
@@ -316,6 +318,53 @@
       </div>
     </div>
   {:else}
+    {#if activeWorkspaces && activeWorkspaces.length > 0}
+      <!-- Active Workspaces Across Clients (OMP, Claude, Antigravity, Cursor) -->
+      <div class="glass-card-3d rounded-3xl p-6 border space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b theme-border">
+          <div>
+            <h4 class="text-sm font-black uppercase tracking-wider theme-text flex items-center gap-2">
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-[var(--theme-info)] animate-pulse"></span>
+              Active Client Workspaces ({activeWorkspaces.length})
+            </h4>
+            <p class="text-xs font-semibold theme-text-secondary mt-0.5">
+              Live sessions detected across OMP, Claude Code, Antigravity, and active IDEs
+            </p>
+          </div>
+          <span class="text-[11px] font-mono theme-text-muted self-start sm:self-auto">
+            Click to switch workspace profile
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {#each activeWorkspaces as ws}
+            <button
+              type="button"
+              onclick={() => switchWorkspace(ws.workspace_root)}
+              class="text-left p-4 rounded-2xl border transition-all cursor-pointer hover:border-[var(--theme-info)] {selectedWorkspacePath === ws.workspace_root ? 'badge-status badge-status-info border-[var(--theme-info)] shadow-md' : 'theme-bg-surface theme-border opacity-90'}"
+            >
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded badge-status badge-status-info">
+                  {ws.client.toUpperCase()}
+                </span>
+                {#if selectedWorkspacePath === ws.workspace_root}
+                  <span class="text-[10px] font-bold text-status-success flex items-center gap-1">
+                    ● Active View
+                  </span>
+                {/if}
+              </div>
+              <h5 class="text-sm font-black theme-text truncate">{ws.project_name}</h5>
+              <p class="text-[11px] font-mono theme-text-secondary truncate mt-0.5">{ws.workspace_root}</p>
+              <div class="mt-2.5 pt-2 border-t theme-border flex items-center justify-between text-[10px] font-semibold theme-text-muted">
+                <span>{ws.framework} • {ws.styling}</span>
+                <span>{ws.package_manager}</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     <!-- Active Workspace Overview Card -->
     <div class="glass-card-3d rounded-3xl p-6 lg:p-8 border space-y-6">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b theme-border">

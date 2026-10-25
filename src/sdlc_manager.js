@@ -167,10 +167,40 @@ function getTask(id, dbPath = null) {
   }
 }
 
+function reconcileStaleTasks(options = {}, dbPath = null) {
+  const maxAgeMs = typeof options === 'number' ? options : (options.maxAgeMs || 30 * 60 * 1000);
+  const conn = getDbConn(dbPath);
+  try {
+    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+    const staleRows = conn.prepare(`
+      SELECT id, status, evidence FROM sdlc_tasks
+      WHERE status IN ('in_progress', 'remediating', 'pending_plan_approval') AND updated_at < ?
+    `).all(cutoff);
+
+    const reconciledIds = [];
+    if (staleRows.length > 0) {
+      const now = new Date().toISOString();
+      const updateStmt = conn.prepare(`
+        UPDATE sdlc_tasks SET status = 'timed_out', evidence = ?, updated_at = ? WHERE id = ?
+      `);
+      for (const row of staleRows) {
+        const ev = safeJsonParse(row.evidence, {});
+        ev.reconciliation = { previous_status: row.status, reconciled_at: now, reason: 'Task lease expired' };
+        updateStmt.run(JSON.stringify(ev), now, row.id);
+        reconciledIds.push(row.id);
+      }
+    }
+    return { reconciled_count: reconciledIds.length, reconciled_ids: reconciledIds };
+  } finally {
+    try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
+  }
+}
+
 /**
  * Lists SDLC tasks with optional filters.
  */
 function listTasks({ projectPath = null, sessionId = null, client = null, status = null, limit = 50 } = {}, dbPath = null) {
+  try { reconcileStaleTasks({}, dbPath); } catch (_) { /* ignore */ }
   const conn = getDbConn(dbPath);
   try {
     let sql = 'SELECT * FROM sdlc_tasks WHERE 1=1';
@@ -656,5 +686,6 @@ module.exports = {
   detectReviewIndependence,
   evaluateAntiSlopDeliveryGate,
   generateSlopFixTask,
+  reconcileStaleTasks,
   safeJsonParse
 };

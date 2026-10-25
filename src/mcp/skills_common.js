@@ -15,6 +15,25 @@ const { detectActiveClient } = require('./client_detection');
 const USER_AGENTS_YAML = path.join(AGENTS_DIR, 'agents.yaml');
 const MAX_CONTENT_SIZE = 12000;
 
+const OFFENSIVE_SKILL_PREFIXES = ['akatsuki-skill', 'pentest', 'patch-diff-exploit'];
+
+function isOffensiveSkill(skillName, tags = '') {
+  if (!skillName || typeof skillName !== 'string') return false;
+  const lower = skillName.toLowerCase();
+  for (const p of OFFENSIVE_SKILL_PREFIXES) {
+    if (lower === p || lower.startsWith(p + '/') || lower.startsWith(p + '-')) {
+      return true;
+    }
+  }
+  if (tags && typeof tags === 'string') {
+    const tLower = tags.toLowerCase();
+    if (tLower.includes('red-team') || tLower.includes('pentest') || tLower.includes('offensive')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function normalizeLegacySkillName(skill) {
   if (typeof skill !== 'string') return skill;
   if (skill === 'deep-code-explorer') return 'genin-skill';
@@ -345,5 +364,6 @@ module.exports = {
   getMirrorRoots,
   findInMirror,
   searchMirrorSkills,
-  logToolCall
+  logToolCall,
+  isOffensiveSkill
 };

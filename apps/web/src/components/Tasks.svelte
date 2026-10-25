@@ -32,7 +32,10 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     pending_human_signoff: 'badge-status badge-status-warning',
     completed: 'badge-status badge-status-success',
     verified: 'badge-status badge-status-info',
-    blocked: 'badge-status badge-status-danger'
+    blocked: 'badge-status badge-status-danger',
+    timed_out: 'badge-status badge-status-danger',
+    stale: 'badge-status badge-status-danger',
+    failed: 'badge-status badge-status-danger'
   };
 
   function statusClass(status) {
@@ -176,6 +179,23 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
       await loadTasks();
     } catch (err) {
       toast.error('Failed to clear tasks: ' + err.message);
+    }
+  }
+
+  async function reconcileStaleTasks() {
+    tasksLoading = true;
+    try {
+      const res = await api.post('/api/v1/sdlc/tasks/reconcile', {});
+      if (res.reconciled_count > 0) {
+        toast.success(`Reconciled ${res.reconciled_count} stale in-progress task(s)`);
+      } else {
+        toast.info('No stale tasks found. All active tasks have live heartbeats.');
+      }
+      await loadTasks();
+    } catch (err) {
+      toast.error('Reconciliation failed: ' + err.message);
+    } finally {
+      tasksLoading = false;
     }
   }
 
@@ -355,7 +375,19 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
           <option value="completed">Completed</option>
           <option value="verified">Verified</option>
           <option value="blocked">Blocked</option>
+          <option value="timed_out">Timed Out (Stale)</option>
         </select>
+        <button
+          class="btn-3d btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-2 rounded-[3px] font-bold text-xs cursor-pointer disabled:opacity-50"
+          onclick={reconcileStaleTasks}
+          disabled={tasksLoading}
+          title="Reconcile old tasks stuck in_progress past their heartbeat lease"
+        >
+          <svg class="w-3.5 h-3.5 text-[var(--theme-warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Reconcile Stale
+        </button>
         <button
           class="btn-3d btn-3d-secondary inline-flex items-center gap-2 px-4 py-2 rounded-[3px] font-bold text-xs cursor-pointer disabled:opacity-50"
           onclick={loadTasks}

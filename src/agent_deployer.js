@@ -444,6 +444,7 @@ function deployProjectWorkspace(projectRoot, options = {}) {
     const ompAgentDir = path.join(targetPath, '.omp', 'agent');
     fs.mkdirSync(ompAgentDir, { recursive: true });
     const launcherScript = fs.existsSync(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;
+    const isWin = process.platform === 'win32';
     const ompConfig = {
       $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',
       mcpServers: {
@@ -453,12 +454,12 @@ function deployProjectWorkspace(projectRoot, options = {}) {
           type: 'stdio'
         },
         semble: {
-          command: 'uvx',
+          command: isWin ? 'uvx.cmd' : 'uvx',
           args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
           type: 'stdio'
         },
         aislop: {
-          command: 'npx',
+          command: isWin ? 'npx.cmd' : 'npx',
           args: ['-y', '--prefer-offline', '-p', 'aislop', 'aislop-mcp'],
           type: 'stdio'
         }
@@ -501,15 +502,7 @@ function deployProjectWorkspace(projectRoot, options = {}) {
     const ignoreBlock = [
       '## Start Konoha config+skill',
       '.agents',
-      '.claude*',
-      '.commandcode*',
-      '.cursor*',
       '.cursorrules*',
-      '.gemini*',
-      '.omp*',
-      'AGENTS.md',
-      'CLAUDE.md',
-      'GEMINI.md',
       '## End Konoha config+skill'
     ].join('\n');
 

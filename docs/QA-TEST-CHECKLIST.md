@@ -15,7 +15,11 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.4`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.7`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode, lab status, and tools inventory. | `PASS` (verified) |
+| `konoha akatsuki enable` | - | Enables Red-Team execution and idempotently provisions isolated lab container. | `PASS` (verified) |
+| `konoha akatsuki disable` | - | Disables Red-Team execution and stops lab container (fail-closed). | `PASS` (verified) |
+| `konoha akatsuki mode` | `[lxc\|docker]` | View or set container execution engine mode (`lxc` / `docker`). | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
 | `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
@@ -551,6 +555,21 @@ npx aislop scan --changes
 | **9. Isolated Sandboxing & Clean Packaging** | `tests/run_all.js` | Complete isolation in temporary directories; zero test databases or cache leaks in workspace; clean tarball packaging. | `PASS` (isolation verified) |
 | **10. Zero-AI-Slop Pre-Delivery Gate** | `npx aislop scan --changes` | Changed scope evaluated; perfect 100/100 score, 0 errors, 0 warnings, zero AI slop comments or patterns. | `PASS` (100/100 Healthy) |
 | **11. Complete Component Modularization (< 700 lines)** | `wc -l` across all modified files | Modularized 8 oversized legacy components (`document_engine.js` into 8 submodules, `workflow.js` into 5 submodules, `mcp_clients_manager.js` into 4 submodules, `agent_manager.js` into 4 submodules, `persona_memory.js` into 4 submodules, `skills.js` into 4 submodules, `memory_reporting.js` into 3 submodules, `runtime.js` into 4 submodules). 100% of files strictly under 700 lines. | `PASS` (verified all < 700 lines) |
+
+---
+
+## Section 16: v2.2.7 Feedback Remediation, Cross-Client Git Parity, Akatsuki Lab & UI Fixes QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Fresh-Install Client Git & Windows Runtime Parity** | `node tests/test_cli_project_commands.js` & `node tests/test_cross_platform.js` | Injected `.gitignore` preserves `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and client configs while cleanly ignoring local cache `.agents`; CLI global shims on Windows normalize paths with forward slashes for Git Bash `/bin/sh` to prevent escape sequence corruption; OMP and client MCP writers use cross-platform `node`, `uvx.cmd`, and `npx.cmd`. | `PASS` (verified cross-platform) |
+| **2. Akatsuki Lab Mode Switching & Auto-Provisioning** | `node tests/test_akatsuki_mode_and_templates.js` | `konoha akatsuki mode [lxc\|docker]` toggles container execution engine; `konoha akatsuki enable` idempotently provisions isolated container using checked-in templates (`src/templates/akatsuki_lab/`); `konoha akatsuki disable` cleanly stops container and tears down attack processes. | `PASS` (verified in tests) |
+| **3. Akatsuki-Only Offensive Skill Routing Authorization** | `node tests/test_akatsuki_mode_and_templates.js` | Skill retrieval (`get_skill`) and discovery (`find_skill`) enforce strict authorization gates: non-akatsuki agents (`genin`, `kage`, `jonin`, `anbu`, `chunin`, `sannin`, `tokubetsu-jonin`) receive 0 offensive skills and explicit access restriction error; `@akatsuki` specialist alone receives offensive skills. | `PASS` (verified authorization) |
+| **4. Database Schema v2.2.7 Hygiene & Parity** | `node tests/test_database_migration.js` & `node tests/test_db_transactions.js` | `sdlc_tasks` table definition incorporates `session_id` and `client` natively; added high-performance indexes `idx_sdlc_tasks_updated`, `idx_active_sessions_ws`, `idx_active_sessions_client`, and `idx_active_sessions_last_active`; legacy column prunings execute idempotently; 0 junk tables. | `PASS` (verified schema parity) |
+| **5. Multi-Client Workspace Aggregation in `/context`** | `node tests/test_stale_tasks_and_workspaces.js` & Playwright E2E | `/api/v1/projects/current` aggregates active workspaces across all active clients (`omp`, `claude`, `antigravity`) in distinct folder paths; `Context.svelte` renders multi-client active workspace selector cards allowing instantaneous profile switching. | `PASS` (verified multi-client) |
+| **6. Dark-Mode Legibility of Ninja's Soul Creed** | `pnpm --dir apps/web exec playwright test tests/e2e/feedback_ui_fixes.spec.js` | `html.theme-dark .gradient-text` updated with luminous accent stops; `Persona.svelte` creed title `Konohagakure Core Doctrine — Ninja's Soul` styled with high-contrast text-amber-500/dark:text-amber-400; verified visible, legible, and high-contrast in dark mode via Playwright. | `PASS` (verified legibility) |
+| **7. Stale In-Progress Task Lifecycle Reconciliation** | `node tests/test_stale_tasks_and_workspaces.js` & `Tasks.svelte` | `reconcileStaleTasks()` reconciles tasks whose active lease expired (> 30 min) to terminal `timed_out` status without modifying live active tasks; `Tasks.svelte` exposes `Reconcile Stale` button and `Timed Out (Stale)` status badge. | `PASS` (verified reconciliation) |
+
 
 
 

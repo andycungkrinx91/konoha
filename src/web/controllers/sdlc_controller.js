@@ -95,6 +95,16 @@ async function handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method) {
     }
   }
 
+  if (method === 'POST' && (pathname === '/api/v1/sdlc/tasks/reconcile' || pathname === '/api/v1/tasks/reconcile')) {
+    try {
+      const result = sdlcManager.reconcileStaleTasks();
+      broadcastEvent('sdlc_tasks_updated', { action: 'reconcile', ...result });
+      return sendJson(res, 200, { ok: true, ...result });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
   if (method === 'GET' && pathname === '/api/v1/sdlc/config') {
     try {
       const projectPath = parsedUrl.searchParams.get('project') || process.cwd();

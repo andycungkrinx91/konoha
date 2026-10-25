@@ -1046,6 +1046,12 @@ html.theme-dark .modal-card,
   -webkit-text-fill-color: transparent;
 }
 
+html.theme-dark .gradient-text {
+  background: linear-gradient(135deg, var(--color-accent, #38bdf8) 0%, var(--theme-grad-3, #38bdf8) 45%, var(--theme-grad-4, #a78bfa) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .gradient-badge,
 .badge-3d {
   background: var(--theme-4gradient) !important;

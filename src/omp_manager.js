@@ -119,12 +119,15 @@ function buildOmpManagedContract() {
 }
 
 function buildOmpMcpServers(options = {}) {
+  const isWin = process.platform === 'win32';
   const launcherPath = options.launcherPath || (fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH);
+  const npxCmd = isWin ? 'npx.cmd' : 'npx';
+  const uvxCmd = options.uvxCmd || (isWin ? 'uvx.cmd' : 'uvx');
 
   return {
     konoha: {
       type: 'stdio',
-      command: 'node',
+      command: process.execPath || 'node',
       args: [launcherPath],
       env: {
         ACTIVE_CLIENT: 'omp',
@@ -134,7 +137,7 @@ function buildOmpMcpServers(options = {}) {
     },
     semble: {
       type: 'stdio',
-      command: 'uvx',
+      command: uvxCmd,
       args: [
         '--from',
         SEMBLE_PACKAGE,
@@ -145,7 +148,7 @@ function buildOmpMcpServers(options = {}) {
     },
     aislop: {
       type: 'stdio',
-      command: 'npx',
+      command: npxCmd,
       args: [
         '-y',
         '-p',

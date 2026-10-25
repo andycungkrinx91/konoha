@@ -308,8 +308,11 @@ function reconcileGlobalCommand() {
 
     for (const name of shimNames) {
       const shimPath = path.join(dir, name);
+      const shSourceCli = sourceCli.replace(/\\/g, '/');
+      const shPackageCli = packageCli.replace(/\\/g, '/');
+      const shNodeCmd = nodeCmd.replace(/\\/g, '/');
       const contents = {
-        'konoha': `#!/bin/sh\nif [ -f "${sourceCli}" ]; then\n  exec "${nodeCmd}" "${sourceCli}" "$@"\nelif [ -f "${packageCli}" ]; then\n  exec "${nodeCmd}" "${packageCli}" "$@"\nelse\n  exec "${nodeCmd}" "${sourceCli}" "$@"\nfi\n`,
+        'konoha': `#!/bin/sh\nif [ -f "${shSourceCli}" ]; then\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nelif [ -f "${shPackageCli}" ]; then\n  exec "${shNodeCmd}" "${shPackageCli}" "$@"\nelse\n  exec "${shNodeCmd}" "${shSourceCli}" "$@"\nfi\n`,
         'konoha.cmd': `@echo off\r\nif exist "${sourceCli}" (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n) else if exist "${packageCli}" (\r\n  "${nodeCmd}" "${packageCli}" %*\r\n) else (\r\n  "${nodeCmd}" "${sourceCli}" %*\r\n)\r\n`,
         'konoha.ps1': `if (Test-Path "${sourceCli}") {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n} elseif (Test-Path "${packageCli}") {\r\n  & "${nodeCmd}" "${packageCli}" @args\r\n} else {\r\n  & "${nodeCmd}" "${sourceCli}" @args\r\n}\r\n`
       };

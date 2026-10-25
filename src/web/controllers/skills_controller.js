@@ -394,27 +394,58 @@ async function handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method) {
     }
   }
 
-  if (method === 'GET' && pathname === '/api/v1/projects/current') {
+  if (method === 'GET' && (pathname === '/api/v1/projects/current' || pathname === '/api/v1/projects/active')) {
     try {
       const personaMemory = require('../../persona_memory');
       let targetPath = parsedUrl.searchParams.get('path');
-      if (!targetPath || !targetPath.trim()) {
+      const activeWorkspaces = [];
+
+      try {
+        const conn = db.getConnection();
         try {
-          const conn = db.getConnection();
-          try {
-            const activeRow = conn.prepare(`
-              SELECT workspace_root FROM active_sessions
-              WHERE workspace_root IS NOT NULL AND workspace_root != 'unknown' AND workspace_root != ''
-              ORDER BY last_active_at DESC LIMIT 1
-            `).get();
-            if (activeRow && activeRow.workspace_root && fs.existsSync(activeRow.workspace_root)) {
-              targetPath = activeRow.workspace_root;
+          const rows = conn.prepare(`
+            SELECT client, workspace_root, MAX(last_active_at) AS last_active_at
+            FROM active_sessions
+            WHERE workspace_root IS NOT NULL AND workspace_root != 'unknown' AND workspace_root != ''
+            GROUP BY client, workspace_root
+            ORDER BY last_active_at DESC
+          `).all();
+
+          const seen = new Set();
+          for (const r of rows) {
+            let pRoot = r.workspace_root;
+            try { pRoot = path.resolve(pRoot); } catch (_) { /* ignore */ }
+            const key = (r.client || 'unknown') + ':' + pRoot;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            let prof = personaMemory.getProjectProfile(pRoot);
+            if (!prof && fs.existsSync(pRoot)) {
+              const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null);
+              prof = personaMemory.getProjectProfile(pHash);
             }
-          } finally {
-            conn.close();
+            activeWorkspaces.push({
+              client: r.client || 'generic',
+              workspace_root: pRoot,
+              project_name: prof?.project_name || path.basename(pRoot),
+              project_hash: prof?.project_hash || '',
+              framework: prof?.framework || 'General',
+              styling: prof?.styling || 'CSS',
+              package_manager: prof?.package_manager || 'pnpm',
+              last_active_at: r.last_active_at
+            });
           }
-        } catch (_) { /* intentional best-effort fallback */ }
-      }
+
+          if (!targetPath || !targetPath.trim()) {
+            if (activeWorkspaces.length > 0) {
+              targetPath = activeWorkspaces[0].workspace_root;
+            }
+          }
+        } finally {
+          conn.close();
+        }
+      } catch (_) { /* intentional best-effort fallback */ }
+
       if (!targetPath || !targetPath.trim()) {
         try {
           const rs = require('../../mcp/runtime_state');
@@ -434,7 +465,11 @@ async function handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method) {
         profile = personaMemory.getProjectProfile(pHash);
       }
       const mems = personaMemory.listMemories({ projectPath: targetPath, allSessions: true, limit: 50 });
-      return sendJson(res, 200, { profile: profile || {}, memories: mems || [] });
+      return sendJson(res, 200, {
+        profile: profile || {},
+        memories: mems || [],
+        active_workspaces: activeWorkspaces
+      });
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }

@@ -124,6 +124,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
         slop_result TEXT DEFAULT '{}',
         slop_cycles INTEGER DEFAULT 0,
         project_path TEXT DEFAULT '',
+        session_id TEXT DEFAULT '',
+        client TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -397,6 +399,10 @@ function setupSchema(conn, backupDatabaseFn = null) {
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_project ON sdlc_tasks(project_path);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_session ON sdlc_tasks(session_id);
     CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_client ON sdlc_tasks(client);
+    CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_updated ON sdlc_tasks(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_active_sessions_ws ON active_sessions(workspace_root);
+    CREATE INDEX IF NOT EXISTS idx_active_sessions_client ON active_sessions(client);
+    CREATE INDEX IF NOT EXISTS idx_active_sessions_last_active ON active_sessions(last_active_at);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_status ON prompt_queue(status);
     CREATE INDEX IF NOT EXISTS idx_prompt_queue_created ON prompt_queue(created_at);
   `);

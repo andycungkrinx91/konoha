@@ -28,6 +28,20 @@ const INVALID_LAB_NAME_REASON = 'Invalid lab identity. Red-team sandbox requires
  * @returns {'lxc'|'docker'|null}
  */
 function getRequiredEngine(platform = process.platform) {
+  if (platform && platform !== process.platform) {
+    if (platform === 'linux') return 'lxc';
+    if (platform === 'win32' || platform === 'darwin') return 'docker';
+    return null;
+  }
+
+  try {
+    const { getAkatsukiMode } = require('./akatsuki_config');
+    const configuredMode = getAkatsukiMode();
+    if (configuredMode === 'lxc' || configuredMode === 'docker') {
+      return configuredMode;
+    }
+  } catch (_) { /* ignore */ }
+
   if (platform === 'linux') {
     return 'lxc';
   }
@@ -216,7 +230,9 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
         let networksObj = {};
         try {
           networksObj = JSON.parse(rawNetworks);
-        } catch (_) {}
+        } catch (_) {
+          /* ignore malformed json */
+        }
 
         const networkNames = Object.keys(networksObj);
         if (networkNames.length === 0) {
@@ -346,32 +362,23 @@ function validateLabPrerequisites(params = {}, options = {}) {
 
   // Rule 4: Verify lab status and network isolation
   const labStatus = options.mockLabStatus || getLabStatus(DEFAULT_LAB_NAME, engine, options);
+  const failureReport = (reason) => ({
+    ready: false,
+    declined: false,
+    host_execution_denied: true,
+    lab_name: DEFAULT_LAB_NAME,
+    engine,
+    network_isolated: false,
+    cleanup_confirmed: true,
+    reason
+  });
 
   if (!labStatus.exists && !options.skip_container_precheck) {
-    // If container doesn't exist yet, we still know the engine is present and lab is configured
-    return {
-      ready: false,
-      declined: false,
-      host_execution_denied: true,
-      lab_name: DEFAULT_LAB_NAME,
-      engine,
-      network_isolated: false,
-      cleanup_confirmed: true,
-      reason: `Sandbox container "${DEFAULT_LAB_NAME}" does not exist in ${engine}. Prepare or launch the container before executing attacks.`
-    };
+    return failureReport(`Sandbox container "${DEFAULT_LAB_NAME}" does not exist in ${engine}. Prepare or launch the container before executing attacks.`);
   }
 
   if (labStatus.exists && !labStatus.network_isolated) {
-    return {
-      ready: false,
-      declined: false,
-      host_execution_denied: true,
-      lab_name: DEFAULT_LAB_NAME,
-      engine,
-      network_isolated: false,
-      cleanup_confirmed: true,
-      reason: `Container "${DEFAULT_LAB_NAME}" network isolation failed: container must not share the host network stack.`
-    };
+    return failureReport(`Container "${DEFAULT_LAB_NAME}" network isolation failed: container must not share the host network stack.`);
   }
 
   return {
@@ -472,6 +479,96 @@ function teardownLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
   }
 }
 
+/**
+ * Idempotently provisions the akatsuki-lab container using the selected mode template.
+ *
+ * @param {string} [labName=DEFAULT_LAB_NAME]
+ * @param {string} [engine=null]
+ * @param {Object} [options={}]
+ * @returns {{ ok: boolean, status?: string, error?: string, lab_name: string, engine: string, network_isolated?: boolean }}
+ */
+function provisionLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
+  if (options.mockProvisionResult) {
+    return options.mockProvisionResult;
+  }
+
+  const targetEngine = engine || getRequiredEngine(options.platform || process.platform);
+  const runner = options.runner || defaultCommandRunner;
+
+  const engineCheck = checkEngineInstalled(targetEngine, options);
+  if (!engineCheck.installed) {
+    return { ok: false, error: DECLINE_NO_ENGINE, lab_name: labName, engine: targetEngine };
+  }
+
+  const currentStatus = getLabStatus(labName, targetEngine, options);
+  if (currentStatus.running && currentStatus.network_isolated) {
+    return { ok: true, status: 'already_running', lab_name: labName, engine: targetEngine, network_isolated: true };
+  }
+
+  const path = require('path');
+  const templateScript = targetEngine === 'lxc'
+    ? path.join(__dirname, 'templates', 'akatsuki_lab', 'lxc', 'setup.sh')
+    : path.join(__dirname, 'templates', 'akatsuki_lab', 'docker', 'setup.sh');
+
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(templateScript)) {
+      const res = runner('bash', [templateScript], { timeout: 60000 });
+      if (res && res.status !== 0) {
+        return { ok: false, error: res.stderr || 'Lab setup script failed', lab_name: labName, engine: targetEngine };
+      }
+    } else if (targetEngine === 'lxc') {
+      runner('lxc', ['network', 'create', 'labbr0', 'ipv4.address=10.77.77.1/24', 'ipv4.nat=false', 'ipv6.address=none'], { timeout: 10000 });
+      runner('lxc', ['init', 'images:debian/12', labName, '--network=labbr0'], { timeout: 30000 });
+      runner('lxc', ['start', labName], { timeout: 15000 });
+    } else if (targetEngine === 'docker') {
+      runner('docker', ['network', 'create', '--internal', '--subnet=10.77.77.0/24', 'akatsuki-net'], { timeout: 10000 });
+      runner('docker', ['run', '-d', '--name', labName, '--network', 'akatsuki-net', '--restart', 'unless-stopped', 'debian:12-slim', 'tail', '-f', '/dev/null'], { timeout: 30000 });
+    }
+  } catch (err) {
+    return { ok: false, error: err.message, lab_name: labName, engine: targetEngine };
+  }
+
+  const postStatus = getLabStatus(labName, targetEngine, options);
+  return {
+    ok: Boolean(postStatus.running || postStatus.exists),
+    status: postStatus.running ? 'running' : 'created',
+    lab_name: labName,
+    engine: targetEngine,
+    network_isolated: postStatus.network_isolated,
+    details: postStatus.details
+  };
+}
+
+/**
+ * Stop and clean up Konoha-owned lab container resources.
+ *
+ * @param {string} [labName=DEFAULT_LAB_NAME]
+ * @param {string} [engine=null]
+ * @param {Object} [options={}]
+ * @returns {{ ok: boolean, status: string, lab_name: string, engine: string }}
+ */
+function stopLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
+  if (options.mockStopResult) {
+    return options.mockStopResult;
+  }
+
+  const targetEngine = engine || getRequiredEngine(options.platform || process.platform);
+  const runner = options.runner || defaultCommandRunner;
+
+  teardownLab(labName, targetEngine, options);
+
+  try {
+    if (targetEngine === 'lxc') {
+      runner('lxc', ['stop', labName, '--force'], { timeout: 10000 });
+    } else if (targetEngine === 'docker') {
+      runner('docker', ['stop', labName], { timeout: 10000 });
+    }
+  } catch (_) { /* ignore best-effort container stop */ }
+
+  return { ok: true, status: 'stopped', lab_name: labName, engine: targetEngine };
+}
+
 module.exports = {
   DEFAULT_LAB_NAME,
   DECLINE_NO_ENGINE,
@@ -482,5 +579,7 @@ module.exports = {
   getLabStatus,
   validateLabPrerequisites,
   executeInLab,
-  teardownLab
+  teardownLab,
+  provisionLab,
+  stopLab
 };
