@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 const GUARDIAN_THRESHOLD = 30;
@@ -135,16 +136,54 @@ function readFileContentSafely(filePath, relativePath) {
   }
 }
 
-function isInternalAllowlistedLine(skillName, relPath, lineNo, lineText) {
-  const key = `${skillName}:${relPath}:${lineNo}`;
-  if (key === 'kage-skill:SKILL.md:109' && lineText.includes('Destructive Commands Prohibited')) return true;
-  if (key === 'sannin-skill:SKILL.md:109' && lineText.includes('Destructive Commands Prohibited')) return true;
-  if (key === 'konoha:SKILL.md:546' && lineText.includes('Dangerous or destructive commands')) return true;
-  if (key === 'jonin-skill:references/owasp-security.md:198' && lineText.includes('userInput: "; rm -rf /"')) return true;
+const REPO_SHIPPED_SKILLS_DIRS = [
+  path.resolve(__dirname, '../src/templates/skills'),
+  path.resolve(__dirname, '../agent/skills'),
+  path.resolve(__dirname, '../.agents/skills')
+];
+
+const HASH_PINNED_INTERNAL_LINES = new Map([
+  ['kage-skill:SKILL.md:109', 'e347bce4b6757038fcb6494b1eb7d3058a1676a40313a872c8756d5cea5feeab'],
+  ['sannin-skill:SKILL.md:109', '3cd07b6cce8af5f06fe3eca6ceef4b344aba81284cbf728627a8f99d81752bdb'],
+  ['konoha:SKILL.md:546', 'deaea5f3c3cf1d0795118c2868efeae8eb704b24f08cd175b18dd462fcda352b'],
+  ['jonin-skill:references/owasp-security.md:198', '152be3ef15ce5a59c0d040bce9f4de0b6900d5f58430b9b78ae533f4acb72b89']
+]);
+
+function isInsideRepoShippedSkills(filePath) {
+  try {
+    const real = fs.realpathSync(filePath);
+    return REPO_SHIPPED_SKILLS_DIRS.some(dir => {
+      try {
+        const realDir = fs.realpathSync(dir);
+        return real.startsWith(realDir + path.sep);
+      } catch (_) {
+        return false;
+      }
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+function isInternalAllowlistedLine(filePath, relPath, lineNo, lineText) {
+  if (!isInsideRepoShippedSkills(filePath)) {
+    return false;
+  }
+  const lineHash = crypto.createHash('sha256').update(lineText.trim()).digest('hex');
+  for (const [key, expectedHash] of HASH_PINNED_INTERNAL_LINES.entries()) {
+    if (lineHash === expectedHash) {
+      const parts = key.split(':');
+      const expectedRel = parts.slice(1, -1).join(':');
+      const expectedLine = parseInt(parts[parts.length - 1], 10);
+      if (expectedLine === lineNo && relPath.endsWith(expectedRel)) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 
-function scanFileContent(filePath, relativePath, skillName = '') {
+function scanFileContent(filePath, relativePath) {
   const findings = [];
   const readRes = readFileContentSafely(filePath, relativePath);
   if (readRes.finding) {
@@ -158,7 +197,7 @@ function scanFileContent(filePath, relativePath, skillName = '') {
     const line = lines[idx];
     const lineNo = idx + 1;
 
-    if (isInternalAllowlistedLine(skillName, relativePath, lineNo, line)) {
+    if (isInternalAllowlistedLine(filePath, relativePath, lineNo, line)) {
       continue;
     }
 
@@ -272,7 +311,7 @@ function scanSkillDirectory(skillDir, skillName = path.basename(skillDir)) {
         continue;
       }
 
-      const fileFindings = scanFileContent(item.fullPath, item.relPath, skillName);
+      const fileFindings = scanFileContent(item.fullPath, item.relPath);
       findings.push(...fileFindings);
     }
   } catch (scanErr) {

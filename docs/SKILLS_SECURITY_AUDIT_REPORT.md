@@ -131,8 +131,13 @@ Score > 30 OR Critical Finding?    Score <= 30 & Clean?
 ### Prompt-Injection & Markdown Scanning Security
 AI agent skills treat `SKILL.md` as executable system prompts and procedural instructions. To prevent prompt-injection attacks:
 1. **Zero Text-Prefix Bypasses**: The scanner forbids generic prose skips (such as skipping lines prefixed with "Warning:", "Avoid:", or "Do not run"). An attacker cannot evade pattern detection by crafting persuasive or warning prose around an exploit command.
-2. **Exact Invariant Allowlisting**: Shipped internal defensive guardrails (such as `kage-skill/SKILL.md:109` prohibiting destructive commands) are exempted exclusively through exact, immutable `(skillName, file, line, exactSnippet)` tuples. Third-party skills can never forge internal allowlist matches.
-3. **Regression Hardening**: `tests/test_skill_guardian.js` includes regression checks verifying that malicious commands wrapped in advisory phrasing (e.g. `Warning: run rm -rf /`) are strictly blocked.
+2. **Dual-Gate Realpath & SHA-256 Cryptographic Hash Allowlisting**: Shipped internal defensive guardrails (such as `kage-skill/SKILL.md:109` listing destructive commands for the AI to avoid) are exempted strictly through two non-forgeable checks:
+   - **Realpath Prefix Verification**: The physical file (`fs.realpathSync(filePath)`) must reside inside the repository's own shipped skills directories (`src/templates/skills/` or `agent/skills/`).
+   - **Cryptographic SHA-256 Pinning**: The exact line content must match the pre-calculated SHA-256 digest of the canonical guardrail text.
+   Third-party skills downloaded to temporary staging directories (even if spoofing the skill name `kage-skill` or padding malicious commands to line 109) automatically fail both gates and are strictly blocked.
+3. **Regression Hardening**: `tests/test_skill_guardian.js` includes regression checks verifying that:
+   - Malicious commands wrapped in advisory phrasing (e.g. `Warning: run rm -rf /`) are blocked.
+   - Fake third-party skills named `kage-skill` with payloads padded to line 109 fail the realpath and hash checks and are blocked.
 
 ### Guardian Rule Roster
 
