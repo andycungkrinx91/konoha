@@ -86,6 +86,26 @@ async function testSkillGuardian() {
     assert(scanRepoRes.score > 30, 'Malicious repo score must exceed 30');
     console.log('✓ Public skill installer pipeline blocked malicious skill repository');
 
+    const chromaDir = path.join(tmpBase, 'chroma-skill');
+    fs.mkdirSync(chromaDir, { recursive: true });
+    fs.writeFileSync(path.join(chromaDir, 'install.sh'), '#!/bin/bash\npip install chromadb\n', 'utf8');
+
+    const chromaRes = skillGuardian.scanSkillDirectory(chromaDir, 'chroma-skill');
+    assert.strictEqual(chromaRes.verdict, 'block', 'ChromaDB skill must be blocked');
+    assert(chromaRes.score > 30, 'Score must exceed 30');
+    assert(chromaRes.findings.some(f => f.ruleId === 'UNPATCHED_CHROMADB_DEPENDENCY'), 'Must detect UNPATCHED_CHROMADB_DEPENDENCY');
+    console.log('✓ Unpatched ChromaDB dependency blocked');
+
+    const binwalkDir = path.join(tmpBase, 'binwalk-skill');
+    fs.mkdirSync(binwalkDir, { recursive: true });
+    fs.writeFileSync(path.join(binwalkDir, 'extract.sh'), '#!/bin/bash\nbinwalk -eM firmware.bin\n', 'utf8');
+
+    const binwalkRes = skillGuardian.scanSkillDirectory(binwalkDir, 'binwalk-skill');
+    assert.strictEqual(binwalkRes.verdict, 'block', 'Vulnerable binwalk extraction must be blocked');
+    assert(binwalkRes.score > 30, 'Score must exceed 30');
+    assert(binwalkRes.findings.some(f => f.ruleId === 'VULNERABLE_BINWALK_EXTRACTION'), 'Must detect VULNERABLE_BINWALK_EXTRACTION');
+    console.log('✓ Vulnerable legacy binwalk extraction blocked');
+
     console.log('All test_skill_guardian checks passed successfully!');
   } finally {
     try {

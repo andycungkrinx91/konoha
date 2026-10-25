@@ -70,6 +70,27 @@ const DANGEROUS_PATTERNS = [
     impact: 25,
     regex: /chmod\s+(?:-[R\w]*\s+)?(?:777|a\+rwx|u\+s)\s+/,
     message: 'Excessive file permissions modification (chmod 777 or SUID)'
+  },
+  {
+    id: 'UNPATCHED_CHROMADB_DEPENDENCY',
+    severity: 'high',
+    impact: 40,
+    regex: /(?:(?:pip|pip3)\s+install\s+(?:--?\S+\s+)*chromadb\b|(?:import\s+chromadb|from\s+chromadb\b))/i,
+    message: 'Unpatched ChromaDB dependency detected (CVE-2026-45830 has no official patch); drop or isolate dependency'
+  },
+  {
+    id: 'VULNERABLE_BINWALK_EXTRACTION',
+    severity: 'high',
+    impact: 40,
+    regex: /(?:binwalk\s+-(?:eM|Me|e\b|C\b)|(?:pip|pip3)\s+install\s+(?:--?\S+\s+)*binwalk\b|subprocess\.(?:run|call|Popen)\s*\(\s*\[\s*['"]binwalk['"].*-(?:eM|Me|e)\b)/,
+    message: 'Vulnerable legacy binwalk extraction or installation detected (CVE-2021-4287); replace with unblob or binwalk3'
+  },
+  {
+    id: 'VULNERABLE_PYMETASPLOIT3',
+    severity: 'high',
+    impact: 40,
+    regex: /(?:(?:pip|pip3)\s+install\s+(?:--?\S+\s+)*pymetasploit3\b|(?:import\s+pymetasploit3|from\s+pymetasploit3\b))/i,
+    message: 'Vulnerable pymetasploit3 library detected (CVE-2026-5463 command injection); use native RPC'
   }
 ];
 
@@ -122,11 +143,24 @@ function scanFileContent(filePath, relativePath) {
     return findings;
   }
   const content = readRes.content;
+  const isMd = path.extname(filePath).toLowerCase() === '.md';
+  let inCodeFence = false;
 
   const lines = content.split(/\r?\n/);
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx];
     const lineNo = idx + 1;
+
+    if (isMd && line.trim().startsWith('```')) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+
+    if (isMd && !inCodeFence) {
+      if (/^\s*(?:[-*]|\d+\.)?\s*(?:\*\*)?(?:strictly\s+)?(?:forbid|prohibit|never\s+run|do\s+not\s+run|prevent|avoid|warning:)\b/i.test(line)) {
+        continue;
+      }
+    }
 
     for (const pattern of DANGEROUS_PATTERNS) {
       if (pattern.regex.test(line)) {
