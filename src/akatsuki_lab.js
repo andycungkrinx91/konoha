@@ -108,45 +108,163 @@ function getLabStatus(labName = DEFAULT_LAB_NAME, engine, options = {}) {
 
   try {
     if (targetEngine === 'lxc') {
-      // Query LXC container state via lxc list or lxc-info
+      // 1. Query LXC container state and network device mapping
       const listRes = runner('lxc', ['list', `^${labName}$`, '--format=json'], { timeout: 5000 });
+      let isRunning = false;
+      let bridgeName = null;
+      const containerIps = [];
+
       if (listRes && listRes.status === 0 && listRes.stdout) {
         const parsed = JSON.parse(listRes.stdout);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const container = parsed[0];
-          const isRunning = container.status && container.status.toUpperCase() === 'RUNNING';
-          // Check network interfaces: labbr0 / isolated subnet or non-host
+          isRunning = container.status && container.status.toUpperCase() === 'RUNNING';
+          // Extract network interfaces and IPs
+          const state = container.state || {};
+          const net = state.network || {};
+          for (const [ifName, ifData] of Object.entries(net)) {
+            if (ifName === 'lo') continue;
+            for (const addr of (ifData.addresses || [])) {
+              if (addr.family === 'inet') {
+                containerIps.push(addr.address);
+              }
+            }
+          }
+          // Extract bridge from devices or expanded_devices
+          const devices = container.devices || container.expanded_devices || {};
+          for (const dev of Object.values(devices)) {
+            if (dev.type === 'nic') {
+              bridgeName = dev.network || dev.parent;
+              break;
+            }
+          }
+        }
+      }
+
+      // If bridgeName was not resolved from lxc list, query lxc config show
+      if (!bridgeName) {
+        const configRes = runner('lxc', ['config', 'show', labName], { timeout: 5000 });
+        if (configRes && configRes.status === 0 && configRes.stdout) {
+          const match = configRes.stdout.match(/(?:network|parent):\s*([a-zA-Z0-9_-]+)/);
+          if (match) {
+            bridgeName = match[1];
+          }
+        }
+      }
+
+      // If container was not found via lxc list or lxc config
+      if (!listRes || listRes.status !== 0 || !listRes.stdout.trim() || listRes.stdout.trim() === '[]') {
+        const infoRes = runner('lxc-info', ['-n', labName], { timeout: 3000 });
+        if (!infoRes || infoRes.status !== 0) {
+          return { exists: false, running: false, network_isolated: false, details: 'Container not found' };
+        }
+        isRunning = /state:\s*running/i.test(infoRes.stdout);
+      }
+
+      // 2. Verify bridge containment: bridge MUST exist, and ipv4.nat MUST be "false"
+      let networkIsolated = false;
+      let isolationDetails = '';
+
+      if (bridgeName) {
+        const netRes = runner('lxc', ['network', 'show', bridgeName], { timeout: 5000 });
+        if (netRes && netRes.status === 0 && netRes.stdout) {
+          const natMatch = netRes.stdout.match(/ipv4\.nat:\s*"?([a-zA-Z0-9_-]+)"?/);
+          const natValue = natMatch ? natMatch[1].toLowerCase() : 'true'; // default LXD bridges have nat: true
+          const hasNat = natValue === 'true';
+          if (hasNat) {
+            networkIsolated = false;
+            isolationDetails = `LXC bridge "${bridgeName}" has NAT enabled (ipv4.nat: true). Outbound internet access is not isolated.`;
+          } else {
+            networkIsolated = true;
+            isolationDetails = `LXC bridge "${bridgeName}" verified isolated (ipv4.nat: false, container IPs: ${containerIps.join(', ') || 'assigned'})`;
+          }
+        } else {
+          networkIsolated = false;
+          isolationDetails = `LXC bridge "${bridgeName}" could not be verified via lxc network show`;
+        }
+      } else {
+        networkIsolated = false;
+        isolationDetails = 'LXC container has no verifiable bridge device attached';
+      }
+
+      return {
+        exists: true,
+        running: isRunning,
+        network_isolated: networkIsolated,
+        bridge: bridgeName,
+        ips: containerIps,
+        details: isolationDetails
+      };
+    } else if (targetEngine === 'docker') {
+      const inspectRes = runner('docker', ['inspect', labName, '--format={{.State.Running}}|{{.HostConfig.NetworkMode}}|{{json .NetworkSettings.Networks}}'], { timeout: 5000 });
+      if (inspectRes && inspectRes.status === 0 && inspectRes.stdout) {
+        const parts = inspectRes.stdout.trim().split('|');
+        const isRunning = parts[0] === 'true';
+        const netMode = parts[1] || '';
+        const rawNetworks = parts[2] || '{}';
+
+        // Direct host network is non-isolated
+        if (netMode === 'host') {
           return {
             exists: true,
             running: isRunning,
-            network_isolated: true,
-            details: `LXC container ${labName} (${container.status})`
+            network_isolated: false,
+            details: 'Docker container uses host network stack (NetworkMode: host)'
           };
         }
-      }
-      
-      // Fallback check with lxc-info
-      const infoRes = runner('lxc-info', ['-n', labName], { timeout: 3000 });
-      if (infoRes && infoRes.status === 0 && infoRes.stdout) {
-        const isRunning = /state:\s*running/i.test(infoRes.stdout);
+
+        let networksObj = {};
+        try {
+          networksObj = JSON.parse(rawNetworks);
+        } catch (_) {}
+
+        const networkNames = Object.keys(networksObj);
+        if (networkNames.length === 0) {
+          return {
+            exists: true,
+            running: isRunning,
+            network_isolated: false,
+            details: 'Docker container has no attached networks'
+          };
+        }
+
+        // Default "bridge" network in Docker is NAT'd to the host and internet
+        if (networkNames.includes('bridge')) {
+          return {
+            exists: true,
+            running: isRunning,
+            network_isolated: false,
+            details: 'Docker container attached to default "bridge" network with internet NAT masquerading. Isolated internal network required.'
+          };
+        }
+
+        // Inspect attached networks: must have Internal: true
+        let allInternal = true;
+        const checkedDetails = [];
+        for (const netName of networkNames) {
+          const netInspect = runner('docker', ['network', 'inspect', netName, '--format={{.Internal}}|{{.Driver}}'], { timeout: 5000 });
+          if (netInspect && netInspect.status === 0 && netInspect.stdout) {
+            const [internalStr, driver] = netInspect.stdout.trim().split('|');
+            const isInternal = internalStr === 'true';
+            if (!isInternal) {
+              allInternal = false;
+              checkedDetails.push(`${netName} (internal: false, driver: ${driver})`);
+            } else {
+              checkedDetails.push(`${netName} (internal: true, driver: ${driver})`);
+            }
+          } else {
+            allInternal = false;
+            checkedDetails.push(`${netName} (unverifiable network inspect)`);
+          }
+        }
+
         return {
           exists: true,
           running: isRunning,
-          network_isolated: true,
-          details: `LXC container ${labName} info verified`
-        };
-      }
-    } else if (targetEngine === 'docker') {
-      const inspectRes = runner('docker', ['inspect', labName, '--format={{.State.Running}}|{{.HostConfig.NetworkMode}}'], { timeout: 5000 });
-      if (inspectRes && inspectRes.status === 0 && inspectRes.stdout) {
-        const [runningStr, netMode] = inspectRes.stdout.trim().split('|');
-        const isRunning = runningStr === 'true';
-        const isHostNet = netMode === 'host';
-        return {
-          exists: true,
-          running: isRunning,
-          network_isolated: !isHostNet,
-          details: `Docker container ${labName} (running: ${isRunning}, network: ${netMode})`
+          network_isolated: allInternal,
+          details: allInternal
+            ? `Docker networks verified internal: ${checkedDetails.join(', ')}`
+            : `Docker networks not isolated: ${checkedDetails.join(', ')}`
         };
       }
     }
@@ -314,14 +432,44 @@ function teardownLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
   }
 
   const targetEngine = engine || getRequiredEngine(options.platform || process.platform);
+  const runner = options.runner || defaultCommandRunner;
 
-  // In standard pentest assessment, cleanup verifies that background attack processes
-  // or test artifacts inside the container are terminated
-  return {
-    cleanup_confirmed: true,
-    engine: targetEngine,
-    message: `Cleanup verified in sandbox container "${labName}". Host filesystem remained untouched.`
-  };
+  try {
+    let cleanRes;
+    const cleanupCmd = 'pkill -f "akatsuki|probe|fuzz|nmap|test" || true; rm -rf /tmp/akatsuki_* /tmp/recon_* || true';
+
+    if (targetEngine === 'lxc') {
+      cleanRes = runner('lxc', ['exec', labName, '--', 'sh', '-c', cleanupCmd], { timeout: 8000 });
+    } else if (targetEngine === 'docker') {
+      cleanRes = runner('docker', ['exec', labName, 'sh', '-c', cleanupCmd], { timeout: 8000 });
+    } else {
+      return {
+        cleanup_confirmed: false,
+        engine: targetEngine,
+        message: `Teardown failed: unsupported engine "${targetEngine}".`
+      };
+    }
+
+    if (!cleanRes || cleanRes.status !== 0) {
+      return {
+        cleanup_confirmed: false,
+        engine: targetEngine,
+        message: `Teardown command in container "${labName}" failed with status ${cleanRes ? cleanRes.status : 'null'}: ${cleanRes ? cleanRes.stderr : 'no output'}`
+      };
+    }
+
+    return {
+      cleanup_confirmed: true,
+      engine: targetEngine,
+      message: `Cleanup verified in sandbox container "${labName}". Residual attack processes terminated and host filesystem untouched.`
+    };
+  } catch (err) {
+    return {
+      cleanup_confirmed: false,
+      engine: targetEngine,
+      message: `Teardown execution failed with exception: ${err.message}`
+    };
+  }
 }
 
 module.exports = {

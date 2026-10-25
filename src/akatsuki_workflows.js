@@ -401,13 +401,13 @@ function runRedTeamWorkflow(params = {}, options = {}) {
   const mediumCount = findings.filter(f => f.severity === 'medium').length;
   const lowCount = findings.filter(f => f.severity === 'low').length;
 
-  const passed = criticalCount === 0 && highCount === 0;
-
   // 4. Teardown & containment confirmation
   const teardown = teardownLab(labCheck.lab_name, labCheck.engine, options);
   if (teardown.cleanup_confirmed) {
     evidenceReferences.push('containment_and_teardown_verified');
   }
+
+  const passed = criticalCount === 0 && highCount === 0 && teardown.cleanup_confirmed === true;
 
   return {
     workflow_type: 'red_team',
