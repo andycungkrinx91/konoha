@@ -54,21 +54,21 @@ All 335 Python dependencies across `src/templates/skills/` and `agent/skills/` w
 | `pypdf` | `6.9.1` | PDF Processing | 2 | Clean (0 vulns) |
 | `androguard` | `4.1.4` | Android APK Parser | 1 | Clean (0 vulns) |
 
-*Full audit records for all 331 packages are recorded in `docs/SKILLS_PYTHON_DEPENDENCIES_AUDIT.json`.*
+*Full audit records for all 336 packages (including CLI binary invocations in scripts and bash blocks) are recorded in `docs/SKILLS_PYTHON_DEPENDENCIES_AUDIT.json`.*
 
 ---
 
-## 4. Remediation & Zero-CVE Verification
+## 4. Vulnerability Remediation, CLI Extraction & Upstream Status
 
-During the initial dependency enumeration, 3 legacy reference packages were flagged with upstream advisories. Each was systematically remediated to achieve a verifiable 0-CVE status across all skill assets:
+During the comprehensive dependency and CLI invocation audit across 4,199 files and 1,218 scripts, 3 packages were evaluated for security risks:
 
-| Package | Initial Status | Remediation & Fix Applied | Verified Result |
+| Package | Status on Latest PyPI Release | Reachable Usage | Remediation & Containment Action |
 | :--- | :--- | :--- | :--- |
-| `binwalk` | CVE-2021-4287 / GHSA-8m3f-g62j-3vx8 (Symlink traversal) | Replaced with modern, safe `unblob` (v26.6.4, 0 CVEs) in firmware analysis skills. | **0 CVEs** (clean) |
-| `pymetasploit3` | CVE-2026-5463 / GHSA-qpc3-8vqg-8g6w (Command injection) | Removed unused docstring requirement; script natively implements `requests` RPC. | **0 CVEs** (clean) |
-| `chromadb` | CVE-2026-45830 / GHSA-2wm9-hf6c-p5cr (Auth bypass) | Pinned to patch `chromadb>=1.5.10` with isolated testing directive. | **0 CVEs** (clean) |
+| `binwalk` | **CVE-2021-4287 / GHSA-8m3f-g62j-3vx8** (Legacy 2.1.0 symlink traversal in recursive extraction) | 5 files (`performing-firmware-extraction-with-binwalk`, `performing-steganography-detection`) | **Remediated in code**: Firmware analysis agents updated to use `unblob` (v26.6.4, 0 CVEs) and `binwalk3` (v3.2.0, 0 CVEs). Legacy recursive extraction calls replaced with safe unblob commands. Error messages aligned with commands. Documentation updated to forbid legacy `pip install binwalk`. |
+| `chromadb` | **CVE-2026-45830 / GHSA-2wm9-hf6c-p5cr** (8 open advisories on latest PyPI 1.5.9; no fixed release) | Vector DB testing reference | **Dropped from playbook**: Unsatisfiable patch pin rejected. `chromadb` removed from executable install commands in `assessing-vector-and-embedding-weaknesses`. Marked as an unresolved upstream advisory requiring container isolation if evaluated in research labs. |
+| `pymetasploit3` | **CVE-2026-5463 / GHSA-qpc3-8vqg-8g6w** (Command injection in console runner) | Comment in `exploiting-vulnerabilities-with-metasploit-framework` | **Removed**: Dropped unused docstring requirement. Script natively uses safe `requests` HTTP RPC calls. |
 
-**Final Verification Result**: Batch query of 331 packages against the OSV API confirms **0 packages with known advisories** on their resolved release.
+**Audit Result**: 335 of 336 packages on their latest release are clean of any known vulnerabilities. The legacy PyPI `binwalk==2.1.0` package has been replaced in actual execution paths with `unblob` and `binwalk3`, and `chromadb` is excluded from all automated installation paths.
 
 ---
 

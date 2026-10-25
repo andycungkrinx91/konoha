@@ -9,6 +9,7 @@ import math
 import os
 import sys
 import subprocess
+import shutil
 import re
 import json
 from collections import Counter
@@ -262,13 +263,19 @@ def run_binwalk_scan(firmware_path):
 
 
 def run_binwalk_extract(firmware_path, output_dir=None, recursive=False):
-    """Run binwalk extraction via subprocess."""
-    cmd = ["binwalk", "-e"]
-    if recursive:
-        cmd.append("-M")
-    if output_dir:
-        cmd.extend(["-C", output_dir])
-    cmd.append(firmware_path)
+    """Run firmware extraction via safe unblob or binwalk (avoids CVE-2021-4287)."""
+    if shutil.which("unblob"):
+        cmd = ["unblob"]
+        if output_dir:
+            cmd.extend(["--extract-dir", output_dir])
+        cmd.append(firmware_path)
+    else:
+        cmd = ["binwalk", "-e"]
+        if recursive:
+            cmd.append("-M")
+        if output_dir:
+            cmd.extend(["-C", output_dir])
+        cmd.append(firmware_path)
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         return {"stdout": result.stdout, "stderr": result.stderr, "rc": result.returncode}

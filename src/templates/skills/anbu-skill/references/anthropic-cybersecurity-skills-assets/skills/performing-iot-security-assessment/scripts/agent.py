@@ -9,6 +9,7 @@ import subprocess
 import json
 import sys
 import hashlib
+import shutil
 from pathlib import Path
 
 
@@ -71,13 +72,16 @@ class IoTSecurityAgent:
             return {"error": f"Firmware file not found: {firmware_path}"}
 
         sha256 = hashlib.sha256(fw_path.read_bytes()).hexdigest()
+        scan_cmd = ["unblob", "--show-report", str(fw_path)] if shutil.which("unblob") else ["binwalk", str(fw_path)]
         scan_result = subprocess.run(
-            ["binwalk", str(fw_path)], capture_output=True, text=True,
+            scan_cmd, capture_output=True, text=True,
             timeout=120,
         )
         extract_dir = self.output_dir / "firmware_extracted"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        extract_cmd = ["unblob", "--extract-dir", str(extract_dir), str(fw_path)] if shutil.which("unblob") else ["binwalk", "-e", "-C", str(extract_dir), str(fw_path)]
         subprocess.run(
-            ["binwalk", "-eM", "-C", str(extract_dir), str(fw_path)],
+            extract_cmd,
             capture_output=True, text=True,
             timeout=120,
         )

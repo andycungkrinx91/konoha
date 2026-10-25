@@ -158,6 +158,46 @@ function extractFromTextFile(filePath) {
   return Array.from(pkgs);
 }
 
+const PYPI_CLI_TOOLS = new Set([
+  'binwalk', 'unblob', 'binwalk3', 'sqlmap', 'checkov', 'bandit', 'semgrep',
+  'trufflehog', 'prowler', 'scoutsuite', 'dnstwist', 'roadrecon', 'certipy',
+  'volatility3', 'floss', 'peepdf', 'pdfid', 'coercer', 'bloodhound', 'drozer',
+  'gophish', 'jwt_tool', 'nosqlmap', 'pacu', 'sslyze', 'sstimap', 'theharvester',
+  'xsrfprobe', 'cloudsplaining', 'impacket'
+]);
+
+function extractCliInvocations(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const found = new Set();
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.py' || ext === '.js') {
+    // subprocess.run(["tool", ...]) or cmd = ["tool", ...]
+    const subpRegex = /(?:subprocess\.(?:run|call|Popen)|cmd\s*=\s*)\s*\(\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]|cmd\s*=\s*\[\s*['"]([a-zA-Z0-9_-]+)['"]/g;
+    let m;
+    while ((m = subpRegex.exec(content)) !== null) {
+      const tool = (m[1] || m[2]).toLowerCase();
+      if (PYPI_CLI_TOOLS.has(tool)) found.add(tool);
+    }
+  } else if (ext === '.md') {
+    // Look inside ```bash or ```sh blocks
+    const codeBlockRegex = /```(?:bash|sh)\r?\n([\s\S]*?)```/g;
+    let blockMatch;
+    while ((blockMatch = codeBlockRegex.exec(content)) !== null) {
+      const blockLines = blockMatch[1].split('\n');
+      for (const line of blockLines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const firstWord = trimmed.split(/\s+/)[0].replace(/^sudo\s+/, '').toLowerCase();
+        if (PYPI_CLI_TOOLS.has(firstWord)) {
+          found.add(firstWord);
+        }
+      }
+    }
+  }
+  return Array.from(found);
+}
+
 function httpGetJson(url) {
   return new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Konoha-Dependency-Auditor/1.0' } }, (res) => {
@@ -241,6 +281,8 @@ async function main() {
     }
     const pipPkgs = extractFromTextFile(f);
     for (const p of pipPkgs) record(p, f);
+    const cliTools = extractCliInvocations(f);
+    for (const tool of cliTools) record(tool, f);
   }
 
   const allPkgs = Array.from(packagePaths.keys()).sort();

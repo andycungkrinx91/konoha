@@ -236,6 +236,7 @@
     "name": "bandit",
     "latestVersion": "1.9.4",
     "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-serverless-function-injection/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-serverless-function-security-review/SKILL.md"
     ],
     "vulns": []
@@ -259,6 +260,31 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-fuzz-testing-in-cicd-with-aflplusplus/references/api-reference.md"
     ],
     "vulns": []
+  },
+  {
+    "name": "binwalk",
+    "latestVersion": "2.1.0",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-extraction-with-binwalk/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-extraction-with-binwalk/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-extraction-with-binwalk/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-steganography-detection/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-steganography-detection/scripts/agent.py"
+    ],
+    "vulns": [
+      {
+        "id": "GHSA-8m3f-g62j-3vx8",
+        "summary": "No summary",
+        "aliases": [],
+        "details": ""
+      },
+      {
+        "id": "PYSEC-2026-788",
+        "summary": "No summary",
+        "aliases": [],
+        "details": ""
+      }
+    ]
   },
   {
     "name": "binwalk3",
@@ -285,7 +311,8 @@
     "latestVersion": "1.9.0",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-internal-reconnaissance-with-bloodhound-ce/references/api-reference.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-internal-reconnaissance-with-bloodhound-ce/scripts/agent.py"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-internal-reconnaissance-with-bloodhound-ce/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-active-directory-penetration-test/SKILL.md"
     ],
     "vulns": []
   },
@@ -465,6 +492,25 @@
     "vulns": []
   },
   {
+    "name": "certipy",
+    "latestVersion": "0.2.3",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/abusing-shadow-credentials-for-privesc/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/abusing-shadow-credentials-for-privesc/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/abusing-shadow-credentials-for-privesc/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/coercing-authentication-with-coercer-petitpotam/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-internal-network-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-active-directory-certificate-services-esc1/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-active-directory-certificate-services-esc1/references/workflows.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-adcs-with-certipy/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-adcs-with-certipy/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-adcs-with-certipy/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-active-directory-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/relaying-ntlm-for-adcs-esc8/SKILL.md"
+    ],
+    "vulns": []
+  },
+  {
     "name": "certipy-ad",
     "latestVersion": "5.1.0",
     "paths": [
@@ -477,8 +523,14 @@
     "latestVersion": "3.3.30",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-terraform-infrastructure-for-security/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-terraform-infrastructure-for-security/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-terraform-infrastructure-for-security/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-infrastructure-as-code-security-scanning/SKILL.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-infrastructure-as-code-security-scanning/scripts/process.py"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-infrastructure-as-code-security-scanning/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-infrastructure-as-code-security-scanning/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-infrastructure-as-code-security-scanning/scripts/process.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-serverless-function-security-review/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/securing-helm-chart-deployments/SKILL.md"
     ],
     "vulns": []
   },
@@ -515,7 +567,10 @@
     "latestVersion": "2.4.3",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/coercing-authentication-with-coercer-petitpotam/SKILL.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/coercing-authentication-with-coercer-petitpotam/references/api-reference.md"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/coercing-authentication-with-coercer-petitpotam/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/coercing-authentication-with-coercer-petitpotam/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-adcs-with-certipy/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/relaying-ntlm-for-adcs-esc8/SKILL.md"
     ],
     "vulns": []
   },
@@ -726,6 +781,7 @@
     "name": "dnstwist",
     "latestVersion": "20250130",
     "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-certificate-transparency-for-phishing/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-typosquatting-domains-with-dnstwist/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-typosquatting-domains-with-dnstwist/scripts/agent.py"
     ],
@@ -760,7 +816,8 @@
     "name": "drozer",
     "latestVersion": "3.1.0",
     "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/testing-android-intents-for-vulnerabilities/SKILL.md"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/testing-android-intents-for-vulnerabilities/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/testing-android-intents-for-vulnerabilities/scripts/agent.py"
     ],
     "vulns": []
   },
@@ -916,6 +973,15 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-hardware-security-key-authentication/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-hardware-security-key-authentication/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-scim-provisioning-with-okta/scripts/process.py"
+    ],
+    "vulns": []
+  },
+  {
+    "name": "floss",
+    "latestVersion": "0.1.0",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-linux-elf-malware/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-static-malware-analysis-with-pe-studio/SKILL.md"
     ],
     "vulns": []
   },
@@ -1122,6 +1188,8 @@
     "name": "gophish",
     "latestVersion": "0.5.1",
     "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-full-scope-red-team-engagement/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-social-engineering-penetration-test/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-social-engineering-penetration-test/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-spearphishing-simulation-campaign/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-red-team-phishing-with-gophish/SKILL.md",
@@ -1864,6 +1932,7 @@
     "name": "pacu",
     "latestVersion": "1.7.0",
     "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-cloud-penetration-testing/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-aws-with-pacu/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-aws-with-pacu/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-aws-privilege-escalation-assessment/SKILL.md",
@@ -2006,7 +2075,10 @@
     "name": "peepdf",
     "latestVersion": "0.4.2",
     "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-pdf-malware-with-pdfid/SKILL.md"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-malicious-pdf-with-peepdf/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-malicious-pdf-with-peepdf/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-pdf-malware-with-pdfid/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-pdf-malware-with-pdfid/references/api-reference.md"
     ],
     "vulns": []
   },
@@ -2051,6 +2123,14 @@
       "src/templates/skills/tokubetsu-jonin-skill/references/elite-powerpoint-designer.md",
       "src/templates/skills/tokubetsu-jonin-skill/references/pdf-assets/scripts/create_validation_image.py",
       "src/templates/skills/tokubetsu-jonin-skill/references/pptx-assets/scripts/thumbnail.py"
+    ],
+    "vulns": []
+  },
+  {
+    "name": "pinecone-client",
+    "latestVersion": "6.0.0",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/assessing-vector-and-embedding-weaknesses/SKILL.md"
     ],
     "vulns": []
   },
@@ -2161,11 +2241,17 @@
     "latestVersion": "5.45.0",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-aws-s3-bucket-permissions/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-cloud-with-cis-benchmarks/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/auditing-cloud-with-cis-benchmarks/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-cloud-penetration-testing/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-security-posture-management/SKILL.es.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-security-posture-management/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-security-posture-management/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-security-posture-management/scripts/agent.py",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-vulnerability-posture-management/SKILL.md"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-vulnerability-posture-management/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-vulnerability-posture-management/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-cloud-vulnerability-posture-management/scripts/process.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-serverless-function-security-review/SKILL.md"
     ],
     "vulns": []
   },
@@ -3145,7 +3231,8 @@
     "latestVersion": "2.0.0",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/attacking-entra-id-with-roadtools/SKILL.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/attacking-entra-id-with-roadtools/scripts/agent.py"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/attacking-entra-id-with-roadtools/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/attacking-oauth-with-device-code-phishing/SKILL.md"
     ],
     "vulns": []
   },
@@ -3273,10 +3360,14 @@
     "latestVersion": "1.182.1",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/building-vulnerability-dashboard-with-defectdojo/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-serverless-function-injection/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-devsecops-security-scanning/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-devsecops-security-scanning/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-semgrep-for-custom-sast-rules/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-semgrep-for-custom-sast-rules/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-semgrep-for-custom-sast-rules/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/integrating-sast-into-github-actions-pipeline/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/integrating-sast-into-github-actions-pipeline/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/integrating-sast-into-github-actions-pipeline/scripts/process.py"
     ],
     "vulns": []
@@ -3464,7 +3555,10 @@
     "latestVersion": "1.10.10",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-sql-injection-with-sqlmap/SKILL.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-sql-injection-with-sqlmap/scripts/agent.py"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-sql-injection-with-sqlmap/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-external-network-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-second-order-sql-injection/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-web-application-firewall-bypass/SKILL.md"
     ],
     "vulns": []
   },
@@ -3607,7 +3701,13 @@
     "name": "theharvester",
     "latestVersion": "0.0.1",
     "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-ai-driven-osint-correlation/SKILL.md"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-full-scope-red-team-engagement/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-social-engineering-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/conducting-social-engineering-pretext-call/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-ai-driven-osint-correlation/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-ai-driven-osint-correlation/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-external-network-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-open-source-intelligence-gathering/references/workflows.md"
     ],
     "vulns": []
   },
@@ -3683,7 +3783,13 @@
     "latestVersion": "2.2.1",
     "paths": [
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-aws-credential-exposure-with-trufflehog/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-aws-credential-exposure-with-trufflehog/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-aws-credential-exposure-with-trufflehog/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-api-key-security-controls/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-secrets-scanning-in-ci-cd/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/implementing-secrets-scanning-in-ci-cd/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-external-network-penetration-test/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-open-source-intelligence-gathering/references/workflows.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/testing-for-sensitive-data-exposure/SKILL.md"
     ],
     "vulns": []
@@ -3700,9 +3806,14 @@
     "name": "unblob",
     "latestVersion": "26.6.4",
     "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-extraction-with-binwalk/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-malware-analysis/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-malware-analysis/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-iot-security-assessment/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/SKILL.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/references/api-reference.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/scripts/agent.py"
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/scripts/agent.py",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-steganography-detection/scripts/agent.py"
     ],
     "vulns": []
   },
@@ -3817,6 +3928,14 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/deploying-decoy-files-for-ransomware-detection/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/deploying-ransomware-canary-files/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/hunting-for-startup-folder-persistence/scripts/agent.py"
+    ],
+    "vulns": []
+  },
+  {
+    "name": "weaviate-client",
+    "latestVersion": "4.24.0",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/assessing-vector-and-embedding-weaknesses/SKILL.md"
     ],
     "vulns": []
   },
