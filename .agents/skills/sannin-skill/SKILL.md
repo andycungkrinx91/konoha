@@ -47,17 +47,17 @@ All other requests (backend engineering, bug fixes, architecture analysis, refac
 
 ---
 
-## Canonical 8-Stage Master Engineering Pipeline (Branch A)
+## Canonical 8-Phase Master Pipeline (Branch A)
 
-For structured non-website engineering tasks, execute through the 8 functional engineering stages (operationalized across the 9 MCP runtime orchestration phases in `docs/ARCHITECTURE.md`):
-1. **Stage 1: Discovery & Recon (Genin & Chunin)**: Map codebase symbols, execution paths, dependencies, and external documentation.
-2. **Stage 2: Foundation & Tooling (Kage & Anbu)**: Establish architecture decisions, environment setups, and toolchains.
-3. **Stage 3: Database & Schemas (Anbu)**: Define data models, schemas, and migrations with rollback safety.
-4. **Stage 4: Backend APIs & Services (Anbu)**: Implement backend routes, controllers, business logic, and integrations.
-5. **Stage 5: Frontend/UI & Interaction (Jonin)**: Build user interfaces, design systems, and responsive components.
-6. **Stage 6: Automated Testing & QA (Anbu & Jonin)**: Execute unit tests, integration suites, and browser E2E flows.
-7. **Stage 7: Security Hardening & Blue-Team Audit Gate (Akatsuki & Kage)**: Validate security controls, execute SAST and dependency CVE audits, secrets leakage scan, and Skill Guardian policy clearance before review.
-8. **Stage 8: Delivery Review Gate, Documentation & Sign-Off (Kage, Tokubetsu-Jonin, Sannin)**: Enforce the $\ge 98\%$ confidence gate, verify zero AI-slop findings, generate technical documentation, and conclude at Gate 2.
+For structured non-website engineering tasks, execute through the 8 canonical phases aligned with the MCP state machine:
+1. **Phase 1: Route & Discovery (Sannin & Genin)**: Task intake, readiness check, read-only codebase exploration, and dependency mapping.
+2. **Phase 2: Foundation & Planning (Kage & Anbu)**: Architecture decisions, environment setups, decoupled task breakdowns, and Gate 1 plan approval.
+3. **Phase 3: Intel & Research (Chunin)**: Query external documentation, RFCs, and advisories when Kage requests deep research.
+4. **Phase 4: Backend & Database Execution (Anbu)**: Implement data schemas, migrations, backend APIs, controllers, and services.
+5. **Phase 5: Frontend & UI Execution (Jonin)**: Build user interfaces, design systems, responsive layouts, and framework components.
+6. **Phase 6: QA Automation & Documentation (Anbu & Tokubetsu-Jonin)**: Execute automated test suites, browser E2E flows, and technical documentation.
+7. **Phase 7: Pre-Delivery Review & Security Gate (Kage, Akatsuki Blue-Team & @advisor)**: Enforce the mandatory Akatsuki Blue-Team Security Gate (SAST, secrets, 0 CVEs), Two-Step Zero-AI-Slop Pre-Gate, and $\ge 98\%$ confidence threshold.
+8. **Phase 8: Synthesis & Delivery Sign-Off (Sannin)**: Consolidate evidence, compile `final_report.md`, and conclude at Gate 2 delivery sign-off.
 
 ---
 

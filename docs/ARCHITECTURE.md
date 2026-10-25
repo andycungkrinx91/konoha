@@ -371,25 +371,20 @@ flowchart TD
     DecisionResearch -->|No| P5["Phase 5: Execute<br/><b>(♦ Jonin / ♠ Anbu)</b>"]
     P4 --> P5
 
-    %% Execution, Documentation & Security Gate
+    %% Execution & Documentation
     P5 --> P6["Phase 6: Document<br/><b>(⬡ Tokubetsu-Jonin)</b>"]
-    P6 --> P7["Phase 7: Security Gate<br/><b>(🛡️ Akatsuki Blue-Team)</b>"]
-
-    %% Security Gate Check & Remediation
-    P7 --> DecisionSecurity{"0 High/Crit CVEs &amp; Secrets Clean?"}
-    DecisionSecurity -->|Security Flaws Found| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu / ♦ Jonin)</b>"]
-    DecisionSecurity -->|"0 CVEs, 0 Leaks<br/>Guardian Passed"| P8["Phase 8: Review Gate<br/><b>(◎ Kage &amp; @advisor)</b>"]
+    P6 --> P7["Phase 7: Review Gate<br/><b>(◎ Kage &amp; @advisor)</b><br/>• 🛡️ Akatsuki Blue-Team Security Gate<br/>• Two-Step Zero-AI-Slop Pre-Gate (100/100)<br/>• ≥ 98% Confidence Evaluation"]
 
     %% Review Quality Gate & Autonomous Remediation Loop
-    P8 --> DecisionReview{"Zero-AI-Slop, Confidence &amp; @advisor Gate"}
-    DecisionReview -->|slop findings &gt; 0 or advisor reject| Remediation
+    P7 --> DecisionReview{"Security, Slop, Confidence &amp; @advisor Gate"}
+    DecisionReview -->|Security flaw, slop findings &gt; 0, or advisor reject| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu / ♦ Jonin)</b>"]
     Remediation -->|re-evaluate| P7
-    DecisionReview -->|"0 findings, advisor approved<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
-    Gate2 -->|Signed Off / Autonomous| P9["Phase 9: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
+    DecisionReview -->|"Akatsuki cleared, 0 slop, advisor approved<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
+    Gate2 -->|Signed Off / Autonomous| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
     Gate2 -->|Changes Requested| P5
 
     %% Final Delivery
-    P9 --> DeliveryReport(["Delivery Report to Orchestrator"])
+    P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
 
     %% Styling Classes
     classDef startEnd fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
@@ -399,17 +394,17 @@ flowchart TD
     classDef approved fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
 
     class UserPrompt,DeliveryReport startEnd;
-    class P1,P2,P3,P4,P5,P6,P7,P8 phase;
-    class Gate1,DecisionResearch,DecisionSecurity,DecisionReview,Gate2 decision;
+    class P1,P2,P3,P4,P5,P6,P7 phase;
+    class Gate1,DecisionResearch,DecisionReview,Gate2 decision;
     class Remediation remediation;
-    class P9 approved;
+    class P8 approved;
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
 
-### 📋 Workflow Phase Matrix (9 Runtime Orchestration Phases)
+### 📋 Workflow Phase Matrix (Canonical 8-Phase SDLC Lifecycle)
 
-The Konoha orchestration engine executes through 9 formal runtime phases that operationalize the 8 functional engineering stages defined in `sannin-skill`: Phase 1 `Route` & Phase 2 `Explore` handle Discovery; Phase 3 `Plan` & Phase 4 `Research` handle Foundation & Tooling; Phase 5 `Execute` covers Schemas, APIs, UI & QA; Phase 6 `Document` prepares technical deliverables; Phase 7 `Security Gate` executes mandatory Akatsuki Blue-Team verification; Phase 8 `Review Gate` executes Kage's confidence audit; and Phase 9 `Synthesize` produces the final signed-off release payload.
+The Konoha orchestration engine executes through 8 canonical runtime phases in `src/mcp/workflow_runner.js`:
 
 | Phase | Assigned Agent | Core Mandate & Actions | Dispatch / Input Mode | Output / Reporting Mode | Phase Exit Gate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -419,9 +414,8 @@ The Konoha orchestration engine executes through 9 formal runtime phases that op
 | **4. Research** | `chunin` | Conducts real-time web research and documentation verification when requested by Kage plan (`needs_research: true`). | Structured MCP args (`task`, `context`) | `research_evidence.md`, `report_from_agent` | Structured findings returned back to Kage for plan finalization. |
 | **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps/QA) | Implements designated task, runs QA automation loop for browser/E2E tasks (`qa_codify`, `qa_e2e_run`, scoped snapshots), runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | Structured MCP args (`task`, `context`, `constraints`) | Modified project files, `report_from_agent` with recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
 | **6. Document** | `tokubetsu-jonin` | Generates or updates technical documentation, API specifications, runbooks, and changelogs. Enforces zero dark theme and human-authentic writing. | Structured MCP args, `plan.md` | `final_docs.md`, `report_from_agent` | Technical documentation and changelog synchronized with changes (< 3.0% AI risk). |
-| **7. Security Gate** | `akatsuki` (Blue-Team) | Pre-delivery security audit: static code analysis (SAST), secrets & API key leakage scan, dependency CVE vulnerability audit (0 High/Critical CVEs), and Skill Guardian policy verification. Fails closed on unhandled security findings. | All task diffs & manifests | `security_report.json`, security attestations | Zero High/Critical CVEs, zero leaked secrets, Skill Guardian pass (`security_reviewed: true`). |
-| **8. Review** | `kage` &amp; `@advisor` | Comprehensive pre-delivery quality, confidence, and `@advisor` gate. Evaluates Zero-AI-Slop compliance, Akatsuki Blue-Team security gate clearance, SDLC subtask completion, security/rollback reviews, `@advisor` approval, and calculated confidence. When `@advisor` rejects, loops back to execute remediation. | All task evidence, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), security cleared, `@advisor` approved, all subtasks completed, ≥98% confidence. |
-| **9. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. If `hitl_mode: enabled`, pauses at **Gate 2 (Delivery Sign-Off)**. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
+| **7. Review** | `kage`, `akatsuki` (Blue-Team) &amp; `@advisor` | Comprehensive pre-delivery quality, security, and confidence gate: (1) **Akatsuki Blue-Team Security Gate** (`akatsuki_review.json` 0 High/Crit CVEs, host SAST, secret leakage scan, Skill Guardian policy clearance), (2) Two-Step Zero-AI-Slop Pre-Gate (`aislop_scan --changes` 100/100, 0 findings), (3) Socket.dev supply chain audit, and (4) calculated confidence $\ge 98.0\%$. When security, slop, or `@advisor` issues arise, dispatches remediation to Anbu/Jonin. | All task evidence, `akatsuki_review.json`, `kage_review.json` | `kage_review.json` with scores, `status.review` | Akatsuki security cleared (`security_reviewed: true`), 100/100 aislop score (0 findings), `@advisor` approved, all subtasks completed, ≥98% confidence. |
+| **8. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. If `hitl_mode: enabled`, pauses at **Gate 2 (Delivery Sign-Off)**. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
 
 ### 🏛️ Native SDLC Task Governance & Session Isolation Invariants
 

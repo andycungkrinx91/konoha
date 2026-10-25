@@ -109,7 +109,7 @@ flowchart TB
 
 ```mermaid
 ---
-title: Core Multi-Agent MCP SDLC Orchestration Pipeline (9 Runtime Phases & Akatsuki Security Gate)
+title: Core Multi-Agent MCP SDLC 8-Phase Lifecycle & Akatsuki Security Gate
 config:
   theme: base
   themeVariables:
@@ -143,17 +143,13 @@ flowchart TD
     CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB &amp; DevOps<br/>• Runs build &amp; validation commands"]
 
     Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md &amp; API specs<br/>• Synchronize CHANGELOG.md"]
-    Phase4 --> Phase4b["Phase 4b: SECURITY REVIEW GATE (🛡️ Akatsuki Blue-Team)<br/>• Static application security testing (SAST)<br/>• Secrets &amp; API key leakage audit<br/>• Dependency CVE scan (0 High / 0 Crit)<br/>• Skill Guardian policy verification"]
+    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage, 🛡️ Akatsuki &amp; @advisor)<br/>• Akatsuki Blue-Team Security Gate (SAST, CVEs, Secrets)<br/>• Two-Step Zero-AI-Slop Pre-Gate (100/100)<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done &amp; @advisor Evaluation"]
 
-    Phase4b --> CheckSecurity{"Akatsuki Blue-Team<br/>Security Passed?"}
-    CheckSecurity -- "0 CVEs &amp; Secrets Clean" --> Phase5["Phase 5: REVIEW (◎ Kage &amp; @advisor)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification<br/>• @advisor Final Review Evaluation"]
-    CheckSecurity -- "Security Vulnerabilities / Leaks" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
-
-    Phase5 --> CheckReview{"Kage &amp; @advisor<br/>Review Approved?"}
-    CheckReview -- "Approved (≥ 98% Conf &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
+    Phase5 --> CheckReview{"Security, Slop &amp; Confidence<br/>Review Approved?"}
+    CheckReview -- "Approved (≥ 98% Conf, Security Cleared &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
-    CheckReview -- "Findings / Advisor Reject" --> Remediation
+    CheckReview -- "Security Flaw / Slop / Advisor Reject" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
     Remediation --> Phase3
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -161,14 +157,12 @@ flowchart TD
     classDef routeNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
     classDef executeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
     classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef securityNode fill:#ffffff,stroke:#dc2626,color:#0f172a,stroke-width:2px;
     classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
     classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
 
     class Init,Phase0,Phase7 routeNode;
     class Phase1,Phase2,Phase2b,Phase3,Phase4,Phase6 executeNode;
-    class Phase4b securityNode;
-    class Phase5,CheckReview,CheckResearch,CheckSecurity reviewNode;
+    class Phase5,CheckReview,CheckResearch reviewNode;
     class Remediation failNode;
 ```
 
