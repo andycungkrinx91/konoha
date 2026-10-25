@@ -121,6 +121,8 @@ playwright/.cache/
 # KONOHA-QA-END
 
 # Plans & Runtime Session State (never committed; .omp is fully local)
+PLAN
+/PLAN
 /PLAN.md
 PLAN.md
 *-plan.md

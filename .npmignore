@@ -1,8 +1,14 @@
 **/anthropic-cybersecurity-skills-assets/**
 .omp/
 .omp/**
+PLAN
+PLAN*
 *.plan.md
 *-plan.md
 tests/
 scratch/
 .tmp_*
+test-results/
+playwright-report/
+*.log
+*.db*

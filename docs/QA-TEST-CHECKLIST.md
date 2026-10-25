@@ -1,6 +1,6 @@
 # Konoha QA Verification & Test Checklist
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.6). This checklist defines the two mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.7). This checklist defines the two mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, agent-browser flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -516,4 +516,22 @@ npx aislop scan --changes
 | **5. October 2026 Node.js CVE Mitigation & Dependency Upgrades** | `pnpm audit`, `docx@^9.14.0`, `vite@^8.3.5`, `@sveltejs/kit@^3.1.0`, `svelte-check@^4.7.7` | Zero vulnerabilities reported by `pnpm audit`; all web dependencies compile cleanly; addresses October 2026 Node.js security release (Node 22.23.4 LTS fixing Brotli RCE and TLS/DNS CVEs). | `PASS` (0 vulnerabilities) |
 | **6. RTK Canonical Repository & Anti-Cat Guardrails** | Automated docs audit across `docs/SETUP-CURSOR.md` | Canonical repository URL `https://github.com/rtk-ai/rtk` verified; forbidden reader commands (`rtk grep`, `rtk find`) replaced with valid build/test command examples. | `PASS` (verified) |
 | **7. Cross-Client Workflow Invariant Integrity** | `node bin/cli.js agent list`, `node scripts/lint.js` | Scaffolding commands for Next.js, Nuxt, Angular, and SvelteKit verified across `.cursorrules`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`; desktop/mobile layout tags verified. | `PASS` (0 errors, 0 warnings) |
+
+---
+
+## Section 14: v2.2.7 Flow-Bounded Skills Lifecycle, Turn-by-Turn Dynamic Persistence & Soul-Bound Behavioral Rules QA
+
+| Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Deterministic Flow Hash Generation** | `computeFlowHash(sessionId, taskId, promptText)` in `tests/test_flow_bounded_skills.js` | Generates unique 12-character SHA-256 hash uniquely scoping each subagent execution stream; identical inputs produce byte-identical hash ($H_1 == H_2$); different prompts or task IDs produce disjoint hashes. | `PASS` (verified deterministic) |
+| **2. Soul-Bound Anti-Slop & ADHD Formatting** | `getSoul()` & `formatSoulBehavior()` in `src/persona_memory.js` | Universal ADHD standards and archetype anti-slop rules rendered as always-on behaviors from soul; per-turn injection into `skillsList` removed; final delivery audit (`npx aislop scan --changes`) preserved 100%. | `PASS` (verified in `tests/test_soul_engine.js`) |
+| **3. Turn-by-Turn Dynamic Persistence in SQLite** | `recordFlowSkill()` & `getFlowSkills()` in `src/persona_memory.js` | Skills loaded on Turn $N$ persist to existing `persona_memories` (`memory_type = 'flow_skill'`, `tags = flow_hash`) and update `sdlc_tasks.evidence` without creating new database tables or schema migrations. | `PASS` (verified in SQLite) |
+| **4. Cross-Task Flow Isolation** | `getServedSkillsSet()` in `src/mcp/skills.js` | Keyed by `flow_hash`; Task 1 and Task 2 running in the same session remain strictly disjoint with zero skill bleeding or cache contamination. | `PASS` (verified in `tests/test_flow_bounded_skills.js`) |
+| **5. Tool Dispatch Argument Forwarding** | `executeToolSync` in `src/mcp/tool_dispatch.js` | `flow_hash` and `session_id` cleanly forwarded to `find_skill`, `get_skill`, and `use_skills`; direct MCP tool calls bind flow skills into SQLite even without `task_id`. | `PASS` (verified in Section 7 tests) |
+| **6. Token Ceilings & KV Cache Prefix Invariance** | `node scripts/verify_provider_cache.js` | All subagent prompts strictly < 8,000 bytes (6,571B – 7,758B); 100% prefix cache equality ($T_1 == T_2 == T_3$) across all 140 checks across 5 clients. | `PASS` (140/140 checks passed) |
+| **7. Isolated `/tmp/` Directory Verification** | `npm pack` -> clean `/tmp/konoha-iso-test-227` | Zero side effects during install (no `~/.konoha` created); explicit `init --yes` configures 8 clients; `konoha version` reports 2.2.7; all artifacts cleaned up. | `PASS` (verified in isolation) |
+| **8. Web UI Playwright End-to-End Suite** | `playwright test` (46 tests across 12 specs) | 46/46 browser tests passed across login, dialogs, themes, charts, and routing; bootstrap password `konohagakure` verified; SvelteKit check passes with 0 errors and 0 warnings. | `PASS` (46/46 passed) |
+| **9. Document Engine Deliverables & Deliverable WebPs** | `node tests/test_document_tools.js` & `node tests/e2e_document_suite.js` | 9/9 document tools pass; valid DOCX, PDF, XLSX, PPTX, SVG, and horizontal/vertical animated WebPs generated cleanly. | `PASS` (9/9 passed) |
+| **10. Zero-AI-Slop Pre-Gate Verification** | `rtk npx aislop scan --changes` | Score 100 / 100 Healthy, 0 errors, 0 warnings, zero AI slop findings across all modified repository files. | `PASS` (100/100 Healthy) |
+
 

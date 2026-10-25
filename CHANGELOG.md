@@ -2,6 +2,17 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.7] - 2026-10-25
+
+### Flow-Bounded Skills Lifecycle, Turn-by-Turn Dynamic Persistence & Soul-Bound Behavioral Rules
+
+- **Soul-Bound Anti-Slop & ADHD Shaping**: Made anti-slop rules (`archetype.antislop_skills`) and ADHD formatting (`archetype.adhd_shaping`) always-on behavioral properties provided directly through `getSoul()` and `formatSoulBehavior()` in `src/persona_memory.js`. Eliminated redundant per-turn re-fetching and injection of anti-slop skills into task prompt `skillsList` while strictly maintaining the required final delivery audit (`npx aislop scan --changes`).
+- **Deterministic Flow Hash Generation**: Implemented `computeFlowHash(sessionId, taskId, promptText)` in `src/mcp/workflow.js` producing a deterministic 12-character SHA-256 hash uniquely scoping each subagent execution flow.
+- **Turn-by-Turn Dynamic Persistence in SQLite**: Added `recordFlowSkill()` and `getFlowSkills()` in `src/persona_memory.js` storing active flow skills directly in existing `persona_memories` (`memory_type = 'flow_skill'`, `tags = flow_hash`) and updating `sdlc_tasks.evidence` without creating any new database tables or schema changes.
+- **Cross-Task Flow Isolation**: Keyed `getServedSkillsSet()` by `flow_hash` across `src/mcp/skills.js`, ensuring Task 1 and Task 2 running in the same session remain strictly isolated without skill leakage or cache cross-contamination.
+- **Prompt Size Optimization (< 8,000 Bytes) & Cache Determinism**: Compacted prompt instructions across all ninja subagents (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu-jonin`) ensuring all prompts remain strictly under 8,000 bytes with 100% prefix equality ($T_1 == T_2 == T_3$) for optimal LLM provider KV-cache hits.
+- **Synchronized Tool Dispatch**: Forwarded `flow_hash` and `session_id` cleanly through `src/mcp/tool_dispatch.js` across `find_skill`, `get_skill`, and `use_skills`, allowing direct MCP invocations to bind flow skills without requiring `task_id`.
+
 ## [2.2.6] - 2026-10-21
 
 ### Security Remediation, Explicit Initialization Governance & Supply-Chain Hardening
