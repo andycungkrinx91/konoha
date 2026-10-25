@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, '..');
 const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
 
 const CORE_NINJA_SKILLS = [
+  'akatsuki-skill',
   'anbu-skill',
   'chunin-skill',
   'genin-skill',

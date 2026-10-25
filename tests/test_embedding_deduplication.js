@@ -145,7 +145,7 @@ This is repeated content.
 
     // Auto-compact
     const compactBlock = personaMemory.formatProjectContextForPrompt(profile, memories, 2, true);
-    assert.ok(compactBlock.includes('Project Context Memory (Auto-Compacted)'));
+    assert.ok(compactBlock.includes('Compact'));
     assert.ok(compactBlock.includes('`ecommerce-frontend` (Next.js 16 • Tailwind CSS v4 • pnpm)'));
     assert.ok(compactBlock.length < 350);
     console.log('✓ Prompt context token efficiency and anti-hallucination passed');

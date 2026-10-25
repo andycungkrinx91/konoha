@@ -239,7 +239,28 @@ function workflowReviewApproved(taskDir, status) {
         }
       } catch (_) { /* intentional best-effort fallback */ }
 
-      if (review.approved === true && advisorPass && cleanValidation && tasksMatch && sdlcTasksComplete && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass) {
+      // Akatsuki Security Final Gate Check (Fail-Closed)
+      const akatsukiPath = path.join(taskDir, 'akatsuki_review.json');
+      let akatsukiGatePass = true;
+      if (fs.existsSync(akatsukiPath)) {
+        try {
+          const akatsukiReview = JSON.parse(readFileSafe(akatsukiPath) || '{}');
+          if (akatsukiReview.gate_decision === 'blocked' || akatsukiReview.gate_decision === 'failed' || akatsukiReview.status === 'blocked') {
+            akatsukiGatePass = false;
+          }
+          if ((akatsukiReview.critical_count || 0) > 0 || (akatsukiReview.high_count || 0) > 0) {
+            akatsukiGatePass = false;
+          }
+        } catch (_) {
+          akatsukiGatePass = false;
+        }
+      } else if (review.akatsuki_reviewed !== undefined) {
+        akatsukiGatePass = review.akatsuki_reviewed === true;
+      } else if (status.akatsuki_gate) {
+        akatsukiGatePass = status.akatsuki_gate.passed !== false;
+      }
+
+      if (review.approved === true && advisorPass && cleanValidation && tasksMatch && sdlcTasksComplete && securityVerified && rollbackVerified && confidencePass && aiSlopPass && categoriesPass && akatsukiGatePass) {
         return true;
       }
       return false;
@@ -275,7 +296,9 @@ function workflowReviewApproved(taskDir, status) {
     status.advisor_approved !== false &&
     (status.advisor_review ? status.advisor_review.approved !== false : true);
 
-  return review.approved === true && advisorPass && confidencePass && aiSlopPass && categoriesPass && (status.tasks || []).every(t => t.status === 'completed');
+  const akatsukiGatePass = status.akatsuki_gate ? status.akatsuki_gate.passed !== false : true;
+
+  return review.approved === true && advisorPass && confidencePass && aiSlopPass && categoriesPass && akatsukiGatePass && (status.tasks || []).every(t => t.status === 'completed');
 }
 
 module.exports = {

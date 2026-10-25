@@ -32,7 +32,8 @@ function runTest() {
   console.log('Running test_canonical_skills_and_embedded_refs.js...');
 
   // 1. Verify canonical skill names set
-  assert.strictEqual(CANONICAL_SKILL_NAMES.size, 15, 'Must have exactly 15 canonical skills');
+  assert.strictEqual(CANONICAL_SKILL_NAMES.size, 16, 'Must have exactly 16 canonical skills');
+  assert.ok(isCanonicalSkill('akatsuki-skill'), 'akatsuki-skill must be canonical');
   assert.ok(isCanonicalSkill('anbu-skill'), 'anbu-skill must be canonical');
   assert.ok(isCanonicalSkill('jonin-skill'), 'jonin-skill must be canonical');
   assert.ok(isCanonicalSkill('kage-skill'), 'kage-skill must be canonical');

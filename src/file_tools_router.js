@@ -422,6 +422,7 @@ const TOOL_HANDLERS = {
   kage: (args) => runNodeSkillTool('kage', args),
   jonin: (args) => runNodeSkillTool('jonin', args),
   anbu: (args) => runNodeSkillTool('anbu', args),
+  akatsuki: (args) => runNodeSkillTool('akatsuki', args),
   chunin: (args) => runNodeSkillTool('chunin', args),
   tokubetsu_jonin: (args) => runNodeSkillTool('tokubetsu_jonin', args),
   genin: (args) => runNodeSkillTool('genin', args),

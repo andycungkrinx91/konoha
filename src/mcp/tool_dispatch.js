@@ -132,9 +132,13 @@ function _executeToolInternal(toolName, args, agent) {
     const sessId = args.session_id || args.sessionId;
     return runSannin(prompt, args.task_dir, projPath, sessId);
   }
+  if (toolName === 'akatsuki' && (args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow)) {
+    const { dispatchAkatsuki } = require('../akatsuki_workflows');
+    return dispatchAkatsuki(args);
+  }
   if (
     [
-      'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin'
+      'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'genin', 'akatsuki'
     ].includes(toolName)
   ) {
     const task = args.task || args.prompt || args.instructions;

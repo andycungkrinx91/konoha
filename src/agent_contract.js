@@ -28,7 +28,7 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
 
 - **Stop reading prompt.md / file-based IPC**: user requests are passed directly in \`<USER_REQUEST>\` or stored in \`sdlc_tasks.description\`. NEVER call \`file_info("prompt.md")\` or search for \`prompt.md\` or \`delegate.md\`. Pass task instructions, context, constraints, and skills via direct structured MCP tool arguments.
 - **Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)**:
-  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (bypass 8-phase DAG, no Gate 1 pause, instant turnaround).
+  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`, \`/akatsuki <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (bypass 8-phase DAG, no Gate 1 pause, instant turnaround).
   - **Full SDLC Pipeline (Structured Track)**: Greenfield feature building, multi-subsystem refactors, and fullstack multi-agent tasks execute through the **Canonical 8-Phase DAG** governed by \`hitl_mode\` (\`enabled\` vs \`disabled\`), Gate 1 Plan approval, and Gate 2 Delivery sign-off.
 - **Canonical 8-Phase Master Pipeline**: strictly adhere to the 8-phase SDLC lifecycle:
   - Phase 1 (Discovery, Recon & PRD: Genin & Chunin)
@@ -37,9 +37,9 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 4 (Backend APIs & Services: Anbu)
   - Phase 5 (Frontend/UI & Interaction: Jonin)
   - Phase 6 (Automated Testing & QA: Anbu & Jonin)
-  - Phase 7 (Security, Hardening & Audit: Kage)
-  - Phase 8 (Review Gate, Docs & Handover: Kage & Tokubetsu-Jonin)
-- **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`.
+  - Phase 7 (Security, Hardening & Audit: Akatsuki)
+  - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
+- **Direct Slash Command Shorthands**: invoke specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
 - **Configurable Two-Stage HITL Gates**:
   - **Gate 1 (Plan Approval)**: when \`hitl_mode = 'enabled'\` (default/safe), execution blocks after Phase 1 until the user approves the TODO action plan (via laptop IDE or Telegram bot).
   - **Gate 2 (Delivery Sign-Off)**: when \`hitl_mode = 'enabled'\`, delivery requires human approval in Kage's confidence score and delivery verdict.
@@ -131,8 +131,9 @@ function generateGenericSubagentMd(agent, client = 'generic') {
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
     'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, infrastructure deployment, cyber defense, and dev/local penetration testing',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports'
+    'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
+    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
+    'akatsuki': 'Red-team and blue-team security specialist; authorized security execution only'
   };
   const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
   const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
@@ -220,8 +221,9 @@ function getClientContract(client = 'generic', options = {}) {
         '- **@kage**: Village Leader for architecture, deep analysis, risk, and delivery review',
         '- **@chunin**: Web research, documentation lookup, and evidence synthesis',
         '- **@jonin**: Premium UI/frontend specialist across Next.js, SvelteKit, Nuxt, Angular',
-        '- **@anbu**: Backend engineering, bug fixing, DevOps, infrastructure, and dev pentesting',
-        '- **@tokubetsu-jonin**: Technical writing, documentation, runbooks, and specs'
+        '- **@anbu**: Backend engineering, bug fixing, DevOps, and infrastructure',
+        '- **@tokubetsu-jonin**: Technical writing, documentation, runbooks, and specs',
+        '- **@akatsuki**: Red-team and blue-team security specialist; authorized security execution only'
       ].join('\n');
 
   return `# Konoha Multi-Agent System & Full Runtime Specification\n\n` +

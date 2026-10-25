@@ -20,7 +20,7 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   const slashMatch = trimmed.match(/^\/([a-zA-Z_-]+)(?:\s+([\s\S]*))?$/);
   if (slashMatch) {
     const rawCmd = slashMatch[1].toLowerCase().replace(/-/g, '_');
-    const knownAgents = ['sannin', 'genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin'];
+    const knownAgents = ['sannin', 'genin', 'chunin', 'kage', 'tokubetsu_jonin', 'anbu', 'jonin', 'akatsuki'];
     if (knownAgents.includes(rawCmd)) {
       return rawCmd;
     }
@@ -76,13 +76,21 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   if (writeSignals.some(sig => promptLower.includes(sig))) {
     bestAgent = 'tokubetsu_jonin';
   }
+  const securitySignals = [
+    'security audit', 'penetration test', 'pentest', 'red team', 'blue team',
+    'vulnerability scan', 'vuln scan', 'cve audit', 'owasp check', 'security review',
+    'exploit verification', 'guardian scan', 'security assessment', 'cve'
+  ];
+  if (securitySignals.some(sig => promptLower.includes(sig))) {
+    bestAgent = 'akatsuki';
+  }
   return bestAgent;
 }
 
 function classifyExecutionTrack(prompt = '') {
   if (!prompt || typeof prompt !== 'string') return 'full_sdlc';
   const p = prompt.trim();
-  if (/^\/(anbu|jonin|genin|chunin|kage|tokubetsu[-_]jonin|sannin)\b/i.test(p)) {
+  if (/^\/(anbu|jonin|genin|chunin|kage|tokubetsu[-_]jonin|sannin|akatsuki)\b/i.test(p)) {
     return 'fast_track';
   }
   const isFullSdlcSignal = /\b(greenfield|from scratch|0 to 1|fullstack|multi[- ]subsystem|architect(ure)?|refactor|migration|scaffold|end[- ]to[- ]end|build a (web|site|app|platform|service|marketplace|system))\b/i.test(p);
@@ -105,6 +113,7 @@ function detectParallelWorkstreams(prompt = '') {
   const hasFrontend = /\b(frontend|ui|component|tailwind|layout|page|css|html|react|vue|svelte|nuxt|angular)\b/i.test(p);
   const hasDocs = /\b(documentation|readme|docs|runbook|api spec|postmortem|guide|technical doc)\b/i.test(p);
   const hasResearch = /\b(research|web search|lookup|find evidence|citations|source evaluation)\b/i.test(p);
+  const hasSecurity = /\b(security|pentest|penetration|cve|vulnerability|red team|blue team|guardian|hardening|exploit|security audit)\b/i.test(p);
 
   if (hasBackend) {
     streams.push({ agent: 'anbu', domain: 'backend', role: 'Backend API, database & infrastructure deployment' });
@@ -117,6 +126,9 @@ function detectParallelWorkstreams(prompt = '') {
   }
   if (hasResearch) {
     streams.push({ agent: 'chunin', domain: 'research', role: 'Intel research, external docs & evidence synthesis' });
+  }
+  if (hasSecurity) {
+    streams.push({ agent: 'akatsuki', domain: 'security', role: 'Security assessment, red/blue team auditing & security gate' });
   }
 
   return streams;

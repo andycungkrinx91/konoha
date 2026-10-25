@@ -13,7 +13,8 @@ const CANONICAL_OFFICIAL_NINJAS = [
   'chunin',
   'jonin',
   'anbu',
-  'tokubetsu-jonin'
+  'tokubetsu-jonin',
+  'akatsuki'
 ];
 
 function getOfficialAgentNames() {
@@ -220,6 +221,7 @@ function updateAgent(name, updates = {}) {
 }
 
 module.exports = {
+  CANONICAL_OFFICIAL_NINJAS,
   createSubagent,
   findAgent,
   embedSkill,

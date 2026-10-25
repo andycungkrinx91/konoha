@@ -465,6 +465,7 @@ const KONOHA_CANONICAL_TOOLS = [
   'chunin',
   'tokubetsu_jonin',
   'genin',
+  'akatsuki',
   'report_from_agent',
   'get_project_context',
   'save_project_context',

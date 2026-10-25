@@ -27,6 +27,7 @@ let DB_PATH = db.DB_PATH;
 let SKILLS_DIR = path.normalize(path.join(os.homedir(), '.agents', 'skills'));
 
 const CUSTOM_SKILLS = [
+  "akatsuki-skill",
   "anbu-skill",
   "chunin-skill",
   "genin-skill",

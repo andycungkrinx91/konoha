@@ -44,7 +44,9 @@ This guarantees consistent cross-client execution without relying on custom suba
 
 function buildLightweightMarkdownContent(agents, clientTitle, clientKey) {
   const roster = (agents || []).map(a => {
-    const title = a.name === 'anbu' ? 'Backend, DevOps & Security' : (a.title || 'Specialist');
+    const title = a.name === 'anbu'
+      ? 'Backend, DevOps & Bug Fixing'
+      : (a.name === 'akatsuki' ? 'Red-Team & Blue-Team Security' : (a.title || 'Specialist'));
     return `- **@${a.name}**: ${title}`;
   }).join('\n');
 
@@ -406,6 +408,23 @@ function deployProjectWorkspace(projectRoot, options = {}) {
     const geminiCliDir = path.join(targetPath, '.gemini', 'antigravity-cli');
     fs.mkdirSync(geminiCliDir, { recursive: true });
     const mcpServers = cursorManager.buildMcpServers('python3', SERVER_PATH, 'uvx');
+    if (mcpServers.konoha && Array.isArray(mcpServers.konoha.args)) {
+      const isKonohaSrcRepo = fs.existsSync(path.join(targetPath, 'src', 'file_tools_mcp.js'));
+      mcpServers.konoha.args = mcpServers.konoha.args.map((arg) => {
+        if (typeof arg === 'string') {
+          if (arg.includes('konoha_golden_seed')) {
+            return isKonohaSrcRepo ? 'src/file_tools_mcp.js' : '${userHome}/.konoha/file_tools_launcher.js';
+          }
+          if (isKonohaSrcRepo && (arg.includes('/.konoha/') || arg.includes('\\.konoha\\'))) {
+            return 'src/file_tools_mcp.js';
+          }
+        }
+        return arg;
+      });
+      if (isKonohaSrcRepo) {
+        mcpServers.konoha.command = 'node';
+      }
+    }
     const geminiSettings = { mcpServers };
     fs.writeFileSync(path.join(geminiCliDir, 'settings.json'), JSON.stringify(geminiSettings, null, 2) + '\n', 'utf8');
     fs.writeFileSync(path.join(targetPath, '.gemini', 'settings.json'), JSON.stringify(geminiSettings, null, 2) + '\n', 'utf8');

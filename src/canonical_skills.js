@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CANONICAL_SKILL_NAMES = new Set([
+  'akatsuki-skill',
   'anbu-skill',
   'antislop',
   'antislop-code',

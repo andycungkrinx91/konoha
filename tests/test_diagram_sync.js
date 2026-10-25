@@ -28,36 +28,36 @@ const QA_DOC_PATH = path.join(DOCS_DIR, 'QA-AUTOMATION.md');
 // 1. Live Tool Count vs Documentation
 const liveSchemas = listToolSchemas();
 const toolCount = liveSchemas.length;
-assert.strictEqual(toolCount, 45, `Expected 45 registered tools, found ${toolCount}`);
+assert.strictEqual(toolCount, 46, `Expected 46 registered tools, found ${toolCount}`);
 
 const readmeContent = fs.readFileSync(README_PATH, 'utf-8');
 const archContent = fs.readFileSync(ARCH_PATH, 'utf-8');
 
 // Tool count in README badge and intro
 assert.ok(
-  readmeContent.includes(`MCP%20Tools-45%20Canonical`),
-  'README.md badge must state 45 Canonical MCP tools'
+  readmeContent.includes(`MCP%20Tools-46%20Canonical`),
+  'README.md badge must state 46 Canonical MCP tools'
 );
 assert.ok(
-  readmeContent.includes(`exposes 45 canonical tools`),
-  'README.md intro must state 45 canonical tools'
+  readmeContent.includes(`exposes 46 canonical tools`),
+  'README.md intro must state 46 canonical tools'
 );
 
 // Tool count in docs/ARCHITECTURE.md
 assert.ok(
-  archContent.includes(`(45 Canonical Tools)`),
-  'docs/ARCHITECTURE.md title must state 45 Canonical Tools'
+  archContent.includes(`(46 Canonical Tools)`),
+  'docs/ARCHITECTURE.md title must state 46 Canonical Tools'
 );
 assert.ok(
-  archContent.includes(`Registered Tools (45 Total)`),
-  'docs/ARCHITECTURE.md matrix must state 45 Total'
+  archContent.includes(`Registered Tools (46 Total)`),
+  'docs/ARCHITECTURE.md matrix must state 46 Total'
 );
 assert.ok(
-  archContent.includes(`across \`konoha\` (45 tools)`),
-  'docs/ARCHITECTURE.md permissions section must state 45 tools'
+  archContent.includes(`across \`konoha\` (46 tools)`),
+  'docs/ARCHITECTURE.md permissions section must state 46 tools'
 );
 
-// Verify category sum in ARCHITECTURE.md matrix equals 45
+// Verify category sum in ARCHITECTURE.md matrix equals 46
 const categoryRegex = /\*\*([A-Za-z0-9 &]+) \((\d+)\)\*\*/g;
 let catMatch;
 let sumCategories = 0;
@@ -66,8 +66,8 @@ while ((catMatch = categoryRegex.exec(archContent)) !== null) {
 }
 assert.strictEqual(
   sumCategories,
-  45,
-  `Sum of category tool counts in ARCHITECTURE.md must equal 45, got ${sumCategories}`
+  46,
+  `Sum of category tool counts in ARCHITECTURE.md must equal 46, got ${sumCategories}`
 );
 
 // 2. Every registered tool name appears in the docs/ARCHITECTURE.md matrix

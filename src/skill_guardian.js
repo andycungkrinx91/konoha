@@ -273,6 +273,9 @@ function collectFilesRecursively(dir, rootDir = dir) {
     }
 
     if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'anthropic-cybersecurity-skills-assets') {
+        continue;
+      }
       files.push(...collectFilesRecursively(fullPath, rootDir));
     } else if (entry.isFile()) {
       files.push({ fullPath, relPath });

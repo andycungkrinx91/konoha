@@ -35,6 +35,7 @@ function getGoldenSeed() {
     KONOHA_BOOTSTRAP_PASSWORD: process.env.KONOHA_BOOTSTRAP_PASSWORD || 'konohagakure'
   };
   spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
+    cwd: seedDir,
     env,
     encoding: 'utf-8',
     // First-run initialization on a clean HOME can take several minutes

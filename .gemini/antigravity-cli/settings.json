@@ -36,9 +36,9 @@
     },
     "konoha": {
       "type": "stdio",
-      "command": "/home/andycungkrinx/.nvm/versions/node/v22.23.3/bin/node",
+      "command": "node",
       "args": [
-        "/home/andycungkrinx/.konoha/file_tools_launcher.js"
+        "src/file_tools_mcp.js"
       ],
       "env": {
         "ACTIVE_CLIENT": "cursor",
@@ -68,6 +68,7 @@
         "chunin",
         "tokubetsu_jonin",
         "genin",
+        "akatsuki",
         "report_from_agent",
         "get_project_context",
         "save_project_context",

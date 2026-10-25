@@ -142,12 +142,23 @@ async function run() {
     // 5. Route kage architecture
     const td5 = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
     try {
-      const prompt5 = 'Security audit and architecture risk assessment of the auth system';
+      const prompt5 = 'Architecture trade-offs and scalability risk assessment of the system';
       fs.writeFileSync(path.join(td5, 'prompt.md'), prompt5);
       const [resp] = await client.callTool('sannin', { prompt: prompt5, task_dir: td5 });
       assert.strictEqual(resp.selected_agent, 'kage');
     } finally {
       fs.rmSync(td5, { recursive: true, force: true });
+    }
+
+    // 5b. Route akatsuki security
+    const td5b = fs.mkdtempSync(path.join(os.tmpdir(), 'chain-test-'));
+    try {
+      const prompt5b = 'Security audit, vulnerability scan, and penetration test of the auth system';
+      fs.writeFileSync(path.join(td5b, 'prompt.md'), prompt5b);
+      const [resp] = await client.callTool('sannin', { prompt: prompt5b, task_dir: td5b });
+      assert.strictEqual(resp.selected_agent, 'akatsuki');
+    } finally {
+      fs.rmSync(td5b, { recursive: true, force: true });
     }
 
     // 6. Route default kage no keywords

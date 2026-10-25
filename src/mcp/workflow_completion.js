@@ -442,11 +442,22 @@ function handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManage
     ? (socketVerified && socketClean && socketFindings === 0)
     : true;
 
-  const mechanicalConfidence = (aiSlopOk && socketOk && evidencePct === 100 && securityVerified && rollbackVerified && reviewFindings.length === 0)
+  const akatsukiGatePath = path.join(resolvedTaskDir, 'akatsuki_review.json');
+  let akatsukiGateData = null;
+  if (fs.existsSync(akatsukiGatePath)) {
+    try { akatsukiGateData = JSON.parse(readFileSafe(akatsukiGatePath) || '{}'); } catch (_) {}
+  }
+  const akatsukiGateResult = akatsukiGateData || status.akatsuki_gate || (reviewData.akatsuki_gate || null);
+  const akatsukiOk = akatsukiGateResult
+    ? (akatsukiGateResult.passed !== false && akatsukiGateResult.decision !== 'failed' && akatsukiGateResult.decision !== 'blocked' && (akatsukiGateResult.critical_count || 0) === 0 && (akatsukiGateResult.high_count || 0) === 0)
+    : true;
+
+  const mechanicalConfidence = (aiSlopOk && socketOk && akatsukiOk && evidencePct === 100 && securityVerified && rollbackVerified && reviewFindings.length === 0)
     ? (typeof reviewData.confidence === 'number' && reviewData.confidence >= MINIMUM_CONFIDENCE ? Math.min(100, Math.max(MINIMUM_CONFIDENCE, reviewData.confidence)) : 99)
     : Math.min(
         aiSlopOk ? 100 : 0,
         socketOk ? 100 : 0,
+        akatsukiOk ? 100 : 0,
         evidencePct,
         securityVerified ? 100 : 0,
         rollbackVerified ? 100 : 0,
@@ -461,6 +472,7 @@ function handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManage
   const socketRow = reviewData.socket_reviewed !== undefined
     ? `| **Socket Security Gate** | Clean from High & Medium (exclude Low) | 0 High, 0 Medium | **${socketOk ? 100 : 0}%** | ${mark(socketOk)} |\n`
     : '';
+  const akatsukiRow = `| **Akatsuki Security Final Gate** | 0 Critical, 0 High findings | ${akatsukiGateResult ? (akatsukiGateResult.decision || (akatsukiOk ? 'passed' : 'blocked')) : 'verified clean'} | **${akatsukiOk ? 100 : 0}%** | ${mark(akatsukiOk)} |\n`;
 
   const reviewGateBlock = (
     '### 🛡️ Kage Reviewer Confidence Gate Report\n\n' +
@@ -475,6 +487,7 @@ function handleWorkflowSynthesis(status, resolvedTaskDir, sdlcConfig, sdlcManage
     '|---|---|---|---|---|\n' +
     `| **AI Slop Scan** | All changed files | ${aiSlopEval} | **${aiSlopConf}** | ${mark(aiSlopOk)} |\n` +
     socketRow +
+    akatsukiRow +
     `| **Task Validation Evidence** | ${totalTasks}/${totalTasks} tasks with passing evidence | ${verifiedCount}/${totalTasks} verified, ${validationEntries} validation entries recorded | **${evidencePct}%** | ${mark(evidencePct === 100)} |\n` +
     `| **Kage Review Findings** | 0 unresolved findings | ${reviewFindings.length} finding(s) recorded in kage_review.json | **${reviewFindings.length === 0 ? 100 : Math.max(60, 100 - 10 * reviewFindings.length)}%** | ${mark(reviewFindings.length === 0)} |\n` +
     `| **Security Review** | security_reviewed = true | security_reviewed = ${String(securityVerified)} | **${securityVerified ? 100 : 0}%** | ${mark(securityVerified)} |\n` +

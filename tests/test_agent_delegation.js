@@ -44,9 +44,14 @@ async function run() {
     assert.strictEqual(resBackend.selected_agent, 'anbu');
 
     const taskArch = setupTask(taskRoot, 'arch');
-    const resArch = JSON.parse(server.runSannin('design system architecture for scalability and security audit risk', taskArch));
+    const resArch = JSON.parse(server.runSannin('design system architecture for scalability and system trade-off risk', taskArch));
     assert.strictEqual(resArch.status, 'routed');
     assert.strictEqual(resArch.selected_agent, 'kage');
+
+    const taskSecurity = setupTask(taskRoot, 'security');
+    const resSecurity = JSON.parse(server.runSannin('conduct authorized penetration test, vulnerability scan and security audit', taskSecurity));
+    assert.strictEqual(resSecurity.status, 'routed');
+    assert.strictEqual(resSecurity.selected_agent, 'akatsuki');
 
     const taskResearch = setupTask(taskRoot, 'research');
     const resResearch = JSON.parse(server.runSannin('research web search documentation compliance evidence citation', taskResearch));

@@ -840,6 +840,64 @@
       }
     },
     {
+      "name": "akatsuki",
+      "description": "Delegate authorized red-team, blue-team, or security audit work to Akatsuki.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "constraints": {
+            "type": "string"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflow_type": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "authorization": {
+            "type": "string"
+          },
+          "taste_dials": {
+            "type": "object"
+          },
+          "project_path": {
+            "type": "string"
+          },
+          "task_dir": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "flow_hash": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "chunin",
       "description": "Delegate research work to Chunin.",
       "inputSchema": {

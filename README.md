@@ -12,7 +12,7 @@
 [![Pi (pi.dev)](https://img.shields.io/badge/Pi%20(pi.dev)-CLI-orange?logo=raspberrypi&logoColor=white)](README.md)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-informational?logo=linux&logoColor=white)](README.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022.16.0%20%7C%20Pure%20JS-339933?logo=nodedotjs&logoColor=white)](README.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-45%20Canonical-10b981)](README.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20Tools-46%20Canonical-10b981)](README.md)
 [![Skills Indexed](https://img.shields.io/badge/Skills-1%2C027%20Indexed-8b5cf6?logo=sqlite&logoColor=white)](README.md)
 [![Observed Token Savings](https://img.shields.io/badge/Observed%20Token%20Savings-83--98%25-9ece6a?logo=speedtest&logoColor=white)](docs/BENCHMARK.md)
 [![RTK](https://img.shields.io/badge/RTK-Rust%20Token%20Killer-ff6b35?logo=rust&logoColor=white)](README.md)
@@ -413,7 +413,7 @@ npx konoha-mcp init
 
 > [!IMPORTANT]
 > **Breaking Changes Notice (Post-v2.1.17)**:
-> - **Direct Specialist MCP Tools**: Deprecated `delegate_to_<agent>` MCP tool wrappers are removed in favor of direct specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`). External callers using legacy delegate prefixes on `report_from_agent` are rejected.
+> - **Direct Specialist MCP Tools**: Deprecated `delegate_to_<agent>` MCP tool wrappers are removed in favor of direct specialist tools (`sannin`, `genin`, `kage`, `chunin`, `jonin`, `anbu`, `tokubetsu_jonin`, `akatsuki`). External callers using legacy delegate prefixes on `report_from_agent` are rejected.
 > - **Canonical CLI Syntax (27 Removed Aliases)**: 27 legacy undocumented CLI aliases have been pruned: `embeddings`, `detect_ai`, `ai-detector`, `detect_docs`, `docs-detector`, `detect-doc`, `personas`, `memories`, `spirit`, `will-of-fire`, `projects`, `tasks`, `web-search`, `inbox`, `install`, `memory`, `setup`, `update`, `saving`, `agents`, `tg`, `tunnels`, `prune`, `context`, `persona`, `searxng`, `sdlc`. Canonical subcommands (`konoha task`, `konoha data`, `konoha skill`, `konoha tunnel`, `konoha agent`, `konoha status`, etc.) are strictly enforced.
 > - **Operational Database Management (`konoha data`)**: Added canonical subcommands `konoha data backup [path]`, `konoha data rebuild-fts`, and `konoha data prune [--retention <days>]`. Note: `konoha data prune` deletes immediately, with no confirmation and no automatic backup (take `konoha data backup` first), and "alltime" stats count only data since the last prune.
 > - **Mandatory Ingress PIN & Security**: Quick and custom tunnels strictly require an authentication PIN (`auth_pin`) when Cloudflare Zero Trust headers are absent; unauthenticated named tunnel access (`open_named`) is removed.
@@ -805,12 +805,12 @@ After installation, Konoha registers **2 MCP servers** that work together:
 
 ### konoha — Skill Knowledge Search & Token-Efficient File Operations
 
-The unified `konoha` server exposes 45 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, QA automation, native document engineering, and subagent delegation workflows:
+The unified `konoha` server exposes 46 canonical tools for skill retrieval, bounded file operations, validated build specifications, project context, memory, search, migration, AI-website detection, QA automation, native document engineering, and subagent delegation workflows:
 
 #### `sannin(task?, context?, constraints?, skills?, taste_dials?, project_path?, task_dir?)`
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
 
-#### Subagent Delegation Tools (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`)
+#### Subagent Delegation Tools (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`)
 Executes the specified subagent inline with structured task context, dynamic skill loading, project context, and optional Taste-Skill dials.
 
 #### `web_search(query, num_results?, search_depth?)`

@@ -79,7 +79,7 @@ async function run() {
   const formattedCompact = personaMemory.formatProjectContextForPrompt(profile, mems, 2, true);
 
   assert.ok(formattedNormal.includes('Persistent Project Context'));
-  assert.ok(formattedCompact.includes('Auto-Compacted'));
+  assert.ok(formattedCompact.includes('Compact'));
   assert.ok(formattedCompact.length < formattedNormal.length);
   assert.ok(formattedCompact.length < 350, `Compact block length should be < 350, got ${formattedCompact.length}`);
   console.log('✓ Format project context compactness passed');

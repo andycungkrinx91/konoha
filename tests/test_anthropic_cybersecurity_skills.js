@@ -28,24 +28,34 @@ const skillsModule = require('../src/mcp/skills');
 async function runTests() {
   console.log('Running test_anthropic_cybersecurity_skills.js...');
 
-  // 1. Run migration for anbu-skill
-  const count = migrate.migrateSingleSkill('anbu-skill', 'src/templates/skills');
-  assert.ok(count >= 850, `Must migrate anbu-skill and its cyber assets (got ${count})`);
+  // 1. Run migration for akatsuki-skill and anbu-skill
+  const count = migrate.migrateSingleSkill('akatsuki-skill', 'src/templates/skills');
+  assert.ok(count >= 820, `Must migrate akatsuki-skill and its cyber assets (got ${count})`);
+
+  const anbuCount = migrate.migrateSingleSkill('anbu-skill', 'src/templates/skills');
+  assert.ok(anbuCount > 0, `Must migrate anbu-skill (got ${anbuCount})`);
 
   // 2. Verify total cyber skill rows in database
   const cyberRows = conn.prepare(`
     SELECT COUNT(*) as cnt
     FROM skills
+    WHERE skill_name = 'akatsuki-skill' AND file_path LIKE '%anthropic-cybersecurity-skills-assets%'
+  `).get();
+  assert.strictEqual(cyberRows.cnt, 817, 'Database must contain exactly 817 anthropic cybersecurity skills under akatsuki-skill');
+
+  const anbuCyberRows = conn.prepare(`
+    SELECT COUNT(*) as cnt
+    FROM skills
     WHERE skill_name = 'anbu-skill' AND file_path LIKE '%anthropic-cybersecurity-skills-assets%'
   `).get();
-  assert.strictEqual(cyberRows.cnt, 817, 'Database must contain exactly 817 anthropic cybersecurity skills');
+  assert.strictEqual(anbuCyberRows.cnt, 0, 'Anbu must contain 0 offensive cybersecurity assets');
 
   // 3. Test find_skill by technique name (DPAPI)
   const findDpapi = JSON.parse(skillsModule.findSkill('dpapi', 5));
   assert.ok(findDpapi.found > 0, 'Must find dpapi skills');
   const dpapiSkill = findDpapi.results.find(r => r.name.includes('dpapi'));
   assert.ok(dpapiSkill, 'Results must contain a dpapi skill');
-  assert.strictEqual(dpapiSkill.name, 'anbu-skill/abusing-dpapi-for-credential-access', 'Must match exact dpapi skill ID');
+  assert.strictEqual(dpapiSkill.name, 'akatsuki-skill/abusing-dpapi-for-credential-access', 'Must match exact dpapi skill ID under akatsuki-skill');
 
   // 4. Test find_skill by MITRE ATT&CK ID (T1555)
   const findMitre = JSON.parse(skillsModule.findSkill('T1555', 5));
@@ -59,7 +69,7 @@ async function runTests() {
   assert.ok(findPrivesc.found > 0, 'Must find privilege escalation skills');
 
   // 6. Test get_skill with full canonical name
-  const fullSkillRes = skillsModule.getSkill('anbu-skill/abusing-dpapi-for-credential-access');
+  const fullSkillRes = skillsModule.getSkill('akatsuki-skill/abusing-dpapi-for-credential-access');
   assert.ok(!fullSkillRes.includes('"error"'), 'Full canonical lookup must succeed');
   assert.ok(fullSkillRes.includes('Abusing DPAPI for Credential Access'), 'Must contain skill title');
   assert.ok(fullSkillRes.includes('T1555.004'), 'Must contain MITRE ATT&CK mapping');
@@ -79,10 +89,12 @@ async function runTests() {
 
   // 8. Clean up
   try {
+    conn.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch (_) {}
 
   console.log('✓ All Anthropic Cybersecurity Skills & Red-Team tests passed cleanly.');
+  process.exit(0);
 }
 
 runTests().catch(err => {

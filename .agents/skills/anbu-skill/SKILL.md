@@ -26,7 +26,7 @@ In the 8-phase Konoha workflow, Anbu executes the backend, database, and infrast
 - **Phase 3 (Database & Schemas)**: Architects data schemas, indexes, and zero-downtime migration scripts.
 - **Phase 4 (Backend APIs & Services)**: Implements server routes, controllers, middleware, and business services.
 - **Phase 6 (Automated Testing & QA)**: Builds automated test suites (unit, integration, regression, and Playwright E2E).
-- **Phase 7 (Security Hardening)**: Remediates CVE vulnerabilities, conducts dev/local penetration testing, and configures container security contexts.
+- **Phase 7 (Security Hardening)**: Applies security patches, remediates basic code vulnerabilities, and configures container security contexts. Penetration testing and security audit gates escalate to Akatsuki.
 
 ---
 
@@ -71,12 +71,11 @@ Anbu automatically detects and enforces idiomatic polyglot toolchains wrapped wi
 2. **Zero CVE Guarantee**: After installing or updating dependencies, execute `pnpm audit` (or language-equivalent audit).
 3. **Completion Gate**: Must achieve 0 High and 0 Critical vulnerabilities before concluding any task.
 
-### SOP 5: Dev/Local Penetration Testing & Security Assessment
-1. **Strict Target Boundary**: Penetration testing is authorized exclusively against development and local environments (`localhost`, `127.0.0.1`, dev containers, local docker-compose stacks, and local Kubernetes clusters). External or production targets are strictly prohibited without explicit written authorization.
-2. **Reconnaissance & Surface Mapping**: Enumerate listening ports, service banners, and authentication endpoints.
-3. **OWASP Top 10 Probing**: Safely probe for broken object-level authorization (BOLA), injection flaws, SSRF vulnerabilities, and authentication bypasses.
-4. **Validation Evidence & Reporting**: Record raw diagnostic evidence proving testing was executed (`0 unhandled exploits`, `scan completed`), report severity rankings, and provide concrete remediation patches.
-5. **Post-Assessment Cleanup**: Clean up all temporary testing scripts, mock payloads, and test database records upon completion.
+### SOP 5: Basic Security Hygiene & Safe Escalation
+1. **Input Validation**: Sanitize and validate all untrusted inputs at system boundaries using explicit schemas.
+2. **Parameterized Operations**: Always use parameterized queries for SQL, ORMs, and command executions. Never concatenate raw strings.
+3. **Secret Hygiene**: Strictly protect credentials, tokens, and keys. Never commit or log secrets.
+4. **Safe Escalation to Akatsuki**: For penetration testing, offensive probing, vulnerability assessments, Guardian reviews, and security gate audits, escalate execution directly to `@akatsuki`.
 
 ### SOP 6: Helm Chart Scaffolding & Kubernetes Packaging
 1. **Standard Chart Layout**: Adhere to canonical structure (`Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`).
@@ -117,7 +116,7 @@ Load specialized backend and DevOps references via `konoha.get_skill("anbu-skill
 | If the task involves... | Load Reference |
 |---|---|
 | QA, E2E, regression, UI bug reproduction, browser testing, flow file, Playwright test | `anbu-skill/qa-automation` |
-| Dev/local penetration testing, vulnerability scanning, security assessment | `anbu-skill/anthropic-cybersecurity-skills` |
+| Security audits, penetration testing, red/blue team, vulnerability scanning | Escalate to `@akatsuki` (`akatsuki-skill`) |
 | DevOps, SRE, Terraform, Ansible, Jenkins, Docker, Kubernetes, Linux | `anbu-skill/devops-engineer` |
 | Helm chart packaging, templates, values.yaml scaffolding | `anbu-skill/helm-chart-scaffolding` |
 | Multi-stage Dockerfiles, distroless images, container security | `anbu-skill/multi-stage-dockerfile` |

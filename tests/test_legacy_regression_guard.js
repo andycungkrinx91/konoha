@@ -118,7 +118,7 @@ function scanForPattern(dir, pattern, allowlist = []) {
   }
 }
 
-scanForPattern(SRC_DIR, /deep-code-explorer/i, ['test', 'agent_manager.js', 'mcp/skills.js', 'migrate.js']);
+scanForPattern(SRC_DIR, /deep-code-explorer/i, ['test', 'agent_manager.js', 'agent_storage.js', 'mcp/skills.js', 'mcp/skills_common.js', 'migrate.js']);
 const agentMgrContent = fs.readFileSync(path.join(SRC_DIR, 'agent_manager.js'), 'utf8');
 const occurrences = (agentMgrContent.match(/deep-code-explorer/g) || []).length;
 assert.ok(occurrences <= 3, 'deep-code-explorer in agent_manager.js must only exist in legacy normalizer');

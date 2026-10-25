@@ -40,6 +40,7 @@ function getReturnDescription(toolName) {
     kage: 'Confidence report & verdict JSON',
     jonin: 'UI implementation results JSON',
     anbu: 'Backend implementation results JSON',
+    akatsuki: 'Security review & penetration testing report JSON',
     chunin: 'Citation-backed report JSON',
     tokubetsu_jonin: 'Generated documentation JSON',
     genin: 'Structured exploration report JSON',

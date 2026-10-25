@@ -21,8 +21,8 @@ console.log('Running test_canonical_api_sync.js...');
 
 // 1. Tool count lock
 const schemas = listToolSchemas();
-assert.strictEqual(schemas.length, 45, `Expected exactly 45 canonical MCP tools, found ${schemas.length}`);
-console.log('  ✓ Canonical tool count is locked at 45.');
+assert.strictEqual(schemas.length, 46, `Expected exactly 46 canonical MCP tools, found ${schemas.length}`);
+console.log('  ✓ Canonical tool count is locked at 46.');
 
 // 2. Specific schema parameter integrity checks
 const findSkill = schemas.find(t => t.name === 'find_skill');

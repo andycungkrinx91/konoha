@@ -2,6 +2,23 @@
 
 All notable changes to the **Konoha** project will be documented in this file.
 
+## [2.2.8] - 2026-10-25
+
+### Akatsuki Security Specialist, Red-Team Sandbox Isolation (akatsuki-lab), Skill Guardian & Pre-Delivery Security Gate
+
+- **Dedicated `@akatsuki` Specialist Subagent**: Added `@akatsuki` as the 8th official ninja specialist across all client rosters (`.cursorrules`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and client settings). Dedicated persona: *The Red Cloud Executioner (Red-Team & Blue-Team Security Specialist; authorized security execution only)*.
+- **Security Boundary Separation & Centralization**: Excised all offensive cyber assets, penetration testing toolchains, and exploit verification references from `@anbu` and general agents. Anbu SOP 5 refactored to *Basic Security Hygiene & Safe Escalation*. Centralized advanced security execution, blue-team defensive audits, and authorized red-team operations exclusively under `@akatsuki`.
+- **Skill Guardian Perimeter & Cybersecurity Skills Migration**: Integrated `src/skill_guardian.js` automated security scanning into the security pipeline. Migrated and indexed 817 Anthropic cybersecurity skills and references into canonical SQLite FTS5 database (`konoha.db`) under Akatsuki ownership, preventing token context bloat in general agent workflows.
+- **Mandatory `akatsuki-lab` Sandbox Isolation (LXC on Linux, Docker on Windows/macOS)**: Enforced strict sandbox containment for all red-team and penetration-testing operations. Direct host execution is strictly denied (`host_execution_denied: true`).
+  - *Linux*: Strictly requires unprivileged LXC container named `akatsuki-lab` with isolated non-host bridge networking.
+  - *Windows / macOS*: Strictly requires Docker container named `akatsuki-lab` with internal network isolation.
+  - *Missing Engine Decline*: If the required container engine is not installed on the user machine, execution fails closed and is declined with the exact message: `Declined: LXC/Docker not installed on this machine.`
+- **Standalone Red-Team & Blue-Team Workflows (`src/akatsuki_workflows.js`, `src/akatsuki_lab.js`)**:
+  - *Red-Team Isolation Workflow*: Multi-phase penetration testing enforcing fail-closed authorization, sandbox network containment check, non-destructive attack surface enumeration, OWASP/misconfiguration probing, benign exploitability verification, and post-assessment container teardown with host-isolation proof.
+  - *Blue-Team Direct Host Workflow*: Multi-phase defensive audit running directly on the host codebase, performing repository perimeter inventory, secret leakage and credential vault scan (`.env*`, private keys), supply-chain dependency vulnerability audit, SAST OWASP code hygiene analysis, and defensive remediation verification.
+- **Akatsuki Security Final Gate (`runAkatsukiFinalGate`)**: Implemented fail-closed security gating in `src/akatsuki_workflows.js` and integrated with `workflowReviewApproved` in `src/mcp/workflow_dispatch.js`. Delivery blocks if critical/high findings exist, scanner errors occur, or red-team operations lack verified `akatsuki-lab` sandbox isolation evidence.
+- **Portable Project MCP Configuration & Golden Seed Isolation**: Fixed test harness (`tests/run_all.js`) to run golden seed initialization inside an isolated working directory, preventing test artifact leakage into repository tracked files. Sanitized `.claude.json`, `.gemini/settings.json`, `.commandcode/mcp.json`, and `.cursor/mcp.json` to eliminate hardcoded user home directories (`/home/andycungkrinx`) and transient test paths (`/tmp/konoha_golden_seed_*`).
+
 ## [2.2.7] - 2026-10-25
 
 ### Flow-Bounded Skills Lifecycle, Turn-by-Turn Dynamic Persistence & Soul-Bound Behavioral Rules
