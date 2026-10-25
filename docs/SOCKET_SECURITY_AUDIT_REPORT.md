@@ -24,7 +24,7 @@ A software supply chain security audit of the Konoha codebase was conducted usin
 | **@socketregistry Overrides** | 10 active packages | Verified in dependency graph (zero known CVEs) |
 | **Root Dependency CVEs** | 0 known vulnerabilities | `pnpm audit` (100% clean) |
 | **Web App Dependency CVEs** | 0 known vulnerabilities | `pnpm --dir apps/web audit` (100% clean) |
-| **License Compliance** | 100% permissive | 54 MIT, 9 Apache-2.0, 10 MPL-2.0, 5 ISC, 0 AGPL/GPL |
+| **License Analysis** | 82 explicit licenses parsed, 77 undeclared in SBOM | 54 MIT, 10 MPL-2.0 (weak copyleft), 9 Apache-2.0, 5 ISC, 2 Unknown, 0 strong GPL/AGPL |
 | **Socket Remote Full-Scan** | Token permission restricted | API 403: `personal-2xifv` lacks `full-scans:create` |
 | **Socket API Package Rate Limit** | Rate limited on free quota | API 429: Token quota refill required (~600s cooldown) |
 
@@ -50,15 +50,16 @@ Using Socket's embedded CycloneDX generator (`socket cdxgen`), a software bill o
   - `three@0.186.1` (3D canvas rendering)
   - `vite@8.3.5` (Modern build bundler)
 
-### License Distribution
-All 159 components were categorized by license type:
-- **MIT License**: 54 packages (34.0%)
-- **Apache-2.0**: 9 packages (5.7%)
-- **MPL-2.0 (Mozilla Public License)**: 10 packages (6.3%)
-- **ISC License**: 5 packages (3.1%)
-- **BlueOak-1.0.0**: 1 package (0.6%)
-- **BSD-3-Clause**: 1 package (0.6%)
-- **Copyleft (GPL / AGPL)**: **0 packages (0.0%)** — clean for commercial and enterprise distribution.
+### License Distribution (from CycloneDX SBOM)
+Of the 159 total components in `/tmp/bom.json`, 82 carry explicit license declarations in the generated SBOM, while 77 transitive components omit top-level license metadata in pre-build manifest mode:
+- **MIT License**: 54 packages (e.g. `@sveltejs/kit`, `playwright`, `three`)
+- **MPL-2.0 (Mozilla Public License 2.0)**: 10 packages — **weak copyleft** (specifically `lightningcss` native binary bindings used transitively by `@tailwindcss/vite`)
+- **Apache-2.0**: 9 packages (e.g. `@bufbuild/protobuf`, `docx`)
+- **ISC License**: 5 packages
+- **BlueOak-1.0.0**: 1 package
+- **BSD-3-Clause**: 1 package
+- **Unknown / Unresolved in SBOM**: 2 packages (`jszip@3.10.2` and `pako@1.0.11`)
+- **Strong Copyleft (GPL / AGPL)**: 0 packages identified in declared metadata.
 
 ---
 
