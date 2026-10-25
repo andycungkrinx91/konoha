@@ -61,11 +61,13 @@ async function cmdAkatsukiStatus() {
     ? `${C.green}RUNNING${C.reset} (network_isolated: ${labStatus.network_isolated})`
     : (labStatus.container_exists ? `${C.yellow}STOPPED${C.reset}` : `${C.dim}NOT_CREATED${C.reset}`);
 
-  log(`  ${C.bold}Specialist Agent:${C.reset}    @akatsuki (Red-Team & Blue-Team Security)`);
+  log(`  ${C.bold}Specialist Agent:${C.reset}    @akatsuki (Red-Team, Blue-Team & Security Final Gate)`);
+  log(`  ${C.bold}Blue-Team Defense:${C.reset}   ${C.green}● ACTIVE${C.reset} (Direct Host SAST, Secrets, CVEs & Skill Guardian)`);
+  log(`  ${C.bold}Security Final Gate:${C.reset} ${C.green}● ACTIVE${C.reset} (Mandatory Pre-Delivery Gate before Kage Approval)`);
   log(`  ${C.bold}Red-Team Status:${C.reset}     ${enabledBadge}`);
   log(`  ${C.bold}Container Engine:${C.reset}    ${C.cyan}${engine.toUpperCase()}${C.reset} (${process.platform})`);
   log(`  ${C.bold}Isolation Sandbox:${C.reset}   ${C.bold}${DEFAULT_LAB_NAME}${C.reset} [${labBadge}]`);
-  log(`  ${C.bold}Direct Host Exec:${C.reset}    ${C.red}${C.bold}STRICTLY DENIED${C.reset}`);
+  log(`  ${C.bold}Direct Host Exec:${C.reset}    ${C.red}${C.bold}STRICTLY DENIED${C.reset} ${C.dim}(Red-Team Sandbox Confined)${C.reset}`);
   log(`  ${C.bold}Access Policy:${C.reset}       ${C.yellow}CLI / TUI Exclusive${C.reset} ${C.dim}(Hidden from Web UI)${C.reset}`);
   if (config.updated_at) {
     log(`  ${C.bold}Last Updated:${C.reset}        ${C.dim}${config.updated_at} by ${config.updated_by || 'operator'}${C.reset}`);

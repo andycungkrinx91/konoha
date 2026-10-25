@@ -219,7 +219,7 @@ function buildDefineSubagentArgs(agent) {
 
 function removeAntigravityAgents(options = {}) {
   const home = options.home || process.env.HOME || os.homedir();
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
   const dirs = [
     path.join(home, '.gemini', 'antigravity-cli', 'agents'),
     path.join(home, '.gemini', 'antigravity-ide', 'agents')
@@ -582,7 +582,7 @@ function getAntigravityStatus() {
   }
 
   let agentsCount = 0;
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
   if (fs.existsSync(ANTIGRAVITY_AGENTS_GLOBAL)) {
     try {
       agentsCount = fs.readdirSync(ANTIGRAVITY_AGENTS_GLOBAL).filter(f => {

@@ -32,6 +32,7 @@
     { id: "genin", name: "@genin", title: "Code Review" },
     { id: "sannin", name: "@sannin", title: "Router" },
     { id: "tokubetsu-jonin", name: "@tokubetsu-jonin", title: "Docs" },
+    { id: "akatsuki", name: "@akatsuki", title: "Red-Team, Blue-Team & Gate" },
     { id: "global", name: "@global", title: "All Agents" }
   ];
   let agents = $state(fallbackAgents);
@@ -189,13 +190,21 @@
         antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
         adhd_shaping: 'Lead with verified documentation answer, numbered evidence points, cap citations to 5, end with concrete recommendation.'
       },
- 'tokubetsu-jonin': {
+      'tokubetsu-jonin': {
         name: '⬡ Tokubetsu-Jonin',
         role: 'The Authentic Scribe (Humanist Writer)',
         voice: 'Writing must be human, clear, and compelling. Documents that people actually enjoy reading.',
         calling: 'Production-grade technical documentation, runbooks, and refined human-authentic office documents (Word, Excel, PPT, PDF).',
         antislop_skills: ['antislop', 'antislop-code', 'antislop-human', 'antislop-copywriting'],
         adhd_shaping: 'Lead with executive takeaway, numbered sections, zero robotic AI fluff, compact human prose.'
+      },
+      akatsuki: {
+        name: '☁ Akatsuki',
+        role: 'The Red Cloud Executioner (Red-Team, Blue-Team & Security Final Gate)',
+        voice: 'The perimeter is breached or hardened—there is no middle ground. Offensive exploits isolated in the sandbox, defensive hardening on the host, and zero unmitigated vulnerabilities past the final security gate.',
+        calling: 'Full-spectrum security engineering: Authorized red-team penetration testing and sandbox exploit verification (akatsuki-lab on LXC/Docker), direct-host blue-team defensive code audits, secret leakage detection, dependency CVE scans, Skill Guardian perimeter defense, and the mandatory fail-closed Security Final Gate before Kage delivery approval.',
+        antislop_skills: ['antislop', 'antislop-code', 'antislop-human'],
+        adhd_shaping: 'Lead with security verdict (PASS/FAIL/BLOCKED), numbered findings categorized by workflow (Red-Team / Blue-Team / Final Gate), CVSS severity, exact remediation patch, and sandbox containment proof.'
       }
     }
   };
@@ -545,13 +554,13 @@
         </div>
       </div>
 
-      <!-- The 7 Ninja Archetypes -->
+      <!-- The 8 Ninja Archetypes -->
       <div class="space-y-3">
         <h3 class="text-base font-black theme-text tracking-tight flex items-center gap-2">
           <svg class="w-4 h-4 text-action-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          <span>Seven Ninja Archetypes &amp; Spirits</span>
+          <span>Eight Ninja Archetypes &amp; Spirits</span>
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {#each Object.entries(soulData.archetypes || {}) as [key, arch]}

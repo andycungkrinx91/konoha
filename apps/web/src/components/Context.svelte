@@ -39,6 +39,7 @@
     { id: "genin", name: "@genin (Code Review & Tracing)" },
     { id: "sannin", name: "@sannin (Workflow Router)" },
     { id: "tokubetsu-jonin", name: "@tokubetsu-jonin (Docs & Scribe)" },
+    { id: "akatsuki", name: "@akatsuki (Red-Team, Blue-Team & Gate)" },
     { id: "global", name: "@global (All Agents)" }
   ];
 

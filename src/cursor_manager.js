@@ -606,7 +606,7 @@ function removeCursorConfig(silent = true, options = {}) {
 
   // Remove global subagents
   const agentsGlobal = path.join(home, '.cursor', 'agents');
-  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'];
+  const official = ['genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin', 'akatsuki'];
   for (const name of official) {
     const p = path.join(agentsGlobal, `${name}.md`);
     if (fileExists(p)) {

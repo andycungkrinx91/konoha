@@ -29,52 +29,27 @@ In the 8-phase Konoha workflow, Akatsuki owns the security assessment and enforc
 ## Universal Security Principles & Fail-Closed Guardrails
 
 1. **Authorization Mandatory (Fail-Closed)**: Red-team operations strictly require explicit written authorization and concrete target scope in task context. Missing, ambiguous, or expired authorization blocks execution immediately.
-2. **Mandatory Sandbox Isolation (`akatsuki-lab`)**: Red-team offensive testing is strictly DENIED from direct host execution (`host_execution_denied: true`). Red-team actions must run inside an isolated sandbox container named `akatsuki-lab`:
-   - **Linux**: Strictly requires unprivileged LXC container `akatsuki-lab` with isolated bridge networking.
-   - **Windows / macOS**: Strictly requires Docker container `akatsuki-lab` with internal network isolation.
-   - **Missing Engine Decline**: If the required container engine is missing on the host machine, red-team execution fails closed with: `Declined: LXC/Docker not installed on this machine.`
-3. **Blue-Team Host Audit**: Blue-team defensive analysis runs directly on the host codebase to audit repository assets, dependencies, secrets, and configurations.
-4. **Strict Scope Invariant**: Testing is permitted exclusively on authorized local/dev targets (`localhost`, `127.0.0.1`, dev containers, staging clusters). Never target unauthorized external infrastructure.
-5. **Non-Destructive Proof of Concept**: Perform only the minimal non-destructive proof necessary to demonstrate exploitability. Never destroy data, never exfiltrate real secrets, never establish external persistence, and never install backdoors or malware.
-6. **Mandatory Cleanup & Teardown**: All temporary payloads, fuzzing artifacts, mock accounts, test keys, and scratch scripts must be deleted immediately after testing, and container containment verified.
-7. **Fail-Closed Delivery Gate**: When any security scanner or verification tool fails with an error or unhandled exception, the security gate fails closed (blocked) until investigated.
+2. **Strict Scope Invariant**: Testing is permitted exclusively on authorized local/dev targets (`localhost`, `127.0.0.1`, dev containers, staging clusters). Never target unauthorized external infrastructure.
+3. **Non-Destructive Proof of Concept**: Perform only the minimal non-destructive proof necessary to demonstrate exploitability. Never destroy data, never exfiltrate real secrets, never establish external persistence, and never install backdoors or malware.
+4. **Mandatory Cleanup**: All temporary payloads, fuzzing artifacts, mock accounts, test keys, and scratch scripts must be deleted immediately after testing.
+5. **Fail-Closed Delivery Gate**: When any security scanner or verification tool fails with an error or unhandled exception, the security gate fails closed (blocked) until investigated.
 
 ---
 
 ## Core SOPs
 
-### SOP 1: Red-Team Authorization & Lab Isolation Validation (Fail-Closed)
+### SOP 1: Red-Team Authorization & Scope Validation (Fail-Closed)
 1. **Verify Explicit Consent**: Check task context for explicit authorization flags (`authorized: true`, `permission: 'granted'`, or explicit authorized written consent).
-2. **Validate Target Scope & Host Denial**: Confirm target is not direct host (`host_execution_denied: true`). Require sandbox container named `akatsuki-lab`.
-3. **Verify Container Engine**: Confirm platform engine is installed (LXC on Linux, Docker on Windows/macOS). If not installed, decline with: `Declined: LXC/Docker not installed on this machine.`
-4. **Verify Network Containment**: Confirm container network is isolated (non-host bridge, isolated subnet).
-5. **Fail-Closed Stop**: If authorization, lab name, engine, or isolation is unverified, immediately stop and return structured `status: "blocked"`.
+2. **Validate Target Scope**: Ensure all target endpoints, ports, or code paths reside within authorized scope.
+3. **Fail-Closed Stop**: If authorization or scope is absent or ambiguous, immediately stop and return structured `status: "blocked"` with explanation.
 
-### SOP 2: Red-Team In-Sandbox Vulnerability Assessment & Tool Registry
-1. **Sandbox Execution Only**: Dispatch all offensive probes exclusively inside `akatsuki-lab` via `executeInLab()`. Direct host execution is strictly denied (`host_execution_denied: true`).
-2. **Versioned Tool Capability Registry**: Use curated, versioned security tools matching the assessment objective:
-   - **Network Discovery & Reconnaissance**: `nmap` (ports, banners, versions), `testssl` (TLS/SSL protocols, ciphers), `curl_probe` (HTTP API methods, headers).
-   - **Packet & Traffic Analysis**: `tshark` (local interface dissection, PCAP traffic analysis).
-   - **Web & API Assessment**: `zap` (OWASP ZAP / Burp equivalent spider & API scan), `nuclei` (CVE & misconfiguration templates), `ffuf` (endpoint & parameter fuzzing).
-   - **Database Vulnerability Audit**: `sqlmap` (non-destructive boolean/time-blind detection only; database dumping or file writing is blocked).
-   - **Container & Supply Chain Security**: `trivy` (container image, filesystem CVE, SBOM analysis).
-   - **Controlled Exploit Verification (Lab-Only)**: `metasploit` (auxiliary scanners and version checks; strictly requires `allow_controlled_exploit_verification: true` in task parameters; persistence, C2, and external listeners are blocked).
-3. **User-Supplied Custom Tool Profiles**: Additional tools are supported when supplied with an explicit profile object:
-   - Required schema: `id`, `display_name`, `category`, `binary_candidates`, `safety_class` (`read_only` | `active_recon` | `vulnerability_audit` | `controlled_verification`), `allowed_operations`, `blocked_operations`, `required_scope: "local_or_dev"`, `timeout_ms`, `evidence_outputs`, and `cleanup_steps`.
-   - Profiles requesting host networking, host filesystem mounts, Docker socket mounts, persistence, credential theft, or external targets are rejected fail-closed. Unprofiled binaries are blocked.
-4. **Deterministic Phased Execution**: Operations execute in planned stages:
-   - Phase 1: Rules of Engagement & Target Scope Verification
-   - Phase 2: Sandbox Containment & Network Isolation Proof
-   - Phase 3: Service & Surface Enumeration
-   - Phase 4: Passive Capture & Protocol Dissection
-   - Phase 5: OWASP & Misconfiguration Assessment
-   - Phase 6: Controlled Non-Destructive Exploitability Proof (if authorized)
-   - Phase 7: Post-Assessment Teardown & Residual Artifact Removal
-5. **Stop Conditions & Gate Enforcement**: Execution halts and the security gate blocks if scope mismatch occurs, network containment is lost, a requested tool is blocked/unprofiled, an unreviewed scanner error occurs, or teardown cleanup cannot be verified.
-6. **Teardown & Containment Proof**: Run `teardownLab()` to terminate all background attack processes (`nmap`, `tshark`, `msf`, `zap`, `nuclei`, `ffuf`, `sqlmap`, `testssl`, `trivy`) and verify host containment.
-7. **Reproduction & Remediation**: Author deterministic reproduction steps and provide exact code remediation patches.
+### SOP 2: Red-Team Non-Destructive Vulnerability Assessment
+1. **Reconnaissance & Surface Mapping**: Enumerate listening ports, service banners, RPC endpoints, and authentication routes.
+2. **OWASP Top 10 Testing**: Safely probe for broken object-level authorization (BOLA), injection flaws, SSRF vulnerabilities, and authentication bypasses.
+3. **Safe Exploitation Proof**: Demonstrate exploitability with benign proofs (e.g., asserting non-destructive canary strings or mock tokens).
+4. **Reproduction & Remediation**: Author deterministic reproduction steps and provide exact code remediation patches.
 
-### SOP 3: Blue-Team Direct-Host Defensive Auditing & Surface Hardening
+### SOP 3: Blue-Team Defensive Auditing & Surface Hardening
 1. **Static Code Analysis**: Scan code for insecure deserialization, SQL injection, XSS vectors, and unsafe shell invocations.
 2. **Secret Leakage Audit**: Scan repository for exposed `.env` files, API keys, private keys, or credentials.
 3. **Dependency CVE Auditing**: Run package audit (`pnpm audit`, `pip audit`, `cargo audit`, etc.) and ensure 0 High and 0 Critical vulnerabilities.
