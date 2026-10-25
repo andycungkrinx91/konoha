@@ -20,6 +20,7 @@ This document defines all active architectural workflows within **Konoha** (`kon
 12. [Workflow 11: Telegram Remote Reporter & Whitelisted Long Polling Dispatch](#12-workflow-11-telegram-remote-reporter--whitelisted-long-polling-dispatch)
 13. [Workflow 12: Cloudflare Zero Trust Ingress Tunnel & Unified Prompt Inbox Queue](#13-workflow-12-cloudflare-zero-trust-ingress-tunnel--unified-prompt-inbox-queue)
 14. [Workflow 13: Native Document Engineering & Animated WebP Export Pipeline](#14-workflow-13-native-document-engineering--animated-webp-export-pipeline)
+15. [Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle](#15-workflow-14-akatsuki-security-controls--dual-mode-lab-lifecycle)
 
 ---
 
@@ -65,17 +66,19 @@ flowchart TB
 
     subgraph NinjaTeam ["Specialist Ninja Subagents"]
         Genin["⚑ genin<br/>(Read-only Code Scout)"]
-        Kage["◎ kage<br/>(Architecture &amp; Security)"]
+        Kage["◎ kage<br/>(Architecture &amp; Quality Gates)"]
         Chunin["▫ chunin<br/>(Web Intel &amp; Citations)"]
         Jonin["♦ jonin<br/>(Frontend UI &amp; Tailwind)"]
         Anbu["♠ anbu<br/>(Backend, DevOps &amp; QA)"]
         Tokubetsu["⬡ tokubetsu-jonin<br/>(Documentation Scribe)"]
+        Akatsuki["🛡️ akatsuki<br/>(Security Specialist · Blue SAST / Red Lab)"]
     end
 
     CoreMCP --> NinjaTeam
 
     subgraph QualityGate ["Verification & Quality Enforcement"]
         DoRGate["Definition-of-Readiness Gate<br/>(Advisory / Enforced Check)"]
+        AkatsukiSecurityGate["Akatsuki Blue-Team Security Gate<br/>(SAST · 0 High/Crit CVEs · Skill Guardian)"]
         SlopGate["Two-Step Zero-AI-Slop Gate<br/>(100/100 Mechanical Scan)"]
         SocketGate["Socket.dev Security Gate<br/>(0 High / 0 Medium Alerts)"]
         ConfidenceGate["Kage 98% Confidence Gate<br/>(Delivery Sign-off)"]
@@ -96,8 +99,8 @@ flowchart TB
 
     class UserPrompt,Clients,Orchestrator,Delivery clientNode;
     class SanninRouter,SQLiteDB,SembleSearch,AislopScanner mcpNode;
-    class Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu agentNode;
-    class DoRGate,SlopGate,SocketGate,ConfidenceGate gateNode;
+    class Genin,Kage,Chunin,Jonin,Anbu,Tokubetsu,Akatsuki agentNode;
+    class DoRGate,AkatsukiSecurityGate,SlopGate,SocketGate,ConfidenceGate gateNode;
 ```
 
 ---
@@ -140,13 +143,17 @@ flowchart TD
     CheckResearch -- "Ready to execute" --> Phase3["Phase 3: EXECUTE (♦ Jonin / ♠ Anbu)<br/>• Dispatches tasks sequentially<br/>• Jonin: UI/Frontend / Tailwind v4<br/>• Anbu: Backend, API, DB &amp; DevOps<br/>• Runs build &amp; validation commands"]
 
     Phase3 --> Phase4["Phase 4: DOCUMENT (⬡ Tokubetsu-Jonin)<br/>• Generate final_docs.md &amp; API specs<br/>• Synchronize CHANGELOG.md"]
-    Phase4 --> Phase5["Phase 5: REVIEW (◎ Kage &amp; @advisor)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification<br/>• @advisor Final Review Evaluation"]
+    Phase4 --> Phase4b["Phase 4b: SECURITY REVIEW GATE (🛡️ Akatsuki Blue-Team)<br/>• Static application security testing (SAST)<br/>• Secrets &amp; API key leakage audit<br/>• Dependency CVE scan (0 High / 0 Crit)<br/>• Skill Guardian policy verification"]
+
+    Phase4b --> CheckSecurity{"Akatsuki Blue-Team<br/>Security Passed?"}
+    CheckSecurity -- "0 CVEs &amp; Secrets Clean" --> Phase5["Phase 5: REVIEW (◎ Kage &amp; @advisor)<br/>• Two-Step Zero-AI-Slop Pre-Gate<br/>• Socket.dev Supply Chain Gate<br/>• Definition-of-Done Verification<br/>• @advisor Final Review Evaluation"]
+    CheckSecurity -- "Security Vulnerabilities / Leaks" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
 
     Phase5 --> CheckReview{"Kage &amp; @advisor<br/>Review Approved?"}
     CheckReview -- "Approved (≥ 98% Conf &amp; Advisor OK)" --> Phase6["Phase 6: SYNTHESIZE (✧ Sannin)<br/>• Assemble final_report.md<br/>• Consolidate task evidence"]
     Phase6 --> Phase7["Phase 7: DONE<br/>• Clean transient scratch directories<br/>• Present final deliverable to user"]
 
-    CheckReview -- "Findings / Advisor Reject" --> Remediation["Autonomous Remediation Loop<br/>• Convert findings &amp; advisor feedback into fix tasks<br/>• Circuit Breaker check (cycles &lt;= 7)<br/>• Dispatch to Jonin (UI) or Anbu (Backend)"]
+    CheckReview -- "Findings / Advisor Reject" --> Remediation
     Remediation --> Phase3
 
     linkStyle default stroke:#334155,stroke-width:2px;
@@ -154,12 +161,14 @@ flowchart TD
     classDef routeNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
     classDef executeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
     classDef reviewNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
+    classDef securityNode fill:#ffffff,stroke:#dc2626,color:#0f172a,stroke-width:2px;
     classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
     classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
 
     class Init,Phase0,Phase7 routeNode;
     class Phase1,Phase2,Phase2b,Phase3,Phase4,Phase6 executeNode;
-    class Phase5,CheckReview,CheckResearch reviewNode;
+    class Phase4b securityNode;
+    class Phase5,CheckReview,CheckResearch,CheckSecurity reviewNode;
     class Remediation failNode;
 ```
 
@@ -703,12 +712,15 @@ config:
     wrappingWidth: 380
 ---
 flowchart TD
-    TasksDone["All Implementation Tasks Completed"] --> KageAudit["◎ Kage Independent Audit Review"]
+    TasksDone["All Implementation Tasks Completed"] --> AkatsukiGate["🛡️ Akatsuki Blue-Team Security Review Gate<br/>• SAST analysis on modified files<br/>• Secrets &amp; credentials leakage scan<br/>• Dependency CVEs (0 High / 0 Critical)<br/>• Skill Guardian policy verification"]
+    
+    AkatsukiGate -->|Security Cleared: security_reviewed=true| KageAudit["◎ Kage Independent Audit Review"]
+    AkatsukiGate -->|Security Findings Detected| BlockedSec["SECURITY BLOCKED<br/>• Re-dispatch remediation to Anbu/Jonin<br/>• Require clean security re-scan"]
 
     subgraph CriteriaMatrix ["5-Category Comprehensive Verification Matrix"]
         C1["Category 1: Task Verification (Weight: 20%)<br/>• 100% tasks completed in status.json<br/>• All referenced files exist on disk"]
         C2["Category 2: Validation Evidence (Weight: 25%)<br/>• 0 errors, 0 warnings in test output<br/>• Clean exit codes across test runners"]
-        C3["Category 3: Security &amp; Supply Chain (Weight: 20%)<br/>• Socket CLI: 0 High, 0 Medium alerts<br/>• Documented rollback procedures"]
+        C3["Category 3: Security &amp; Supply Chain (Weight: 20%)<br/>• Akatsuki Blue-Team security clearance<br/>• Socket CLI: 0 High, 0 Medium alerts<br/>• Documented rollback procedures"]
         C4["Category 4: Zero-AI-Slop Pre-Gate (Weight: 20%)<br/>• Step 1: 100/100 mechanical scan score<br/>• Step 2: 0 antislop rule findings"]
         C5["Category 5: Invariant Compliance (Weight: 15%)<br/>• Stable Bridge Gateway untouched<br/>• Token Savings flow logic preserved"]
     end
@@ -731,11 +743,11 @@ flowchart TD
     classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
     classDef blockNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
 
-    class TasksDone,KageAudit auditNode;
+    class TasksDone,KageAudit,AkatsukiGate auditNode;
     class C1,C2,C3,C4,C5 criteriaNode;
     class Aggregate,ConfidenceThreshold evalNode;
     class Approved passNode;
-    class Blocked blockNode;
+    class Blocked,BlockedSec blockNode;
 ```
 
 ---
@@ -969,4 +981,92 @@ flowchart TD
     class DiagCreate,AnimExport,PWCapture,LibWebPAnim,GifEncoder,WebPValidator,EncoderChoice animNode;
     class AIDetectorPass,WebPVerified,FinalHandoff validNode;
     class AutoCleanup,StaticFallback failNode;
+```
+
+---
+
+## 15. Workflow 14: Akatsuki Security Controls & Dual-Mode Lab Lifecycle
+
+```mermaid
+---
+title: Akatsuki Security Controls, Dual-Mode Engine & Lab Lifecycle Architecture
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#ffffff'
+    primaryColor: '#ffffff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#dc2626'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#ffffff'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 40
+    rankSpacing: 50
+    padding: 24
+    wrappingWidth: 380
+---
+flowchart TB
+    Operator["Security Operator / CLI Ingress"] --> CLICommand{"Command Ingress"}
+
+    subgraph ConfigStore ["Akatsuki State & Configuration (~/.konoha/akatsuki_config.json)"]
+        CLICommand -- "konoha akatsuki mode [blue|red]" --> SetMode["Set Mode (Default: blue)<br/>• Blue = Defensive SAST / Guardian<br/>• Red = Offensive Pentest Sandbox"]
+        CLICommand -- "konoha akatsuki env [docker|lxc]" --> SetEnv["Set Environment (Default: docker)<br/>• Docker = Linux/macOS/Windows<br/>• LXC = Linux/WSL bridge isolation"]
+        CLICommand -- "konoha akatsuki status" --> StatusCheck["Report Mode, Env, Lab &amp; Tools"]
+    end
+
+    subgraph ModeSwitch ["Mode Gating & Authorization Firewall"]
+        SetMode --> ModeBranch{"Active Mode?"}
+        ModeBranch -- "Mode: BLUE (Defensive Default)" --> BlueOps["Blue-Team Defensive Operations<br/>• Direct Host SAST &amp; Secrets Audit<br/>• Dependency CVE Scans (pnpm/cargo/pip)<br/>• Skill Guardian Policy Scoring<br/>• Pre-Delivery Security Final Gate"]
+        BlueOps --> BlueStopLab["Stop &amp; Remove akatsuki-lab Container<br/>(Fail-Closed Safety Invariant)"]
+
+        ModeBranch -- "Mode: RED (Offensive Sandbox)" --> AuthGate{"Written RoE Authorization Check<br/>(Scope, Emergency Cutoff, Consent)"}
+        AuthGate -- "Missing / Ambiguous" --> AuthDenied["BLOCKED: Decline Fail-Closed<br/>('Red-Team operations require authorization')"]
+        AuthGate -- "Authorized &amp; Confirmed" --> AutoProvision["Automated Sandbox Provisioning<br/>(Idempotent Lab Setup Engine)"]
+    end
+
+    subgraph SandboxLifecycle ["Isolated Sandbox Execution (akatsuki-lab)"]
+        AutoProvision --> EngineChoice{"Configured Engine?"}
+
+        EngineChoice -- "Engine: DOCKER" --> DockerSetup["Docker Sandbox Engine<br/>• Isolated Internal Network (internal=true)<br/>• Unprivileged Non-Root (UID 1000 akatsuki)<br/>• Dropped Capabilities: --cap-drop=ALL<br/>• Memory limit: 2GB · CPU limit: 2 cores"]
+
+        EngineChoice -- "Engine: LXC" --> LXCSetup["LXC System Container Engine<br/>• Isolated Bridge labbr0 (ipv4.nat=false)<br/>• Egress ACL lab-egress (Reject external traffic)<br/>• Unprivileged container (security.privileged=false)<br/>• Pinned Debian 12 Attacker Container"]
+
+        DockerSetup --> SandboxReady["Sandbox Active: akatsuki-lab<br/>(Zero Host Network &amp; Zero Host FS Mounts)"]
+        LXCSetup --> SandboxReady
+    end
+
+    subgraph ToolingGuard ["Approved Tool Execution & Persona Boundary"]
+        SandboxReady --> ToolDispatch["Approved 10-Tool Sandbox Execution<br/>nmap · tshark · metasploit · zap · nuclei<br/>ffuf · sqlmap · testssl · trivy · curl_probe"]
+        ToolDispatch --> EvidenceCollection["Structured Evidence Archival<br/>• Output XML / JSON / Logs to /tmp/akatsuki_*<br/>• Diagnostic Cleanup After Probe Execution"]
+        EvidenceCollection --> GateHandoff["Handoff to Phase 8 Security Review Gate<br/>• Zero Critical &amp; High Findings<br/>• Remediation Patch Synthesis"]
+
+        NonAkatsuki["Non-Akatsuki Agent Delegation<br/>(@genin, @anbu, @jonin, @chunin, @kage)"] --> PersonaCheck{"Offensive Skill Requested?"}
+        PersonaCheck -- "Yes (isOffensiveSkill)" --> PersonaDenied["DENIED: Access restricted to @akatsuki<br/>(Offensive skills blocked fail-closed)"]
+    end
+
+    linkStyle default stroke:#334155,stroke-width:2px;
+    style ConfigStore fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style ModeSwitch fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style SandboxLifecycle fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style ToolingGuard fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+
+    classDef cliNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
+    classDef blueNode fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-width:2px;
+    classDef redNode fill:#ffffff,stroke:#dc2626,color:#0f172a,stroke-width:2px;
+    classDef sandNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
+    classDef passNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef failNode fill:#ffffff,stroke:#ef4444,color:#0f172a,stroke-width:2px;
+
+    class Operator,CLICommand,StatusCheck cliNode;
+    class BlueOps,BlueStopLab blueNode;
+    class SetMode,SetEnv,AutoProvision,ToolDispatch redNode;
+    class DockerSetup,LXCSetup,SandboxReady,EvidenceCollection sandNode;
+    class GateHandoff passNode;
+    class AuthDenied,PersonaDenied failNode;
 ```

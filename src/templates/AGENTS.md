@@ -14,7 +14,7 @@
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.4-cross-client-1)
+## Konoha runtime contract (2.2.7)
 main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
 - **Semble is mandatory**: `search`/`find_related` with repo path.

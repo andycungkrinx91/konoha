@@ -16,12 +16,13 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
 | `konoha version` | `-v`, `--version` | Displays `2.2.7`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
-| `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode, lab status, and tools inventory. | `PASS` (verified) |
-| `konoha akatsuki enable` | - | Enables Red-Team execution and idempotently provisions isolated lab container. | `PASS` (verified) |
-| `konoha akatsuki disable` | - | Disables Red-Team execution and stops lab container (fail-closed). | `PASS` (verified) |
-| `konoha akatsuki mode` | `[lxc\|docker]` | View or set container execution engine mode (`lxc` / `docker`). | `PASS` (verified) |
+| `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
+| `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
+| `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |
+| `konoha akatsuki enable` | - | Alias for `mode red` (automated sandbox setup). | `PASS` (verified) |
+| `konoha akatsuki disable` | - | Alias for `mode blue` (fail-closed). | `PASS` (verified) |
 | `konoha status` | `--json` | Comprehensive health audit: Node.js runtime, ~/.konoha/ files, 8 MCP client configs, database stats, and registered skills. | `PASS` (verified) |
-| `konoha init` | `--yes`, `--force` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers 8 MCP clients (Antigravity, Cursor, Claude Code, OpenCode, Command Code, Codex, Pi, OMP). | `PASS` (verified) |
+| `konoha init` | `--yes`, `--force`, `--client=<cursor\|claude\|opencode\|omp\|codex\|pi\|all>` | Scaffolds runtime into `~/.konoha/`, migrates skills into SQLite FTS5, and registers selected/detected MCP clients. | `PASS` (verified) |
 | `konoha migrate` | `--clean`, `--rebuild-embeddings`, `--skills-dir <path>` | Scans local and global skill trees, rebuilds SQLite FTS5 full-text indexes, optimizes SKILL.md token footprint, and updates dense vector embeddings. | `PASS` (verified) |
 | `konoha embed` | `--rebuild-embeddings` | Fast-alias for `konoha migrate --rebuild-embeddings`. | `PASS` (verified) |
 | `konoha savings` | (telemetry inspection) | Visual bar charts and tabular breakdown of MCP tool savings and Semble code search savings with Tiktoken cl100k_base baseline comparison. | `PASS` (verified) |

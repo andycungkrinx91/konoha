@@ -220,7 +220,7 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
 
     const visibleRows = [];
     for (const row of rows) {
-      if (agentName && agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) {
+      if (agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) {
         continue;
       }
       if (isPathVisible(row.file_path)) {
@@ -234,7 +234,7 @@ function findSkill(keyword, limit = 3, agentName = null, compact = false, taskId
       if (mirrorRows && mirrorRows.length > 0) {
         process.stderr.write(`  ⚠️ [find_skill] '${normKeyword}' not found in SQLite FTS5/RAG. Retrieved ${mirrorRows.length} matches from mirror fallback.\n`);
         for (const mRow of mirrorRows) {
-          if (agentName && agentName !== 'akatsuki' && isOffensiveSkill(mRow.name, mRow.tags)) {
+          if (agentName !== 'akatsuki' && isOffensiveSkill(mRow.name, mRow.tags)) {
             continue;
           }
           visibleRows.push(mRow);
@@ -318,7 +318,7 @@ function listSkills(agentName = null, fields = null) {
 
     const skills = [];
     for (const row of rows) {
-      if (agentName && agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) {
+      if (agentName !== 'akatsuki' && isOffensiveSkill(row.name, row.tags)) {
         continue;
       }
       if (isPathVisible(row.file_path)) {

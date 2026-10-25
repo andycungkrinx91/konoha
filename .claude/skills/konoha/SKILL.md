@@ -31,17 +31,28 @@ Konoha operates as a high-efficiency MCP orchestrator designed to reduce context
 
 Each client environment is configured with three core MCP servers:
 1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration across specialists:
-   - Deep Research (Chunin): Web research, documentation lookup, and evidence synthesis.
-   - Code Exploration (Genin): Read-only codebase exploration, symbol search, and architecture review.
-   - Architecture & Planning (Kage): Architecture decisions, security audits, and quality gates.
+   - MCP Router & Orchestrator (@sannin): Request classification, triage, and multi-agent coordination.
+   - Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
+   - Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
+   - Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
+   - UI & Frontend (@jonin): Component architecture, design match, and taste-skill frontend builds.
+   - Backend & DevOps (@anbu): Backend services, bug fixing, DevOps, and infrastructure deployment.
+   - Technical Writing & Scribe (@tokubetsu-jonin): Publication-grade documentation, diagrams, and reports.
+   - Security Specialist (@akatsuki): Red-team penetration testing in sandboxes and blue-team defensive hardening.
 2. **`semble`**: AI-powered semantic code search and dependency mapping.
 3. **`aislop`**: Zero-AI-slop code hygiene validation, rule reasoning, automated repairs, and Kage delivery gating (`ai_slop_findings: 0`, `ai_slop_clean: true`).
 
 ---
 
+## 🌐 Universal Polyglot & Multi-Framework Architecture
+
+Konoha is completely unconstrained and polyglot by design. It natively supports **all programming languages** (TypeScript, JavaScript, Python, Go, Rust, C/C++, Java/Kotlin, PHP, Ruby, C#, Elixir, Zig, Shell) and **all frameworks** across web, backend, mobile, desktop, and cloud infrastructure with automated RTK toolchains.
+
+---
+
 ## 🎨 Universal Konoha Website Builder Invariants
 
-When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), the following design invariants are mandatory across all 4 supported frameworks (**Next.js 16, SvelteKit 2 / Svelte 5, Nuxt 3, Angular v19+**):
+When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), the following design invariants are mandatory across all supported frameworks (**Next.js, SvelteKit, Nuxt, Angular, Astro, Remix, Vue, React, Solid**, and beyond):
 
 ### 1. Far-Left Brand Logo & Zero Mobile Header Hamburger
 - **Header Logo Placement**: Brand logo MUST always be placed on the far LEFT (`justify-start` / `flex items-center gap-3`) of the navigation header.

@@ -31,9 +31,14 @@ Konoha operates as a high-efficiency MCP orchestrator designed to reduce context
 
 Each client environment is configured with three core MCP servers:
 1. **`konoha`**: On-demand skill retrieval, bounded file I/O, subagent routing, and workflow gate orchestration across specialists:
-   - Deep Research (Chunin): Web research, documentation lookup, and evidence synthesis.
-   - Code Exploration (Genin): Read-only codebase exploration, symbol search, and architecture review.
-   - Architecture & Planning (Kage): Architecture decisions, security audits, and quality gates.
+   - MCP Router & Orchestrator (@sannin): Request classification, triage, and multi-agent coordination.
+   - Code Exploration (@genin): Read-only codebase exploration, symbol search, and architecture review.
+   - Architecture & Quality Gates (@kage): Architecture decisions, security audits, and delivery review gate.
+   - Deep Research (@chunin): Web research, documentation lookup, and evidence synthesis.
+   - UI & Frontend (@jonin): Component architecture, design match, and taste-skill frontend builds.
+   - Backend & DevOps (@anbu): Backend services, bug fixing, DevOps, and infrastructure deployment.
+   - Technical Writing & Scribe (@tokubetsu-jonin): Publication-grade documentation, diagrams, and reports.
+   - Security Specialist (@akatsuki): Red-team penetration testing in sandboxes and blue-team defensive hardening.
 2. **`semble`**: AI-powered semantic code search and dependency mapping.
 3. **`aislop`**: Zero-AI-slop code hygiene validation, rule reasoning, automated repairs, and Kage delivery gating (`ai_slop_findings: 0`, `ai_slop_clean: true`).
 

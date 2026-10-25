@@ -34,7 +34,7 @@ function getSkill(name, agentName = null, options = {}) {
 
   const normName = normalizeLegacySkillName(name);
 
-  if (isOffensiveSkill(normName) && agentName && agentName !== 'akatsuki') {
+  if (isOffensiveSkill(normName) && agentName !== 'akatsuki') {
     process.stderr.write(`  [Authorization] Denied: Skill '${normName}' requires @akatsuki agent authorization.\n`);
     const res = JSON.stringify({
       error: `Access restricted: Offensive red-team skill '${normName}' is strictly authorized for the @akatsuki specialist only.`
@@ -247,7 +247,7 @@ function useSkills(skillsInput, agentName = null, options = {}) {
 
   for (const rawName of skillNames) {
     const normName = normalizeLegacySkillName(rawName);
-    if (isOffensiveSkill(normName) && agentName && agentName !== 'akatsuki') {
+    if (isOffensiveSkill(normName) && agentName !== 'akatsuki') {
       loadedSkills.push({
         name: normName,
         status: 'denied',

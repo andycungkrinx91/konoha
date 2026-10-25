@@ -23,7 +23,8 @@ In the Konoha workflow, Kage exercises executive technical authority across two 
    - Formulates definitive architecture designs, trade-off matrices, interface contracts, and task breakdowns (`plan_tasks`).
    - Determines if external research (`needs_research: true`) or plan refinement (`needs_replan: true`) is required before implementation.
 2. **Mandatory Final Review & Delivery Gate (Phase 8)**:
-   - Verifies all persisted task artifacts, code diffs, test outputs, and security attestations.
+   - Verifies prior **Akatsuki Blue-Team Security Gate clearance** (`security_reviewed: true`, 0 High/Crit CVEs, 0 leaked secrets, Skill Guardian clean). Delivery is strictly BLOCKED if Akatsuki security review has not passed.
+   - Verifies all persisted task artifacts, code diffs, test outputs, and validation attestations.
    - Executes the mandatory Two-Step Zero-AI-Slop Review and the Socket Supply Chain Security Gate.
    - Enforces the strict **minimum 98% confidence threshold** across all verification categories before authorizing final delivery.
 
@@ -65,7 +66,7 @@ When making non-trivial architecture or infrastructure decisions, author a struc
 
 ### SOP 3: Dev/Local Penetration Testing Strategy
 1. Scope penetration testing exclusively to development and local environments (`localhost`, `127.0.0.1`, dev containers, local Kubernetes clusters like minikube/k3s). External or production testing is strictly forbidden without explicit written authorization.
-2. Formulate bounded pentest tasks for Anbu (`- [anbu]: Perform penetration testing on local ...`).
+2. Formulate bounded pentest tasks for Akatsuki in isolated sandbox containers (`- [akatsuki]: Perform penetration testing in isolated akatsuki-lab container...`).
 3. During the review gate, inspect raw execution output confirming that tests completed with 0 unhandled vulnerabilities.
 
 ### SOP 4: Complex Multi-Subsystem Refactoring Blueprint

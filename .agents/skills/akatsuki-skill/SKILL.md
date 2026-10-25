@@ -19,10 +19,18 @@ This skill provides the **Standard Operating Procedures (SOP)** for the Akatsuki
 
 ## Workflow Role
 
-In the 8-phase Konoha workflow, Akatsuki owns the security assessment and enforcement responsibilities:
+In the Konoha workflow, Akatsuki serves as the **mandatory Security Review Gate before Kage delivery review**:
 
-- **Phase 7 (Security Hardening, Pentesting & Audit)**: Conducts authorized red-team penetration testing, blue-team defensive scans, dependency CVE audits, and Skill Guardian policy evaluations.
-- **Phase 8 (Review Gate & Security Sign-Off)**: Evaluates the Akatsuki Security Final Gate (fail-closed) before Kage delivery sign-off.
+- **Normal Workflow Role (Blue-Team Security Gate — Mandatory before Kage)**:
+  Before Kage evaluates the final delivery review gate (Phase 8), Akatsuki Blue-Team executes the pre-delivery security gate:
+  1. Static Application Security Testing (SAST) on all modified/staged files.
+  2. Secret & credential leakage audit (`.env*`, API tokens, private keys).
+  3. Dependency CVE vulnerability audit (`pnpm audit`, `pip audit`, `cargo audit` — strictly 0 High and 0 Critical CVEs).
+  4. Skill Guardian policy compliance (`src/skill_guardian.js`).
+  *Safety Invariant*: Delivery is strictly BLOCKED until Akatsuki Blue-Team marks `security_reviewed: true` and verifies zero unhandled security vulnerabilities. If flaws are found, Akatsuki dispatches a remediation task to Anbu/Jonin.
+
+- **Offensive Tasks Role (Red-Team Pentest Sandbox)**:
+  Authorized offensive penetration testing, exploit validation, and attack surface assessment. Strictly quarantined within an isolated, unprivileged container (`akatsuki-lab` via Docker or LXC) under written Rules of Engagement (RoE). Host execution is denied fail-closed.
 
 ---
 
@@ -85,4 +93,29 @@ Load specialized security references via `konoha.get_skill("akatsuki-skill/<refe
 | Skill Guardian engine, dangerous patterns, perimeter scoring | `akatsuki-skill/skill-guardian` |
 | Blue-team defensive auditing, CVE triage, code hardening | `akatsuki-skill/blue-team-defense` |
 | Red-team offensive workflows, non-destructive proof, authorization | `akatsuki-skill/red-team-offensive` |
+| ATT&CK kill-chain mapping & engagement planning (skills.sh) | `akatsuki-skill/red-team` |
+| Scoped RoE verification & operational safety controls (skills.sh) | `akatsuki-skill/14-red-team-ops` |
+| Adversary emulation & contract boundary gating (skills.sh) | `akatsuki-skill/red-team-engagement` |
+| AI/LLM application penetration testing (OWASP Top 10 for LLMs) | `akatsuki-skill/ai-powered-pentesting` |
 | Output formatting, concise response shaping | `akatsuki-skill/i-have-adhd` (`i-have-adhd`) |
+
+---
+
+## Authorized Offensive Skills Ecosystem (`skills.sh`)
+
+The following external offensive security skills from `skills.sh` have been vetted and integrated into Akatsuki:
+
+1. **`14-red-team-ops`** (`https://www.skills.sh/masriyan/claude-code-cybersecurity-skill/14-red-team-ops`)
+   - **Source & License**: `Masriyan/Claude-Code-CyberSecurity-Skill` (MIT)
+   - **Scope & Gating**: Enforces explicit legal authorization check: requires written client Rules of Engagement (RoE), defined target IP/domain scope, emergency cutoffs, and OPSEC boundaries prior to kill-chain execution.
+2. **`red-team-engagement`** (`https://www.skills.sh/briiirussell/cybersecurity-skills/red-team-engagement`)
+   - **Source & License**: `briiirussell/cybersecurity-skills` (MIT)
+   - **Scope & Gating**: Adversary emulation methodology. Verifies contract boundaries; halts on out-of-scope targets or ambiguous authorization.
+3. **`red-team`** (`https://skills.sh/alirezarezvani/claude-skills/red-team`)
+   - **Source & License**: `alirezarezvani/claude-skills` (MIT)
+   - **Scope & Gating**: ATT&CK kill-chain mapping and adversary simulation. Pairs with `engagement_planner.py` gating scripts.
+4. **`ai-powered-pentesting`** (`https://www.skills.sh/gmh5225/awesome-ai-security/ai-powered-pentesting`)
+   - **Source & License**: `gmh5225/awesome-ai-security` (MIT)
+   - **Scope & Gating**: Scoped LLM application security review and red-teaming targeting OWASP Top 10 for LLMs.
+
+> **Access Control Notice**: All offensive skills are strictly restricted to the `@akatsuki` specialist persona. Non-Akatsuki agents (`@genin`, `@jonin`, `@anbu`, `@chunin`, `@kage`, `@tokubetsu-jonin`) requesting offensive skills will receive authorization denial fail-closed. All offensive actions must execute exclusively inside `akatsuki-lab` (LXC/Docker mode). Direct host execution is strictly denied.

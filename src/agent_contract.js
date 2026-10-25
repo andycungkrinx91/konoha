@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTRACT_VERSION = '2.2.4-cross-client-1';
+const CONTRACT_VERSION = '2.2.7';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 
@@ -81,6 +81,8 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
 - **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call \`konoha.build_from_text\` FIRST before creating files or scaffolding. Strictly implement the Konoha default design template: (1) Header logo on far LEFT, (2) NO hamburger menu in mobile header (\`lg:hidden\`), (3) Archetype-adaptive fixed bottom Mobile Navigation Dock, (4) Floating Bottom-Left 10-Theme Switcher popup (\`fixed bottom-6 left-6 z-50\`, pure Light Mode), (5) Homepage Hero Banner Carousel (4+ slides, 5000ms autoplay), (6) Standard framework scaffolding via pnpm with token-safe non-interactive flags and rtk wrapping, and (7) Zero errors and zero warnings.
 - **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
 - **Konoha-Bridge extension scoping invariant**: The \`konoha-bridge\` extension (\`andycungkrinx91.konoha-bridge\` / \`konoha-bridge-1.6.0.vsix\`) is exclusively for Antigravity IDE (\`~/.antigravity-ide/extensions/\`) and was removed in v2.2.1. It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
+- **Akatsuki Blue-Team Security Gate**: In the normal SDLC workflow, before Kage evaluates the delivery review gate, Akatsuki executes the Blue-Team Security Review Gate (SAST, secrets leakage audit, dependency CVE scan, Skill Guardian verification). Delivery is strictly BLOCKED until Akatsuki approves with security_reviewed=true. Offensive red-team operations run exclusively inside isolated unprivileged containers (akatsuki-lab).
+- **Universal Polyglot & Multi-Framework Support**: Konoha is fully polyglot and unconstrained. It natively supports all programming languages (TypeScript, JavaScript, Python, Go, Rust, C/C++, Java, PHP, Ruby, C#, Elixir, Zig, Shell) and all web, backend, mobile, and cloud frameworks.
 - **@advisor Final Gate Review & Remediation Loop**: Before delivery synthesis, the final review gate verifies both Kage confidence (≥98%) and @advisor approval. When @advisor requests changes, the workflow automatically dispatches a remediation fix task to Anbu (backend) or Jonin (UI) and loops back for re-execution (bounded by a 7-cycle circuit breaker).
 ${CONTRACT_END}`;
 }
@@ -130,7 +132,7 @@ function generateGenericSubagentMd(agent, client = 'generic') {
     'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
     'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
     'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
+    'jonin': 'Elite builder for premium UI/frontend across all modern frameworks with Tailwind v4',
     'anbu': 'Black Ops for backend dev, bug fixing, DevOps, and infrastructure deployment',
     'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
     'akatsuki': 'Red-team and blue-team security specialist; authorized security execution only'

@@ -15,14 +15,18 @@ function getAkatsukiConfigPath(customPath = null) {
 }
 
 function getDefaultMode() {
-  return process.platform === 'linux' ? 'lxc' : 'docker';
+  return 'blue';
+}
+
+function getDefaultEnv() {
+  return 'docker';
 }
 
 /**
  * Load persistent Akatsuki configuration.
  *
  * @param {Object} [options={}]
- * @returns {{ redteam_enabled: boolean, mode: 'lxc'|'docker', updated_at?: string, updated_by?: string }}
+ * @returns {{ redteam_enabled: boolean, mode: 'blue'|'red', env: 'docker'|'lxc', updated_at?: string, updated_by?: string }}
  */
 function loadAkatsukiConfig(options = {}) {
   const configPath = getAkatsukiConfigPath(options.config_path || options.configPath);
@@ -31,10 +35,28 @@ function loadAkatsukiConfig(options = {}) {
       const raw = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null) {
-        const mode = (parsed.mode === 'lxc' || parsed.mode === 'docker') ? parsed.mode : getDefaultMode();
+        let mode = getDefaultMode();
+        let env = getDefaultEnv();
+
+        if (parsed.mode === 'blue' || parsed.mode === 'red') {
+          mode = parsed.mode;
+        } else if (parsed.mode === 'lxc' || parsed.mode === 'docker') {
+          env = parsed.mode;
+          mode = parsed.redteam_enabled ? 'red' : 'blue';
+        }
+
+        if (parsed.env === 'lxc' || parsed.env === 'docker') {
+          env = parsed.env;
+        }
+
+        if (parsed.redteam_enabled !== undefined && !parsed.mode) {
+          mode = parsed.redteam_enabled ? 'red' : 'blue';
+        }
+
         return {
-          redteam_enabled: parsed.redteam_enabled !== false,
+          redteam_enabled: mode === 'red',
           mode,
+          env,
           updated_at: parsed.updated_at,
           updated_by: parsed.updated_by
         };
@@ -45,8 +67,9 @@ function loadAkatsukiConfig(options = {}) {
   }
 
   return {
-    redteam_enabled: true,
-    mode: getDefaultMode()
+    redteam_enabled: false,
+    mode: getDefaultMode(),
+    env: getDefaultEnv()
   };
 }
 
@@ -64,10 +87,12 @@ function saveAkatsukiConfig(config = {}, options = {}) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    const mode = (config.mode === 'lxc' || config.mode === 'docker') ? config.mode : getDefaultMode();
+    const mode = (config.mode === 'blue' || config.mode === 'red') ? config.mode : getDefaultMode();
+    const env = (config.env === 'lxc' || config.env === 'docker') ? config.env : getDefaultEnv();
     const data = {
-      redteam_enabled: config.redteam_enabled !== false,
+      redteam_enabled: mode === 'red',
       mode,
+      env,
       updated_at: config.updated_at || new Date().toISOString(),
       updated_by: config.updated_by || 'cli'
     };
@@ -79,19 +104,23 @@ function saveAkatsukiConfig(config = {}, options = {}) {
 }
 
 /**
- * Set Akatsuki container execution mode ('lxc' | 'docker').
+ * Set Akatsuki mode ('blue' | 'red') or environment ('lxc' | 'docker').
  *
- * @param {'lxc'|'docker'} mode
+ * @param {'blue'|'red'|'lxc'|'docker'} mode
  * @param {Object} [options={}]
- * @returns {{ redteam_enabled: boolean, mode: 'lxc'|'docker', updated_at: string }}
+ * @returns {{ redteam_enabled: boolean, mode: 'blue'|'red', env: 'docker'|'lxc', updated_at: string }}
  */
 function setAkatsukiMode(mode, options = {}) {
   const normMode = String(mode || '').trim().toLowerCase();
-  if (normMode !== 'lxc' && normMode !== 'docker') {
-    throw new Error(`Invalid Akatsuki mode "${mode}". Supported modes: lxc, docker`);
+  if (normMode === 'lxc' || normMode === 'docker') {
+    return setAkatsukiEnv(normMode, options);
+  }
+  if (normMode !== 'blue' && normMode !== 'red') {
+    throw new Error(`Invalid Akatsuki mode "${mode}". Supported modes: blue, red`);
   }
   const current = loadAkatsukiConfig(options);
   current.mode = normMode;
+  current.redteam_enabled = normMode === 'red';
   current.updated_at = new Date().toISOString();
   current.updated_by = 'cli';
   saveAkatsukiConfig(current, options);
@@ -99,18 +128,58 @@ function setAkatsukiMode(mode, options = {}) {
 }
 
 /**
- * Get current Akatsuki execution mode ('lxc' | 'docker').
+ * Set Akatsuki container execution environment ('lxc' | 'docker').
+ *
+ * @param {'lxc'|'docker'} env
+ * @param {Object} [options={}]
+ * @returns {{ redteam_enabled: boolean, mode: 'blue'|'red', env: 'docker'|'lxc', updated_at: string }}
+ */
+function setAkatsukiEnv(env, options = {}) {
+  const normEnv = String(env || '').trim().toLowerCase();
+  if (normEnv !== 'lxc' && normEnv !== 'docker') {
+    throw new Error(`Invalid Akatsuki env "${env}". Supported envs: lxc, docker`);
+  }
+  const current = loadAkatsukiConfig(options);
+  current.env = normEnv;
+  current.updated_at = new Date().toISOString();
+  current.updated_by = 'cli';
+  saveAkatsukiConfig(current, options);
+  return current;
+}
+
+/**
+ * Get current Akatsuki execution mode ('blue' | 'red').
  *
  * @param {Object} [options={}]
- * @returns {'lxc'|'docker'}
+ * @returns {'blue'|'red'}
  */
 function getAkatsukiMode(options = {}) {
+  if (process.env.KONOHA_AKATSUKI_MODE) {
+    const envVal = process.env.KONOHA_AKATSUKI_MODE.trim().toLowerCase();
+    if (envVal === 'blue' || envVal === 'red') return envVal;
+    if (envVal === 'lxc' || envVal === 'docker') return envVal;
+  }
+  const config = loadAkatsukiConfig(options);
+  return config.mode || getDefaultMode();
+}
+
+/**
+ * Get current Akatsuki container environment ('docker' | 'lxc').
+ *
+ * @param {Object} [options={}]
+ * @returns {'docker'|'lxc'}
+ */
+function getAkatsukiEnv(options = {}) {
+  if (process.env.KONOHA_AKATSUKI_ENV) {
+    const envVal = process.env.KONOHA_AKATSUKI_ENV.trim().toLowerCase();
+    if (envVal === 'lxc' || envVal === 'docker') return envVal;
+  }
   if (process.env.KONOHA_AKATSUKI_MODE) {
     const envMode = process.env.KONOHA_AKATSUKI_MODE.trim().toLowerCase();
     if (envMode === 'lxc' || envMode === 'docker') return envMode;
   }
   const config = loadAkatsukiConfig(options);
-  return config.mode || getDefaultMode();
+  return config.env || getDefaultEnv();
 }
 
 /**
@@ -121,12 +190,7 @@ function getAkatsukiMode(options = {}) {
  * @returns {{ redteam_enabled: boolean, updated_at: string }}
  */
 function setRedTeamEnabled(enabled, options = {}) {
-  const current = loadAkatsukiConfig(options);
-  current.redteam_enabled = Boolean(enabled);
-  current.updated_at = new Date().toISOString();
-  current.updated_by = 'cli';
-  saveAkatsukiConfig(current, options);
-  return current;
+  return setAkatsukiMode(enabled ? 'red' : 'blue', options);
 }
 
 /**
@@ -147,11 +211,11 @@ function isRedTeamEnabled(options = {}) {
 
   if (process.env.KONOHA_AKATSUKI_REDTEAM !== undefined) {
     const envVal = String(process.env.KONOHA_AKATSUKI_REDTEAM).trim().toLowerCase();
-    return envVal === '1' || envVal === 'true' || envVal === 'enabled';
+    return envVal === '1' || envVal === 'true' || envVal === 'enabled' || envVal === 'red';
   }
 
   const config = loadAkatsukiConfig(options);
-  return config.redteam_enabled !== false;
+  return config.mode === 'red';
 }
 
 module.exports = {
@@ -161,5 +225,7 @@ module.exports = {
   setRedTeamEnabled,
   isRedTeamEnabled,
   setAkatsukiMode,
-  getAkatsukiMode
+  getAkatsukiMode,
+  setAkatsukiEnv,
+  getAkatsukiEnv
 };

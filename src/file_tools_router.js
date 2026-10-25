@@ -508,6 +508,20 @@ const GLOBAL_PARAM_MAP = {
 };
 
 function normalizeToolArguments(name, rawArgs) {
+  if (typeof rawArgs === 'string') {
+    const trimmed = rawArgs.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        rawArgs = JSON.parse(trimmed);
+      } catch (_) { /* ignore */ }
+    }
+    if (typeof rawArgs === 'string') {
+      const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+      if (AGENT_DELEGATION_TOOLS.includes(name)) {
+        rawArgs = { task: trimmed };
+      }
+    }
+  }
   if (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs)) return rawArgs;
   const normalized = { ...rawArgs };
   const toolParamMap = TOOL_SPECIFIC_PARAM_MAP[name] || {};
@@ -529,7 +543,10 @@ function normalizeToolArguments(name, rawArgs) {
 function validateToolArguments(name, args) {
   const schema = MCP_MANIFEST.tools.find((tool) => tool.name === name)?.inputSchema;
   if (!schema) throw new Error(`Unknown tool: ${name}`);
-  if (args === null || typeof args !== 'object' || Array.isArray(args)) throw new Error('arguments must be an object');
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) {
+    const expectedProps = Object.keys(schema.properties || {}).join(', ');
+    throw new Error(`Tool "${name}" expects a JSON args object with schema { ${expectedProps} }, received ${typeof args}`);
+  }
   for (const required of schema.required || []) {
     if (!(required in args)) throw new Error(`${required} is required`);
   }

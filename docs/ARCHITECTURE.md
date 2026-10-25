@@ -121,7 +121,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`)**: Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks compiled FTS5 modules (e.g. Windows).
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 5` (version 2.2.7), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`). Features dynamic FTS5 capability detection via `hasFts5Support` with automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks compiled FTS5 modules (e.g. Windows).
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -168,9 +168,13 @@ Konoha provides cross-lingual semantic retrieval fused with FTS5 BM25 keyword ma
 
 ---
 
+## 🌐 Universal Polyglot & Multi-Framework Architecture
+
+Konoha is completely unconstrained and polyglot by design. It natively supports **all programming languages** (TypeScript, JavaScript, Python, Go, Rust, C/C++, Java/Kotlin, PHP, Ruby, C#, Elixir, Zig, Shell) and **all frameworks** across web, backend, mobile, desktop, and cloud infrastructure with automated RTK toolchains.
+
 ## 🏗️ Multi-Archetype Website Builder Specifications
 
-Konoha features an autonomous multi-archetype generator (`konoha.build_from_text` and `konoha.build_from_source`) that crafts production-grade applications across 4 major frameworks:
+Konoha features an autonomous multi-archetype generator (`konoha.build_from_text` and `konoha.build_from_source`) with turnkey presets across all modern web frameworks (Next.js, SvelteKit, Nuxt, Angular, Astro, Remix, Vue, React, Solid, and beyond):
 
 1. **Next.js 16 (React 19, Tailwind CSS v4)**
 2. **SvelteKit 2 (Svelte 5 Runes, Tailwind CSS)** — stable scaffold via `pnpm dlx sv create` for generated sites (the Konoha Web UI dashboard itself runs SvelteKit 3 RC)
@@ -367,20 +371,25 @@ flowchart TD
     DecisionResearch -->|No| P5["Phase 5: Execute<br/><b>(♦ Jonin / ♠ Anbu)</b>"]
     P4 --> P5
 
-    %% Execution & Documentation
+    %% Execution, Documentation & Security Gate
     P5 --> P6["Phase 6: Document<br/><b>(⬡ Tokubetsu-Jonin)</b>"]
-    P6 --> P7["Phase 7: Review Gate<br/><b>(◎ Kage &amp; @advisor)</b>"]
+    P6 --> P7["Phase 7: Security Gate<br/><b>(🛡️ Akatsuki Blue-Team)</b>"]
+
+    %% Security Gate Check & Remediation
+    P7 --> DecisionSecurity{"0 High/Crit CVEs &amp; Secrets Clean?"}
+    DecisionSecurity -->|Security Flaws Found| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu / ♦ Jonin)</b>"]
+    DecisionSecurity -->|"0 CVEs, 0 Leaks<br/>Guardian Passed"| P8["Phase 8: Review Gate<br/><b>(◎ Kage &amp; @advisor)</b>"]
 
     %% Review Quality Gate & Autonomous Remediation Loop
-    P7 --> DecisionReview{"Zero-AI-Slop, Confidence &amp; @advisor Gate"}
-    DecisionReview -->|slop findings &gt; 0 or advisor reject| Remediation["Autonomous Remediation Loop<br/><b>(♠ Anbu / ♦ Jonin)</b>"]
+    P8 --> DecisionReview{"Zero-AI-Slop, Confidence &amp; @advisor Gate"}
+    DecisionReview -->|slop findings &gt; 0 or advisor reject| Remediation
     Remediation -->|re-evaluate| P7
     DecisionReview -->|"0 findings, advisor approved<br/>≥ 98% confidence"| Gate2{"Gate 2: Delivery Sign-Off<br/><b>(pending_human_signoff)</b>"}
-    Gate2 -->|Signed Off / Autonomous| P8["Phase 8: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
+    Gate2 -->|Signed Off / Autonomous| P9["Phase 9: Synthesize & Done<br/><b>(✧ Sannin)</b>"]
     Gate2 -->|Changes Requested| P5
 
     %% Final Delivery
-    P8 --> DeliveryReport(["Delivery Report to Orchestrator"])
+    P9 --> DeliveryReport(["Delivery Report to Orchestrator"])
 
     %% Styling Classes
     classDef startEnd fill:#ffffff,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
@@ -390,10 +399,10 @@ flowchart TD
     classDef approved fill:#ffffff,stroke:#10b981,stroke-width:2px,color:#0f172a;
 
     class UserPrompt,DeliveryReport startEnd;
-    class P1,P2,P3,P4,P5,P6,P7 phase;
-    class Gate1,DecisionResearch,DecisionReview,Gate2 decision;
+    class P1,P2,P3,P4,P5,P6,P7,P8 phase;
+    class Gate1,DecisionResearch,DecisionSecurity,DecisionReview,Gate2 decision;
     class Remediation remediation;
-    class P8 approved;
+    class P9 approved;
 
     linkStyle default stroke:#334155,stroke-width:2px;
 ```
@@ -408,8 +417,9 @@ flowchart TD
 | **4. Research** | `chunin` | Conducts real-time web research and documentation verification when requested by Kage plan (`needs_research: true`). | Structured MCP args (`task`, `context`) | `research_evidence.md`, `report_from_agent` | Structured findings returned back to Kage for plan finalization. |
 | **5. Execute** | `jonin` (UI) / `anbu` (Backend/DevOps/QA) | Implements designated task, runs QA automation loop for browser/E2E tasks (`qa_codify`, `qa_e2e_run`, scoped snapshots), runs framework-native validation commands (`pnpm build`, `pnpm lint`, `pnpm check`), captures zero-exit code and error/warning evidence. | Structured MCP args (`task`, `context`, `constraints`) | Modified project files, `report_from_agent` with recorded validation entries | Clean validation evidence (`exit code 0`, `0 errors`, `0 warnings`) and task status updated to `completed`. |
 | **6. Document** | `tokubetsu-jonin` | Generates or updates technical documentation, API specifications, runbooks, and changelogs. Enforces zero dark theme and human-authentic writing. | Structured MCP args, `plan.md` | `final_docs.md`, `report_from_agent` | Technical documentation and changelog synchronized with changes (< 3.0% AI risk). |
-| **7. Review** | `kage` &amp; `@advisor` | Comprehensive pre-delivery quality, confidence, and `@advisor` gate. Evaluates Zero-AI-Slop compliance, SDLC subtask completion, security/rollback reviews, `@advisor` approval, and calculated confidence. When `@advisor` rejects, loops back to execute remediation. | All task evidence, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), `@advisor` approved, all subtasks completed, ≥98% confidence. |
-| **8. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. If `hitl_mode: enabled`, pauses at **Gate 2 (Delivery Sign-Off)**. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
+| **7. Security Gate** | `akatsuki` (Blue-Team) | Pre-delivery security audit: static code analysis (SAST), secrets & API key leakage scan, dependency CVE vulnerability audit (0 High/Critical CVEs), and Skill Guardian policy verification. Fails closed on unhandled security findings. | All task diffs & manifests | `security_report.json`, security attestations | Zero High/Critical CVEs, zero leaked secrets, Skill Guardian pass (`security_reviewed: true`). |
+| **8. Review** | `kage` &amp; `@advisor` | Comprehensive pre-delivery quality, confidence, and `@advisor` gate. Evaluates Zero-AI-Slop compliance, Akatsuki Blue-Team security gate clearance, SDLC subtask completion, security/rollback reviews, `@advisor` approval, and calculated confidence. When `@advisor` rejects, loops back to execute remediation. | All task evidence, `kage_review.json` | `kage_review.json` with scores, `status.review` | 100/100 aislop score (0 findings), security cleared, `@advisor` approved, all subtasks completed, ≥98% confidence. |
+| **9. Synthesize** | `sannin` | Compiles comprehensive `final_report.md` with Kage Reviewer Confidence Gate Report, updates root task to `completed` in SQLite `sdlc_tasks`, purges transient scratch files. If `hitl_mode: enabled`, pauses at **Gate 2 (Delivery Sign-Off)**. | All phase artifacts & review JSON | `final_report.md`, `status: completed` | Root container marked completed; clean payload delivered to host. |
 
 ### 🏛️ Native SDLC Task Governance & Session Isolation Invariants
 

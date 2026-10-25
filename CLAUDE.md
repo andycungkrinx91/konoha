@@ -15,7 +15,7 @@
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.4-cross-client-1)
+## Konoha runtime contract (2.2.7)
 main agent on Claude Code. Mandatory every turn.
 - **Konoha is mandatory**: Bounded file tools & skills (`find_skill`, `get_skill`). No raw cat/grep.
 - **Semble is mandatory**: `search`/`find_related` with repo path.
@@ -24,4 +24,5 @@ main agent on Claude Code. Mandatory every turn.
 - **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
 - **On-Demand Full Contract**: Call `konoha.get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->
+
 <!-- KONOHA-END -->

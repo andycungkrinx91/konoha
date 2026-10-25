@@ -105,6 +105,24 @@ async function handleSdlcRoutes(req, res, ctx, parsedUrl, pathname, method) {
     }
   }
 
+  if (method === 'POST' && (pathname.startsWith('/api/v1/sdlc/tasks/') || pathname.startsWith('/api/v1/tasks/')) && pathname.endsWith('/restart')) {
+    try {
+      const prefix = pathname.startsWith('/api/v1/sdlc/tasks/') ? '/api/v1/sdlc/tasks/' : '/api/v1/tasks/';
+      const taskId = decodeURIComponent(pathname.slice(prefix.length).replace(/\/restart$/, ''));
+      if (!taskId) {
+        return sendJson(res, 400, { error: 'SDLC task id is required.' });
+      }
+      const task = sdlcManager.restartTask(taskId);
+      if (!task) {
+        return sendJson(res, 404, { error: `SDLC task '${taskId}' not found.` });
+      }
+      broadcastEvent('sdlc_tasks_updated', { action: 'restart', taskId });
+      return sendJson(res, 200, { ok: true, task });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
   if (method === 'GET' && pathname === '/api/v1/sdlc/config') {
     try {
       const projectPath = parsedUrl.searchParams.get('project') || process.cwd();

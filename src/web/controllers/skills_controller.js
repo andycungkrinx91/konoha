@@ -411,30 +411,43 @@ async function handleSkillsRoutes(req, res, ctx, parsedUrl, pathname, method) {
             ORDER BY last_active_at DESC
           `).all();
 
-          const seen = new Set();
+          const workspaceMap = new Map();
           for (const r of rows) {
             let pRoot = r.workspace_root;
-            try { pRoot = path.resolve(pRoot); } catch (_) { /* ignore */ }
-            const key = (r.client || 'unknown') + ':' + pRoot;
-            if (seen.has(key)) continue;
-            seen.add(key);
+            if (!pRoot || typeof pRoot !== 'string') continue;
+            try { pRoot = path.resolve(path.normalize(pRoot)); } catch (_) { /* ignore */ }
+            const normKey = process.platform === 'win32' ? pRoot.toLowerCase() : pRoot;
+            const clientName = (r.client || 'generic').toLowerCase();
 
-            let prof = personaMemory.getProjectProfile(pRoot);
-            if (!prof && fs.existsSync(pRoot)) {
-              const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null);
-              prof = personaMemory.getProjectProfile(pHash);
+            if (!workspaceMap.has(normKey)) {
+              let prof = personaMemory.getProjectProfile(pRoot);
+              if (!prof && fs.existsSync(pRoot)) {
+                const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null);
+                prof = personaMemory.getProjectProfile(pHash);
+              }
+              workspaceMap.set(normKey, {
+                workspace_root: pRoot,
+                project_name: prof?.project_name || path.basename(pRoot),
+                project_hash: prof?.project_hash || '',
+                framework: prof?.framework || 'General',
+                styling: prof?.styling || 'CSS',
+                package_manager: prof?.package_manager || 'pnpm',
+                last_active_at: r.last_active_at,
+                clients: [clientName],
+                client: clientName
+              });
+            } else {
+              const existing = workspaceMap.get(normKey);
+              if (!existing.clients.includes(clientName)) {
+                existing.clients.push(clientName);
+              }
+              if (new Date(r.last_active_at) > new Date(existing.last_active_at)) {
+                existing.last_active_at = r.last_active_at;
+              }
+              existing.client = existing.clients.join(', ');
             }
-            activeWorkspaces.push({
-              client: r.client || 'generic',
-              workspace_root: pRoot,
-              project_name: prof?.project_name || path.basename(pRoot),
-              project_hash: prof?.project_hash || '',
-              framework: prof?.framework || 'General',
-              styling: prof?.styling || 'CSS',
-              package_manager: prof?.package_manager || 'pnpm',
-              last_active_at: r.last_active_at
-            });
           }
+          activeWorkspaces.push(...workspaceMap.values());
 
           if (!targetPath || !targetPath.trim()) {
             if (activeWorkspaces.length > 0) {

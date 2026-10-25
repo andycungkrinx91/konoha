@@ -1,0 +1,11 @@
+# Force LF line endings on all platforms to prevent CRLF checksum mismatches
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.db binary
+*.sqlite binary

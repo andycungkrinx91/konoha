@@ -1114,6 +1114,24 @@ html.theme-dark .gradient-text {
   border-color: color-mix(in srgb, var(--theme-grad-1) 50%, var(--color-border));
 }
 
+html.theme-dark .metric-card-3d,
+[data-mode="dark"] .metric-card-3d {
+  box-shadow:
+    0 16px 36px -6px color-mix(in srgb, var(--theme-grad-1) 12%, rgba(0, 0, 0, 0.45)),
+    0 8px 16px -4px color-mix(in srgb, var(--theme-grad-2) 8%, rgba(0, 0, 0, 0.35)),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1.5px 2px 0 color-mix(in srgb, var(--theme-grad-4) 8%, transparent);
+}
+
+html.theme-dark .metric-card-3d:hover,
+[data-mode="dark"] .metric-card-3d:hover {
+  box-shadow:
+    0 26px 52px -10px color-mix(in srgb, var(--theme-grad-1) 22%, rgba(0, 0, 0, 0.55)),
+    0 14px 28px -5px color-mix(in srgb, var(--theme-grad-2) 14%, rgba(0, 0, 0, 0.40)),
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 3px 0 color-mix(in srgb, var(--theme-grad-3) 15%, transparent);
+}
+
 /* 3D Gauge & Dial Utilities */
 @keyframes gauge-lamp-glow {
   0%, 100% {

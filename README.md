@@ -117,6 +117,15 @@ If you find Konoha helpful and want to support ongoing development, maintenance,
   <img src="assets/konoha-telegram-flow.webp" alt="Telegram Bot & Cloudflare Tunnel Ingress Flow" width="100%">
 </p>
 </details>
+
+<details>
+<summary><b>🛡️ Akatsuki Security Controls, Dual-Mode Engine & Lab Lifecycle (<code>konoha-akatsuki-flow.webp</code>)</b></summary>
+<br>
+
+<p align="center">
+  <img src="assets/konoha-akatsuki-flow.webp" alt="Akatsuki Security Controls & Lab Lifecycle Flow" width="100%">
+</p>
+</details>
 </details>
 
 ---
@@ -492,7 +501,8 @@ Once installed, the following CLI commands are available:
 
 | Command | Description |
 |:---|:---|
-| `konoha init` | Full install: self-contained CLI runtime (`~/.konoha/bin/cli.js`) + server + migration + MCP config + GEMINI.md + global `konoha` command reconciliation (npm/pnpm/yarn shims on Linux, macOS, and Windows) |
+| `konoha init` | Full install: self-contained CLI runtime (`~/.konoha/bin/cli.js`) + server + migration + MCP config + GEMINI.md + global `konoha` command reconciliation (npm/pnpm/yarn shims on Linux, macOS, and Windows; supports `--client=cursor|claude|opencode|omp|all`) |
+| `konoha akatsuki <subcommand>` | Akatsuki security controls: `status`, `mode [blue|red]` (automated lab setup), `env [docker|lxc]` |
 | `konoha migrate` | Re-index/migrate skills database into SQLite FTS5 (supports `--clean`, `--rebuild-embeddings`, `--skip-embeddings`, `--skills-dir`) |
 | `konoha reinstall` | Force clean re-installation and configuration replacement (implies `--force`) |
 | `konoha embed` | Rebuild neural vector embeddings for all skill chunks (implies `--rebuild-embeddings`) |
@@ -811,7 +821,7 @@ The unified `konoha` server exposes 46 canonical tools for skill retrieval, boun
 The Sannin routing workflow tool. Structured arguments are the primary path; `task_dir` remains a legacy fallback for hosts that require Markdown task artifacts.
 
 #### Subagent Delegation Tools (`kage`, `jonin`, `anbu`, `chunin`, `tokubetsu_jonin`, `genin`, `akatsuki`)
-Executes the specified subagent inline with structured task context, dynamic skill loading, project context, and optional Taste-Skill dials.
+Executes the specified subagent inline with structured task context, dynamic skill loading, project context, and optional Taste-Skill dials. In normal SDLC workflows, `@akatsuki` acts as the **Blue-Team Security Review Gate** (SAST, secrets leakage audit, dependency CVE verification, and Skill Guardian policy clearance before Kage review). For offensive pentest tasks, Akatsuki executes in isolated unprivileged containers (`akatsuki-lab`).
 
 #### `web_search(query, num_results?, search_depth?)`
 Enterprise-grade web search with multi-query decomposition, authoritative domain ranking, and Wikipedia OpenSearch fallback. Automatically invoked by `chunin` for deep research.

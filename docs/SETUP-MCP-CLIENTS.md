@@ -55,6 +55,14 @@ node bin/cli.js init --yes --force
 ### Direct Initialization
 ```bash
 npx konoha-mcp init
+# Or target a specific client installer declaratively:
+konoha init --client=cursor
+konoha init --client=claude
+konoha init --client=opencode
+konoha init --client=omp
+konoha init --client=codex
+konoha init --client=pi
+konoha init --client=all
 ```
 
 ---

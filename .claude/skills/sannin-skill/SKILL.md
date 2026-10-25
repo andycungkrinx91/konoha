@@ -17,9 +17,9 @@ This skill provides the **Standard Operating Procedures (SOP)** and routing logi
 
 In the Konoha ecosystem, Sannin coordinates execution across the village:
 
-- **Router & Dispatcher**: Evaluates incoming prompts, resolves required skills and tools, formulates structured task instructions, and dispatches specialized ninja subagents (`genin`, `chunin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`).
+- **Router & Dispatcher**: Evaluates incoming prompts, resolves required skills and tools, formulates structured task instructions, and dispatches specialized ninja subagents (`genin`, `chunin`, `kage`, `jonin`, `anbu`, `tokubetsu-jonin`, `akatsuki`).
 - **Dual-Track Execution Engine**:
-  - **Direct Request Fast-Track**: Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/sannin`), targeted bug fixes, single-file edits, and quick questions bypass the 8-phase DAG for instant zero-overhead execution.
+  - **Direct Request Fast-Track**: Slash commands (`/anbu`, `/jonin`, `/genin`, `/chunin`, `/kage`, `/tokubetsu-jonin`, `/akatsuki`, `/sannin`), targeted bug fixes, single-file edits, and quick questions bypass the 8-phase DAG for instant zero-overhead execution.
   - **Full SDLC Pipeline**: Complex features, multi-file refactors, and fullstack initiatives execute through the canonical 8-phase lifecycle governed by Gate 1 (Plan Approval) and Gate 2 (Delivery Sign-Off).
 - **Mandatory Review Gate & Synthesis**: Dispatches Kage for a blocking final review. Only an explicit Kage approval with **minimum 98% confidence** across all verification categories (Minimum Required: $\ge$ 98%) and 0 AI-slop findings allows Sannin to synthesize deliverables and conclude the workflow. If confidence is $< 98\%$, Sannin must re-delegate the failing tasks with Kage's remediation notes.
 - **Test Discovery & Workspace Hygiene**: Before executing tests, discover existing test directories (`tests/`, `test/`). Never create duplicate test directories. Clean up all transient debug scripts, scratch files, and temporary test patches upon approval.
@@ -56,7 +56,7 @@ For structured non-website engineering tasks, execute through the 8 phases:
 4. **Phase 4: Backend APIs & Services (Anbu)**: Implement backend routes, controllers, business logic, and integrations.
 5. **Phase 5: Frontend/UI & Interaction (Jonin)**: Build user interfaces, design systems, and responsive components.
 6. **Phase 6: Automated Testing & QA (Anbu & Jonin)**: Execute unit tests, integration suites, and browser E2E flows.
-7. **Phase 7: Security Hardening & Audit (Kage)**: Validate security controls, dependency CVEs, and blast radius.
+7. **Phase 7: Security Hardening & Audit (Akatsuki & Kage)**: Validate security controls, offensive sandbox verification, dependency CVEs, and blast radius.
 8. **Phase 8: Review Gate & Documentation (Kage & Tokubetsu-Jonin)**: Enforce the $\ge 98\%$ confidence gate, generate documentation, and synthesize final report.
 
 ---
@@ -71,6 +71,7 @@ For structured non-website engineering tasks, execute through the 8 phases:
 | UI/Frontend, landing pages, websites, design systems | `@jonin` | `jonin-skill` | `pnpm` exclusively |
 | Backend, APIs, bug diagnosis, DevOps, K8s, Docker | `@anbu` | `anbu-skill` | `pnpm` exclusively |
 | Technical docs, runbooks, DOCX, PDF, XLSX, PPTX, SVG | `@tokubetsu-jonin` | `tokubetsu-jonin-skill` | Node.js native |
+| Authorized red-team penetration testing, exploit validation, blue-team defense | `@akatsuki` | `akatsuki-skill` | Container sandbox (Docker/LXC) |
 
 ---
 

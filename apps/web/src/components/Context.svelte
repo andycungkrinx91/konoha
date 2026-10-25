@@ -344,9 +344,19 @@
               class="text-left p-4 rounded-2xl border transition-all cursor-pointer hover:border-[var(--theme-info)] {selectedWorkspacePath === ws.workspace_root ? 'badge-status badge-status-info border-[var(--theme-info)] shadow-md' : 'theme-bg-surface theme-border opacity-90'}"
             >
               <div class="flex items-center justify-between gap-2 mb-1.5">
-                <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded badge-status badge-status-info">
-                  {ws.client.toUpperCase()}
-                </span>
+                <div class="flex flex-wrap items-center gap-1">
+                  {#if ws.clients && ws.clients.length > 0}
+                    {#each ws.clients as c}
+                      <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded badge-status badge-status-info">
+                        {c.toUpperCase()}
+                      </span>
+                    {/each}
+                  {:else}
+                    <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded badge-status badge-status-info">
+                      {ws.client.toUpperCase()}
+                    </span>
+                  {/if}
+                </div>
                 {#if selectedWorkspacePath === ws.workspace_root}
                   <span class="text-[10px] font-bold text-status-success flex items-center gap-1">
                     ● Active View

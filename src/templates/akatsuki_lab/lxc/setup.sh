@@ -55,6 +55,8 @@ if lxc info "${LAB_NAME}" >/dev/null 2>&1; then
   echo "[akatsuki-lab:lxc] Container ${LAB_NAME} already exists."
 else
   lxc init "${ATTACKER_IMAGE}" "${LAB_NAME}" --network="${LAB_BRIDGE}"
+  lxc config set "${LAB_NAME}" security.privileged=false || true
+  lxc config set "${LAB_NAME}" security.idmap.isolated=true || true
   lxc config set "${LAB_NAME}" limits.memory="${ATTACKER_MEMORY:-2GiB}" || true
   lxc config set "${LAB_NAME}" limits.cpu="${ATTACKER_CPUS:-2}" || true
   echo "[akatsuki-lab:lxc] Container ${LAB_NAME} initialized."

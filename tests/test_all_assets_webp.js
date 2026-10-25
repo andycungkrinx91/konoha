@@ -21,7 +21,7 @@ console.log('Running test_all_assets_webp.js...\n');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 
-// 1. Expected 17 canonical animation assets
+// 1. Expected 18 canonical animation assets
 const EXPECTED_WEBP_ASSETS = [
   'demo-agy.webp',
   'demo-claude.webp',
@@ -34,6 +34,7 @@ const EXPECTED_WEBP_ASSETS = [
   'demo-skills.webp',
   'demo-web.webp',
   'demo.webp',
+  'konoha-akatsuki-flow.webp',
   'konoha-jonin-flow.webp',
   'konoha-kage-gate.webp',
   'konoha-orchestration-flow.webp',
@@ -42,7 +43,7 @@ const EXPECTED_WEBP_ASSETS = [
   'testing.webp'
 ];
 
-console.log('1. Checking that all 17 Animated WebP assets exist and legacy GIFs are removed...');
+console.log('1. Checking that all 18 Animated WebP assets exist and legacy GIFs are removed...');
 const actualGifs = fs.readdirSync(ASSETS_DIR).filter(f => f.endsWith('.gif'));
 assert.strictEqual(actualGifs.length, 0, `Expected 0 .gif files in assets/, found: ${actualGifs.join(', ')}`);
 console.log('  ✓ 0 legacy .gif files found in assets/');
@@ -107,5 +108,5 @@ assert.strictEqual(
 console.log(`  ✓ Verified ${mdFiles.length} active markdown files with ZERO broken .gif embeds!`);
 
 console.log('\n====================================================');
-console.log('✓ All 17 Animated WebP assets and Markdown embeds verified cleanly!');
+console.log('✓ All 18 Animated WebP assets and Markdown embeds verified cleanly!');
 console.log('====================================================');

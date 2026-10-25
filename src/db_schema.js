@@ -2,6 +2,31 @@
 
 const fs = require('fs');
 
+const CURRENT_SCHEMA_VERSION = 5;
+
+function getCurrentUserVersion(conn) {
+  try {
+    const row = conn.prepare('PRAGMA user_version').get();
+    return row ? (row.user_version !== undefined ? row.user_version : Object.values(row)[0] || 0) : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function setUserVersion(conn, version) {
+  conn.pragma(`user_version = ${version}`);
+}
+
+function verifyIntegrity(conn) {
+  try {
+    const row = conn.prepare('PRAGMA integrity_check').get();
+    const val = row ? (row.integrity_check || Object.values(row)[0]) : null;
+    return val === 'ok';
+  } catch (_) {
+    return false;
+  }
+}
+
 function hasFts5Support(conn) {
   if (!conn || typeof conn.exec !== 'function') return false;
   if (conn._mockFts5Disabled === true || globalThis.__KONOHA_MOCK_FTS5_DISABLED === true) return false;
@@ -442,10 +467,25 @@ function setupSchema(conn, backupDatabaseFn = null) {
     }
   } catch (_) { /* intentional best-effort fallback */ }
 
+  // Migration v5: composite indices and user_version tracking
+  try {
+    conn.exec(`
+      CREATE INDEX IF NOT EXISTS idx_sdlc_tasks_status_updated ON sdlc_tasks(status, updated_at);
+      CREATE INDEX IF NOT EXISTS idx_persona_memories_agent_proj ON persona_memories(agent_name, project_hash);
+    `);
+  } catch (_) { /* intentional best-effort fallback */ }
+
+  setUserVersion(conn, CURRENT_SCHEMA_VERSION);
+  verifyIntegrity(conn);
+
   return conn;
 }
 
 module.exports = {
+  CURRENT_SCHEMA_VERSION,
+  getCurrentUserVersion,
+  setUserVersion,
+  verifyIntegrity,
   hasFts5Support,
   setupSchema
 };

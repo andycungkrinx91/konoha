@@ -64,6 +64,43 @@ function normPath(p) {
   return IS_WIN ? reStripped.toLowerCase() : reStripped;
 }
 
+function normalizePath(p) {
+  if (!p || typeof p !== 'string') return p;
+  const stripped = stripWinExtendedPrefix(p);
+  const normalized = path.normalize(stripped);
+  return normalized.replace(/\\/g, '/');
+}
+
+function safeSymlink(target, linkPath) {
+  try {
+    ensureDir(path.dirname(linkPath));
+    if (fs.existsSync(linkPath)) {
+      try {
+        const stat = fs.lstatSync(linkPath);
+        if (stat.isSymbolicLink() || stat.isDirectory()) {
+          fs.rmSync(linkPath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(linkPath);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    const type = IS_WIN ? 'junction' : 'dir';
+    fs.symlinkSync(target, linkPath, type);
+    return { ok: true, mode: 'symlink' };
+  } catch (err) {
+    // Fallback: directory copy on Windows when Developer Mode / symlink permissions are missing
+    try {
+      if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+        fs.cpSync(target, linkPath, { recursive: true });
+        return { ok: true, mode: 'copy' };
+      }
+    } catch (copyErr) {
+      return { ok: false, error: err.message + ' / copy: ' + copyErr.message };
+    }
+    return { ok: false, error: err.message };
+  }
+}
+
 function expandUser(rawPath) {
   if (!rawPath || typeof rawPath !== 'string') {
     return rawPath;
@@ -429,6 +466,8 @@ module.exports = {
   killProcessOnPort,
   stripWinExtendedPrefix,
   normPath,
+  normalizePath,
+  safeSymlink,
   expandUser,
   uriToPath,
   detectPython,

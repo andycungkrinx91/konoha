@@ -31,14 +31,30 @@ async function run() {
   process.env.KONOHA_AKATSUKI_CONFIG = tmpConfig;
 
   try {
+    const { getAkatsukiEnv, setAkatsukiEnv } = require('../src/akatsuki_config');
     const defaultMode = getAkatsukiMode();
-    assert.ok(defaultMode === 'lxc' || defaultMode === 'docker', 'Default mode must be lxc or docker');
+    assert.strictEqual(defaultMode, 'blue', 'Default mode must be blue');
+    const defaultEnv = getAkatsukiEnv();
+    assert.strictEqual(defaultEnv, 'docker', 'Default env must be docker');
+
+    setAkatsukiMode('red');
+    assert.strictEqual(getAkatsukiMode(), 'red', 'Mode must be updated to red');
+
+    setAkatsukiMode('blue');
+    assert.strictEqual(getAkatsukiMode(), 'blue', 'Mode must be updated to blue');
+
+    setAkatsukiEnv('lxc');
+    assert.strictEqual(getAkatsukiEnv(), 'lxc', 'Env must be updated to lxc');
+
+    setAkatsukiEnv('docker');
+    assert.strictEqual(getAkatsukiEnv(), 'docker', 'Env must be updated to docker');
+
+    // Legacy mode alias compatibility
+    setAkatsukiMode('lxc');
+    assert.strictEqual(getAkatsukiEnv(), 'lxc', 'Legacy setAkatsukiMode(lxc) sets env to lxc');
 
     setAkatsukiMode('docker');
-    assert.strictEqual(getAkatsukiMode(), 'docker', 'Mode must be updated to docker');
-
-    setAkatsukiMode('lxc');
-    assert.strictEqual(getAkatsukiMode(), 'lxc', 'Mode must be updated to lxc');
+    assert.strictEqual(getAkatsukiEnv(), 'docker', 'Legacy setAkatsukiMode(docker) sets env to docker');
 
     assert.throws(() => {
       setAkatsukiMode('invalid_mode');

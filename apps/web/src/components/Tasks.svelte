@@ -152,6 +152,17 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
     }
   }
 
+  async function restartTask(id, e) {
+    if (e) e.stopPropagation();
+    try {
+      await api.post(`/api/v1/sdlc/tasks/${encodeURIComponent(id)}/restart`, {});
+      toast.success(`Task "${id}" restarted`);
+      await loadTasks();
+    } catch (err) {
+      toast.error('Failed to restart task: ' + err.message);
+    }
+  }
+
   async function clearAllTasks() {
     const hasFilter = Boolean(statusFilter || projectFilter);
     const message = hasFilter
@@ -520,11 +531,37 @@ import { confirm } from '#lib/state/dialog.svelte.ts';
                   </div>
                 {/if}
 
+                {#if task.evidence && task.evidence.reconciliation}
+                  <div class="p-3 rounded-[3px] border badge-status badge-status-warning text-xs font-semibold space-y-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold">⚠️ Reconciled Stale Task</span>
+                      <span class="font-mono text-[11px]">{task.evidence.reconciliation.reconciled_at || ''}</span>
+                    </div>
+                    <p class="theme-text-secondary">
+                      Previous status: <span class="font-bold">{task.evidence.reconciliation.previous_status}</span> • Reason: {task.evidence.reconciliation.reason}
+                    </p>
+                  </div>
+                {/if}
+
                 {#if (!task.dor_result || Object.keys(task.dor_result).length === 0) && (!task.slop_result || Object.keys(task.slop_result).length === 0) && (!task.evidence || Object.keys(task.evidence).length === 0)}
                   <p class="text-xs font-semibold theme-text-muted">No gate results or evidence recorded for this task yet.</p>
                 {/if}
 
-                <div class="flex justify-end pt-2 border-t" style="border-color: var(--color-border, #e2e8f0);">
+                <div class="flex items-center justify-between pt-2 border-t" style="border-color: var(--color-border, #e2e8f0);">
+                  {#if task.status === 'timed_out' || task.status === 'blocked' || task.status === 'failed'}
+                    <button
+                      type="button"
+                      class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-info cursor-pointer hover:opacity-90"
+                      onclick={(e) => restartTask(task.id, e)}
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Restart Task
+                    </button>
+                  {:else}
+                    <div></div>
+                  {/if}
                   <button
                     type="button"
                     class="btn-3d inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs font-bold badge-status badge-status-danger hover:bg-status-danger-soft cursor-pointer"

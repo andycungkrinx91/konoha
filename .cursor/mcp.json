@@ -18,7 +18,7 @@
     },
     "konoha": {
       "type": "stdio",
-      "command": "node",
+      "command": "/home/andycungkrinx/.nvm/versions/node/v22.23.3/lib/node_modules/bun/bin/bun.exe",
       "args": [
         "${userHome}/.konoha/file_tools_launcher.js"
       ]

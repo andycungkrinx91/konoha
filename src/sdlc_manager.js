@@ -173,7 +173,7 @@ function reconcileStaleTasks(options = {}, dbPath = null) {
   try {
     const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
     const staleRows = conn.prepare(`
-      SELECT id, status, evidence FROM sdlc_tasks
+      SELECT id, status, evidence, updated_at FROM sdlc_tasks
       WHERE status IN ('in_progress', 'remediating', 'pending_plan_approval') AND updated_at < ?
     `).all(cutoff);
 
@@ -185,7 +185,12 @@ function reconcileStaleTasks(options = {}, dbPath = null) {
       `);
       for (const row of staleRows) {
         const ev = safeJsonParse(row.evidence, {});
-        ev.reconciliation = { previous_status: row.status, reconciled_at: now, reason: 'Task lease expired' };
+        ev.reconciliation = {
+          previous_status: row.status,
+          reconciled_at: now,
+          reason: `Task lease expired (inactivity > ${Math.round(maxAgeMs / 60000)}m)`,
+          last_heartbeat_at: row.updated_at
+        };
         updateStmt.run(JSON.stringify(ev), now, row.id);
         reconciledIds.push(row.id);
       }
@@ -193,6 +198,28 @@ function reconcileStaleTasks(options = {}, dbPath = null) {
     return { reconciled_count: reconciledIds.length, reconciled_ids: reconciledIds };
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
+  }
+}
+
+function restartTask(taskId, options = {}, dbPath = null) {
+  const conn = getDbConn(dbPath);
+  try {
+    const task = conn.prepare('SELECT * FROM sdlc_tasks WHERE id = ?').get(taskId);
+    if (!task) return null;
+    const now = new Date().toISOString();
+    const ev = safeJsonParse(task.evidence, {});
+    ev.restarts = (ev.restarts || 0) + 1;
+    ev.last_restart_at = now;
+    const newStatus = options.status || 'in_progress';
+    conn.prepare('UPDATE sdlc_tasks SET status = ?, evidence = ?, updated_at = ? WHERE id = ?').run(
+      newStatus,
+      JSON.stringify(ev),
+      now,
+      taskId
+    );
+    return getTask(taskId, dbPath);
+  } finally {
+    try { conn.close(); } catch (_) { /* ignore */ }
   }
 }
 
@@ -687,5 +714,6 @@ module.exports = {
   evaluateAntiSlopDeliveryGate,
   generateSlopFixTask,
   reconcileStaleTasks,
+  restartTask,
   safeJsonParse
 };

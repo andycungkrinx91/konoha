@@ -35,7 +35,11 @@ function getRequiredEngine(platform = process.platform) {
   }
 
   try {
-    const { getAkatsukiMode } = require('./akatsuki_config');
+    const { getAkatsukiEnv, getAkatsukiMode } = require('./akatsuki_config');
+    const configuredEnv = typeof getAkatsukiEnv === 'function' ? getAkatsukiEnv() : null;
+    if (configuredEnv === 'lxc' || configuredEnv === 'docker') {
+      return configuredEnv;
+    }
     const configuredMode = getAkatsukiMode();
     if (configuredMode === 'lxc' || configuredMode === 'docker') {
       return configuredMode;

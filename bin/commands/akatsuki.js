@@ -26,10 +26,11 @@ const {
 
 const {
   loadAkatsukiConfig,
-  setRedTeamEnabled,
   isRedTeamEnabled,
   setAkatsukiMode,
-  getAkatsukiMode
+  getAkatsukiMode,
+  setAkatsukiEnv,
+  getAkatsukiEnv
 } = require('../../src/akatsuki_config');
 
 const {
@@ -53,9 +54,15 @@ async function cmdAkatsukiStatus() {
 
   const config = loadAkatsukiConfig();
   const enabled = isRedTeamEnabled();
+  const mode = getAkatsukiMode();
+  const env = getAkatsukiEnv();
   const engine = getRequiredEngine();
   const labStatus = getLabStatus(DEFAULT_LAB_NAME, engine);
   const tools = listSupportedTools();
+
+  const modeBadge = mode === 'red'
+    ? `${C.red}${C.bold}● RED (Offensive Pentest & Automated Sandbox)${C.reset}`
+    : `${C.blue}${C.bold}● BLUE (Defensive Security & Skill Guardian — Default)${C.reset}`;
 
   const enabledBadge = enabled
     ? `${C.green}${C.bold}● ENABLED${C.reset}`
@@ -68,10 +75,12 @@ async function cmdAkatsukiStatus() {
     : (isExists ? `${C.yellow}STOPPED${C.reset}` : `${C.dim}NOT_CREATED${C.reset}`);
 
   log(`  ${C.bold}Specialist Agent:${C.reset}    @akatsuki (Red-Team, Blue-Team & Security Final Gate)`);
+  log(`  ${C.bold}Akatsuki Mode:${C.reset}       ${modeBadge}`);
+  log(`  ${C.bold}Execution Env:${C.reset}       ${C.cyan}${env.toUpperCase()}${C.reset} (${process.platform})`);
   log(`  ${C.bold}Blue-Team Defense:${C.reset}   ${C.green}● ACTIVE${C.reset} (Direct Host SAST, Secrets, CVEs & Skill Guardian)`);
   log(`  ${C.bold}Security Final Gate:${C.reset} ${C.green}● ACTIVE${C.reset} (Mandatory Pre-Delivery Gate before Kage Approval)`);
   log(`  ${C.bold}Red-Team Status:${C.reset}     ${enabledBadge}`);
-  log(`  ${C.bold}Container Engine:${C.reset}    ${C.cyan}${engine.toUpperCase()}${C.reset} (${process.platform})`);
+  log(`  ${C.bold}Container Engine:${C.reset}    ${C.cyan}${engine.toUpperCase()}${C.reset}`);
   log(`  ${C.bold}Isolation Sandbox:${C.reset}   ${C.bold}${DEFAULT_LAB_NAME}${C.reset} [${labBadge}]`);
   log(`  ${C.bold}Direct Host Exec:${C.reset}    ${C.red}${C.bold}STRICTLY DENIED${C.reset} ${C.dim}(Red-Team Sandbox Confined)${C.reset}`);
   log(`  ${C.bold}Access Policy:${C.reset}       ${C.yellow}CLI / TUI Exclusive${C.reset} ${C.dim}(Hidden from Web UI)${C.reset}`);
@@ -100,10 +109,10 @@ async function cmdAkatsukiStatus() {
   log('');
 
   if (!enabled) {
-    warn('Red-Team operations are currently DISABLED. All offensive pentest tasks will be declined fail-closed.');
-    info('To enable: konoha akatsuki redteam enable');
+    warn('Red-Team operations are currently DISABLED (Mode: BLUE). All offensive pentest tasks will be declined fail-closed.');
+    info('To enable and automate lab setup: konoha akatsuki mode red');
   } else {
-    success('Red-Team operations are ENABLED. All probes execute strictly inside "akatsuki-lab".');
+    success('Red-Team operations are ENABLED (Mode: RED). All probes execute strictly inside "akatsuki-lab".');
   }
   log('');
 }
@@ -114,14 +123,42 @@ async function cmdAkatsukiStatus() {
  * @param {string} action 'enable' | 'disable'
  */
 function cmdAkatsukiToggle(action) {
-  const isEnable = action === 'enable';
-  setRedTeamEnabled(isEnable);
+  return cmdAkatsukiMode(action === 'enable' ? 'red' : 'blue');
+}
 
+/**
+ * Handle Akatsuki lab execution mode inspection and switching (blue / red).
+ *
+ * @param {string} [targetMode]
+ */
+function cmdAkatsukiMode(targetMode) {
+  if (!targetMode) {
+    const currentMode = getAkatsukiMode();
+    const currentEnv = getAkatsukiEnv();
+    log('');
+    info(`Current Akatsuki Mode: ${C.bold}${currentMode === 'red' ? C.red : C.blue}${currentMode.toUpperCase()}${C.reset}`);
+    log(`  Current Environment: ${C.bold}${C.cyan}${currentEnv.toUpperCase()}${C.reset}`);
+    log(`  Supported modes: ${C.blue}blue${C.reset} (defensive default), ${C.red}red${C.reset} (offensive pentest + automated lab setup)`);
+    log(`  To switch mode: ${C.cyan}konoha akatsuki mode blue${C.reset} or ${C.cyan}konoha akatsuki mode red${C.reset}\n`);
+    return;
+  }
+  const normMode = String(targetMode).trim().toLowerCase();
+  if (normMode === 'lxc' || normMode === 'docker') {
+    info(`Note: To configure container environment, use "konoha akatsuki env ${normMode}".`);
+    return cmdAkatsukiEnv(normMode);
+  }
+  if (normMode !== 'blue' && normMode !== 'red') {
+    error(`Invalid mode "${targetMode}". Supported modes: blue, red`);
+    log(`Usage: ${C.cyan}konoha akatsuki mode blue|red${C.reset}`);
+    process.exitCode = 1;
+    return;
+  }
+  setAkatsukiMode(normMode);
   log('');
-  if (isEnable) {
-    success('Akatsuki Red-Team operations have been ENABLED.');
+  if (normMode === 'red') {
+    success(`Akatsuki mode switched to ${C.bold}${C.red}RED${C.reset} (Offensive Pentest).`);
     const engine = getRequiredEngine();
-    info(`Idempotently provisioning ${engine.toUpperCase()} sandbox container "${DEFAULT_LAB_NAME}"...`);
+    info(`Automating setup of ${engine.toUpperCase()} sandbox container "${DEFAULT_LAB_NAME}"...`);
     const provRes = provisionLab(DEFAULT_LAB_NAME, engine);
     if (provRes.ok) {
       success(`Sandbox container "${DEFAULT_LAB_NAME}" active and isolated in ${engine.toUpperCase()}.`);
@@ -133,6 +170,7 @@ function cmdAkatsukiToggle(action) {
     log(`  ${C.green}●${C.reset} Probes execute exclusively inside sandbox container "${DEFAULT_LAB_NAME}".`);
     log(`  ${C.green}●${C.reset} Direct host execution remains strictly denied.`);
   } else {
+    success(`Akatsuki mode switched to ${C.bold}${C.blue}BLUE${C.reset} (Defensive Security).`);
     const engine = getRequiredEngine();
     info(`Stopping sandbox container "${DEFAULT_LAB_NAME}" in ${engine.toUpperCase()}...`);
     stopLab(DEFAULT_LAB_NAME, engine);
@@ -144,30 +182,33 @@ function cmdAkatsukiToggle(action) {
 }
 
 /**
- * Handle Akatsuki lab execution mode inspection and switching (lxc / docker).
+ * Handle Akatsuki container execution environment inspection and switching (docker / lxc).
  *
- * @param {string} [targetMode]
+ * @param {string} [targetEnv]
  */
-function cmdAkatsukiMode(targetMode) {
-  if (!targetMode) {
-    const currentMode = getAkatsukiMode();
+function cmdAkatsukiEnv(targetEnv) {
+  if (!targetEnv) {
+    const currentEnv = getAkatsukiEnv();
     log('');
-    info(`Current Akatsuki Lab Mode: ${C.bold}${C.cyan}${currentMode.toUpperCase()}${C.reset}`);
-    log(`  Supported modes: ${C.cyan}lxc${C.reset} (Linux default), ${C.cyan}docker${C.reset} (Windows/macOS default)`);
-    log(`  To switch mode: ${C.cyan}konoha akatsuki mode lxc${C.reset} or ${C.cyan}konoha akatsuki mode docker${C.reset}\n`);
+    info(`Current Akatsuki Environment: ${C.bold}${C.cyan}${currentEnv.toUpperCase()}${C.reset}`);
+    log(`  Supported environments: ${C.cyan}docker${C.reset} (default), ${C.cyan}lxc${C.reset}`);
+    log(`  To switch environment: ${C.cyan}konoha akatsuki env docker${C.reset} or ${C.cyan}konoha akatsuki env lxc${C.reset}\n`);
     return;
   }
-  const normMode = String(targetMode).trim().toLowerCase();
-  if (normMode !== 'lxc' && normMode !== 'docker') {
-    error(`Invalid mode "${targetMode}". Supported modes: lxc, docker`);
-    log(`Usage: ${C.cyan}konoha akatsuki mode lxc|docker${C.reset}`);
+  const normEnv = String(targetEnv).trim().toLowerCase();
+  if (normEnv !== 'lxc' && normEnv !== 'docker') {
+    error(`Invalid environment "${targetEnv}". Supported environments: docker, lxc`);
+    log(`Usage: ${C.cyan}konoha akatsuki env docker|lxc${C.reset}`);
     process.exitCode = 1;
     return;
   }
-  setAkatsukiMode(normMode);
+  if (normEnv === 'lxc' && process.platform === 'win32') {
+    warn('LXC requires a Linux or WSL2 kernel backend. On Windows, Docker is the recommended environment.');
+  }
+  setAkatsukiEnv(normEnv);
   log('');
-  success(`Akatsuki Lab execution mode switched to ${C.bold}${C.cyan}${normMode.toUpperCase()}${C.reset}.`);
-  log(`  ${C.green}●${C.reset} Subsequent red-team operations and auto-provisioning will use ${normMode.toUpperCase()}.`);
+  success(`Akatsuki container execution environment switched to ${C.bold}${C.cyan}${normEnv.toUpperCase()}${C.reset}.`);
+  log(`  ${C.green}●${C.reset} Subsequent red-team automated provisioning and lab runs will use ${normEnv.toUpperCase()}.`);
   log('');
 }
 
@@ -180,12 +221,13 @@ ${C.bold}Usage:${C.reset}
   konoha akatsuki <subcommand>
 
 ${C.bold}Subcommands:${C.reset}
-  ${C.cyan}status${C.reset}             Show Akatsuki security controls, engine, mode, and lab status
-  ${C.cyan}enable${C.reset}             Enable Red-Team execution and provision isolated lab container
-  ${C.cyan}disable${C.reset}            Disable Red-Team execution and stop lab container (fail-closed)
-  ${C.cyan}mode [lxc|docker]${C.reset}  View or set container execution engine mode (lxc / docker)
-  ${C.cyan}redteam enable${C.reset}     Alias for enable
-  ${C.cyan}redteam disable${C.reset}    Alias for disable
+  ${C.cyan}status${C.reset}             Show Akatsuki security controls, engine, mode, env, and lab status
+  ${C.cyan}mode [blue|red]${C.reset}    Switch between defensive Blue-Team and offensive Red-Team mode
+  ${C.cyan}env [docker|lxc]${C.reset}   View or set container execution environment (docker / lxc)
+  ${C.cyan}enable${C.reset}             Alias for "mode red" (automated sandbox setup)
+  ${C.cyan}disable${C.reset}            Alias for "mode blue" (stop sandbox and fail-closed)
+  ${C.cyan}redteam enable${C.reset}     Alias for "mode red"
+  ${C.cyan}redteam disable${C.reset}    Alias for "mode blue"
 
 ${C.bold}Security Policy:${C.reset}
   Red-Team execution is strictly confined to the ${C.bold}akatsuki-lab${C.reset} container.
@@ -210,6 +252,10 @@ async function cmdAkatsuki(args = []) {
 
     case 'mode':
       cmdAkatsukiMode(subArg);
+      break;
+
+    case 'env':
+      cmdAkatsukiEnv(subArg);
       break;
 
     case 'redteam':
@@ -252,5 +298,6 @@ module.exports = {
   cmdAkatsukiStatus,
   cmdAkatsukiToggle,
   cmdAkatsukiMode,
+  cmdAkatsukiEnv,
   cmdAkatsukiHelp
 };

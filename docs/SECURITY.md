@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.4)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.7)
 
 ## 1. Overview & Threat Model
 
@@ -100,3 +100,20 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - **October 2026 Node.js Security Advisory Compliance**: Shipped environments target Node.js LTS `v22.23.4+` (mitigating high-severity Brotli remote code execution and TLS/DNS security advisories).
 - **Zero Known Vulnerabilities**: Verified through continuous automated auditing (`pnpm audit` reporting zero vulnerabilities across root and `apps/web` manifests).
 - **Package Manager Mandate**: Scaffolding and installs strictly utilize `pnpm` with token-safe non-interactive flags; standalone unconstrained `npx` or `npm` fallbacks are permanently decommissioned.
+
+---
+
+## 10. Akatsuki Security Sandbox Controls & Dual-Mode Isolation
+
+### 10.1 Dual-Mode Operation (`mode: blue | red`)
+- **Default Mode (`blue`)**: Blue-Team defensive security operates directly on the host for static application security testing (SAST), secrets scanning, dependency CVE verification, and delivery gate checks. In blue mode, any offensive `akatsuki-lab` container is stopped and removed (`fail-closed` safety invariant).
+- **Offensive Mode (`red`)**: Requires explicit authorization. Switching to red mode via `konoha akatsuki mode red` or `konoha akatsuki enable` automatically provisions an isolated, unprivileged sandbox container (`akatsuki-lab`).
+
+### 10.2 Container Execution Engine Isolation (`env: docker | lxc`)
+- **Host Execution Prohibited**: Direct execution of offensive security tools (`nmap`, `metasploit`, `zap`, `nuclei`, `ffuf`, `sqlmap`, `tshark`, `testssl`, `trivy`, `curl_probe`) on the host system is strictly blocked.
+- **Docker Sandbox Engine (Default)**: Executes within container `akatsuki-lab` with `--security-opt=no-new-privileges:true`, `--cap-drop=ALL`, `--cap-add=NET_RAW`, non-root user `akatsuki` (UID 1000), internal bridge isolation (`internal: true`), 2GB memory cap, and 2 CPU core limit.
+- **LXC Container Engine**: Executes within an unprivileged system container (`security.privileged=false`) bound to isolated bridge `labbr0` with strict egress ACL rejection (`lab-egress`).
+
+### 10.3 Persona Boundary & Offensive Skill Gating
+- **Strict Persona Access**: Offensive security skills (`akatsuki-skill`, `patch-diff-exploit`, `pentest-osint-recon`, `php-cve-patch-collection-maintenance`) are strictly quarantined to `@akatsuki`. Invocations from other Ninja agents (`@genin`, `@anbu`, `@jonin`, `@kage`, `@chunin`) are denied fail-closed.
+- **Rules of Engagement (RoE) Authorization**: Offensive tasks must include written authorization defining target scope, emergency cutoff, and authorized operator consent. Ambiguous or out-of-scope targets are refused.

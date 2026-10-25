@@ -1,58 +1,89 @@
-› Konoha help
-| |/ /  / _ \ | \| | / _ \ | || |   / \
+⚡ Switching to help...  ϟ Switching to help...  ⚡ Switching to help...  ϟ Switching to help...  ⚡ Switching to help...| |/ /  / _ \ | \| | / _ \ | || |   / \
 | ' /  | | | || .` || | | || __ |  / _ \
 |_|\_\  \___/ |_|\_| \___/ |_||_| /_/ \_\
-Konoha — MCP Tools Orchestrator
+Konoha v2.2.7 — MCP Tools Orchestrator
 Token reduction: 83-98% via on-demand search
 Maintainer: Andy Setiyawan
 
   🍃 Welcome to Konoha — The Ninja Agent Village Management Tool! 🍃
   ========================================================================
-  Konoha helps you manage a team of specialized AI subagents (Ninjas) for your
-  Antigravity IDE or CLI. It stores agent "skills" (instructions, rules, scripts)
-  in a local SQLite FTS5 database and exposes them via a searchable MCP server,
-  providing massive token savings (~80-95%) while keeping agents highly capable.
+  Konoha helps you manage a team of specialized AI subagents (Ninjas) across
+  Antigravity IDE/CLI, Cursor, Claude Code, OpenCode, Command Code, Codex, and Pi.
+  It stores agent "skills" (instructions, rules, scripts) in a local SQLite FTS5
+  database and exposes them via a searchable MCP server, providing massive token
+  savings (~80-98%) while keeping agents highly capable.
   ========================================================================
 
 USAGE
   konoha <command> [options]
 
 CORE COMMANDS
-  init          🚀 Setup MCP server, migrate local skills, and configure Antigravity.
-  migrate       🔄 Re-index/migrate your custom skills database (run after editing skills).
-  test          🧪 Perform verification tests on the MCP server.
-  status        🩺 Check installation health, database size, and loaded skills.
-  version       ✨ Display current version and check for updates from GitHub.
-  upgrade       🔄 Upgrade Konoha CLI to the latest version from GitHub.
-  savings       📊 View your total token savings (Today, 7 days, All time).
-  data          🧠 Manage SQLite active session history and prune database space.
-  doctor        🩺 Run environment diagnostics to detect/fix integration issues.
-  bridge        🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
-
-  uninstall     🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
-
-SUBAGENT & SKILL MANAGEMENT COMMANDS
-  skill         📚 Manage skills (list installed, search the public registry, add/remove).
-  agent         👤 Configure your Ninja subagents (list, change models, toggle skills, delete, status).
-  models        🤖 Manage available LLM models and assign them to subagents.
-  help          ❓ Show this educational help menu.
+  akatsuki          🛡️  Manage Akatsuki security controls, lab status, and redteam enable/disable.
+  agent             👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
+  auth              🔐 Manage web console authentication credentials and password reset.
+  bridge            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+  clean             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
+  data              🧠 Manage SQLite active session history, persona memories, and database size.
+  detect-ai         🛡️  Scan website URL or project files for AI fingerprints (Human-Built Index).
+  detect-docs       📄 Scan prose documents or text for AI generation markers (ZeroGPT defense).
+  doctor            🩺 Run environment diagnostics to detect/fix integration issues.
+  embed             ⚡ Rebuild vector embeddings for all skills (implies --rebuild-embeddings).
+  help, -h          ❓ Show this educational help menu and command catalog.
+  init              🚀 Setup MCP servers, migrate local skills, and configure supported clients.
+  migrate           🔄 Re-index/migrate your custom skills database (run after editing skills).
+  project           📁 Manage persistent project workspaces, detected stacks, and invariants.
+  queue             📬 Background task prompt queue and execution worker.
+  reinstall         🔄 Force clean re-installation and replace existing configuration (implies --force).
+  savings           📊 View your total token savings (Today, 7 days, All time).
+  search            🔍 Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia).
+  service           ⚙️  Manage background system daemon service (systemd / launchd) for Web UI.
+  skill             📚 Manage skills (list installed, search the public registry, add/remove).
+  soul              🔥 Display Ninja's Soul doctrine, tenets, and archetype spirits.
+  status            🩺 Check installation health, database size, and loaded skills.
+  task              📋 Native SDLC governance tasks, readiness gates, and audits.
+  telegram          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
+  test              🧪 Perform verification tests on the MCP server.
+  tunnel            🚇 Manage Cloudflare and ngrok public ingress tunnels.
+  ui, web           🌐 Manage local Web Configuration UI (start, stop, restart, status; port 1404).
+  uninstall         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
+  upgrade           🔄 Upgrade Konoha CLI to the latest version from npm registry.
+  version, -v       ✨ Display current version and check for updates from npm registry.
+  webhook           🔗 Manage outbound webhook integrations (Bearer, API Key, JWT).
 
 GLOBAL OPTIONS
-  --force        Force clean re-installation (used with init).
-  --skills-dir   Specify a custom directory to scan for skill folders (used with migrate).
+  --force            Force clean re-installation (used with init).
+  --skills-dir       Specify a custom directory to scan for skill folders (used with migrate).
+  --clean            Clean stale records before re-indexing (used with migrate).
 
 QUICK-START EXAMPLES FOR BEGINNERS
   1. Setup everything for the first time:
-     pnpm dlx github:andycungkrinx91/konoha init
+     pnpm dlx konoha-mcp init  # (or: npm install -g konoha-mcp && konoha init)
 
-  2. Search for a custom skill (e.g. Golang, Docker) on the registry and install it:
+  2. Re-index skills & synchronize vector embeddings:
+     konoha migrate --clean --rebuild-embeddings  # (or: konoha embed)
+
+  3. Verify MCP server connection:
+     konoha test
+
+  4. Search for a custom skill on the registry and install it:
      konoha skill search golang
 
-  3. Interactively link/toggle skills for a subagent (e.g. teach @genin a new skill):
+  5. Interactively configure subagent skills:
      konoha agent skill genin
 
-  5. View how many tokens (and how much context window) you have saved:
+  6. View byte-weighted token savings metrics:
      konoha savings
 
-  6. View database disk space and active session size:
+  7. Inspect database storage and session history:
      konoha data view
+
+  8. Scan a website or document for AI markers:
+     konoha detect-ai https://example.com
+     konoha detect-docs report.pdf
+
+  9. Configure Telegram remote task notifications:
+     konoha telegram config --token <BOT_TOKEN> --chat-id <CHAT_ID>
+     konoha telegram test
+
+  10. Start Cloudflare public tunnel for remote Web UI access:
+     konoha tunnel start

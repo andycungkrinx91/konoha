@@ -327,7 +327,18 @@ function handleRequest(req) {
   if (method === "tools/call") {
     const params = req.params || {};
     const toolName = params.name;
-    const args = params.arguments || {};
+    let args = params.arguments;
+    if (args === undefined || args === null) args = {};
+    if (typeof args === 'string') {
+      try {
+        args = JSON.parse(args);
+      } catch (_) {
+        const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+        if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
+          args = { task: args.trim() };
+        }
+      }
+    }
     process.stderr.write(
       `[mcp ${SERVER_NAME}] tool_call: ${toolName}(${JSON.stringify(args)})\n`,
     );

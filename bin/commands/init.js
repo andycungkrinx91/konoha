@@ -172,6 +172,25 @@ async function cmdInit(args, options = {}) {
     return;
   }
 
+  const clientFlag = args.find(a => a.startsWith('--client=') || a.startsWith('--clients='));
+  let requestedClients = null;
+  if (clientFlag) {
+    const val = clientFlag.split('=')[1].toLowerCase();
+    requestedClients = val === 'all' ? ['all'] : val.split(',').map(s => s.trim());
+  } else {
+    const clientIdx = args.indexOf('--client');
+    if (clientIdx !== -1 && args[clientIdx + 1]) {
+      const val = args[clientIdx + 1].toLowerCase();
+      requestedClients = val === 'all' ? ['all'] : val.split(',').map(s => s.trim());
+    }
+  }
+
+  const shouldConfigure = (clientName, isInstalled) => {
+    if (!requestedClients) return isInstalled;
+    if (requestedClients.includes('all')) return true;
+    return requestedClients.includes(clientName);
+  };
+
   // Auto-configure all detected MCP clients without prompting.
   // Only the "Initialize Konoha?" consent prompt above is asked.
   // Skipped silently when the client is not detected.
@@ -184,8 +203,13 @@ async function cmdInit(args, options = {}) {
   const codexInstalled = codexManager.isCodexInstalled();
   const piInstalled = piManager.isPiInstalled();
   const ompInstalled = ompManager.isOmpInstalled();
-  const allowCursor = cursorInstalled;
-  const allowClaudeCode = claudeInstalled;
+  const allowCursor = shouldConfigure('cursor', cursorInstalled);
+  const allowClaudeCode = shouldConfigure('claude', claudeInstalled);
+  const allowOpenCode = shouldConfigure('opencode', openCodeInstalled);
+  const allowCommandCode = shouldConfigure('commandcode', commandCodeInstalled);
+  const allowCodex = shouldConfigure('codex', codexInstalled);
+  const allowPi = shouldConfigure('pi', piInstalled);
+  const allowOmp = shouldConfigure('omp', ompInstalled);
   // 1. Ensure the directories exist
   ensureCoreDirectories();
 
@@ -654,7 +678,7 @@ async function cmdInit(args, options = {}) {
     info('Claude Code not detected — skip auto-setup (see docs/templates/claude-code.mcp.json if you install later).');
   }
 
-  if (openCodeInstalled) {
+  if (allowOpenCode) {
     header('🟢 Configuring OpenCode');
     const spinnerOpenCode = startSpinner('Registering OpenCode MCP servers and RTK rules...');
     const openCodeSetup = opencodeManager.ensureOpenCodeSetup({
@@ -667,7 +691,7 @@ async function cmdInit(args, options = {}) {
     else spinnerOpenCode.warn(`OpenCode setup skipped: ${openCodeSetup.reason || 'unknown error'}`);
   }
 
-  if (commandCodeInstalled) {
+  if (allowCommandCode) {
     header('⚡ Configuring Command Code');
     const spinnerCommandCode = startSpinner('Registering Command Code MCP servers and RTK rules...');
     const commandCodeSetup = mcpClientsManager.ensureCommandCodeSetup({
@@ -680,7 +704,7 @@ async function cmdInit(args, options = {}) {
     else spinnerCommandCode.warn(`Command Code setup skipped: ${commandCodeSetup.reason || 'unknown error'}`);
   }
 
-  if (codexInstalled) {
+  if (allowCodex) {
     header('🤖 Configuring Codex');
     const spinnerCodex = startSpinner('Registering Codex MCP servers and RTK rules...');
     const codexSetup = codexManager.ensureCodexSetup({
@@ -693,7 +717,7 @@ async function cmdInit(args, options = {}) {
     else spinnerCodex.warn(`Codex setup skipped: ${codexSetup.reason || 'unknown error'}`);
   }
 
-  if (piInstalled) {
+  if (allowPi) {
     header('🥧 Configuring Pi (pi.dev)');
     const spinnerPi = startSpinner('Registering Pi MCP servers via pi-mcp-adapter...');
     const piSetup = piManager.ensurePiSetup({
@@ -706,7 +730,7 @@ async function cmdInit(args, options = {}) {
     else spinnerPi.warn(`Pi setup skipped: ${piSetup.reason || 'unknown error'}`);
   }
 
-  if (ompInstalled) {
+  if (allowOmp) {
     header('⚡ Configuring OMP');
     const spinnerOmp = startSpinner('Registering OMP MCP servers and workflow contract...');
     const ompSetup = ompManager.ensureOmpSetup({
@@ -736,22 +760,22 @@ async function cmdInit(args, options = {}) {
     allowCursor
        ? `${ok} Cursor        ${C.dim}~/.cursor/mcp.json + subagents${C.reset}`
       : `${skip} Cursor        ${C.dim}(not installed)${C.reset}`,
-    claudeInstalled
+    claudeInstalled || allowClaudeCode
       ? `${ok} Claude Code   ${C.dim}~/.claude.json + RTK${C.reset}`
       : `${skip} Claude Code   ${C.dim}(not installed)${C.reset}`,
-    openCodeInstalled
+    openCodeInstalled || allowOpenCode
        ? `${ok} OpenCode     ${C.dim}~/.config/opencode/opencode.json + RTK rule${C.reset}`
       : `${skip} OpenCode     ${C.dim}(not installed)${C.reset}`,
-    commandCodeInstalled
+    commandCodeInstalled || allowCommandCode
       ? `${ok} Command Code ${C.dim}~/.commandcode/mcp.json + RTK${C.reset}`
       : `${skip} Command Code ${C.dim}(not installed)${C.reset}`,
-    codexInstalled
+    codexInstalled || allowCodex
       ? `${ok} Codex        ${C.dim}~/.codex/config.toml + RTK${C.reset}`
       : `${skip} Codex        ${C.dim}(not installed)${C.reset}`,
-    piInstalled
+    piInstalled || allowPi
       ? `${ok} Pi (pi.dev)  ${C.dim}~/.pi/agent/mcp.json + pi-mcp-adapter${C.reset}`
       : `${skip} Pi (pi.dev)  ${C.dim}(not installed)${C.reset}`,
-    ompInstalled
+    ompInstalled || allowOmp
       ? `${ok} OMP          ${C.dim}~/.omp/agent/mcp.json + contract${C.reset}`
       : `${skip} OMP          ${C.dim}(not installed)${C.reset}`,
     '─',

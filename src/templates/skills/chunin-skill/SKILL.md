@@ -46,7 +46,7 @@ In the Konoha ecosystem, Chunin handles external technical reconnaissance:
 2. Employ precise search operators for high-signal retrieval:
    - `site:docs.oracle.com`, `site:developer.mozilla.org`, `site:nodejs.org`, `site:github.com`
    - Exact phrase matching `"error code"` or `"symbol name"`
-   - Version pinning `"v2.2.3"` or `site:releases`
+   - Version pinning `"v2.2.7"` or `site:releases`
 3. Execute queries iteratively, adapting subsequent searches based on early findings.
 
 ### SOP 2: Source Credibility & Authority Hierarchy

@@ -16,7 +16,7 @@ tags:
 
 # Jonin: Elite UI & Frontend Builder
 
-This skill provides the **Standard Operating Procedures (SOP)** for the Jonin agent — elite builder specializing in modern, high-converting, visually stunning web applications across four core frameworks (**Next.js 16+**, **SvelteKit 2 / Svelte 5**, **Nuxt 4+**, and **Angular 19/20+** with Tailwind CSS v4, Motion, 3D Web, and responsive component architecture).
+This skill provides the **Standard Operating Procedures (SOP)** for the Jonin agent — elite builder specializing in modern, high-converting, visually stunning web applications across all modern frameworks (**Next.js, SvelteKit, Nuxt, Angular, Astro, Remix, Vue, React, Solid, Qwik**, and beyond with Tailwind CSS v4, Motion, 3D Web, and responsive component architecture).
 
 ## Two-Layer Architecture Mandate
 

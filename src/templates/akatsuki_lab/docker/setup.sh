@@ -34,6 +34,11 @@ else
   docker run -d \
     --name "${LAB_NAME}" \
     --network "${LAB_NETWORK}" \
+    --security-opt=no-new-privileges:true \
+    --cap-drop=ALL \
+    --cap-add=NET_RAW \
+    --memory=2g \
+    --cpus=2 \
     --restart unless-stopped \
     "${IMAGE_NAME}" \
     tail -f /dev/null
