@@ -50,7 +50,7 @@ mitre_attack:
 
 - Isolated lab environment with the target PLC hardware or an emulated environment
 - PLC programming software for the target platform (Siemens TIA Portal, Rockwell Studio 5000, Schneider EcoStruxure)
-- Firmware extraction tools (binwalk, firmware-mod-kit, JTAG/SWD debugger)
+- Firmware extraction tools (unblob, firmware-mod-kit, JTAG/SWD debugger)
 - Static analysis tools (Ghidra, IDA Pro, Binary Ninja with ARM/MIPS/PowerPC support)
 - Understanding of PLC architecture (real-time OS, ladder logic execution, I/O scanning)
 - Reference copy of known-good firmware for integrity comparison
@@ -229,15 +229,14 @@ if __name__ == "__main__":
 
 ### Step 2: Perform Static Analysis of Firmware Image
 
-Use binwalk for firmware unpacking and Ghidra for disassembly to identify security issues in the firmware binary.
+Use unblob for safe firmware unpacking and Ghidra for disassembly to identify security issues in the firmware binary.
 
 ```bash
-# Step 2a: Unpack firmware image with binwalk
-binwalk -e firmware.bin
-# Output: _firmware.bin.extracted/
+# Step 2a: Unpack firmware image safely with unblob (avoids legacy binwalk CVE-2021-4287)
+unblob --extract-dir ./extracted firmware.bin
 
 # Identify firmware components
-binwalk firmware.bin
+unblob --show-report firmware.bin
 # Look for: file system images, compressed sections, bootloader, RTOS kernel
 
 # Extract strings for credential and configuration analysis
@@ -255,11 +254,7 @@ grep -iE "(debug|backdoor|test_mode|factory|service_port|hidden)" firmware_strin
 # Search for cryptographic material
 grep -iE "(BEGIN RSA|BEGIN CERTIFICATE|AES|DES|private.key)" firmware_strings.txt
 
-# Step 2b: Entropy analysis to detect encrypted/compressed sections
-binwalk -E firmware.bin
-# High entropy sections may contain encrypted payloads or compressed data
-
-# Step 2c: Analyze with Ghidra (headless mode)
+# Step 2b: Analyze with Ghidra (headless mode)
 analyzeHeadless /tmp/ghidra_project PLC_FW \
   -import firmware.bin \
   -processor ARM:LE:32:Cortex \

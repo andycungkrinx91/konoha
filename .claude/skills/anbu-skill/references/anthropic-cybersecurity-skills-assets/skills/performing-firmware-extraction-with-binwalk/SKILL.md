@@ -134,17 +134,14 @@ Interpreting entropy values:
 Extract all identified components from the firmware image:
 
 ```bash
-# Automatic extraction of known file types
-binwalk -e firmware.bin
+# Recommended: Safe automated recursive extraction using unblob (avoids CVE-2021-4287 symlink traversal)
+unblob --extract-dir ./extracted_firmware firmware.bin
 
-# Recursive extraction (matryoshka mode) for nested archives
-binwalk -Me firmware.bin
+# Modern binwalk v3 extraction (Rust-based engine: pip install binwalk3)
+binwalk3 -e firmware.bin
 
-# Recursive extraction with depth limit
-binwalk -Me -d 5 firmware.bin
-
-# Extract specific file type with custom handler
-binwalk -D "squashfs filesystem:squashfs:unsquashfs %e" firmware.bin
+# Extract specific file type with custom handler (binwalk3)
+binwalk3 -D "squashfs filesystem:squashfs:unsquashfs %e" firmware.bin
 
 # Manual extraction of data at a known offset
 dd if=firmware.bin of=extracted.squashfs bs=1 skip=327680 count=4194304
@@ -239,8 +236,8 @@ Report should include:
 **Context**: A security researcher is performing an authorized assessment of a consumer router. The firmware update file was downloaded from the vendor's support page. The goal is to identify hardcoded credentials, insecure default configurations, and known vulnerable components.
 
 **Approach**:
-1. Run `binwalk -e firmware.bin` to perform initial extraction
-2. Use `binwalk -E firmware.bin` to check entropy and identify encrypted regions
+1. Run `unblob --extract-dir ./extracted_firmware firmware.bin` (or `binwalk3 -e firmware.bin`) to perform initial extraction
+2. Check entropy using native entropy tools or `unblob --show-report firmware.bin`
 3. Locate the SquashFS root filesystem in the extracted output
 4. Mount with `unsquashfs` and inspect `/etc/passwd`, `/etc/shadow`, and web server configs
 5. Search for hardcoded credentials with `grep -rni "password" /tmp/root/etc/`

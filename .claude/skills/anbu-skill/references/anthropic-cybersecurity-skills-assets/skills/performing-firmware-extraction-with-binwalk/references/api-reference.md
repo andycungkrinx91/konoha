@@ -13,11 +13,10 @@ binwalk -R "string" firmware.bin          # Raw string search
 
 ### Extraction
 ```bash
-binwalk -e firmware.bin                   # Extract known file types
-binwalk -Me firmware.bin                  # Recursive (matryoshka) extraction
-binwalk -Me -d 5 firmware.bin             # Recursive with depth limit
-binwalk -C /output/dir -e firmware.bin    # Custom output directory
-binwalk -D "type:ext:cmd" firmware.bin    # Custom extraction rule
+unblob --extract-dir /output/dir firmware.bin      # Recommended: safe recursive extraction (0 CVEs)
+binwalk3 -e firmware.bin                          # Modern binwalk v3 extraction (safe)
+binwalk3 -C /output/dir -e firmware.bin           # Custom output directory
+binwalk3 -D "type:ext:cmd" firmware.bin           # Custom extraction rule
 ```
 
 ### Entropy Analysis

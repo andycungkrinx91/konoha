@@ -42,5 +42,5 @@ insecure protocols (telnet/FTP), debug mode, backdoor indicators.
 
 ## Dependencies
 ```
-pip install binwalk
+pip install unblob
 ```

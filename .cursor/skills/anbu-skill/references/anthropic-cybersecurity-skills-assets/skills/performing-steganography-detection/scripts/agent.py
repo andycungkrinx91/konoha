@@ -4,6 +4,7 @@
 import os
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 
 try:
@@ -91,16 +92,22 @@ def extract_lsb_data(filepath, output_path):
 
 
 def run_binwalk(filepath):
-    """Run binwalk to detect embedded files."""
+    """Run unblob or binwalk to detect embedded files."""
+    if shutil.which("unblob"):
+        cmd = ["unblob", "--show-report", filepath]
+        tool = "unblob"
+    elif shutil.which("binwalk"):
+        cmd = ["binwalk", filepath]
+        tool = "binwalk"
+    else:
+        return {"tool": "unblob", "output": "unblob not installed (pip install unblob)"}
     try:
         result = subprocess.run(
-            ["binwalk", filepath], capture_output=True, text=True, timeout=30
+            cmd, capture_output=True, text=True, timeout=30
         )
-        return {"tool": "binwalk", "output": result.stdout.strip()}
-    except FileNotFoundError:
-        return {"tool": "binwalk", "output": "binwalk not installed"}
+        return {"tool": tool, "output": result.stdout.strip()}
     except subprocess.TimeoutExpired:
-        return {"tool": "binwalk", "output": "timeout"}
+        return {"tool": tool, "output": "timeout"}
 
 
 def run_zsteg(filepath):

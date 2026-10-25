@@ -77,7 +77,7 @@ Extract and analyze the device firmware:
   - Extract from flash memory using SPI programmer: connect CH341A to SPI flash, read with `flashrom -p ch341a_spi -r firmware.bin`
   - Capture over-the-air updates via network interception
   - Extract from UART bootloader console (U-Boot: `md.b` memory dump)
-- **Firmware unpacking**: `binwalk -e firmware.bin` to extract filesystem, kernel, and bootloader components
+- **Firmware unpacking**: `unblob --extract-dir squashfs-root firmware.bin` (or `binwalk3 -e firmware.bin`) to safely extract filesystem, kernel, and bootloader components without symlink traversal risks (CVE-2021-4287)
 - **Filesystem analysis**:
   - Search for credentials: `grep -rn "password\|passwd\|secret\|key" squashfs-root/`
   - Examine `/etc/shadow` for password hashes

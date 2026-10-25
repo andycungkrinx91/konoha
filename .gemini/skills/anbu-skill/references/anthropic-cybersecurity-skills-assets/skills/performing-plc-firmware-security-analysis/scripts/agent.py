@@ -6,14 +6,15 @@ import argparse
 import subprocess
 import hashlib
 import re
+import shutil
 from pathlib import Path
 from datetime import datetime
 
 
 def extract_firmware(firmware_file, output_dir="/tmp/fw_extract"):
-    """Extract firmware image using binwalk."""
+    """Extract firmware image safely using unblob (avoids legacy binwalk CVE-2021-4287)."""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    cmd = ["binwalk", "-e", "-C", output_dir, firmware_file]
+    cmd = ["unblob", "--extract-dir", output_dir, firmware_file] if shutil.which("unblob") else ["binwalk", "-e", "-C", output_dir, firmware_file]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         extracted = list(Path(output_dir).rglob("*"))
@@ -22,10 +23,10 @@ def extract_firmware(firmware_file, output_dir="/tmp/fw_extract"):
             "firmware": firmware_file, "output_dir": output_dir,
             "files_extracted": len(files),
             "file_list": files[:50],
-            "binwalk_output": result.stdout[:1000],
+            "extraction_output": result.stdout[:1000],
         }
     except FileNotFoundError:
-        return {"error": "binwalk not installed — pip install binwalk"}
+        return {"error": "unblob not installed — pip install unblob"}
     except Exception as e:
         return {"error": str(e)}
 
