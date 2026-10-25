@@ -436,7 +436,7 @@ function teardownLab(labName = DEFAULT_LAB_NAME, engine = null, options = {}) {
 
   try {
     let cleanRes;
-    const cleanupCmd = 'pkill -f "akatsuki|probe|fuzz|nmap|test" || true; rm -rf /tmp/akatsuki_* /tmp/recon_* || true';
+    const cleanupCmd = 'for pid in $(pgrep -f "nmap|fuzz|probe|exploit" 2>/dev/null); do [ "$pid" != "$$" ] && [ "$pid" != "$PPID" ] && kill "$pid" 2>/dev/null || true; done; rm -rf /tmp/akatsuki_* /tmp/recon_* 2>/dev/null || true';
 
     if (targetEngine === 'lxc') {
       cleanRes = runner('lxc', ['exec', labName, '--', 'sh', '-c', cleanupCmd], { timeout: 8000 });
