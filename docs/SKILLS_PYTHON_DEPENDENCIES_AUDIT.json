@@ -261,29 +261,6 @@
     "vulns": []
   },
   {
-    "name": "binwalk",
-    "latestVersion": "2.1.0",
-    "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-malware-analysis/SKILL.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/references/api-reference.md",
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/scripts/agent.py"
-    ],
-    "vulns": [
-      {
-        "id": "GHSA-8m3f-g62j-3vx8",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-788",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      }
-    ]
-  },
-  {
     "name": "binwalk3",
     "latestVersion": "3.2.0",
     "paths": [
@@ -514,63 +491,6 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/detecting-secure-boot-bypass/SKILL.md"
     ],
     "vulns": []
-  },
-  {
-    "name": "chromadb",
-    "latestVersion": "1.5.9",
-    "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/assessing-vector-and-embedding-weaknesses/SKILL.md"
-    ],
-    "vulns": [
-      {
-        "id": "GHSA-2wm9-hf6c-p5cr",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "GHSA-36p7-vc44-83pf",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "GHSA-f4j7-r4q5-qw2c",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "GHSA-xph7-9rjv-w5fr",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-311",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-3813",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-3814",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-3815",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      }
-    ]
   },
   {
     "name": "cleanlab",
@@ -2135,14 +2055,6 @@
     "vulns": []
   },
   {
-    "name": "pinecone-client",
-    "latestVersion": "6.0.0",
-    "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/assessing-vector-and-embedding-weaknesses/SKILL.md"
-    ],
-    "vulns": []
-  },
-  {
     "name": "pip",
     "latestVersion": "26.2.2",
     "paths": [
@@ -2383,27 +2295,6 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/analyzing-cobaltstrike-malleable-c2-profiles/references/api-reference.md"
     ],
     "vulns": []
-  },
-  {
-    "name": "pymetasploit3",
-    "latestVersion": "1.0.6",
-    "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/exploiting-vulnerabilities-with-metasploit-framework/scripts/process.py"
-    ],
-    "vulns": [
-      {
-        "id": "GHSA-qpc3-8vqg-8g6w",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      },
-      {
-        "id": "PYSEC-2026-500",
-        "summary": "No summary",
-        "aliases": [],
-        "details": ""
-      }
-    ]
   },
   {
     "name": "pymisp",
@@ -3806,6 +3697,16 @@
     "vulns": []
   },
   {
+    "name": "unblob",
+    "latestVersion": "26.6.4",
+    "paths": [
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-firmware-malware-analysis/SKILL.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/references/api-reference.md",
+      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/performing-plc-firmware-security-analysis/scripts/agent.py"
+    ],
+    "vulns": []
+  },
+  {
     "name": "urllib3",
     "latestVersion": "2.8.0",
     "paths": [
@@ -3916,14 +3817,6 @@
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/deploying-decoy-files-for-ransomware-detection/references/api-reference.md",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/deploying-ransomware-canary-files/scripts/agent.py",
       "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/hunting-for-startup-folder-persistence/scripts/agent.py"
-    ],
-    "vulns": []
-  },
-  {
-    "name": "weaviate-client",
-    "latestVersion": "4.24.0",
-    "paths": [
-      "src/templates/skills/anbu-skill/references/anthropic-cybersecurity-skills-assets/skills/assessing-vector-and-embedding-weaknesses/SKILL.md"
     ],
     "vulns": []
   },

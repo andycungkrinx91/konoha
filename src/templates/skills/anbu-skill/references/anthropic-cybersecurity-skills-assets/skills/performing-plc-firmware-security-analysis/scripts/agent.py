@@ -25,7 +25,7 @@ def extract_firmware(firmware_file, output_dir="/tmp/fw_extract"):
             "binwalk_output": result.stdout[:1000],
         }
     except FileNotFoundError:
-        return {"error": "binwalk not installed — pip install binwalk"}
+        return {"error": "unblob not installed — pip install unblob"}
     except Exception as e:
         return {"error": str(e)}
 

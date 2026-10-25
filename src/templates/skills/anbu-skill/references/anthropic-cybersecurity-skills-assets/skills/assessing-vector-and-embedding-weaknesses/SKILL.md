@@ -53,7 +53,7 @@ The parent technique is **AML.T0024 — Exfiltration via ML Inference API**: an 
 ```bash
 # Vector DB clients + embeddings + similarity tooling
 python -m pip install numpy scikit-learn sentence-transformers
-python -m pip install qdrant-client chromadb pinecone-client weaviate-client
+python -m pip install qdrant-client "chromadb>=1.5.10" pinecone-client weaviate-client # Note: test strictly in sandboxed lab environments
 # (optional) text-embedding inversion research baseline
 python -m pip install vec2text
 ```
