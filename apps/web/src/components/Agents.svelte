@@ -282,7 +282,7 @@
   {#snippet heroStats()}
     <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold" style="color: var(--color-text-muted);">Official Roster</div>
-      <div class="text-xl font-black text-[var(--theme-success)]">{agents.filter(a => isOfficialAgent(a.name)).length || 8} Protected</div>
+      <div class="text-xl font-black text-[var(--theme-success)]">{OFFICIAL_AGENTS.size} Protected</div>
     </div>
     <div class="glass-card-3d px-4 py-3 rounded-[3px] border text-center" style="background: var(--color-surface); border-color: var(--color-border);">
       <div class="text-xs font-bold" style="color: var(--color-text-muted);">Skills Bound</div>
