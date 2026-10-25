@@ -80,6 +80,7 @@ ${C.bold}USAGE${C.reset}
   konoha <command> [options]
 
 ${C.bold}CORE COMMANDS${C.reset}
+  ${C.cyan}akatsuki${C.reset}          🛡️  Manage Akatsuki security controls, lab status, and redteam enable/disable.
   ${C.cyan}agent${C.reset}             👤 Configure Ninja subagents (list, create, toggle skills, models config, delete, status).
   ${C.cyan}auth${C.reset}              🔐 Manage web console authentication credentials and password reset.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
@@ -249,6 +250,11 @@ async function main() {
       case 'skill':
         await cmdSkill(args);
         break;
+      case 'akatsuki': {
+        const { cmdAkatsuki } = require('./commands/akatsuki');
+        await cmdAkatsuki(args);
+        break;
+      }
       case 'agent':
         await cmdAgent(args);
         break;
